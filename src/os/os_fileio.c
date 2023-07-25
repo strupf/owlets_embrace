@@ -1,0 +1,386 @@
+#include "os_fileio.h"
+
+char *txt_read_file_alloc(const char *file, void *(*allocfunc)(size_t))
+{
+        c_assert(file);
+        c_FILE *f = c_fopen(file, "r");
+        c_assert(f);
+        int e = c_fseek(f, 0, c_SEEK_END);
+        c_assert(e == 0);
+        int size  = (int)c_ftell(f);
+        e         = c_fseek(f, 0, c_SEEK_SET);
+        char *buf = allocfunc((size_t)size + 2);
+        c_assert(e == 0 && buf);
+        int read = (int)c_fread(buf, 1, size, f);
+        e        = c_fclose(f);
+        c_assert(e == 0);
+        buf[read] = '\0';
+        return buf;
+}
+
+int txt_read_file(const char *file, char *buf, size_t bufsize)
+{
+        c_assert(file && buf && bufsize);
+        c_FILE *f = c_fopen(file, "r");
+        c_assert(f);
+        int e = c_fseek(f, 0, c_SEEK_END);
+        c_assert(e == 0);
+        int size = (int)c_ftell(f);
+        e        = c_fseek(f, 0, c_SEEK_SET);
+        c_assert(e == 0 && 0 < size && size + 1 < bufsize);
+        int read = (int)c_fread(buf, 1, size, f);
+        e        = c_fclose(f);
+        c_assert(e == 0);
+        buf[read] = '\0';
+        return read;
+}
+
+bool32 jsn_root(const char *txt, jsn_s *jr)
+{
+        c_assert(txt && jr);
+        jsn_s j = {txt};
+        j.txt   = txt;
+        j.st.i  = 1;
+        int n   = 0;
+        for (char c = txt[0]; c != '\0'; c = txt[++n]) {
+                switch (c) {
+                case '{':
+                        j.i    = n;
+                        j.type = JSN_OBJ;
+                        *jr    = j;
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+// at: position of first "
+// skips a string and returns the location of the first character
+// after ending quotation marks
+static int jsn_skip_str(const char *txt, int at)
+{
+        c_assert(txt[at] == '\"');
+        int  n = at;
+        char c = txt[n];
+        while (c != '\0') {
+                c = txt[++n];
+                switch (c) {
+                case '\\': c = txt[++n]; break;
+                case '\"': return n + 1;
+                }
+        }
+        return -1;
+}
+
+// skips through a number and returns the index of
+// the next non-number token AFTER the number
+static int jsn_skip_num(const char *txt, int at)
+{
+        int  n = at;
+        char c = txt[n];
+        int  s = c == '-' ? 0 : 2;
+        while (1) {
+                c = txt[++n];
+                switch (s) {
+                case 0:
+                        s = char_digit_1_9(c) ? 2 : 1;
+                        break;
+                case 1:
+                        if (c == '.') {
+                                s = 3, n++;
+                                break;
+                        }
+
+                        if (c_regex(c, "eE")) {
+                                s = 4, n++;
+                                break;
+                        }
+                        return n;
+                case 2:
+                        if (char_digit(c)) break;
+                        if (c == '.') {
+                                s = 3, n++;
+                                break;
+                        }
+                        if (c_regex(c, "eE")) {
+                                s = 4, n++;
+                                break;
+                        }
+                        return n;
+                case 3:
+                        if (char_digit(c)) break;
+                        if (c_regex(c, "eE")) {
+                                s = 4, n++;
+                                break;
+                        }
+                        return n;
+                case 4:
+                        if (char_digit(c)) break;
+                        return n;
+                }
+        }
+        c_assert(0);
+        return -1;
+}
+
+int jsn_typec(char c)
+{
+        if (char_digit(c)) return JSN_NUM;
+        switch (c) {
+        case '\"': return JSN_STR;
+        case '{': return JSN_OBJ;
+        case '[': return JSN_ARR;
+        case 'f': return JSN_FLS;
+        case 't': return JSN_TRU;
+        case 'n': return JSN_NUL;
+        case '+':
+        case '-': return JSN_NUM;
+        }
+        c_assert(0);
+        return -1;
+}
+
+int jsn_typej(jsn_s j)
+{
+        return jsn_typec(j.txt[j.i]);
+}
+
+bool32 jsn_next(jsn_s j, jsn_s *jn)
+{
+        char      *txt = j.txt;
+        int        i   = j.i;
+        jsnstack_s st  = j.st;
+
+        // immediately reduce depth if j is not an collection type
+        if (st.s[st.i - 1] == 1) st.i--;
+
+        switch (j.type) {
+        case JSN_OBJ: i++; break;
+        case JSN_ARR: i++; break;
+        case JSN_NUM: i = jsn_skip_num(txt, i); break;
+        case JSN_STR: i = jsn_skip_str(txt, i); break;
+        case JSN_FLS: i += 5; break;
+        case JSN_TRU: i += 4; break;
+        case JSN_NUL: i += 4; break;
+        }
+
+        for (char c = txt[i]; 1; c = txt[++i]) {
+                switch (c) {
+                case '\0': return 0;
+                case ',':
+                case ' ':
+                case '\t':
+                case '\n':
+                case '\r': break;
+                case '}':
+                case ']':
+                        st.i--;
+                        if (st.s[st.i - 1] == 1) st.i--;
+                        break;
+                case ':':
+                        c_assert(j.type == JSN_STR);
+                        st.s[st.i++] = 1;
+
+                        for (c = txt[++i]; c != '\0'; c = txt[++i]) {
+                                switch (c) {
+                                case '\0': return 0;
+                                case ' ':
+                                case '\t':
+                                case '\n':
+                                case '\r': break;
+                                default: goto NESTEDBREAK;
+                                }
+                        }
+                        break;
+                default: goto NESTEDBREAK;
+                }
+        }
+
+NESTEDBREAK:
+
+        if (jn) {
+                int tp    = jsn_typec(txt[i]);
+                jn->st    = st;
+                jn->i     = i;
+                jn->depth = st.i;
+                jn->txt   = txt;
+                jn->type  = tp;
+                if (tp <= 1) {
+                        jn->st.s[jn->st.i++] = 0;
+                }
+        }
+
+        return 1;
+}
+
+bool32 jsn_sibling(jsn_s j, jsn_s *js)
+{
+        jsn_s jj = j;
+        js->type = -1;
+        while (jsn_next(jj, &jj)) {
+                if (jj.depth < j.depth) return 0;
+                if (jj.depth == j.depth) {
+                        *js = jj;
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+bool32 jsn_fchild(jsn_s j, jsn_s *js)
+{
+        jsn_s jj = j;
+        js->type = -1;
+        while (jsn_next(jj, &jj)) {
+                if (jj.depth <= j.depth) return 0;
+                if (jj.depth > j.depth) {
+                        *js = jj;
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+bool32 jsn_key(jsn_s j, const char *key, jsn_s *jk)
+{
+        jsn_s jj = j;
+        jsn_s jc;
+        if (!jsn_fchild(j, &jj)) {
+                c_printf("no fchild\n");
+                return 0;
+        }
+
+        do {
+                if (jsn_typej(jj) != JSN_STR || !jsn_fchild(jj, &jc))
+                        continue;
+                int n = 0;
+                for (char c = key[0]; c != '\0'; c = key[++n]) {
+                        if (c != jj.txt[jj.i + n + 1]) {
+                                goto CONTINUELOOP;
+                        }
+                }
+                *jk = jc;
+                return 1;
+        CONTINUELOOP:;
+        } while (jsn_sibling(jj, &jj));
+
+        c_printf("no same found\n");
+        return 0;
+}
+
+int jsn_num_children(jsn_s j)
+{
+        jsn_s c;
+        if (!jsn_fchild(j, &c)) return 0;
+        int n = 0;
+        do {
+                n++;
+        } while (jsn_sibling(c, &c));
+        return n;
+}
+
+int jsn_to_fchild(jsn_s *j)
+{
+        return jsn_fchild(*j, j);
+}
+
+int jsn_to_sibling(jsn_s *j)
+{
+        return jsn_sibling(*j, j);
+}
+
+int jsn_to_key(jsn_s *j, const char *key)
+{
+        return jsn_key(*j, key, j);
+}
+
+void jsn_print(jsn_s j)
+{
+        int i0 = j.i;
+        int i1;
+        int type = jsn_typej(j);
+        if (type == -1) return;
+        for (int n = 0; n < j.depth; n++) {
+                c_printf("  ");
+        }
+        switch (type) {
+        case JSN_OBJ: c_printf("{\n"); return;
+        case JSN_ARR: c_printf("[\n"); return;
+        case JSN_NUM: i1 = jsn_skip_num(j.txt, i0); break;
+        case JSN_STR: i1 = jsn_skip_str(j.txt, i0); break;
+        case JSN_FLS: i1 = i0 + 5; break;
+        case JSN_TRU: i1 = i0 + 4; break;
+        case JSN_NUL: i1 = i0 + 4; break;
+        default: c_assert(0);
+        }
+        for (int n = i0; n < i1; n++) {
+                c_printf("%c", j.txt[n]);
+        }
+        c_printf("\n");
+}
+
+i32 jsn_int(jsn_s j)
+{
+        int i1  = jsn_skip_num(j.txt, j.i);
+        int n   = 0;
+        i32 res = 0;
+        for (int i = j.i; i < i1; i++, n++) {
+                res *= 10;
+                res += char_hex_to_int(j.txt[i]);
+        }
+        return res;
+}
+
+i32 jsn_intk(jsn_s j, const char *key)
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return 0;
+        return jsn_int(jj);
+}
+
+u32 jsn_uint(jsn_s j)
+{
+        int i1  = jsn_skip_num(j.txt, j.i);
+        int n   = 0;
+        u32 res = 0;
+        for (int i = j.i; i < i1; i++, n++) {
+                res *= 10;
+                res += char_hex_to_int(j.txt[i]);
+        }
+        return res;
+}
+
+u32 jsn_uintk(jsn_s j, const char *key)
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return 0;
+        return jsn_int(jj);
+}
+
+char *jsn_strkptr(jsn_s j, const char *key)
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return NULL;
+        c_assert(jj.type == JSN_STR);
+        return &j.txt[jj.i + 1];
+}
+
+char *jsn_str(jsn_s j, char *buf, size_t bufsize)
+{
+        c_assert(j.type == JSN_STR);
+        int i0 = j.i + 1;
+        int i1 = jsn_skip_str(j.txt, j.i) - 1;
+        int n  = 0;
+        for (int i = i0; i < i1 && n < bufsize; i++, n++) {
+                buf[n] = j.txt[i];
+        }
+        buf[n] = '\0';
+        return buf;
+}
+
+char *jsn_strk(jsn_s j, const char *key, char *buf, size_t bufsize)
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return 0;
+        return jsn_str(jj, buf, bufsize);
+}
