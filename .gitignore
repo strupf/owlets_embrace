@@ -2,3 +2,5 @@
 !.gitignore
 !/src
 !.clang-format
+!build_desktop.bat
+!readme.md
