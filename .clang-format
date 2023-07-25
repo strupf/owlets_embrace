@@ -1,0 +1,33 @@
+BasedOnStyle: LLVM
+IndentWidth: 8
+ColumnLimit: 0
+AccessModifierOffset: -4
+NamespaceIndentation: All
+AlignAfterOpenBracket: Align
+UseTab: Never
+AlignConsecutiveAssignments: AcrossComments
+AlignConsecutiveMacros: AcrossComments
+AlignConsecutiveDeclarations: AcrossComments
+BreakBeforeBraces: Custom
+TypenameMacros: ['ALIGNAS', 'ARR']
+ForEachMacros: ['jsn_foreach_child', 'foreach_v2_arr', 'foreach_jsn_child', 'foreach_jsn_childk']
+AllowShortBlocksOnASingleLine: Always
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+BraceWrapping:
+  AfterEnum: false
+  AfterStruct: false
+  AfterClass: false
+  SplitEmptyFunction: false
+  AfterControlStatement: false
+  AfterNamespace: false
+  AfterFunction: true
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+  
