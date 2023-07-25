@@ -1,5 +1,5 @@
 # PlaydateMV
-This is my open source project for the Playdate in C. The goal is to make a 2D metroidvania from scratch using almost no external libraries.
+This is my open source project for the Playdate in C. The goal is to make a 2D metroidvania from scratch using almost no external libraries. Currently I only upload the source code and keep stuff like lib files and assets local.
 
 # Build
 
