@@ -1,8 +1,15 @@
 #ifndef OS_TYPES_H
 #define OS_TYPES_H
 
+// if we aren't running a compiler use raylib for editing purposes
+#ifndef TARGET_COMPILED
 #define TARGET_DESKTOP
 // #define TARGET_PD
+#endif
+
+#if defined(TARGET_PD)
+#define TARGET_EXTENSION 1
+#endif
 
 #if defined(TARGET_DESKTOP)
 // RAYLIB ======================================================================
@@ -12,13 +19,16 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#define os_time         GetTime
-#define c_assert        assert
-#define c_static_assert static_assert
-#define c_printf        printf
+#define os_time       GetTime
+#define ASSERT        assert
+#define STATIC_ASSERT static_assert
+#define PRINTF        printf
 #elif defined(TARGET_PD)
 // PLAYDATE ====================================================================
 #include "pd_api.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 #define os_time PD->system->getElapsedTime
 
 extern PlaydateAPI *PD;
@@ -26,9 +36,9 @@ extern float (*PD_crank)(void);
 extern int (*PD_crankdocked)(void);
 extern void (*PD_buttonstate)(PDButtons *, PDButtons *, PDButtons *);
 extern void (*PD_log)(const char *fmt, ...);
-#define c_assert(E)
-#define c_static_assert(E, M)
-#define c_printf PD_log
+#define ASSERT(E)
+#define STATIC_ASSERT(E, M)
+#define PRINTF PD_log
 //
 #endif
 // =============================================================================
@@ -82,8 +92,8 @@ typedef int32_t        bool32;
 #define FILE_AND_LINE         FILE_AND_LINE_(__FILE__, __LINE__)
 #define ALIGNAS               _Alignas
 
-#define c_isdigit(C)      ('0' <= (C) && (C) <= '9')
-#define char_digit        c_isdigit
+#define char_isdigit(C)   ('0' <= (C) && (C) <= '9')
+#define char_digit        char_isdigit
 #define char_digit_1_9(C) ('1' <= (C) && (C) <= '9')
 static int char_hex_to_int(char c)
 {

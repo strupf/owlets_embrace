@@ -5,18 +5,18 @@
 
 #if defined(TARGET_DESKTOP)
 // RAYLIB ======================================================================
-typedef FILE c_FILE;
-#define c_fopen  fopen
-#define c_fseek  fseek
-#define c_ftell  ftell
-#define c_fread  fread
-#define c_fclose fclose
+typedef FILE OS_FILE;
+#define os_fopen  fopen
+#define os_fseek  fseek
+#define os_ftell  ftell
+#define os_fread  fread
+#define os_fclose fclose
 //
 #elif defined(TARGET_PD)
 // PLAYDATE ====================================================================
-typedef SDFile c_FILE;
+typedef SDFile OS_FILE;
 
-static inline SDFile *c_fopen(const char *file, const char *mode)
+static inline OS_FILE *os_fopen(const char *file, const char *mode)
 {
         if (!file || !mode) return NULL;
         switch (mode[0]) {
@@ -24,17 +24,17 @@ static inline SDFile *c_fopen(const char *file, const char *mode)
         }
         return NULL;
 }
-#define c_fseek                   PD->file->seek
-#define c_ftell                   PD->file->tell
-#define c_fread(PTR, S, NUM, FIL) PD->file->read(FIL, PTR, NUM)
-#define c_fclose                  PD->file->close
+#define os_fseek                   PD->file->seek
+#define os_ftell                   PD->file->tell
+#define os_fread(PTR, S, NUM, FIL) PD->file->read(FIL, PTR, NUM)
+#define os_fclose                  PD->file->close
 //
 #endif // playdate
 // =============================================================================
 
 enum {
-        c_SEEK_END = SEEK_END,
-        c_SEEK_SET = SEEK_SET,
+        OS_SEEK_END = SEEK_END,
+        OS_SEEK_SET = SEEK_SET,
 };
 
 // reads a text file into the given buffer and

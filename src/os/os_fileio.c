@@ -2,44 +2,44 @@
 
 char *txt_read_file_alloc(const char *file, void *(*allocfunc)(size_t))
 {
-        c_assert(file);
-        c_FILE *f = c_fopen(file, "r");
-        c_assert(f);
-        int e = c_fseek(f, 0, c_SEEK_END);
-        c_assert(e == 0);
-        int size  = (int)c_ftell(f);
-        e         = c_fseek(f, 0, c_SEEK_SET);
+        ASSERT(file);
+        OS_FILE *f = os_fopen(file, "r");
+        ASSERT(f);
+        int e = os_fseek(f, 0, OS_SEEK_END);
+        ASSERT(e == 0);
+        int size  = (int)os_ftell(f);
+        e         = os_fseek(f, 0, OS_SEEK_SET);
         char *buf = allocfunc((size_t)size + 2);
-        c_assert(e == 0 && buf);
-        int read = (int)c_fread(buf, 1, size, f);
-        e        = c_fclose(f);
-        c_assert(e == 0);
+        ASSERT(e == 0 && buf);
+        int read = (int)os_fread(buf, 1, size, f);
+        e        = os_fclose(f);
+        ASSERT(e == 0);
         buf[read] = '\0';
         return buf;
 }
 
 int txt_read_file(const char *file, char *buf, size_t bufsize)
 {
-        c_assert(file && buf && bufsize);
-        c_FILE *f = c_fopen(file, "r");
-        c_assert(f);
-        int e = c_fseek(f, 0, c_SEEK_END);
-        c_assert(e == 0);
-        int size = (int)c_ftell(f);
-        e        = c_fseek(f, 0, c_SEEK_SET);
-        c_assert(e == 0 && 0 < size && size + 1 < bufsize);
-        int read = (int)c_fread(buf, 1, size, f);
-        e        = c_fclose(f);
-        c_assert(e == 0);
+        ASSERT(file && buf && bufsize);
+        OS_FILE *f = os_fopen(file, "r");
+        ASSERT(f);
+        int e = os_fseek(f, 0, OS_SEEK_END);
+        ASSERT(e == 0);
+        int size = (int)os_ftell(f);
+        e        = os_fseek(f, 0, OS_SEEK_SET);
+        ASSERT(e == 0 && 0 < size && size + 1 < bufsize);
+        int read = (int)os_fread(buf, 1, size, f);
+        e        = os_fclose(f);
+        ASSERT(e == 0);
         buf[read] = '\0';
         return read;
 }
 
 bool32 jsn_root(const char *txt, jsn_s *jr)
 {
-        c_assert(txt && jr);
-        jsn_s j = {txt};
-        j.txt   = txt;
+        ASSERT(txt && jr);
+        jsn_s j = {0};
+        j.txt   = (char *)txt;
         j.st.i  = 1;
         int n   = 0;
         for (char c = txt[0]; c != '\0'; c = txt[++n]) {
@@ -59,7 +59,7 @@ bool32 jsn_root(const char *txt, jsn_s *jr)
 // after ending quotation marks
 static int jsn_skip_str(const char *txt, int at)
 {
-        c_assert(txt[at] == '\"');
+        ASSERT(txt[at] == '\"');
         int  n = at;
         char c = txt[n];
         while (c != '\0') {
@@ -119,7 +119,7 @@ static int jsn_skip_num(const char *txt, int at)
                         return n;
                 }
         }
-        c_assert(0);
+        ASSERT(0);
         return -1;
 }
 
@@ -136,7 +136,7 @@ int jsn_typec(char c)
         case '+':
         case '-': return JSN_NUM;
         }
-        c_assert(0);
+        ASSERT(0);
         return -1;
 }
 
@@ -178,7 +178,7 @@ bool32 jsn_next(jsn_s j, jsn_s *jn)
                         if (st.s[st.i - 1] == 1) st.i--;
                         break;
                 case ':':
-                        c_assert(j.type == JSN_STR);
+                        ASSERT(j.type == JSN_STR);
                         st.s[st.i++] = 1;
 
                         for (c = txt[++i]; c != '\0'; c = txt[++i]) {
@@ -246,7 +246,7 @@ bool32 jsn_key(jsn_s j, const char *key, jsn_s *jk)
         jsn_s jj = j;
         jsn_s jc;
         if (!jsn_fchild(j, &jj)) {
-                c_printf("no fchild\n");
+                PRINTF("no fchild\n");
                 return 0;
         }
 
@@ -264,7 +264,7 @@ bool32 jsn_key(jsn_s j, const char *key, jsn_s *jk)
         CONTINUELOOP:;
         } while (jsn_sibling(jj, &jj));
 
-        c_printf("no same found\n");
+        PRINTF("no same found\n");
         return 0;
 }
 
@@ -301,22 +301,22 @@ void jsn_print(jsn_s j)
         int type = jsn_typej(j);
         if (type == -1) return;
         for (int n = 0; n < j.depth; n++) {
-                c_printf("  ");
+                PRINTF("  ");
         }
         switch (type) {
-        case JSN_OBJ: c_printf("{\n"); return;
-        case JSN_ARR: c_printf("[\n"); return;
+        case JSN_OBJ: PRINTF("{\n"); return;
+        case JSN_ARR: PRINTF("[\n"); return;
         case JSN_NUM: i1 = jsn_skip_num(j.txt, i0); break;
         case JSN_STR: i1 = jsn_skip_str(j.txt, i0); break;
         case JSN_FLS: i1 = i0 + 5; break;
         case JSN_TRU: i1 = i0 + 4; break;
         case JSN_NUL: i1 = i0 + 4; break;
-        default: c_assert(0);
+        default: ASSERT(0);
         }
         for (int n = i0; n < i1; n++) {
-                c_printf("%c", j.txt[n]);
+                PRINTF("%c", j.txt[n]);
         }
-        c_printf("\n");
+        PRINTF("\n");
 }
 
 i32 jsn_int(jsn_s j)
@@ -361,13 +361,13 @@ char *jsn_strkptr(jsn_s j, const char *key)
 {
         jsn_s jj;
         if (!jsn_key(j, key, &jj)) return NULL;
-        c_assert(jj.type == JSN_STR);
+        ASSERT(jj.type == JSN_STR);
         return &j.txt[jj.i + 1];
 }
 
 char *jsn_str(jsn_s j, char *buf, size_t bufsize)
 {
-        c_assert(j.type == JSN_STR);
+        ASSERT(j.type == JSN_STR);
         int i0 = j.i + 1;
         int i1 = jsn_skip_str(j.txt, j.i) - 1;
         int n  = 0;

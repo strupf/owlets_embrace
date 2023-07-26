@@ -73,11 +73,11 @@ typedef struct {
 static inline u32 mul_u32(u32 a, u32 b)
 {
         u64 x = (u64)a * (u64)b;
-        c_assert(0 <= x && x <= U32_MAX);
+        ASSERT(0 <= x && x <= U32_MAX);
 #if WARN_OVERFLOW
         float r = (float)x / (float)U32_MAX;
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: MUL U32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: MUL U32 - %f\n", r);
 #endif
         return (u32)x;
 }
@@ -85,11 +85,11 @@ static inline u32 mul_u32(u32 a, u32 b)
 static inline u32 shl_u32(u32 a, int s)
 {
         u64 x = (u64)a << s;
-        c_assert(0 <= x && x <= U32_MAX);
+        ASSERT(0 <= x && x <= U32_MAX);
 #if WARN_OVERFLOW
         float r = (float)x / (float)U32_MAX;
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: MUL U32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: MUL U32 - %f\n", r);
 #endif
         return (u32)x;
 }
@@ -97,11 +97,11 @@ static inline u32 shl_u32(u32 a, int s)
 static inline i32 mul_i32(i32 a, i32 b)
 {
         i64 x = (i64)a * (i64)b;
-        c_assert(I32_MIN <= x && x <= I32_MAX);
+        ASSERT(I32_MIN <= x && x <= I32_MAX);
 #if WARN_OVERFLOW
         float r = (float)ABS(x) / (float)I32_MAX;
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: MUL I32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: MUL I32 - %f\n", r);
 #endif
         return (i32)x;
 }
@@ -109,12 +109,12 @@ static inline i32 mul_i32(i32 a, i32 b)
 static inline i32 sub_i32(i32 a, i32 b)
 {
         i64 x = (i64)a - (i64)b;
-        c_assert(I32_MIN <= x && x <= I32_MAX);
+        ASSERT(I32_MIN <= x && x <= I32_MAX);
 #if WARN_OVERFLOW
         float r = (float)ABS(x) / (float)I32_MAX;
 
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: SUB I32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: SUB I32 - %f\n", r);
 #endif
         return (i32)x;
 }
@@ -122,11 +122,11 @@ static inline i32 sub_i32(i32 a, i32 b)
 static inline i32 add_i32(i32 a, i32 b)
 {
         i64 x = (i64)a + (i64)b;
-        c_assert(I32_MIN <= x && x <= I32_MAX);
+        ASSERT(I32_MIN <= x && x <= I32_MAX);
 #if WARN_OVERFLOW
         float r = (float)ABS(x) / (float)I32_MAX;
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: ADD I32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: ADD I32 - %f\n", r);
 #endif
         return (i32)x;
 }
@@ -134,11 +134,11 @@ static inline i32 add_i32(i32 a, i32 b)
 static inline u32 add_u32(u32 a, u32 b)
 {
         u64 x = (u64)a + (u64)b;
-        c_assert(x <= U32_MAX);
+        ASSERT(x <= U32_MAX);
 #if WARN_OVERFLOW
         float r = (float)x / (float)U32_MAX;
         if (r >= 0.5f)
-                c_printf("OVERFLOW WARNING: ADD U32 - %f\n", r);
+                PRINTF("OVERFLOW WARNING: ADD U32 - %f\n", r);
 #endif
         return (u32)x;
 }
@@ -224,7 +224,7 @@ static int ease_out_quad(i32 from, i32 to, i32 den, i32 num)
         return i;
 }
 
-static inline i32 log2_u32(u32 x)
+static i32 log2_u32(u32 x)
 {
         static i32 logtab[32] = {
             0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
@@ -266,7 +266,7 @@ static div_u32_s div_u32_create(u32 d)
 static inline u32 div_u32_do(u32 n, div_u32_s d)
 {
         u32 r = (((u64)n * d.mul) + d.add) >> d.shift;
-        c_assert(r == n / d.og);
+        ASSERT(r == n / d.og);
         return r;
 }
 
@@ -299,13 +299,13 @@ static i64 sqrt_u64(u64 x)
 
 static inline i64 sqrt_i64(i64 x)
 {
-        c_assert(x >= 0);
+        ASSERT(x >= 0);
         return sqrt_u64((u64)x);
 }
 
 static inline i32 sqrt_i32(i32 x)
 {
-        c_assert(x >= 0);
+        ASSERT(x >= 0);
         return sqrt_u32((u32)x);
 }
 
@@ -489,8 +489,8 @@ static inline v2_i32 v2_shl(v2_i32 a, int s)
 #if CATCH_OVERFLOW
         i64 x = (i64)a.x << s;
         i64 y = (i64)a.y << s;
-        c_assert(I32_MIN <= x && x <= I32_MAX);
-        c_assert(I32_MIN <= y && y <= I32_MAX);
+        ASSERT(I32_MIN <= x && x <= I32_MAX);
+        ASSERT(I32_MIN <= y && y <= I32_MAX);
         v2_i32 r = {(i32)x, (i32)y};
 #else
         v2_i32 r = {a.x << s, a.y << s};
@@ -532,9 +532,20 @@ static inline u32 v2_lensq(v2_i32 a)
         return add_u32(mul_u32(x, x), mul_u32(y, y));
 }
 
-#define v2_len(V)           sqrt_u32(v2_lensq(V))
-#define v2_distancesq(A, B) v2_lensq(v2_sub(A, B))
-#define v2_distance(A, B)   sqrt_u32(v2_distancesq(A, B))
+static inline i32 v2_len(v2_i32 v)
+{
+        return sqrt_u32(v2_lensq(v));
+}
+
+static inline u32 v2_distancesq(v2_i32 a, v2_i32 b)
+{
+        return v2_lensq(v2_sub(a, b));
+}
+
+static inline i32 v2_distance(v2_i32 a, v2_i32 b)
+{
+        return sqrt_u32(v2_distancesq(a, b));
+}
 
 static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
 {
@@ -600,7 +611,7 @@ static inline tri_i32 translate_tri(tri_i32 t, v2_i32 dt)
 
 static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
 {
-        c_assert(r);
+        ASSERT(r);
         i32 ax1 = a.x, ax2 = a.x + a.w;
         i32 ay1 = a.y, ay2 = a.y + a.h;
         i32 bx1 = b.x, bx2 = b.x + b.w;
@@ -662,7 +673,7 @@ static void rec_to_tri(rec_i32 r, tri_i32 tris[2])
 static inline void intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
                                      i32 *u, i32 *v, i32 *den)
 {
-        c_assert(u && v && den);
+        ASSERT(u && v && den);
         v2_i32 x = v2_sub(a, c);
         v2_i32 y = v2_sub(c, d);
         v2_i32 z = v2_sub(a, b);
@@ -676,7 +687,7 @@ static inline void intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
 static inline void intersect_line_u(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
                                     i32 *u, i32 *den)
 {
-        c_assert(u && den);
+        ASSERT(u && den);
         v2_i32 x = v2_sub(a, c);
         v2_i32 y = v2_sub(c, d);
         v2_i32 z = v2_sub(a, b);
@@ -803,7 +814,7 @@ static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 static inline void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
                                    i32 *u, i32 *v, i32 *w)
 {
-        c_assert(u && v && w);
+        ASSERT(u && v && w);
         *u = v2_crs(v2_sub(b, a), v2_sub(p, a));
         *v = v2_crs(v2_sub(a, c), v2_sub(p, c));
         *w = v2_crs(v2_sub(c, b), v2_sub(p, b));
