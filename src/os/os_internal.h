@@ -12,8 +12,8 @@ enum {
 };
 
 typedef struct {
+        tex_s tex_display;
 #if defined(TARGET_DESKTOP)
-        tex_s     tex_display;
         u8        framebuffer[52 * 240];
         Color     texpx[416 * 240];
         Texture2D tex;
@@ -47,7 +47,7 @@ void os_backend_draw_end();
 #if defined(TARGET_DESKTOP)
 void os_backend_flip();
 #else // empty macro for playdate
-#define os_backend_flip
+#define os_backend_flip()
 #endif
 
 #endif

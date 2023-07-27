@@ -1,7 +1,12 @@
 #ifndef OS_TYPES_H
 #define OS_TYPES_H
 
-#if defined(TARGET_PD)
+// this is to enable editing Playdate specific stuff
+// and disable Visual Studio's definitions
+
+#if 0
+#undef TARGET_DESKTOP
+#define TARGET_PD
 #define TARGET_EXTENSION 1
 #endif
 

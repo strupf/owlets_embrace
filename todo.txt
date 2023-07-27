@@ -1,3 +1,7 @@
+general
+- generate placeholder assets or workaround so that the game is still executable
+- -> error message instead of crashing silently without a debugger
+
 audio
 - basic sound output
 - sound file loading

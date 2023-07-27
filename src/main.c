@@ -168,7 +168,7 @@ __declspec(dllexport)
                 PD->system->setUpdateCallback(os_tick_pd, PD);
                 g_os.framebuffer = PD->graphics->getFrame();
                 memarena_init(&g_os.spmem, g_os.spmem_raw, OS_SPMEM_SIZE);
-                g_os.tex_display = {g_os.framebuffer, 52, 400, 240};
+                g_os.tex_display = (tex_s){g_os.framebuffer, 52, 400, 240};
                 os_graphics_init(g_os.tex_display);
                 os_audio_init();
                 game_init(&g_gamestate);
