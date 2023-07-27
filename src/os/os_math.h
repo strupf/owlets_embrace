@@ -73,7 +73,7 @@ typedef struct {
 static inline u32 mul_u32(u32 a, u32 b)
 {
         u64 x = (u64)a * (u64)b;
-        ASSERT(0 <= x && x <= U32_MAX);
+        ASSERT(x <= U32_MAX);
 #if WARN_OVERFLOW
         float r = (float)x / (float)U32_MAX;
         if (r >= 0.5f)
@@ -85,7 +85,7 @@ static inline u32 mul_u32(u32 a, u32 b)
 static inline u32 shl_u32(u32 a, int s)
 {
         u64 x = (u64)a << s;
-        ASSERT(0 <= x && x <= U32_MAX);
+        ASSERT(x <= U32_MAX);
 #if WARN_OVERFLOW
         float r = (float)x / (float)U32_MAX;
         if (r >= 0.5f)

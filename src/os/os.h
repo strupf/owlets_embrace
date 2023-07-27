@@ -1,10 +1,12 @@
 #ifndef OS_H
 #define OS_H
 
-#include "os/os_fileio.h"
-#include "os/os_math.h"
-#include "os/os_mem.h"
-#include "os/os_types.h"
+#include "os_audio.h"
+#include "os_fileio.h"
+#include "os_graphics.h"
+#include "os_math.h"
+#include "os_mem.h"
+#include "os_types.h"
 
 #if defined(TARGET_PD)
 enum {
@@ -35,14 +37,5 @@ int    os_inp_crank();
 int    os_inp_crankp();
 bool32 os_inp_crank_dockedp();
 bool32 os_inp_crank_docked();
-//
-// internal scratchpad memory stack
-void   os_spmem_push();
-void   os_spmem_pop();
-void   os_spmem_clr();
-void  *os_spmem_alloc(size_t size);       // allocate memory
-void  *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
-void  *os_spmem_allocz(size_t size);      // allocate and zero memory
-void  *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 
 #endif

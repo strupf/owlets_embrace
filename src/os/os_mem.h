@@ -67,76 +67,28 @@ static inline void *os_memcpy4(void *dst, const void *src, size_t l)
         return dst;
 }
 
+// internal scratchpad memory stack
+void  os_spmem_push();
+void  os_spmem_pop();
+void  os_spmem_clr();
+void *os_spmem_alloc(size_t size);       // allocate memory
+void *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
+void *os_spmem_allocz(size_t size);      // allocate and zero memory
+void *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
+
 typedef struct {
         char *p;
         char *pr;
         char *mem;
 } memarena_s;
 
-static inline void memarena_init(memarena_s *m, void *buf, size_t bufsize)
-{
-        ASSERT(m && buf && bufsize);
-        m->mem = (char *)buf;
-        m->p   = (char *)buf;
-        m->pr  = (char *)buf + bufsize;
-}
-
-static inline void *memarena_alloc(memarena_s *m, size_t s)
-{
-        ASSERT(m && m->mem);
-        size_t size = (s + 3u) & ~3u;
-        int    dp   = m->pr - m->p;
-        ASSERT(dp >= (int)size);
-        void *mem = m->p;
-        m->p += size;
-        return mem;
-}
-
-static inline void *memarena_alloc_rem(memarena_s *m, size_t *s)
-{
-        ASSERT(m && m->mem && s && m->p < m->pr);
-        *s        = m->pr - m->p;
-        void *mem = m->p;
-        m->p      = m->pr;
-        return mem;
-}
-
-static inline void *memarena_allocz(memarena_s *m, size_t s)
-{
-        ASSERT(m && m->mem);
-        size_t size = (s + 3u) & ~3u;
-        int    dp   = m->pr - m->p;
-        ASSERT(dp >= (int)size);
-        void *mem = m->p;
-        os_memclr4(mem, size);
-        m->p += size;
-        return mem;
-}
-static inline void *memarena_allocz_rem(memarena_s *m, size_t *s)
-{
-        ASSERT(m && m->mem && s);
-        void *mem = memarena_alloc_rem(m, s);
-        ASSERT(((*s) & 3) == 0);
-        os_memclr4(mem, *s);
-        return mem;
-}
-
-static inline void *memarena_peek(memarena_s *m)
-{
-        ASSERT(m && m->mem);
-        return m->p;
-}
-
-static inline void memarena_set(memarena_s *m, void *p)
-{
-        ASSERT(m && m->mem && m->mem <= (char *)p && (char *)p <= m->pr);
-        m->p = (char *)p;
-}
-
-static inline void memarena_clr(memarena_s *m)
-{
-        ASSERT(m && m->mem);
-        m->p = (char *)m->mem;
-}
+void  memarena_init(memarena_s *m, void *buf, size_t bufsize);
+void *memarena_alloc(memarena_s *m, size_t s);
+void *memarena_alloc_rem(memarena_s *m, size_t *s);
+void *memarena_allocz(memarena_s *m, size_t s);
+void *memarena_allocz_rem(memarena_s *m, size_t *s);
+void *memarena_peek(memarena_s *m);
+void  memarena_set(memarena_s *m, void *p);
+void  memarena_clr(memarena_s *m);
 
 #endif

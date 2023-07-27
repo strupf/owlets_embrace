@@ -1,7 +1,3 @@
-graphics
-- basic graphics functions
-- texture file loading
-
 audio
 - basic sound output
 - sound file loading

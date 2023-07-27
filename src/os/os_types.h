@@ -1,19 +1,13 @@
 #ifndef OS_TYPES_H
 #define OS_TYPES_H
 
-// if we aren't running a compiler use raylib for editing purposes
-#ifndef TARGET_COMPILED
-#define TARGET_DESKTOP
-// #define TARGET_PD
-#endif
-
 #if defined(TARGET_PD)
 #define TARGET_EXTENSION 1
 #endif
 
 #if defined(TARGET_DESKTOP)
 // RAYLIB ======================================================================
-#include "raylib.h"
+#include "include/raylib.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -73,6 +67,7 @@ typedef int32_t        bool32;
 #define U8_MAX  UINT8_MAX
 #define U8_MIN  0
 
+#define NOT_IMPLEMENTED  ASSERT(0);
 #define GLUE2(A, B)      A##B
 #define GLUE(A, B)       GLUE2(A, B)
 #define ARRLEN(A)        (sizeof(A) / sizeof(A[0]))

@@ -27,7 +27,7 @@ int txt_read_file(const char *file, char *buf, size_t bufsize)
         ASSERT(e == 0);
         int size = (int)os_ftell(f);
         e        = os_fseek(f, 0, OS_SEEK_SET);
-        ASSERT(e == 0 && 0 < size && size + 1 < bufsize);
+        ASSERT(e == 0 && 0 < size && size + 1 < (int)bufsize);
         int read = (int)os_fread(buf, 1, size, f);
         e        = os_fclose(f);
         ASSERT(e == 0);
@@ -371,7 +371,7 @@ char *jsn_str(jsn_s j, char *buf, size_t bufsize)
         int i0 = j.i + 1;
         int i1 = jsn_skip_str(j.txt, j.i) - 1;
         int n  = 0;
-        for (int i = i0; i < i1 && n < bufsize; i++, n++) {
+        for (int i = i0; i < i1 && n < (int)bufsize; i++, n++) {
                 buf[n] = j.txt[i];
         }
         buf[n] = '\0';

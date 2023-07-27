@@ -3,17 +3,23 @@
 set "INC=-I src -I src/include"
 
 :: linker flags
-set "LIB=-L lib -lraylib -lgdi32 -lopengl32 -lwinmm"
+set "LIB=-L lib/mingw -lraylib -lgdi32 -lopengl32 -lwinmm"
 
 :: preprocessor flags
-set "PP_FLAGS=-DTARGET_COMPILED -DTARGET_DESKTOP"
+set "P_FLAGS=-DTARGET_COMPILED -DTARGET_DESKTOP"
 
-gcc src/main.c %PP_FLAGS% %LIB% %INC% -g -o bin/main
+:: warnigns enable
+set "NOWARN=-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno-missing-braces"
+
+:: compiler flags
+set "C_FLAGS=-g -Wall -Wextra"
+
+gcc src/all.c %P_FLAGS% %LIB% %INC% %C_FLAGS% %NOWARN% -o bin/gcc/all
 
 :: extract debug information from gcc generated exe
 :: generated .gdb for use in remedybg
-cv2pdb bin/main.exe
+cv2pdb bin/gcc/all.exe
 
 :: debug with remedybg
-remedybg bin/main.exe
+remedybg bin/gcc/all.exe
 pause
