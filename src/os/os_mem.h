@@ -1,7 +1,18 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+
 #ifndef OS_MEM_H
 #define OS_MEM_H
 
 #include "os_types.h"
+
+typedef union {
+        char  byte[1024];
+        void *align;
+} kilobyte_s;
 
 // MEMORY REPLACEMENTS =========================================================
 static inline void os_memset(void *dst, int val, size_t l)
@@ -68,9 +79,10 @@ static inline void *os_memcpy4(void *dst, const void *src, size_t l)
 }
 
 // internal scratchpad memory stack
-void  os_spmem_push();
-void  os_spmem_pop();
-void  os_spmem_clr();
+// just a fixed sized bump allocator
+void  os_spmem_push();                   // push the current state
+void  os_spmem_pop();                    // pop and restore previous state
+void  os_spmem_clr();                    // reset bump allocator
 void *os_spmem_alloc(size_t size);       // allocate memory
 void *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
 void *os_spmem_allocz(size_t size);      // allocate and zero memory

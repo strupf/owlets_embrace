@@ -1,30 +1,109 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+
 #include "os_internal.h"
 
-enum {
-        OS_GRAPHICS_MEM = 0x10000
-};
-
-static struct {
-        tex_s dst;
-        tex_s tex_tab[NUM_TEXID];
-        fnt_s fnt_tab[NUM_FNTID];
-
-        memarena_s      mem;
-        ALIGNAS(4) char mem_raw[OS_GRAPHICS_MEM];
-} g_gfx;
-
-void os_graphics_init(tex_s framebuffer)
+#if defined(TARGET_DESKTOP)
+void os_backend_graphics_init()
 {
-        g_gfx.tex_tab[TEXID_DISPLAY] = framebuffer;
-        memarena_init(&g_gfx.mem, g_gfx.mem_raw, OS_GRAPHICS_MEM);
+        InitWindow(400 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE, "rl");
+        Image img = GenImageColor(416, 240, BLACK);
+        ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+        g_os.tex = LoadTextureFromImage(img);
+        SetTextureFilter(g_os.tex, TEXTURE_FILTER_POINT);
+        UnloadImage(img);
+        SetTargetFPS(60);
 }
+
+void os_backend_graphics_close()
+{
+        UnloadTexture(g_os.tex);
+        CloseWindow();
+}
+
+void os_backend_graphics_begin()
+{
+        os_memclr4(g_os.framebuffer, sizeof(g_os.framebuffer));
+}
+
+void os_backend_graphics_end()
+{
+        static const Color tab_rgb[2] = {0x38, 0x2B, 0x26, 0xFF,
+                                         0xB8, 0xC2, 0xB9, 0xFF};
+
+        for (int y = 0; y < 240; y++) {
+                for (int x = 0; x < 400; x++) {
+                        int i   = (x >> 3) + y * 52;
+                        int k   = x + y * 416;
+                        int byt = g_os.framebuffer[i];
+                        int bit = (byt & (0x80 >> (x & 7)));
+
+                        g_os.texpx[k] = tab_rgb[bit > 0];
+                }
+        }
+        UpdateTexture(g_os.tex, g_os.texpx);
+}
+
+void os_backend_graphics_flip()
+{
+        static const Rectangle rsrc =
+            {0, 0, 416, 240};
+        static const Rectangle rdst =
+            {0, 0, 416 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE};
+        static const Vector2 vorg =
+            {0, 0};
+        BeginDrawing();
+        ClearBackground(BLACK);
+        DrawTexturePro(g_os.tex, rsrc, rdst, vorg, 0.f, WHITE);
+        EndDrawing();
+}
+#endif
+
+#if defined(TARGET_PD)
+static void (*PD_display)(void);
+static void (*PD_drawFPS)(int x, int y);
+static void (*PD_markUpdatedRows)(int start, int end);
+
+void os_backend_graphics_init()
+{
+        PD_display         = PD->graphics->display;
+        PD_drawFPS         = PD->system->drawFPS;
+        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
+        PD->display->setRefreshRate(0.f);
+        g_os.framebuffer = PD->graphics->getFrame();
+}
+
+void os_backend_graphics_close()
+{
+}
+
+void os_backend_graphics_begin()
+{
+        os_memclr4(g_os.framebuffer, OS_FRAMEBUFFER_SIZE);
+}
+
+void os_backend_graphics_end()
+{
+        PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
+        PD_drawFPS(0, 0);
+        PD_display(); // update all rows
+}
+
+void os_backend_graphics_flip()
+{
+}
+
+#endif
 
 tex_s tex_create(int w, int h)
 {
         // bytes per row - rows aligned to 32 bit
         int    w_bytes = sizeof(int) * ((w - 1) / 32 + 1);
         size_t s       = sizeof(u8) * w_bytes * h;
-        u8    *pxmem   = (u8 *)memarena_allocz(&g_gfx.mem, s);
+        u8    *pxmem   = (u8 *)memarena_allocz(&g_os.assetmem, s);
         tex_s  t       = {pxmem,
                           w_bytes,
                           w,
@@ -57,13 +136,13 @@ tex_s tex_load(const char *filename)
 void tex_put(int ID, tex_s t)
 {
         ASSERT(0 <= ID && ID < NUM_TEXID);
-        g_gfx.tex_tab[ID] = t;
+        g_os.tex_tab[ID] = t;
 }
 
 tex_s tex_get(int ID)
 {
         ASSERT(0 <= ID && ID < NUM_TEXID);
-        return g_gfx.tex_tab[ID];
+        return g_os.tex_tab[ID];
 }
 
 fntstr_s fntstr_create(int numchars, void *(*allocfunc)(size_t))
@@ -77,13 +156,13 @@ fntstr_s fntstr_create(int numchars, void *(*allocfunc)(size_t))
 void fnt_put(int ID, fnt_s f)
 {
         ASSERT(0 <= ID && ID < NUM_FNTID);
-        g_gfx.fnt_tab[ID] = f;
+        g_os.fnt_tab[ID] = f;
 }
 
 fnt_s fnt_get(int ID)
 {
         ASSERT(0 <= ID && ID < NUM_FNTID);
-        return g_gfx.fnt_tab[ID];
+        return g_os.fnt_tab[ID];
 }
 
 void fntstr_append_glyph(fntstr_s *f, int glyphID)
@@ -146,7 +225,7 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 
 void gfx_draw_to(tex_s tex)
 {
-        g_gfx.dst = tex;
+        g_os.dst = tex;
 }
 
 void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
@@ -166,7 +245,7 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; // rotate 90 cw, then flip y
         }
 
-        tex_s dst = g_gfx.dst;
+        tex_s dst = g_os.dst;
         int   zx  = dst.w - pos.x;
         int   zy  = dst.h - pos.y;
         int   dx  = ff >= 4 ? rs.h : rs.w;
@@ -190,7 +269,7 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 
 void gfx_rec_fill(rec_i32 r, int col)
 {
-        tex_s   dst = g_gfx.dst;
+        tex_s   dst = g_os.dst;
         rec_i32 ri;
         rec_i32 rd = {0, 0, dst.w, dst.h};
         if (!intersect_rec(rd, r, &ri)) return;
@@ -208,7 +287,7 @@ void gfx_rec_fill(rec_i32 r, int col)
 
 void gfx_line(int x0, int y0, int x1, int y1, int col)
 {
-        tex_s dst = g_gfx.dst;
+        tex_s dst = g_os.dst;
         int   dx  = +ABS(x1 - x0);
         int   dy  = -ABS(y1 - y0);
         int   sx  = x0 < x1 ? 1 : -1;

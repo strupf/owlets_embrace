@@ -3,5 +3,6 @@
 !/src
 !.clang-format
 !build_desktop.bat
+!build_simulator.bat
 !readme.md
 !todo.txt

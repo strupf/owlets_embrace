@@ -4,17 +4,11 @@
 * LICENSE file in the root directory of this source tree.
 ============================================================================= */
 
-#include "game.h"
+#ifndef RENDER_H
+#define RENDER_H
 
-void game_load_map(game_s *g, const char *filename)
-{
-        NOT_IMPLEMENTED
+#include "gamedef.h"
 
-        int w = 1;
-        int h = 1;
+void render_draw(game_s *g);
 
-        g->tiles_x = w;
-        g->tiles_y = h;
-        g->pixel_x = w << 4;
-        g->pixel_y = h << 4;
-}
+#endif

@@ -1,20 +1,30 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+
 #ifndef OS_INTERNAL_H
 #define OS_INTERNAL_H
 
 #include "os.h"
 
-#define OS_FPS_DELTA 0.0166667f
-#define OS_DELTA_CAP 0.05f
+#define OS_DESKTOP_SCALE 2
+#define OS_FPS_DELTA     0.0166667f
+#define OS_DELTA_CAP     0.05f
 
 enum {
         OS_SPMEM_SIZE         = 0x100000,
         OS_SPMEM_STACK_HEIGHT = 16,
+        //
+        OS_ASSETMEM_SIZE      = 0x10000,
+        //
+        OS_FRAMEBUFFER_SIZE   = 52 * 240,
 };
 
 typedef struct {
-        tex_s tex_display;
 #if defined(TARGET_DESKTOP)
-        u8        framebuffer[52 * 240];
+        u8        framebuffer[OS_FRAMEBUFFER_SIZE];
         Color     texpx[416 * 240];
         Texture2D tex;
         int       scalingmode;
@@ -26,28 +36,27 @@ typedef struct {
         PDButtons buttons;
         PDButtons buttonsp;
 #endif
-        bool32          crankdocked;
-        bool32          crankdockedp;
-        i32             crank_q16;
-        i32             crankp_q16;
-        float           lasttime;
-        int             n_spmem;
+        bool32 crankdocked;
+        bool32 crankdockedp;
+        i32    crank_q16;
+        i32    crankp_q16;
+        float  lasttime;
+        int    n_spmem;
+
+        tex_s dst;
+
+        tex_s tex_tab[NUM_TEXID];
+        fnt_s fnt_tab[NUM_FNTID];
+        snd_s snd_tab[NUM_SNDID];
+
+        memarena_s      assetmem;
+        ALIGNAS(4) char assetmem_raw[OS_ASSETMEM_SIZE];
+
         char           *spmemstack[OS_SPMEM_STACK_HEIGHT];
         memarena_s      spmem;
         ALIGNAS(4) char spmem_raw[OS_SPMEM_SIZE];
 } os_s;
 
 extern os_s g_os;
-
-void os_graphics_init(tex_s framebuffer);
-void os_audio_init();
-void os_backend_inp_update();
-void os_backend_draw_begin();
-void os_backend_draw_end();
-#if defined(TARGET_DESKTOP)
-void os_backend_flip();
-#else // empty macro for playdate
-#define os_backend_flip()
-#endif
 
 #endif

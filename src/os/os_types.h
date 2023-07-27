@@ -1,3 +1,9 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+
 #ifndef OS_TYPES_H
 #define OS_TYPES_H
 
@@ -31,9 +37,6 @@
 #define os_time PD->system->getElapsedTime
 
 extern PlaydateAPI *PD;
-extern float (*PD_crank)(void);
-extern int (*PD_crankdocked)(void);
-extern void (*PD_buttonstate)(PDButtons *, PDButtons *, PDButtons *);
 extern void (*PD_log)(const char *fmt, ...);
 #define ASSERT(E)
 #define STATIC_ASSERT(E, M)
@@ -53,6 +56,8 @@ typedef uint8_t        u8;
 typedef uint16_t       u16;
 typedef uint32_t       u32;
 typedef uint64_t       u64;
+typedef int8_t         bool8;
+typedef int16_t        bool16;
 typedef int32_t        bool32;
 
 #define I64_MAX INT64_MAX

@@ -1,8 +1,13 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+
 #include "game.h"
 
 void game_init(game_s *g)
 {
-
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         fnt_s font1      = {0};
         font1.gridw      = 16;
@@ -29,9 +34,7 @@ void game_update(game_s *g)
 
 void game_draw(game_s *g)
 {
-        gfx_rec_fill((rec_i32){50, 70, 30, 40}, 1);
-        fnt_s font = fnt_get(FNTID_DEFAULT);
-        gfx_text_ascii(&font, "Hello World", 10, 10);
+        render_draw(g);
 }
 
 void game_close(game_s *g)

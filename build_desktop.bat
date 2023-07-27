@@ -14,6 +14,8 @@ set "NOWARN=-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno
 :: compiler flags
 set "C_FLAGS=-g -Wall -Wextra"
 
+xcopy "assets" "bin\gcc\assets" /E /I
+
 gcc src/all.c %P_FLAGS% %LIB% %INC% %C_FLAGS% %NOWARN% -o bin/gcc/all
 
 :: extract debug information from gcc generated exe

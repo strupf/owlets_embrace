@@ -1,6 +1,20 @@
+/* =============================================================================
+* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+* This source code is licensed under the GPLv3 license found in the
+* LICENSE file in the root directory of this source tree.
+============================================================================= */
+/*
+ * Tile collisions are based on pixels. Tiles are 16x16 and each tile shape
+ * has a corresponding bitmask of solid(1)/empty(0) bits int[16].
+ *
+ * When checking if a solid pixel is overlapped we loop through the
+ * tiles and determine the range in the corresponding bitmasks
+ * to check against.
+ */
+
 #include "collision.h"
 
-// we operate on 16x16 tiles
+// operate on 16x16 tiles
 // these are the collision masks per pixel row of a tile
 static const int g_pxmask_tab[16][16] = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
