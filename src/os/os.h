@@ -15,6 +15,7 @@
 enum {
         TEXID_DISPLAY,
         TEXID_FONT_DEFAULT,
+        TEXID_TILESET,
         //
         NUM_TEXID
 };

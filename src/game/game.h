@@ -27,6 +27,8 @@ struct game_s {
         i32   tick;
         cam_s cam;
 
+        objhandle_s player;
+
         objset_s obj_active;           // active objects
         objset_s obj_scheduled_delete; // objects scheduled for removal
         obj_s    objs[NUM_OBJS];
@@ -39,6 +41,8 @@ struct game_s {
         int                pixel_y;
         ALIGNAS(4) u8      tiles[NUM_TILES];
         ALIGNAS(4) rtile_s rtiles[NUM_TILES][NUM_RENDERTILE_LAYERS];
+
+        ALIGNAS(4) char solidmem[SOLIDMEM_SIZE];
 };
 
 void game_init(game_s *g);

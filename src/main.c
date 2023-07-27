@@ -106,5 +106,13 @@ static inline void os_prepare()
         os_backend_inp_init();
         g_os.tex_tab[0] = (tex_s){g_os.framebuffer, 52, 400, 240};
         game_init(&g_gamestate);
+
+        size_t sgame = sizeof(game_s) / 1024;
+        size_t sos   = sizeof(os_s) / 1024;
+        PRINTF("\n");
+        PRINTF("Size game: %lli kb\n", sgame);
+        PRINTF("Size os: %lli kb\n", sos);
+        PRINTF("= %lli kb\n", sgame + sos);
+
         g_os.lasttime = os_time();
 }
