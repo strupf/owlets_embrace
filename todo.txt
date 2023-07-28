@@ -3,7 +3,6 @@ general
   -> error message instead of crashing silently without a debugger
 
 gameplay
-* actor flags for slopes
 * moving solids
 * rope integration
 * advanced camera controls
@@ -12,4 +11,7 @@ audio
 * sound file loading
 * playback
 
-graphics
+loading
+* tileset layout for autotiling
+* finish autotiling for basic tiles
+* autotiling table: marching squares index to tile

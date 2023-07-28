@@ -67,10 +67,7 @@ void obj_delete(game_s *g, obj_s *o)
 {
         ASSERT(!objset_contains(&g->obj_scheduled_delete, o));
         ASSERT(!obj_contained_in_array(o, g->objfreestack, g->n_objfree));
-
         objset_add(&g->obj_scheduled_delete, o);
-        o->gen++; // immediately invalidate existing handles
-        g->objfreestack[g->n_objfree++] = o;
 }
 
 bool32 obj_is_direct_child(obj_s *o, obj_s *parent)
@@ -162,39 +159,11 @@ rec_i32 obj_rec_top(obj_s *o)
         return r;
 }
 
-bool32 obj_step_x(game_s *g, obj_s *o, int sx)
-{
-        ASSERT(ABS(sx) <= 1);
-
-        rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
-        if (!game_area_blocked(g, r)) {
-                o->pos.x += sx;
-                return 1;
-        }
-
-        // bump
-        return 0;
-}
-
-bool32 obj_step_y(game_s *g, obj_s *o, int sy)
-{
-        ASSERT(ABS(sy) <= 1);
-
-        rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
-        if (!game_area_blocked(g, r)) {
-                o->pos.y += sy;
-                return 1;
-        }
-
-        // bump
-        return 0;
-}
-
 void obj_move_x(game_s *g, obj_s *o, int dx)
 {
         int sx = SGN(dx);
         for (int m = ABS(dx); m > 0; m--) {
-                if (!obj_step_x(g, o, sx)) {
+                if (!actor_step_x(g, o, sx)) {
                         o->vel_q8.x = 0;
                         break;
                 }
@@ -205,39 +174,70 @@ void obj_move_y(game_s *g, obj_s *o, int dy)
 {
         int sy = SGN(dy);
         for (int m = ABS(dy); m > 0; m--) {
-                if (!obj_step_y(g, o, sy)) {
+                if (!actor_step_y(g, o, sy)) {
                         o->vel_q8.y = 0;
                         break;
                 }
         }
 }
 
-void hero_update(game_s *g, obj_s *o, hero_s *h)
+bool32 actor_step_x(game_s *g, obj_s *o, int sx)
 {
-#if 1
-        if ((h->inp & HERO_INP_JUMP) &&
-            o->vel_q8.y >= 0 &&
-            game_area_blocked(g, obj_rec_bottom(o))) {
-                o->vel_q8.y = HERO_C_JUMP_INIT;
+        ASSERT(ABS(sx) <= 1);
+
+        rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
+        if (!game_area_blocked(g, r)) {
+                o->pos.x += sx;
+                if (o->actorflags & ACTOR_FLAG_GLUE_GROUND) {
+                        rec_i32 r1 = translate_rec_xy(obj_aabb(o), 0, +1);
+                        rec_i32 r2 = translate_rec_xy(obj_aabb(o), 0, +2);
+                        if (game_area_blocked(g, r1) == 0 &&
+                            game_area_blocked(g, r2)) {
+                                o->pos.y += 1;
+                        }
+                }
+                return 1;
+        }
+        if (o->actorflags & ACTOR_FLAG_CLIMB_SLOPES) {
+                rec_i32 r1 = translate_rec_xy(obj_aabb(o), sx, -1);
+                if (!game_area_blocked(g, r1)) {
+                        o->pos.x += sx;
+                        o->pos.y -= 1;
+                        return 1;
+                }
+
+                if (o->actorflags & ACTOR_FLAG_CLIMB_STEEP_SLOPES) {
+                        rec_i32 r2 = translate_rec_xy(obj_aabb(o), sx, -2);
+                        if (!game_area_blocked(g, r2)) {
+                                o->pos.x += sx;
+                                o->pos.y -= 2;
+                                return 1;
+                        }
+                }
         }
 
-        int xs = 0;
-        if (h->inp & HERO_INP_LEFT) xs = -1;
-        if (h->inp & HERO_INP_RIGHT) xs = +1;
+        o->vel_q8.x = 0;
+        return 0;
+}
 
-        o->vel_q8.x += xs * HERO_C_ACCX;
-#else
-        if (debug_inp_up()) {
-                obj_move_y(g, o, -1);
+bool32 actor_step_y(game_s *g, obj_s *o, int sy)
+{
+        ASSERT(ABS(sy) <= 1);
+
+        rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
+        if (!game_area_blocked(g, r)) {
+                o->pos.y += sy;
+                return 1;
         }
-        if (debug_inp_down()) {
-                obj_move_y(g, o, +1);
-        }
-        if (debug_inp_left()) {
-                obj_move_x(g, o, -1);
-        }
-        if (debug_inp_right()) {
-                obj_move_x(g, o, +1);
-        }
-#endif
+
+        o->vel_q8.y = 0;
+        return 0;
+}
+
+void solid_step_x(game_s *g, obj_s *o, int sx)
+{
+}
+
+void solid_step_y(game_s *g, obj_s *o, int sy)
+{
 }

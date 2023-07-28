@@ -8,6 +8,7 @@
 
 void game_init(game_s *g)
 {
+        gfx_set_inverted(1);
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         tex_put(TEXID_TILESET, tex_load("assets/testtiles.json"));
         fnt_s font1      = {0};
@@ -31,15 +32,7 @@ void game_init(game_s *g)
         g->cam.r.w = 400;
         g->cam.r.h = 240;
 
-        obj_s *player        = obj_create(g);
-        player->pos.x        = 10;
-        player->pos.y        = 20;
-        player->w            = 16;
-        player->h            = 32;
-        player->gravity_q8.y = 20;
-        player->drag_q8.x    = 200;
-        player->drag_q8.y    = 256; // no drag
-        g->hero.obj          = objhandle_from_obj(player);
+        hero_create(g, &g->hero);
 
         game_load_map(g, "assets/samplemap.tmj");
 }
@@ -61,6 +54,17 @@ void game_update(game_s *g)
                 v2_i32 dt = v2_sub(o->pos_new, o->pos);
                 obj_move_x(g, o, dt.x);
                 obj_move_y(g, o, dt.y);
+        }
+
+        // remove all objects scheduled to be deleted
+        if (objset_len(&g->obj_scheduled_delete) > 0) {
+                for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
+                        obj_s *o_del = objset_at(&g->obj_scheduled_delete, n);
+                        objset_del(&g->obj_active, o_del);
+                        o_del->gen++; // invalidate existing handles
+                        g->objfreestack[g->n_objfree++] = o_del;
+                }
+                objset_clr(&g->obj_scheduled_delete);
         }
 }
 

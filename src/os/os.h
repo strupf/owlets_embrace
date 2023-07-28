@@ -10,6 +10,13 @@
 #include "os_fileio.h"
 #include "os_math.h"
 #include "os_types.h"
+#include "util/array.h"
+
+ARR_DEF(v2, v2_i32)
+static inline bool32 v2_equal(const v2_i32 *a, const v2_i32 *b)
+{
+        return (a->x == b->x && a->y == b->y);
+}
 
 enum tex_id {
         TEXID_DISPLAY,
@@ -25,7 +32,7 @@ enum snd_id {
         NUM_SNDID
 };
 
-enum fnd_id {
+enum fnt_id {
         FNTID_DEFAULT,
         //
         NUM_FNTID

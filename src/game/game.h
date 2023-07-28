@@ -9,10 +9,12 @@
 
 #include "collision.h"
 #include "gamedef.h"
+#include "hero.h"
 #include "obj.h"
 #include "objset.h"
 #include "os/os.h"
 #include "render.h"
+#include "textbox.h"
 
 struct cam_s {
         rec_i32 r;
@@ -35,6 +37,8 @@ struct game_s {
         obj_s   *objfreestack[NUM_OBJS];
         obj_s   *obj_tag[NUM_OBJ_TAGS];
         int      n_objfree;
+
+        textbox_s textbox;
 
         int                tiles_x;
         int                tiles_y;

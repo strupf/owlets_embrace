@@ -21,6 +21,63 @@ typedef struct {
         int           n;
 } tmj_tilesets_s;
 
+/*
+ * Set tiles automatically while loading.
+ * http://www.cr31.co.uk/stagecast/wang/blob.html
+ */
+typedef struct {
+        u32 *arr;
+        int  w;
+        int  h;
+        int  x;
+        int  y;
+} autotiling_s;
+
+int autotile_type_at(autotiling_s tiling, int sx, int sy)
+{
+        int u = tiling.x + sx;
+        int v = tiling.y + sy;
+        if (!(0 <= u && u < tiling.w && 0 <= v && v < tiling.h)) return 0;
+        return tiling.arr[u + v * tiling.w] > 0;
+}
+
+/*
+ * calc bitmask according to neighbours:
+ * 128| 1|2
+ * --------
+ *  64|  |4
+ * --------
+ *  32|16|8
+ */
+int autotile_calc(u32 *tilearr, int w, int h, int x, int y)
+{
+        autotiling_s tiling = {tilearr, w, h, x, y};
+        int          t      = tilearr[x + y * w] > 0;
+        if (t == 0) return 0;
+
+        int m = 0;
+        // edges
+        if (autotile_type_at(tiling, -1, +0) == t)
+                m |= 0x40; // left
+        if (autotile_type_at(tiling, +1, +0) == t)
+                m |= 0x04; // right
+        if (autotile_type_at(tiling, +0, -1) == t)
+                m |= 0x01; // top
+        if (autotile_type_at(tiling, +0, +1) == t)
+                m |= 0x10; // down
+
+        // corners only if there are the two corresponding edge neighbours
+        if ((m & 0x41) == 0x41 && autotile_type_at(tiling, -1, -1) == t)
+                m |= 0x80; // top left
+        if ((m & 0x50) == 0x50 && autotile_type_at(tiling, -1, +1) == t)
+                m |= 0x20; // bot left
+        if ((m & 0x05) == 0x05 && autotile_type_at(tiling, +1, -1) == t)
+                m |= 0x02; // top right
+        if ((m & 0x14) == 0x14 && autotile_type_at(tiling, +1, +1) == t)
+                m |= 0x08; // bot right
+        return m;
+}
+
 tmj_tilesets_s tilesets_parse(jsn_s jtilesets)
 {
         tmj_tilesets_s sets = {0};
@@ -79,19 +136,20 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
                                 break;
                         }
                 }
+                ASSERT(tileID == 0 || n_tileset >= 0);
 
                 u8      t  = 0;
                 rtile_s rt = {0};
                 if (tileID == 0) {
                         rt.flags = 0xFF;
                 } else {
-                        rt.ID    = tileID_nf - 1024;
+                        rt.ID    = tileID_nf - tileset.first_gid;
                         rt.flags = (flipz << 2) | (flipy << 1) | flipx;
-                        t        = (tileID_nf - 1024) - 1;
+                        t        = tileID_nf > 0;
                 }
 
                 g->rtiles[n][layer] = rt;
-                g->tiles[n]         = t;
+                g->tiles[n]         = (t > 0);
         }
 
         os_spmem_pop();
@@ -130,4 +188,17 @@ void game_load_map(game_s *g, const char *filename)
         g->tiles_y = h;
         g->pixel_x = g->tiles_x << 4;
         g->pixel_y = g->tiles_y << 4;
+
+        // testing autotiling
+        u32 table[] = {1, 1, 1, 0, 0, 0, 0,
+                       1, 1, 1, 1, 0, 0, 0,
+                       1, 1, 1, 0, 0, 0, 0,
+                       0, 0, 0, 0, 0, 0, 0};
+        for (int y = 0; y < 4; y++) {
+                for (int x = 0; x < 7; x++) {
+                        int ii = autotile_calc(table, 7, 4, x, y);
+                        PRINTF("%03i ", ii);
+                }
+                PRINTF("\n");
+        }
 }

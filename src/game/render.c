@@ -8,6 +8,10 @@
 #include "game.h"
 #include "os/os.h"
 
+void draw_textbox(game_s *g)
+{
+}
+
 void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
 {
         rec_i32 tilerec = {0, 0, 16, 16};
@@ -23,7 +27,7 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
                         for (int n = 0; n < 1; n++) {   // actually for both layers
                                 rtile_s rt = rtiles[n]; // todo
                                 if (rt.flags == 0xFF) continue;
-                                int id    = rt.ID - 1;
+                                int id    = rt.ID;
                                 tilerec.x = (id & 15) << 4;
                                 tilerec.y = (id >> 4) << 4;
 
@@ -35,10 +39,6 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
 
 void render_draw(game_s *g)
 {
-        gfx_rec_fill((rec_i32){50, 70, 30, 40}, 1);
-        fnt_s font = fnt_get(FNTID_DEFAULT);
-        gfx_text_ascii(&font, "Hello World", 10, 10);
-
         obj_s *player;
         if (try_obj_from_handle(g->hero.obj, &player)) {
                 g->cam.r.x = player->pos.x - g->cam.r.w / 2;
@@ -62,5 +62,9 @@ void render_draw(game_s *g)
                                              -g->cam.r.x,
                                              -g->cam.r.y);
                 gfx_rec_fill(r, 1);
+        }
+
+        if (g->textbox.active) {
+                draw_textbox(g);
         }
 }

@@ -8,6 +8,7 @@
 #define GAMEDEF_H
 
 #include "os/os.h"
+#include "util/array.h"
 
 enum {
         NUM_TILES             = 256 * 256,
@@ -20,10 +21,19 @@ typedef struct game_s      game_s;
 typedef struct rtile_s     rtile_s;
 typedef struct obj_s       obj_s;
 typedef struct objhandle_s objhandle_s;
+typedef struct objflags_s  objflags_s;
 typedef struct tilegrid_s  tilegrid_s;
 typedef struct cam_s       cam_s;
 typedef struct objset_s    objset_s;
 typedef struct hero_s      hero_s;
+typedef struct textbox_s   textbox_s;
+
+ARR_DEF_PRIMITIVE(obj, obj_s *)
+
+struct objhandle_s {
+        int    gen;
+        obj_s *o;
+};
 
 enum obj_flag {
         OBJ_FLAG_NONE,
@@ -31,6 +41,7 @@ enum obj_flag {
         OBJ_FLAG_ACTOR,
         OBJ_FLAG_SOLID,
         OBJ_FLAG_HERO,
+        OBJ_FLAG_NEW_AREA_COLLIDER,
         //
         NUM_OBJ_FLAGS
 };
