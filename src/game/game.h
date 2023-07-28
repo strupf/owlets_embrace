@@ -27,12 +27,13 @@ struct game_s {
         i32   tick;
         cam_s cam;
 
-        objhandle_s player;
+        hero_s hero;
 
         objset_s obj_active;           // active objects
         objset_s obj_scheduled_delete; // objects scheduled for removal
         obj_s    objs[NUM_OBJS];
         obj_s   *objfreestack[NUM_OBJS];
+        obj_s   *obj_tag[NUM_OBJ_TAGS];
         int      n_objfree;
 
         int                tiles_x;
@@ -45,12 +46,14 @@ struct game_s {
         ALIGNAS(4) char solidmem[SOLIDMEM_SIZE];
 };
 
-void game_init(game_s *g);
-void game_update(game_s *g);
-void game_draw(game_s *g);
-void game_close(game_s *g);
-
+void       game_init(game_s *g);
+void       game_update(game_s *g);
+void       game_draw(game_s *g);
+void       game_close(game_s *g);
+//
 tilegrid_s game_tilegrid(game_s *g);
 void       game_load_map(game_s *g, const char *filename);
+void       obj_apply_movement(obj_s *o);
+bool32     game_area_blocked(game_s *g, rec_i32 r);
 
 #endif

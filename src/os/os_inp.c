@@ -78,10 +78,10 @@ void os_backend_inp_update()
         }
 }
 
-bool32 debug_inp_up() { return 0; }
-bool32 debug_inp_down() { return 0; }
-bool32 debug_inp_left() { return 0; }
-bool32 debug_inp_right() { return 0; }
+bool32 debug_inp_up() { return os_inp_pressed(INP_UP); }
+bool32 debug_inp_down() { return os_inp_pressed(INP_DOWN); }
+bool32 debug_inp_left() { return os_inp_pressed(INP_LEFT); }
+bool32 debug_inp_right() { return os_inp_pressed(INP_RIGHT); }
 bool32 debug_inp_w() { return 0; }
 bool32 debug_inp_a() { return 0; }
 bool32 debug_inp_s() { return 0; }

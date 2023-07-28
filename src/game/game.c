@@ -31,12 +31,15 @@ void game_init(game_s *g)
         g->cam.r.w = 400;
         g->cam.r.h = 240;
 
-        obj_s *player = obj_create(g);
-        player->pos.x = 10;
-        player->pos.y = 20;
-        player->w     = 16;
-        player->h     = 32;
-        g->player     = objhandle_from_obj(player);
+        obj_s *player        = obj_create(g);
+        player->pos.x        = 10;
+        player->pos.y        = 20;
+        player->w            = 16;
+        player->h            = 32;
+        player->gravity_q8.y = 20;
+        player->drag_q8.x    = 200;
+        player->drag_q8.y    = 256; // no drag
+        g->hero.obj          = objhandle_from_obj(player);
 
         game_load_map(g, "assets/samplemap.tmj");
 }
@@ -44,19 +47,20 @@ void game_init(game_s *g)
 void game_update(game_s *g)
 {
         obj_s *o;
-        if (objhandle_try_dereference(g->player, &o)) {
-                if (debug_inp_up()) {
-                        o->pos.y--;
-                }
-                if (debug_inp_down()) {
-                        o->pos.y++;
-                }
-                if (debug_inp_left()) {
-                        o->pos.x--;
-                }
-                if (debug_inp_right()) {
-                        o->pos.x++;
-                }
+        g->hero.inpp = g->hero.inp;
+        g->hero.inp  = 0;
+        if (try_obj_from_handle(g->hero.obj, &o)) {
+                if (os_inp_pressed(INP_LEFT)) g->hero.inp |= HERO_INP_LEFT;
+                if (os_inp_pressed(INP_RIGHT)) g->hero.inp |= HERO_INP_RIGHT;
+                if (os_inp_pressed(INP_DOWN)) g->hero.inp |= HERO_INP_DOWN;
+                if (os_inp_pressed(INP_UP)) g->hero.inp |= HERO_INP_UP;
+                if (os_inp_pressed(INP_A)) g->hero.inp |= HERO_INP_JUMP;
+
+                hero_update(g, o, &g->hero);
+                obj_apply_movement(o);
+                v2_i32 dt = v2_sub(o->pos_new, o->pos);
+                obj_move_x(g, o, dt.x);
+                obj_move_y(g, o, dt.y);
         }
 }
 
@@ -77,4 +81,24 @@ tilegrid_s game_tilegrid(game_s *g)
                          g->pixel_x,
                          g->pixel_y};
         return tg;
+}
+
+// apply gravity, drag, modify subposition and write pos_new
+// uses subpixel position:
+// subposition is [0, 255]. If the boundaries are exceeded
+// the goal is to move a whole pixel left or right
+void obj_apply_movement(obj_s *o)
+{
+        o->vel_q8    = v2_add(o->vel_q8, o->gravity_q8);
+        o->vel_q8.x  = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
+        o->vel_q8.y  = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
+        o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
+        o->pos_new   = v2_add(o->pos, v2_shr(o->subpos_q8, 8));
+        o->subpos_q8.x &= 255;
+        o->subpos_q8.y &= 255;
+}
+
+bool32 game_area_blocked(game_s *g, rec_i32 r)
+{
+        return tiles_area(game_tilegrid(g), r);
 }

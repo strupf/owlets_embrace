@@ -6,10 +6,10 @@
 
 #include "os_internal.h"
 
-#if defined(TARGET_DESKTOP)
+#if defined(TARGET_DESKTOP) // =================================================
 void os_backend_graphics_init()
 {
-        InitWindow(400 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE, "rl");
+        InitWindow(400 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE, "raylib");
         Image img = GenImageColor(416, 240, BLACK);
         ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
         g_os.tex = LoadTextureFromImage(img);
@@ -31,17 +31,16 @@ void os_backend_graphics_begin()
 
 void os_backend_graphics_end()
 {
-        static const Color tab_rgb[2] = {0x38, 0x2B, 0x26, 0xFF,
-                                         0xB8, 0xC2, 0xB9, 0xFF};
+        static const Color t_rgb[2] = {0x31, 0x2F, 0x28, 0xFF,
+                                       0xB1, 0xAF, 0xA8, 0xFF};
 
         for (int y = 0; y < 240; y++) {
                 for (int x = 0; x < 400; x++) {
-                        int i   = (x >> 3) + y * 52;
-                        int k   = x + y * 416;
-                        int byt = g_os.framebuffer[i];
-                        int bit = (byt & (0x80 >> (x & 7)));
-
-                        g_os.texpx[k] = tab_rgb[bit > 0];
+                        int i         = (x >> 3) + y * 52;
+                        int k         = x + y * 416;
+                        int byt       = g_os.framebuffer[i];
+                        int bit       = (byt & (0x80 >> (x & 7))) > 0;
+                        g_os.texpx[k] = t_rgb[g_os.inverted ? !bit : bit];
                 }
         }
         UpdateTexture(g_os.tex, g_os.texpx);
@@ -62,7 +61,7 @@ void os_backend_graphics_flip()
 }
 #endif
 
-#if defined(TARGET_PD)
+#if defined(TARGET_PD) // ======================================================
 static void (*PD_display)(void);
 static void (*PD_drawFPS)(int x, int y);
 static void (*PD_markUpdatedRows)(int start, int end);
@@ -95,8 +94,7 @@ void os_backend_graphics_end()
 void os_backend_graphics_flip()
 {
 }
-
-#endif
+#endif // ======================================================================
 
 tex_s tex_create(int w, int h)
 {
@@ -223,9 +221,23 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
         t.px[idx] = (u8)i;
 }
 
+void gfx_set_inverted(bool32 inv)
+{
+#ifdef TARGET_PD
+        PD->display->setInverted(inv);
+#else
+        g_os.inverted = inv;
+#endif
+}
+
 void gfx_draw_to(tex_s tex)
 {
         g_os.dst = tex;
+}
+
+void gfx_tile(tileimg_s t, v2_i32 pos, int flags)
+{
+        NOT_IMPLEMENTED
 }
 
 void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
@@ -335,8 +347,10 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
                 int       cID = (int)c.glyphID;
                 int       gy  = cID >> 5; // 32 glyphs in a row
                 int       gx  = cID & 31;
-                rec_i32   r   = {gx * font->gridw, gy * font->gridh,
-                                 font->gridw, font->gridh};
+                rec_i32   r   = {gx * font->gridw,
+                                 gy * font->gridh,
+                                 font->gridw,
+                                 font->gridh};
                 gfx_sprite(fonttex, p, r, 0);
                 p.x += font->glyph_widths[cID];
         }

@@ -9,7 +9,7 @@
 
 #include "os.h"
 
-#define OS_DESKTOP_SCALE 2
+#define OS_DESKTOP_SCALE 1
 #define OS_FPS_DELTA     0.0166667f
 #define OS_DELTA_CAP     0.05f
 
@@ -27,6 +27,7 @@ typedef struct {
         u8        framebuffer[OS_FRAMEBUFFER_SIZE];
         Color     texpx[416 * 240];
         Texture2D tex;
+        bool32    inverted;
         int       scalingmode;
         rec_i32   view;
         int       buttons;

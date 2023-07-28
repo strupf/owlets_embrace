@@ -1,9 +1,15 @@
 general
-- generate placeholder assets or workaround so that the game is still executable
-- -> error message instead of crashing silently without a debugger
+* generate placeholder assets or workaround so that the game is still executable
+  -> error message instead of crashing silently without a debugger
 
 gameplay
-- tilemap collisions
+* actor flags for slopes
+* moving solids
+* rope integration
+* advanced camera controls
 
 audio
-- sound file loading
+* sound file loading
+* playback
+
+graphics

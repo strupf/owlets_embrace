@@ -45,13 +45,13 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
         i32 px1 = riarea.x + riarea.w - 1;
         i32 py0 = riarea.y;
         i32 py1 = riarea.y + riarea.h - 1;
-        i32 tx0 = px0 >> 4;
+        i32 tx0 = px0 >> 4; // divide by 16 (tile size)
         i32 tx1 = px1 >> 4;
         i32 ty0 = py0 >> 4;
         i32 ty1 = py1 >> 4;
 
         for (int ty = ty0; ty <= ty1; ty++) {
-                int y0 = (ty == ty0 ? py0 & 15 : 0);
+                int y0 = (ty == ty0 ? py0 & 15 : 0); // px in tile (local)
                 int y1 = (ty == ty1 ? py1 & 15 : 15);
                 for (int tx = tx0; tx <= tx1; tx++) {
                         int tl = tg.tiles[tx + ty * tg.tiles_x];
@@ -61,8 +61,8 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
                         int x1 = (tx == tx1 ? px1 & 15 : 15);
                         int mk = (0xFFFF >> x0) & ~(0x7FFF >> x1);
                         // mk masks the collision data so we only see
-                        // the relevant part
-                        // px0 = 1, px1 = 5: 0111 1100
+                        // the relevant part    1---5
+                        // px0 = 1, px1 = 5 -> 01111100
 
                         for (int py = y0; py <= y1; py++)
                                 if (g_pxmask_tab[tl][py] & mk) return 1;

@@ -17,14 +17,14 @@ bool32 objhandle_is_null(objhandle_s h)
         return (h.o == NULL);
 }
 
-obj_s *obj_from_objhandle(objhandle_s h)
+obj_s *obj_from_handle(objhandle_s h)
 {
         return (h.o && h.o->gen == h.gen ? h.o : NULL);
 }
 
-bool32 objhandle_try_dereference(objhandle_s h, obj_s **o)
+bool32 try_obj_from_handle(objhandle_s h, obj_s **o)
 {
-        obj_s *obj = obj_from_objhandle(h);
+        obj_s *obj = obj_from_handle(h);
         if (o) {
                 *o = obj;
                 return 1;
@@ -115,10 +115,129 @@ rec_i32 obj_aabb(obj_s *o)
         return r;
 }
 
-void obj_move_x(game_s *g, obj_s *o, i32 dx)
+/* ________
+ * | |    |
+ * | |AABB|
+ * |_|____|
+ */
+rec_i32 obj_rec_left(obj_s *o)
 {
+        rec_i32 r = {o->pos.x - 1, o->pos.y, 1, o->h};
+        return r;
 }
 
-void obj_move_y(game_s *g, obj_s *o, i32 dy)
+/*   ________
+ *   |    | |
+ *   |AABB| |
+ *   |____|_|
+ */
+rec_i32 obj_rec_right(obj_s *o)
 {
+        rec_i32 r = {o->pos.x + o->w, o->pos.y, 1, o->h};
+        return r;
+}
+
+/*   ______
+ *   |    |
+ *   |AABB|
+ *   |____|
+ *   |____|
+ */
+rec_i32 obj_rec_bottom(obj_s *o)
+{
+        rec_i32 r = {o->pos.x, o->pos.y + o->h, o->w, 1};
+        return r;
+}
+
+/*
+ *   ______
+ *   |____|
+ *   |    |
+ *   |AABB|
+ *   |____|
+ */
+rec_i32 obj_rec_top(obj_s *o)
+{
+        rec_i32 r = {o->pos.x, o->pos.y - 1, o->w, 1};
+        return r;
+}
+
+bool32 obj_step_x(game_s *g, obj_s *o, int sx)
+{
+        ASSERT(ABS(sx) <= 1);
+
+        rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
+        if (!game_area_blocked(g, r)) {
+                o->pos.x += sx;
+                return 1;
+        }
+
+        // bump
+        return 0;
+}
+
+bool32 obj_step_y(game_s *g, obj_s *o, int sy)
+{
+        ASSERT(ABS(sy) <= 1);
+
+        rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
+        if (!game_area_blocked(g, r)) {
+                o->pos.y += sy;
+                return 1;
+        }
+
+        // bump
+        return 0;
+}
+
+void obj_move_x(game_s *g, obj_s *o, int dx)
+{
+        int sx = SGN(dx);
+        for (int m = ABS(dx); m > 0; m--) {
+                if (!obj_step_x(g, o, sx)) {
+                        o->vel_q8.x = 0;
+                        break;
+                }
+        }
+}
+
+void obj_move_y(game_s *g, obj_s *o, int dy)
+{
+        int sy = SGN(dy);
+        for (int m = ABS(dy); m > 0; m--) {
+                if (!obj_step_y(g, o, sy)) {
+                        o->vel_q8.y = 0;
+                        break;
+                }
+        }
+}
+
+void hero_update(game_s *g, obj_s *o, hero_s *h)
+{
+#if 1
+        if ((h->inp & HERO_INP_JUMP) &&
+            o->vel_q8.y >= 0 &&
+            game_area_blocked(g, obj_rec_bottom(o))) {
+                o->vel_q8.y = HERO_C_JUMP_INIT;
+        }
+
+        int xs = 0;
+        if (h->inp & HERO_INP_LEFT) xs = -1;
+        if (h->inp & HERO_INP_RIGHT) xs = +1;
+
+        o->vel_q8.x += xs * HERO_C_ACCX;
+#else
+        if (debug_inp_up()) {
+                obj_move_y(g, o, -1);
+        }
+        if (debug_inp_down()) {
+                obj_move_y(g, o, +1);
+        }
+        if (debug_inp_left()) {
+                obj_move_x(g, o, -1);
+        }
+        if (debug_inp_right()) {
+                obj_move_x(g, o, +1);
+        }
+#endif
 }

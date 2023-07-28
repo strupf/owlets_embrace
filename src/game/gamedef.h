@@ -23,12 +23,23 @@ typedef struct objhandle_s objhandle_s;
 typedef struct tilegrid_s  tilegrid_s;
 typedef struct cam_s       cam_s;
 typedef struct objset_s    objset_s;
+typedef struct hero_s      hero_s;
 
-enum {
+enum obj_flag {
         OBJ_FLAG_NONE,
         OBJ_FLAG_DUMMY,
+        OBJ_FLAG_ACTOR,
+        OBJ_FLAG_SOLID,
+        OBJ_FLAG_HERO,
         //
         NUM_OBJ_FLAGS
+};
+
+enum obj_tag {
+        OBJ_TAG_DUMMY,
+        OBJ_TAG_HERO,
+        //
+        NUM_OBJ_TAGS
 };
 
 #endif

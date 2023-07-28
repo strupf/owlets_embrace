@@ -18,6 +18,16 @@ void os_spmem_pop()
         memarena_set(&g_os.spmem, g_os.spmemstack[--g_os.n_spmem]);
 }
 
+void *os_spmem_peek()
+{
+        return memarena_peek(&g_os.spmem);
+}
+
+void os_spmem_set(void *p)
+{
+        memarena_set(&g_os.spmem, p);
+}
+
 void os_spmem_clr()
 {
         memarena_clr(&g_os.spmem);
