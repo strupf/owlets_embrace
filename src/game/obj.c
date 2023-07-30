@@ -198,6 +198,9 @@ bool32 actor_step_x(game_s *g, obj_s *o, int sx)
                 }
                 return 1;
         }
+
+        // the position to the side is blocked
+        // check if object can climb slopes and try it out
         if (o->actorflags & ACTOR_FLAG_CLIMB_SLOPES) {
                 rec_i32 r1 = translate_rec_xy(obj_aabb(o), sx, -1);
                 if (!game_area_blocked(g, r1)) {

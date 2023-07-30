@@ -25,6 +25,20 @@ struct rtile_s {
         u8  flags;
 };
 
+enum {
+        TRANSITION_TYPE_SIMPLE,
+};
+
+enum {
+        TRANSITION_TICKS = 10,
+};
+
+enum {
+        TRANSITION_NONE,
+        TRANSITION_FADE_OUT,
+        TRANSITION_FADE_IN,
+};
+
 struct game_s {
         i32   tick;
         cam_s cam;
@@ -38,6 +52,8 @@ struct game_s {
         obj_s   *obj_tag[NUM_OBJ_TAGS];
         int      n_objfree;
 
+        objbucket_s objbuckets[NUM_OBJ_BUCKETS];
+
         textbox_s textbox;
 
         int                tiles_x;
@@ -48,6 +64,10 @@ struct game_s {
         ALIGNAS(4) rtile_s rtiles[NUM_TILES][NUM_RENDERTILE_LAYERS];
 
         ALIGNAS(4) char solidmem[SOLIDMEM_SIZE];
+
+        int  transitionphase;
+        int  transitionticks;
+        char transitionmap[64]; // next map to load
 };
 
 void       game_init(game_s *g);
@@ -56,6 +76,7 @@ void       game_draw(game_s *g);
 void       game_close(game_s *g);
 //
 tilegrid_s game_tilegrid(game_s *g);
+void       game_map_transition_start(game_s *g);
 void       game_load_map(game_s *g, const char *filename);
 void       obj_apply_movement(obj_s *o);
 bool32     game_area_blocked(game_s *g, rec_i32 r);

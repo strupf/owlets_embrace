@@ -157,6 +157,21 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
 
 void game_load_map(game_s *g, const char *filename)
 {
+        // reset room
+        for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
+                obj_s *o               = &g->objs[n];
+                o->index               = n;
+                o->gen                 = 1;
+                g->objfreestack[n - 1] = o;
+        }
+        g->n_objfree = NUM_OBJS - 1;
+        objset_clr(&g->obj_active);
+        objset_clr(&g->obj_scheduled_delete);
+        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
+                objset_clr(&g->objbuckets[n].set);
+        }
+        hero_create(g, &g->hero);
+
         os_spmem_push();
 
         const char *tmjbuf = txt_read_file_alloc(filename, os_spmem_alloc);

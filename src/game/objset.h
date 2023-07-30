@@ -38,4 +38,16 @@ void      objset_clr(objset_s *set);
 int       objset_len(objset_s *set);
 obj_s    *objset_at(objset_s *set, int i);
 
+/*
+ * Object bucket is an automatically filtered set of
+ * active objects. The filter works using object flags (bitset)
+ */
+struct objbucket_s {
+        objset_s   set;
+        objflags_s op_flag[2];
+        int        op_func[2];
+        objflags_s cmp_flag;
+        int        cmp_func;
+};
+
 #endif

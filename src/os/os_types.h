@@ -20,6 +20,7 @@
 // RAYLIB ======================================================================
 #include "include/raylib.h"
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,6 +32,7 @@
 #elif defined(TARGET_PD)
 // PLAYDATE ====================================================================
 #include "pd_api.h"
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

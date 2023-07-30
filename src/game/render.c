@@ -14,8 +14,9 @@ void draw_textbox(game_s *g)
 
 void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
 {
-        rec_i32 tilerec = {0, 0, 16, 16};
-        tex_s   tileset = tex_get(TEXID_TILESET);
+        ASSERT(0 <= x1 && 0 <= y1 && x2 < g->tiles_x && y2 < g->tiles_y);
+
+        tex_s tileset = tex_get(TEXID_TILESET);
         for (int y = y1; y <= y2; y++) {
                 v2_i32 pos;
                 pos.y = (y << 4) - g->cam.r.y;
@@ -27,10 +28,10 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
                         for (int n = 0; n < 1; n++) {   // actually for both layers
                                 rtile_s rt = rtiles[n]; // todo
                                 if (rt.flags == 0xFF) continue;
-                                int id    = rt.ID;
-                                tilerec.x = (id & 15) << 4;
-                                tilerec.y = (id >> 4) << 4;
-
+                                int     id      = rt.ID;
+                                rec_i32 tilerec = {(id & 15) << 4,
+                                                   (id >> 4) << 4,
+                                                   16, 16};
                                 gfx_sprite(tileset, pos, tilerec, rt.flags);
                         }
                 }
@@ -66,5 +67,23 @@ void render_draw(game_s *g)
 
         if (g->textbox.active) {
                 draw_textbox(g);
+        }
+
+        // simple transition animation
+        if (g->transitionphase) {
+                switch (g->transitionphase) {
+                case TRANSITION_FADE_IN: {
+                        int x = lerp_i32(0, 410,
+                                         g->transitionticks,
+                                         TRANSITION_TICKS);
+                        gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
+                } break;
+                case TRANSITION_FADE_OUT: {
+                        int x = lerp_i32(410, 0,
+                                         g->transitionticks,
+                                         TRANSITION_TICKS);
+                        gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
+                } break;
+                }
         }
 }

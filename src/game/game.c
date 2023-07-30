@@ -20,25 +20,40 @@ void game_init(game_s *g)
                 font1.glyph_widths[n] = 14;
         }
         fnt_put(FNTID_DEFAULT, font1);
-
-        for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
-                obj_s *o               = &g->objs[n];
-                o->index               = n;
-                o->gen                 = 1;
-                g->objfreestack[n - 1] = o;
-        }
-        g->n_objfree = NUM_OBJS - 1;
-
         g->cam.r.w = 400;
         g->cam.r.h = 240;
-
-        hero_create(g, &g->hero);
 
         game_load_map(g, "assets/samplemap.tmj");
 }
 
+void game_update_transition(game_s *g)
+{
+        g->transitionticks++;
+        if (g->transitionticks < TRANSITION_TICKS)
+                return;
+
+        switch (g->transitionphase) {
+        case TRANSITION_FADE_IN:
+                game_load_map(g, "assets/samplemap2.tmj");
+                g->transitionphase = TRANSITION_FADE_OUT;
+                g->transitionticks = 0;
+                break;
+        case TRANSITION_FADE_OUT:
+                g->transitionphase = TRANSITION_NONE;
+                break;
+        }
+}
+
 void game_update(game_s *g)
 {
+        if (debug_inp_enter() && g->transitionphase == 0) {
+                g->transitionphase = TRANSITION_FADE_IN;
+                g->transitionticks = 0;
+        }
+        if (g->transitionphase) {
+                game_update_transition(g);
+        }
+
         obj_s *o;
         g->hero.inpp = g->hero.inp;
         g->hero.inp  = 0;
