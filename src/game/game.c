@@ -6,6 +6,8 @@
 
 #include "game.h"
 
+static ropecollider_s coll;
+
 void game_init(game_s *g)
 {
         gfx_set_inverted(1);
@@ -24,6 +26,59 @@ void game_init(game_s *g)
         g->cam.r.h = 240;
 
         game_load_map(g, "assets/samplemap.tmj");
+
+        rope_init(&g->rope);
+        g->rope.head->p = obj_from_handle(g->hero.obj)->pos;
+        g->rope.head->p.x += 6;
+        g->rope.head->p.y += 6;
+        g->rope.tail->p = (v2_i32){0, 0};
+
+        for (int y = 0; y < g->tiles_y; y++) {
+                for (int x = 0; x < g->tiles_x; x++) {
+                        int t  = g->tiles[x + y * g->tiles_x];
+                        int xx = x * 16;
+                        int yy = y * 16;
+
+                        // the tris for slopes below are wrong
+                        // but this is just for testing purposes anyway
+                        switch (t) {
+                        case TILE_BLOCK: {
+                                tri_i32 t1          = {xx, yy,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                tri_i32 t2          = {xx + 16, yy + 16,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                coll.tris[coll.n++] = t1;
+                                coll.tris[coll.n++] = t2;
+                        } break;
+                        case TILE_SLOPE_45_1: {
+                                tri_i32 t1          = {xx, yy,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                coll.tris[coll.n++] = t1;
+                        } break;
+                        case TILE_SLOPE_45_2: {
+                                tri_i32 t1          = {xx, yy,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                coll.tris[coll.n++] = t1;
+                        } break;
+                        case TILE_SLOPE_45_3: {
+                                tri_i32 t1          = {xx, yy,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                coll.tris[coll.n++] = t1;
+                        } break;
+                        case TILE_SLOPE_45_4: {
+                                tri_i32 t1          = {xx, yy,
+                                                       xx + 16, yy,
+                                                       xx, yy + 16};
+                                coll.tris[coll.n++] = t1;
+                        } break;
+                        }
+                }
+        }
 }
 
 void game_update_transition(game_s *g)
@@ -57,7 +112,9 @@ void game_update(game_s *g)
         obj_s *o;
         g->hero.inpp = g->hero.inp;
         g->hero.inp  = 0;
+
         if (try_obj_from_handle(g->hero.obj, &o)) {
+                v2_i32 herop = o->pos;
                 if (os_inp_pressed(INP_LEFT)) g->hero.inp |= HERO_INP_LEFT;
                 if (os_inp_pressed(INP_RIGHT)) g->hero.inp |= HERO_INP_RIGHT;
                 if (os_inp_pressed(INP_DOWN)) g->hero.inp |= HERO_INP_DOWN;
@@ -69,6 +126,13 @@ void game_update(game_s *g)
                 v2_i32 dt = v2_sub(o->pos_new, o->pos);
                 obj_move_x(g, o, dt.x);
                 obj_move_y(g, o, dt.y);
+
+                v2_i32 dthero = v2_sub(o->pos, herop);
+                ropenode_move(&g->rope, &coll, g->rope.head, dthero);
+                rope_update(&g->rope, &coll);
+
+                o->vel_q8 = rope_adjust_connected_vel(&g->rope, g->rope.head,
+                                                      o->subpos_q8, o->vel_q8);
         }
 
         // remove all objects scheduled to be deleted

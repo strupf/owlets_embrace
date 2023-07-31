@@ -11,6 +11,7 @@
 #include "game/obj.c"
 #include "game/objset.c"
 #include "game/render.c"
+#include "game/rope.c"
 #include "game/textbox.c"
 //
 #include "os/os_audio.c"

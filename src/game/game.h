@@ -14,6 +14,7 @@
 #include "objset.h"
 #include "os/os.h"
 #include "render.h"
+#include "rope.h"
 #include "textbox.h"
 
 struct cam_s {
@@ -44,6 +45,7 @@ struct game_s {
         cam_s cam;
 
         hero_s hero;
+        rope_s rope;
 
         objset_s obj_active;           // active objects
         objset_s obj_scheduled_delete; // objects scheduled for removal

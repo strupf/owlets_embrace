@@ -69,6 +69,12 @@ void render_draw(game_s *g)
                 draw_textbox(g);
         }
 
+        for (ropenode_s *r1 = g->rope.head; r1 && r1->next; r1 = r1->next) {
+                ropenode_s *r2 = r1->next;
+                gfx_line(r1->p.x - g->cam.r.x, r1->p.y - g->cam.r.y,
+                         r2->p.x - g->cam.r.x, r2->p.y - g->cam.r.y, 1);
+        }
+
         // simple transition animation
         if (g->transitionphase) {
                 switch (g->transitionphase) {

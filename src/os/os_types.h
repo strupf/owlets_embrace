@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#define os_time       GetTime
+#define os_time       (float)GetTime
 #define ASSERT        assert
 #define STATIC_ASSERT static_assert
 #define PRINTF        printf
@@ -47,9 +47,10 @@ extern void (*PD_log)(const char *fmt, ...);
 #endif
 // =============================================================================
 
-typedef unsigned short ushort;
 typedef unsigned char  uchar;
+typedef unsigned short ushort;
 typedef unsigned int   uint;
+typedef unsigned long  ulong;
 typedef int8_t         i8;
 typedef int16_t        i16;
 typedef int32_t        i32;

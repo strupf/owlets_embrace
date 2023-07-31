@@ -90,8 +90,8 @@ tmj_tilesets_s tilesets_parse(jsn_s jtilesets)
                 ts.img_w         = jsn_intk(jset, "imagewidth");
                 ts.img_h         = jsn_intk(jset, "imageheight");
                 ts.columns       = jsn_intk(jset, "columns");
-                jsn_strk(jset, "name", &ts.name, sizeof(ts.name));
-                jsn_strk(jset, "image", &ts.image, sizeof(ts.image));
+                jsn_strk(jset, "name", ts.name, sizeof(ts.name));
+                jsn_strk(jset, "image", ts.image, sizeof(ts.image));
                 sets.sets[sets.n++] = ts;
         }
         return sets;
