@@ -28,9 +28,14 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
                         for (int n = 0; n < 1; n++) {   // actually for both layers
                                 rtile_s rt = rtiles[n]; // todo
                                 if (rt.flags == 0xFF) continue;
+                                /*
                                 int     id      = rt.ID;
                                 rec_i32 tilerec = {(id & 15) << 4,
                                                    (id >> 4) << 4,
+                                                   16, 16};
+                                                   */
+                                rec_i32 tilerec = {rt.tx << 4,
+                                                   rt.ty << 4,
                                                    16, 16};
                                 gfx_sprite(tileset, pos, tilerec, rt.flags);
                         }
@@ -92,4 +97,10 @@ void render_draw(game_s *g)
                 } break;
                 }
         }
+        for (int n = 0; n < 4; n++) {
+                gfx_sprite(tex_get(TEXID_TILESET),
+                           (v2_i32){0, n * 16},
+                           (rec_i32){8 * 16, 0, 16, 16}, n);
+        }
+        // gfx_sprite(tex_get(TEXID_TILESET), (v2_i32){0, 0}, (rec_i32){0, 0, 128, 128}, 0);
 }

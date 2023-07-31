@@ -23,9 +23,11 @@ static const int g_pxmask_tab[16][16] = {
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
     // SLOPES 45
+    // upwards
     0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF,
     0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF,
     //
+    // downwards
     0x8000, 0xC000, 0xE000, 0xF000, 0xF800, 0xFC00, 0xFE00, 0xFF00,
     0xFF80, 0xFFC0, 0xFFE0, 0xFFF0, 0xFFF8, 0xFFFC, 0xFFFE, 0xFFFF,
     //
@@ -41,24 +43,24 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
         rec_i32 riarea;
         if (!intersect_rec(r, rgrid, &riarea)) return 0;
 
-        i32 px0 = riarea.x;
-        i32 px1 = riarea.x + riarea.w - 1;
-        i32 py0 = riarea.y;
-        i32 py1 = riarea.y + riarea.h - 1;
-        i32 tx0 = px0 >> 4; // divide by 16 (tile size)
-        i32 tx1 = px1 >> 4;
-        i32 ty0 = py0 >> 4;
-        i32 ty1 = py1 >> 4;
+        u32 px0 = (u32)riarea.x;
+        u32 py0 = (u32)riarea.y;
+        u32 px1 = (u32)riarea.x + riarea.w - 1;
+        u32 py1 = (u32)riarea.y + riarea.h - 1;
+        u32 tx0 = px0 / 16; // divide by 16 (tile size)
+        u32 ty0 = py0 / 16;
+        u32 tx1 = px1 / 16;
+        u32 ty1 = py1 / 16;
 
         for (int ty = ty0; ty <= ty1; ty++) {
-                int y0 = (ty == ty0 ? py0 & 15 : 0); // px in tile (local)
-                int y1 = (ty == ty1 ? py1 & 15 : 15);
+                int y0 = (ty == ty0 ? py0 % 16 : 0); // px in tile (local)
+                int y1 = (ty == ty1 ? py1 % 16 : 15);
                 for (int tx = tx0; tx <= tx1; tx++) {
                         int tl = tg.tiles[tx + ty * tg.tiles_x];
                         if (tl == 0) continue;
                         if (tl == 1) return 1;
-                        int x0 = (tx == tx0 ? px0 & 15 : 0);
-                        int x1 = (tx == tx1 ? px1 & 15 : 15);
+                        int x0 = (tx == tx0 ? px0 % 16 : 0);
+                        int x1 = (tx == tx1 ? px1 % 16 : 15);
                         int mk = (0xFFFF >> x0) & ~(0x7FFF >> x1);
                         // mk masks the collision data so we only see
                         // the relevant part    1---5

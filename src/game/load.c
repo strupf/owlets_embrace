@@ -6,6 +6,23 @@
 
 #include "game.h"
 
+// x and y coordinate IDs in blob pattern
+// used to look up tile after marching squares (x, y, x, y, ...)
+// x = index * 2, y = index * 2 + 1
+// pattern according to:
+// opengameart.org/content/seamless-tileset-template
+// this pattern allows some duplicated border tiles to include
+// more variety later on
+static const u8 blobpattern[256 * 2];
+
+enum {
+        TILESHAPE_EMPTY = 0,
+        TILESHAPE_BLOCK,
+        TILESHAPE_SLOPE_45,
+        TILESHAPE_SLOPE_LO,
+        TILESHAPE_SLOPE_HI,
+};
+
 typedef struct {
         char name[64];
         char image[64];
@@ -33,12 +50,61 @@ typedef struct {
         int  y;
 } autotiling_s;
 
-int autotile_type_at(autotiling_s tiling, int sx, int sy)
+// extract Tiled internal flipping flags and map them into a different format
+// doc.mapeditor.org/en/stable/reference/global-tile-ids/
+int tiled_decode_flipping_flags(u32 tileID)
+{
+        bool32 flipx = (tileID & 0x80000000u) > 0;
+        bool32 flipy = (tileID & 0x40000000u) > 0;
+        bool32 flipz = (tileID & 0x20000000u) > 0; // diagonal flip
+        return (flipz << 2) | (flipx << 1) | flipy;
+}
+
+bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
 {
         int u = tiling.x + sx;
         int v = tiling.y + sy;
-        if (!(0 <= u && u < tiling.w && 0 <= v && v < tiling.h)) return 0;
-        return tiling.arr[u + v * tiling.w] > 0;
+
+        // tiles on the edge of a room always have a neighbour
+        if (!(0 <= u && u < tiling.w && 0 <= v && v < tiling.h)) return 1;
+
+        u32 tileID      = tiling.arr[u + v * tiling.w];
+        u32 tileID_nf   = (tileID & 0x0FFFFFFFu) - 1025; // currently hardcoded
+        int flags       = tiled_decode_flipping_flags(tileID);
+        int terraintype = (tileID_nf / 4);
+        int tileshape   = (tileID_nf % 4);
+        if (ttype != terraintype) return 0;
+
+        // combine sx and sy into a lookup index
+        // ((sx + 1) << 2) | (sy + 1)
+        static const int adjtab[] = {
+            0x1, // sx = -1, sy = -1
+            0x5, // sx = -1, sy =  0
+            0x4, // sx = -1, sy = +1
+            0,
+            0x3, // sx =  0, sy = -1
+            0,   // sx =  0, sy =  0
+            0xC, // sx =  0, sy = +1
+            0,
+            0x2, // sx = +1, sy = -1
+            0xA, // sx = +1, sy =  0
+            0x8, // sx = +1, sy = +1
+        };
+
+        // bitmask indicating if a shape is considered adjacent
+        // eg. slope going upwards: /| 01 = 0111
+        //                         /_| 11
+        // index: (shape << 3) | (flipping flags - xyz = 3 variants)
+        static const int adjacency[] = {
+            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, // block
+            0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, // slope 45
+            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE, // slope LO
+            0x3, 0xC, 0x3, 0xC, 0x5, 0x5, 0xA, 0xA, // slope HI
+            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE};
+
+        int i = (tileshape << 3) | flags;
+        int l = ((sx + 1) << 2) | ((sy + 1));
+        return (adjacency[i] & adjtab[l]) == adjtab[l];
 }
 
 /*
@@ -49,32 +115,89 @@ int autotile_type_at(autotiling_s tiling, int sx, int sy)
  * --------
  *  32|16|8
  */
-int autotile_calc(u32 *tilearr, int w, int h, int x, int y)
+int autotile_calc(rtile_s *rt, u32 *tilearr, int w, int h, int x, int y)
 {
         autotiling_s tiling = {tilearr, w, h, x, y};
-        int          t      = tilearr[x + y * w] > 0;
-        if (t == 0) return 0;
+        u32          tileID = tilearr[x + y * w];
+        uint         t      = (tileID & 0x0FFFFFFFu);
+        if (t == 0) {
+                rt->flags = 0xFF;
+                return -1;
+        }
+        t -= 1025; // TODO: hardcoded, replace
+        int  ttype     = (t / 4);
+        int  tileshape = (t % 4);
+        uint flags     = tiled_decode_flipping_flags(tileID);
 
         int m = 0;
-        // edges
-        if (autotile_type_at(tiling, -1, +0) == t)
-                m |= 0x40; // left
-        if (autotile_type_at(tiling, +1, +0) == t)
-                m |= 0x04; // right
-        if (autotile_type_at(tiling, +0, -1) == t)
-                m |= 0x01; // top
-        if (autotile_type_at(tiling, +0, +1) == t)
-                m |= 0x10; // down
 
-        // corners only if there are the two corresponding edge neighbours
-        if ((m & 0x41) == 0x41 && autotile_type_at(tiling, -1, -1) == t)
-                m |= 0x80; // top left
-        if ((m & 0x50) == 0x50 && autotile_type_at(tiling, -1, +1) == t)
-                m |= 0x20; // bot left
-        if ((m & 0x05) == 0x05 && autotile_type_at(tiling, +1, -1) == t)
-                m |= 0x02; // top right
-        if ((m & 0x14) == 0x14 && autotile_type_at(tiling, +1, +1) == t)
-                m |= 0x08; // bot right
+        switch (tileshape) {
+        case TILESHAPE_BLOCK: {
+                // edges
+                if (autotile_fits(tiling, -1, +0, ttype)) m |= 0x40; // left
+                if (autotile_fits(tiling, +1, +0, ttype)) m |= 0x04; // right
+                if (autotile_fits(tiling, +0, -1, ttype)) m |= 0x01; // top
+                if (autotile_fits(tiling, +0, +1, ttype)) m |= 0x10; // down
+
+                // corners only if there are the two corresponding edge neighbours
+                if ((m & 0x41) == 0x41 && autotile_fits(tiling, -1, -1, ttype))
+                        m |= 0x80; // top left
+                if ((m & 0x50) == 0x50 && autotile_fits(tiling, -1, +1, ttype))
+                        m |= 0x20; // bot left
+                if ((m & 0x05) == 0x05 && autotile_fits(tiling, +1, -1, ttype))
+                        m |= 0x02; // top right
+                if ((m & 0x14) == 0x14 && autotile_fits(tiling, +1, +1, ttype))
+                        m |= 0x08; // bot right
+                rt->tx = blobpattern[m * 2];
+                rt->ty = blobpattern[m * 2 + 1];
+        } break;
+        case TILESHAPE_SLOPE_45: {
+                bool32 xn = 0, yn = 0, cn = 0; // neighbour in x, y and corner
+
+                flags %= 4; // last 4 transformations are the same
+                switch (flags) {
+                case 0: {
+                        xn = autotile_fits(tiling, +1, +0, ttype);
+                        yn = autotile_fits(tiling, +0, +1, ttype);
+                        if (xn && yn)
+                                cn = autotile_fits(tiling, +1, +1, ttype);
+                } break;
+                case 1: {
+                        xn = autotile_fits(tiling, +1, +0, ttype);
+                        yn = autotile_fits(tiling, +0, -1, ttype);
+                        if (xn && yn)
+                                cn = autotile_fits(tiling, +1, -1, ttype);
+                } break;
+                case 2: {
+                        xn = autotile_fits(tiling, -1, +0, ttype);
+                        yn = autotile_fits(tiling, +0, +1, ttype);
+                        if (xn && yn)
+                                cn = autotile_fits(tiling, -1, +1, ttype);
+                } break;
+                case 3: {
+                        xn = autotile_fits(tiling, -1, +0, ttype);
+                        yn = autotile_fits(tiling, +0, -1, ttype);
+                        if (xn && yn)
+                                cn = autotile_fits(tiling, -1, -1, ttype);
+                } break;
+                }
+
+                // choose appropiate variant
+                int z = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
+
+                rt->tx    = z + 8;
+                rt->ty    = flags;
+                rt->flags = 0;
+                return 1;
+        } break;
+        case TILESHAPE_SLOPE_LO: {
+                NOT_IMPLEMENTED
+        } break;
+        case TILESHAPE_SLOPE_HI: {
+                NOT_IMPLEMENTED
+        } break;
+        }
+
         return m;
 }
 
@@ -120,36 +243,40 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
         const u32 *tileIDs = tileID_array_from_tmj(jlayer, os_spmem_alloc);
         const int  layer   = 0;
         const int  N       = width * height;
-        for (int n = 0; n < N; n++) {
-                u32    tileID    = tileIDs[n];
-                u32    tileID_nf = (tileID & 0x0FFFFFFFu);
-                bool32 flipx     = (tileID & 0x80000000u) > 0;
-                bool32 flipy     = (tileID & 0x40000000u) > 0;
-                bool32 flipz     = (tileID & 0x20000000u) > 0;
+        for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                        int n         = x + y * width;
+                        u32 tileID    = tileIDs[n];
+                        u32 tileID_nf = (tileID & 0x0FFFFFFFu);
 
-                int           n_tileset = -1;
-                tmj_tileset_s tileset   = {0};
-                for (int n = n_tilesets - 1; n >= 0; n--) {
-                        if (tilesets[n].first_gid <= tileID_nf) {
-                                tileset   = tilesets[n];
-                                n_tileset = n;
-                                break;
+                        int           n_tileset = -1;
+                        tmj_tileset_s tileset   = {0};
+                        for (int n = n_tilesets - 1; n >= 0; n--) {
+                                if (tilesets[n].first_gid <= tileID_nf) {
+                                        tileset   = tilesets[n];
+                                        n_tileset = n;
+                                        break;
+                                }
                         }
-                }
-                ASSERT(tileID == 0 || n_tileset >= 0);
+                        ASSERT(tileID == 0 || n_tileset >= 0);
 
-                u8      t  = 0;
-                rtile_s rt = {0};
-                if (tileID == 0) {
-                        rt.flags = 0xFF;
-                } else {
-                        rt.ID    = tileID_nf - tileset.first_gid;
-                        rt.flags = (flipz << 2) | (flipy << 1) | flipx;
-                        t        = tileID_nf > 0;
-                }
+                        u8      t  = 0;
+                        rtile_s rt = {0};
+                        if (tileID == 0) {
+                                rt.flags = 0xFF;
+                        } else {
+                                rt.ID     = tileID_nf - tileset.first_gid;
+                                rt.flags  = 0;
+                                int index = autotile_calc(&rt, tileIDs, width, height, x, y);
+                                if (index < 0) {
+                                        rt.flags = 0xFF;
+                                }
+                                t = tileID_nf > 0;
+                        }
 
-                g->rtiles[n][layer] = rt;
-                g->tiles[n]         = (t > 0);
+                        g->rtiles[n][layer] = rt;
+                        g->tiles[n]         = (t > 0);
+                }
         }
 
         os_spmem_pop();
@@ -203,17 +330,263 @@ void game_load_map(game_s *g, const char *filename)
         g->tiles_y = h;
         g->pixel_x = g->tiles_x << 4;
         g->pixel_y = g->tiles_y << 4;
-
-        // testing autotiling
-        u32 table[] = {1, 1, 1, 0, 0, 0, 0,
-                       1, 1, 1, 1, 0, 0, 0,
-                       1, 1, 1, 0, 0, 0, 0,
-                       0, 0, 0, 0, 0, 0, 0};
-        for (int y = 0; y < 4; y++) {
-                for (int x = 0; x < 7; x++) {
-                        int ii = autotile_calc(table, 7, 4, x, y);
-                        PRINTF("%03i ", ii);
-                }
-                PRINTF("\n");
-        }
 }
+
+static const u8 blobpattern[256 * 2] = {
+    0, 6, // 0
+    7, 6, // 1
+    0, 0, // 2
+    0, 0, // 3
+    0, 7, // 4
+    0, 5, // 5
+    0, 0, // 6
+    3, 4, // 7
+    0, 0, // 8
+    0, 0, // 9
+    0, 0, // 10
+    0, 0, // 11
+    0, 0, // 12
+    0, 0, // 13
+    0, 0, // 14
+    0, 0, // 15
+    7, 0, // 16
+    0, 1, // 17
+    0, 0, // 18
+    0, 0, // 19
+    0, 0, // 20
+    0, 2, // 21
+    0, 0, // 22
+    3, 2, // 23
+    0, 0, // 24
+    0, 0, // 25
+    0, 0, // 26
+    0, 0, // 27
+    1, 1, // 28
+    1, 3, // 29
+    0, 0, // 30
+    5, 3, // 31
+    0, 0, // 32
+    0, 0, // 33
+    0, 0, // 34
+    0, 0, // 35
+    0, 0, // 36
+    0, 0, // 37
+    0, 0, // 38
+    0, 0, // 39
+    0, 0, // 40
+    0, 0, // 41
+    0, 0, // 42
+    0, 0, // 43
+    0, 0, // 44
+    0, 0, // 45
+    0, 0, // 46
+    0, 0, // 47
+    0, 0, // 48
+    0, 0, // 49
+    0, 0, // 50
+    0, 0, // 51
+    0, 0, // 52
+    0, 0, // 53
+    0, 0, // 54
+    0, 0, // 55
+    0, 0, // 56
+    0, 0, // 57
+    0, 0, // 58
+    0, 0, // 59
+    0, 0, // 60
+    0, 0, // 61
+    0, 0, // 62
+    0, 0, // 63
+    6, 7, // 64
+    6, 6, // 65
+    0, 0, // 66
+    0, 0, // 67
+    1, 0, // 68
+    5, 7, // 69
+    0, 0, // 70
+    1, 7, // 71
+    0, 0, // 72
+    0, 0, // 73
+    0, 0, // 74
+    0, 0, // 75
+    0, 0, // 76
+    0, 0, // 77
+    0, 0, // 78
+    0, 0, // 79
+    5, 0, // 80
+    7, 5, // 81
+    0, 0, // 82
+    0, 0, // 83
+    2, 0, // 84
+    5, 6, // 85
+    0, 0, // 86
+    1, 2, // 87
+    0, 0, // 88
+    0, 0, // 89
+    0, 0, // 90
+    0, 0, // 91
+    3, 1, // 92
+    3, 3, // 93
+    0, 0, // 94
+    1, 5, // 95
+    0, 0, // 96
+    0, 0, // 97
+    0, 0, // 98
+    0, 0, // 99
+    0, 0, // 100
+    0, 0, // 101
+    0, 0, // 102
+    0, 0, // 103
+    0, 0, // 104
+    0, 0, // 105
+    0, 0, // 106
+    0, 0, // 107
+    0, 0, // 108
+    0, 0, // 109
+    0, 0, // 110
+    0, 0, // 111
+    4, 3, // 112
+    7, 1, // 113
+    0, 0, // 114
+    0, 0, // 115
+    2, 3, // 116
+    2, 1, // 117
+    0, 0, // 118
+    4, 5, // 119
+    0, 0, // 120
+    0, 0, // 121
+    0, 0, // 122
+    0, 0, // 123
+    4, 1, // 124
+    5, 1, // 125
+    0, 0, // 126
+    5, 4, // 127
+    0, 0, // 128
+    0, 0, // 129
+    0, 0, // 130
+    0, 0, // 131
+    0, 0, // 132
+    0, 0, // 133
+    0, 0, // 134
+    0, 0, // 135
+    0, 0, // 136
+    0, 0, // 137
+    0, 0, // 138
+    0, 0, // 139
+    0, 0, // 140
+    0, 0, // 141
+    0, 0, // 142
+    0, 0, // 143
+    0, 0, // 144
+    0, 0, // 145
+    0, 0, // 146
+    0, 0, // 147
+    0, 0, // 148
+    0, 0, // 149
+    0, 0, // 150
+    0, 0, // 151
+    0, 0, // 152
+    0, 0, // 153
+    0, 0, // 154
+    0, 0, // 155
+    0, 0, // 156
+    0, 0, // 157
+    0, 0, // 158
+    0, 0, // 159
+    0, 0, // 160
+    0, 0, // 161
+    0, 0, // 162
+    0, 0, // 163
+    0, 0, // 164
+    0, 0, // 165
+    0, 0, // 166
+    0, 0, // 167
+    0, 0, // 168
+    0, 0, // 169
+    0, 0, // 170
+    0, 0, // 171
+    0, 0, // 172
+    0, 0, // 173
+    0, 0, // 174
+    0, 0, // 175
+    0, 0, // 176
+    0, 0, // 177
+    0, 0, // 178
+    0, 0, // 179
+    0, 0, // 180
+    0, 0, // 181
+    0, 0, // 182
+    0, 0, // 183
+    0, 0, // 184
+    0, 0, // 185
+    0, 0, // 186
+    0, 0, // 187
+    0, 0, // 188
+    0, 0, // 189
+    0, 0, // 190
+    0, 0, // 191
+    0, 0, // 192
+    2, 2, // 193
+    0, 0, // 194
+    0, 0, // 195
+    0, 0, // 196
+    4, 7, // 197
+    0, 0, // 198
+    2, 7, // 199
+    0, 0, // 200
+    0, 0, // 201
+    0, 0, // 202
+    0, 0, // 203
+    0, 0, // 204
+    0, 0, // 205
+    0, 0, // 206
+    0, 0, // 207
+    0, 0, // 208
+    7, 4, // 209
+    0, 0, // 210
+    0, 0, // 211
+    0, 0, // 212
+    6, 5, // 213
+    0, 0, // 214
+    5, 5, // 215
+    0, 0, // 216
+    0, 0, // 217
+    0, 0, // 218
+    0, 0, // 219
+    0, 0, // 220
+    4, 4, // 221
+    0, 0, // 222
+    5, 2, // 223
+    0, 0, // 224
+    0, 0, // 225
+    0, 0, // 226
+    0, 0, // 227
+    0, 0, // 228
+    0, 0, // 229
+    0, 0, // 230
+    0, 0, // 231
+    0, 0, // 232
+    0, 0, // 233
+    0, 0, // 234
+    0, 0, // 235
+    0, 0, // 236
+    0, 0, // 237
+    0, 0, // 238
+    0, 0, // 239
+    0, 0, // 240
+    7, 2, // 241
+    0, 0, // 242
+    0, 0, // 243
+    0, 0, // 244
+    4, 6, // 245
+    0, 0, // 246
+    6, 4, // 247
+    0, 0, // 248
+    0, 0, // 249
+    0, 0, // 250
+    0, 0, // 251
+    0, 0, // 252
+    2, 5, // 253
+    0, 0, // 254
+    6, 2, // 255
+};

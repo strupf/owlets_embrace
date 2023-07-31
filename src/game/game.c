@@ -12,7 +12,7 @@ void game_init(game_s *g)
 {
         gfx_set_inverted(1);
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
-        tex_put(TEXID_TILESET, tex_load("assets/testtiles.json"));
+        tex_put(TEXID_TILESET, tex_load("assets/AT_BRICKS.json"));
         fnt_s font1      = {0};
         font1.gridw      = 16;
         font1.gridh      = 32;
@@ -53,21 +53,21 @@ void game_init(game_s *g)
                                 coll.tris[coll.n++] = t2;
                         } break;
                         case TILE_SLOPE_45_1: {
-                                tri_i32 t1          = {xx, yy,
-                                                       xx + 16, yy,
-                                                       xx, yy + 16};
+                                tri_i32 t1          = {xx + 16, yy + 16,
+                                                       xx, yy + 16,
+                                                       xx + 16, yy};
                                 coll.tris[coll.n++] = t1;
                         } break;
                         case TILE_SLOPE_45_2: {
-                                tri_i32 t1          = {xx, yy,
-                                                       xx + 16, yy,
-                                                       xx, yy + 16};
+                                tri_i32 t1          = {xx, yy + 16,
+                                                       xx, yy,
+                                                       xx + 16, yy + 16};
                                 coll.tris[coll.n++] = t1;
                         } break;
                         case TILE_SLOPE_45_3: {
-                                tri_i32 t1          = {xx, yy,
-                                                       xx + 16, yy,
-                                                       xx, yy + 16};
+                                tri_i32 t1          = {xx + 16, yy,
+                                                       xx, yy,
+                                                       xx + 16, yy + 16};
                                 coll.tris[coll.n++] = t1;
                         } break;
                         case TILE_SLOPE_45_4: {
@@ -126,13 +126,14 @@ void game_update(game_s *g)
                 v2_i32 dt = v2_sub(o->pos_new, o->pos);
                 obj_move_x(g, o, dt.x);
                 obj_move_y(g, o, dt.y);
-
+#if 0
                 v2_i32 dthero = v2_sub(o->pos, herop);
                 ropenode_move(&g->rope, &coll, g->rope.head, dthero);
                 rope_update(&g->rope, &coll);
 
                 o->vel_q8 = rope_adjust_connected_vel(&g->rope, g->rope.head,
                                                       o->subpos_q8, o->vel_q8);
+#endif
         }
 
         // remove all objects scheduled to be deleted

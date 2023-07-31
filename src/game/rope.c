@@ -22,7 +22,7 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 150;
+        r->len_max     = 200;
         r->damping_q8  = 620;
         r->spring_q8   = 220;
 }
@@ -69,8 +69,7 @@ void ropenode_delete(rope_s *r, ropenode_s *rn)
 int rope_points_collinearity(v2_arr *pts, v2_i32 c)
 {
         for (int n = 0; n < v2_arrlen(pts) - 1; n++) {
-                v2_i32 a = v2_arrat(pts, n);
-                if (v2_eq(a, c)) return -1; // same point, don't add
+                v2_i32 a   = v2_arrat(pts, n);
                 v2_i32 ac  = v2_sub(c, a);
                 u32    dac = v2_lensq(ac);
                 for (int i = n + 1; i < v2_arrlen(pts); i++) {

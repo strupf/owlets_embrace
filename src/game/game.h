@@ -23,6 +23,8 @@ struct cam_s {
 
 struct rtile_s {
         u16 ID;
+        int tx;
+        int ty;
         u8  flags;
 };
 

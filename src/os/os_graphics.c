@@ -248,14 +248,25 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         int ya = rs.y;
         switch (ff) {
         case 0: xx = +1, yy = +1, xy = yx = 0; break;
-        case 4: xy = +1, yx = +1, xx = yy = 0; break;                                 // rotate 90 cw, then flip x
-        case 1: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 // flipx
-        case 2: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 // flipy
-        case 5: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 // rotate 90 cw
-        case 6: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 // rotate 90 ccw
+        case 1: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 // flipy
+        case 2: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 // flipx
         case 3: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; // flip xy / rotate 180
+        case 4: xy = +1, yx = +1, xx = yy = 0; break;                                 // rotate 90 cw, then flip x
+        case 5: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 // rotate 90 ccw
+        case 6: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 // rotate 90 cw
         case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; // rotate 90 cw, then flip y
         }
+
+        /*
+        case 0: xx = +1, yy = +1, xy = yx = 0; break;
+        case 1: xy = +1, yx = +1, xx = yy = 0; break;                                 // rotate 90 cw, then flip x
+        case 4: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 // flipx
+        case 2: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 // flipy
+        case 5: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 // rotate 90 cw
+        case 3: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 // rotate 90 ccw
+        case 6: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; // flip xy / rotate 180
+        case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; // rotate 90 cw, then flip y
+        */
 
         tex_s dst = g_os.dst;
         int   zx  = dst.w - pos.x;
