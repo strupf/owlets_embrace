@@ -1,8 +1,6 @@
-/* =============================================================================
-* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
-* This source code is licensed under the GPLv3 license found in the
-* LICENSE file in the root directory of this source tree.
-============================================================================= */
+// =============================================================================
+// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// =============================================================================
 
 #include "game.h"
 
@@ -40,7 +38,7 @@ typedef struct {
 
 /*
  * Set tiles automatically while loading.
- * http://www.cr31.co.uk/stagecast/wang/blob.html
+ * www.cr31.co.uk/stagecast/wang/blob.html
  */
 typedef struct {
         u32 *arr;

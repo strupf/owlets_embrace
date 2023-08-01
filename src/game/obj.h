@@ -1,8 +1,6 @@
-/* =============================================================================
-* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
-* This source code is licensed under the GPLv3 license found in the
-* LICENSE file in the root directory of this source tree.
-============================================================================= */
+// =============================================================================
+// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// =============================================================================
 /*
  * The obj (object) is a general purpose monolithic thing which could represent
  * nearly everything in the game - it's mostly used for simplicity reasons.

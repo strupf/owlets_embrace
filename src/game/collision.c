@@ -1,8 +1,6 @@
-/* =============================================================================
-* Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
-* This source code is licensed under the GPLv3 license found in the
-* LICENSE file in the root directory of this source tree.
-============================================================================= */
+// =============================================================================
+// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// =============================================================================
 /*
  * Tile collisions are based on pixels. Tiles are 16x16 and each tile shape
  * has a corresponding bitmask of solid(1)/empty(0) bits int[16].
