@@ -34,24 +34,6 @@ struct objhandle_s {
         obj_s *o;
 };
 
-enum obj_flag {
-        OBJ_FLAG_NONE,
-        OBJ_FLAG_DUMMY,
-        OBJ_FLAG_ACTOR,
-        OBJ_FLAG_SOLID,
-        OBJ_FLAG_HERO,
-        OBJ_FLAG_NEW_AREA_COLLIDER,
-        //
-        NUM_OBJ_FLAGS
-};
-
-enum obj_tag {
-        OBJ_TAG_DUMMY,
-        OBJ_TAG_HERO,
-        //
-        NUM_OBJ_TAGS
-};
-
 enum obj_bucket {
         OBJ_BUCKET_ACTOR,
         OBJ_BUCKET_SOLID,

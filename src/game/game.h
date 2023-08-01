@@ -20,10 +20,10 @@ struct cam_s {
 };
 
 struct rtile_s {
-        u16 ID;
-        int tx;
-        int ty;
-        u8  flags;
+        u16  ID;
+        uint tx;
+        uint ty;
+        u8   flags;
 };
 
 enum {
@@ -44,15 +44,14 @@ struct game_s {
         i32   tick;
         cam_s cam;
 
-        hero_s hero;
-        rope_s rope;
-
-        objset_s obj_active;           // active objects
-        objset_s obj_scheduled_delete; // objects scheduled for removal
-        obj_s    objs[NUM_OBJS];
-        obj_s   *objfreestack[NUM_OBJS];
-        obj_s   *obj_tag[NUM_OBJ_TAGS];
-        int      n_objfree;
+        hero_s         hero;
+        ropecollider_s coll;
+        objset_s       obj_active;           // active objects
+        objset_s       obj_scheduled_delete; // objects scheduled for removal
+        obj_s          objs[NUM_OBJS];
+        obj_s         *objfreestack[NUM_OBJS];
+        obj_s         *obj_tag[NUM_OBJ_TAGS];
+        int            n_objfree;
 
         objbucket_s objbuckets[NUM_OBJ_BUCKETS];
 

@@ -31,11 +31,13 @@ void os_backend_inp_update()
         if (IsKeyDown(KEY_PERIOD)) {
                 g_os.buttons |= INP_A;
         }
+
         g_os.crankdockedp = g_os.crankdocked;
-        g_os.crankdocked  = 1;
+        g_os.crankdocked  = 0;
         if (!g_os.crankdocked) {
                 g_os.crankp_q16 = g_os.crank_q16;
-                g_os.crank_q16  = 0;
+                g_os.crank_q16 += (int)(5000.f * GetMouseWheelMove());
+                g_os.crank_q16 &= 0xFFFF;
         }
 }
 
@@ -111,7 +113,10 @@ bool32 os_inp_just_pressed(int b)
 
 int os_inp_crank_change()
 {
-        return 0;
+        i32 dt = g_os.crank_q16 - g_os.crankp_q16;
+        if (dt <= -32768) return (dt + 65536);
+        if (dt >= +32768) return (dt - 65536);
+        return dt;
 }
 
 int os_inp_crank()

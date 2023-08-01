@@ -30,6 +30,7 @@ struct rope_s {
         ropenode_s *tail;
 
         u32         len_max;
+        i32         len_max_q16;
         i32         spring_q8;
         i32         damping_q8;
         ropenode_s *pool;

@@ -17,23 +17,17 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
         tex_s tileset = tex_get(TEXID_TILESET);
         for (int y = y1; y <= y2; y++) {
                 v2_i32 pos;
-                pos.y = (y << 4) - g->cam.r.y;
+                pos.y = (uint)y * 16 - g->cam.r.y;
                 for (int x = x1; x <= x2; x++) {
-                        pos.x           = (x << 4) - g->cam.r.x;
+                        pos.x           = (uint)x * 16 - g->cam.r.x;
                         int      tID    = x + y * g->tiles_x;
                         rtile_s *rtiles = g->rtiles[tID];
 
                         for (int n = 0; n < 1; n++) {   // actually for both layers
                                 rtile_s rt = rtiles[n]; // todo
                                 if (rt.flags == 0xFF) continue;
-                                /*
-                                int     id      = rt.ID;
-                                rec_i32 tilerec = {(id & 15) << 4,
-                                                   (id >> 4) << 4,
-                                                   16, 16};
-                                                   */
-                                rec_i32 tilerec = {rt.tx << 4,
-                                                   rt.ty << 4,
+                                rec_i32 tilerec = {rt.tx * 16,
+                                                   rt.ty * 16,
                                                    16, 16};
                                 gfx_sprite(tileset, pos, tilerec, rt.flags);
                         }
@@ -72,10 +66,12 @@ void render_draw(game_s *g)
                 draw_textbox(g);
         }
 
-        for (ropenode_s *r1 = g->rope.head; r1 && r1->next; r1 = r1->next) {
-                ropenode_s *r2 = r1->next;
-                gfx_line(r1->p.x - g->cam.r.x, r1->p.y - g->cam.r.y,
-                         r2->p.x - g->cam.r.x, r2->p.y - g->cam.r.y, 1);
+        if (objhandle_is_valid(g->hero.hook)) {
+                for (ropenode_s *r1 = g->hero.rope.head; r1 && r1->next; r1 = r1->next) {
+                        ropenode_s *r2 = r1->next;
+                        gfx_line(r1->p.x - g->cam.r.x, r1->p.y - g->cam.r.y,
+                                 r2->p.x - g->cam.r.x, r2->p.y - g->cam.r.y, 1);
+                }
         }
 
         // simple transition animation
@@ -95,10 +91,6 @@ void render_draw(game_s *g)
                 } break;
                 }
         }
-        for (int n = 0; n < 4; n++) {
-                gfx_sprite(tex_get(TEXID_TILESET),
-                           (v2_i32){0, n * 16},
-                           (rec_i32){8 * 16, 0, 16, 16}, n);
-        }
-        // gfx_sprite(tex_get(TEXID_TILESET), (v2_i32){0, 0}, (rec_i32){0, 0, 128, 128}, 0);
+
+        // gfx_sprite(tex_get(TEXID_TILESET), (v2_i32){0, 0}, (rec_i32){0, 0, 512, 128}, 0);
 }

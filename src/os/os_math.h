@@ -170,6 +170,13 @@ static inline i32 rng_i16(u32 *state)
         return ((i32)rng_u16(state) - 0x8000);
 }
 
+// [0, max) exclusive
+static inline i32 rng_max_u16(u32 *state, u16 max)
+{
+        u32 i = (rng_u16(state) * max) >> 16;
+        return i;
+}
+
 // symmetrical right shift for pos and neg numbers
 static inline i32 q_shr_symm(i32 x, int sh)
 {

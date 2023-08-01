@@ -23,7 +23,7 @@ obj_s *obj_from_handle(objhandle_s h)
 bool32 try_obj_from_handle(objhandle_s h, obj_s **o)
 {
         obj_s *obj = obj_from_handle(h);
-        if (o) {
+        if (obj) {
                 *o = obj;
                 return 1;
         }

@@ -18,6 +18,26 @@
 
 // movement is going to work similar like in Celeste
 // maddythorson.medium.com/celeste-and-towerfall-physics-d24bd2ae0fc5
+
+enum obj_flag {
+        OBJ_FLAG_NONE,
+        OBJ_FLAG_DUMMY,
+        OBJ_FLAG_ACTOR,
+        OBJ_FLAG_SOLID,
+        OBJ_FLAG_HERO,
+        OBJ_FLAG_NEW_AREA_COLLIDER,
+        OBJ_FLAG_HOOK,
+        //
+        NUM_OBJ_FLAGS
+};
+
+enum obj_tag {
+        OBJ_TAG_DUMMY,
+        OBJ_TAG_HERO,
+        //
+        NUM_OBJ_TAGS
+};
+
 enum actor_flag {
         ACTOR_FLAG_CLIMB_SLOPES       = 0x1, // can climb 45 slopes
         ACTOR_FLAG_CLIMB_STEEP_SLOPES = 0x2, // can climb steep slopes
@@ -45,6 +65,8 @@ struct obj_s {
         v2_i32      drag_q8;
         i32         actorflags;
         objhandle_s linkedsolid;
+
+        bool32 attached;
 
         char new_mapfile[64];
 };

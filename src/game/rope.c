@@ -21,6 +21,7 @@ void rope_init(rope_s *r)
         r->head        = rh;
         r->tail        = rt;
         r->len_max     = 200;
+        r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 620;
         r->spring_q8   = 220;
 }

@@ -4,14 +4,16 @@ general
 
 gameplay
 * moving solids
-* rope integration
+* rope improvement
+* rope as a dedicated usable item
 * advanced camera controls
-
-audio
-* sound file loading
-* playback
+* better character controls
+* implement a hook aiming mechanic
 
 loading
-* tileset layout for autotiling
-* finish autotiling for basic tiles
-* autotiling table: marching squares index to tile
+* autotiling for low and high slopes
+* object loading from map file
+
+graphics
+* current selected item frame
+* better rope rendering (textured thick rope)

@@ -6,13 +6,15 @@
 #define HERO_H
 
 #include "gamedef.h"
+#include "rope.h"
 
 enum hero_inp {
-        HERO_INP_LEFT  = 0x01,
-        HERO_INP_RIGHT = 0x02,
-        HERO_INP_UP    = 0x04,
-        HERO_INP_DOWN  = 0x08,
-        HERO_INP_JUMP  = 0x10,
+        HERO_INP_LEFT     = 0x01,
+        HERO_INP_RIGHT    = 0x02,
+        HERO_INP_UP       = 0x04,
+        HERO_INP_DOWN     = 0x08,
+        HERO_INP_JUMP     = 0x10,
+        HERO_INP_USE_ITEM = 0x20,
 };
 
 struct hero_s {
@@ -21,9 +23,13 @@ struct hero_s {
         i32         edgeticks;
         int         inp;  // input mask
         int         inpp; // input mask previous frame
+
+        objhandle_s hook;
+        rope_s      rope;
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, hero_s *h);
+void   hero_handle_hook(game_s *g, obj_s *o, hero_s *h, obj_s *hook);
 
 #endif

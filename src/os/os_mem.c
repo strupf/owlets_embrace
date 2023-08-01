@@ -64,7 +64,7 @@ void *memarena_alloc(memarena_s *m, size_t s)
 {
         ASSERT(m && m->mem);
         size_t size = (s + 3u) & ~3u;
-        int    dp   = m->pr - m->p;
+        int    dp   = (int)(m->pr - m->p);
         ASSERT(dp >= (int)size);
         void *mem = m->p;
         m->p += size;
@@ -84,7 +84,7 @@ void *memarena_allocz(memarena_s *m, size_t s)
 {
         ASSERT(m && m->mem);
         size_t size = (s + 3u) & ~3u;
-        int    dp   = m->pr - m->p;
+        int    dp   = (int)(m->pr - m->p);
         ASSERT(dp >= (int)size);
         void *mem = m->p;
         os_memclr4(mem, size);

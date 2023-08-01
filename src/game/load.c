@@ -13,8 +13,34 @@
 // more variety later on
 static const u8 blobpattern[256 * 2];
 
+static const u8 blob_duplicate[] = {
+    0, 1, // 17 vertical
+    0, 3, // 17
+    0, 4, // 17
+    1, 4, // 31 left
+    1, 6, // 31
+    5, 3, // 31
+    1, 0, // 68 horizontal
+    3, 0, // 68
+    3, 1, // 68
+    4, 1, // 124 top
+    6, 1, // 124
+    3, 5, // 124
+    2, 7, // 199 bot
+    3, 7, // 199
+    4, 2, // 199
+    2, 4, // 241 right
+    7, 2, // 241
+    7, 3, // 241
+    2, 6, // 255 mid
+    3, 6, // 255
+    6, 2, // 255
+    6, 3, // 255
+};
+
+#define TILESETID_COLLISION 1
+
 enum {
-        TILESHAPE_EMPTY = 0,
         TILESHAPE_BLOCK,
         TILESHAPE_SLOPE_45,
         TILESHAPE_SLOPE_LO,
@@ -41,11 +67,11 @@ typedef struct {
  * www.cr31.co.uk/stagecast/wang/blob.html
  */
 typedef struct {
-        u32 *arr;
-        int  w;
-        int  h;
-        int  x;
-        int  y;
+        const u32 *arr;
+        const int  w;
+        const int  h;
+        const int  x;
+        const int  y;
 } autotiling_s;
 
 // extract Tiled internal flipping flags and map them into a different format
@@ -66,8 +92,9 @@ bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
         // tiles on the edge of a room always have a neighbour
         if (!(0 <= u && u < tiling.w && 0 <= v && v < tiling.h)) return 1;
 
-        u32 tileID      = tiling.arr[u + v * tiling.w];
-        u32 tileID_nf   = (tileID & 0x0FFFFFFFu) - 1025; // currently hardcoded
+        u32 tileID = tiling.arr[u + v * tiling.w];
+        if (tileID == 0) return 0;
+        u32 tileID_nf   = (tileID & 0x0FFFFFFFu) - TILESETID_COLLISION;
         int flags       = tiled_decode_flipping_flags(tileID);
         int terraintype = (tileID_nf / 4);
         int tileshape   = (tileID_nf % 4);
@@ -94,11 +121,11 @@ bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
         //                         /_| 11
         // index: (shape << 3) | (flipping flags - xyz = 3 variants)
         static const int adjacency[] = {
-            0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, // block
-            0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, // slope 45
-            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE, // slope LO
-            0x3, 0xC, 0x3, 0xC, 0x5, 0x5, 0xA, 0xA, // slope HI
-            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE};
+            0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, // block
+            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE, // slope 45
+            0x3, 0xC, 0x3, 0xC, 0x5, 0x5, 0xA, 0xA, // slope LO
+            0x7, 0xD, 0xB, 0xE, 0x7, 0xD, 0xB, 0xE  // slope HI
+        };
 
         int i = (tileshape << 3) | flags;
         int l = ((sx + 1) << 2) | ((sy + 1));
@@ -113,24 +140,24 @@ bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
  * --------
  *  32|16|8
  */
-int autotile_calc(rtile_s *rt, u32 *tilearr, int w, int h, int x, int y)
+void autotile_calc(game_s *g, autotiling_s tiling, int n)
 {
-        autotiling_s tiling = {tilearr, w, h, x, y};
-        u32          tileID = tilearr[x + y * w];
-        uint         t      = (tileID & 0x0FFFFFFFu);
-        if (t == 0) {
-                rt->flags = 0xFF;
-                return -1;
+        static u32 rngseed = 145;
+
+        u32 tileID = tiling.arr[n];
+        if (tileID == 0) {
+                g->rtiles[n][0].flags = 0xFF;
+                return;
         }
-        t -= 1025; // TODO: hardcoded, replace
+        u32  t         = (tileID & 0x0FFFFFFFu) - TILESETID_COLLISION;
         int  ttype     = (t / 4);
         int  tileshape = (t % 4);
         uint flags     = tiled_decode_flipping_flags(tileID);
 
-        int m = 0;
-
         switch (tileshape) {
         case TILESHAPE_BLOCK: {
+                g->tiles[n] = 1;
+                int m       = 0;
                 // edges
                 if (autotile_fits(tiling, -1, +0, ttype)) m |= 0x40; // left
                 if (autotile_fits(tiling, +1, +0, ttype)) m |= 0x04; // right
@@ -146,13 +173,59 @@ int autotile_calc(rtile_s *rt, u32 *tilearr, int w, int h, int x, int y)
                         m |= 0x02; // top right
                 if ((m & 0x14) == 0x14 && autotile_fits(tiling, +1, +1, ttype))
                         m |= 0x08; // bot right
-                rt->tx = blobpattern[m * 2];
-                rt->ty = blobpattern[m * 2 + 1];
+
+                g->rtiles[n][0].flags = 0;
+
+                // some tiles have variants
+                // if one of those is matched choose a random variant
+                switch (m) {
+                case 17: {
+                        int k              = rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 31: {
+                        int k              = 3 + rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 68: {
+                        int k              = 6 + rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 124: {
+                        int k              = 9 + rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 199: {
+                        int k              = 12 + rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 241: {
+                        int k              = 15 + rng_max_u16(&rngseed, 3);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                case 255: {
+                        int k              = 18 + rng_max_u16(&rngseed, 4);
+                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
+                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                } break;
+                default:
+                        g->rtiles[n][0].tx = blobpattern[m * 2];
+                        g->rtiles[n][0].ty = blobpattern[m * 2 + 1];
+                        break;
+                }
+
         } break;
         case TILESHAPE_SLOPE_45: {
+                flags %= 4; // last 4 transformations are the same
+                g->tiles[n] = 2 + flags;
                 bool32 xn = 0, yn = 0, cn = 0; // neighbour in x, y and corner
 
-                flags %= 4; // last 4 transformations are the same
                 switch (flags) {
                 case 0: {
                         xn = autotile_fits(tiling, +1, +0, ttype);
@@ -183,20 +256,19 @@ int autotile_calc(rtile_s *rt, u32 *tilearr, int w, int h, int x, int y)
                 // choose appropiate variant
                 int z = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
 
-                rt->tx    = z + 8;
-                rt->ty    = flags;
-                rt->flags = 0;
-                return 1;
+                g->rtiles[n][0].flags = 0;
+                g->rtiles[n][0].tx    = z + 18;
+                g->rtiles[n][0].ty    = flags;
         } break;
         case TILESHAPE_SLOPE_LO: {
+                g->tiles[n] = 6 + flags;
                 NOT_IMPLEMENTED
         } break;
         case TILESHAPE_SLOPE_HI: {
+                g->tiles[n] = 14 + flags;
                 NOT_IMPLEMENTED
         } break;
         }
-
-        return m;
 }
 
 tmj_tilesets_s tilesets_parse(jsn_s jtilesets)
@@ -258,22 +330,11 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
                         }
                         ASSERT(tileID == 0 || n_tileset >= 0);
 
-                        u8      t  = 0;
-                        rtile_s rt = {0};
-                        if (tileID == 0) {
-                                rt.flags = 0xFF;
-                        } else {
-                                rt.ID     = tileID_nf - tileset.first_gid;
-                                rt.flags  = 0;
-                                int index = autotile_calc(&rt, tileIDs, width, height, x, y);
-                                if (index < 0) {
-                                        rt.flags = 0xFF;
-                                }
-                                t = tileID_nf > 0;
-                        }
-
-                        g->rtiles[n][layer] = rt;
-                        g->tiles[n]         = (t > 0);
+                        g->tiles[n]           = 0;
+                        g->rtiles[n][0].flags = 0xFF;
+                        g->rtiles[n][1].flags = 0xFF;
+                        autotiling_s tiling   = {tileIDs, width, height, x, y};
+                        autotile_calc(g, tiling, n);
                 }
         }
 
@@ -317,8 +378,13 @@ void game_load_map(game_s *g, const char *filename)
         }
 
         foreach_jsn_childk (jroot, "layers", jlayer) {
-                load_rendertile_layer(g, jlayer, w, h,
-                                      tilesets.sets, tilesets.n);
+                char name[64] = {0};
+                jsn_strk(jlayer, "name", name, ARRLEN(name));
+                if (streq(name, "autotile")) {
+                        PRINTF("LOAD LAYER %s\n", name);
+                        load_rendertile_layer(g, jlayer, w, h,
+                                              tilesets.sets, tilesets.n);
+                }
         }
         PRINTF("\n");
 
@@ -362,7 +428,7 @@ static const u8 blobpattern[256 * 2] = {
     1, 1, // 28
     1, 3, // 29
     0, 0, // 30
-    5, 3, // 31
+    1, 4, // 31
     0, 0, // 32
     0, 0, // 33
     0, 0, // 34
@@ -586,5 +652,5 @@ static const u8 blobpattern[256 * 2] = {
     0, 0, // 252
     2, 5, // 253
     0, 0, // 254
-    6, 2, // 255
+    2, 6, // 255
 };
