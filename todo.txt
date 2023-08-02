@@ -3,12 +3,11 @@ general
   -> error message instead of crashing silently without a debugger
 
 gameplay
-* moving solids
 * rope improvement
 * rope as a dedicated usable item
-* advanced camera controls
 * better character controls
 * implement a hook aiming mechanic
+* make moving solids interact with the rope
 
 loading
 * autotiling for low and high slopes

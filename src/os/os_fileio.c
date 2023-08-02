@@ -156,7 +156,9 @@ bool32 jsn_next(jsn_s j, jsn_s *jn)
         jsnstack_s st  = j.st;
 
         // immediately reduce depth if j is not an collection type
-        if (st.s[st.i - 1] == 1) st.i--;
+        // if (i == 0) return 0;
+        // ASSERT(st.i > 0);
+        if (i > 0 && st.s[st.i - 1] == 1) st.i--;
 
         switch (j.type) {
         case JSN_OBJ: i++; break;
@@ -179,7 +181,11 @@ bool32 jsn_next(jsn_s j, jsn_s *jn)
                 case '}':
                 case ']':
                         st.i--;
-                        if (st.s[st.i - 1] == 1) st.i--;
+                        if (st.i == 0) return 0;
+                        if (st.s[st.i - 1] == 1) {
+                                st.i--;
+                        }
+
                         break;
                 case ':':
                         ASSERT(j.type == JSN_STR);

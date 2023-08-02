@@ -855,26 +855,34 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
 
 // static bool32 overlap_tri
 
+// TODO: NEEDS FURTHER CHECKING!
 // check for overlap - touching considered NOT overlapped
 static bool32 overlap_tri_lineseg_excl(tri_i32 tri, lineseg_i32 l)
 {
         lineseg_i32 t0 = {tri.p[0], tri.p[1]};
         lineseg_i32 t1 = {tri.p[1], tri.p[2]};
         lineseg_i32 t2 = {tri.p[0], tri.p[2]};
-        if (overlap_lineseg_excl(l, t0) ||
-            overlap_lineseg_excl(l, t1) ||
-            overlap_lineseg_excl(l, t2) ||
-            overlap_tri_pnt_excl(tri, l.a))
+        int         a0 = overlap_lineseg_excl(l, t0);
+        int         a1 = overlap_lineseg_excl(l, t1);
+        int         a2 = overlap_lineseg_excl(l, t2);
+        int         o1 = overlap_tri_pnt_excl(tri, l.a);
+        if (a0 || a1 || a2 || o1)
                 return 1;
         // special case: line segment goes through the triangle
         // and has its endpoints ON the boundary
         // check if those endpoints lie on two different triangle lines
-        int l1 = ((overlap_lineseg_pnt_excl(t0, l.a)) |
-                  (overlap_lineseg_pnt_excl(t1, l.a) << 1) |
-                  (overlap_lineseg_pnt_excl(t2, l.a) << 2));
-        int l2 = ((overlap_lineseg_pnt_excl(t0, l.b)) |
-                  (overlap_lineseg_pnt_excl(t1, l.b) << 1) |
-                  (overlap_lineseg_pnt_excl(t2, l.b) << 2));
+        int b0 = overlap_lineseg_pnt_excl(t0, l.a);
+        int b1 = overlap_lineseg_pnt_excl(t1, l.a);
+        int b2 = overlap_lineseg_pnt_excl(t2, l.a);
+        int c0 = overlap_lineseg_pnt_excl(t0, l.b);
+        int c1 = overlap_lineseg_pnt_excl(t1, l.b);
+        int c2 = overlap_lineseg_pnt_excl(t2, l.b);
+        int l1 = ((b0) |
+                  (b1 << 1) |
+                  (b2 << 2));
+        int l2 = ((c0) |
+                  (c1 << 1) |
+                  (c2 << 2));
         return (l1 ^ l2);
 }
 

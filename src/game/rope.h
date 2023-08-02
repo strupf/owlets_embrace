@@ -7,16 +7,8 @@
 
 #include "gamedef.h"
 
-typedef struct ropenode_s     ropenode_s;
-typedef struct rope_s         rope_s;
-typedef struct ropecollider_s ropecollider_s;
-
-struct ropecollider_s {
-        ropecollider_s *next;
-        ropecollider_s *prev;
-        tri_i32         tris[256];
-        int             n;
-};
+typedef struct ropenode_s ropenode_s;
+typedef struct rope_s     rope_s;
 
 struct ropenode_s {
         ropenode_s *next;
@@ -38,9 +30,10 @@ struct rope_s {
 };
 
 void   rope_init(rope_s *r);
-void   ropenode_move(rope_s *r, ropecollider_s *c, ropenode_s *rn, v2_i32 dt);
-void   rope_update(rope_s *r, ropecollider_s *c);
-bool32 rope_blocked(rope_s *r, ropecollider_s *c);
+void   ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt);
+void   rope_update(game_s *g, rope_s *r);
+bool32 rope_intact(game_s *g, rope_s *r);
+void   rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt);
 v2_i32 rope_adjust_connected_vel(rope_s *r, ropenode_s *rn,
                                  v2_i32 subpos, v2_i32 vel);
 #endif

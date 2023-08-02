@@ -26,6 +26,7 @@ typedef struct tilegrid_s  tilegrid_s;
 typedef struct cam_s       cam_s;
 typedef struct hero_s      hero_s;
 typedef struct textbox_s   textbox_s;
+typedef struct obj_listc_s obj_listc_s;
 
 ARR_DEF_PRIMITIVE(obj, obj_s *)
 
@@ -38,7 +39,7 @@ enum obj_bucket {
         OBJ_BUCKET_ACTOR,
         OBJ_BUCKET_SOLID,
         //
-        NUM_OBJ_BUCKETS = 64
+        NUM_OBJ_BUCKETS
 };
 
 #endif

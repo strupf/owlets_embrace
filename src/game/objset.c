@@ -61,3 +61,9 @@ obj_s *objset_at(objset_s *set, int i)
         ASSERT(0 <= i && i < set->n);
         return set->o[1 + i];
 }
+
+obj_listc_s objset_list(objset_s *set)
+{
+        obj_listc_s l = {&set->o[1], set->n};
+        return l;
+}

@@ -64,7 +64,6 @@ __declspec(dllexport)
 
 #endif
 // =============================================================================
-
 static inline void os_tick()
 {
         static float timeacc;

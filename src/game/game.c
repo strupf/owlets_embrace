@@ -4,24 +4,43 @@
 
 #include "game.h"
 
+static void game_cull_scheduled(game_s *g);
+static void game_update_transition(game_s *g);
+static void cam_update(game_s *g, cam_s *c);
+
 void game_init(game_s *g)
 {
         gfx_set_inverted(1);
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         tex_put(TEXID_TILESET, tex_load("assets/tilesets.json"));
-        fnt_s font1      = {0};
-        font1.gridw      = 16;
-        font1.gridh      = 32;
-        font1.lineheight = 28;
-        font1.tex        = tex_get(TEXID_FONT_DEFAULT);
-        for (int n = 0; n < 256; n++) {
-                font1.glyph_widths[n] = 14;
+        fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font1.json"));
+        g->cam.w  = 400;
+        g->cam.h  = 240;
+        g->cam.wh = g->cam.w / 2;
+        g->cam.hh = g->cam.h / 2;
+
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ACTOR];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_ACTOR);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
-        fnt_put(FNTID_DEFAULT, font1);
-        g->cam.r.w = 400;
-        g->cam.r.h = 240;
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_SOLID];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_SOLID);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
+
+        obj_s     *solid = obj_create(g);
+        objflags_s flags = objflags_create(OBJ_FLAG_SOLID);
+        obj_set_flags(g, solid, flags);
+        solid->pos.x = 0;
+        solid->pos.y = 100;
+        solid->w     = 64;
+        solid->h     = 32;
 
         for (int y = 0; y < g->tiles_y; y++) {
                 for (int x = 0; x < g->tiles_x; x++) {
@@ -29,6 +48,8 @@ void game_init(game_s *g)
                         int xx = x * 16;
                         int yy = y * 16;
 
+                        /*
+                        ASSERT(g->coll.n + 2 < ARRLEN(g->coll.tris));
                         // the tris for slopes below are wrong
                         // but this is just for testing purposes anyway
                         switch (t) {
@@ -67,25 +88,8 @@ void game_init(game_s *g)
                                 g->coll.tris[g->coll.n++] = t1;
                         } break;
                         }
+                        */
                 }
-        }
-}
-
-void game_update_transition(game_s *g)
-{
-        g->transitionticks++;
-        if (g->transitionticks < TRANSITION_TICKS)
-                return;
-
-        switch (g->transitionphase) {
-        case TRANSITION_FADE_IN:
-                game_load_map(g, "assets/samplemap2.tmj");
-                g->transitionphase = TRANSITION_FADE_OUT;
-                g->transitionticks = 0;
-                break;
-        case TRANSITION_FADE_OUT:
-                g->transitionphase = TRANSITION_NONE;
-                break;
         }
 }
 
@@ -99,6 +103,19 @@ void game_update(game_s *g)
                 game_update_transition(g);
         }
 
+        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
+        if (solids.n > 0) {
+                static int dir   = 1;
+                obj_s     *solid = solids.o[0];
+                if (solid->pos.x > 300) {
+                        dir = -1;
+                }
+                if (solid->pos.x < 5) {
+                        dir = +1;
+                }
+                solid_step_x(g, solid, dir * 2);
+        }
+
         obj_s *o;
         if (try_obj_from_handle(g->hero.obj, &o)) {
                 g->hero.inpp = g->hero.inp;
@@ -108,23 +125,87 @@ void game_update(game_s *g)
 
         // remove all objects scheduled to be deleted
         if (objset_len(&g->obj_scheduled_delete) > 0) {
-                for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
-                        obj_s *o_del = objset_at(&g->obj_scheduled_delete, n);
-                        objset_del(&g->obj_active, o_del);
-                        o_del->gen++; // invalidate existing handles
-                        g->objfreestack[g->n_objfree++] = o_del;
-                }
-                objset_clr(&g->obj_scheduled_delete);
+                game_cull_scheduled(g);
         }
-}
 
-void game_draw(game_s *g)
-{
-        render_draw(g);
+        cam_update(g, &g->cam);
 }
 
 void game_close(game_s *g)
 {
+}
+
+static void game_update_transition(game_s *g)
+{
+        g->transitionticks++;
+        if (g->transitionticks < TRANSITION_TICKS)
+                return;
+
+        switch (g->transitionphase) {
+        case TRANSITION_FADE_IN:
+                game_load_map(g, g->transitionmap);
+                g->transitionphase = TRANSITION_FADE_OUT;
+                g->transitionticks = 0;
+                break;
+        case TRANSITION_FADE_OUT:
+                g->transitionphase = TRANSITION_NONE;
+                break;
+        }
+}
+
+static void game_cull_scheduled(game_s *g)
+{
+        for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
+                obj_s *o_del = objset_at(&g->obj_scheduled_delete, n);
+                objset_del(&g->obj_active, o_del);
+                for (int i = 0; i < NUM_OBJ_BUCKETS; i++) {
+                        objset_del(&g->objbuckets[i].set, o_del);
+                }
+                o_del->gen++; // invalidate existing handles
+                g->objfreestack[g->n_objfree++] = o_del;
+        }
+        objset_clr(&g->obj_scheduled_delete);
+}
+
+enum {
+        CAM_TARGET_SNAP_THRESHOLD = 1,
+        CAM_LERP_DEN              = 8,
+};
+
+static void cam_update(game_s *g, cam_s *c)
+{
+        obj_s *player;
+        if (try_obj_from_handle(g->hero.obj, &player)) {
+                v2_i32 target = obj_aabb_center(player);
+                c->target     = target;
+        }
+
+        v2_i32 dt  = v2_sub(c->target, c->pos);
+        i32    lsq = v2_lensq(dt);
+        if (lsq <= CAM_TARGET_SNAP_THRESHOLD) {
+                c->pos = c->target;
+        } else {
+                c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN);
+        }
+
+        int x1 = c->pos.x - c->wh;
+        int y1 = c->pos.y - c->hh;
+        if (x1 < 0) {
+                c->pos.x = c->wh;
+        }
+        if (y1 < 0) {
+                c->pos.y = c->hh;
+        }
+
+        // avoids round errors on uneven camera sizes
+        int x2 = (c->pos.x - c->wh) + c->w;
+        int y2 = (c->pos.y - c->hh) + c->h;
+        if (x2 > g->pixel_x) {
+                c->pos.x = g->pixel_x - c->w + c->wh;
+        }
+        if (y2 > g->pixel_y) {
+                c->pos.y = g->pixel_y - c->h + c->hh;
+        }
 }
 
 tilegrid_s game_tilegrid(game_s *g)
@@ -135,22 +216,20 @@ tilegrid_s game_tilegrid(game_s *g)
         return tg;
 }
 
-// apply gravity, drag, modify subposition and write pos_new
-// uses subpixel position:
-// subposition is [0, 255]. If the boundaries are exceeded
-// the goal is to move a whole pixel left or right
-void obj_apply_movement(obj_s *o)
-{
-        o->vel_q8    = v2_add(o->vel_q8, o->gravity_q8);
-        o->vel_q8.x  = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
-        o->vel_q8.y  = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
-        o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
-        o->pos_new   = v2_add(o->pos, v2_shr(o->subpos_q8, 8));
-        o->subpos_q8.x &= 255;
-        o->subpos_q8.y &= 255;
-}
-
 bool32 game_area_blocked(game_s *g, rec_i32 r)
 {
-        return tiles_area(game_tilegrid(g), r);
+        if (tiles_area(game_tilegrid(g), r)) return 1;
+        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
+        for (int n = 0; n < solids.n; n++) {
+                obj_s *o = solids.o[n];
+                if (overlap_rec_excl(obj_aabb(o), r))
+                        return 1;
+        }
+        return 0;
+}
+
+obj_listc_s objbucket_list(game_s *g, int bucketID)
+{
+        ASSERT(0 <= bucketID && bucketID < NUM_OBJ_BUCKETS);
+        return objset_list(&g->objbuckets[bucketID].set);
 }

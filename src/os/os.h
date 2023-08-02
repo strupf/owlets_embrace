@@ -103,6 +103,7 @@ typedef struct {
 
 void     fnt_put(int ID, fnt_s f);
 fnt_s    fnt_get(int ID);
+fnt_s    fnt_load(const char *filename);
 fntstr_s fntstr_create(int numchars, void *(*allocfunc)(size_t));
 void     fntstr_append_glyph(fntstr_s *f, int glyphID);
 void     fntstr_append_ascii(fntstr_s *f, const char *txt);
@@ -121,6 +122,7 @@ void     gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void     gfx_draw_to(tex_s tex);
 void     gfx_rec_fill(rec_i32 r, int col);
 void     gfx_line(int x0, int y0, int x1, int y1, int col);
+void     gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col);
 void     gfx_text_ascii(fnt_s *font, const char *txt, int x, int y);
 void     gfx_text(fnt_s *font, fntstr_s *str, int x, int y);
 //

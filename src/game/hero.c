@@ -17,12 +17,35 @@ enum hero_const {
         HERO_C_GRAVITY   = 32,
 };
 
+static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
+{
+        obj_s     *o     = obj_create(g);
+        objflags_s flags = objflags_create(
+            OBJ_FLAG_ACTOR,
+            OBJ_FLAG_HOOK);
+        obj_set_flags(g, o, flags);
+        o->w            = 8;
+        o->h            = 8;
+        o->pos.x        = p.x - o->w / 2;
+        o->pos.y        = p.y - o->h / 2;
+        o->vel_q8       = v_q8;
+        o->drag_q8.x    = 256;
+        o->drag_q8.y    = 256;
+        o->gravity_q8.y = 30;
+        rope_init(rope);
+        rope->head->p = p;
+        rope->tail->p = p;
+        o->ropenode   = rope->tail;
+        o->rope       = rope;
+        return o;
+}
+
 obj_s *hero_create(game_s *g, hero_s *h)
 {
-        obj_s *hero = obj_create(g);
-
-        hero->flags      = objflags_create(OBJ_FLAG_ACTOR,
+        obj_s     *hero  = obj_create(g);
+        objflags_s flags = objflags_create(OBJ_FLAG_ACTOR,
                                            OBJ_FLAG_HERO);
+        obj_set_flags(g, hero, flags);
         hero->actorflags = ACTOR_FLAG_CLIMB_SLOPES |
                            ACTOR_FLAG_GLUE_GROUND;
         hero->pos.x        = 50;
@@ -40,7 +63,11 @@ obj_s *hero_create(game_s *g, hero_s *h)
 static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
 {
         obj_delete(g, ohook);
-        h->hook.o = NULL;
+        h->hook.o       = NULL;
+        ohero->ropenode = NULL;
+        ohero->rope     = NULL;
+        ohook->rope     = NULL;
+        ohook->ropenode = NULL;
 }
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
@@ -84,26 +111,13 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 if (try_obj_from_handle(h->hook, &hook)) {
                         hook_destroy(g, h, o, hook);
                 } else {
-                        hook        = obj_create(g);
-                        hook->flags = objflags_create(
-                            OBJ_FLAG_ACTOR,
-                            OBJ_FLAG_HOOK);
-                        hook->w            = 8;
-                        hook->h            = 8;
-                        hook->pos          = o->pos;
-                        hook->vel_q8.x     = 700;
-                        hook->vel_q8.y     = -1000;
-                        hook->drag_q8.x    = 256;
-                        hook->drag_q8.y    = 256;
-                        hook->gravity_q8.y = 30;
-                        h->hook            = objhandle_from_obj(hook);
-                        rope_init(&h->rope);
-                        h->rope.head->p = (v2_i32){
-                            o->pos.x + o->w / 2,
-                            o->pos.y + o->h / 2};
-                        h->rope.tail->p = (v2_i32){
-                            o->pos.x + hook->w / 2,
-                            o->pos.y + hook->h / 2};
+                        v2_i32 center  = obj_aabb_center(o);
+                        v2_i32 vlaunch = {700, -1000};
+                        hook           = hook_create(g, &h->rope,
+                                                     center, vlaunch);
+                        h->hook        = objhandle_from_obj(hook);
+                        o->ropenode    = h->rope.head;
+                        o->rope        = &h->rope;
                 }
         }
 
@@ -141,17 +155,12 @@ void hero_update(game_s *g, obj_s *o, hero_s *h)
                 h->rope.len_max     = h->rope.len_max_q16 >> 16;
         }
 
-        v2_i32 dthero = v2_sub(o->pos, herop);
-        ropenode_move(&h->rope, &g->coll, h->rope.head, dthero);
-
         if (!hook->attached) {
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
                 v2_i32 dthook = v2_sub(hook->pos_new, hook->pos);
                 obj_move_x(g, hook, dthook.x);
                 obj_move_y(g, hook, dthook.y);
-                v2_i32 hookmove = v2_sub(hook->pos, hookp);
-                ropenode_move(&h->rope, &g->coll, h->rope.tail, hookmove);
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1,
                                    hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
@@ -161,12 +170,12 @@ void hero_update(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        if (rope_blocked(&h->rope, &g->coll)) {
+        if (!rope_intact(g, &h->rope)) {
                 hook_destroy(g, h, o, hook);
                 return;
         }
 
-        rope_update(&h->rope, &g->coll);
+        rope_update(g, &h->rope);
 
         if (hook->attached) {
                 o->vel_q8 = rope_adjust_connected_vel(&h->rope,

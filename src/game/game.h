@@ -11,12 +11,26 @@
 #include "obj.h"
 #include "objset.h"
 #include "os/os.h"
-#include "render.h"
 #include "rope.h"
 #include "textbox.h"
 
+// Object bucket is an automatically filtered set of
+// active objects. The filter works using object flags (bitset)
+struct objbucket_s {
+        objset_s   set;
+        objflags_s op_flag[2];
+        int        op_func[2];
+        objflags_s cmp_flag;
+        int        cmp_func;
+};
+
 struct cam_s {
-        rec_i32 r;
+        int    w;
+        int    h;
+        int    wh;
+        int    hh;
+        v2_i32 target;
+        v2_i32 pos;
 };
 
 struct rtile_s {
@@ -27,14 +41,14 @@ struct rtile_s {
 };
 
 enum {
-        TRANSITION_TYPE_SIMPLE,
-};
-
-enum {
         TRANSITION_TICKS = 10,
 };
 
-enum {
+enum transition_type {
+        TRANSITION_TYPE_SIMPLE,
+};
+
+enum transition_phase {
         TRANSITION_NONE,
         TRANSITION_FADE_OUT,
         TRANSITION_FADE_IN,
@@ -44,14 +58,14 @@ struct game_s {
         i32   tick;
         cam_s cam;
 
-        hero_s         hero;
-        ropecollider_s coll;
-        objset_s       obj_active;           // active objects
-        objset_s       obj_scheduled_delete; // objects scheduled for removal
-        obj_s          objs[NUM_OBJS];
-        obj_s         *objfreestack[NUM_OBJS];
-        obj_s         *obj_tag[NUM_OBJ_TAGS];
-        int            n_objfree;
+        hero_s hero;
+
+        objset_s obj_active;           // active objects
+        objset_s obj_scheduled_delete; // objects scheduled for removal
+        obj_s    objs[NUM_OBJS];
+        obj_s   *objfreestack[NUM_OBJS];
+        obj_s   *obj_tag[NUM_OBJ_TAGS];
+        int      n_objfree;
 
         objbucket_s objbuckets[NUM_OBJ_BUCKETS];
 
@@ -79,7 +93,8 @@ void       game_close(game_s *g);
 tilegrid_s game_tilegrid(game_s *g);
 void       game_map_transition_start(game_s *g);
 void       game_load_map(game_s *g, const char *filename);
-void       obj_apply_movement(obj_s *o);
 bool32     game_area_blocked(game_s *g, rec_i32 r);
+
+obj_listc_s objbucket_list(game_s *g, int bucketID);
 
 #endif

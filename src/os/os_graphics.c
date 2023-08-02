@@ -161,6 +161,25 @@ fnt_s fnt_get(int ID)
         return g_os.fnt_tab[ID];
 }
 
+fnt_s fnt_load(const char *filename)
+{
+        os_spmem_push();
+        char *txtbuf = txt_read_file_alloc(filename, os_spmem_alloc);
+        jsn_s j;
+        jsn_root(txtbuf, &j);
+        fnt_s fnt      = {0};
+        fnt.tex        = tex_get(jsn_intk(j, "texID"));
+        fnt.gridw      = jsn_intk(j, "gridwidth");
+        fnt.gridh      = jsn_intk(j, "gridheight");
+        fnt.lineheight = jsn_intk(j, "lineheight");
+        int n          = 0;
+        foreach_jsn_childk (j, "glyphwidths", jt) {
+                fnt.glyph_widths[n++] = jsn_int(jt);
+        }
+        os_spmem_pop();
+        return fnt;
+}
+
 void fntstr_append_glyph(fntstr_s *f, int glyphID)
 {
         ASSERT(f->n < f->c);
@@ -238,6 +257,11 @@ void gfx_tile(tileimg_s t, v2_i32 pos, int flags)
         NOT_IMPLEMENTED
 }
 
+/* this is a naive image drawing routine
+ * can flip an image x, y and diagonal (rotate 90 degree)
+ * could be hugely improved by figuring out a way to put multiple
+ * pixels at once
+ */
 void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 {
         int xx, yy, xy, yx;
@@ -246,25 +270,14 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         int ya = rs.y;
         switch (ff) {
         case 0: xx = +1, yy = +1, xy = yx = 0; break;
-        case 1: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 // flipy
-        case 2: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 // flipx
-        case 3: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; // flip xy / rotate 180
-        case 4: xy = +1, yx = +1, xx = yy = 0; break;                                 // rotate 90 cw, then flip x
-        case 5: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 // rotate 90 ccw
-        case 6: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 // rotate 90 cw
-        case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; // rotate 90 cw, then flip y
+        case 1: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 /* flipy */
+        case 2: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 /* flipx */
+        case 3: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; /* flip xy / rotate 180 */
+        case 4: xy = +1, yx = +1, xx = yy = 0; break;                                 /* rotate 90 cw, then flip x */
+        case 5: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 /* rotate 90 ccw */
+        case 6: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 /* rotate 90 cw */
+        case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; /* rotate 90 cw, then flip y */
         }
-
-        /*
-        case 0: xx = +1, yy = +1, xy = yx = 0; break;
-        case 1: xy = +1, yx = +1, xx = yy = 0; break;                                 // rotate 90 cw, then flip x
-        case 4: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 // flipx
-        case 2: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 // flipy
-        case 5: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 // rotate 90 cw
-        case 3: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 // rotate 90 ccw
-        case 6: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; // flip xy / rotate 180
-        case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; // rotate 90 cw, then flip y
-        */
 
         tex_s dst = g_os.dst;
         int   zx  = dst.w - pos.x;
@@ -321,12 +334,41 @@ void gfx_line(int x0, int y0, int x1, int y1, int col)
                 if (xi == x1 && yi == y1) return;
                 int e2 = er * 2;
                 if (e2 >= dy) {
-                        er += dy;
-                        xi += sx;
+                        er += dy, xi += sx;
                 }
                 if (e2 <= dx) {
-                        er += dx;
-                        yi += sy;
+                        er += dx, yi += sy;
+                }
+        }
+}
+
+// naive thick line, works for now
+void gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col)
+{
+        tex_s dst = g_os.dst;
+        int   dx  = +ABS(x1 - x0);
+        int   dy  = -ABS(y1 - y0);
+        int   sx  = x0 < x1 ? 1 : -1;
+        int   sy  = y0 < y1 ? 1 : -1;
+        int   er  = dx + dy;
+        int   xi  = x0;
+        int   yi  = y0;
+        int   r2  = r * r;
+        while (1) {
+                for (int y = -r; y <= +r; y++) {
+                        for (int x = -r; x <= +r; x++) {
+                                if (x * x + y * y > r2) continue;
+                                i_gfx_put_px(dst, xi + x, yi + y, col, 0);
+                        }
+                }
+
+                if (xi == x1 && yi == y1) return;
+                int e2 = er * 2;
+                if (e2 >= dy) {
+                        er += dy, xi += sx;
+                }
+                if (e2 <= dx) {
+                        er += dx, yi += sy;
                 }
         }
 }

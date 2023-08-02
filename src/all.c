@@ -4,11 +4,11 @@
 
 #include "game/collision.c"
 #include "game/game.c"
+#include "game/gamedraw.c"
 #include "game/hero.c"
 #include "game/load.c"
 #include "game/obj.c"
 #include "game/objset.c"
-#include "game/render.c"
 #include "game/rope.c"
 #include "game/textbox.c"
 //

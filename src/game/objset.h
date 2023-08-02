@@ -28,24 +28,22 @@ struct objset_s {
         u16    s[NUM_OBJS];
 };
 
-objset_s *objset_create(void *(*allocfunc)(size_t));
-bool32    objset_add(objset_s *set, obj_s *o);
-bool32    objset_del(objset_s *set, obj_s *o);
-bool32    objset_contains(objset_s *set, obj_s *o);
-void      objset_clr(objset_s *set);
-int       objset_len(objset_s *set);
-obj_s    *objset_at(objset_s *set, int i);
-
-/*
- * Object bucket is an automatically filtered set of
- * active objects. The filter works using object flags (bitset)
+/* this is supposed to be a "const list", as in, don't modify the
+ * actual object array because it's a pointer into the packed object
+ * array of the backing objset
  */
-struct objbucket_s {
-        objset_s   set;
-        objflags_s op_flag[2];
-        int        op_func[2];
-        objflags_s cmp_flag;
-        int        cmp_func;
+struct obj_listc_s {
+        obj_s *const *o;
+        const int     n;
 };
+
+objset_s   *objset_create(void *(*allocfunc)(size_t));
+bool32      objset_add(objset_s *set, obj_s *o);
+bool32      objset_del(objset_s *set, obj_s *o);
+bool32      objset_contains(objset_s *set, obj_s *o);
+void        objset_clr(objset_s *set);
+int         objset_len(objset_s *set);
+obj_s      *objset_at(objset_s *set, int i);
+obj_listc_s objset_list(objset_s *set);
 
 #endif

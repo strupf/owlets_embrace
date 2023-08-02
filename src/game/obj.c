@@ -68,6 +68,24 @@ void obj_delete(game_s *g, obj_s *o)
         objset_add(&g->obj_scheduled_delete, o);
 }
 
+void obj_set_flags(game_s *g, obj_s *o, objflags_s flags)
+{
+        o->flags = flags;
+        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
+                objbucket_s *b = &g->objbuckets[n];
+                objflags_s   f = flags;
+
+                f = objflags_op(f, b->op_flag[0], b->op_func[0]);
+                f = objflags_op(f, b->op_flag[1], b->op_func[1]);
+
+                if (objflags_cmp(f, b->cmp_flag, b->cmp_func)) {
+                        objset_add(&b->set, o);
+                } else {
+                        objset_del(&b->set, o);
+                }
+        }
+}
+
 bool32 obj_is_direct_child(obj_s *o, obj_s *parent)
 {
         for (obj_s *it = parent->fchild; it; it = it->next) {
@@ -102,6 +120,13 @@ bool32 obj_are_siblings(obj_s *a, obj_s *b)
                 if (o == b) return 1;
         }
         return 0;
+}
+
+v2_i32 obj_aabb_center(obj_s *o)
+{
+        v2_i32 p = {o->pos.x + (o->w / 2),
+                    o->pos.y + (o->h / 2)};
+        return p;
 }
 
 rec_i32 obj_aabb(obj_s *o)
@@ -144,8 +169,7 @@ rec_i32 obj_rec_bottom(obj_s *o)
         return r;
 }
 
-/*
- *   ______
+/*   ______
  *   |____|
  *   |    |
  *   |AABB|
@@ -179,19 +203,30 @@ void obj_move_y(game_s *g, obj_s *o, int dy)
         }
 }
 
+static inline i_actor_step(game_s *g, obj_s *o, int sx, int sy)
+{
+        o->pos.x += sx;
+        o->pos.y += sy;
+        if (o->rope && o->ropenode) {
+                v2_i32 d = {sx, sy};
+                ropenode_move(g, o->rope, o->ropenode, d);
+        }
+}
+
 bool32 actor_step_x(game_s *g, obj_s *o, int sx)
 {
         ASSERT(ABS(sx) <= 1);
 
         rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
         if (!game_area_blocked(g, r)) {
-                o->pos.x += sx;
+                i_actor_step(g, o, sx, 0);
+
                 if (o->actorflags & ACTOR_FLAG_GLUE_GROUND) {
                         rec_i32 r1 = translate_rec_xy(obj_aabb(o), 0, +1);
                         rec_i32 r2 = translate_rec_xy(obj_aabb(o), 0, +2);
                         if (game_area_blocked(g, r1) == 0 &&
                             game_area_blocked(g, r2)) {
-                                o->pos.y += 1;
+                                i_actor_step(g, o, 0, 1);
                         }
                 }
                 return 1;
@@ -202,16 +237,14 @@ bool32 actor_step_x(game_s *g, obj_s *o, int sx)
         if (o->actorflags & ACTOR_FLAG_CLIMB_SLOPES) {
                 rec_i32 r1 = translate_rec_xy(obj_aabb(o), sx, -1);
                 if (!game_area_blocked(g, r1)) {
-                        o->pos.x += sx;
-                        o->pos.y -= 1;
+                        i_actor_step(g, o, sx, -1);
                         return 1;
                 }
 
                 if (o->actorflags & ACTOR_FLAG_CLIMB_STEEP_SLOPES) {
                         rec_i32 r2 = translate_rec_xy(obj_aabb(o), sx, -2);
                         if (!game_area_blocked(g, r2)) {
-                                o->pos.x += sx;
-                                o->pos.y -= 2;
+                                i_actor_step(g, o, sx, -2);
                                 return 1;
                         }
                 }
@@ -227,7 +260,7 @@ bool32 actor_step_y(game_s *g, obj_s *o, int sy)
 
         rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
         if (!game_area_blocked(g, r)) {
-                o->pos.y += sy;
+                i_actor_step(g, o, 0, sy);
                 return 1;
         }
 
@@ -235,10 +268,61 @@ bool32 actor_step_y(game_s *g, obj_s *o, int sy)
         return 0;
 }
 
+static void solid_step(game_s *g, obj_s *o, int sx, int sy)
+{
+        ASSERT((ABS(sx) == 1 && sy == 0) || (ABS(sy) == 1 && sx == 0));
+
+        obj_s *hero;
+        if (!try_obj_from_handle(g->hero.obj, &hero)) return;
+        if (hero->rope) {
+                o->soliddisabled = 1;
+                rope_moved_by_solid(g, hero->rope, o, (v2_i32){sx, sy});
+                o->soliddisabled = 0;
+        }
+
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+        o->pos.x += sx;
+        o->pos.y += sy;
+
+        rec_i32 r = obj_aabb(o);
+        for (int n = 0; n < actors.n; n++) {
+                obj_s  *a     = actors.o[n];
+                rec_i32 aabb  = obj_aabb(a);
+                rec_i32 rfeet = translate_rec_xy(obj_rec_bottom(a), sx, sy);
+                if (overlap_rec_excl(r, aabb) ||
+                    overlap_rec_excl(r, rfeet)) {
+                        if (sx != 0) actor_step_x(g, a, sx);
+                        if (sy != 0) actor_step_x(g, a, sy);
+                }
+        }
+        // o->soliddisabled = 0;
+}
+
 void solid_step_x(game_s *g, obj_s *o, int sx)
 {
+        for (int m = ABS(sx); m > 0; m--) {
+                solid_step(g, o, SGN(sx), 0);
+        }
 }
 
 void solid_step_y(game_s *g, obj_s *o, int sy)
 {
+        for (int m = ABS(sy); m > 0; m--) {
+                solid_step(g, o, 0, SGN(sy));
+        }
+}
+
+// apply gravity, drag, modify subposition and write pos_new
+// uses subpixel position:
+// subposition is [0, 255]. If the boundaries are exceeded
+// the goal is to move a whole pixel left or right
+void obj_apply_movement(obj_s *o)
+{
+        o->vel_q8    = v2_add(o->vel_q8, o->gravity_q8);
+        o->vel_q8.x  = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
+        o->vel_q8.y  = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
+        o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
+        o->pos_new   = v2_add(o->pos, v2_shr(o->subpos_q8, 8));
+        o->subpos_q8.x &= 255;
+        o->subpos_q8.y &= 255;
 }

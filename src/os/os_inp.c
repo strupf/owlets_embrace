@@ -13,23 +13,29 @@ void os_backend_inp_update()
 {
         g_os.buttonsp = g_os.buttons;
         g_os.buttons  = 0;
-        if (IsKeyDown(KEY_A)) {
-                g_os.buttons |= INP_LEFT;
-        }
-        if (IsKeyDown(KEY_D)) {
-                g_os.buttons |= INP_RIGHT;
-        }
-        if (IsKeyDown(KEY_W)) {
-                g_os.buttons |= INP_UP;
-        }
-        if (IsKeyDown(KEY_S)) {
-                g_os.buttons |= INP_DOWN;
-        }
-        if (IsKeyDown(KEY_COMMA)) {
-                g_os.buttons |= INP_B;
-        }
-        if (IsKeyDown(KEY_PERIOD)) {
-                g_os.buttons |= INP_A;
+
+        if (IsKeyDown(KEY_A)) g_os.buttons |= INP_LEFT;
+        if (IsKeyDown(KEY_D)) g_os.buttons |= INP_RIGHT;
+        if (IsKeyDown(KEY_W)) g_os.buttons |= INP_UP;
+        if (IsKeyDown(KEY_S)) g_os.buttons |= INP_DOWN;
+        if (IsKeyDown(KEY_COMMA)) g_os.buttons |= INP_B;
+        if (IsKeyDown(KEY_PERIOD)) g_os.buttons |= INP_A;
+
+        /* only for testing purposes because emulating Playdate buttons
+         * on a keyboard is weird */
+        if (IsGamepadAvailable(0)) {
+                if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X) < -.1f)
+                        g_os.buttons |= INP_LEFT;
+                if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_X) > +.1f)
+                        g_os.buttons |= INP_RIGHT;
+                if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y) < -.1f)
+                        g_os.buttons |= INP_UP;
+                if (GetGamepadAxisMovement(0, GAMEPAD_AXIS_LEFT_Y) > +.1f)
+                        g_os.buttons |= INP_DOWN;
+                if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN))
+                        g_os.buttons |= INP_B;
+                if (IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
+                        g_os.buttons |= INP_A;
         }
 
         g_os.crankdockedp = g_os.crankdocked;

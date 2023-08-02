@@ -17,6 +17,10 @@ enum hero_inp {
         HERO_INP_USE_ITEM = 0x20,
 };
 
+typedef struct {
+        int x; // placeholder
+} heroitem_s;
+
 struct hero_s {
         objhandle_s obj;
         i32         jumpticks;
@@ -24,12 +28,13 @@ struct hero_s {
         int         inp;  // input mask
         int         inpp; // input mask previous frame
 
+        heroitem_s items[16];
+
         objhandle_s hook;
         rope_s      rope;
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, hero_s *h);
-void   hero_handle_hook(game_s *g, obj_s *o, hero_s *h, obj_s *hook);
 
 #endif

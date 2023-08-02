@@ -15,6 +15,7 @@
 
 #include "gamedef.h"
 #include "objflags.h"
+#include "rope.h"
 
 // movement is going to work similar like in Celeste
 // maddythorson.medium.com/celeste-and-towerfall-physics-d24bd2ae0fc5
@@ -65,6 +66,10 @@ struct obj_s {
         v2_i32      drag_q8;
         i32         actorflags;
         objhandle_s linkedsolid;
+        bool32      soliddisabled;
+
+        ropenode_s *ropenode;
+        rope_s     *rope;
 
         bool32 attached;
 
@@ -80,9 +85,11 @@ bool32      obj_contained_in_array(obj_s *o, obj_s **arr, int num);
 //
 obj_s      *obj_create(game_s *g);
 void        obj_delete(game_s *g, obj_s *o); // object still lives until the end of the frame
+void        obj_set_flags(game_s *g, obj_s *o, objflags_s flags);
 bool32      obj_is_direct_child(obj_s *o, obj_s *parent);
 bool32      obj_is_child_any_depth(obj_s *o, obj_s *parent);
 bool32      obj_are_siblings(obj_s *a, obj_s *b);
+v2_i32      obj_aabb_center(obj_s *o);
 rec_i32     obj_aabb(obj_s *o);
 rec_i32     obj_rec_left(obj_s *o);  // these return a rectangle strip
 rec_i32     obj_rec_right(obj_s *o); // just next to the object's aabb
@@ -94,6 +101,7 @@ bool32      actor_step_x(game_s *g, obj_s *o, int sx);
 bool32      actor_step_y(game_s *g, obj_s *o, int sy);
 void        solid_step_x(game_s *g, obj_s *o, int sx);
 void        solid_step_y(game_s *g, obj_s *o, int sy);
+void        obj_apply_movement(obj_s *o);
 //
 void        objset_add_all_in_radius(objset_s       *set,
                                      const objset_s *src,
