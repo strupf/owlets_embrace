@@ -6,3 +6,9 @@ The goal is to make an open source 2D metroidvania from scratch using almost no 
 For simplicity reasons a unity build is used: all.c is going to include all other .c files to produce the final build. The project is going to have two backends to help with debugging and playtesting:
 - **Playdate** is the target hardware which will provide all the design and performance constraints for the game.
 - **Raylib** will provide some kind of emulation layer especially for the input and display for the desktop.
+
+# Misc
+
+Rope mechanic running on the Playdate Simulator as of August 1st, 2023:
+
+<img src="misc/animation_01.gif" width="300" />
