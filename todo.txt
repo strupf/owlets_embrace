@@ -16,3 +16,9 @@ loading
 graphics
 * current selected item frame
 * better rope rendering (textured thick rope)
+
+bugs
+* rope: removal of a point during tighten can result in three
+    collinear points which span a degenerate triangle -> in that
+    case delete the middle point, too
+* triple check point on line check routines

@@ -23,7 +23,7 @@ void rope_init(rope_s *r)
         r->tail        = rt;
         r->len_max     = 200;
         r->len_max_q16 = r->len_max << 16;
-        r->damping_q8  = 620;
+        r->damping_q8  = 190;
         r->spring_q8   = 240;
 }
 
@@ -91,26 +91,50 @@ static int rope_points_collinearity(v2_arr *pts, v2_i32 c)
         return v2_arrlen(pts);
 }
 
+static void points_in_tri_add(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
+{
+        if (!overlap_tri_pnt_incl(t1, p) ||
+            !overlap_tri_pnt_incl(t2, p) ||
+            v2_arrcontains(pts, p)) return;
+        int k = rope_points_collinearity(pts, p);
+        if (k == -1) return;  // don't add
+        v2_arrput(pts, p, k); // add or overwrite
+}
+
+static void try_add_point_in_tri(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
+{
+        if (!(overlap_tri_pnt_incl(t1, p) && overlap_tri_pnt_incl(t2, p)))
+                return;
+        if (v2_arrcontains(pts, p)) return;
+        int k = rope_points_collinearity(pts, p);
+        if (k == -1) return;  // don't add
+        v2_arrput(pts, p, k); // add or overwrite
+}
+
 static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 {
         ASSERT(v2_crs(v2_sub(t1.p[2], t1.p[0]), v2_sub(t1.p[1], t1.p[0])) != 0);
         ASSERT(v2_crs(v2_sub(t2.p[2], t2.p[0]), v2_sub(t2.p[1], t2.p[0])) != 0);
 
-        for (int y = 0; y < g->tiles_y; y++) {
-                for (int x = 0; x < g->tiles_x; x++) {
+        v2_i32 pmin1 = v2_min(t1.p[0], v2_min(t1.p[1], t1.p[2]));
+        v2_i32 pmin2 = v2_min(t2.p[0], v2_min(t2.p[1], t2.p[2]));
+        v2_i32 pmax1 = v2_max(t1.p[0], v2_max(t1.p[1], t1.p[2]));
+        v2_i32 pmax2 = v2_max(t2.p[0], v2_max(t2.p[1], t2.p[2]));
+        v2_i32 pmin  = v2_min(pmin1, pmin2);
+        v2_i32 pmax  = v2_max(pmax1, pmax2);
+        i32    x1    = MAX(pmin.x / 16, 0);
+        i32    y1    = MAX(pmin.y / 16, 0);
+        i32    x2    = MIN(pmax.x / 16, g->tiles_x - 1);
+        i32    y2    = MIN(pmax.y / 16, g->tiles_y - 1);
+        for (int y = y1; y <= y2; y++) {
+                for (int x = x1; x <= x2; x++) {
                         if (g->tiles[x + y * g->tiles_x] == 0) continue;
                         v2_i32 tilep[4] = {x * 16, y * 16,
                                            x * 16 + 16, y * 16,
                                            x * 16, y * 16 + 16,
                                            x * 16 + 16, y * 16 + 16};
                         for (int i = 0; i < 4; i++) {
-                                const v2_i32 p = tilep[i];
-                                if (!overlap_tri_pnt_incl(t1, p) ||
-                                    !overlap_tri_pnt_incl(t2, p) ||
-                                    v2_arrcontains(pts, p)) continue;
-                                int k = rope_points_collinearity(pts, p);
-                                if (k == -1) continue; // don't add
-                                v2_arrput(pts, p, k);  // add or overwrite
+                                try_add_point_in_tri(tilep[i], t1, t2, pts);
                         }
                 }
         }
@@ -124,13 +148,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                                           o->pos.x, o->pos.y + o->h,
                                           o->pos.x + o->w, o->pos.y + o->h};
                 for (int i = 0; i < 4; i++) {
-                        const v2_i32 p = points[i];
-                        if (!overlap_tri_pnt_incl(t1, p) ||
-                            !overlap_tri_pnt_incl(t2, p) ||
-                            v2_arrcontains(pts, p)) continue;
-                        int k = rope_points_collinearity(pts, p);
-                        if (k == -1) continue; // don't add
-                        v2_arrput(pts, p, k);  // add or overwrite
+                        try_add_point_in_tri(points[i], t1, t2, pts);
                 }
         }
 }
@@ -232,6 +250,8 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                 }
         }
 
+        rope_s ropecopy = *r;
+
         foreach_v2_arr (points, it) {
                 v2_i32      p_beg  = it.e;
                 v2_i32      p_end  = v2_add(p_beg, dt);
@@ -274,21 +294,66 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                                 continue;
                         // moving line segment of "piston" should
                         // overlap the rope segment
-                        if (!overlap_lineseg_excl(ls, ls_mov) &&
-                            !overlap_lineseg_pnt_excl(ls, p_beg))
+                        if (!(overlap_lineseg_incl(ls, ls_mov) &&
+                              !v2_eq(r1->p, ls_mov.a) &&
+                              !v2_eq(r1->p, ls_mov.b) &&
+                              !v2_eq(r2->p, ls_mov.a) &&
+                              !v2_eq(r2->p, ls_mov.b))) {
                                 continue;
+                        }
 
-                        ropenode_s *ri = ropenode_insert(r, r1, r2, p_end);
+                        if (overlap_lineseg_pnt_excl(ls, p_end)) {
+                                // point lies exactly on the rope segment
+                                // between r1 and r2 and isn't necessary
+                                continue;
+                        }
 
+                        ropenode_s *ri  = ropenode_insert(r, r1, r2, p_end);
                         // only consider points which are on the
                         // "side of penetration"
-                        tri_i32 tri = {r1->p, r2->p, p_end};
+                        tri_i32     tri = {r1->p, r2->p, p_end};
                         ropenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
                         ropenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
                 }
         }
 
+#if 1
+        // for debugging purposes
+        // double check that no line segment overlaps the solid
+        // after the routine above
+        for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
+             r1 = r2, r2 = r2->next) {
+                v2_i32      p1  = r1->p;
+                v2_i32      p2  = r2->p;
+                lineseg_i32 ls1 = {p1, p2};
+                tri_i32     tris[2];
+                rec_i32     rr = obj_aabb(solid);
+                rr.x += dt.x;
+                rr.y += dt.y;
+                rec_to_tri(rr, tris);
+                bool32 a = overlap_tri_lineseg_excl(tris[0], ls1);
+                bool32 b = overlap_tri_lineseg_excl(tris[1], ls1);
+                ASSERT(!a && !b);
+        }
+#endif
+
         os_spmem_pop();
+}
+
+static bool32 rope_vertex_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
+                                 v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
+{
+        if (!v2_eq(curr, p)) {
+                return 0;
+        }
+        v2_i32 c_to_u = v2_sub(u, curr);
+        v2_i32 c_to_v = v2_sub(v, curr);
+        i32    s1     = v2_crs(c_to_p, c_to_u);
+        i32    s2     = v2_crs(c_to_n, c_to_u);
+        i32    t1     = v2_crs(c_to_p, c_to_v);
+        i32    t2     = v2_crs(c_to_n, c_to_v);
+        return ((z >= 0 && s1 >= 0 && s2 <= 0 && t1 >= 0 && t2 <= 0) ||
+                (z <= 0 && s1 <= 0 && s2 >= 0 && t1 <= 0 && t2 >= 0));
 }
 
 void tighten_ropesegment(game_s *g, rope_s *r,
@@ -299,51 +364,46 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         v2_i32 pprev = rp->p;
         v2_i32 pcurr = rc->p;
         v2_i32 pnext = rn->p;
-        if (v2_eq(pcurr, pprev) || v2_eq(pcurr, pnext)) {
+        // check if the three points are collinear
+        if (v2_crs(v2_sub(pprev, pcurr), v2_sub(pnext, pcurr)) == 0) {
                 ropenode_delete(r, rc);
                 return;
         }
 
-        // check if current ropenode is still bend around a convex triangle
-        // test if v and u of triangle point into the relevant arc
-        //
-        //     curr
-        //      o----------> next
-        //     /|\
-        //    / | \
-        //   /  |__\u
-        //  /   v
-        // prev
-        //
+        /* check if current ropenode is still bend around a convex triangle
+         * test if v and u of triangle point into the relevant arc
+         *
+         *     curr
+         *      o----------> next
+         *     /|\
+         *    / | \
+         *   /  |__\u
+         *  /   v
+         * prev
+         */
         v2_i32 c_to_p = v2_sub(pprev, pcurr);   // from curr to prev
         v2_i32 c_to_n = v2_sub(pnext, pcurr);   // from curr to next
         i32    z      = v2_crs(c_to_p, c_to_n); // benddirection
 
-        for (int y = 0; y < g->tiles_y; y++) {
-                for (int x = 0; x < g->tiles_x; x++) {
+        v2_i32 pmin = v2_min(pprev, v2_min(pcurr, pnext));
+        v2_i32 pmax = v2_max(pprev, v2_max(pcurr, pnext));
+        i32    x1   = MAX(pmin.x / 16 - 1, 0);
+        i32    y1   = MAX(pmin.y / 16 - 1, 0);
+        i32    x2   = MIN(pmax.x / 16 + 1, g->tiles_x - 1);
+        i32    y2   = MIN(pmax.y / 16 + 1, g->tiles_y - 1);
+        for (int y = y1; y <= y2; y++) {
+                for (int x = x1; x <= x2; x++) {
                         if (g->tiles[x + y * g->tiles_x] == 0) continue;
                         v2_i32 tilep[4] = {x * 16, y * 16,
                                            x * 16 + 16, y * 16,
                                            x * 16 + 16, y * 16 + 16,
                                            x * 16, y * 16 + 16};
                         for (int i = 0; i < 4; i++) {
-                                const v2_i32 op = tilep[i];
-                                if (!v2_eq(pcurr, op)) continue;
-                                v2_i32 u      = tilep[(i - 1 + 4) % 4];
-                                v2_i32 v      = tilep[(i + 1) % 4];
-                                v2_i32 c_to_u = v2_sub(u, pcurr);
-                                v2_i32 c_to_v = v2_sub(v, pcurr);
-                                i32    s1     = v2_crs(c_to_p, c_to_u);
-                                i32    s2     = v2_crs(c_to_n, c_to_u);
-                                i32    t1     = v2_crs(c_to_p, c_to_v);
-                                i32    t2     = v2_crs(c_to_n, c_to_v);
-                                if ((z >= 0 &&
-                                     s1 >= 0 && s2 <= 0 &&
-                                     t1 >= 0 && t2 <= 0) ||
-                                    (z <= 0 &&
-                                     s1 <= 0 && s2 >= 0 &&
-                                     t1 <= 0 && t2 >= 0))
-                                        return; // convex vertex
+                                if (rope_vertex_convex(z, tilep[i],
+                                                       tilep[(i + 3) % 4],
+                                                       tilep[(i + 1) % 4],
+                                                       pcurr, c_to_p, c_to_n))
+                                        return;
                         }
                 }
         }
@@ -356,36 +416,26 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                                      o->pos.x + o->w, o->pos.y + o->h,
                                      o->pos.x, o->pos.y + o->h};
                 for (int i = 0; i < 4; i++) {
-                        if (!v2_eq(pcurr, opoints[i])) continue;
-                        v2_i32 u      = opoints[(i - 1 + 4) % 4];
-                        v2_i32 v      = opoints[(i + 1) % 4];
-                        v2_i32 c_to_u = v2_sub(u, pcurr);
-                        v2_i32 c_to_v = v2_sub(v, pcurr);
-                        i32    s1     = v2_crs(c_to_p, c_to_u);
-                        i32    s2     = v2_crs(c_to_n, c_to_u);
-                        i32    t1     = v2_crs(c_to_p, c_to_v);
-                        i32    t2     = v2_crs(c_to_n, c_to_v);
-                        if ((z >= 0 &&
-                             s1 >= 0 && s2 <= 0 &&
-                             t1 >= 0 && t2 <= 0) ||
-                            (z <= 0 &&
-                             s1 <= 0 && s2 >= 0 &&
-                             t1 <= 0 && t2 >= 0))
-                                return; // convex vertex
+                        if (rope_vertex_convex(z, opoints[i],
+                                               opoints[(i + 3) % 4],
+                                               opoints[(i + 1) % 4],
+                                               pcurr, c_to_p, c_to_n))
+                                return;
                 }
         }
 
         ropenode_delete(r, rc);
+
         os_spmem_push();
         v2_arr *hull = v2_arrcreate(16, os_spmem_alloc);
         v2_arr *pts  = v2_arrcreate(64, os_spmem_alloc);
         v2_arradd(pts, pprev);
         v2_arradd(pts, pnext);
-
         tri_i32 tri = {pprev, pcurr, pnext};
         rope_points_in_tris(g, tri, tri, pts);
         v2_arrdelq(pts, pcurr); // ignore vertex at p1
         if (v2_arrlen(pts) == 2) {
+                // no convex hull to be found, direct connection
                 os_spmem_pop();
                 return;
         }
@@ -437,18 +487,22 @@ bool32 rope_intact(game_s *g, rope_s *r)
 
         // check for maximum stretch
         if (len_q4 > (len_max_q4 * 16) / 8) {
+                PRINTF("LENGTH");
                 return 0;
         }
 
-        return 1; // ignore blocked rope for now
-
-        // TODO: tri lineseg overlap faulty?
         for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
              r1 = r2, r2 = r2->next) {
-                lineseg_i32 ls = {r1->p, r2->p};
+                lineseg_i32 ls   = {r1->p, r2->p};
+                v2_i32      pmin = v2_min(r1->p, r2->p);
+                v2_i32      pmax = v2_max(r1->p, r2->p);
+                i32         x1   = MAX(pmin.x / 16 - 1, 0);
+                i32         y1   = MAX(pmin.y / 16 - 1, 0);
+                i32         x2   = MIN(pmax.x / 16 + 1, g->tiles_x - 1);
+                i32         y2   = MIN(pmax.y / 16 + 1, g->tiles_y - 1);
 
-                for (int y = 0; y < g->tiles_y; y++) {
-                        for (int x = 0; x < g->tiles_x; x++) {
+                for (int y = y1; y <= y2; y++) {
+                        for (int x = x1; x <= x2; x++) {
                                 if (g->tiles[x + y * g->tiles_x] == 0) continue;
                                 rec_i32 tilerec = {x * 16, y * 16, 16, 16};
                                 tri_i32 tris[2];
@@ -456,8 +510,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
                                 int a = overlap_tri_lineseg_excl(tris[0], ls);
                                 int b = overlap_tri_lineseg_excl(tris[1], ls);
                                 if (a || b) {
-                                        // below is kept in for debugging
-                                        // and stepping through
+                                        PRINTF("TILES\n");
                                         overlap_tri_lineseg_excl(tris[0], ls);
                                         overlap_tri_lineseg_excl(tris[1], ls);
                                         return 0;
@@ -470,8 +523,12 @@ bool32 rope_intact(game_s *g, rope_s *r)
                         obj_s  *o = solids.o[n];
                         tri_i32 tris[2];
                         rec_to_tri(obj_aabb(o), tris);
-                        if (overlap_tri_lineseg_excl(tris[0], ls) ||
-                            overlap_tri_lineseg_excl(tris[1], ls)) {
+                        int a = overlap_tri_lineseg_excl(tris[0], ls);
+                        int b = overlap_tri_lineseg_excl(tris[1], ls);
+                        if (a || b) {
+                                PRINTF("SOLID\n");
+                                overlap_tri_lineseg_excl(tris[0], ls);
+                                overlap_tri_lineseg_excl(tris[1], ls);
                                 return 0;
                         }
                 }
@@ -496,21 +553,19 @@ v2_i32 rope_adjust_connected_vel(rope_s *r, ropenode_s *rn,
         v2_i32 subpos_q4 = v2_shr(subpos, 4);
         v2_i32 dt_q4     = v2_add(v2_shl(ropedt, 4), subpos_q4);
 
-        v2_i32 frope = {0};
-        if (v2_dot(ropedt, vel) <= 0) {
-                v2_i32 vzero = {0};
-                v2_i32 vrad  = project_pnt_line(vel, vzero, dt_q4);
-                v2_i32 fdamp = v2_q_mulr(vrad, r->damping_q8, 8);
-                frope        = fdamp;
-        }
-
         i32 dt_len = (i32)(len_q4 - len_max_q4);
-        if (dt_len >= 1) {
-                i32    fspring_scalar = q_mulr(dt_len, r->spring_q8, 8);
-                v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
-                frope                 = v2_add(frope, fspring);
-        }
+        if (dt_len <= 0) return vel; // rope is not stretched
 
+        // damping force
+        v2_i32 vzero = {0};
+        v2_i32 vrad  = project_pnt_line(vel, vzero, dt_q4);
+        v2_i32 fdamp = v2_q_mulr(vrad, r->damping_q8, 8);
+
+        // spring force
+        i32    fspring_scalar = q_mulr(dt_len, r->spring_q8, 8);
+        v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
+
+        v2_i32 frope   = v2_add(fdamp, fspring);
         v2_i32 vel_new = v2_sub(vel, frope);
         return vel_new;
 }

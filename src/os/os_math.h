@@ -678,6 +678,15 @@ static void rec_to_tri(rec_i32 r, tri_i32 tris[2])
         tris[1]    = t2;
 }
 
+static rec_i32 rec_from_tri(tri_i32 t)
+{
+        v2_i32  pmin = v2_min(t.p[0], v2_min(t.p[1], t.p[2]));
+        v2_i32  pmax = v2_max(t.p[0], v2_max(t.p[1], t.p[2]));
+        rec_i32 r    = {pmin.x, pmin.y,
+                        pmax.x - pmin.x, pmax.y - pmin.y};
+        return r;
+}
+
 // returns interpolation data for the intersection:
 // S = A + [(B - A) * u] / den;
 // S = C + [(D - C) * v] / den;
@@ -706,28 +715,33 @@ static inline void intersect_line_u(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
         *den     = v2_crs(z, y);
 }
 
-// check if point on linesegment - on endpoints considered NOT overlapped
+/* check if point on linesegment - on endpoints considered NOT overlapped
+ * px = x0 + (x1 - x0) * s
+ * py = y0 + (y1 - y0) * s
+ *
+ * s = (px - x0) / (x1 - x0)
+ * s = (py - y0) / (y1 - y0)
+ *
+ * s has to be between 0 and 1 for p to be on the line segment
+ * also cross product == 0
+ */
 static bool32 overlap_lineseg_pnt_excl(lineseg_i32 l, v2_i32 p)
 {
-        v2_i32 d = v2_sub(l.b, l.a);
-        v2_i32 t = v2_sub(p, l.a);
-        if (v2_crs(t, d) != 0) return 0;
-        i32 x = d.x, y = d.y;
-        i32 u = t.x, v = t.y;
-        return (((0 < u && u < x) || (0 > u && u > x)) &&
-                ((0 < v && v < y) || (0 > v && v > y)));
+        v2_i32 d1 = v2_sub(p, l.a);
+        v2_i32 d2 = v2_sub(l.b, l.a);
+        return (v2_crs(d1, d2) == 0 &&
+                (between_excl_i32(d1.x, 0, d2.x) || //  <-- why here OR...?
+                 between_excl_i32(d1.y, 0, d2.y)));
 }
 
-// check if point on linesegment - on endpoints considered NOT overlapped
+// check if point on linesegment - on endpoints considered overlapped
 static bool32 overlap_lineseg_pnt_incl(lineseg_i32 l, v2_i32 p)
 {
-        v2_i32 d = v2_sub(l.b, l.a);
-        v2_i32 t = v2_sub(p, l.a);
-        if (v2_crs(t, d) != 0) return 0;
-        i32 x = d.x, y = d.y;
-        i32 u = t.x, v = t.y;
-        return (((0 <= u && u <= x) || (0 >= u && u >= x)) &&
-                ((0 <= v && v <= y) || (0 >= v && v >= y)));
+        v2_i32 d1 = v2_sub(p, l.a);
+        v2_i32 d2 = v2_sub(l.b, l.a);
+        return (v2_crs(d1, d2) == 0 &&
+                (between_incl_i32(d1.x, 0, d2.x) && //  <-- ...and here AND?
+                 between_incl_i32(d1.y, 0, d2.y)));
 }
 
 // check if point on linesegment - on endpoints considered NOT overlapped
@@ -853,8 +867,6 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
         return (u >= 0 && v >= 0 && w >= 0) || (u <= 0 && v <= 0 && w <= 0);
 }
 
-// static bool32 overlap_tri
-
 // TODO: NEEDS FURTHER CHECKING!
 // check for overlap - touching considered NOT overlapped
 static bool32 overlap_tri_lineseg_excl(tri_i32 tri, lineseg_i32 l)
@@ -868,6 +880,7 @@ static bool32 overlap_tri_lineseg_excl(tri_i32 tri, lineseg_i32 l)
         int         o1 = overlap_tri_pnt_excl(tri, l.a);
         if (a0 || a1 || a2 || o1)
                 return 1;
+
         // special case: line segment goes through the triangle
         // and has its endpoints ON the boundary
         // check if those endpoints lie on two different triangle lines

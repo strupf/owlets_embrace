@@ -15,6 +15,7 @@
 
 #include "gamedef.h"
 #include "objflags.h"
+#include "pathmovement.h"
 #include "rope.h"
 
 // movement is going to work similar like in Celeste
@@ -73,7 +74,8 @@ struct obj_s {
 
         bool32 attached;
 
-        char new_mapfile[64];
+        char        new_mapfile[64];
+        pathmover_s path;
 };
 
 bool32      objhandle_is_valid(objhandle_s h);
@@ -99,8 +101,7 @@ void        obj_move_x(game_s *g, obj_s *o, int dx);
 void        obj_move_y(game_s *g, obj_s *o, int dy);
 bool32      actor_step_x(game_s *g, obj_s *o, int sx);
 bool32      actor_step_y(game_s *g, obj_s *o, int sy);
-void        solid_step_x(game_s *g, obj_s *o, int sx);
-void        solid_step_y(game_s *g, obj_s *o, int sy);
+void        solid_move(game_s *g, obj_s *o, int dx, int dy);
 void        obj_apply_movement(obj_s *o);
 //
 void        objset_add_all_in_radius(objset_s       *set,

@@ -58,6 +58,7 @@ obj_s *obj_create(game_s *g)
         o->index                   = index;
 
         objset_add(&g->obj_active, o);
+
         return o;
 }
 
@@ -273,42 +274,36 @@ static void solid_step(game_s *g, obj_s *o, int sx, int sy)
         ASSERT((ABS(sx) == 1 && sy == 0) || (ABS(sy) == 1 && sx == 0));
 
         obj_s *hero;
-        if (!try_obj_from_handle(g->hero.obj, &hero)) return;
-        if (hero->rope) {
+        if (try_obj_from_handle(g->hero.obj, &hero) && hero->rope) {
                 o->soliddisabled = 1;
                 rope_moved_by_solid(g, hero->rope, o, (v2_i32){sx, sy});
                 o->soliddisabled = 0;
         }
 
-        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
         o->pos.x += sx;
         o->pos.y += sy;
-
-        rec_i32 r = obj_aabb(o);
+        rec_i32     r      = obj_aabb(o);
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
         for (int n = 0; n < actors.n; n++) {
                 obj_s  *a     = actors.o[n];
                 rec_i32 aabb  = obj_aabb(a);
                 rec_i32 rfeet = translate_rec_xy(obj_rec_bottom(a), sx, sy);
-                if (overlap_rec_excl(r, aabb) ||
-                    overlap_rec_excl(r, rfeet)) {
+                if (overlap_rec_excl(r, aabb) || overlap_rec_excl(r, rfeet)) {
                         if (sx != 0) actor_step_x(g, a, sx);
-                        if (sy != 0) actor_step_x(g, a, sy);
+                        if (sy != 0) actor_step_y(g, a, sy);
                 }
         }
-        // o->soliddisabled = 0;
 }
 
-void solid_step_x(game_s *g, obj_s *o, int sx)
+void solid_move(game_s *g, obj_s *o, int dx, int dy)
 {
-        for (int m = ABS(sx); m > 0; m--) {
-                solid_step(g, o, SGN(sx), 0);
+        int sx = SGN(dx);
+        for (int m = ABS(dx); m > 0; m--) {
+                solid_step(g, o, sx, 0);
         }
-}
-
-void solid_step_y(game_s *g, obj_s *o, int sy)
-{
-        for (int m = ABS(sy); m > 0; m--) {
-                solid_step(g, o, 0, SGN(sy));
+        int sy = SGN(dy);
+        for (int m = ABS(dy); m > 0; m--) {
+                solid_step(g, o, 0, sy);
         }
 }
 

@@ -22,7 +22,7 @@ static const u8 blob_duplicate[] = {
     5, 3, // 31
     1, 0, // 68 horizontal
     3, 0, // 68
-    3, 1, // 68
+    4, 0, // 68
     4, 1, // 124 top
     6, 1, // 124
     3, 5, // 124
@@ -174,6 +174,7 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
                 if ((m & 0x14) == 0x14 && autotile_fits(tiling, +1, +1, ttype))
                         m |= 0x08; // bot right
 
+                g->rtiles[n][0].m     = m;
                 g->rtiles[n][0].flags = 0;
 
                 // some tiles have variants

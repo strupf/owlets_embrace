@@ -9,6 +9,7 @@
 #include "game/load.c"
 #include "game/obj.c"
 #include "game/objset.c"
+#include "game/pathmovement.c"
 #include "game/rope.c"
 #include "game/textbox.c"
 //

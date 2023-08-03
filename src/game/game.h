@@ -38,6 +38,7 @@ struct rtile_s {
         uint tx;
         uint ty;
         u8   flags;
+        int  m;
 };
 
 enum {

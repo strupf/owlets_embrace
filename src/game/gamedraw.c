@@ -7,6 +7,8 @@
 
 static void draw_textbox(game_s *g)
 {
+        rec_i32 r = {10, 100, 380, 50};
+        gfx_rec_fill(r, 1);
 }
 
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32 camy1)

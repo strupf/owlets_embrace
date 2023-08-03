@@ -41,56 +41,6 @@ void game_init(game_s *g)
         solid->pos.y = 100;
         solid->w     = 64;
         solid->h     = 32;
-
-        for (int y = 0; y < g->tiles_y; y++) {
-                for (int x = 0; x < g->tiles_x; x++) {
-                        int t  = g->tiles[x + y * g->tiles_x];
-                        int xx = x * 16;
-                        int yy = y * 16;
-
-                        /*
-                        ASSERT(g->coll.n + 2 < ARRLEN(g->coll.tris));
-                        // the tris for slopes below are wrong
-                        // but this is just for testing purposes anyway
-                        switch (t) {
-                        case TILE_BLOCK: {
-                                tri_i32 t1                = {xx, yy,
-                                                             xx + 16, yy,
-                                                             xx, yy + 16};
-                                tri_i32 t2                = {xx + 16, yy + 16,
-                                                             xx + 16, yy,
-                                                             xx, yy + 16};
-                                g->coll.tris[g->coll.n++] = t1;
-                                g->coll.tris[g->coll.n++] = t2;
-                        } break;
-                        case TILE_SLOPE_45_1: {
-                                tri_i32 t1                = {xx + 16, yy + 16,
-                                                             xx, yy + 16,
-                                                             xx + 16, yy};
-                                g->coll.tris[g->coll.n++] = t1;
-                        } break;
-                        case TILE_SLOPE_45_2: {
-                                tri_i32 t1                = {xx, yy,
-                                                             xx + 16, yy,
-                                                             xx + 16, yy + 16};
-                                g->coll.tris[g->coll.n++] = t1;
-                        } break;
-                        case TILE_SLOPE_45_3: {
-                                tri_i32 t1                = {xx, yy,
-                                                             xx, yy + 16,
-                                                             xx + 16, yy + 16};
-                                g->coll.tris[g->coll.n++] = t1;
-                        } break;
-                        case TILE_SLOPE_45_4: {
-                                tri_i32 t1                = {xx, yy,
-                                                             xx + 16, yy,
-                                                             xx, yy + 16};
-                                g->coll.tris[g->coll.n++] = t1;
-                        } break;
-                        }
-                        */
-                }
-        }
 }
 
 void game_update(game_s *g)
@@ -113,7 +63,7 @@ void game_update(game_s *g)
                 if (solid->pos.x < 5) {
                         dir = +1;
                 }
-                solid_step_x(g, solid, dir * 2);
+                solid_move(g, solid, dir * 2, 0);
         }
 
         obj_s *o;
@@ -177,7 +127,8 @@ static void cam_update(game_s *g, cam_s *c)
         obj_s *player;
         if (try_obj_from_handle(g->hero.obj, &player)) {
                 v2_i32 target = obj_aabb_center(player);
-                c->target     = target;
+                target.y -= c->h / 8; // offset camera slightly upwards
+                c->target = target;
         }
 
         v2_i32 dt  = v2_sub(c->target, c->pos);

@@ -174,7 +174,6 @@ void hero_update(game_s *g, obj_s *o, hero_s *h)
                 hook_destroy(g, h, o, hook);
                 return;
         }
-
         rope_update(g, &h->rope);
 
         if (hook->attached) {
