@@ -48,7 +48,7 @@ obj_s *hero_create(game_s *g, hero_s *h)
         obj_set_flags(g, hero, flags);
         hero->actorflags = ACTOR_FLAG_CLIMB_SLOPES |
                            ACTOR_FLAG_GLUE_GROUND;
-        hero->pos.x        = 50;
+        hero->pos.x        = 200;
         hero->pos.y        = 20;
         hero->w            = 16;
         hero->h            = 24;

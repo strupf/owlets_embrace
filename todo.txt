@@ -3,11 +3,13 @@ general
   -> error message instead of crashing silently without a debugger
 
 gameplay
-* rope improvement
-* rope as a dedicated usable item
 * better character controls
-* implement a hook aiming mechanic
-* make moving solids interact with the rope
+* rope
+    * rope as a dedicated usable item
+    * aiming mechanic
+* path movement for moving platforms
+    * linear, pingpong, circular
+    * load path from map
 
 loading
 * autotiling for low and high slopes
@@ -15,7 +17,16 @@ loading
 
 graphics
 * current selected item frame
-* better rope rendering (textured thick rope)
+* rope
+    * better rendering (textured thick rope?)
+    * "hanging" of rope when not stretched
+
+
+textbox
+* multiple blocks of texts in a row ("continue button")
+* split worlds in a textbox in a sensible way
+* effects and other glyphs in a textbox
+* typewriter noises
 
 bugs
 * rope: removal of a point during tighten can result in three

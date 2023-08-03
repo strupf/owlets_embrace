@@ -13,6 +13,7 @@ void game_init(game_s *g)
         gfx_set_inverted(1);
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         tex_put(TEXID_TILESET, tex_load("assets/tilesets.json"));
+        tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font1.json"));
         g->cam.w  = 400;
         g->cam.h  = 240;
@@ -37,10 +38,13 @@ void game_init(game_s *g)
         obj_s     *solid = obj_create(g);
         objflags_s flags = objflags_create(OBJ_FLAG_SOLID);
         obj_set_flags(g, solid, flags);
-        solid->pos.x = 0;
-        solid->pos.y = 100;
+        solid->pos.x = 200;
+        solid->pos.y = 192 - 32;
         solid->w     = 64;
         solid->h     = 32;
+
+        textbox_init(&g->textbox);
+        textbox_set_text_ascii(&g->textbox, "Hello,\nthis is just a random textbox and filled with all kinds of text. Hope you enjoy!");
 }
 
 void game_update(game_s *g)
@@ -57,10 +61,10 @@ void game_update(game_s *g)
         if (solids.n > 0) {
                 static int dir   = 1;
                 obj_s     *solid = solids.o[0];
-                if (solid->pos.x > 300) {
+                if (solid->pos.x > 350) {
                         dir = -1;
                 }
-                if (solid->pos.x < 5) {
+                if (solid->pos.x < 100) {
                         dir = +1;
                 }
                 solid_move(g, solid, dir * 2, 0);

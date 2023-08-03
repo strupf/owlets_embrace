@@ -5,10 +5,26 @@
 #include "game.h"
 #include "os/os.h"
 
-static void draw_textbox(game_s *g)
+static void draw_textbox(textbox_s *tb)
 {
-        rec_i32 r = {10, 100, 380, 50};
-        gfx_rec_fill(r, 1);
+        if (!tb->shows_all) {
+                tb->typewriter_tick++;
+                if (tb->typewriter_tick >= TEXTBOX_TICKS_PER_CHAR) {
+                        tb->typewriter_tick -= TEXTBOX_TICKS_PER_CHAR;
+                        if (!textbox_show_more(tb)) {
+                                tb->shows_all = 1;
+                        }
+                }
+        }
+
+        fnt_s   font = fnt_get(FNTID_DEFAULT);
+        rec_i32 r    = (rec_i32){12, 9, 376, 90};
+        gfx_sprite(tex_get(TEXID_TEXTBOX), (v2_i32){12, 140}, r, 0);
+        for (int l = 0; l < TEXTBOX_LINES; l++) {
+                textboxline_s *line = &tb->lines[l];
+                gfx_text_glyphs(&font, line->chars, line->n_shown,
+                                20, 110 + 30 * l);
+        }
 }
 
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32 camy1)
@@ -38,10 +54,11 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32
 
 void game_draw(game_s *g)
 {
-        i32 camx1 = g->cam.pos.x - g->cam.wh;
-        i32 camy1 = g->cam.pos.y - g->cam.hh;
-        i32 camx2 = camx1 + g->cam.w;
-        i32 camy2 = camy1 + g->cam.h;
+        g->textbox.active = 1;
+        i32 camx1         = g->cam.pos.x - g->cam.wh;
+        i32 camy1         = g->cam.pos.y - g->cam.hh;
+        i32 camx2         = camx1 + g->cam.w;
+        i32 camy2         = camy1 + g->cam.h;
 
         i32 tx1 = (uint)MAX(camx1, 0) / 16;
         i32 ty1 = (uint)MAX(camy1, 0) / 16;
@@ -59,7 +76,7 @@ void game_draw(game_s *g)
         }
 
         if (g->textbox.active) {
-                draw_textbox(g);
+                draw_textbox(&g->textbox);
         }
 
         if (objhandle_is_valid(g->hero.hook)) {

@@ -180,19 +180,29 @@ fnt_s fnt_load(const char *filename)
         return fnt;
 }
 
-void fntstr_append_glyph(fntstr_s *f, int glyphID)
+fntchar_s fntchar_from_glyphID(int glyphID)
 {
-        ASSERT(f->n < f->c);
-        fntchar_s c      = {glyphID, 0};
-        f->chars[f->n++] = c;
+        fntchar_s c = {glyphID, 0};
+        return c;
 }
 
-void fntstr_append_ascii(fntstr_s *f, const char *txt)
+bool32 fntstr_append_glyph(fntstr_s *f, int glyphID)
 {
-        for (int i = 0; txt[i] != '\0'; i++) {
+        if (f->n >= f->c) return 0;
+        fntchar_s c      = {glyphID, 0};
+        f->chars[f->n++] = c;
+        return 1;
+}
+
+int fntstr_append_ascii(fntstr_s *f, const char *txt)
+{
+        int i;
+        for (i = 0; txt[i] != '\0'; i++) {
                 int c = (int)txt[i];
-                fntstr_append_glyph(f, c);
+                if (!fntstr_append_glyph(f, c))
+                        return i;
         }
+        return i;
 }
 
 int fntstr_len(fntstr_s *f)
@@ -395,6 +405,26 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
         v2_i32 p = {x, y};
         for (int i = 0; i < fntstr_len(str); i++) {
                 fntchar_s c   = str->chars[i];
+                int       cID = (int)c.glyphID;
+                int       gy  = cID >> 5; // 32 glyphs in a row
+                int       gx  = cID & 31;
+                rec_i32   r   = {gx * font->gridw,
+                                 gy * font->gridh,
+                                 font->gridw,
+                                 font->gridh};
+                gfx_sprite(fonttex, p, r, 0);
+                p.x += font->glyph_widths[cID];
+        }
+}
+
+void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
+{
+        tex_s fonttex = font->tex;
+        gfx_draw_to(tex_get(TEXID_DISPLAY));
+
+        v2_i32 p = {x, y};
+        for (int i = 0; i < l; i++) {
+                fntchar_s c   = chars[i];
                 int       cID = (int)c.glyphID;
                 int       gy  = cID >> 5; // 32 glyphs in a row
                 int       gx  = cID & 31;

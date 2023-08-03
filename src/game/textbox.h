@@ -8,21 +8,30 @@
 #include "gamedef.h"
 
 enum {
-        TEXTBOX_ROWS          = 4,
-        TEXTBOX_CHARS_PER_ROW = 32,
+        TEXTBOX_LINES          = 4,
+        TEXTBOX_CHARS_PER_LINE = 24,
+        TEXTBOX_TICKS_PER_CHAR = 2,
 };
+
+typedef struct {
+        int       n_shown;
+        int       n;
+        fntchar_s chars[TEXTBOX_CHARS_PER_LINE];
+} textboxline_s;
 
 struct textbox_s {
-        bool32    active;
-        fntchar_s chars[TEXTBOX_ROWS][TEXTBOX_CHARS_PER_ROW];
-        fntstr_s  str[TEXTBOX_ROWS];
-        int       n_row;
-        int       n_chars_shown;
-        int       n_total_characters;
+        int           typewriter_tick;
+        bool32        shows_all;
+        bool32        active;
+        textboxline_s lines[TEXTBOX_LINES];
 };
 
+void textbox_init(textbox_s *tb);
 void textbox_clr(textbox_s *tb);
 void textbox_set_text_ascii(textbox_s *tb, const char *txt);
-void textbox_show_more(textbox_s *tb);
+
+// returns 1 if another character is shown, and 0 if the whole text
+// is visible
+bool32 textbox_show_more(textbox_s *tb);
 
 #endif
