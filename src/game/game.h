@@ -92,10 +92,16 @@ void       game_draw(game_s *g);
 void       game_close(game_s *g);
 //
 tilegrid_s game_tilegrid(game_s *g);
-void       game_map_transition_start(game_s *g);
+void       game_map_transition_start(game_s *g, const char *filename);
 void       game_load_map(game_s *g, const char *filename);
 bool32     game_area_blocked(game_s *g, rec_i32 r);
 
 obj_listc_s objbucket_list(game_s *g, int bucketID);
+void        game_tile_bounds_minmax(game_s *g, v2_i32 pmin, v2_i32 pmax,
+                                    i32 *x1, i32 *y1, i32 *x2, i32 *y2);
+void        game_tile_bounds_tri(game_s *g, tri_i32 t,
+                                 i32 *x1, i32 *y1, i32 *x2, i32 *y2);
+void        game_tile_bounds_rec(game_s *g, rec_i32 r,
+                                 i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 
 #endif

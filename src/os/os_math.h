@@ -673,7 +673,7 @@ static inline bool32 contain_rec_pnt_excl(rec_i32 r, v2_i32 p)
 }
 
 // turns an AABB into two triangles
-static void rec_to_tri(rec_i32 r, tri_i32 tris[2])
+static void tris_from_rec(rec_i32 r, tri_i32 tris[2])
 {
         tri_i32 t1 = {r.x, r.y,
                       r.x + r.w, r.y,
@@ -694,11 +694,28 @@ static rec_i32 rec_from_tri(tri_i32 t)
         return r;
 }
 
+/* 0-----1
+ * |     |
+ * 3-----2
+ */
+static void points_from_rec(rec_i32 r, v2_i32 *pts)
+{
+        pts[0].x = r.x;
+        pts[0].y = r.y;
+        pts[1].x = r.x + r.w;
+        pts[1].y = r.y;
+        pts[2].x = r.x + r.w;
+        pts[2].y = r.y + r.h;
+        pts[3].x = r.x;
+        pts[3].y = r.y + r.h;
+}
+
 // returns interpolation data for the intersection:
 // S = A + [(B - A) * u] / den;
 // S = C + [(D - C) * v] / den;
-static inline void intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
-                                     i32 *u, i32 *v, i32 *den)
+static inline void
+intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
+                  i32 *u, i32 *v, i32 *den)
 {
         ASSERT(u && v && den);
         v2_i32 x = v2_sub(a, c);
@@ -977,6 +994,14 @@ static bool32 overlap_tri_excl(tri_i32 tri1, tri_i32 tri2)
                 break;
         }
         return 0;
+}
+
+static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
+{
+        tri_i32 tris[2];
+        tris_from_rec(r, tris);
+        return (overlap_tri_lineseg_excl(tris[0], l) ||
+                overlap_tri_lineseg_excl(tris[1], l));
 }
 
 #endif

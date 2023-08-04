@@ -270,7 +270,7 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
         int i = (x >> 3) + y * t.w_byte;
         int m = 1 << (7 - (x & 7));
         *px   = ((t.px[i] & m) > 0);
-        *op   = ((t.mask[i] & m) > 0);
+        *op   = (t.mask[i] & m);
 }
 
 static const int pxmode[][4] = {0};
@@ -352,6 +352,78 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
                         if (op) i_gfx_put_px(dst, xp, yp, px, 0);
                 }
         }
+}
+
+void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
+{
+        ASSERT(rs.x % 8 == 0 && rs.y % 8 == 0 && rs.w % 8 == 0 && rs.h % 8 == 0);
+#if 0
+        // implement drawing and masking using whole bytes
+        NOT_IMPLEMENTED
+        tex_s dst = g_os.dst;
+        int   zx  = dst.w - pos.x;
+        int   zy  = dst.h - pos.y;
+        int   x2  = rs.w <= zx ? rs.w : zx;
+        int   y2  = rs.h <= zy ? rs.h : zy;
+        int   x1  = 0 >= -pos.x ? 0 : -pos.x;
+        int   y1  = 0 >= -pos.y ? 0 : -pos.y;
+
+        int b1 = rs.x / 8;
+        int b2 = (rs.x + rs.w - 1) / 8 + 1;
+
+        for (int y = y1; y < y2; y++) {
+                for (int b = b1; b < b2; b++) {
+                        // the byte will most probably be split
+
+                        int dbyte1;
+                        int dbyte2;
+                        int mask_1;
+                        int mask_2;
+                        int draw_1;
+                        int draw_2;
+
+                        dbyte1 = (dbyte1 & mask_1) | (ddraw_1 & ~mask_1);
+                        dbyte2 = (dbyte2 & mask_2) | (ddraw_2 & ~mask_2);
+                }
+        }
+#else
+        tex_s dst     = g_os.dst;
+        int   zx      = dst.w - pos.x;
+        int   zy      = dst.h - pos.y;
+        int   x2      = rs.w <= zx ? rs.w : zx;
+        int   y2      = rs.h <= zy ? rs.h : zy;
+        int   x1      = 0 >= -pos.x ? 0 : -pos.x;
+        int   y1      = 0 >= -pos.y ? 0 : -pos.y;
+
+        for (int y = y1; y < y2; y++) {
+                for (int x = x1; x < x2; x++) {
+                        int xs = x + rs.x;
+                        int ys = y + rs.y;
+                        int xd = x + pos.x;
+                        int yd = y + pos.y;
+#if 1
+                        int i  = (xs >> 3) + ys * src.w_byte;
+                        int m  = 1 << (7 - (xs & 7));
+                        if (!(src.mask[i] & m)) continue;
+
+                        int p = (src.px[i] & m);
+                        int j = (xd >> 3) + yd * dst.w_byte;
+                        int s = (xd & 7);
+                        int k = dst.px[j];
+                        if (p) {
+                                k |= (1u << (7 - s)); // set bit
+                        } else {
+                                k &= ~(1u << (7 - s)); // clear bit
+                        }
+                        dst.px[j] = (u8)k;
+#else
+                        int px, op;
+                        i_gfx_peek(src, xs, ys, &px, &op);
+                        if (op) i_gfx_put_px(dst, xd, yd, px, 0);
+#endif
+                }
+        }
+#endif
 }
 
 void gfx_rec_fill(rec_i32 r, int col)

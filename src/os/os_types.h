@@ -132,10 +132,55 @@ static int char_hex_to_int(char c)
 
 static bool32 streq(char *str1, char *str2)
 {
+        ASSERT(str1 && str2);
         for (int i = 0; str1[i] != '\0' && str2[i] != '\0'; i++) {
                 if (str1[i] != str2[i]) return 0;
         }
         return 1;
+}
+
+static int os_strlen(const char *s)
+{
+        ASSERT(s);
+        int l = 0;
+        while (s[l] != '\0') {
+                l++;
+        }
+        return l;
+}
+
+static char *os_strcpy(char *dst, const char *src)
+{
+        ASSERT(dst && src);
+        for (int i = 0;; i++) {
+                dst[i] = src[i];
+                if (src[i] == '\0') break;
+        }
+        return dst;
+}
+
+static void os_strncpy(char *dst, const char *src)
+{
+        ASSERT(dst && src);
+        for (int i = 0;; i++) {
+                if (src[i] == '\0') break;
+                dst[i] = src[i];
+        }
+        return dst;
+}
+
+static char *os_strcat(char *s1, const char *s2)
+{
+        ASSERT(s1 && s2);
+        int i = 0;
+        while (s1[i] != '\0') {
+                i++;
+        }
+        for (int k = 0;; k++) {
+                s1[i + k] = s2[k];
+                if (s2[k] == '\0') break;
+        }
+        return s1;
 }
 
 #endif

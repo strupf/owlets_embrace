@@ -38,6 +38,7 @@ struct objhandle_s {
 enum obj_bucket {
         OBJ_BUCKET_ACTOR,
         OBJ_BUCKET_SOLID,
+        OBJ_BUCKET_NEW_AREA_COLLIDER,
         //
         NUM_OBJ_BUCKETS
 };

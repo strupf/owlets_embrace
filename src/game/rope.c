@@ -4,7 +4,6 @@
 
 #include "rope.h"
 #include "game.h"
-
 void rope_init(rope_s *r)
 {
         for (int n = 2; n < NUM_ROPE_NODES - 1; n++) {
@@ -120,12 +119,8 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         v2_i32 pmin2 = v2_min(t2.p[0], v2_min(t2.p[1], t2.p[2]));
         v2_i32 pmax1 = v2_max(t1.p[0], v2_max(t1.p[1], t1.p[2]));
         v2_i32 pmax2 = v2_max(t2.p[0], v2_max(t2.p[1], t2.p[2]));
-        v2_i32 pmin  = v2_min(pmin1, pmin2);
-        v2_i32 pmax  = v2_max(pmax1, pmax2);
-        i32    x1    = MAX(pmin.x / 16, 0);
-        i32    y1    = MAX(pmin.y / 16, 0);
-        i32    x2    = MIN(pmax.x / 16, g->tiles_x - 1);
-        i32    y2    = MIN(pmax.y / 16, g->tiles_y - 1);
+        i32    x1, y1, x2, y2;
+        game_tile_bounds_minmax(g, v2_min(pmin1, pmin2), v2_max(pmax1, pmax2), &x1, &y1, &x2, &y2);
         for (int y = y1; y <= y2; y++) {
                 for (int x = x1; x <= x2; x++) {
                         int t = g->tiles[x + y * g->tiles_x];
@@ -144,10 +139,8 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         for (int n = 0; n < solids.n; n++) {
                 const obj_s *o = solids.o[n];
                 if (o->soliddisabled) continue;
-                const v2_i32 points[4] = {o->pos.x, o->pos.y,
-                                          o->pos.x + o->w, o->pos.y,
-                                          o->pos.x, o->pos.y + o->h,
-                                          o->pos.x + o->w, o->pos.y + o->h};
+                v2_i32 points[4];
+                points_from_rec(obj_aabb(o), points);
                 for (int i = 0; i < 4; i++) {
                         try_add_point_in_tri(points[i], t1, t2, pts);
                 }
@@ -240,15 +233,13 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 
         const obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
-                const obj_s *o          = solids.o[n];
-                const v2_i32 opoints[4] = {o->pos.x, o->pos.y,
-                                           o->pos.x + o->w, o->pos.y,
-                                           o->pos.x, o->pos.y + o->h,
-                                           o->pos.x + o->w, o->pos.y + o->h};
-                for (int i = 0; i < 4; i++) {
-                        if (!v2_arrcontains(points, opoints[i]))
-                                v2_arradd(points, opoints[i]);
-                }
+                const obj_s *o = solids.o[n];
+                v2_i32       opoints[4];
+                points_from_rec(obj_aabb(o), opoints);
+                if (!v2_arrcontains(points, opoints[0])) v2_arradd(points, opoints[0]);
+                if (!v2_arrcontains(points, opoints[1])) v2_arradd(points, opoints[1]);
+                if (!v2_arrcontains(points, opoints[2])) v2_arradd(points, opoints[2]);
+                if (!v2_arrcontains(points, opoints[3])) v2_arradd(points, opoints[3]);
         }
 
         rope_s ropecopy = *r;
@@ -273,15 +264,11 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                         r1->p        = p_end;
                         if (r1->prev) {
                                 tri_i32 tri = {r1->prev->p, rnold, p_end};
-                                ropenode_on_moved(g, r, r1,
-                                                  rnold, p_end,
-                                                  r1->prev, tri);
+                                ropenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
                         }
                         if (r1->next) {
                                 tri_i32 tri = {r1->next->p, rnold, p_end};
-                                ropenode_on_moved(g, r, r1,
-                                                  rnold, p_end,
-                                                  r1->next, tri);
+                                ropenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
                         }
                 }
 
@@ -384,12 +371,9 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         v2_i32 c_to_n = v2_sub(pnext, pcurr);   // from curr to next
         i32    z      = v2_crs(c_to_p, c_to_n); // benddirection
 
-        v2_i32 pmin = v2_min(pprev, v2_min(pcurr, pnext));
-        v2_i32 pmax = v2_max(pprev, v2_max(pcurr, pnext));
-        i32    x1   = MAX(pmin.x / 16 - 1, 0);
-        i32    y1   = MAX(pmin.y / 16 - 1, 0);
-        i32    x2   = MIN(pmax.x / 16 + 1, g->tiles_x - 1);
-        i32    y2   = MIN(pmax.y / 16 + 1, g->tiles_y - 1);
+        tri_i32 trispan = {pprev, pcurr, pnext};
+        i32     x1, y1, x2, y2;
+        game_tile_bounds_tri(g, trispan, &x1, &y1, &x2, &y2);
         for (int y = y1; y <= y2; y++) {
                 for (int x = x1; x <= x2; x++) {
                         int t = g->tiles[x + y * g->tiles_x];
@@ -414,11 +398,9 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
         obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
-                obj_s *o          = solids.o[n];
-                v2_i32 opoints[4] = {o->pos.x, o->pos.y,
-                                     o->pos.x + o->w, o->pos.y,
-                                     o->pos.x + o->w, o->pos.y + o->h,
-                                     o->pos.x, o->pos.y + o->h};
+                obj_s *o = solids.o[n];
+                v2_i32 opoints[4];
+                points_from_rec(obj_aabb(o), opoints);
                 for (int i = 0; i < 4; i++) {
                         if (rope_vertex_convex(z, opoints[i],
                                                opoints[(i + 3) % 4],
@@ -500,27 +482,23 @@ bool32 rope_intact(game_s *g, rope_s *r)
 
         for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
              r1 = r2, r2 = r2->next) {
-                lineseg_i32 ls   = {r1->p, r2->p};
-                v2_i32      pmin = v2_min(r1->p, r2->p);
-                v2_i32      pmax = v2_max(r1->p, r2->p);
-                i32         x1   = MAX(pmin.x / 16 - 1, 0);
-                i32         y1   = MAX(pmin.y / 16 - 1, 0);
-                i32         x2   = MIN(pmax.x / 16 + 1, g->tiles_x - 1);
-                i32         y2   = MIN(pmax.y / 16 + 1, g->tiles_y - 1);
-
+                lineseg_i32 ls = {r1->p, r2->p};
+                i32         x1, y1, x2, y2;
+                game_tile_bounds_minmax(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
+                                        &x1, &y1, &x2, &y2);
                 for (int y = y1; y <= y2; y++) {
                         for (int x = x1; x <= x2; x++) {
                                 int t = g->tiles[x + y * g->tiles_x];
                                 if (t == 0) continue;
-                                tilecollider_s tc  = tilecolliders[t - 1];
-                                tri_i32        tr1 = translate_tri_xy(tc.tris[0], x * 16, y * 16);
-                                tri_i32        tr2 = translate_tri_xy(tc.tris[1], x * 16, y * 16);
+                                tilecollider_s tc = tilecolliders[t - 1];
+                                v2_i32         ts = {x * 16, y * 16};
 
-                                bool32 a = overlap_tri_lineseg_excl(tr1, ls);
-                                bool32 b = overlap_tri_lineseg_excl(tr2, ls);
-                                if (a || b) {
+                                tri_i32 tr1 = translate_tri(tc.tris[0], ts);
+                                tri_i32 tr2 = translate_tri(tc.tris[1], ts);
+                                if (overlap_tri_lineseg_excl(tr1, ls) ||
+                                    overlap_tri_lineseg_excl(tr2, ls)) {
                                         PRINTF("TILES\n");
-                                        overlap_tri_lineseg_excl(tr1, ls); // ony for stepping through
+                                        overlap_tri_lineseg_excl(tr1, ls); // ony for debugging
                                         overlap_tri_lineseg_excl(tr2, ls);
                                         return 0;
                                 }
@@ -529,15 +507,10 @@ bool32 rope_intact(game_s *g, rope_s *r)
 
                 obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
                 for (int n = 0; n < solids.n; n++) {
-                        obj_s  *o = solids.o[n];
-                        tri_i32 tris[2];
-                        rec_to_tri(obj_aabb(o), tris);
-                        int a = overlap_tri_lineseg_excl(tris[0], ls);
-                        int b = overlap_tri_lineseg_excl(tris[1], ls);
-                        if (a || b) {
+                        obj_s *o = solids.o[n];
+                        if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
                                 PRINTF("SOLID\n");
-                                overlap_tri_lineseg_excl(tris[0], ls); // ony for stepping through
-                                overlap_tri_lineseg_excl(tris[1], ls);
+                                overlap_rec_lineseg_excl(obj_aabb(o), ls); // ony for debugging
                                 return 0;
                         }
                 }

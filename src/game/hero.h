@@ -36,5 +36,6 @@ struct hero_s {
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, hero_s *h);
+void   hero_check_level_transition(game_s *g, obj_s *hero);
 
 #endif

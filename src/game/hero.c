@@ -134,8 +134,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                         v2_i32 center  = obj_aabb_center(o);
                         v2_i32 vlaunch = {dirx, diry};
                         vlaunch        = v2_shl(vlaunch, 10);
-                        obj_s *hook    = hook_create(g, &h->rope,
-                                                     center, vlaunch);
+                        obj_s *hook    = hook_create(g, &h->rope, center, vlaunch);
                         h->hook        = objhandle_from_obj(hook);
                         o->ropenode    = h->rope.head;
                         o->rope        = &h->rope;
@@ -153,6 +152,61 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         }
 }
 
+static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
+{
+        rope_s *r           = &h->rope;
+        int     crankchange = os_inp_crank_change();
+        if (os_inp_dpad_y()) {
+                crankchange = os_inp_dpad_y() * 1000;
+        }
+        if (crankchange) {
+                r->len_max_q16 += crankchange * 100;
+                r->len_max_q16 = MAX(r->len_max_q16, 0x40000);
+                r->len_max     = r->len_max_q16 >> 16;
+        }
+
+        if (!hook->attached) {
+                v2_i32 hookp = hook->pos;
+                obj_apply_movement(hook);
+                v2_i32 dthook = v2_sub(hook->pos_new, hook->pos);
+                obj_move_x(g, hook, dthook.x);
+                obj_move_y(g, hook, dthook.y);
+                rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
+                if (game_area_blocked(g, hookrec)) {
+                        hook->attached   = 1;
+                        hook->gravity_q8 = (v2_i32){0};
+                        hook->vel_q8     = (v2_i32){0};
+                }
+        }
+
+        if (!rope_intact(g, &h->rope)) {
+                hook_destroy(g, h, o, hook);
+                return;
+        }
+
+        rope_update(g, &h->rope);
+        if (hook->attached) {
+                o->vel_q8 = rope_adjust_connected_vel(r, r->head,
+                                                      o->subpos_q8, o->vel_q8);
+        } else {
+                hook->vel_q8 = rope_adjust_connected_vel(r, r->tail,
+                                                         hook->subpos_q8, hook->vel_q8);
+        }
+}
+
+void hero_check_level_transition(game_s *g, obj_s *hero)
+{
+        rec_i32     haabb    = obj_aabb(hero);
+        obj_listc_s triggers = objbucket_list(g, OBJ_BUCKET_NEW_AREA_COLLIDER);
+        for (int n = 0; n < triggers.n; n++) {
+                obj_s *coll = triggers.o[n];
+                if (overlap_rec_excl(haabb, obj_aabb(coll))) {
+                        game_map_transition_start(g, coll->new_mapfile);
+                        break;
+                }
+        }
+}
+
 void hero_update(game_s *g, obj_s *o, hero_s *h)
 {
         hero_logic(g, o, &g->hero);
@@ -165,45 +219,7 @@ void hero_update(game_s *g, obj_s *o, hero_s *h)
         obj_move_y(g, o, dt.y);
 
         obj_s *hook;
-        if (!try_obj_from_handle(h->hook, &hook)) return;
-
-        int crankchange = os_inp_crank_change();
-        if (crankchange) {
-                h->rope.len_max_q16 += crankchange * 100;
-                h->rope.len_max_q16 = MAX(h->rope.len_max_q16, 0x40000);
-                h->rope.len_max     = h->rope.len_max_q16 >> 16;
-        }
-
-        if (!hook->attached) {
-                v2_i32 hookp = hook->pos;
-                obj_apply_movement(hook);
-                v2_i32 dthook = v2_sub(hook->pos_new, hook->pos);
-                obj_move_x(g, hook, dthook.x);
-                obj_move_y(g, hook, dthook.y);
-                rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1,
-                                   hook->w + 2, hook->h + 2};
-                if (game_area_blocked(g, hookrec)) {
-                        hook->attached   = 1;
-                        hook->gravity_q8 = (v2_i32){0};
-                        hook->vel_q8     = (v2_i32){0};
-                }
-        }
-
-        if (!rope_intact(g, &h->rope)) {
-                hook_destroy(g, h, o, hook);
-                return;
-        }
-        rope_update(g, &h->rope);
-
-        if (hook->attached) {
-                o->vel_q8 = rope_adjust_connected_vel(&h->rope,
-                                                      h->rope.head,
-                                                      o->subpos_q8,
-                                                      o->vel_q8);
-        } else {
-                hook->vel_q8 = rope_adjust_connected_vel(&h->rope,
-                                                         h->rope.tail,
-                                                         hook->subpos_q8,
-                                                         hook->vel_q8);
+        if (try_obj_from_handle(h->hook, &hook)) {
+                hero_hook_update(g, o, h, hook);
         }
 }

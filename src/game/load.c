@@ -396,16 +396,25 @@ void game_load_map(game_s *g, const char *filename)
         g->pixel_x = g->tiles_x << 4;
         g->pixel_y = g->tiles_y << 4;
 
-        obj_s     *solid = obj_create(g);
-        objflags_s flags = objflags_create(OBJ_FLAG_SOLID);
-        obj_set_flags(g, solid, flags);
+        obj_s     *solid  = obj_create(g);
+        objflags_s flags1 = objflags_create(OBJ_FLAG_SOLID);
+        obj_set_flags(g, solid, flags1);
         solid->pos.x = 200;
         solid->pos.y = 192 - 32;
         solid->w     = 64;
         solid->h     = 32;
 
-        textbox_init(&g->textbox);
+        obj_s     *newmap = obj_create(g);
+        objflags_s flags2 = objflags_create(OBJ_FLAG_NEW_AREA_COLLIDER);
+        obj_set_flags(g, newmap, flags2);
+        newmap->pos.x          = 10;
+        newmap->pos.y          = 300;
+        newmap->w              = 64;
+        newmap->h              = 32;
+        const char *newmapfile = "assets/map/template.tmj";
+        os_strcpy(newmap->new_mapfile, newmapfile);
 
+        textbox_init(&g->textbox);
         textbox_set_text_ascii(&g->textbox, "Hello, this is just a random textbox filled with random amount of text. Hope you enjoy!");
 }
 
