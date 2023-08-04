@@ -14,10 +14,22 @@ void textbox_clr(textbox_s *tb)
 {
         tb->typewriter_tick = 0;
         tb->shows_all       = 0;
+        tb->active          = 0;
         for (int n = 0; n < TEXTBOX_LINES; n++) {
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
                 l->n_shown       = 0;
+        }
+}
+
+void textbox_update(textbox_s *tb)
+{
+        if (tb->shows_all) return;
+        tb->typewriter_tick++;
+        if (tb->typewriter_tick < TEXTBOX_TICKS_PER_CHAR) return;
+        tb->typewriter_tick -= TEXTBOX_TICKS_PER_CHAR;
+        if (!textbox_show_more(tb)) {
+                tb->shows_all = 1;
         }
 }
 
@@ -27,6 +39,7 @@ void textbox_set_text_ascii(textbox_s *tb, const char *txt)
         for (int i = 0; txt[i] != '\0'; i++) {
                 char           c    = txt[i];
                 textboxline_s *line = &tb->lines[l];
+
                 if (line->n >= TEXTBOX_CHARS_PER_LINE || c == '\n') {
                         l++;
                         if (l == TEXTBOX_LINES) return;
@@ -34,6 +47,9 @@ void textbox_set_text_ascii(textbox_s *tb, const char *txt)
                         line->n = 0;
                         if (c == '\n') continue;
                 }
+
+                // ignore leading space
+                if (c == ' ' && line->n == 0) continue;
 
                 fntchar_s fc           = {0};
                 fc.glyphID             = c;

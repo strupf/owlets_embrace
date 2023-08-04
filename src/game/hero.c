@@ -17,6 +17,28 @@ enum hero_const {
         HERO_C_GRAVITY   = 32,
 };
 
+static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
+{
+        obj_delete(g, ohook);
+        h->hook.o       = NULL;
+        ohero->ropenode = NULL;
+        ohero->rope     = NULL;
+        ohook->rope     = NULL;
+        ohook->ropenode = NULL;
+}
+
+void hook_squeeze(game_s *g, obj_s *o, void *arg)
+{
+        ASSERT(arg);
+        hero_s *hero = (hero_s *)arg;
+        obj_s  *ohero;
+        if (try_obj_from_handle(hero->obj, &ohero)) {
+                hook_destroy(g, hero, ohero, o);
+        } else {
+                ASSERT(0);
+        }
+}
+
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
 {
         obj_s     *o     = obj_create(g);
@@ -32,6 +54,8 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
         o->drag_q8.x    = 256;
         o->drag_q8.y    = 256;
         o->gravity_q8.y = 30;
+        o->onsqueeze    = hook_squeeze;
+        o->onsqueezearg = &g->hero;
         rope_init(rope);
         rope->head->p = p;
         rope->tail->p = p;
@@ -58,16 +82,6 @@ obj_s *hero_create(game_s *g, hero_s *h)
         *h                 = (const hero_s){0};
         h->obj             = objhandle_from_obj(hero);
         return hero;
-}
-
-static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
-{
-        obj_delete(g, ohook);
-        h->hook.o       = NULL;
-        ohero->ropenode = NULL;
-        ohero->rope     = NULL;
-        ohook->rope     = NULL;
-        ohook->ropenode = NULL;
 }
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
@@ -105,15 +119,22 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 h->jumpticks = 0;
         }
 
-        if ((h->inp & HERO_INP_USE_ITEM) &&
-            !(h->inpp & HERO_INP_USE_ITEM)) {
+        // just pressed item button
+        if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
                 obj_s *hook;
+
                 if (try_obj_from_handle(h->hook, &hook)) {
-                        hook_destroy(g, h, o, hook);
+                        hook_destroy(g, h, o, hook); // destroy hook if present
                 } else {
+                        // throw new hook
+                        int dirx = os_inp_dpad_x();
+                        int diry = os_inp_dpad_y();
+                        if (dirx == 0 && diry == 0) diry = -1;
+
                         v2_i32 center  = obj_aabb_center(o);
-                        v2_i32 vlaunch = {700, -1000};
-                        hook           = hook_create(g, &h->rope,
+                        v2_i32 vlaunch = {dirx, diry};
+                        vlaunch        = v2_shl(vlaunch, 10);
+                        obj_s *hook    = hook_create(g, &h->rope,
                                                      center, vlaunch);
                         h->hook        = objhandle_from_obj(hook);
                         o->ropenode    = h->rope.head;
@@ -121,9 +142,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        int xs = 0;
-        if (h->inp & HERO_INP_LEFT) xs = -1;
-        if (h->inp & HERO_INP_RIGHT) xs = +1;
+        int xs = os_inp_dpad_x();
 
         o->vel_q8.x += xs * HERO_C_ACCX;
 

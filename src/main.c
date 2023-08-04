@@ -101,7 +101,7 @@ static inline void os_prepare()
         os_backend_graphics_init();
         os_backend_audio_init();
         os_backend_inp_init();
-        g_os.tex_tab[0] = (tex_s){g_os.framebuffer, 52, 400, 240};
+        g_os.tex_tab[0] = (tex_s){g_os.framebuffer, NULL, 52, 400, 240};
         game_init(&g_gamestate);
 
         size_t sgame = sizeof(game_s) / 1024;

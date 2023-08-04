@@ -25,6 +25,12 @@ struct tilegrid_s {
         int pixel_y;
 };
 
+typedef struct {
+        tri_i32 tris[2];
+} tilecollider_s;
+
+extern const tilecollider_s tilecolliders[];
+
 bool32 tiles_area(tilegrid_s tg, rec_i32 r);
 bool32 tiles_at(tilegrid_s tg, i32 x, i32 y);
 

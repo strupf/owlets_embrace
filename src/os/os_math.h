@@ -357,6 +357,8 @@ static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
         return d;
 }
 
+#define Q16_ANGLE_TURN 0x40000
+
 // p: angle, where 2 PI = 262144 = 0x40000
 // output: [-65536, 65536] = [-1; +1]
 static inline i32 cos_q16(i32 p)
@@ -614,10 +616,15 @@ static inline rec_i32 translate_rec(rec_i32 a, v2_i32 dt)
 
 static inline tri_i32 translate_tri(tri_i32 t, v2_i32 dt)
 {
-        tri_i32 r = {v2_add(t.p[0], dt),
-                     v2_add(t.p[1], dt),
-                     v2_add(t.p[2], dt)};
-        return r;
+        tri_i32 tri = {v2_add(t.p[0], dt),
+                       v2_add(t.p[1], dt),
+                       v2_add(t.p[2], dt)};
+        return tri;
+}
+
+static inline tri_i32 translate_tri_xy(tri_i32 t, i32 x, i32 y)
+{
+        return translate_tri(t, (v2_i32){x, y});
 }
 
 static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)

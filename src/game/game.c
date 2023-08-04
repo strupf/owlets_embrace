@@ -11,10 +11,15 @@ static void cam_update(game_s *g, cam_s *c);
 void game_init(game_s *g)
 {
         gfx_set_inverted(1);
+
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         tex_put(TEXID_TILESET, tex_load("assets/tilesets.json"));
         tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
+        tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
+        tex_put(TEXID_TEST, tex_load("assets/test.json"));
+
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font1.json"));
+
         g->cam.w  = 400;
         g->cam.h  = 240;
         g->cam.wh = g->cam.w / 2;
@@ -34,24 +39,15 @@ void game_init(game_s *g)
         }
 
         game_load_map(g, "assets/map/template.tmj");
-
-        obj_s     *solid = obj_create(g);
-        objflags_s flags = objflags_create(OBJ_FLAG_SOLID);
-        obj_set_flags(g, solid, flags);
-        solid->pos.x = 200;
-        solid->pos.y = 192 - 32;
-        solid->w     = 64;
-        solid->h     = 32;
-
-        textbox_init(&g->textbox);
-        textbox_set_text_ascii(&g->textbox, "Hello,\nthis is just a random textbox and filled with all kinds of text. Hope you enjoy!");
 }
 
 void game_update(game_s *g)
 {
         if (debug_inp_enter() && g->transitionphase == 0) {
-                g->transitionphase = TRANSITION_FADE_IN;
-                g->transitionticks = 0;
+                g->transitionphase    = TRANSITION_FADE_IN;
+                g->transitionticks    = 0;
+                const char filename[] = "assets/map/template.tmj";
+                os_memcpy(g->transitionmap, filename, ARRLEN(filename));
         }
         if (g->transitionphase) {
                 game_update_transition(g);
@@ -83,6 +79,14 @@ void game_update(game_s *g)
         }
 
         cam_update(g, &g->cam);
+
+        if (debug_inp_space()) {
+                g->textbox.active = 1;
+        }
+        textbox_s *tb = &g->textbox;
+        if (tb->active) {
+                textbox_update(tb);
+        }
 }
 
 void game_close(game_s *g)

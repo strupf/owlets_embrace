@@ -99,11 +99,14 @@ tex_s tex_create(int w, int h)
         // bytes per row - rows aligned to 32 bit
         int    w_bytes = sizeof(int) * ((w - 1) / 32 + 1);
         size_t s       = sizeof(u8) * w_bytes * h;
-        u8    *pxmem   = (u8 *)memarena_allocz(&g_os.assetmem, s);
-        tex_s  t       = {pxmem,
-                          w_bytes,
-                          w,
-                          h};
+
+        // twice the size (1 bit white/black, 1 bit transparent/opaque)
+        void *mem = memarena_allocz(&g_os.assetmem, s * 2);
+        tex_s t   = {(u8 *)mem,
+                     (u8 *)((char *)mem + s),
+                     w_bytes,
+                     w,
+                     h};
         return t;
 }
 
@@ -117,7 +120,7 @@ tex_s tex_load(const char *filename)
         i32   h = jsn_intk(j, "height");
         char *c = jsn_strkptr(j, "data");
         tex_s t = tex_create(w, h);
-        for (int y = 0; y < h; y++) {
+        for (int y = 0; y < h * 2; y++) {
                 for (int x = 0; x < t.w_byte; x++) {
                         int c1 = (char_hex_to_int(*c++)) << 4;
                         int c2 = (char_hex_to_int(*c++));
@@ -180,6 +183,30 @@ fnt_s fnt_load(const char *filename)
         return fnt;
 }
 
+int fntlength_px(fnt_s *font, fntchar_s *chars, int l)
+{
+        int len_max = 0;
+        int len     = 0;
+        for (int n = 0; n < l; n++) {
+                fntchar_s c = chars[n];
+                if (c.glyphID == FNT_GLYPH_NEWLINE) {
+                        len = 0;
+                        continue;
+                }
+                len += font->glyph_widths[c.glyphID];
+                len_max = len > len_max ? len : len_max;
+        }
+        return len_max;
+}
+
+int fntlength_px_ascii(fnt_s *font, const char *txt, int l)
+{
+        NOT_IMPLEMENTED
+        os_spmem_push();
+        return 0;
+        os_spmem_pop();
+}
+
 fntchar_s fntchar_from_glyphID(int glyphID)
 {
         fntchar_s c = {glyphID, 0};
@@ -232,6 +259,21 @@ static inline int i_gfx_peek_px(tex_s t, int x, int y)
         int i   = t.px[idx];
         return ((i & (1u << (7 - (x & 7)))) > 0);
 }
+
+static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
+{
+        if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) {
+                *px = 0;
+                *op = 0;
+                return;
+        }
+        int i = (x >> 3) + y * t.w_byte;
+        int m = 1 << (7 - (x & 7));
+        *px   = ((t.px[i] & m) > 0);
+        *op   = ((t.mask[i] & m) > 0);
+}
+
+static const int pxmode[][4] = {0};
 
 static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 {
@@ -305,8 +347,9 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
                         int yp = y + pos.y;
                         int xs = x * xx + y * xy + xa;
                         int ys = x * yx + y * yy + ya;
-                        int px = i_gfx_peek_px(src, xs, ys);
-                        i_gfx_put_px(dst, xp, yp, px, 0);
+                        int px, op;
+                        i_gfx_peek(src, xs, ys, &px, &op);
+                        if (op) i_gfx_put_px(dst, xp, yp, px, 0);
                 }
         }
 }

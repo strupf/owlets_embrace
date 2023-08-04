@@ -15,6 +15,8 @@ enum tex_id {
         TEXID_FONT_DEFAULT,
         TEXID_TILESET,
         TEXID_TEXTBOX,
+        TEXID_ITEMS,
+        TEXID_TEST,
         //
         NUM_TEXID
 };
@@ -62,8 +64,20 @@ enum inp_button {
 #endif
 };
 
+enum gfx_mode {
+        GFX_MODE_COPY,
+        GFX_MODE_WHITE_TRANSPARENT,
+        GFX_MODE_BLACK_TRANSPARENT,
+        GFX_MODE_FILL_WHITE,
+        GFX_MODE_FILL_BLACK,
+        GFX_MODE_XOR,
+        GFX_MODE_NXOR,
+        GFX_MODE_INV,
+};
+
 typedef struct {
         u8 *px;
+        u8 *mask;
         int w_byte;
         int w;
         int h;
@@ -106,6 +120,8 @@ void      fnt_put(int ID, fnt_s f);
 fnt_s     fnt_get(int ID);
 fnt_s     fnt_load(const char *filename);
 fntstr_s  fntstr_create(int numchars, void *(*allocfunc)(size_t));
+int       fntlength_px(fnt_s *font, fntchar_s *chars, int l);
+int       fntlength_px_ascii(fnt_s *font, const char *txt, int l);
 fntchar_s fntchar_from_glyphID(int glyphID);
 bool32    fntstr_append_glyph(fntstr_s *f, int glyphID);
 int       fntstr_append_ascii(fntstr_s *f, const char *txt);
@@ -131,6 +147,8 @@ void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
 //
 snd_s     snd_get(int ID);
 //
+int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
+int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
 bool32    os_inp_pressed(int b);
 bool32    os_inp_pressedp(int b);
 bool32    os_inp_just_released(int b);

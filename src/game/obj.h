@@ -65,9 +65,15 @@ struct obj_s {
         v2_i32      vel_q8;
         v2_i32      gravity_q8;
         v2_i32      drag_q8;
+        bool32      squeezed;
         i32         actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
+
+        i32 aim_angle;
+
+        void (*onsqueeze)(game_s *g, obj_s *o, void *arg);
+        void *onsqueezearg;
 
         ropenode_s *ropenode;
         rope_s     *rope;

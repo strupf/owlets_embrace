@@ -204,6 +204,25 @@ void obj_move_y(game_s *g, obj_s *o, int dy)
         }
 }
 
+static bool32 actor_try_wiggle(game_s *g, obj_s *o)
+{
+        rec_i32 aabb = obj_aabb(o);
+        if (!game_area_blocked(g, aabb)) return 1;
+
+        for (int y = -1; y <= +1; y++) {
+                for (int x = -1; x <= +1; x++) {
+                        rec_i32 r = translate_rec_xy(aabb, x, y);
+                        if (!game_area_blocked(g, r)) {
+                                o->pos.x += x;
+                                o->pos.y += y;
+                                return 1;
+                        }
+                }
+        }
+        o->squeezed = 1;
+        return 0;
+}
+
 static inline i_actor_step(game_s *g, obj_s *o, int sx, int sy)
 {
         o->pos.x += sx;
@@ -285,12 +304,16 @@ static void solid_step(game_s *g, obj_s *o, int sx, int sy)
         rec_i32     r      = obj_aabb(o);
         obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
         for (int n = 0; n < actors.n; n++) {
-                obj_s  *a     = actors.o[n];
+                obj_s *a = actors.o[n];
+                if (a->squeezed) continue;
                 rec_i32 aabb  = obj_aabb(a);
                 rec_i32 rfeet = translate_rec_xy(obj_rec_bottom(a), sx, sy);
                 if (overlap_rec_excl(r, aabb) || overlap_rec_excl(r, rfeet)) {
                         if (sx != 0) actor_step_x(g, a, sx);
                         if (sy != 0) actor_step_y(g, a, sy);
+                        if (!actor_try_wiggle(g, a) && a->onsqueeze) {
+                                a->onsqueeze(g, a, a->onsqueezearg);
+                        }
                 }
         }
 }

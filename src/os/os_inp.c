@@ -97,6 +97,24 @@ bool32 debug_inp_space() { return 0; }
 
 #endif
 
+int os_inp_dpad_x()
+{
+        if (os_inp_pressed(INP_LEFT))
+                return -1;
+        if (os_inp_pressed(INP_RIGHT))
+                return +1;
+        return 0;
+}
+
+int os_inp_dpad_y()
+{
+        if (os_inp_pressed(INP_UP))
+                return -1;
+        if (os_inp_pressed(INP_DOWN))
+                return +1;
+        return 0;
+}
+
 bool32 os_inp_pressed(int b)
 {
         return (g_os.buttons & b);
