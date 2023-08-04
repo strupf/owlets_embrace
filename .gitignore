@@ -1,9 +1,5 @@
 /*
 !.gitignore
 !/src
-!.clang-format
-!_gen_sim_makefiles.bat
-!build_desktop.bat
-!build_simulator.bat
 !readme.md
 !todo.txt
