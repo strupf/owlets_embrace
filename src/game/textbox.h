@@ -9,7 +9,7 @@
 
 enum {
         TEXTBOX_LINES          = 4,
-        TEXTBOX_CHARS_PER_LINE = 24,
+        TEXTBOX_CHARS_PER_LINE = 26,
         TEXTBOX_TICKS_PER_CHAR = 2,
 };
 

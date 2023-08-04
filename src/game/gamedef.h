@@ -12,7 +12,6 @@ enum {
         NUM_TILES             = 256 * 256,
         NUM_RENDERTILE_LAYERS = 2,
         NUM_OBJS              = 256,
-        SOLIDMEM_SIZE         = 0x10000,
 };
 
 typedef struct game_s      game_s;
@@ -35,12 +34,33 @@ struct objhandle_s {
         obj_s *o;
 };
 
+enum obj_flag {
+        OBJ_FLAG_NONE,
+        OBJ_FLAG_DUMMY,
+        OBJ_FLAG_ACTOR,
+        OBJ_FLAG_SOLID,
+        OBJ_FLAG_HERO,
+        OBJ_FLAG_NEW_AREA_COLLIDER,
+        OBJ_FLAG_PICKUP,
+        OBJ_FLAG_HOOK,
+        //
+        NUM_OBJ_FLAGS
+};
+
+enum obj_tag {
+        OBJ_TAG_DUMMY,
+        OBJ_TAG_HERO,
+        //
+        NUM_OBJ_TAGS
+};
+
 enum obj_bucket {
         OBJ_BUCKET_ACTOR,
         OBJ_BUCKET_SOLID,
         OBJ_BUCKET_NEW_AREA_COLLIDER,
+        OBJ_BUCKET_PICKUP,
         //
-        NUM_OBJ_BUCKETS
+        NUM_OBJ_BUCKETS = 64,
 };
 
 #endif

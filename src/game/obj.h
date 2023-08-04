@@ -21,30 +21,17 @@
 // movement is going to work similar like in Celeste
 // maddythorson.medium.com/celeste-and-towerfall-physics-d24bd2ae0fc5
 
-enum obj_flag {
-        OBJ_FLAG_NONE,
-        OBJ_FLAG_DUMMY,
-        OBJ_FLAG_ACTOR,
-        OBJ_FLAG_SOLID,
-        OBJ_FLAG_HERO,
-        OBJ_FLAG_NEW_AREA_COLLIDER,
-        OBJ_FLAG_HOOK,
-        //
-        NUM_OBJ_FLAGS
-};
-
-enum obj_tag {
-        OBJ_TAG_DUMMY,
-        OBJ_TAG_HERO,
-        //
-        NUM_OBJ_TAGS
-};
-
 enum actor_flag {
         ACTOR_FLAG_CLIMB_SLOPES       = 0x1, // can climb 45 slopes
         ACTOR_FLAG_CLIMB_STEEP_SLOPES = 0x2, // can climb steep slopes
         ACTOR_FLAG_GLUE_GROUND        = 0x4, // avoids bumbing down a slope
 };
+
+typedef struct {
+        void (*action)(game_s *g, void *arg);
+        void *actionarg;
+        int   x;
+} pickupdata_s;
 
 struct obj_s {
         int        gen;
@@ -78,7 +65,8 @@ struct obj_s {
         ropenode_s *ropenode;
         rope_s     *rope;
 
-        bool32 attached;
+        bool32       attached;
+        pickupdata_s pickup;
 
         char        new_mapfile[64];
         pathmover_s path;

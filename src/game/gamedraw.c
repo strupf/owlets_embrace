@@ -84,4 +84,7 @@ void game_draw(game_s *g)
         if (tb->active) {
                 draw_textbox(tb);
         }
+
+        fnt_s font = fnt_get(FNTID_DEFAULT);
+        // gfx_text_ascii(&font, "Pickups: ", )
 }

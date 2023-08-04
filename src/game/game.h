@@ -79,8 +79,6 @@ struct game_s {
         ALIGNAS(4) u8      tiles[NUM_TILES];
         ALIGNAS(4) rtile_s rtiles[NUM_TILES][NUM_RENDERTILE_LAYERS];
 
-        ALIGNAS(4) char solidmem[SOLIDMEM_SIZE];
-
         int  transitionphase;
         int  transitionticks;
         char transitionmap[64]; // next map to load

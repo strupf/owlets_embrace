@@ -32,10 +32,12 @@ struct hero_s {
 
         objhandle_s hook;
         rope_s      rope;
+        int         pickups;
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, hero_s *h);
 void   hero_check_level_transition(game_s *g, obj_s *hero);
+void   hero_pickup_logic(game_s *g, hero_s *h, obj_s *o);
 
 #endif

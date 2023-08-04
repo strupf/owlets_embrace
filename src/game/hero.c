@@ -207,6 +207,22 @@ void hero_check_level_transition(game_s *g, obj_s *hero)
         }
 }
 
+void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
+{
+        rec_i32     haabb   = obj_aabb(o);
+        obj_listc_s pickups = objbucket_list(g, OBJ_BUCKET_PICKUP);
+        for (int n = 0; n < pickups.n; n++) {
+                obj_s *p = pickups.o[n];
+                if (overlap_rec_excl(haabb, obj_aabb(p))) {
+                        if (p->pickup.action) {
+                                p->pickup.action(g, p->pickup.actionarg);
+                        }
+                        h->pickups += p->pickup.x;
+                        obj_delete(g, p);
+                }
+        }
+}
+
 void hero_update(game_s *g, obj_s *o, hero_s *h)
 {
         hero_logic(g, o, &g->hero);

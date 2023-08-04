@@ -414,6 +414,17 @@ void game_load_map(game_s *g, const char *filename)
         const char *newmapfile = "assets/map/template.tmj";
         os_strcpy(newmap->new_mapfile, newmapfile);
 
+        for (int i = 0; i < 10; i++) {
+                obj_s     *pickup = obj_create(g);
+                objflags_s flags3 = objflags_create(OBJ_FLAG_PICKUP);
+                obj_set_flags(g, pickup, flags3);
+                pickup->pos.x    = 100 + i * 30;
+                pickup->pos.y    = 200;
+                pickup->w        = 16;
+                pickup->h        = 16;
+                pickup->pickup.x = 1;
+        }
+
         textbox_init(&g->textbox);
         textbox_set_text_ascii(&g->textbox, "Hello, this is just a random textbox filled with random amount of text. Hope you enjoy!");
 }

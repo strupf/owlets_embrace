@@ -15,7 +15,7 @@
 /* contains two triangles for each tile describing its
  * shape. can often be reduced to 1 triangle.
  */
-extern const tilecollider_s tilecolliders[] = {
+const tilecollider_s tilecolliders[] = {
     // block
     0, 0, 16, 0, 0, 16,
     16, 16, 16, 0, 0, 16,

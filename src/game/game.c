@@ -43,13 +43,18 @@ void game_init(game_s *g)
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_NEW_AREA_COLLIDER);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_PICKUP];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_PICKUP);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
 }
 
 void game_update(game_s *g)
 {
-
         obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         if (solids.n > 0) {
                 static int dir   = 1;
@@ -71,6 +76,7 @@ void game_update(game_s *g)
                 if (g->transitionphase == TRANSITION_NONE) {
                         hero_check_level_transition(g, ohero);
                 }
+                hero_pickup_logic(g, &g->hero, ohero);
         }
 
         // remove all objects scheduled to be deleted
