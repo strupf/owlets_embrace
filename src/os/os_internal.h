@@ -7,7 +7,7 @@
 
 #include "os.h"
 
-#define OS_DESKTOP_SCALE 1
+#define OS_DESKTOP_SCALE 2
 #define OS_FPS_DELTA     0.0166667f
 #define OS_DELTA_CAP     0.05f
 
@@ -21,6 +21,7 @@ enum {
 };
 
 typedef struct {
+        i32 tick;
 #if defined(TARGET_DESKTOP)
         u8        framebuffer[OS_FRAMEBUFFER_SIZE];
         Color     texpx[416 * 240];

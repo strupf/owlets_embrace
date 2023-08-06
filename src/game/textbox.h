@@ -11,11 +11,8 @@ enum {
         TEXTBOX_LINES          = 4,
         TEXTBOX_CHARS_PER_LINE = 32,
         TEXTBOX_TICKS_PER_CHAR = 2,
-};
-
-enum {
-        TEXTBOX_INP_NONE,
-        TEXTBOX_INP_ADVANCE,
+        TEXTBOX_FILE_MEM       = 0x10000,
+        TEXTBOX_NUM_TOKS       = 256,
 };
 
 typedef struct {
@@ -33,10 +30,7 @@ typedef struct {
 } textboxline_s;
 
 struct textbox_s {
-        int inp;
-        int inpp;
-        int typewriter_tick;
-
+        int           typewriter_tick;
         int           curreffect;
         int           currspeed;
         int           curr_line;
@@ -45,9 +39,8 @@ struct textbox_s {
         bool32        active;
         textboxline_s lines[TEXTBOX_LINES];
 
-        char         *txt;
-        char          dialogmem[0x10000];
-        dialog_tok_s  toks[256];
+        char          dialogmem[TEXTBOX_FILE_MEM];
+        dialog_tok_s  toks[TEXTBOX_NUM_TOKS];
         dialog_tok_s *tok;
 };
 

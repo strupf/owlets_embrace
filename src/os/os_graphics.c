@@ -357,44 +357,39 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
         ASSERT(rs.x % 8 == 0 && rs.y % 8 == 0 && rs.w % 8 == 0 && rs.h % 8 == 0);
-#if 0
-        // implement drawing and masking using whole bytes
-        NOT_IMPLEMENTED
         tex_s dst = g_os.dst;
         int   zx  = dst.w - pos.x;
         int   zy  = dst.h - pos.y;
         int   x2  = rs.w <= zx ? rs.w : zx;
         int   y2  = rs.h <= zy ? rs.h : zy;
-        int   x1  = 0 >= -pos.x ? 0 : -pos.x;
-        int   y1  = 0 >= -pos.y ? 0 : -pos.y;
-
-        int b1 = rs.x / 8;
-        int b2 = (rs.x + rs.w - 1) / 8 + 1;
-
+        int   x1  = (0 >= -pos.x ? 0 : -pos.x);
+        int   y1  = (0 >= -pos.y ? 0 : -pos.y);
+#if 1 // implement drawing and masking using whole bytes
+        x1 += rs.x;
+        x2 += rs.x;
+        y1 += rs.y;
+        y2 += rs.y;
         for (int y = y1; y < y2; y++) {
-                for (int b = b1; b < b2; b++) {
-                        // the byte will most probably be split
+                int ys = (y)*src.w_byte;
+                int yd = (y + pos.y - rs.y) * dst.w_byte;
+                for (int x = x1; x < x2; x++) {
+                        int xd = x + pos.x - rs.x;
 
-                        int dbyte1;
-                        int dbyte2;
-                        int mask_1;
-                        int mask_2;
-                        int draw_1;
-                        int draw_2;
+                        int i = (x >> 3) + ys;
+                        int m = 1 << (7 - (x & 7));
+                        if (!(src.mask[i] & m)) continue;
 
-                        dbyte1 = (dbyte1 & mask_1) | (ddraw_1 & ~mask_1);
-                        dbyte2 = (dbyte2 & mask_2) | (ddraw_2 & ~mask_2);
+                        int p = (src.px[i] & m);
+                        int j = (xd >> 3) + yd;
+                        int s = (xd & 7);
+                        if (p) {
+                                dst.px[j] |= (1u << (7 - s)); // set bit
+                        } else {
+                                dst.px[j] &= ~(1u << (7 - s)); // clear bit
+                        }
                 }
         }
 #else
-        tex_s dst     = g_os.dst;
-        int   zx      = dst.w - pos.x;
-        int   zy      = dst.h - pos.y;
-        int   x2      = rs.w <= zx ? rs.w : zx;
-        int   y2      = rs.h <= zy ? rs.h : zy;
-        int   x1      = 0 >= -pos.x ? 0 : -pos.x;
-        int   y1      = 0 >= -pos.y ? 0 : -pos.y;
-
         for (int y = y1; y < y2; y++) {
                 for (int x = x1; x < x2; x++) {
                         int xs = x + rs.x;
@@ -535,10 +530,8 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
 
 void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
 {
-        static u32 rng = 213;
-        static i32 tt  = 0;
-        tt += 1500;
-        tex_s fonttex = font->tex;
+        static u32 rng     = 213;
+        tex_s      fonttex = font->tex;
         gfx_draw_to(tex_get(TEXID_DISPLAY));
 
         v2_i32 p = {x, y};
@@ -554,12 +547,12 @@ void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
 
                 v2_i32 pp = p;
                 switch (c.effectID) {
-                case 1:
+                case FNT_EFFECT_SHAKE:
                         pp.x += rng_i16(&rng) % 2;
                         pp.y += rng_i16(&rng) % 2;
                         break;
-                case 2:
-                        pp.y += sin_q16(tt + i * 20000) / 30000;
+                case FNT_EFFECT_WAVE:
+                        pp.y += sin_q16((os_tick() << 13) + (i << 16)) >> 15;
                         break;
                 }
 

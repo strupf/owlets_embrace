@@ -97,17 +97,16 @@ static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
 
 void textbox_load_dialog(textbox_s *tb, const char *filename)
 {
-        tb->txt = tb->dialogmem;
-        txt_read_file(filename, tb->dialogmem, sizeof(tb->dialogmem));
+        txt_read_file(filename, tb->dialogmem, TEXTBOX_FILE_MEM);
         dialog_parse(tb->dialogmem, tb->toks);
-        tb->tok    = &tb->toks[0];
+        tb->tok    = tb->toks;
         tb->active = 1;
         textbox_next_page(tb);
 }
 
 bool32 textbox_next_page(textbox_s *tb)
 {
-        tb->currspeed = 2;
+        tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
         textbox_clr(tb);
         textboxline_s *line = &tb->lines[0];
         while (tb->tok->type != DIALOG_TOK_END) {
@@ -116,22 +115,37 @@ bool32 textbox_next_page(textbox_s *tb)
                 case DIALOG_TOK_CMD: {
                         if (0) {
                         } else if (str_matches(str, "~")) {
-                                tb->curreffect = 2;
+                                tb->curreffect = FNT_EFFECT_WAVE;
                         } else if (str_matches(str, "/~")) {
-                                tb->curreffect = 0;
+                                tb->curreffect = FNT_EFFECT_NONE;
                         } else if (str_matches(str, "n")) {
-                                if (!textbox_new_line(tb, &line)) return;
+                                if (!textbox_new_line(tb, &line)) return 0;
                         } else if (str_matches(str, ">>")) {
                                 if (tb->tok->i1 - tb->tok->i0 > 3) {
+                                        // todo: parse speed from file
+                                        /*
+                                        char buf[4];
+                                        int  nbuf = 0;
+                                        for (int i = tb->tok->i0 + 1; i <= tb->tok->i1; i++) {
+                                                char c = tb->dialogmem[i];
+                                                if (c == '}') {
+                                                        buf[nbuf++] = '\0';
+                                                        break;
+                                                }
+                                                ASSERT(char_digit(c));
+                                                buf[nbuf++] = c;
+                                        }
+                                        NOT_IMPLEMENTED
+                                        */
                                         tb->currspeed = 16;
                                 } else {
-                                        tb->currspeed = 2;
+                                        tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
                                 }
                         } else if (str_matches(str, "trigger")) {
                         } else if (str_matches(str, "*")) {
-                                tb->curreffect = 1;
+                                tb->curreffect = FNT_EFFECT_SHAKE;
                         } else if (str_matches(str, "/*")) {
-                                tb->curreffect = 0;
+                                tb->curreffect = FNT_EFFECT_NONE;
                         }
                 } break;
                 case DIALOG_TOK_PORTRAIT: {

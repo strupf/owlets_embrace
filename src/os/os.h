@@ -47,6 +47,12 @@ enum fnt_glyph {
         NUM_FNT_GLYPHS    = 256
 };
 
+enum fnt_effect {
+        FNT_EFFECT_NONE,
+        FNT_EFFECT_WAVE,
+        FNT_EFFECT_SHAKE,
+};
+
 enum inp_button {
 #if defined(TARGET_PD)
         INP_LEFT  = kButtonLeft,
@@ -150,6 +156,7 @@ void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
 //
 snd_s     snd_get(int ID);
 //
+i32       os_tick();
 int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
 int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
 bool32    os_inp_pressed(int b);

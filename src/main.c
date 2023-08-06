@@ -6,7 +6,7 @@
 #include "os/os_internal.h"
 
 static inline void os_prepare();
-static inline void os_tick();
+static inline void os_do_tick();
 
 void os_backend_graphics_init();
 void os_backend_graphics_close();
@@ -27,7 +27,7 @@ int main()
 {
         os_prepare();
         while (!WindowShouldClose()) {
-                os_tick();
+                os_do_tick();
         }
 
         os_backend_audio_close();
@@ -39,9 +39,9 @@ int main()
 PlaydateAPI *PD;
 void (*PD_log)(const char *fmt, ...);
 
-int os_tick_pd(void *userdata)
+int os_do_tick_pd(void *userdata)
 {
-        os_tick();
+        os_do_tick();
         return 1;
 }
 
@@ -64,7 +64,7 @@ __declspec(dllexport)
 
 #endif
 // =============================================================================
-static inline void os_tick()
+static inline void os_do_tick()
 {
         static float timeacc;
 
@@ -79,6 +79,7 @@ static inline void os_tick()
                 os_backend_inp_update();
                 game_update(&g_gamestate);
                 g_gamestate.tick++;
+                g_os.tick++;
                 if (g_os.n_spmem > 0) {
                         PRINTF("WARNING: spmem is not reset\n_spmem");
                 }
@@ -112,4 +113,9 @@ static inline void os_prepare()
         PRINTF("= %lli kb\n", sgame + sos);
 
         g_os.lasttime = os_time();
+}
+
+i32 os_tick()
+{
+        return g_os.tick;
 }
