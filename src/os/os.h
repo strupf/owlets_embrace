@@ -17,6 +17,7 @@ enum tex_id {
         TEXID_TEXTBOX,
         TEXID_ITEMS,
         TEXID_TEST,
+        TEXID_CLOUDS,
         //
         NUM_TEXID
 };
@@ -96,8 +97,9 @@ typedef struct {
 } fnt_s;
 
 typedef struct {
-        u8 glyphID;
-        u8 effectID;
+        u8  glyphID;
+        u8  effectID;
+        u16 effecttick;
 } fntchar_s;
 
 typedef struct {

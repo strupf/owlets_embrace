@@ -426,7 +426,6 @@ void game_load_map(game_s *g, const char *filename)
         }
 
         textbox_init(&g->textbox);
-        textbox_set_text_ascii(&g->textbox, "Hello, this is just a random textbox filled with random amount of text. Hope you enjoy!");
 }
 
 static const u8 blobpattern[256 * 2] = {

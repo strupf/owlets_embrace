@@ -18,6 +18,20 @@ void game_init(game_s *g)
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
         tex_put(TEXID_TEST, tex_load("assets/test.json"));
 
+        tex_s tclouds = tex_load("assets/clouds.json");
+        tex_put(TEXID_CLOUDS, tclouds);
+
+        // apply some "grey pattern"
+        for (int y = 0; y < tclouds.h; y++) {
+                for (int x = 0; x < tclouds.w; x++) {
+                        if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
+                                int i = (x >> 3) + y * tclouds.w_byte;
+                                int b = (x & 7);
+                                tclouds.px[i] &= ~(1u << (7 - b)); // clear bit
+                        }
+                }
+        }
+
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font1.json"));
 
         g->cam.w  = 400;
@@ -87,11 +101,14 @@ void game_update(game_s *g)
         cam_update(g, &g->cam);
 
         if (debug_inp_space()) {
-                g->textbox.active = 1;
+                textbox_load_dialog(&g->textbox, "assets/dialog.txt");
         }
         textbox_s *tb = &g->textbox;
         if (tb->active) {
                 textbox_update(tb);
+                if (os_inp_just_pressed(INP_DOWN) && g->textbox.shows_all) {
+                        textbox_next_page(tb);
+                }
         }
 
         if (g->transitionphase) {

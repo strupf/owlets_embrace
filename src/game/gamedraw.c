@@ -12,7 +12,14 @@ static void draw_textbox(textbox_s *tb)
         gfx_sprite(tex_get(TEXID_TEXTBOX), (v2_i32){0, 128}, r, 0);
         for (int l = 0; l < TEXTBOX_LINES; l++) {
                 textboxline_s *line = &tb->lines[l];
-                gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 142 + 20 * l);
+                gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
+        }
+
+        static i32 npage = 0;
+        if (tb->shows_all) {
+                npage += 10000;
+                int yy = sin_q16((npage % 0x40000)) / 10000;
+                gfx_rec_fill((rec_i32){370, 205 + yy, 10, 10}, 1);
         }
 }
 
@@ -47,6 +54,8 @@ void game_draw(game_s *g)
         rec_i32 camr  = {camx1, camy1, g->cam.w, g->cam.h};
         i32     tx1, ty1, tx2, ty2;
         game_tile_bounds_rec(g, camr, &tx1, &ty1, &tx2, &ty2);
+
+        gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256}, 0);
 
         draw_tiles(g, tx1, ty1, tx2, ty2, camx1, camy1);
 

@@ -527,6 +527,7 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
                                  gy * font->gridh,
                                  font->gridw,
                                  font->gridh};
+
                 gfx_sprite(fonttex, p, r, 0);
                 p.x += font->glyph_widths[cID];
         }
@@ -534,6 +535,9 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
 
 void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
 {
+        static u32 rng = 213;
+        static i32 tt  = 0;
+        tt += 1500;
         tex_s fonttex = font->tex;
         gfx_draw_to(tex_get(TEXID_DISPLAY));
 
@@ -547,7 +551,19 @@ void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
                                  gy * font->gridh,
                                  font->gridw,
                                  font->gridh};
-                gfx_sprite(fonttex, p, r, 0);
+
+                v2_i32 pp = p;
+                switch (c.effectID) {
+                case 1:
+                        pp.x += rng_i16(&rng) % 2;
+                        pp.y += rng_i16(&rng) % 2;
+                        break;
+                case 2:
+                        pp.y += sin_q16(tt + i * 20000) / 30000;
+                        break;
+                }
+
+                gfx_sprite(fonttex, pp, r, 0);
                 p.x += font->glyph_widths[cID];
         }
 }

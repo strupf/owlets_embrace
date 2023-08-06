@@ -6,84 +6,83 @@
 #include "game.h"
 
 enum {
-        TEXT_TOKEN_SPACE,
-        TEXT_TOKEN_NEWLINE,
-        TEXT_TOKEN_WORD,
-        TEXT_TOKEN_END,
+        DIALOG_TOK_NULL,
+        DIALOG_TOK_PORTRAIT,
+        DIALOG_TOK_CMD,
+        DIALOG_TOK_TEXT_BEGIN,
+        DIALOG_TOK_TEXT_NEW_LINE,
+        DIALOG_TOK_TEXT_NEW_PAGE,
+        DIALOG_TOK_END,
 };
 
-typedef struct {
-        int i0;
-        int i1;
-        int type;
-} text_token_s;
-
-// simple pre-parsing of the text to be displayed
-// divides text into tokens
-void text_parse_tokens(const char *txt, text_token_s *toks)
+static bool32 str_matches(const char *str, const char *exp)
 {
-        text_token_s *t = toks;
-        for (int i = 0;; i++) {
-                char c = txt[i];
-                t->i0  = i;
-                switch (c) {
-                case '\0':
-                        t->type = TEXT_TOKEN_END;
-                        t->i1   = i;
-                        return;
-                case ' ':
-                        t->type = TEXT_TOKEN_SPACE;
-                        t->i1   = i;
-                        break;
-                case '\n':
-                        t->type = TEXT_TOKEN_NEWLINE;
-                        t->i1   = i;
-                        break;
-                default:
-                        t->type = TEXT_TOKEN_WORD;
-                        for (int k = i + 1;; k++) {
-                                char ck = txt[k];
-                                if (ck == ' ' || ck == '\n' || ck == '\0') {
-                                        i     = k - 1;
-                                        t->i1 = i;
+        for (int n = 0; exp[n] != '\0'; n++) {
+                if (str[n] != exp[n]) return 0;
+        }
+        return 1;
+}
+
+void dialog_parse(const char *txt, dialog_tok_s *toks)
+{
+        int ntok = 0;
+        for (int i = 0; txt[i] != '\0'; i++) {
+                switch (txt[i]) {
+                case '\n': // skippable white space
+                case '\t':
+                case '\r':
+                case '\f':
+                case '\v': break;
+                case '[': {
+                        dialog_tok_s *tportrait = &toks[ntok++];
+                        tportrait->type         = DIALOG_TOK_PORTRAIT;
+                        tportrait->i0           = i;
+                        do {
+                                i++;
+                        } while (txt[i] != ']');
+                        tportrait->i1 = i;
+                } break;
+                case '{': {
+                        dialog_tok_s *tcmd = &toks[ntok++];
+                        tcmd->type         = DIALOG_TOK_CMD;
+                        tcmd->i0           = i;
+                        const char *str    = &txt[i + 1];
+                        do {
+                                i++;
+                        } while (txt[i] != '}');
+                        tcmd->i1 = i;
+                } break;
+                default: {
+                        dialog_tok_s *tb = &toks[ntok++];
+                        tb->type         = DIALOG_TOK_TEXT_BEGIN;
+                        tb->i0           = i;
+                        while (1) {
+                                i++;
+                                char cc = txt[i];
+                                if (cc == '{') {
+                                        tb->i1 = i - 1;
+                                        i--;
                                         break;
                                 }
-                        }
-                        break;
+                                if (cc == '\n') {
+                                        tb->i1           = i - 1;
+                                        dialog_tok_s *tp = &toks[ntok++];
+                                        tp->type         = DIALOG_TOK_TEXT_NEW_PAGE;
+                                        tp->i0           = i;
+                                        break;
+                                }
+                        };
+                } break;
                 }
-
-                t++;
         }
+        dialog_tok_s *tend = &toks[ntok++];
+        tend->type         = DIALOG_TOK_END;
+        tend->i0           = 0;
 }
 
 void textbox_init(textbox_s *tb)
 {
         textbox_clr(tb);
-#if 0 // testing
-        text_token_s tokens[256] = {0};
-        const char  *tx          = "This is just some random\n funny text lmaaao.\nAlso new line";
-        text_parse_tokens(tx, tokens);
-        for (int n = 0; n < 64; n++) {
-                text_token_s t = tokens[n];
-                switch (t.type) {
-                case TEXT_TOKEN_END:
-                        PRINTF("END\n");
-                        return;
-                case TEXT_TOKEN_SPACE:
-                        PRINTF("SPACE\n");
-                        break;
-                case TEXT_TOKEN_NEWLINE:
-                        PRINTF("NEWLINE\n");
-                        break;
-                case TEXT_TOKEN_WORD:
-                        for (int i = t.i0; i <= t.i1; i++) {
-                                PRINTF("%c", tx[i]);
-                        }
-                        PRINTF("\n");
-                        break;
-                }
-        }
-#endif
 }
 
 static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
@@ -96,48 +95,77 @@ static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
         return 1;
 }
 
-void textbox_set_text_ascii(textbox_s *tb, const char *txt)
+void textbox_load_dialog(textbox_s *tb, const char *filename)
 {
-        text_token_s tokens[256] = {0};
-        text_parse_tokens(txt, tokens);
-        textboxline_s *line = &tb->lines[0];
-        for (text_token_s *t = &tokens[0];; t++) {
-                switch (t->type) {
-                case TEXT_TOKEN_END: goto NESTEDBREAK;
-                case TEXT_TOKEN_SPACE: {
-                        if (line->n != 0 && line->n < TEXTBOX_CHARS_PER_LINE) {
-                                fntchar_s fc           = {0};
-                                fc.glyphID             = FNT_GLYPH_SPACE;
-                                line->chars[line->n++] = fc;
-                        }
-                } break;
-                case TEXT_TOKEN_NEWLINE: {
-                        if (!textbox_new_line(tb, &line))
-                                goto NESTEDBREAK;
-                } break;
-                case TEXT_TOKEN_WORD: {
-                        int len = t->i1 - t->i0;
-                        if (line->n + len >= TEXTBOX_CHARS_PER_LINE) {
-                                if (!textbox_new_line(tb, &line))
-                                        goto NESTEDBREAK;
-                        }
+        tb->txt = tb->dialogmem;
+        txt_read_file(filename, tb->dialogmem, sizeof(tb->dialogmem));
+        dialog_parse(tb->dialogmem, tb->toks);
+        tb->tok    = &tb->toks[0];
+        tb->active = 1;
+        textbox_next_page(tb);
+}
 
-                        for (int i = t->i0; i <= t->i1; i++) {
-                                fntchar_s fc           = {0};
-                                fc.glyphID             = txt[i];
-                                line->chars[line->n++] = fc;
+bool32 textbox_next_page(textbox_s *tb)
+{
+        tb->currspeed = 2;
+        textbox_clr(tb);
+        textboxline_s *line = &tb->lines[0];
+        while (tb->tok->type != DIALOG_TOK_END) {
+                const char *str = &tb->dialogmem[tb->tok->i0 + 1];
+                switch (tb->tok->type) {
+                case DIALOG_TOK_CMD: {
+                        if (0) {
+                        } else if (str_matches(str, "~")) {
+                                tb->curreffect = 2;
+                        } else if (str_matches(str, "/~")) {
+                                tb->curreffect = 0;
+                        } else if (str_matches(str, "n")) {
+                                if (!textbox_new_line(tb, &line)) return;
+                        } else if (str_matches(str, ">>")) {
+                                if (tb->tok->i1 - tb->tok->i0 > 3) {
+                                        tb->currspeed = 16;
+                                } else {
+                                        tb->currspeed = 2;
+                                }
+                        } else if (str_matches(str, "trigger")) {
+                        } else if (str_matches(str, "*")) {
+                                tb->curreffect = 1;
+                        } else if (str_matches(str, "/*")) {
+                                tb->curreffect = 0;
                         }
+                } break;
+                case DIALOG_TOK_PORTRAIT: {
+
+                } break;
+                case DIALOG_TOK_TEXT_BEGIN: {
+                        for (int i = tb->tok->i0; i <= tb->tok->i1; i++) {
+                                char      ci = tb->dialogmem[i];
+                                fntchar_s fc = {0};
+                                fc.glyphID   = ci;
+                                fc.effectID  = tb->curreffect;
+                                ASSERT(line->n < TEXTBOX_CHARS_PER_LINE);
+                                line->speed[line->n] = tb->currspeed;
+                                line->chars[line->n] = fc;
+                                line->n++;
+                        }
+                } break;
+                case DIALOG_TOK_TEXT_NEW_PAGE: {
+                        tb->tok++;
+                        return 1;
                 } break;
                 }
+                tb->tok++;
         }
-NESTEDBREAK:;
+        tb->active = 0;
+        return 0;
 }
 
 void textbox_clr(textbox_s *tb)
 {
         tb->typewriter_tick = 0;
         tb->shows_all       = 0;
-        tb->active          = 0;
+        tb->curr_char       = 0;
+        tb->curr_line       = 0;
         for (int n = 0; n < TEXTBOX_LINES; n++) {
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
@@ -149,21 +177,23 @@ void textbox_update(textbox_s *tb)
 {
         if (tb->shows_all) return;
         tb->typewriter_tick++;
-        if (tb->typewriter_tick < TEXTBOX_TICKS_PER_CHAR) return;
-        tb->typewriter_tick -= TEXTBOX_TICKS_PER_CHAR;
-        if (!textbox_show_more(tb)) {
-                tb->shows_all = 1;
-        }
-}
+        textboxline_s *line = &tb->lines[tb->curr_line];
+        if (tb->typewriter_tick < line->speed[tb->curr_char]) return;
+        tb->typewriter_tick = 0;
 
-bool32 textbox_show_more(textbox_s *tb)
-{
-        for (int l = 0; l < TEXTBOX_LINES; l++) {
-                textboxline_s *line = &tb->lines[l];
-                if (line->n_shown < line->n) {
+        if (tb->curr_char < line->n) {
+                tb->curr_char++;
+                line->n_shown++;
+        } else {
+                line = &tb->lines[++tb->curr_line];
+                if (line >= &tb->lines[TEXTBOX_LINES]) {
+                        tb->shows_all = 1;
+                        return;
+                }
+                tb->curr_char = 0;
+                if (tb->curr_char < line->n) {
+                        tb->curr_char++;
                         line->n_shown++;
-                        return 1;
                 }
         }
-        return 0;
 }

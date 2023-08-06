@@ -130,6 +130,14 @@ static int char_hex_to_int(char c)
         return 0;
 }
 
+static bool32 char_matches_any(const char c, const char *chars)
+{
+        for (int i = 0; chars[i] != '\0'; i++) {
+                if (chars[i] == c) return 1;
+        }
+        return 0;
+}
+
 static bool32 streq(char *str1, char *str2)
 {
         ASSERT(str1 && str2);
@@ -159,7 +167,7 @@ static char *os_strcpy(char *dst, const char *src)
         return dst;
 }
 
-static void os_strncpy(char *dst, const char *src)
+static char *os_strncpy(char *dst, const char *src)
 {
         ASSERT(dst && src);
         for (int i = 0;; i++) {

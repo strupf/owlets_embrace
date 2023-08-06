@@ -92,18 +92,16 @@ static int rope_points_collinearity(v2_arr *pts, v2_i32 c)
 
 static void points_in_tri_add(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 {
-        if (!overlap_tri_pnt_incl(t1, p) ||
-            !overlap_tri_pnt_incl(t2, p) ||
-            v2_arrcontains(pts, p)) return;
+        if (!overlap_tri_pnt_incl(t1, p) || !overlap_tri_pnt_incl(t2, p)) return;
+        if (v2_arrcontains(pts, p)) return;
         int k = rope_points_collinearity(pts, p);
-        if (k == -1) return;  // don't add
-        v2_arrput(pts, p, k); // add or overwrite
+        if (k >= 0)
+                v2_arrput(pts, p, k); // add or overwrite
 }
 
 static void try_add_point_in_tri(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 {
-        if (!(overlap_tri_pnt_incl(t1, p) && overlap_tri_pnt_incl(t2, p)))
-                return;
+        if (!overlap_tri_pnt_incl(t1, p) || !overlap_tri_pnt_incl(t2, p)) return;
         if (v2_arrcontains(pts, p)) return;
         int k = rope_points_collinearity(pts, p);
         if (k == -1) return;  // don't add
