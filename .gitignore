@@ -2,3 +2,6 @@
 !.gitignore
 !/src
 !todo.txt
+/misc
+LICENSE
+readme.md
