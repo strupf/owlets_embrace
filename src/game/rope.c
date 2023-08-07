@@ -102,6 +102,11 @@ static void points_in_tri_add(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 static void try_add_point_in_tri(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 {
         if (!overlap_tri_pnt_incl(t1, p) || !overlap_tri_pnt_incl(t2, p)) return;
+        for (int i = 0; i < 3; i++) {
+                if (v2_eq(p, t1.p[i])) return;
+                if (v2_eq(p, t2.p[i])) return;
+        }
+
         if (v2_arrcontains(pts, p)) return;
         int k = rope_points_collinearity(pts, p);
         if (k == -1) return;  // don't add
@@ -178,7 +183,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
         if (v2_eq(p1, p2)) return;
 
         v2_i32 p0  = rn_anchor->p; // anchor
-        i32    dir = v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
+        i32    dir = -v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
         if (dir == 0) return;
 
         os_spmem_push();
@@ -239,8 +244,6 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                 if (!v2_arrcontains(points, opoints[2])) v2_arradd(points, opoints[2]);
                 if (!v2_arrcontains(points, opoints[3])) v2_arradd(points, opoints[3]);
         }
-
-        rope_s ropecopy = *r;
 
         foreach_v2_arr (points, it) {
                 v2_i32      p_beg  = it.e;
@@ -316,10 +319,8 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                 rec_i32     rr = obj_aabb(solid);
                 rr.x += dt.x;
                 rr.y += dt.y;
-                rec_to_tri(rr, tris);
-                bool32 a = overlap_tri_lineseg_excl(tris[0], ls1);
-                bool32 b = overlap_tri_lineseg_excl(tris[1], ls1);
-                ASSERT(!a && !b);
+                bool32 a = overlap_rec_lineseg_excl(rr, ls1);
+                ASSERT(!a);
         }
 #endif
 
@@ -469,7 +470,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
         u32 len_q4     = rope_length_q4(r);
         u32 len_max_q4 = r->len_max << 4;
 
-#if 1
+#if 0
         // check for maximum stretch
         if (len_q4 > (len_max_q4 * 2)) {
                 PRINTF("LENGTH\n");
@@ -505,10 +506,11 @@ bool32 rope_intact(game_s *g, rope_s *r)
 
                 obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
                 for (int n = 0; n < solids.n; n++) {
-                        obj_s *o = solids.o[n];
-                        if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
+                        obj_s  *o  = solids.o[n];
+                        rec_i32 ro = obj_aabb(o);
+                        if (overlap_rec_lineseg_excl(ro, ls)) {
                                 PRINTF("SOLID\n");
-                                overlap_rec_lineseg_excl(obj_aabb(o), ls); // ony for debugging
+                                overlap_rec_lineseg_excl(ro, ls); // ony for debugging
                                 return 0;
                         }
                 }

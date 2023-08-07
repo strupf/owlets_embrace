@@ -15,10 +15,10 @@ static void draw_textbox(textbox_s *tb)
                 gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
         }
 
-        static i32 npage = 0;
         if (tb->shows_all) {
-                npage += 10000;
-                int yy = sin_q16((npage % 0x40000)) / 10000;
+                tb->page_animation_state += 10000;
+                tb->page_animation_state &= (Q16_ANGLE_TURN - 1);
+                int yy = sin_q16(tb->page_animation_state) >> 14;
                 gfx_rec_fill((rec_i32){370, 205 + yy, 10, 10}, 1);
         }
 }

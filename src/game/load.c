@@ -342,6 +342,40 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
         os_spmem_pop();
 }
 
+static bool32 tiled_property(jsn_s j, const char *pname, jsn_s *property)
+{
+        jsn_s jj = {0};
+        if (!jsn_key(j, "properties", &jj)) return 0;
+        foreach_jsn_child (jj, jprop) {
+                char buf[64];
+                jsn_strk(jprop, "name", buf, sizeof(buf));
+                if (streq(buf, pname)) {
+                        *property = jprop;
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+void load_obj_layer(game_s *g, jsn_s jlayer)
+{
+        foreach_jsn_childk (jlayer, "objects", jobj) {
+                char buf[16];
+                jsn_strk(jobj, "type", buf, sizeof(buf));
+                PRINTF("%s\n", buf);
+                if (0) {
+                } else if (streq(buf, "hero")) {
+                        obj_s *o = hero_create(g, &g->hero);
+                        o->pos.x = jsn_intk(jobj, "x");
+                        o->pos.y = jsn_intk(jobj, "y");
+                }
+
+                jsn_s prop;
+                if (tiled_property(jobj, "path", &prop)) {
+                }
+        }
+}
+
 void game_load_map(game_s *g, const char *filename)
 {
         // reset room
@@ -357,7 +391,6 @@ void game_load_map(game_s *g, const char *filename)
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
                 objset_clr(&g->objbuckets[n].set);
         }
-        hero_create(g, &g->hero);
 
         os_spmem_push();
 
@@ -381,10 +414,13 @@ void game_load_map(game_s *g, const char *filename)
         foreach_jsn_childk (jroot, "layers", jlayer) {
                 char name[64] = {0};
                 jsn_strk(jlayer, "name", name, ARRLEN(name));
-                if (streq(name, "autotile")) {
+                if (0) {
+                } else if (streq(name, "autotile")) {
                         PRINTF("LOAD LAYER %s\n", name);
                         load_rendertile_layer(g, jlayer, w, h,
                                               tilesets.sets, tilesets.n);
+                } else if (streq(name, "obj")) {
+                        load_obj_layer(g, jlayer);
                 }
         }
         PRINTF("\n");

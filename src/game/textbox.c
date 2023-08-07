@@ -9,7 +9,7 @@ enum {
         DIALOG_TOK_NULL,
         DIALOG_TOK_PORTRAIT,
         DIALOG_TOK_CMD,
-        DIALOG_TOK_TEXT_BEGIN,
+        DIALOG_TOK_TEXT,
         DIALOG_TOK_TEXT_NEW_LINE,
         DIALOG_TOK_TEXT_NEW_PAGE,
         DIALOG_TOK_END,
@@ -54,7 +54,7 @@ void dialog_parse(const char *txt, dialog_tok_s *toks)
                 } break;
                 default: {
                         dialog_tok_s *tb = &toks[ntok++];
-                        tb->type         = DIALOG_TOK_TEXT_BEGIN;
+                        tb->type         = DIALOG_TOK_TEXT;
                         tb->i0           = i;
                         while (1) {
                                 i++;
@@ -110,48 +110,33 @@ bool32 textbox_next_page(textbox_s *tb)
         textbox_clr(tb);
         textboxline_s *line = &tb->lines[0];
         while (tb->tok->type != DIALOG_TOK_END) {
-                const char *str = &tb->dialogmem[tb->tok->i0 + 1];
+                const char *s = &tb->dialogmem[tb->tok->i0 + 1];
                 switch (tb->tok->type) {
                 case DIALOG_TOK_CMD: {
                         if (0) {
-                        } else if (str_matches(str, "~")) {
+                        } else if (str_matches(s, "~")) {
                                 tb->curreffect = FNT_EFFECT_WAVE;
-                        } else if (str_matches(str, "/~")) {
+                        } else if (str_matches(s, "/~")) {
                                 tb->curreffect = FNT_EFFECT_NONE;
-                        } else if (str_matches(str, "n")) {
+                        } else if (str_matches(s, "n")) {
                                 if (!textbox_new_line(tb, &line)) return 0;
-                        } else if (str_matches(str, ">>")) {
+                        } else if (str_matches(s, ">>")) {
                                 if (tb->tok->i1 - tb->tok->i0 > 3) {
-                                        // todo: parse speed from file
-                                        /*
-                                        char buf[4];
-                                        int  nbuf = 0;
-                                        for (int i = tb->tok->i0 + 1; i <= tb->tok->i1; i++) {
-                                                char c = tb->dialogmem[i];
-                                                if (c == '}') {
-                                                        buf[nbuf++] = '\0';
-                                                        break;
-                                                }
-                                                ASSERT(char_digit(c));
-                                                buf[nbuf++] = c;
-                                        }
-                                        NOT_IMPLEMENTED
-                                        */
-                                        tb->currspeed = 16;
+                                        tb->currspeed = os_i32_from_str(&s[3]);
                                 } else {
                                         tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
                                 }
-                        } else if (str_matches(str, "trigger")) {
-                        } else if (str_matches(str, "*")) {
+                        } else if (str_matches(s, "trigger")) {
+                        } else if (str_matches(s, "*")) {
                                 tb->curreffect = FNT_EFFECT_SHAKE;
-                        } else if (str_matches(str, "/*")) {
+                        } else if (str_matches(s, "/*")) {
                                 tb->curreffect = FNT_EFFECT_NONE;
                         }
                 } break;
                 case DIALOG_TOK_PORTRAIT: {
 
                 } break;
-                case DIALOG_TOK_TEXT_BEGIN: {
+                case DIALOG_TOK_TEXT: {
                         for (int i = tb->tok->i0; i <= tb->tok->i1; i++) {
                                 char      ci = tb->dialogmem[i];
                                 fntchar_s fc = {0};
@@ -201,7 +186,8 @@ void textbox_update(textbox_s *tb)
         } else {
                 line = &tb->lines[++tb->curr_line];
                 if (line >= &tb->lines[TEXTBOX_LINES]) {
-                        tb->shows_all = 1;
+                        tb->shows_all            = 1;
+                        tb->page_animation_state = 0;
                         return;
                 }
                 tb->curr_char = 0;

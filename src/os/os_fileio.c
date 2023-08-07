@@ -274,7 +274,7 @@ bool32 jsn_key(jsn_s j, const char *key, jsn_s *jk)
         CONTINUELOOP:;
         } while (jsn_sibling(jj, &jj));
 
-        PRINTF("no same found\n");
+        PRINTF("jsn: key not found - %s\n", key);
         return 0;
 }
 

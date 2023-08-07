@@ -191,4 +191,33 @@ static char *os_strcat(char *s1, const char *s2)
         return s1;
 }
 
+static i32 os_i32_from_str(const char *s)
+{
+        int i = 0;
+        while (1) {
+                char c = s[i];
+                if (c == '\0') return 0;
+                if (char_matches_any(c, " \n\t"))
+                        i++;
+                else
+                        break;
+        }
+
+        i32 res = 0;
+        i32 sig = 1;
+        switch (s[i]) {
+        case '-': sig = -1;
+        case '+': i++; break;
+        }
+
+        while (1) {
+                char c = s[i];
+                if (!char_digit(c)) break;
+                res *= 10;
+                res += (int)(c - '0');
+                i++;
+        }
+        return (res * sig);
+}
+
 #endif

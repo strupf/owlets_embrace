@@ -6,14 +6,14 @@ gameplay
 * better character controls
 * rope
     * rope as a dedicated usable item
-    * aiming mechanic
 * path movement for moving platforms
     * linear, pingpong, circular
     * load path from map
+* enter dialogues via interaction
+
 
 loading
 * autotiling for low and high slopes
-* object loading from map file
 
 graphics
 * current selected item frame
@@ -23,10 +23,8 @@ graphics
 
 
 textbox
-* multiple blocks of texts in a row ("continue button")
-* split worlds in a textbox in a sensible way
-* effects and other glyphs in a textbox
 * typewriter noises
+* load dialogue dynamically via tmj file property during interaction
 
 bugs
 * rope: removal of a point during tighten can result in three

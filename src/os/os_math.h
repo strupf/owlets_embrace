@@ -7,8 +7,8 @@
 
 #include "os_types.h"
 
-#define CATCH_OVERFLOW 1
-#define WARN_OVERFLOW  1
+#define CATCH_OVERFLOW 0
+#define WARN_OVERFLOW  0
 
 typedef struct {
         i32 num;
@@ -889,6 +889,40 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
         i32 u, v, w;
         tri_pnt_barycentric_uvw(t, p, &u, &v, &w);
         return (u >= 0 && v >= 0 && w >= 0) || (u <= 0 && v <= 0 && w <= 0);
+}
+
+/* separating axis check
+ * check all lines if all other points of the triangle are on
+ * one side and all other points of the line are on the other side
+ * of the axis
+ *
+ * doesn't handle degenerate triangles (I think)
+ */
+static bool32 overlap_tri_lineseg_excl2(tri_i32 t, lineseg_i32 l)
+{
+        v2_i32 x = v2_sub(t.p[1], t.p[0]);
+        v2_i32 y = v2_sub(t.p[2], t.p[0]);
+        v2_i32 z = v2_sub(t.p[2], t.p[1]);
+        v2_i32 w = v2_sub(l.b, l.a);
+
+        i32 a0 = v2_crs(y, x);
+        i32 a1 = v2_crs(v2_sub(l.a, t.p[0]), x);
+        i32 a2 = v2_crs(v2_sub(l.b, t.p[0]), x);
+        i32 b0 = -a0;
+        i32 b1 = v2_crs(v2_sub(l.a, t.p[0]), y);
+        i32 b2 = v2_crs(v2_sub(l.b, t.p[0]), y);
+        i32 c0 = v2_crs(v2_sub(t.p[0], t.p[1]), z);
+        i32 c1 = v2_crs(v2_sub(l.a, t.p[1]), z);
+        i32 c2 = v2_crs(v2_sub(l.b, t.p[1]), z);
+        i32 d0 = v2_crs(v2_sub(t.p[0], l.a), w);
+        i32 d1 = v2_crs(v2_sub(t.p[1], l.a), w);
+        i32 d2 = v2_crs(v2_sub(t.p[2], l.a), w);
+
+        return !(
+            (a0 <= 0 && a1 >= 0 && a2 >= 0) || (a0 >= 0 && a1 <= 0 && a2 <= 0) ||
+            (b0 <= 0 && b1 >= 0 && b2 >= 0) || (b0 >= 0 && b1 <= 0 && b2 <= 0) ||
+            (c0 <= 0 && c1 >= 0 && c2 >= 0) || (c0 >= 0 && c1 <= 0 && c2 <= 0) ||
+            (d0 | d1 | d2) >= 0 || (d0 <= 0 && d1 <= 0 && d2 <= 0));
 }
 
 // TODO: NEEDS FURTHER CHECKING!

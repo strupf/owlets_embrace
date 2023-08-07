@@ -30,6 +30,7 @@ typedef struct {
 } textboxline_s;
 
 struct textbox_s {
+        int           page_animation_state;
         int           typewriter_tick;
         int           curreffect;
         int           currspeed;
@@ -39,9 +40,9 @@ struct textbox_s {
         bool32        active;
         textboxline_s lines[TEXTBOX_LINES];
 
-        char          dialogmem[TEXTBOX_FILE_MEM];
-        dialog_tok_s  toks[TEXTBOX_NUM_TOKS];
         dialog_tok_s *tok;
+        dialog_tok_s  toks[TEXTBOX_NUM_TOKS];
+        char          dialogmem[TEXTBOX_FILE_MEM];
 };
 
 void   textbox_init(textbox_s *tb);
