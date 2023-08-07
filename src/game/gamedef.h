@@ -43,6 +43,7 @@ enum obj_flag {
         OBJ_FLAG_NEW_AREA_COLLIDER,
         OBJ_FLAG_PICKUP,
         OBJ_FLAG_HOOK,
+        OBJ_FLAG_INTERACT,
         //
         NUM_OBJ_FLAGS
 };
@@ -59,6 +60,7 @@ enum obj_bucket {
         OBJ_BUCKET_SOLID,
         OBJ_BUCKET_NEW_AREA_COLLIDER,
         OBJ_BUCKET_PICKUP,
+        OBJ_BUCKET_INTERACT,
         //
         NUM_OBJ_BUCKETS = 64,
 };

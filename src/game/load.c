@@ -357,22 +357,42 @@ static bool32 tiled_property(jsn_s j, const char *pname, jsn_s *property)
         return 0;
 }
 
+static void load_obj_from_jsn(game_s *g, jsn_s jobj)
+{
+        char buf[16];
+        jsn_strk(jobj, "type", buf, sizeof(buf));
+        PRINTF("%s\n", buf);
+
+        obj_s *o = NULL;
+        if (0) {
+        } else if (streq(buf, "hero")) {
+                o        = hero_create(g, &g->hero);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "sign")) {
+                o                = obj_create(g);
+                objflags_s flags = objflags_create(
+                    OBJ_FLAG_INTERACT);
+                obj_set_flags(g, o, flags);
+                o->pos.x      = jsn_intk(jobj, "x");
+                o->pos.y      = jsn_intk(jobj, "y");
+                o->w          = 16;
+                o->h          = 16;
+                o->oninteract = interact_open_dialogue;
+        }
+
+        if (!o) return;
+
+        jsn_s prop;
+        if (tiled_property(jobj, "dialogue", &prop)) {
+                jsn_strk(prop, "value", o->dialogue, sizeof(o->dialogue));
+        }
+}
+
 void load_obj_layer(game_s *g, jsn_s jlayer)
 {
         foreach_jsn_childk (jlayer, "objects", jobj) {
-                char buf[16];
-                jsn_strk(jobj, "type", buf, sizeof(buf));
-                PRINTF("%s\n", buf);
-                if (0) {
-                } else if (streq(buf, "hero")) {
-                        obj_s *o = hero_create(g, &g->hero);
-                        o->pos.x = jsn_intk(jobj, "x");
-                        o->pos.y = jsn_intk(jobj, "y");
-                }
-
-                jsn_s prop;
-                if (tiled_property(jobj, "path", &prop)) {
-                }
+                load_obj_from_jsn(g, jobj);
         }
 }
 

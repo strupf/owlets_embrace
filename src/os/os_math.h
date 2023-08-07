@@ -898,7 +898,7 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
  *
  * doesn't handle degenerate triangles (I think)
  */
-static bool32 overlap_tri_lineseg_excl2(tri_i32 t, lineseg_i32 l)
+static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
 {
         v2_i32 x = v2_sub(t.p[1], t.p[0]);
         v2_i32 y = v2_sub(t.p[2], t.p[0]);
@@ -927,7 +927,7 @@ static bool32 overlap_tri_lineseg_excl2(tri_i32 t, lineseg_i32 l)
 
 // TODO: NEEDS FURTHER CHECKING!
 // check for overlap - touching considered NOT overlapped
-static bool32 overlap_tri_lineseg_excl(tri_i32 tri, lineseg_i32 l)
+static bool32 overlap_tri_lineseg_excl2(tri_i32 tri, lineseg_i32 l)
 {
         lineseg_i32 t0 = {tri.p[0], tri.p[1]};
         lineseg_i32 t1 = {tri.p[1], tri.p[2]};

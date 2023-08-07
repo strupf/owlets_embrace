@@ -57,10 +57,9 @@ struct obj_s {
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
-        i32 aim_angle;
-
-        void (*onsqueeze)(game_s *g, obj_s *o, void *arg);
         void *onsqueezearg;
+        void (*onsqueeze)(game_s *g, obj_s *o);
+        void (*oninteract)(game_s *g, obj_s *o);
 
         ropenode_s *ropenode;
         rope_s     *rope;
@@ -68,7 +67,8 @@ struct obj_s {
         bool32       attached;
         pickupdata_s pickup;
 
-        char        new_mapfile[64];
+        char        dialogue[32];
+        char        new_mapfile[32];
         pathmover_s path;
 };
 
@@ -106,5 +106,7 @@ void        objset_add_all_matching(objset_s       *set,
                                     objflags_s flags, int cmpf);
 void        objset_del_all_in_radius(objset_s *set, v2_i32 p, i32 r);
 void        objset_del_matching(objset_s *set, objflags_s flags, int cmpf);
+//
+void        interact_open_dialogue(game_s *g, obj_s *o);
 
 #endif

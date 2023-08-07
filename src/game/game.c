@@ -63,6 +63,12 @@ void game_init(game_s *g)
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_PICKUP);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_INTERACT];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_INTERACT);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
 }

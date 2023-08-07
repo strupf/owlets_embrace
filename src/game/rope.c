@@ -4,6 +4,13 @@
 
 #include "rope.h"
 #include "game.h"
+
+typedef struct {
+        v2_i32 p;
+        v2_i32 u;
+        v2_i32 v;
+} convex_vertex_s;
+
 void rope_init(rope_s *r)
 {
         for (int n = 2; n < NUM_ROPE_NODES - 1; n++) {
@@ -31,6 +38,9 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
         ASSERT((a->next == b && b->prev == a) ||
                (b->next == a && a->prev == b));
         ASSERT(r->pool);
+        if (v2_eq(p, (v2_i32){256, 176})) {
+                int aa = 1;
+        }
         ropenode_s *rn = r->pool;
         r->pool        = rn->next;
         rn->p          = p;
@@ -90,16 +100,32 @@ static int rope_points_collinearity(v2_arr *pts, v2_i32 c)
         return v2_arrlen(pts);
 }
 
-static void points_in_tri_add(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
+static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
+                                 v2_arr *pts)
 {
-        if (!overlap_tri_pnt_incl(t1, p) || !overlap_tri_pnt_incl(t2, p)) return;
-        if (v2_arrcontains(pts, p)) return;
-        int k = rope_points_collinearity(pts, p);
-        if (k >= 0)
-                v2_arrput(pts, p, k); // add or overwrite
+
+        if (!overlap_tri_pnt_incl(t1, p.p) || !overlap_tri_pnt_incl(t2, p.p))
+                return;
+        for (int i = 0; i < 3; i++) {
+                if (v2_eq(p.p, t1.p[i])) return;
+                if (v2_eq(p.p, t2.p[i])) return;
+        }
+        // nasty with lots of calculations...
+        // ONLY NEEDED FOR SOLID MOVEMENT though
+        lineseg_i32 lu = {p.p, p.u};
+        lineseg_i32 lv = {p.p, p.v};
+        if (!overlap_tri_lineseg_excl(t1, lu) &&
+            !overlap_tri_lineseg_excl(t1, lv) &&
+            !overlap_tri_lineseg_excl(t2, lu) &&
+            !overlap_tri_lineseg_excl(t2, lv)) return;
+
+        if (v2_arrcontains(pts, p.p)) return;
+        int k = rope_points_collinearity(pts, p.p);
+        if (k == -1) return;    // don't add
+        v2_arrput(pts, p.p, k); // add or overwrite
 }
 
-static void try_add_point_in_tri(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
+static void try_add_point_in_tri_(v2_i32 p, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 {
         if (!overlap_tri_pnt_incl(t1, p) || !overlap_tri_pnt_incl(t2, p)) return;
         for (int i = 0; i < 3; i++) {
@@ -132,8 +158,10 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                         tri_i32        ttri1 = translate_tri_xy(tc.tris[0], x * 16, y * 16);
                         tri_i32        ttri2 = translate_tri_xy(tc.tris[1], x * 16, y * 16);
                         for (int i = 0; i < 3; i++) {
-                                try_add_point_in_tri(ttri1.p[i], t1, t2, pts);
-                                try_add_point_in_tri(ttri2.p[i], t1, t2, pts);
+                                convex_vertex_s v1 = {ttri1.p[i], ttri1.p[(i + 1) % 3], ttri1.p[(i + 2) % 3]};
+                                convex_vertex_s v2 = {ttri2.p[i], ttri2.p[(i + 1) % 3], ttri2.p[(i + 2) % 3]};
+                                try_add_point_in_tri(v1, t1, t2, pts);
+                                try_add_point_in_tri(v2, t1, t2, pts);
                         }
                 }
         }
@@ -145,7 +173,8 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                 v2_i32 points[4];
                 points_from_rec(obj_aabb(o), points);
                 for (int i = 0; i < 4; i++) {
-                        try_add_point_in_tri(points[i], t1, t2, pts);
+                        convex_vertex_s v1 = {points[i], points[(i + 1) % 4], points[(i + 3) % 4]};
+                        try_add_point_in_tri(v1, t1, t2, pts);
                 }
         }
 }
@@ -183,7 +212,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
         if (v2_eq(p1, p2)) return;
 
         v2_i32 p0  = rn_anchor->p; // anchor
-        i32    dir = -v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
+        i32    dir = v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
         if (dir == 0) return;
 
         os_spmem_push();
@@ -228,25 +257,26 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
                 ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
         }
 }
-
+/*
+ * bug (also see sketch) -> temporary solution added in points in tri (linesegs)
+ * node is pushed by solid to the left
+ * o <-o______
+ *  \  |
+ *   \ o <-- this one gets wrongly added to the convex hull (bc inside tri)
+ *    \|     and ends up being inside the solid
+ *     o______
+ */
 void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 {
-        os_spmem_push();
-        v2_arr *points = v2_arrcreate(256, os_spmem_alloc);
+        v2_i32 points[4];
+        points_from_rec(obj_aabb(solid), points);
 
-        const obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
-        for (int n = 0; n < solids.n; n++) {
-                const obj_s *o = solids.o[n];
-                v2_i32       opoints[4];
-                points_from_rec(obj_aabb(o), opoints);
-                if (!v2_arrcontains(points, opoints[0])) v2_arradd(points, opoints[0]);
-                if (!v2_arrcontains(points, opoints[1])) v2_arradd(points, opoints[1]);
-                if (!v2_arrcontains(points, opoints[2])) v2_arradd(points, opoints[2]);
-                if (!v2_arrcontains(points, opoints[3])) v2_arradd(points, opoints[3]);
-        }
+        // this is only for debugging purposes to rerun
+        // this algorithm through the debugger on break points
+        rope_s rcopy = *r;
 
-        foreach_v2_arr (points, it) {
-                v2_i32      p_beg  = it.e;
+        for (int n = 0; n < 4; n++) {
+                v2_i32      p_beg  = points[n];
                 v2_i32      p_end  = v2_add(p_beg, dt);
                 v2_i32      p_pst  = v2_sub(p_beg, dt);
                 lineseg_i32 ls_mov = {p_beg, p_end};
@@ -320,11 +350,12 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                 rr.x += dt.x;
                 rr.y += dt.y;
                 bool32 a = overlap_rec_lineseg_excl(rr, ls1);
-                ASSERT(!a);
+                // ASSERT(!a);
+                if (a) {
+                        // rope_moved_by_solid(g, &rcopy, solid, dt);
+                }
         }
 #endif
-
-        os_spmem_pop();
 }
 
 static bool32 rope_vertex_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
@@ -398,6 +429,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
                 obj_s *o = solids.o[n];
+                if (o->soliddisabled) continue;
                 v2_i32 opoints[4];
                 points_from_rec(obj_aabb(o), opoints);
                 for (int i = 0; i < 4; i++) {

@@ -27,10 +27,9 @@ static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
         ohook->ropenode = NULL;
 }
 
-void hook_squeeze(game_s *g, obj_s *o, void *arg)
+void hook_squeeze(game_s *g, obj_s *o)
 {
-        ASSERT(arg);
-        hero_s *hero = (hero_s *)arg;
+        hero_s *hero = (hero_s *)o->onsqueezearg;
         obj_s  *ohero;
         if (try_obj_from_handle(hero->obj, &ohero)) {
                 hook_destroy(g, hero, ohero, o);
@@ -150,6 +149,11 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         } else {
                 o->drag_q8.x = 255;
         }
+
+        if (os_inp_just_pressed(INP_UP) && grounded &&
+            o->vel_q8.x == 0 && o->vel_q8.y == 0) {
+                hero_interact_logic(g, h, o);
+        }
 }
 
 static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
@@ -219,6 +223,19 @@ void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
                         }
                         h->pickups += p->pickup.x;
                         obj_delete(g, p);
+                }
+        }
+}
+
+void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
+{
+        const obj_listc_s list = objbucket_list(g, OBJ_BUCKET_INTERACT);
+        rec_i32           aabb = obj_aabb(o);
+        for (int n = 0; n < list.n; n++) {
+                obj_s *oi = list.o[n];
+                if (overlap_rec_excl(aabb, obj_aabb(oi)) && oi->oninteract) {
+                        oi->oninteract(g, oi);
+                        break;
                 }
         }
 }

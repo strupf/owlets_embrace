@@ -312,7 +312,7 @@ static void solid_step(game_s *g, obj_s *o, int sx, int sy)
                         if (sx != 0) actor_step_x(g, a, sx);
                         if (sy != 0) actor_step_y(g, a, sy);
                         if (!actor_try_wiggle(g, a) && a->onsqueeze) {
-                                a->onsqueeze(g, a, a->onsqueezearg);
+                                a->onsqueeze(g, a);
                         }
                 }
         }
@@ -343,4 +343,11 @@ void obj_apply_movement(obj_s *o)
         o->pos_new   = v2_add(o->pos, v2_shr(o->subpos_q8, 8));
         o->subpos_q8.x &= 255;
         o->subpos_q8.y &= 255;
+}
+
+void interact_open_dialogue(game_s *g, obj_s *o)
+{
+        char filename[64] = "assets/";
+        os_strcat(filename, o->dialogue);
+        textbox_load_dialog(&g->textbox, filename);
 }
