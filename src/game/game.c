@@ -13,6 +13,7 @@ void game_init(game_s *g)
         gfx_set_inverted(1);
 
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
+        tex_put(TEXID_FONT_DEBUG, tex_load("assets/font_debug.json"));
         tex_put(TEXID_TILESET, tex_load("assets/tilesets.json"));
         tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
@@ -33,6 +34,7 @@ void game_init(game_s *g)
         }
 
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
+        fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
 
         g->cam.w  = 400;
         g->cam.h  = 240;
@@ -85,11 +87,15 @@ void game_update(game_s *g)
                 if (solid->pos.x < 200) {
                         dir = +1;
                 }
+                float times = os_time();
                 solid_move(g, solid, dir * 2, 0);
+                os_debug_time(TIMING_SOLID_UPDATE, os_time() - times);
         }
 
         obj_s *ohero;
+        float  timeh = os_time();
         if (try_obj_from_handle(g->hero.obj, &ohero)) {
+
                 g->hero.inpp = g->hero.inp;
                 g->hero.inp  = 0;
                 hero_update(g, ohero, &g->hero);
@@ -98,6 +104,7 @@ void game_update(game_s *g)
                 }
                 hero_pickup_logic(g, &g->hero, ohero);
         }
+        os_debug_time(TIMING_HERO_UPDATE, os_time() - timeh);
 
         // remove all objects scheduled to be deleted
         if (objset_len(&g->obj_scheduled_delete) > 0) {
@@ -138,9 +145,11 @@ static void game_update_transition(game_s *g)
         if (g->transitionticks < TRANSITION_TICKS)
                 return;
 
+        char filename[64] = {0};
         switch (g->transitionphase) {
         case TRANSITION_FADE_IN:
-                char filename[64] = ASSET_PATH_MAPS;
+
+                os_strcat(filename, ASSET_PATH_MAPS);
                 os_strcat(filename, g->transitionmap);
                 game_load_map(g, filename);
                 g->transitionphase = TRANSITION_FADE_OUT;

@@ -30,6 +30,10 @@ typedef struct hero_s      hero_s;
 typedef struct textbox_s   textbox_s;
 typedef struct obj_listc_s obj_listc_s;
 
+#define foreach_tile_in_bounds(X1, Y1, X2, Y2, XIT, YIT) \
+        for (int YIT = Y1; YIT <= Y2; YIT++)             \
+                for (int XIT = X1; XIT <= X2; XIT++)
+
 ARR_DEF_PRIMITIVE(obj, obj_s *)
 
 struct objhandle_s {

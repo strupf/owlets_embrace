@@ -16,7 +16,7 @@ struct ropenode_s {
         v2_i32      p;
 };
 
-#define NUM_ROPE_NODES 256
+#define NUM_ROPE_NODES 64
 struct rope_s {
         ropenode_s *head;
         ropenode_s *tail;

@@ -8,13 +8,13 @@
 #include "rope.h"
 
 enum hero_const {
-        HERO_C_JUMP_INIT = -300,
-        HERO_C_ACCX      = 30,
-        HERO_C_JUMP_MAX  = 60,
+        HERO_C_JUMP_INIT = -350,
+        HERO_C_ACCX      = 36,
+        HERO_C_JUMP_MAX  = 70,
         HERO_C_JUMP_MIN  = 0,
-        HERO_C_JUMPTICKS = 20,
-        HERO_C_EDGETICKS = 8,
-        HERO_C_GRAVITY   = 32,
+        HERO_C_JUMPTICKS = 18,
+        HERO_C_EDGETICKS = 6,
+        HERO_C_GRAVITY   = 45,
 };
 
 static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)

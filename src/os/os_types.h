@@ -34,13 +34,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#define os_time PD->system->getElapsedTime
+#define os_time PD_elapsedtime
 
 extern PlaydateAPI *PD;
 extern void (*PD_log)(const char *fmt, ...);
+extern float (*PD_elapsedtime)();
 #define ASSERT(E)
 #define STATIC_ASSERT(E, M)
+
+#if defined(TARGET_PD_HW)
+#include <arm_acle.h>  // cortex m7 simd intrinsics?
+#define PRINTF(C, ...) // disable printf calls
+#else
 #define PRINTF PD_log
+#endif
 //
 #endif
 // =============================================================================
@@ -60,6 +67,12 @@ typedef uint64_t       u64;
 typedef int8_t         bool8;
 typedef int16_t        bool16;
 typedef int32_t        bool32;
+
+// 32-bit SIMD types
+typedef i32 i16x2;
+typedef u32 u16x2;
+typedef i32 i8x4;
+typedef u32 u8x4;
 
 #define I64_MAX INT64_MAX
 #define I64_MIN INT64_MIN
@@ -191,6 +204,37 @@ static char *os_strcat(char *s1, const char *s2)
         return s1;
 }
 
+static char *os_strcat_i32(char *s1, i32 value)
+{
+        if (!s1) return s1;
+
+        if (value == 0) {
+                *s1 = '0';
+                return s1;
+        }
+
+        char *s = s1;
+        while (*s != '\0') {
+                s++;
+        }
+
+        i32 num = value;
+        if (num < 0) {
+                num  = -num;
+                *s++ = '-';
+        }
+
+        for (i32 temp = num; temp > 0; temp /= 10) {
+                s++;
+        }
+
+        *s = '\0';
+        for (i32 temp = num; temp > 0; temp /= 10) {
+                *--s = temp % 10 + '0';
+        }
+        return s1;
+}
+
 static i32 os_i32_from_str(const char *s)
 {
         int i = 0;
@@ -218,6 +262,12 @@ static i32 os_i32_from_str(const char *s)
                 i++;
         }
         return (res * sig);
+}
+
+static inline u32 endian_u32(u32 i)
+{
+        return ((i >> 0x18) & 0x000000FFU) | ((i << 0x08) & 0x00FF0000U) |
+               ((i >> 0x08) & 0x0000FF00U) | ((i << 0x18) & 0xFF000000U);
 }
 
 #endif

@@ -257,9 +257,8 @@ static inline int i_gfx_peek_px(tex_s t, int x, int y)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return 0;
 
-        int idx = (x >> 3) + y * t.w_byte;
-        int i   = t.px[idx];
-        return ((i & (1u << (7 - (x & 7)))) > 0);
+        int i = t.px[(x >> 3) + y * t.w_byte];
+        return ((i & (1 << (7 - (x & 7)))) > 0);
 }
 
 static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
@@ -279,15 +278,13 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return;
 
-        int idx = (x >> 3) + y * t.w_byte;
-        int bit = (x & 7);
-        int i   = t.px[idx];
-        if (col == 1) {
-                i |= (1u << (7 - bit)); // set bit
-        } else {
-                i &= ~(1u << (7 - bit)); // clear bit
-        }
-        t.px[idx] = (u8)i;
+        int i = (x >> 3) + y * t.w_byte;
+        int s = 1 << (7 - (x & 7));
+        if (col)
+                t.px[i] |= s; // set bit
+        else
+                t.px[i] &= ~s; // clear bit
+        if (t.mask) t.mask[i] |= s;
 }
 
 void gfx_set_inverted(bool32 inv)
@@ -354,12 +351,9 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         }
 }
 
-static inline u32 endian_u32(u32 i)
-{
-        return ((i >> 0x18) & 0x000000FFU) | ((i << 0x08) & 0x00FF0000U) |
-               ((i >> 0x08) & 0x0000FF00U) | ((i << 0x18) & 0xFF000000U);
-}
-
+/* fast sprite drawing routine for untransformed sprites
+ * blits 32 pixelbits in one loop
+ */
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
         tex_s dst = g_os.dst;
@@ -371,7 +365,8 @@ void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
         int   y2  = (rs.h <= zy ? rs.h : zy) + rs.y - 1;
 
         // relative word alignment
-        int bitoffset    = (32 - ((pos.x - rs.x) & 31)) & 31;
+        int sh1          = (32 - ((pos.x - rs.x) & 31)) & 31;
+        int sh0          = 32 - sh1;
         int b1           = x1 >> 5;
         int b2           = x2 >> 5;
         int cc           = pos.x - rs.x;
@@ -388,10 +383,10 @@ void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
                         u32 m  = (0xFFFFFFFFu >> u) & ~(0x7FFFFFFFu >> v);
                         u32 sm = endian_u32(*sm_++) & m;
                         u32 sp = endian_u32(*sp_++);
-                        u32 t0 = sm >> (32 - bitoffset);
-                        u32 p0 = sp >> (32 - bitoffset);
-                        u32 t1 = (sm << bitoffset);
-                        u32 p1 = (sp << bitoffset);
+                        u32 t0 = sm >> sh0;
+                        u32 p0 = sp >> sh0;
+                        u32 t1 = sm << sh1;
+                        u32 p1 = sp << sh1;
                         int j0 = (((b << 5) + cc) >> 5) + yd;
                         int j1 = (((b << 5) + cc + 31) >> 5) + yd;
                         u32 d0 = endian_u32(dp[j0]);
@@ -411,14 +406,40 @@ void gfx_rec_fill(rec_i32 r, int col)
         rec_i32 ri;
         rec_i32 rd = {0, 0, dst.w, dst.h};
         if (!intersect_rec(rd, r, &ri)) return;
+        int zx = dst.w - ri.x;
+        int zy = dst.h - ri.y;
+        int x1 = (0 >= -ri.x ? 0 : -ri.x);
+        int y1 = (0 >= -ri.y ? 0 : -ri.y);
+        int x2 = (ri.w <= zx ? ri.w : zx) - 1;
+        int y2 = (ri.h <= zy ? ri.h : zy) - 1;
 
-        int x1 = ri.x;
-        int y1 = ri.y;
-        int x2 = ri.x + ri.w;
-        int y2 = ri.y + ri.h;
-        for (int y = y1; y < y2; y++) {
-                for (int x = x1; x < x2; x++) {
-                        i_gfx_put_px(dst, x, y, col, 0);
+        // relative word alignment
+        int sh1          = (32 - (ri.x & 31)) & 31; // bit offset of words
+        int sh0          = 32 - sh1;
+        int b1           = x1 >> 5;
+        int b2           = x2 >> 5;
+        u32 *restrict dp = (u32 *)dst.px;
+        u32 *restrict dm = (u32 *)dst.mask;
+        for (int y = y1; y <= y2; y++) {
+                int yd = (y + ri.y) * dst.w_word;
+                for (int b = b1; b <= b2; b++) {
+                        int u  = (b == b1 ? x1 & 31 : 0);
+                        int v  = (b == b2 ? x2 & 31 : 31);
+                        u32 sm = (0xFFFFFFFFu >> u) & ~(0x7FFFFFFFu >> v);
+                        u32 sp = col ? 0xFFFFFFFFu : 0;
+                        u32 t0 = sm >> sh0;
+                        u32 p0 = sp >> sh0;
+                        u32 t1 = sm << sh1;
+                        u32 p1 = sp << sh1;
+                        int j0 = (((b << 5) + ri.x) >> 5) + yd;
+                        int j1 = (((b << 5) + ri.x + 31) >> 5) + yd;
+                        u32 d0 = endian_u32(dp[j0]);
+                        u32 d1 = endian_u32(dp[j1]);
+                        dp[j0] = endian_u32((d0 & ~t0) | (p0 & t0));
+                        dp[j1] = endian_u32((d1 & ~t1) | (p1 & t1));
+                        if (!dm) continue;
+                        dm[j0] = endian_u32(endian_u32(dm[j0]) | t0);
+                        dm[j1] = endian_u32(endian_u32(dm[j1]) | t1);
                 }
         }
 }

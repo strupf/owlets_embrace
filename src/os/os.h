@@ -13,6 +13,7 @@
 enum tex_id {
         TEXID_DISPLAY,
         TEXID_FONT_DEFAULT,
+        TEXID_FONT_DEBUG,
         TEXID_TILESET,
         TEXID_TEXTBOX,
         TEXID_ITEMS,
@@ -30,6 +31,7 @@ enum snd_id {
 
 enum fnt_id {
         FNTID_DEFAULT,
+        FNTID_DEBUG,
         //
         NUM_FNTID
 };
@@ -80,6 +82,17 @@ enum gfx_mode {
         GFX_MODE_XOR,
         GFX_MODE_NXOR,
         GFX_MODE_INV,
+};
+
+enum timing_IDs {
+        TIMING_UPDATE,
+        TIMING_ROPE_UPDATE,
+        TIMING_SOLID_UPDATE,
+        TIMING_HERO_UPDATE,
+        TIMING_DRAW,
+        TIMING_DRAW_TILES,
+        //
+        NUM_TIMING
 };
 
 typedef struct {
@@ -157,6 +170,9 @@ void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
 //
 snd_s     snd_get(int ID);
 //
+void      os_debug_time(int ID, float time);
+void      os_debug_time_acc(int ID, float time);
+void      os_debug_time_acc_commit(int ID);
 i32       os_tick();
 int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
 int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)

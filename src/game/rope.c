@@ -131,30 +131,49 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         v2_i32 pmax2 = v2_max(t2.p[0], v2_max(t2.p[1], t2.p[2]));
         i32    x1, y1, x2, y2;
         game_tile_bounds_minmax(g, v2_min(pmin1, pmin2), v2_max(pmax1, pmax2), &x1, &y1, &x2, &y2);
-        for (int y = y1; y <= y2; y++) {
-                for (int x = x1; x <= x2; x++) {
-                        int t = g->tiles[x + y * g->tiles_x];
-                        if (t == 0) continue;
-                        tilecollider_s tc    = tilecolliders[t - 1];
-                        tri_i32        ttri1 = translate_tri_xy(tc.tris[0], x * 16, y * 16);
-                        tri_i32        ttri2 = translate_tri_xy(tc.tris[1], x * 16, y * 16);
-                        for (int i = 0; i < 3; i++) {
-                                convex_vertex_s v1 = {ttri1.p[i], ttri1.p[(i + 1) % 3], ttri1.p[(i + 2) % 3]};
-                                convex_vertex_s v2 = {ttri2.p[i], ttri2.p[(i + 1) % 3], ttri2.p[(i + 2) % 3]};
-                                try_add_point_in_tri(v1, t1, t2, pts);
-                                try_add_point_in_tri(v2, t1, t2, pts);
-                        }
+
+        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+        {
+                int t = g->tiles[x + y * g->tiles_x];
+                if (t == 0) continue;
+                v2_i32 pos = {x << 4, y << 4};
+                if (t == 1) {
+                        v2_i32  p[4];
+                        rec_i32 rblock = {pos.x, pos.y, 16, 16};
+                        points_from_rec(rblock, p);
+                        convex_vertex_s v0 = {p[0], p[1], p[2]};
+                        convex_vertex_s v1 = {p[1], p[2], p[3]};
+                        convex_vertex_s v2 = {p[2], p[3], p[0]};
+                        convex_vertex_s v3 = {p[3], p[0], p[1]};
+                        try_add_point_in_tri(v0, t1, t2, pts);
+                        try_add_point_in_tri(v1, t1, t2, pts);
+                        try_add_point_in_tri(v2, t1, t2, pts);
+                        try_add_point_in_tri(v3, t1, t2, pts);
+                        continue;
                 }
+                if (t < 14) {
+                        tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                        v2_i32 *p  = tr.p;
+
+                        convex_vertex_s v0 = {p[0], p[1], p[2]};
+                        convex_vertex_s v1 = {p[1], p[2], p[0]};
+                        convex_vertex_s v2 = {p[2], p[0], p[1]};
+                        try_add_point_in_tri(v0, t1, t2, pts);
+                        try_add_point_in_tri(v1, t1, t2, pts);
+                        try_add_point_in_tri(v2, t1, t2, pts);
+                        continue;
+                }
+                NOT_IMPLEMENTED
         }
 
         const obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
                 const obj_s *o = solids.o[n];
                 if (o->soliddisabled) continue;
-                v2_i32 points[4];
-                points_from_rec(obj_aabb(o), points);
+                v2_i32 p[4];
+                points_from_rec(obj_aabb(o), p);
                 for (int i = 0; i < 4; i++) {
-                        convex_vertex_s v1 = {points[i], points[(i + 1) % 4], points[(i + 3) % 4]};
+                        convex_vertex_s v1 = {p[i], p[(i + 1) & 3], p[(i + 3) & 3]};
                         try_add_point_in_tri(v1, t1, t2, pts);
                 }
         }
@@ -271,7 +290,8 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 
         // this is only for debugging purposes to rerun
         // this algorithm through the debugger on break points
-        rope_s rcopy = *r;
+        // rope_s rcopy = *r;
+
         for (int n = 0; n < 2; n++) {
                 const v2_i32      p_beg  = points[n];
                 const v2_i32      p_end  = v2_add(p_beg, dt);
@@ -355,8 +375,8 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 #endif
 }
 
-static bool32 rope_vertex_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
-                                 v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
+static bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
+                             v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
 {
         if (!v2_eq(curr, p)) return 0;
         v2_i32 c_to_u = v2_sub(u, curr);
@@ -394,65 +414,52 @@ void tighten_ropesegment(game_s *g, rope_s *r,
          *  /   v
          * prev
          */
-        const v2_i32 c_to_p = v2_sub(pprev, pcurr);   // from curr to prev
-        const v2_i32 c_to_n = v2_sub(pnext, pcurr);   // from curr to next
-        const i32    z      = v2_crs(c_to_p, c_to_n); // benddirection
+        const v2_i32 ctop = v2_sub(pprev, pcurr); // from curr to prev
+        const v2_i32 cton = v2_sub(pnext, pcurr); // from curr to next
+        const i32    z    = v2_crs(ctop, cton);   // benddirection
 
         const tri_i32 trispan = {pprev, pcurr, pnext};
         i32           x1, y1, x2, y2;
         game_tile_bounds_tri(g, trispan, &x1, &y1, &x2, &y2);
-        for (int y = y1; y <= y2; y++) {
-                for (int x = x1; x <= x2; x++) {
-                        int t = g->tiles[x + y * g->tiles_x];
-                        if (t == 0) continue;
-                        if (t == 1) {
-                                v2_i32  tpoints[4];
-                                rec_i32 r = {x * 16, y * 16, 16, 16};
-                                points_from_rec(r, tpoints);
-                                for (int i = 0; i < 4; i++) {
-                                        if (rope_vertex_convex(z, tpoints[i],
-                                                               tpoints[(i + 3) & 3],
-                                                               tpoints[(i + 1) & 3],
-                                                               pcurr, c_to_p, c_to_n))
-                                                return;
-                                }
-                                continue;
-                        }
-                        const tilecollider_s tc       = tilecolliders[t - 1];
-                        const tri_i32        ttri1    = translate_tri_xy(tc.tris[0], x * 16, y * 16);
-                        const tri_i32        ttri2    = translate_tri_xy(tc.tris[1], x * 16, y * 16);
-                        const v2_i32         ptri1[4] = {ttri1.p[0], ttri1.p[1],
-                                                         ttri1.p[2], ttri1.p[0]};
-                        const v2_i32         ptri2[4] = {ttri2.p[0], ttri2.p[1],
-                                                         ttri2.p[2], ttri2.p[0]};
-                        for (int i = 0; i < 3; i++) {
-                                if (rope_vertex_convex(z, ptri1[i],
-                                                       ptri1[(i + 1) & 3],
-                                                       ptri1[(i + 2) & 3],
-                                                       pcurr, c_to_p, c_to_n))
-                                        return;
-                                if (rope_vertex_convex(z, ptri2[i],
-                                                       ptri2[(i + 1) & 3],
-                                                       ptri2[(i + 2) & 3],
-                                                       pcurr, c_to_p, c_to_n))
-                                        return;
-                        }
+        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+        {
+                int t = g->tiles[x + y * g->tiles_x];
+                if (t == 0) continue;
+                v2_i32 pos = {x << 4, y << 4};
+                if (t == 1) {
+                        v2_i32  p[4];
+                        rec_i32 r = {pos.x, pos.y, 16, 16};
+                        points_from_rec(r, p);
+                        if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+                                return;
+                        continue;
                 }
+                if (t < 14) {
+                        tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                        v2_i32 *p  = tr.p;
+                        if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
+                                return;
+                        continue;
+                }
+                NOT_IMPLEMENTED
         }
 
         const obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
                 obj_s *o = solids.o[n];
                 if (o->soliddisabled) continue;
-                v2_i32 opoints[4];
-                points_from_rec(obj_aabb(o), opoints);
-                for (int i = 0; i < 4; i++) {
-                        if (rope_vertex_convex(z, opoints[i],
-                                               opoints[(i + 3) & 3],
-                                               opoints[(i + 1) & 3],
-                                               pcurr, c_to_p, c_to_n))
-                                return;
-                }
+                v2_i32 p[4];
+                points_from_rec(obj_aabb(o), p);
+                if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+                        return;
         }
 
         ropenode_delete(r, rc);
@@ -483,6 +490,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
 void rope_update(game_s *g, rope_s *r)
 {
+        float       time1 = os_time();
         ropenode_s *rprev = r->head;
         ropenode_s *rcurr = r->head->next;
         ropenode_s *rnext = r->head->next->next;
@@ -493,6 +501,8 @@ void rope_update(game_s *g, rope_s *r)
                 rprev = rcurr->prev;
                 rnext = rcurr->next;
         }
+        float time2 = os_time();
+        os_debug_time(TIMING_ROPE_UPDATE, time2 - time1);
 }
 
 static u32 rope_length_q4(rope_s *r)
@@ -530,31 +540,29 @@ bool32 rope_intact(game_s *g, rope_s *r)
                 i32         x1, y1, x2, y2;
                 game_tile_bounds_minmax(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
                                         &x1, &y1, &x2, &y2);
-                for (int y = y1; y <= y2; y++) {
-                        for (int x = x1; x <= x2; x++) {
-                                int t = g->tiles[x + y * g->tiles_x];
-                                if (t == 0) continue;
-                                if (t == 1) {
-                                        rec_i32 r = {x * 16, y * 16, 16, 16};
-                                        if (overlap_rec_lineseg_excl(r, ls)) {
-                                                PRINTF("TILES\n");
-                                                return 0;
-                                        }
-
-                                        return 1;
-                                }
-                                tilecollider_s tc  = tilecolliders[t - 1];
-                                v2_i32         ts  = {x * 16, y * 16};
-                                tri_i32        tr1 = translate_tri(tc.tris[0], ts);
-                                tri_i32        tr2 = translate_tri(tc.tris[1], ts);
-                                if (overlap_tri_lineseg_excl(tr1, ls) ||
-                                    overlap_tri_lineseg_excl(tr2, ls)) {
+                foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+                {
+                        int t = g->tiles[x + y * g->tiles_x];
+                        if (t == 0) continue;
+                        v2_i32 pos = {x << 4, y << 4};
+                        if (t == 1) {
+                                rec_i32 rr = {pos.x, pos.y, 16, 16};
+                                if (overlap_rec_lineseg_excl(rr, ls)) {
                                         PRINTF("TILES\n");
-                                        overlap_tri_lineseg_excl(tr1, ls); // ony for debugging
-                                        overlap_tri_lineseg_excl(tr2, ls);
                                         return 0;
                                 }
+                                continue;
                         }
+                        if (t < 14) {
+                                tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                                if (overlap_tri_lineseg_excl(tr, ls)) {
+                                        PRINTF("TILES\n");
+                                        overlap_tri_lineseg_excl(tr, ls); // ony for debugging
+                                        return 0;
+                                }
+                                continue;
+                        }
+                        NOT_IMPLEMENTED
                 }
 
                 obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);

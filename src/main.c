@@ -38,6 +38,7 @@ int main()
 // PLAYDATE ====================================================================
 PlaydateAPI *PD;
 void (*PD_log)(const char *fmt, ...);
+float (*PD_elapsedtime)();
 
 int os_do_tick_pd(void *userdata)
 {
@@ -52,8 +53,9 @@ __declspec(dllexport)
 {
         switch (event) {
         case kEventInit:
-                PD     = pd;
-                PD_log = PD->system->logToConsole;
+                PD             = pd;
+                PD_log         = PD->system->logToConsole;
+                PD_elapsedtime = PD->system->getElapsedTime;
                 PD->system->setUpdateCallback(os_do_tick_pd, PD);
                 PD->system->resetElapsedTime();
                 os_prepare();
@@ -64,6 +66,65 @@ __declspec(dllexport)
 
 #endif
 // =============================================================================
+
+#define DIAGRAM_MAX_Y     16
+#define DIAGRAM_SPACING_Y 18
+#define DIAGRAM_W         TIMING_FRAMES
+#define DIAGRAM_H         (NUM_TIMING * DIAGRAM_SPACING_Y + 1)
+static tex_s tdiagram;
+
+static void draw_frame_diagrams()
+{
+        rec_i32 rr = {0, 0, DIAGRAM_W, DIAGRAM_H};
+        gfx_rec_fill(rr, 0);
+        int u = (g_os.timings.n >> 3);
+        int s = 1 << (7 - (g_os.timings.n & 7));
+        int x = g_os.timings.n;
+        for (int y = 0; y < tdiagram.h; y++) {
+                tdiagram.px[u + y * tdiagram.w_byte] &= ~s;
+        }
+
+        for (int n = 0; n < NUM_TIMING; n++) {
+                int pos = (n + 1) * DIAGRAM_SPACING_Y;
+                int y1  = (int)(g_os.timings.times[n][x] * 10000.f);
+                y1      = pos - MIN(y1, DIAGRAM_MAX_Y);
+                for (int y = y1; y <= pos; y++) {
+                        tdiagram.px[u + y * tdiagram.w_byte] |= s;
+                }
+        }
+
+        gfx_sprite_fast(tdiagram, (v2_i32){0, 0},
+                        (rec_i32){0, 0, DIAGRAM_W, DIAGRAM_H});
+        for (int y = 0; y <= DIAGRAM_H * 52; y += 2 * 52) {
+                int i = u + y;
+                g_os.framebuffer[i] |= s;
+        }
+        fnt_s font = fnt_get(FNTID_DEBUG);
+        for (int n = 0; n < NUM_TIMING; n++) {
+                int pos = n * DIAGRAM_SPACING_Y + 7;
+                gfx_text_ascii(&font, g_os.timings.labels[n],
+                               DIAGRAM_W + 2, pos);
+        }
+}
+
+static void frame_diagram()
+{
+        tdiagram = tex_create(DIAGRAM_W, DIAGRAM_H * 2);
+        os_memset(tdiagram.mask, 0xFF, tdiagram.h * tdiagram.w_byte);
+        gfx_draw_to(tdiagram);
+        for (int n = 0; n < NUM_TIMING; n++) {
+                rec_i32 r = {0, (1 + n) * DIAGRAM_SPACING_Y, TIMING_FRAMES, 1};
+                gfx_rec_fill(r, 1);
+        }
+
+        os_strcat(g_os.timings.labels[TIMING_UPDATE], "tick");
+        os_strcat(g_os.timings.labels[TIMING_ROPE_UPDATE], "rope");
+        os_strcat(g_os.timings.labels[TIMING_DRAW_TILES], "tiles");
+        os_strcat(g_os.timings.labels[TIMING_DRAW], "draw");
+        os_strcat(g_os.timings.labels[TIMING_HERO_UPDATE], "hero");
+        os_strcat(g_os.timings.labels[TIMING_SOLID_UPDATE], "solid");
+}
+
 static inline void os_do_tick()
 {
         static float timeacc;
@@ -71,9 +132,20 @@ static inline void os_do_tick()
         float time = os_time();
         timeacc += time - g_os.lasttime;
         if (timeacc > OS_DELTA_CAP) timeacc = OS_DELTA_CAP;
-        g_os.lasttime     = time;
-        float timeacc_tmp = timeacc;
+        g_os.lasttime            = time;
+        float      timeacc_tmp   = timeacc;
+        static int timingcounter = 0;
         while (timeacc >= OS_FPS_DELTA) {
+                timingcounter++;
+                if (timingcounter == TIMING_RATE) {
+                        timingcounter  = 0;
+                        g_os.timings.n = (g_os.timings.n + 1) & (TIMING_FRAMES - 1);
+                        for (int n = 0; n < NUM_TIMING; n++) {
+                                g_os.timings.times[n][g_os.timings.n] = 0.f;
+                        }
+                }
+
+                float time1 = os_time();
                 timeacc -= OS_FPS_DELTA;
                 os_spmem_clr();
                 os_backend_inp_update();
@@ -83,13 +155,19 @@ static inline void os_do_tick()
                 if (g_os.n_spmem > 0) {
                         PRINTF("WARNING: spmem is not reset\n_spmem");
                 }
+                float time2 = os_time();
+                os_debug_time(TIMING_UPDATE, time2 - time1);
         }
 
         if (timeacc != timeacc_tmp) {
+                float time1 = os_time();
                 os_spmem_clr();
                 g_os.dst = g_os.tex_tab[0];
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
+                float time2 = os_time();
+                os_debug_time(TIMING_DRAW, time2 - time1);
+                draw_frame_diagrams();
                 os_backend_graphics_end();
         }
         os_backend_graphics_flip();
@@ -111,11 +189,30 @@ static inline void os_prepare()
         PRINTF("Size game: %lli kb\n", sgame);
         PRINTF("Size os: %lli kb\n", sos);
         PRINTF("= %lli kb\n", sgame + sos);
-
+        frame_diagram();
         g_os.lasttime = os_time();
 }
 
 i32 os_tick()
 {
         return g_os.tick;
+}
+
+void os_debug_time(int ID, float time)
+{
+        timings_s *t       = &g_os.timings;
+        t->times[ID][t->n] = MAX(time, t->times[ID][t->n]);
+}
+
+void os_debug_time_acc(int ID, float time)
+{
+        timings_s *t = &g_os.timings;
+        t->acc[ID] += time;
+}
+
+void os_debug_time_acc_commit(int ID)
+{
+        timings_s *t = &g_os.timings;
+        os_debug_time(ID, t->acc[ID]);
+        t->acc[ID] = 0.f;
 }
