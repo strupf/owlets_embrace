@@ -15,6 +15,9 @@ enum {
         NUM_TILES             = 256 * 256,
         NUM_RENDERTILE_LAYERS = 2,
         NUM_OBJS              = 256,
+        //
+        TILECACHE_W           = 512,
+        TILECACHE_H           = 256,
 };
 
 typedef struct game_s      game_s;
@@ -30,6 +33,12 @@ typedef struct hero_s      hero_s;
 typedef struct textbox_s   textbox_s;
 typedef struct obj_listc_s obj_listc_s;
 
+typedef struct {
+        tex_s t;
+        i32   x1, y1, x2, y2;
+        i32   x, y;
+} tilecache_s;
+
 #define foreach_tile_in_bounds(X1, Y1, X2, Y2, XIT, YIT) \
         for (int YIT = Y1; YIT <= Y2; YIT++)             \
                 for (int XIT = X1; XIT <= X2; XIT++)
@@ -43,6 +52,7 @@ struct objhandle_s {
 
 enum obj_flag {
         OBJ_FLAG_NONE,
+        OBJ_FLAG_ALIVE,
         OBJ_FLAG_DUMMY,
         OBJ_FLAG_ACTOR,
         OBJ_FLAG_SOLID,
@@ -63,6 +73,7 @@ enum obj_tag {
 };
 
 enum obj_bucket {
+        OBJ_BUCKET_ALIVE,
         OBJ_BUCKET_ACTOR,
         OBJ_BUCKET_SOLID,
         OBJ_BUCKET_NEW_AREA_COLLIDER,

@@ -37,6 +37,9 @@ struct obj_s {
         int        gen;
         int        index;
         objflags_s flags;
+        int        dir;
+        int        p1;
+        int        p2;
 
         obj_s *parent;
         obj_s *next;
@@ -56,6 +59,7 @@ struct obj_s {
         i32         actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
+        bool32      soliddisabled_rope;
 
         void *onsqueezearg;
         void (*onsqueeze)(game_s *g, obj_s *o);

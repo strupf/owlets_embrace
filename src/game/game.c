@@ -36,11 +36,17 @@ void game_init(game_s *g)
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
         fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
 
+        g->tilecache.t = tex_create(TILECACHE_W, TILECACHE_H);
+
         g->cam.w  = 400;
         g->cam.h  = 240;
         g->cam.wh = g->cam.w / 2;
         g->cam.hh = g->cam.h / 2;
 
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ALIVE];
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
         {
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ACTOR];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
@@ -77,20 +83,29 @@ void game_init(game_s *g)
 
 void game_update(game_s *g)
 {
-        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
-        if (solids.n > 0) {
-                static int dir   = 1;
-                obj_s     *solid = solids.o[0];
-                if (solid->pos.x > 350) {
-                        dir = -1;
+        textbox_s *tb = &g->textbox;
+        if (tb->active) {
+                textbox_update(tb);
+                if (os_inp_just_pressed(INP_A) && g->textbox.shows_all) {
+                        textbox_next_page(tb);
                 }
-                if (solid->pos.x < 200) {
-                        dir = +1;
-                }
-                float times = os_time();
-                solid_move(g, solid, dir * 2, 0);
-                os_debug_time(TIMING_SOLID_UPDATE, os_time() - times);
+                return;
         }
+
+        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
+        float       times  = os_time();
+        for (int i = 0; i < solids.n; i++) {
+                obj_s *solid = solids.o[i];
+                if (solid->pos.x > solid->p2) {
+                        solid->dir = -ABS(solid->dir);
+                }
+                if (solid->pos.x < solid->p1) {
+                        solid->dir = +ABS(solid->dir);
+                }
+
+                solid_move(g, solid, solid->dir, 0);
+        }
+        os_debug_time(TIMING_SOLID_UPDATE, os_time() - times);
 
         obj_s *ohero;
         float  timeh = os_time();
@@ -112,14 +127,6 @@ void game_update(game_s *g)
         }
 
         cam_update(g, &g->cam);
-
-        textbox_s *tb = &g->textbox;
-        if (tb->active) {
-                textbox_update(tb);
-                if (os_inp_just_pressed(INP_DOWN) && g->textbox.shows_all) {
-                        textbox_next_page(tb);
-                }
-        }
 
         if (g->transitionphase) {
                 game_update_transition(g);
@@ -165,7 +172,6 @@ static void game_cull_scheduled(game_s *g)
 {
         for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
                 obj_s *o_del = objset_at(&g->obj_scheduled_delete, n);
-                objset_del(&g->obj_active, o_del);
                 for (int i = 0; i < NUM_OBJ_BUCKETS; i++) {
                         objset_del(&g->objbuckets[i].set, o_del);
                 }
@@ -227,6 +233,11 @@ tilegrid_s game_tilegrid(game_s *g)
                          g->tiles_x, g->tiles_y,
                          g->pixel_x, g->pixel_y};
         return tg;
+}
+
+bool32 solid_occupies(obj_s *solid, rec_i32 r)
+{
+        return overlap_rec_excl(obj_aabb(solid), r);
 }
 
 bool32 game_area_blocked(game_s *g, rec_i32 r)

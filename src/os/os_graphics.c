@@ -85,7 +85,7 @@ void os_backend_graphics_begin()
 void os_backend_graphics_end()
 {
         PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
-        PD_drawFPS(0, 0);
+        PD_drawFPS(384, 0);
         PD_display(); // update all rows
 }
 
@@ -301,11 +301,6 @@ void gfx_draw_to(tex_s tex)
         g_os.dst = tex;
 }
 
-void gfx_tile(tileimg_s t, v2_i32 pos, int flags)
-{
-        NOT_IMPLEMENTED
-}
-
 /* this is a naive image drawing routine
  * can flip an image x, y and diagonal (rotate 90 degree)
  * could be hugely improved by figuring out a way to put multiple
@@ -364,19 +359,18 @@ void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
         int   x2  = (rs.w <= zx ? rs.w : zx) + rs.x - 1;
         int   y2  = (rs.h <= zy ? rs.h : zy) + rs.y - 1;
 
-        // relative word alignment
-        int sh1          = (32 - ((pos.x - rs.x) & 31)) & 31;
+        int cc           = pos.x - rs.x;
+        int sh1          = (32 - (cc & 31)) & 31; // relative word alignment
         int sh0          = 32 - sh1;
         int b1           = x1 >> 5;
         int b2           = x2 >> 5;
-        int cc           = pos.x - rs.x;
         u32 *restrict dp = (u32 *)dst.px;
         u32 *restrict dm = (u32 *)dst.mask;
         for (int y = y1; y <= y2; y++) {
-                int ys            = y * src.w_word;
                 int yd            = (y + pos.y - rs.y) * dst.w_word;
-                u32 *restrict sm_ = &((u32 *)src.mask)[b1 + ys];
-                u32 *restrict sp_ = &((u32 *)src.px)[b1 + ys];
+                int ii            = b1 + y * src.w_word;
+                u32 *restrict sm_ = &((u32 *)src.mask)[ii];
+                u32 *restrict sp_ = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
                         int u  = (b == b1 ? x1 & 31 : 0);
                         int v  = (b == b2 ? x2 & 31 : 31);
@@ -394,8 +388,8 @@ void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
                         dp[j0] = endian_u32((d0 & ~t0) | (p0 & t0));
                         dp[j1] = endian_u32((d1 & ~t1) | (p1 & t1));
                         if (!dm) continue;
-                        dm[j0] = endian_u32(endian_u32(dm[j0]) | t0);
-                        dm[j1] = endian_u32(endian_u32(dm[j1]) | t1);
+                        dm[j0] |= endian_u32(endian_u32(dm[j0]) | t0);
+                        dm[j1] |= endian_u32(endian_u32(dm[j1]) | t1);
                 }
         }
 }

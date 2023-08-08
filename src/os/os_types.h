@@ -266,8 +266,14 @@ static i32 os_i32_from_str(const char *s)
 
 static inline u32 endian_u32(u32 i)
 {
-        return ((i >> 0x18) & 0x000000FFU) | ((i << 0x08) & 0x00FF0000U) |
-               ((i >> 0x08) & 0x0000FF00U) | ((i << 0x18) & 0xFF000000U);
+        return ((i >> 0x18) & 0x00FFU) | ((i << 0x08) & 0x00FF0000U) |
+               ((i >> 0x08) & 0xFF00U) | ((i << 0x18) & 0xFF000000U);
+}
+
+static inline u16 endian_u16(u16 i)
+{
+        u16 little = (((i & 0xff) << 8) | ((i & 0xff00) >> 8));
+        return little;
 }
 
 #endif

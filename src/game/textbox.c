@@ -64,7 +64,7 @@ void dialog_parse(const char *txt, dialog_tok_s *toks)
                                         i--;
                                         break;
                                 }
-                                if (cc == '\n') {
+                                if (cc == '\n' || cc == '\0') {
                                         tb->i1           = i - 1;
                                         dialog_tok_s *tp = &toks[ntok++];
                                         tp->type         = DIALOG_TOK_TEXT_NEW_PAGE;

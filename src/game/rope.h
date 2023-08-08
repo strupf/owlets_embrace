@@ -20,7 +20,7 @@ struct ropenode_s {
 struct rope_s {
         ropenode_s *head;
         ropenode_s *tail;
-
+        rec_i32     r;
         u32         len_max;
         i32         len_max_q16;
         i32         spring_q8;

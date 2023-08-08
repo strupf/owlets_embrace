@@ -9,7 +9,6 @@ gameplay
 * path movement for moving platforms
     * linear, pingpong, circular
     * load path from map
-* enter dialogues via interaction
 
 
 loading
@@ -24,10 +23,8 @@ graphics
 
 textbox
 * typewriter noises
-* load dialogue dynamically via tmj file property during interaction
 
 bugs
 * rope: removal of a point during tighten can result in three
     collinear points which span a degenerate triangle -> in that
     case delete the middle point, too
-* triple check point on line check routines

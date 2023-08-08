@@ -86,9 +86,11 @@ enum gfx_mode {
 
 enum timing_IDs {
         TIMING_UPDATE,
-        TIMING_ROPE_UPDATE,
         TIMING_SOLID_UPDATE,
         TIMING_HERO_UPDATE,
+        TIMING_HERO_MOVE,
+        TIMING_HERO_HOOK,
+        TIMING_ROPE,
         TIMING_DRAW,
         TIMING_DRAW_TILES,
         //
@@ -103,10 +105,6 @@ typedef struct {
         int w;
         int h;
 } tex_s;
-
-typedef struct {
-        u16 px[16];
-} tileimg_s;
 
 typedef struct {
         tex_s tex;
@@ -157,7 +155,6 @@ tex_s     tex_create(int w, int h);
 tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
-void      gfx_tile(tileimg_s t, v2_i32 pos, int flags);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
 void      gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void      gfx_draw_to(tex_s tex);
@@ -171,8 +168,6 @@ void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
 snd_s     snd_get(int ID);
 //
 void      os_debug_time(int ID, float time);
-void      os_debug_time_acc(int ID, float time);
-void      os_debug_time_acc_commit(int ID);
 i32       os_tick();
 int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
 int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)

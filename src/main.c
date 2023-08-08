@@ -67,16 +67,14 @@ __declspec(dllexport)
 #endif
 // =============================================================================
 
-#define DIAGRAM_MAX_Y     16
-#define DIAGRAM_SPACING_Y 18
+#define DIAGRAM_MAX_Y     17
+#define DIAGRAM_SPACING_Y 20
 #define DIAGRAM_W         TIMING_FRAMES
 #define DIAGRAM_H         (NUM_TIMING * DIAGRAM_SPACING_Y + 1)
 static tex_s tdiagram;
 
 static void draw_frame_diagrams()
 {
-        rec_i32 rr = {0, 0, DIAGRAM_W, DIAGRAM_H};
-        gfx_rec_fill(rr, 0);
         int u = (g_os.timings.n >> 3);
         int s = 1 << (7 - (g_os.timings.n & 7));
         int x = g_os.timings.n;
@@ -86,7 +84,7 @@ static void draw_frame_diagrams()
 
         for (int n = 0; n < NUM_TIMING; n++) {
                 int pos = (n + 1) * DIAGRAM_SPACING_Y;
-                int y1  = (int)(g_os.timings.times[n][x] * 10000.f);
+                int y1  = (int)(g_os.timings.times[n][x] * 1000000.f);
                 y1      = pos - MIN(y1, DIAGRAM_MAX_Y);
                 for (int y = y1; y <= pos; y++) {
                         tdiagram.px[u + y * tdiagram.w_byte] |= s;
@@ -118,11 +116,13 @@ static void frame_diagram()
         }
 
         os_strcat(g_os.timings.labels[TIMING_UPDATE], "tick");
-        os_strcat(g_os.timings.labels[TIMING_ROPE_UPDATE], "rope");
+        os_strcat(g_os.timings.labels[TIMING_ROPE], "rope");
         os_strcat(g_os.timings.labels[TIMING_DRAW_TILES], "tiles");
         os_strcat(g_os.timings.labels[TIMING_DRAW], "draw");
         os_strcat(g_os.timings.labels[TIMING_HERO_UPDATE], "hero");
         os_strcat(g_os.timings.labels[TIMING_SOLID_UPDATE], "solid");
+        os_strcat(g_os.timings.labels[TIMING_HERO_MOVE], "h_move");
+        os_strcat(g_os.timings.labels[TIMING_HERO_HOOK], "h_hook");
 }
 
 static inline void os_do_tick()
@@ -155,8 +155,7 @@ static inline void os_do_tick()
                 if (g_os.n_spmem > 0) {
                         PRINTF("WARNING: spmem is not reset\n_spmem");
                 }
-                float time2 = os_time();
-                os_debug_time(TIMING_UPDATE, time2 - time1);
+                os_debug_time(TIMING_UPDATE, os_time() - time1);
         }
 
         if (timeacc != timeacc_tmp) {
@@ -165,9 +164,11 @@ static inline void os_do_tick()
                 g_os.dst = g_os.tex_tab[0];
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
-                float time2 = os_time();
-                os_debug_time(TIMING_DRAW, time2 - time1);
-                draw_frame_diagrams();
+                os_debug_time(TIMING_DRAW, os_time() - time1);
+                if (!g_gamestate.textbox.active) {
+                        draw_frame_diagrams();
+                }
+
                 os_backend_graphics_end();
         }
         os_backend_graphics_flip();
@@ -202,17 +203,4 @@ void os_debug_time(int ID, float time)
 {
         timings_s *t       = &g_os.timings;
         t->times[ID][t->n] = MAX(time, t->times[ID][t->n]);
-}
-
-void os_debug_time_acc(int ID, float time)
-{
-        timings_s *t = &g_os.timings;
-        t->acc[ID] += time;
-}
-
-void os_debug_time_acc_commit(int ID)
-{
-        timings_s *t = &g_os.timings;
-        os_debug_time(ID, t->acc[ID]);
-        t->acc[ID] = 0.f;
 }

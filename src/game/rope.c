@@ -27,7 +27,7 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 200;
+        r->len_max     = 180;
         r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 190;
         r->spring_q8   = 240;
@@ -38,9 +38,6 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
         ASSERT((a->next == b && b->prev == a) ||
                (b->next == a && a->prev == b));
         ASSERT(r->pool);
-        if (v2_eq(p, (v2_i32){256, 176})) {
-                int aa = 1;
-        }
         ropenode_s *rn = r->pool;
         r->pool        = rn->next;
         rn->p          = p;
@@ -195,7 +192,7 @@ static void rope_build_convex_hull(v2_arr *pts, v2_i32 pfrom, v2_i32 pto,
                 foreach_v2_arr (pts, it) {
                         if (it.i == p || it.i == q) continue;
                         i32 v = v2_crs(v2_sub(pn, it.e), v2_sub(it.e, pc));
-                        if ((v >= 0 && dir >= 0) || (v <= 0 && dir <= 0)) {
+                        if ((v | dir) >= 0 || (v <= 0 && dir <= 0)) {
                                 q  = it.i;
                                 pn = it.e;
                         }
@@ -218,8 +215,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
 
         os_spmem_push();
 
-        v2_arr *hull = v2_arrcreate(64, os_spmem_alloc);
-        v2_arr *pts  = v2_arrcreate(64, os_spmem_alloc);
+        v2_arr *pts = v2_arrcreate(32, os_spmem_alloc);
         v2_arradd(pts, p0);
         v2_arradd(pts, p2);
         tri_i32 tri = {p0, p1, p2};
@@ -230,7 +226,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
                 os_spmem_pop();
                 return;
         }
-
+        v2_arr *hull = v2_arrcreate(32, os_spmem_alloc);
         rope_build_convex_hull(pts, p0, p2, dir, hull);
 
         // at this point p_ropearc contains the "convex hull" when moving
@@ -301,10 +297,11 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 
                 // first move all nodes which are directly hit by a
                 // solid vertex
+                // here we SUPPOSE that neither head nor tail are directly
+                // modified but instead pushed via an attached actor
                 for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
                      r1 = r2, r2 = r2->next) {
-                        if (v2_eq(p_end, r1->p) ||
-                            !overlap_lineseg_pnt_incl(ls_mov, r1->p)) {
+                        if (!overlap_lineseg_pnt_incl_excl(ls_mov, r1->p)) {
                                 continue;
                         }
 
@@ -330,11 +327,9 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                                 continue;
                         // moving line segment of "piston" should
                         // overlap the rope segment
-                        if (!(overlap_lineseg_incl(ls, ls_mov) &&
-                              !v2_eq(r1->p, ls_mov.a) &&
-                              !v2_eq(r1->p, ls_mov.b) &&
-                              !v2_eq(r2->p, ls_mov.a) &&
-                              !v2_eq(r2->p, ls_mov.b))) {
+                        if (!overlap_lineseg_incl(ls, ls_mov) ||
+                            v2_eq(r1->p, p_beg) || v2_eq(r1->p, p_end) ||
+                            v2_eq(r2->p, p_beg) || v2_eq(r2->p, p_end)) {
                                 continue;
                         }
 
@@ -490,7 +485,6 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
 void rope_update(game_s *g, rope_s *r)
 {
-        float       time1 = os_time();
         ropenode_s *rprev = r->head;
         ropenode_s *rcurr = r->head->next;
         ropenode_s *rnext = r->head->next->next;
@@ -501,8 +495,6 @@ void rope_update(game_s *g, rope_s *r)
                 rprev = rcurr->prev;
                 rnext = rcurr->next;
         }
-        float time2 = os_time();
-        os_debug_time(TIMING_ROPE_UPDATE, time2 - time1);
 }
 
 static u32 rope_length_q4(rope_s *r)
@@ -525,7 +517,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
         u32 len_q4     = rope_length_q4(r);
         u32 len_max_q4 = r->len_max << 4;
 
-#if 1
+#if 0
         // check for maximum stretch
         if (len_q4 > (len_max_q4 * 2)) {
                 PRINTF("LENGTH\n");

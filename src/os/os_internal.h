@@ -7,9 +7,9 @@
 
 #include "os.h"
 
-#define TIMING_RATE      8
+#define TIMING_RATE      16
 #define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 1
+#define OS_DESKTOP_SCALE 2
 #define OS_FPS_DELTA     0.02f // 50 FPS
 #define OS_DELTA_CAP     0.05f
 
@@ -24,7 +24,6 @@ enum {
 
 typedef struct {
         char  labels[NUM_TIMING][16];
-        float acc[NUM_TIMING];
         float times[NUM_TIMING][TIMING_FRAMES];
         int   n;
 } timings_s;
@@ -35,6 +34,7 @@ typedef struct {
         i32 tick;
 #if defined(TARGET_DESKTOP)
         u8        framebuffer[OS_FRAMEBUFFER_SIZE];
+        u8        framebuffermk[OS_FRAMEBUFFER_SIZE];
         Color     texpx[416 * 240];
         Texture2D tex;
         bool32    inverted;

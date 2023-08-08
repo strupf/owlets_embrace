@@ -23,19 +23,46 @@ static void draw_textbox(textbox_s *tb)
         }
 }
 
+static void tilecache_update(game_s *g, tilecache_s *tc, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32 camy1)
+{
+
+        tc->x = ((x1 << 4) - camx1);
+        tc->y = ((y1 << 4) - camy1);
+        if (tc->x1 == x1 && tc->y1 == y1 & tc->x2 == x2 && tc->y2 == y2)
+                return;
+        tex_s t = tc->t;
+        tc->x1  = x1;
+        tc->y1  = y1;
+        tc->x2  = x2;
+        tc->y2  = y2;
+        gfx_draw_to(tc->t);
+        os_memclr4(t.px, t.w_byte * t.h * 2);
+        const tex_s tileset = tex_get(TEXID_TILESET);
+#if 1
+        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+        {
+                rtile_s *rtiles = g->rtiles[x + y * g->tiles_x];
+                rtile_s  rt     = rtiles[0]; // todo
+                if (rt.flags == 0xFF) continue;
+                v2_i32  pos     = {((x - x1) << 4), ((y - y1) << 4)};
+                rec_i32 tilerec = {rt.tx << 4, rt.ty << 4, 16, 16};
+                gfx_sprite_fast(tileset, pos, tilerec);
+        }
+#endif
+        gfx_draw_to(tex_get(0));
+}
+
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32 camy1)
 {
         ASSERT(0 <= x1 && 0 <= y1 && x2 < g->tiles_x && y2 < g->tiles_y);
 
-        tex_s tileset = tex_get(TEXID_TILESET);
+        const tex_s tileset = tex_get(TEXID_TILESET);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
-                v2_i32   pos    = {(x << 4) - camx1, (y << 4) - camy1};
-                int      tID    = x + y * g->tiles_x;
-                rtile_s *rtiles = g->rtiles[tID];
-
-                rtile_s rt = rtiles[0]; // todo
+                rtile_s *rtiles = g->rtiles[x + y * g->tiles_x];
+                rtile_s  rt     = rtiles[0]; // todo
                 if (rt.flags == 0xFF) continue;
+                v2_i32  pos     = {(x << 4) - camx1, (y << 4) - camy1};
                 rec_i32 tilerec = {rt.tx << 4, rt.ty << 4, 16, 16};
                 gfx_sprite_fast(tileset, pos, tilerec);
         }
@@ -52,12 +79,21 @@ void game_draw(game_s *g)
         gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256});
 
         float time1 = os_time();
+#if 1
         draw_tiles(g, tx1, ty1, tx2, ty2, camx1, camy1);
+#else
+        tilecache_update(g, &g->tilecache, tx1, ty1, tx2, ty2, camx1, camy1);
+        gfx_sprite_fast(g->tilecache.t,
+                        (v2_i32){g->tilecache.x, g->tilecache.y},
+                        (rec_i32){0, 0, TILECACHE_W, TILECACHE_H});
+#endif
         float time2 = os_time();
+        // PRINTF("%f\n", time2 - time1);
         os_debug_time(TIMING_DRAW_TILES, time2 - time1);
 
-        for (int n = 0; n < objset_len(&g->obj_active); n++) {
-                obj_s  *o = objset_at(&g->obj_active, n);
+        obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
+        for (int n = 0; n < oalive.n; n++) {
+                obj_s  *o = oalive.o[n];
                 rec_i32 r = translate_rec_xy(obj_aabb(o), -camx1, -camy1);
                 gfx_rec_fill(r, 1);
         }
@@ -83,8 +119,6 @@ void game_draw(game_s *g)
                 } break;
                 }
         }
-
-        gfx_sprite(tex_get(TEXID_ITEMS), (v2_i32){400 - 32, 4}, (rec_i32){0, 0, 32, 32}, 0);
 
         textbox_s *tb = &g->textbox;
         if (tb->active) {

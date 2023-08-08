@@ -406,8 +406,8 @@ void load_obj_layer(game_s *g, jsn_s jlayer)
                 load_obj_from_jsn(g, jobj);
         }
 }
-
-void game_load_map(game_s *g, const char *filename)
+static int loadedonce = 1;
+void       game_load_map(game_s *g, const char *filename)
 {
         // reset room
         for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
@@ -417,7 +417,6 @@ void game_load_map(game_s *g, const char *filename)
                 g->objfreestack[n - 1] = o;
         }
         g->n_objfree = NUM_OBJS - 1;
-        objset_clr(&g->obj_active);
         objset_clr(&g->obj_scheduled_delete);
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
                 objset_clr(&g->objbuckets[n].set);
@@ -464,27 +463,62 @@ void game_load_map(game_s *g, const char *filename)
         g->pixel_y = g->tiles_y << 4;
 
 #if 1
-        obj_s     *solid  = obj_create(g);
-        objflags_s flags1 = objflags_create(OBJ_FLAG_SOLID);
-        obj_set_flags(g, solid, flags1);
-        solid->pos.x = 200;
-        solid->pos.y = 192 - 32;
-        solid->w     = 64;
-        solid->h     = 32;
+        obj_s     *solid1  = obj_create(g);
+        objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID);
+        obj_set_flags(g, solid1, flagss1);
+        solid1->pos.x = 100;
+        solid1->pos.y = 192 - 32;
+        solid1->w     = 48;
+        solid1->h     = 48;
+        solid1->dir   = 1;
+        solid1->p2    = 200;
+        solid1->p1    = 50;
+
+        obj_s *solid2 = obj_create(g);
+        obj_set_flags(g, solid2, flagss1);
+        solid2->pos.x = 800;
+        solid2->pos.y = 300 - 32;
+        solid2->w     = 64;
+        solid2->h     = 16;
+        solid2->dir   = 1;
+        solid2->p2    = 800;
+        solid2->p1    = 500;
+
+        obj_s *solid3 = obj_create(g);
+        obj_set_flags(g, solid3, flagss1);
+        solid3->pos.x = 340;
+        solid3->pos.y = 64 + 16;
+        solid3->w     = 64;
+        solid3->h     = 16;
+        solid3->dir   = 1;
+        solid3->p2    = 500;
+        solid3->p1    = 300;
 #endif
 
         for (int i = 0; i < 10; i++) {
                 obj_s     *pickup = obj_create(g);
                 objflags_s flags3 = objflags_create(OBJ_FLAG_PICKUP);
                 obj_set_flags(g, pickup, flags3);
-                pickup->pos.x    = 100 + i * 30;
-                pickup->pos.y    = 200;
-                pickup->w        = 16;
-                pickup->h        = 16;
+                pickup->pos.x    = 500 + i * 30;
+                pickup->pos.y    = 300;
+                pickup->w        = 8;
+                pickup->h        = 8;
                 pickup->pickup.x = 1;
         }
 
         textbox_init(&g->textbox);
+        if (!loadedonce) {
+                loadedonce = 1;
+                PRINTF("load intro\n");
+                jsn_s prop;
+                if (tiled_property(jroot, "introtext", &prop)) {
+                        char filename[64] = {0};
+                        jsn_strk(prop, "value", filename, sizeof(filename));
+                        textbox_load_dialog(&g->textbox, filename);
+                }
+        }
+        g->cam.pos.x = 400;
+        g->cam.pos.y = 150;
 }
 
 static const u8 blobpattern[256 * 2] = {

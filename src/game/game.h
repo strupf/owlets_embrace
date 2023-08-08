@@ -34,11 +34,10 @@ struct cam_s {
 };
 
 struct rtile_s {
-        u16  ID;
-        uint tx;
-        uint ty;
-        u8   flags;
-        int  m;
+        int tx;
+        int ty;
+        int flags;
+        int m;
 };
 
 enum {
@@ -61,7 +60,6 @@ struct game_s {
 
         hero_s hero;
 
-        objset_s obj_active;           // active objects
         objset_s obj_scheduled_delete; // objects scheduled for removal
         obj_s    objs[NUM_OBJS];
         obj_s   *objfreestack[NUM_OBJS];
@@ -82,6 +80,8 @@ struct game_s {
         int  transitionphase;
         int  transitionticks;
         char transitionmap[64]; // next map to load
+
+        tilecache_s tilecache;
 };
 
 void       game_init(game_s *g);
@@ -101,5 +101,6 @@ void        game_tile_bounds_tri(game_s *g, tri_i32 t,
                                  i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 void        game_tile_bounds_rec(game_s *g, rec_i32 r,
                                  i32 *x1, i32 *y1, i32 *x2, i32 *y2);
+bool32      solid_occupies(obj_s *solid, rec_i32 r);
 
 #endif

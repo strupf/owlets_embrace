@@ -768,6 +768,16 @@ static bool32 overlap_lineseg_pnt_incl(lineseg_i32 l, v2_i32 p)
                  between_incl_i32(d1.y, 0, d2.y)));
 }
 
+// check if point on linesegment - on endpoints considered overlapped
+static bool32 overlap_lineseg_pnt_incl_excl(lineseg_i32 l, v2_i32 p)
+{
+        v2_i32 d1 = v2_sub(p, l.a);
+        v2_i32 d2 = v2_sub(l.b, l.a);
+        return (v2_crs(d1, d2) == 0 &&
+                (between_incl_excl_i32(d1.x, 0, d2.x) || //  <-- ...and here AND?
+                 between_incl_excl_i32(d1.y, 0, d2.y)));
+}
+
 // check if point on linesegment - on endpoints considered NOT overlapped
 static inline bool32 overlap_line_pnt(line_i32 l, v2_i32 p)
 {
@@ -846,7 +856,7 @@ static inline void project_pnt_line_u(v2_i32 p, v2_i32 a, v2_i32 b,
         i32    s   = v2_dot(dir, pnt);
         if (d > I32_MAX) { // reduce precision to fit both into i32
                 d >>= 1;
-                s = (s >> 1);
+                s >>= 1;
         }
         *den = (i32)d;
         *u   = s;
@@ -871,7 +881,10 @@ static inline void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
 static inline void tri_pnt_barycentric_uvw(tri_i32 t, v2_i32 p,
                                            i32 *u, i32 *v, i32 *w)
 {
-        barycentric_uvw(t.p[0], t.p[1], t.p[2], p, u, v, w);
+        *u = v2_crs(v2_sub(t.p[1], t.p[0]), v2_sub(p, t.p[0]));
+        *v = v2_crs(v2_sub(t.p[0], t.p[2]), v2_sub(p, t.p[2]));
+        *w = v2_crs(v2_sub(t.p[2], t.p[1]), v2_sub(p, t.p[1]));
+        // barycentric_uvw(t.p[0], t.p[1], t.p[2], p, u, v, w);
 }
 
 // check for overlap - touching tri considered NOT overlapped
@@ -879,7 +892,10 @@ static inline bool32 overlap_tri_pnt_excl(tri_i32 t, v2_i32 p)
 {
         i32 u, v, w;
         tri_pnt_barycentric_uvw(t, p, &u, &v, &w);
-        return (u > 0 && v > 0 && w > 0) || (u < 0 && v < 0 && w < 0);
+        bool32 a = (u > 0 && v > 0 && w > 0) || (u < 0 && v < 0 && w < 0);
+        bool32 b = (u > 0 && v > 0 && w > 0) || (u & v & w) < 0; // not entirely sure
+        ASSERT(a == b);
+        return a;
 }
 
 // check for overlap - touching tri considered overlapped
@@ -887,7 +903,7 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
 {
         i32 u, v, w;
         tri_pnt_barycentric_uvw(t, p, &u, &v, &w);
-        return (u >= 0 && v >= 0 && w >= 0) || (u <= 0 && v <= 0 && w <= 0);
+        return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
 }
 
 /* separating axis check
@@ -899,29 +915,35 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
  */
 static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
 {
+        v2_i32 w = v2_sub(l.b, l.a);
         v2_i32 x = v2_sub(t.p[1], t.p[0]);
         v2_i32 y = v2_sub(t.p[2], t.p[0]);
         v2_i32 z = v2_sub(t.p[2], t.p[1]);
-        v2_i32 w = v2_sub(l.b, l.a);
+        v2_i32 a = v2_sub(l.a, t.p[0]);
+        v2_i32 b = v2_sub(l.b, t.p[0]);
+        v2_i32 c = v2_sub(l.a, t.p[1]);
+        v2_i32 d = v2_sub(l.a, t.p[2]);
+        v2_i32 e = v2_sub(l.b, t.p[1]);
 
-        i32 a0 = v2_crs(y, x);
-        i32 a1 = v2_crs(v2_sub(l.a, t.p[0]), x);
-        i32 a2 = v2_crs(v2_sub(l.b, t.p[0]), x);
+        i32 a0 = v2_crs(x, y);
+        i32 a1 = v2_crs(a, x);
+        i32 a2 = v2_crs(b, x);
+        i32 b1 = v2_crs(a, y);
+        i32 b2 = v2_crs(b, y);
+        i32 c0 = v2_crs(x, z);
+        i32 c1 = v2_crs(c, z);
+        i32 c2 = v2_crs(e, z);
+        i32 d0 = v2_crs(w, a);
+        i32 d1 = v2_crs(w, c);
+        i32 d2 = v2_crs(w, d);
         i32 b0 = -a0;
-        i32 b1 = v2_crs(v2_sub(l.a, t.p[0]), y);
-        i32 b2 = v2_crs(v2_sub(l.b, t.p[0]), y);
-        i32 c0 = v2_crs(v2_sub(t.p[0], t.p[1]), z);
-        i32 c1 = v2_crs(v2_sub(l.a, t.p[1]), z);
-        i32 c2 = v2_crs(v2_sub(l.b, t.p[1]), z);
-        i32 d0 = v2_crs(v2_sub(t.p[0], l.a), w);
-        i32 d1 = v2_crs(v2_sub(t.p[1], l.a), w);
-        i32 d2 = v2_crs(v2_sub(t.p[2], l.a), w);
 
-        return !(
-            (a0 <= 0 && a1 >= 0 && a2 >= 0) || (a0 >= 0 && a1 <= 0 && a2 <= 0) ||
-            (b0 <= 0 && b1 >= 0 && b2 >= 0) || (b0 >= 0 && b1 <= 0 && b2 <= 0) ||
-            (c0 <= 0 && c1 >= 0 && c2 >= 0) || (c0 >= 0 && c1 <= 0 && c2 <= 0) ||
-            (d0 | d1 | d2) >= 0 || (d0 <= 0 && d1 <= 0 && d2 <= 0));
+        bool32 separated =
+            (a0 | a1 | a2) >= 0 || (a0 <= 0 && a1 <= 0 && a2 <= 0) ||
+            (b0 | b1 | b2) >= 0 || (b0 <= 0 && b1 <= 0 && b2 <= 0) ||
+            (c0 | c1 | c2) >= 0 || (c0 <= 0 && c1 <= 0 && c2 <= 0) ||
+            (d0 | d1 | d2) >= 0 || (d0 <= 0 && d1 <= 0 && d2 <= 0);
+        return !separated;
 }
 
 // TODO: NEEDS FURTHER CHECKING!
@@ -947,12 +969,8 @@ static bool32 overlap_tri_lineseg_excl2(tri_i32 tri, lineseg_i32 l)
         int c0 = overlap_lineseg_pnt_excl(t0, l.b);
         int c1 = overlap_lineseg_pnt_excl(t1, l.b);
         int c2 = overlap_lineseg_pnt_excl(t2, l.b);
-        int l1 = ((b0) |
-                  (b1 << 1) |
-                  (b2 << 2));
-        int l2 = ((c0) |
-                  (c1 << 1) |
-                  (c2 << 2));
+        int l1 = ((b0) | (b1 << 1) | (b2 << 2));
+        int l2 = ((c0) | (c1 << 1) | (c2 << 2));
         return (l1 ^ l2);
 }
 
@@ -985,51 +1003,6 @@ static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
         return 0;
 }
 
-// triangle overlap tests - touching triangles NOT considered overlapped
-// handles all kinds of degenerate triangles
-static bool32 overlap_tri_excl(tri_i32 tri1, tri_i32 tri2)
-{
-        NOT_IMPLEMENTED
-        v2_i32 tr0 = tri1.p[0], tr1 = tri1.p[1], tr2 = tri1.p[2];
-        v2_i32 tra = tri2.p[0], trb = tri2.p[1], trc = tri2.p[2];
-        v2_i32 i0 = v2_min(tr0, v2_min(tr1, tr2));
-        v2_i32 i1 = v2_max(tr0, v2_max(tr1, tr2));
-        v2_i32 ia = v2_min(tra, v2_min(trb, trc));
-        v2_i32 ib = v2_max(tra, v2_max(trb, trc));
-        if (i0.x >= ib.x || i0.y >= ib.y || ia.x >= i1.x || ia.y >= i1.y)
-                return 0;
-
-        v2_i32 dt0 = v2_sub(tr1, tr0);
-        v2_i32 dt1 = v2_sub(tr2, tr0);
-        i32    cr0 = v2_crs(dt1, dt0);
-        v2_i32 dta = v2_sub(trb, tra);
-        v2_i32 dtb = v2_sub(trc, tra);
-        i32    cra = v2_crs(dtb, dta);
-
-        int c = 0;
-        switch (c) {
-        case 0: // triangle-triangle
-                break;
-        case 1: // triangle-lineseg
-                break;
-        case 2: // triangle-point
-                break;
-        case 3: // lineseg-triangle
-                break;
-        case 4: // lineseg-lineseg
-                break;
-        case 5: // lineseg-point
-                break;
-        case 6: // point-triangle
-                break;
-        case 7: // point-lineseg
-                break;
-        case 8: // point-point
-                break;
-        }
-        return 0;
-}
-
 static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
 {
         v2_i32 p[4];
@@ -1037,23 +1010,17 @@ static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
         if ((l.a.x <= p[0].x && l.b.x <= p[0].x) ||
             (l.a.y <= p[0].y && l.b.y <= p[0].y) ||
             (l.a.x >= p[2].x && l.b.x >= p[2].x) ||
-            (l.a.y >= p[2].y && l.b.y >= p[2].y)) return 0;
+            (l.a.y >= p[2].y && l.b.y >= p[2].y))
+                return 0;
 
-        const v2_i32 dt = v2_sub(l.b, l.a);
-        i32          a0 = v2_crs(v2_sub(p[0], l.a), dt);
-        i32          a1 = v2_crs(v2_sub(p[1], l.a), dt);
-        i32          a2 = v2_crs(v2_sub(p[2], l.a), dt);
-        i32          a3 = v2_crs(v2_sub(p[3], l.a), dt);
-        bool32       a  = !((a0 | a1 | a2 | a3) >= 0 ||
-                     (a0 <= 0 && a1 <= 0 && a2 <= 0 && a3 <= 0));
-#if 0 // double check using previous method
-        tri_i32 tris[2];
-        tris_from_rec(r, tris);
-        bool32 b = (overlap_tri_lineseg_excl(tris[0], l) ||
-                    overlap_tri_lineseg_excl(tris[1], l));
-        ASSERT(a == b);
-#endif
-        return a;
+        v2_i32 dt        = v2_sub(l.b, l.a);
+        i32    a0        = v2_crs(v2_sub(p[0], l.a), dt);
+        i32    a1        = v2_crs(v2_sub(p[1], l.a), dt);
+        i32    a2        = v2_crs(v2_sub(p[2], l.a), dt);
+        i32    a3        = v2_crs(v2_sub(p[3], l.a), dt);
+        bool32 separated = (a0 | a1 | a2 | a3) >= 0 ||
+                           (a0 <= 0 && a1 <= 0 && a2 <= 0 && a3 <= 0);
+        return !separated;
 }
 
 #endif

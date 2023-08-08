@@ -56,10 +56,11 @@ void os_backend_audio_init()
         PD_s_synth.setWaveform(synth, kWaveformTriangle);
         PD_s_synth.playNote(synth, 100.f, 1.f, -1, 0);
         */
-        FilePlayer *fp         = PD_s_fileplayer.newPlayer();
-        PD_s_fileplayer.loadIntoPlayer(fp, "assets/audiosample.mp3");
-        PD_s_fileplayer.setVolume(fp, 1.f, 1.f);
-        PD_s_fileplayer.play(fp, 0);
+
+        // FilePlayer *fp         = PD_s_fileplayer.newPlayer();
+        // PD_s_fileplayer.loadIntoPlayer(fp, "assets/audiosample.mp3");
+        // PD_s_fileplayer.setVolume(fp, 1.f, 1.f);
+        // PD_s_fileplayer.play(fp, 0);
 }
 
 void os_backend_audio_close()

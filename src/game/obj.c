@@ -48,7 +48,7 @@ obj_s *obj_create(game_s *g)
 {
         ASSERT(g->n_objfree > 0);
         obj_s *o = g->objfreestack[--g->n_objfree];
-        ASSERT(!objset_contains(&g->obj_active, o));
+        ASSERT(!objset_contains(&g->objbuckets[0].set, o));
 
         int                index   = o->index;
         int                gen     = o->gen;
@@ -57,7 +57,7 @@ obj_s *obj_create(game_s *g)
         o->gen                     = gen;
         o->index                   = index;
 
-        objset_add(&g->obj_active, o);
+        objset_add(&g->objbuckets[0].set, o);
 
         return o;
 }
@@ -220,6 +220,9 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
                 }
         }
         o->squeezed = 1;
+        if (o->onsqueeze) {
+                o->onsqueeze(g, o);
+        }
         return 0;
 }
 
@@ -288,45 +291,46 @@ bool32 actor_step_y(game_s *g, obj_s *o, int sy)
         return 0;
 }
 
-static void solid_step(game_s *g, obj_s *o, int sx, int sy)
+static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 {
-        ASSERT((ABS(sx) == 1 && sy == 0) || (ABS(sy) == 1 && sx == 0));
+        ASSERT((ABS(dt.x) == 1 && dt.y == 0) || (ABS(dt.y) == 1 && dt.x == 0));
 
         obj_s *hero;
         if (try_obj_from_handle(g->hero.obj, &hero) && hero->rope) {
                 o->soliddisabled = 1;
-                rope_moved_by_solid(g, hero->rope, o, (v2_i32){sx, sy});
+                rope_moved_by_solid(g, hero->rope, o, dt);
                 o->soliddisabled = 0;
         }
 
-        o->pos.x += sx;
-        o->pos.y += sy;
-        rec_i32     r      = obj_aabb(o);
-        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+        o->pos    = v2_add(o->pos, dt);
+        rec_i32 r = obj_aabb(o);
+
         for (int n = 0; n < actors.n; n++) {
                 obj_s *a = actors.o[n];
                 if (a->squeezed) continue;
                 rec_i32 aabb  = obj_aabb(a);
-                rec_i32 rfeet = translate_rec_xy(obj_rec_bottom(a), sx, sy);
-                if (overlap_rec_excl(r, aabb) || overlap_rec_excl(r, rfeet)) {
-                        if (sx != 0) actor_step_x(g, a, sx);
-                        if (sy != 0) actor_step_y(g, a, sy);
-                        if (!actor_try_wiggle(g, a) && a->onsqueeze) {
-                                a->onsqueeze(g, a);
-                        }
+                rec_i32 rfeet = translate_rec(obj_rec_bottom(a), dt);
+                if (overlap_rec_excl(r, aabb) ||
+                    overlap_rec_excl(r, rfeet) ||
+                    obj_from_handle(a->linkedsolid) == o) {
+                        if (dt.x != 0) actor_step_x(g, a, dt.x);
+                        if (dt.y != 0) actor_step_y(g, a, dt.y);
+                        actor_try_wiggle(g, a);
                 }
         }
 }
 
 void solid_move(game_s *g, obj_s *o, int dx, int dy)
 {
-        int sx = SGN(dx);
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+        o->soliddisabled   = 1;
+        v2_i32 vx          = {SGN(dx), 0};
         for (int m = ABS(dx); m > 0; m--) {
-                solid_step(g, o, sx, 0);
+                solid_step(g, o, vx, actors);
         }
-        int sy = SGN(dy);
+        v2_i32 vy = {0, SGN(dy)};
         for (int m = ABS(dy); m > 0; m--) {
-                solid_step(g, o, 0, sy);
+                solid_step(g, o, vy, actors);
         }
 }
 
