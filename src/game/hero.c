@@ -205,7 +205,7 @@ void hero_check_level_transition(game_s *g, obj_s *hero)
         for (int n = 0; n < triggers.n; n++) {
                 obj_s *coll = triggers.o[n];
                 if (overlap_rec_excl(haabb, obj_aabb(coll))) {
-                        game_map_transition_start(g, coll->new_mapfile);
+                        game_map_transition_start(g, coll->filename);
                         break;
                 }
         }

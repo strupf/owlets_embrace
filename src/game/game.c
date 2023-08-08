@@ -27,12 +27,12 @@ void game_init(game_s *g)
                         if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
                                 int i = (x >> 3) + y * tclouds.w_byte;
                                 int b = (x & 7);
-                                tclouds.px[i] &= ~(1u << (7 - b)); // clear bit
+                                tclouds.mask[i] &= ~(1u << (7 - b)); // clear bit
                         }
                 }
         }
 
-        fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font1.json"));
+        fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
 
         g->cam.w  = 400;
         g->cam.h  = 240;
@@ -82,7 +82,7 @@ void game_update(game_s *g)
                 if (solid->pos.x > 350) {
                         dir = -1;
                 }
-                if (solid->pos.x < 100) {
+                if (solid->pos.x < 200) {
                         dir = +1;
                 }
                 solid_move(g, solid, dir * 2, 0);
@@ -106,9 +106,6 @@ void game_update(game_s *g)
 
         cam_update(g, &g->cam);
 
-        if (debug_inp_space()) {
-                textbox_load_dialog(&g->textbox, "assets/dialog.txt");
-        }
         textbox_s *tb = &g->textbox;
         if (tb->active) {
                 textbox_update(tb);
@@ -131,6 +128,7 @@ void game_map_transition_start(game_s *g, const char *filename)
         if (g->transitionphase != 0) return;
         g->transitionphase = TRANSITION_FADE_IN;
         g->transitionticks = 0;
+
         os_strcpy(g->transitionmap, filename);
 }
 
@@ -142,7 +140,9 @@ static void game_update_transition(game_s *g)
 
         switch (g->transitionphase) {
         case TRANSITION_FADE_IN:
-                game_load_map(g, g->transitionmap);
+                char filename[64] = ASSET_PATH_MAPS;
+                os_strcat(filename, g->transitionmap);
+                game_load_map(g, filename);
                 g->transitionphase = TRANSITION_FADE_OUT;
                 g->transitionticks = 0;
                 break;
@@ -241,10 +241,10 @@ obj_listc_s objbucket_list(game_s *g, int bucketID)
 void game_tile_bounds_minmax(game_s *g, v2_i32 pmin, v2_i32 pmax,
                              i32 *x1, i32 *y1, i32 *x2, i32 *y2)
 {
-        *x1 = MAX(pmin.x, 0) / 16;
-        *y1 = MAX(pmin.y, 0) / 16;
-        *x2 = MIN(pmax.x, g->pixel_x - 1) / 16;
-        *y2 = MIN(pmax.y, g->pixel_y - 1) / 16;
+        *x1 = MAX(pmin.x, 0) >> 4; /* "/ 16" */
+        *y1 = MAX(pmin.y, 0) >> 4;
+        *x2 = MIN(pmax.x, g->pixel_x - 1) >> 4;
+        *y2 = MIN(pmax.y, g->pixel_y - 1) >> 4;
 }
 
 void game_tile_bounds_tri(game_s *g, tri_i32 t,

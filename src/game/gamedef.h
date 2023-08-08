@@ -8,6 +8,9 @@
 #include "os/os.h"
 #include "util/array.h"
 
+#define ASSET_PATH_MAPS     "assets/map/"
+#define ASSET_PATH_DIALOGUE "assets/"
+
 enum {
         NUM_TILES             = 256 * 256,
         NUM_RENDERTILE_LAYERS = 2,

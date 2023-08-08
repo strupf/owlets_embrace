@@ -347,7 +347,7 @@ void obj_apply_movement(obj_s *o)
 
 void interact_open_dialogue(game_s *g, obj_s *o)
 {
-        char filename[64] = "assets/";
-        os_strcat(filename, o->dialogue);
+        char filename[64] = ASSET_PATH_DIALOGUE;
+        os_strcat(filename, o->filename);
         textbox_load_dialog(&g->textbox, filename);
 }

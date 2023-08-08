@@ -85,6 +85,7 @@ enum gfx_mode {
 typedef struct {
         u8 *px;
         u8 *mask;
+        int w_word;
         int w_byte;
         int w;
         int h;

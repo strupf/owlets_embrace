@@ -7,7 +7,7 @@
 
 #include "os.h"
 
-#define OS_DESKTOP_SCALE 2
+#define OS_DESKTOP_SCALE 4
 #define OS_FPS_DELTA     0.0166667f
 #define OS_DELTA_CAP     0.05f
 

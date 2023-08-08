@@ -7,8 +7,8 @@
 
 #include "os_types.h"
 
-#define CATCH_OVERFLOW 0
-#define WARN_OVERFLOW  0
+#define CATCH_OVERFLOW 1
+#define WARN_OVERFLOW  1
 
 typedef struct {
         i32 num;
@@ -863,7 +863,6 @@ static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 static inline void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
                                    i32 *u, i32 *v, i32 *w)
 {
-        ASSERT(u && v && w);
         *u = v2_crs(v2_sub(b, a), v2_sub(p, a));
         *v = v2_crs(v2_sub(a, c), v2_sub(p, c));
         *w = v2_crs(v2_sub(c, b), v2_sub(p, b));
@@ -990,6 +989,7 @@ static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
 // handles all kinds of degenerate triangles
 static bool32 overlap_tri_excl(tri_i32 tri1, tri_i32 tri2)
 {
+        NOT_IMPLEMENTED
         v2_i32 tr0 = tri1.p[0], tr1 = tri1.p[1], tr2 = tri1.p[2];
         v2_i32 tra = tri2.p[0], trb = tri2.p[1], trc = tri2.p[2];
         v2_i32 i0 = v2_min(tr0, v2_min(tr1, tr2));
@@ -1032,10 +1032,28 @@ static bool32 overlap_tri_excl(tri_i32 tri1, tri_i32 tri2)
 
 static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
 {
+        v2_i32 p[4];
+        points_from_rec(r, p);
+        if ((l.a.x <= p[0].x && l.b.x <= p[0].x) ||
+            (l.a.y <= p[0].y && l.b.y <= p[0].y) ||
+            (l.a.x >= p[2].x && l.b.x >= p[2].x) ||
+            (l.a.y >= p[2].y && l.b.y >= p[2].y)) return 0;
+
+        const v2_i32 dt = v2_sub(l.b, l.a);
+        i32          a0 = v2_crs(v2_sub(p[0], l.a), dt);
+        i32          a1 = v2_crs(v2_sub(p[1], l.a), dt);
+        i32          a2 = v2_crs(v2_sub(p[2], l.a), dt);
+        i32          a3 = v2_crs(v2_sub(p[3], l.a), dt);
+        bool32       a  = !((a0 | a1 | a2 | a3) >= 0 ||
+                     (a0 <= 0 && a1 <= 0 && a2 <= 0 && a3 <= 0));
+#if 0 // double check using previous method
         tri_i32 tris[2];
         tris_from_rec(r, tris);
-        return (overlap_tri_lineseg_excl(tris[0], l) ||
-                overlap_tri_lineseg_excl(tris[1], l));
+        bool32 b = (overlap_tri_lineseg_excl(tris[0], l) ||
+                    overlap_tri_lineseg_excl(tris[1], l));
+        ASSERT(a == b);
+#endif
+        return a;
 }
 
 #endif

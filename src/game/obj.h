@@ -67,8 +67,7 @@ struct obj_s {
         bool32       attached;
         pickupdata_s pickup;
 
-        char        dialogue[32];
-        char        new_mapfile[32];
+        char        filename[64];
         pathmover_s path;
 };
 

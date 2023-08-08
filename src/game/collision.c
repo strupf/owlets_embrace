@@ -138,24 +138,24 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
         rec_i32 riarea;
         if (!intersect_rec(r, rgrid, &riarea)) return 0;
 
-        uint px0 = (uint)riarea.x;
-        uint py0 = (uint)riarea.y;
-        uint px1 = (uint)riarea.x + riarea.w - 1;
-        uint py1 = (uint)riarea.y + riarea.h - 1;
-        int  tx0 = px0 / 16; // divide by 16 (tile size)
-        int  ty0 = py0 / 16;
-        int  tx1 = px1 / 16;
-        int  ty1 = py1 / 16;
+        int px0 = riarea.x;
+        int py0 = riarea.y;
+        int px1 = riarea.x + riarea.w - 1;
+        int py1 = riarea.y + riarea.h - 1;
+        int tx0 = px0 >> 4; // divide by 16 (tile size)
+        int ty0 = py0 >> 4;
+        int tx1 = px1 >> 4;
+        int ty1 = py1 >> 4;
 
         for (int ty = ty0; ty <= ty1; ty++) {
-                int y0 = (ty == ty0 ? py0 % 16 : 0); // px in tile (local)
-                int y1 = (ty == ty1 ? py1 % 16 : 15);
+                int y0 = (ty == ty0 ? py0 & 15 : 0); // px in tile (local)
+                int y1 = (ty == ty1 ? py1 & 15 : 15);
                 for (int tx = tx0; tx <= tx1; tx++) {
                         int tl = tg.tiles[tx + ty * tg.tiles_x];
                         if (tl == 0) continue;
                         if (tl == 1) return 1;
-                        int x0 = (tx == tx0 ? px0 % 16 : 0);
-                        int x1 = (tx == tx1 ? px1 % 16 : 15);
+                        int x0 = (tx == tx0 ? px0 & 15 : 0);
+                        int x1 = (tx == tx1 ? px1 & 15 : 15);
                         int mk = (0xFFFF >> x0) & ~(0x7FFF >> x1);
                         // mk masks the collision data so we only see
                         // the relevant part    1---5
@@ -170,13 +170,10 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
 
 bool32 tiles_at(tilegrid_s tg, i32 x, i32 y)
 {
-        if (x < 0 || y < 0) return 0;
-        uint xx    = (uint)x;
-        uint yy    = (uint)y;
-        int  tilex = xx / 16;
-        int  tiley = yy / 16;
-        if (tilex >= tg.tiles_x || tiley >= tg.tiles_y) return 0;
-        int t = tg.tiles[tilex + tiley * tg.tiles_x];
+        if (!(0 <= x && x < tg.pixel_x && 0 <= y && y < tg.pixel_y)) return 0;
+        int tilex = x >> 4; /* "/ 16" */
+        int tiley = y >> 4;
+        int t     = tg.tiles[tilex + tiley * tg.tiles_x];
         if (t <= 1) return t; // ID = 0 all 0, ID = 1 all 1
-        return (g_pxmask_tab[t][yy % 16] & (0x8000 >> (xx % 16)));
+        return (g_pxmask_tab[t][y & 15] & (0x8000 >> (x & 15)));
 }

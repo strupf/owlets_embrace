@@ -359,9 +359,8 @@ static bool32 tiled_property(jsn_s j, const char *pname, jsn_s *property)
 
 static void load_obj_from_jsn(game_s *g, jsn_s jobj)
 {
-        char buf[16];
-        jsn_strk(jobj, "type", buf, sizeof(buf));
-        PRINTF("%s\n", buf);
+        char buf[64];
+        jsn_strk(jobj, "name", buf, sizeof(buf));
 
         obj_s *o = NULL;
         if (0) {
@@ -379,13 +378,25 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o->w          = 16;
                 o->h          = 16;
                 o->oninteract = interact_open_dialogue;
+        } else if (streq(buf, "newmap")) {
+                o                = obj_create(g);
+                objflags_s flags = objflags_create(
+                    OBJ_FLAG_NEW_AREA_COLLIDER);
+                obj_set_flags(g, o, flags);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+                o->w     = jsn_intk(jobj, "width");
+                o->h     = jsn_intk(jobj, "height");
+        } else {
+                return;
         }
-
-        if (!o) return;
 
         jsn_s prop;
         if (tiled_property(jobj, "dialogue", &prop)) {
-                jsn_strk(prop, "value", o->dialogue, sizeof(o->dialogue));
+                jsn_strk(prop, "value", o->filename, sizeof(o->filename));
+        }
+        if (tiled_property(jobj, "mapfile", &prop)) {
+                jsn_strk(prop, "value", o->filename, sizeof(o->filename));
         }
 }
 
@@ -452,6 +463,7 @@ void game_load_map(game_s *g, const char *filename)
         g->pixel_x = g->tiles_x << 4;
         g->pixel_y = g->tiles_y << 4;
 
+#if 1
         obj_s     *solid  = obj_create(g);
         objflags_s flags1 = objflags_create(OBJ_FLAG_SOLID);
         obj_set_flags(g, solid, flags1);
@@ -459,16 +471,7 @@ void game_load_map(game_s *g, const char *filename)
         solid->pos.y = 192 - 32;
         solid->w     = 64;
         solid->h     = 32;
-
-        obj_s     *newmap = obj_create(g);
-        objflags_s flags2 = objflags_create(OBJ_FLAG_NEW_AREA_COLLIDER);
-        obj_set_flags(g, newmap, flags2);
-        newmap->pos.x          = 10;
-        newmap->pos.y          = 300;
-        newmap->w              = 64;
-        newmap->h              = 32;
-        const char *newmapfile = "assets/map/template.tmj";
-        os_strcpy(newmap->new_mapfile, newmapfile);
+#endif
 
         for (int i = 0; i < 10; i++) {
                 obj_s     *pickup = obj_create(g);

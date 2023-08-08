@@ -97,14 +97,16 @@ void os_backend_graphics_flip()
 tex_s tex_create(int w, int h)
 {
         // bytes per row - rows aligned to 32 bit
-        int    w_bytes = sizeof(int) * ((w - 1) / 32 + 1);
-        size_t s       = sizeof(u8) * w_bytes * h;
+        int    w_word = (w - 1) / 32 + 1;
+        int    w_byte = w_word * 4;
+        size_t s      = sizeof(u8) * w_byte * h;
 
         // twice the size (1 bit white/black, 1 bit transparent/opaque)
         void *mem = memarena_allocz(&g_os.assetmem, s * 2);
         tex_s t   = {(u8 *)mem,
                      (u8 *)((char *)mem + s),
-                     w_bytes,
+                     w_word,
+                     w_byte,
                      w,
                      h};
         return t;
@@ -273,8 +275,6 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
         *op   = (t.mask[i] & m);
 }
 
-static const int pxmode[][4] = {0};
-
 static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return;
@@ -354,71 +354,55 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         }
 }
 
+static inline u32 endian_u32(u32 i)
+{
+        return ((i >> 0x18) & 0x000000FFU) | ((i << 0x08) & 0x00FF0000U) |
+               ((i >> 0x08) & 0x0000FF00U) | ((i << 0x18) & 0xFF000000U);
+}
+
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
-        ASSERT(rs.x % 8 == 0 && rs.y % 8 == 0 && rs.w % 8 == 0 && rs.h % 8 == 0);
         tex_s dst = g_os.dst;
         int   zx  = dst.w - pos.x;
         int   zy  = dst.h - pos.y;
-        int   x2  = rs.w <= zx ? rs.w : zx;
-        int   y2  = rs.h <= zy ? rs.h : zy;
-        int   x1  = (0 >= -pos.x ? 0 : -pos.x);
-        int   y1  = (0 >= -pos.y ? 0 : -pos.y);
-#if 1 // implement drawing and masking using whole bytes
-        x1 += rs.x;
-        x2 += rs.x;
-        y1 += rs.y;
-        y2 += rs.y;
-        for (int y = y1; y < y2; y++) {
-                int ys = (y)*src.w_byte;
-                int yd = (y + pos.y - rs.y) * dst.w_byte;
-                for (int x = x1; x < x2; x++) {
-                        int xd = x + pos.x - rs.x;
+        int   x1  = (0 >= -pos.x ? 0 : -pos.x) + rs.x;
+        int   y1  = (0 >= -pos.y ? 0 : -pos.y) + rs.y;
+        int   x2  = (rs.w <= zx ? rs.w : zx) + rs.x - 1;
+        int   y2  = (rs.h <= zy ? rs.h : zy) + rs.y - 1;
 
-                        int i = (x >> 3) + ys;
-                        int m = 1 << (7 - (x & 7));
-                        if (!(src.mask[i] & m)) continue;
-
-                        int p = (src.px[i] & m);
-                        int j = (xd >> 3) + yd;
-                        int s = (xd & 7);
-                        if (p) {
-                                dst.px[j] |= (1u << (7 - s)); // set bit
-                        } else {
-                                dst.px[j] &= ~(1u << (7 - s)); // clear bit
-                        }
+        // relative word alignment
+        int bitoffset    = (32 - ((pos.x - rs.x) & 31)) & 31;
+        int b1           = x1 >> 5;
+        int b2           = x2 >> 5;
+        int cc           = pos.x - rs.x;
+        u32 *restrict dp = (u32 *)dst.px;
+        u32 *restrict dm = (u32 *)dst.mask;
+        for (int y = y1; y <= y2; y++) {
+                int ys            = y * src.w_word;
+                int yd            = (y + pos.y - rs.y) * dst.w_word;
+                u32 *restrict sm_ = &((u32 *)src.mask)[b1 + ys];
+                u32 *restrict sp_ = &((u32 *)src.px)[b1 + ys];
+                for (int b = b1; b <= b2; b++) {
+                        int u  = (b == b1 ? x1 & 31 : 0);
+                        int v  = (b == b2 ? x2 & 31 : 31);
+                        u32 m  = (0xFFFFFFFFu >> u) & ~(0x7FFFFFFFu >> v);
+                        u32 sm = endian_u32(*sm_++) & m;
+                        u32 sp = endian_u32(*sp_++);
+                        u32 t0 = sm >> (32 - bitoffset);
+                        u32 p0 = sp >> (32 - bitoffset);
+                        u32 t1 = (sm << bitoffset);
+                        u32 p1 = (sp << bitoffset);
+                        int j0 = (((b << 5) + cc) >> 5) + yd;
+                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
+                        u32 d0 = endian_u32(dp[j0]);
+                        u32 d1 = endian_u32(dp[j1]);
+                        dp[j0] = endian_u32((d0 & ~t0) | (p0 & t0));
+                        dp[j1] = endian_u32((d1 & ~t1) | (p1 & t1));
+                        if (!dm) continue;
+                        dm[j0] = endian_u32(endian_u32(dm[j0]) | t0);
+                        dm[j1] = endian_u32(endian_u32(dm[j1]) | t1);
                 }
         }
-#else
-        for (int y = y1; y < y2; y++) {
-                for (int x = x1; x < x2; x++) {
-                        int xs = x + rs.x;
-                        int ys = y + rs.y;
-                        int xd = x + pos.x;
-                        int yd = y + pos.y;
-#if 1
-                        int i  = (xs >> 3) + ys * src.w_byte;
-                        int m  = 1 << (7 - (xs & 7));
-                        if (!(src.mask[i] & m)) continue;
-
-                        int p = (src.px[i] & m);
-                        int j = (xd >> 3) + yd * dst.w_byte;
-                        int s = (xd & 7);
-                        int k = dst.px[j];
-                        if (p) {
-                                k |= (1u << (7 - s)); // set bit
-                        } else {
-                                k &= ~(1u << (7 - s)); // clear bit
-                        }
-                        dst.px[j] = (u8)k;
-#else
-                        int px, op;
-                        i_gfx_peek(src, xs, ys, &px, &op);
-                        if (op) i_gfx_put_px(dst, xd, yd, px, 0);
-#endif
-                }
-        }
-#endif
 }
 
 void gfx_rec_fill(rec_i32 r, int col)
