@@ -9,6 +9,6 @@ For simplicity reasons a unity build is used: all.c is going to include all othe
 
 # Misc
 
-Rope mechanic running on the Playdate Simulator as of August 1st, 2023:
+Rope mechanic running on the Playdate Simulator as of August 9th, 2023:
 
-<img src="misc/animation_01.gif" width="300" />
+<img src="misc/animation_02.gif" width="350" />
