@@ -94,21 +94,19 @@ void os_backend_graphics_flip()
 }
 #endif // ======================================================================
 
-tex_s tex_create(int w, int h)
+tex_s tex_create(int w, int h, bool32 mask)
 {
         // bytes per row - rows aligned to 32 bit
-        int    w_word = (w - 1) / 32 + 1;
-        int    w_byte = w_word * 4;
+        int    w_word = ((w - 1) >> 5) + 1;
+        int    w_byte = w_word << 2;
         size_t s      = sizeof(u8) * w_byte * h;
 
         // twice the size (1 bit white/black, 1 bit transparent/opaque)
-        void *mem = memarena_allocz(&g_os.assetmem, s * 2);
-        tex_s t   = {(u8 *)mem,
-                     (u8 *)((char *)mem + s),
-                     w_word,
-                     w_byte,
-                     w,
-                     h};
+        void *mem = memarena_allocz(&g_os.assetmem, s * (mask ? 2 : 1));
+        u8   *px  = (u8 *)mem;
+        u8   *mk  = (u8 *)(mask ? px + s : NULL);
+
+        tex_s t = {px, mk, w_word, w_byte, w, h};
         return t;
 }
 
@@ -121,7 +119,7 @@ tex_s tex_load(const char *filename)
         i32   w = jsn_intk(j, "width");
         i32   h = jsn_intk(j, "height");
         char *c = jsn_strkptr(j, "data");
-        tex_s t = tex_create(w, h);
+        tex_s t = tex_create(w, h, 1);
         for (int y = 0; y < h * 2; y++) {
                 for (int x = 0; x < t.w_byte; x++) {
                         int c1 = (char_hex_to_int(*c++)) << 4;
@@ -346,6 +344,8 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         }
 }
 
+// TODO: doesnt work when drawing from a sprite without a mask
+//
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */

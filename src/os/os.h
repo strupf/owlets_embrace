@@ -73,6 +73,18 @@ enum inp_button {
 #endif
 };
 
+enum inp_dpad_direction {
+        INP_DPAD_NONE,
+        INP_DPAD_N,
+        INP_DPAD_S,
+        INP_DPAD_E,
+        INP_DPAD_W,
+        INP_DPAD_NE,
+        INP_DPAD_NW,
+        INP_DPAD_SE,
+        INP_DPAD_SW,
+};
+
 enum gfx_mode {
         GFX_MODE_COPY,
         GFX_MODE_WHITE_TRANSPARENT,
@@ -151,7 +163,7 @@ void      fntstr_apply_effect(fntstr_s *f, int from, int to,
 //
 void      tex_put(int ID, tex_s t);
 tex_s     tex_get(int ID);
-tex_s     tex_create(int w, int h);
+tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
@@ -169,6 +181,7 @@ snd_s     snd_get(int ID);
 //
 void      os_debug_time(int ID, float time);
 i32       os_tick();
+int       os_inp_dpad_direction();
 int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
 int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
 bool32    os_inp_pressed(int b);

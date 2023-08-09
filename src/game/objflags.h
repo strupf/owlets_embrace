@@ -38,7 +38,7 @@ static objflags_s i_objflags_create(int n, ...)
         while (1) {
                 int i = va_arg(ap, int);
                 if (i == -1) break;
-                r.i[i >> 5] |= 1 << (i & 31);
+                r.i[i >> 5] |= 1u << (i & 31);
         }
         va_end(ap);
         return r;

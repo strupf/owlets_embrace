@@ -33,12 +33,6 @@ typedef struct hero_s      hero_s;
 typedef struct textbox_s   textbox_s;
 typedef struct obj_listc_s obj_listc_s;
 
-typedef struct {
-        tex_s t;
-        i32   x1, y1, x2, y2;
-        i32   x, y;
-} tilecache_s;
-
 #define foreach_tile_in_bounds(X1, Y1, X2, Y2, XIT, YIT) \
         for (int YIT = Y1; YIT <= Y2; YIT++)             \
                 for (int XIT = X1; XIT <= X2; XIT++)

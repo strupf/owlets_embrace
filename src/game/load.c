@@ -500,7 +500,7 @@ void       game_load_map(game_s *g, const char *filename)
                 objflags_s flags3 = objflags_create(OBJ_FLAG_PICKUP);
                 obj_set_flags(g, pickup, flags3);
                 pickup->pos.x    = 500 + i * 30;
-                pickup->pos.y    = 300;
+                pickup->pos.y    = 340;
                 pickup->w        = 8;
                 pickup->h        = 8;
                 pickup->pickup.x = 1;

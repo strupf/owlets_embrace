@@ -1,14 +1,14 @@
-general
-* generate placeholder assets or workaround so that the game is still executable
-  -> error message instead of crashing silently without a debugger
-
 gameplay
-* better character controls
-* rope
+* selectable items/abilities (using the crank to cycle through?)
     * rope as a dedicated usable item
 * path movement for moving platforms
     * linear, pingpong, circular
     * load path from map
+* talkable NPCs
+* enemies
+    * damage/health mechanic
+    * dying? quick respawn vs savepoints?
+* static spikes
 
 
 loading
@@ -18,11 +18,13 @@ graphics
 * current selected item frame
 * rope
     * better rendering (textured thick rope?)
-    * "hanging" of rope when not stretched
-
+    * "hanging" animation of rope when not stretched
+* animated background art/layer/particles
+* particles for jumping/landing? -> dust
 
 textbox
 * typewriter noises
+* choice prompt in a dialogue
 
 bugs
 * rope: removal of a point during tighten can result in three

@@ -9,7 +9,7 @@
 
 enum hero_const {
         HERO_C_JUMP_INIT = -350,
-        HERO_C_ACCX      = 36,
+        HERO_C_ACCX_MAX  = 100,
         HERO_C_JUMP_MAX  = 70,
         HERO_C_JUMP_MIN  = 0,
         HERO_C_JUMPTICKS = 18,
@@ -111,12 +111,12 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                         h->jumpticks = HERO_C_JUMPTICKS;
                         o->vel_q8.y  = HERO_C_JUMP_INIT;
                 } else if (h->jumpticks > 0) {
-                        i32 jt = HERO_C_JUMPTICKS - h->jumpticks;
-                        int j  = HERO_C_JUMP_MAX -
-                                ease_out_q(HERO_C_JUMP_MIN,
-                                           HERO_C_JUMP_MAX,
-                                           HERO_C_JUMPTICKS,
-                                           jt, 2);
+                        int jfrom = pow2_i32(HERO_C_JUMPTICKS - h->jumpticks);
+                        int jto   = pow2_i32(HERO_C_JUMPTICKS);
+                        int j     = lerp_i32(HERO_C_JUMP_MAX,
+                                             HERO_C_JUMP_MIN,
+                                             jfrom,
+                                             jto);
                         o->vel_q8.y -= j;
                         h->jumpticks--;
                 }
@@ -154,18 +154,51 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        int xs = os_inp_dpad_x();
+        int xs     = os_inp_dpad_x();
+        int velsgn = SGN(o->vel_q8.x);
 
-        o->vel_q8.x += xs * HERO_C_ACCX;
-
-        if (grounded && (SGN(o->vel_q8.x) == -xs || xs == 0)) {
-                o->drag_q8.x = 180;
+        bool32 ropestretched = objhandle_is_valid(h->hook) && rope_stretched(g, &h->rope);
+        if (xs != 0) {
+                int acc    = 0;
+                int velabs = ABS(o->vel_q8.x);
+                if (grounded) {
+                        if (velsgn == -xs) { // reverse direction
+                                acc          = 200;
+                                o->drag_q8.x = 130;
+                        } else {
+                                o->drag_q8.x = 250;
+                                int accfrom  = pow_i32(velabs, 2);
+                                int accto    = pow_i32(1000, 2);
+                                acc          = lerp_i32(HERO_C_ACCX_MAX,
+                                                        0, // min acc
+                                                        accfrom,
+                                                        accto);
+                        }
+                } else {
+                        o->drag_q8.x = 250;
+                        if (ropestretched) {
+                                v2_i32 dtrope = v2_sub(h->rope.head->p, h->rope.head->next->p);
+                                acc           = (SGN(dtrope.x) == xs ? 10 : 50);
+                        } else if (velsgn == -xs) {
+                                acc = 200;
+                        } else if (velabs < 500) {
+                                acc = 100;
+                        } else if (velabs < 1000) {
+                                acc = 25;
+                        }
+                }
+                o->vel_q8.x += xs * acc;
         } else {
-                o->drag_q8.x = 255;
+                o->drag_q8.x = (grounded ? 130 : 250);
         }
 
+        if (!grounded && ropestretched) {
+                o->drag_q8.x = 254;
+        }
+
+        // PRINTF("%i\n", o->drag_q8.x);
         if (os_inp_just_pressed(INP_UP) && grounded &&
-            o->vel_q8.x == 0 && o->vel_q8.y == 0) {
+            o->vel_q8.x == 0 && o->vel_q8.y >= 0) {
                 hero_interact_logic(g, h, o);
         }
 }
@@ -223,10 +256,10 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
 
         rope_update(g, &h->rope);
         if (hook->attached) {
-                o->vel_q8 = rope_adjust_connected_vel(r, r->head,
+                o->vel_q8 = rope_adjust_connected_vel(g, r, r->head,
                                                       o->subpos_q8, o->vel_q8);
         } else {
-                hook->vel_q8 = rope_adjust_connected_vel(r, r->tail,
+                hook->vel_q8 = rope_adjust_connected_vel(g, r, r->tail,
                                                          hook->subpos_q8, hook->vel_q8);
         }
         os_debug_time(TIMING_ROPE, os_time() - timei);

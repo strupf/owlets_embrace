@@ -226,13 +226,28 @@ static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
         return i;
 }
 
-// from + (from - to) * num^2 / den^2
-static int ease_out_quad(i32 from, i32 to, i32 den, i32 num)
+static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 {
-        i32 d = mul_i32(den, den);
-        i32 n = mul_i32(num, num);
-        i32 i = add_i32(from, mul_i32(sub_i32(to, from), n) / d);
-        return i;
+        // a + ((b - a) * num / den)
+        i32 d = sub_i32(b, a);
+        d     = mul_i32(d, num);
+        d     = divr_i32(d, den);
+        d     = add_i32(a, d);
+        return d;
+}
+
+static inline i32 pow_i32(i32 v, i32 power)
+{
+        i32 r = v;
+        for (int n = 1; n < power; n++) {
+                r = mul_i32(r, v);
+        }
+        return r;
+}
+
+static inline i32 pow2_i32(i32 v)
+{
+        return mul_i32(v, v);
 }
 
 static i32 log2_u32(u32 x)
@@ -345,16 +360,6 @@ static inline bool32 between_excl_i32(i32 x, i32 a, i32 b)
 static inline bool32 between_incl_i32(i32 x, i32 a, i32 b)
 {
         return (a <= x && x <= b) || (b <= x && x <= a);
-}
-
-static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
-{
-        // a + ((b - a) * num / den)
-        i32 d = sub_i32(b, a);
-        d     = mul_i32(d, num);
-        d     = divr_i32(d, den);
-        d     = add_i32(a, d);
-        return d;
 }
 
 #define Q16_ANGLE_TURN 0x40000
@@ -899,10 +904,19 @@ static inline bool32 overlap_tri_pnt_excl(tri_i32 t, v2_i32 p)
 }
 
 // check for overlap - touching tri considered overlapped
-static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
+static inline bool32 overlap_tri_pnt_incl2(tri_i32 t, v2_i32 p)
 {
         i32 u, v, w;
         tri_pnt_barycentric_uvw(t, p, &u, &v, &w);
+        return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
+}
+
+// check for overlap - touching tri considered overlapped
+static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
+{
+        i32 u = v2_crs(v2_sub(t.p[1], t.p[0]), v2_sub(p, t.p[0]));
+        i32 v = v2_crs(v2_sub(t.p[0], t.p[2]), v2_sub(p, t.p[2]));
+        i32 w = v2_crs(v2_sub(t.p[2], t.p[1]), v2_sub(p, t.p[1]));
         return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
 }
 

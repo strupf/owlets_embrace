@@ -59,16 +59,15 @@ struct obj_s {
         i32         actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
-        bool32      soliddisabled_rope;
 
         void *onsqueezearg;
         void (*onsqueeze)(game_s *g, obj_s *o);
         void (*oninteract)(game_s *g, obj_s *o);
 
+        bool32      attached;
         ropenode_s *ropenode;
         rope_s     *rope;
 
-        bool32       attached;
         pickupdata_s pickup;
 
         char        filename[64];

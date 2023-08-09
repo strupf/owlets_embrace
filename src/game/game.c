@@ -28,15 +28,13 @@ void game_init(game_s *g)
                         if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
                                 int i = (x >> 3) + y * tclouds.w_byte;
                                 int b = (x & 7);
-                                tclouds.mask[i] &= ~(1u << (7 - b)); // clear bit
+                                tclouds.mask[i] &= ~(1 << (7 - b)); // clear bit
                         }
                 }
         }
 
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
         fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
-
-        g->tilecache.t = tex_create(TILECACHE_W, TILECACHE_H);
 
         g->cam.w  = 400;
         g->cam.h  = 240;
@@ -191,20 +189,31 @@ enum cam_values {
 static void cam_update(game_s *g, cam_s *c)
 {
         obj_s *player;
+        bool32 offset_modified = 0;
         if (try_obj_from_handle(g->hero.obj, &player)) {
-                v2_i32 target = obj_aabb_center(player);
-                target.y -= c->h / 8; // offset camera slightly upwards
-                c->target = target;
+                v2_i32 targ = obj_aabb_center(player);
+                targ.y -= c->h >> 3; // offset camera slightly upwards
+                c->target = targ;
+
+                if (os_inp_dpad_y() == 1 &&
+                    game_area_blocked(g, obj_rec_bottom(player)) &&
+                    ABS(player->vel_q8.x) < 10) {
+                        offset_modified = 1;
+                        c->offset.y += 5;
+                        c->offset.y = MIN(c->offset.y, 100);
+                }
         }
 
-        v2_i32 dt  = v2_sub(c->target, c->pos);
+        v2_i32 target = v2_add(c->target, c->offset);
+        if (!offset_modified) c->offset.y >>= 1;
+        v2_i32 dt  = v2_sub(target, c->pos);
         i32    lsq = v2_lensq(dt);
         if (lsq <= CAM_TARGET_SNAP_THRESHOLD) {
-                c->pos = c->target;
+                c->pos = target;
         } else if (lsq < CAM_LERP_DISTANCESQ_FAST) {
-                c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN);
+                c->pos = v2_lerp(c->pos, target, 1, CAM_LERP_DEN);
         } else {
-                c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN_FAST);
+                c->pos = v2_lerp(c->pos, target, 1, CAM_LERP_DEN_FAST);
         }
 
         int x1 = c->pos.x - c->wh;

@@ -5,8 +5,14 @@
 #include "game/game.h"
 #include "os/os_internal.h"
 
+#define DIAGRAM_ENABLED   0
+#define DIAGRAM_MAX_Y     17
+#define DIAGRAM_SPACING_Y 20
+#define DIAGRAM_W         TIMING_FRAMES
+#define DIAGRAM_H         (NUM_TIMING * DIAGRAM_SPACING_Y + 1)
+
 static inline void os_prepare();
-static inline void os_do_tick();
+static inline int  os_do_tick();
 
 void os_backend_graphics_init();
 void os_backend_graphics_close();
@@ -42,8 +48,7 @@ float (*PD_elapsedtime)();
 
 int os_do_tick_pd(void *userdata)
 {
-        os_do_tick();
-        return 1;
+        return os_do_tick();
 }
 
 #ifdef _WINDLL
@@ -67,10 +72,6 @@ __declspec(dllexport)
 #endif
 // =============================================================================
 
-#define DIAGRAM_MAX_Y     17
-#define DIAGRAM_SPACING_Y 20
-#define DIAGRAM_W         TIMING_FRAMES
-#define DIAGRAM_H         (NUM_TIMING * DIAGRAM_SPACING_Y + 1)
 static tex_s tdiagram;
 
 static void draw_frame_diagrams()
@@ -107,8 +108,8 @@ static void draw_frame_diagrams()
 
 static void frame_diagram()
 {
-        tdiagram = tex_create(DIAGRAM_W, DIAGRAM_H * 2);
-        os_memset(tdiagram.mask, 0xFF, tdiagram.h * tdiagram.w_byte);
+        tdiagram = tex_create(DIAGRAM_W, DIAGRAM_H * 2, 1);
+        os_memset(tdiagram.mask, 0xFF, tdiagram.w_byte * tdiagram.h);
         gfx_draw_to(tdiagram);
         for (int n = 0; n < NUM_TIMING; n++) {
                 rec_i32 r = {0, (1 + n) * DIAGRAM_SPACING_Y, TIMING_FRAMES, 1};
@@ -125,7 +126,7 @@ static void frame_diagram()
         os_strcat(g_os.timings.labels[TIMING_HERO_HOOK], "h_hook");
 }
 
-static inline void os_do_tick()
+static inline int os_do_tick()
 {
         static float timeacc;
 
@@ -153,7 +154,7 @@ static inline void os_do_tick()
                 g_gamestate.tick++;
                 g_os.tick++;
                 if (g_os.n_spmem > 0) {
-                        PRINTF("WARNING: spmem is not reset\n_spmem");
+                        // PRINTF("WARNING: spmem is not reset\n_spmem");
                 }
                 os_debug_time(TIMING_UPDATE, os_time() - time1);
         }
@@ -164,14 +165,17 @@ static inline void os_do_tick()
                 g_os.dst = g_os.tex_tab[0];
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
-                os_debug_time(TIMING_DRAW, os_time() - time1);
-                if (!g_gamestate.textbox.active) {
-                        draw_frame_diagrams();
-                }
 
+#if DIAGRAM_ENABLED
+                os_debug_time(TIMING_DRAW, os_time() - time1);
+                if (!g_gamestate.textbox.active) draw_frame_diagrams();
+#endif
                 os_backend_graphics_end();
+                os_backend_graphics_flip();
+                return 1; // update the display
         }
         os_backend_graphics_flip();
+        return 0; // not rendered, don't update display
 }
 
 static inline void os_prepare()

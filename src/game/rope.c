@@ -30,7 +30,7 @@ void rope_init(rope_s *r)
         r->len_max     = 180;
         r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 190;
-        r->spring_q8   = 240;
+        r->spring_q8   = 248;
 }
 
 ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
@@ -54,6 +54,8 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
         } else {
                 ASSERT(0);
         }
+        r->pmin = v2_min(r->pmin, p);
+        r->pmax = v2_max(r->pmax, p);
         return rn;
 }
 
@@ -100,7 +102,8 @@ static int rope_points_collinearity(v2_arr *pts, v2_i32 c)
 static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
                                  v2_arr *pts)
 {
-        if (!overlap_tri_pnt_incl(t1, p.p) || !overlap_tri_pnt_incl(t2, p.p))
+        if (!overlap_tri_pnt_incl(t1, p.p) ||
+            !overlap_tri_pnt_incl(t2, p.p))
                 return;
         // nasty with lots of calculations...
         // ONLY NEEDED FOR SOLID MOVEMENT though
@@ -128,7 +131,6 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         v2_i32 pmax2 = v2_max(t2.p[0], v2_max(t2.p[1], t2.p[2]));
         i32    x1, y1, x2, y2;
         game_tile_bounds_minmax(g, v2_min(pmin1, pmin2), v2_max(pmax1, pmax2), &x1, &y1, &x2, &y2);
-
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -207,7 +209,10 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
 {
         ASSERT((rn->next == rn_anchor && rn_anchor->prev == rn) ||
                (rn->prev == rn_anchor && rn_anchor->next == rn));
+
         if (v2_eq(p1, p2)) return;
+        r->pmin = v2_min(r->pmin, p2);
+        r->pmax = v2_max(r->pmax, p2);
 
         v2_i32 p0  = rn_anchor->p; // anchor
         i32    dir = v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
@@ -241,6 +246,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
 
 void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
 {
+        r->dirty     = 1;
         v2_i32 p_old = rn->p;
         v2_i32 p_new = v2_add(p_old, dt);
         rn->p        = p_new;
@@ -254,6 +260,7 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
                 ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
         }
 }
+
 /*
  * bug (also see sketch) -> temporary solution added in points in tri (linesegs)
  * node is pushed by solid to the left
@@ -265,25 +272,39 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
  */
 void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 {
-        v2_i32 points_[4];
-        points_from_rec(obj_aabb(solid), points_);
+        v2_i32  points_[4];
+        rec_i32 aabb = obj_aabb(solid);
+        rec_i32 rec  = aabb;
+        points_from_rec(aabb, points_);
 
         // only consider the points moving "forward" of the solid
         v2_i32 points[2];
         if (dt.x > 0) {
+                rec.w += dt.x;
                 points[0] = points_[1];
                 points[1] = points_[2];
         } else if (dt.x < 0) {
+                rec.x -= dt.x;
+                rec.w += dt.x;
                 points[0] = points_[0];
                 points[1] = points_[3];
         } else if (dt.y > 0) {
+                rec.h += dt.y;
                 points[0] = points_[2];
                 points[1] = points_[3];
         } else {
+                rec.y -= dt.y;
+                rec.h += dt.y;
                 points[0] = points_[0];
                 points[1] = points_[1];
         }
 
+        // early out if the solid doesn't at least overlap
+        // the rope's aabb
+        rec_i32 ropebounds = {r->pmin.x, r->pmin.y,
+                              r->pmax.x - r->pmin.x, r->pmax.y - r->pmin.y};
+        if (!overlap_rec_excl(rec, ropebounds)) return;
+        r->dirty = 1;
         // this is only for debugging purposes to rerun
         // this algorithm through the debugger on break points
         // rope_s rcopy = *r;
@@ -485,6 +506,9 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
 void rope_update(game_s *g, rope_s *r)
 {
+        ASSERT(r->head);
+        if (!r->dirty) return;
+        r->dirty          = 0;
         ropenode_s *rprev = r->head;
         ropenode_s *rcurr = r->head->next;
         ropenode_s *rnext = r->head->next->next;
@@ -495,10 +519,19 @@ void rope_update(game_s *g, rope_s *r)
                 rprev = rcurr->prev;
                 rnext = rcurr->next;
         }
+
+        r->pmin = r->head->p;
+        r->pmax = r->head->p;
+
+        for (ropenode_s *rn = r->head->next; rn; rn = rn->next) {
+                r->pmin = v2_min(r->pmin, rn->p);
+                r->pmax = v2_max(r->pmax, rn->p);
+        }
 }
 
-static u32 rope_length_q4(rope_s *r)
+static u32 rope_length_q4(game_s *g, rope_s *r)
 {
+        rope_update(g, r);
         ropenode_s *rn1 = r->head;
         ropenode_s *rn2 = r->head->next;
         u32         len = 0;
@@ -512,12 +545,18 @@ static u32 rope_length_q4(rope_s *r)
         return len;
 }
 
+bool32 rope_stretched(game_s *g, rope_s *r)
+{
+        u32 len_q4     = rope_length_q4(g, r);
+        u32 len_max_q4 = r->len_max << 4;
+        return (len_q4 >= len_max_q4);
+}
+
 bool32 rope_intact(game_s *g, rope_s *r)
 {
-        u32 len_q4     = rope_length_q4(r);
-        u32 len_max_q4 = r->len_max << 4;
-
 #if 0
+        u32 len_q4     = rope_length_q4(g, r);
+        u32 len_max_q4 = r->len_max << 4;
         // check for maximum stretch
         if (len_q4 > (len_max_q4 * 2)) {
                 PRINTF("LENGTH\n");
@@ -571,15 +610,15 @@ bool32 rope_intact(game_s *g, rope_s *r)
         return 1;
 }
 
-v2_i32 rope_adjust_connected_vel(rope_s *r, ropenode_s *rn,
+v2_i32 rope_adjust_connected_vel(game_s *g, rope_s *r, ropenode_s *rn,
                                  v2_i32 subpos, v2_i32 vel)
 {
         ASSERT(!rn->prev || !rn->next);
         ASSERT(rn == r->head || rn == r->tail);
 
-        u32 len_q4     = rope_length_q4(r);
+        u32 len_q4     = rope_length_q4(g, r);
         u32 len_max_q4 = r->len_max << 4;
-        if (len_q4 <= len_max_q4) return vel;
+        if (len_q4 <= len_max_q4) return vel; // rope is not stretched
 
         ropenode_s *rprev = rn->next ? rn->next : rn->prev;
         ASSERT(rprev);
@@ -588,15 +627,13 @@ v2_i32 rope_adjust_connected_vel(rope_s *r, ropenode_s *rn,
         v2_i32 subpos_q4 = v2_shr(subpos, 4);
         v2_i32 dt_q4     = v2_add(v2_shl(ropedt, 4), subpos_q4);
 
-        i32 dt_len = (i32)(len_q4 - len_max_q4);
-        if (dt_len <= 0) return vel; // rope is not stretched
-
         // damping force
         v2_i32 vzero = {0};
         v2_i32 vrad  = project_pnt_line(vel, vzero, dt_q4);
         v2_i32 fdamp = v2_q_mulr(vrad, r->damping_q8, 8);
 
         // spring force
+        i32    dt_len         = (i32)(len_q4 - len_max_q4);
         i32    fspring_scalar = q_mulr(dt_len, r->spring_q8, 8);
         v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
 

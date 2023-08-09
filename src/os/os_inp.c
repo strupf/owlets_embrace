@@ -97,6 +97,31 @@ bool32 debug_inp_space() { return 0; }
 
 #endif
 
+/* NW  N  NE         Y -1
+ *   \ | /           |
+ * W__\|/___E   -1 --+--> X +1
+ *    /|\            |
+ *   / | \           V +1
+ * SW  S  SE
+ */
+int os_inp_dpad_direction()
+{
+        int m = ((os_inp_dpad_x() + 1) << 2) | (os_inp_dpad_y() + 1);
+        switch (m) {
+        case 0x0: return INP_DPAD_NW;   // 0000 (-1 | -1)
+        case 0x1: return INP_DPAD_W;    // 0001 (-1 |  0)
+        case 0x2: return INP_DPAD_SW;   // 0010 (-1 | +1)
+        case 0x4: return INP_DPAD_N;    // 0100 ( 0 | -1)
+        case 0x5: return INP_DPAD_NONE; // 0101 ( 0 |  0)
+        case 0x6: return INP_DPAD_S;    // 0110 ( 0 | +1)
+        case 0x8: return INP_DPAD_NE;   // 1000 (+1 | -1)
+        case 0x9: return INP_DPAD_E;    // 1001 (+1 |  0)
+        case 0xA: return INP_DPAD_SE;   // 1010 (+1 | +1)
+        }
+        ASSERT(0);
+        return 0;
+}
+
 int os_inp_dpad_x()
 {
         if (os_inp_pressed(INP_LEFT))
