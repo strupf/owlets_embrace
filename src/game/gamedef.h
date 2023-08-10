@@ -15,9 +15,7 @@ enum {
         NUM_TILES             = 256 * 256,
         NUM_RENDERTILE_LAYERS = 2,
         NUM_OBJS              = 256,
-        //
-        TILECACHE_W           = 512,
-        TILECACHE_H           = 256,
+        NUM_AUTOTILE_TYPES    = 32,
 };
 
 typedef struct game_s      game_s;

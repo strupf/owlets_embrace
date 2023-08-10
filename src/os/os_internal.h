@@ -14,9 +14,8 @@
 #define OS_DELTA_CAP     0.05f
 
 enum {
-        OS_SPMEM_SIZE         = 0x200000, // 1 MB
         OS_SPMEM_STACK_HEIGHT = 16,
-        //
+        OS_SPMEM_SIZE         = 0x100000, // 1 MB
         OS_ASSETMEM_SIZE      = 0x100000, // 1 MB
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,

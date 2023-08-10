@@ -43,16 +43,22 @@ struct rtile_s {
 
 #define TILEID_NULL U16_MAX
 
+static inline u32 tileID_encode_ts(int tilesetID, int tx, int ty)
+{
+        u32 ID = ((u32)(ty + tilesetID * 32) * 32) | ((u32)tx);
+        return ID;
+}
+
 static inline u32 tileID_encode(int tx, int ty)
 {
-        u32 ID = ((u32)tx << 8) | ((u32)ty);
+        u32 ID = ((u32)ty << 5) | ((u32)tx);
         return ID;
 }
 
 static inline void tileID_decode(u32 ID, int *tx, int *ty)
 {
-        *tx = ID >> 8;
-        *ty = ID & 0xFF;
+        *tx = ID % 32;
+        *ty = ID / 32;
 }
 
 typedef struct {

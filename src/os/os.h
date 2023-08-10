@@ -17,10 +17,8 @@ enum tex_id {
         TEXID_TILESET,
         TEXID_TEXTBOX,
         TEXID_ITEMS,
-        TEXID_TEST,
         TEXID_CLOUDS,
         TEXID_PARTICLE,
-        TEXID_TESTSPRITE,
         //
         NUM_TEXID
 };

@@ -81,6 +81,7 @@ int tiled_decode_flipping_flags(u32 tileID)
         bool32 flipx = (tileID & 0x80000000u) > 0;
         bool32 flipy = (tileID & 0x40000000u) > 0;
         bool32 flipz = (tileID & 0x20000000u) > 0; // diagonal flip
+
         return (flipz << 2) | (flipx << 1) | flipy;
 }
 
@@ -94,7 +95,8 @@ bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
 
         u32 tileID = tiling.arr[u + v * tiling.w];
         if (tileID == 0) return 0;
-        u32 tileID_nf   = (tileID & 0x0FFFFFFFu) - TILESETID_COLLISION;
+        u32 tileID_nf = (tileID & 0xFFFFFFFu) - TILESETID_COLLISION;
+
         int flags       = tiled_decode_flipping_flags(tileID);
         int terraintype = (tileID_nf / 4);
         int tileshape   = (tileID_nf % 4);
@@ -258,8 +260,8 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
 
                 // choose appropiate variant
                 int z              = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
-                int tx             = 10 + z;
-                int ty             = 12 + flags;
+                int tx             = 18 + z;
+                int ty             = 0 + flags;
                 g->rtiles[n][0].ID = tileID_encode(tx, ty);
         } break;
         case TILESHAPE_SLOPE_LO: {
@@ -319,7 +321,7 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
                 for (int x = 0; x < width; x++) {
                         int n         = x + y * width;
                         u32 tileID    = tileIDs[n];
-                        u32 tileID_nf = (tileID & 0x0FFFFFFFu);
+                        u32 tileID_nf = (tileID & 0xFFFFFFFu);
 
                         int           n_tileset = -1;
                         tmj_tileset_s tileset   = {0};

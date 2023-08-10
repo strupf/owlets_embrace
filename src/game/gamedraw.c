@@ -135,4 +135,7 @@ void game_draw(game_s *g)
         if (tb->active) {
                 draw_textbox(tb);
         }
+
+        tex_s ttileset = tex_get(TEXID_TILESET);
+        gfx_sprite_(ttileset, (v2_i32){0, 0}, (rec_i32){0, 4096, 16, 16}, 0);
 }

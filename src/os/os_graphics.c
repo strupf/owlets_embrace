@@ -97,16 +97,15 @@ void os_backend_graphics_flip()
 tex_s tex_create(int w, int h, bool32 mask)
 {
         // bytes per row - rows aligned to 32 bit
-        int    w_word = ((w - 1) >> 5) + 1;
-        int    w_byte = w_word << 2;
+        int    w_word = ((w - 1) / 32) + 1;
+        int    w_byte = w_word * 4;
         size_t s      = sizeof(u8) * w_byte * h;
 
         // twice the size (1 bit white/black, 1 bit transparent/opaque)
         void *mem = memarena_allocz(&g_os.assetmem, s * (mask ? 2 : 1));
         u8   *px  = (u8 *)mem;
         u8   *mk  = (u8 *)(mask ? px + s : NULL);
-
-        tex_s t = {px, mk, w_word, w_byte, w, h};
+        tex_s t   = {px, mk, w_word, w_byte, w, h};
         return t;
 }
 

@@ -13,6 +13,8 @@ gameplay
 
 
 loading
+* different tilesets in Tiled
+* autotiles vs regular tiles
 * autotiling for low and high slopes
 
 graphics
@@ -21,7 +23,6 @@ graphics
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
 * animated background art/layer/particles
-* finish tile animations
 
 textbox
 * typewriter noises

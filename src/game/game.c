@@ -10,17 +10,67 @@ typedef struct {
         int ID;
         int frames;
         int cur;
+        int ticks;
         u16 IDs[4];
 } tile_animation_s;
 
-static int       n_tileanimations;
-tile_animation_s g_tileanimations[16];
+tile_animation_s g_tileanimations[4];
 
 void tileanimations_update()
 {
-        for (int n = 0; n < n_tileanimations; n++) {
+        i32 tick = os_tick();
+        for (int n = 0; n < ARRLEN(g_tileanimations); n++) {
                 tile_animation_s *a = &g_tileanimations[n];
-                g_tileIDs[a->ID]    = a->IDs[a->cur];
+                if (a->ticks == 0) continue;
+                g_tileIDs[a->ID] = a->IDs[(tick / a->ticks) % a->frames];
+        }
+}
+
+void load_tileatlas(int texID)
+{
+        const char *filenames[] = {"assets/tiles_0.json",
+                                   "assets/tiles_1.json",
+                                   "assets/tiles_2.json"};
+        enum {
+                TILEATLAS_TILES_X = 32,
+                TILEATLAS_W       = TILEATLAS_TILES_X * 16,
+                TILEATLAS_H       = 32 * ARRLEN(filenames) * 16,
+                TILEATLAS_W_BYTE  = TILEATLAS_TILES_X * 2,
+        };
+
+        tex_s t = tex_create(TILEATLAS_W, TILEATLAS_H, 1);
+        tex_put(texID, t);
+        int y_global = 0;
+        for (int n = 0; n < ARRLEN(filenames); n++) {
+                os_spmem_push();
+                const char *txtbuf = txt_read_file_alloc(filenames[n],
+                                                         os_spmem_alloc);
+                jsn_s       j;
+                jsn_root(txtbuf, &j);
+                i32 w = jsn_intk(j, "width");
+                i32 h = jsn_intk(j, "height");
+                ASSERT(w == TILEATLAS_W && h == TILEATLAS_W);
+                char *c = jsn_strkptr(j, "data");
+                for (int y = 0; y < h; y++) {
+                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
+                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
+                                int c1 = (char_hex_to_int(*c++)) << 4;
+                                int c2 = (char_hex_to_int(*c++));
+
+                                t.px[x + yy] = c1 | c2;
+                        }
+                }
+                for (int y = 0; y < h; y++) {
+                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
+                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
+                                int c1 = (char_hex_to_int(*c++)) << 4;
+                                int c2 = (char_hex_to_int(*c++));
+
+                                t.mask[x + yy] = c1 | c2;
+                        }
+                }
+                y_global += h;
+                os_spmem_pop();
         }
 }
 
@@ -28,22 +78,42 @@ static void game_cull_scheduled(game_s *g);
 static void game_update_transition(game_s *g);
 static void cam_update(game_s *g, cam_s *c);
 
+#ifdef TARGET_PD
+static LCDBitmap *menubm;
+
+void menufunction(void *arg)
+{
+        PRINTF("print\n");
+}
+#endif
+
 void game_init(game_s *g)
 {
+#ifdef TARGET_PD
+        menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
+        PD->system->addMenuItem("Dummy", menufunction, NULL);
+        PD->system->setMenuImage(menubm, 0);
+#endif
         for (int n = 0; n < ARRLEN(g_tileIDs); n++) {
                 g_tileIDs[n] = n;
         }
 
+        tile_animation_s *a = &g_tileanimations[0];
+        a->ID               = tileID_encode_ts(1, 0, 0);
+        a->frames           = 3;
+        a->IDs[0]           = a->ID + 0;
+        a->IDs[1]           = a->ID + 1;
+        a->IDs[2]           = a->ID + 2;
+        a->ticks            = 20;
+
         gfx_set_inverted(1);
 
+        load_tileatlas(TEXID_TILESET);
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
         tex_put(TEXID_FONT_DEBUG, tex_load("assets/font_debug.json"));
-        tex_put(TEXID_TILESET, tex_load("assets/tilesets.json"));
         tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
-        tex_put(TEXID_TEST, tex_load("assets/test.json"));
         tex_put(TEXID_PARTICLE, tex_load("assets/particle.json"));
-        tex_put(TEXID_TESTSPRITE, tex_load("assets/testsprite.json"));
 
         tex_s tclouds = tex_load("assets/clouds.json");
         tex_put(TEXID_CLOUDS, tclouds);
@@ -104,6 +174,8 @@ void game_init(game_s *g)
         }
 
         game_load_map(g, "assets/map/template.tmj");
+
+        g->rtiles[29 + 9 * g->tiles_x][0].ID = tileID_encode_ts(1, 0, 0);
 }
 
 void game_update(game_s *g)
@@ -152,6 +224,7 @@ void game_update(game_s *g)
         }
 
         cam_update(g, &g->cam);
+        tileanimations_update();
 
         if (g->transitionphase) {
                 game_update_transition(g);
