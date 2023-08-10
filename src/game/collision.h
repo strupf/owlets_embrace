@@ -7,15 +7,6 @@
 
 #include "gamedef.h"
 
-enum {
-        TILE_EMPTY,
-        TILE_BLOCK,
-        TILE_SLOPE_45_1,
-        TILE_SLOPE_45_2,
-        TILE_SLOPE_45_3,
-        TILE_SLOPE_45_4,
-};
-
 // we operate on 16x16 tiles
 struct tilegrid_s {
         u8 *tiles; // tileIDs

@@ -136,7 +136,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                 int t = g->tiles[x + y * g->tiles_x];
                 if (t == 0) continue;
                 v2_i32 pos = {x << 4, y << 4};
-                if (t == 1) {
+                if (t == TILE_BLOCK) {
                         v2_i32  p[4];
                         rec_i32 rblock = {pos.x, pos.y, 16, 16};
                         points_from_rec(rblock, p);
@@ -150,7 +150,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                         try_add_point_in_tri(v3, t1, t2, pts);
                         continue;
                 }
-                if (t < 14) {
+                if (t < TILE_SLOPE_HI) {
                         tri_i32 tr = translate_tri(tilecolliders[t], pos);
                         v2_i32 *p  = tr.p;
 
@@ -442,7 +442,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                 int t = g->tiles[x + y * g->tiles_x];
                 if (t == 0) continue;
                 v2_i32 pos = {x << 4, y << 4};
-                if (t == 1) {
+                if (t == TILE_BLOCK) {
                         v2_i32  p[4];
                         rec_i32 r = {pos.x, pos.y, 16, 16};
                         points_from_rec(r, p);
@@ -453,7 +453,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                                 return;
                         continue;
                 }
-                if (t < 14) {
+                if (t < TILE_SLOPE_HI) {
                         tri_i32 tr = translate_tri(tilecolliders[t], pos);
                         v2_i32 *p  = tr.p;
                         if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
@@ -576,7 +576,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
                         int t = g->tiles[x + y * g->tiles_x];
                         if (t == 0) continue;
                         v2_i32 pos = {x << 4, y << 4};
-                        if (t == 1) {
+                        if (t == TILE_BLOCK) {
                                 rec_i32 rr = {pos.x, pos.y, 16, 16};
                                 if (overlap_rec_lineseg_excl(rr, ls)) {
                                         PRINTF("TILES\n");
@@ -584,7 +584,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
                                 }
                                 continue;
                         }
-                        if (t < 14) {
+                        if (t < TILE_SLOPE_HI) {
                                 tri_i32 tr = translate_tri(tilecolliders[t], pos);
                                 if (overlap_tri_lineseg_excl(tr, ls)) {
                                         PRINTF("TILES\n");
@@ -633,7 +633,7 @@ v2_i32 rope_adjust_connected_vel(game_s *g, rope_s *r, ropenode_s *rn,
         v2_i32 fdamp = v2_q_mulr(vrad, r->damping_q8, 8);
 
         // spring force
-        i32    dt_len         = (i32)(len_q4 - len_max_q4);
+        u32    dt_len         = len_q4 - len_max_q4;
         i32    fspring_scalar = q_mulr(dt_len, r->spring_q8, 8);
         v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
 

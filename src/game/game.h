@@ -14,6 +14,8 @@
 #include "rope.h"
 #include "textbox.h"
 
+extern u16 g_tileIDs[0x10000];
+
 // Object bucket is an automatically filtered set of
 // active objects. The filter works using object flags (bitset)
 struct objbucket_s {
@@ -35,11 +37,23 @@ struct cam_s {
 };
 
 struct rtile_s {
-        int tx;
-        int ty;
-        int flags;
-        int m;
+        u16 ID;
+        u16 m; // only for debugging
 };
+
+#define TILEID_NULL U16_MAX
+
+static inline u32 tileID_encode(int tx, int ty)
+{
+        u32 ID = ((u32)tx << 8) | ((u32)ty);
+        return ID;
+}
+
+static inline void tileID_decode(u32 ID, int *tx, int *ty)
+{
+        *tx = ID >> 8;
+        *ty = ID & 0xFF;
+}
 
 typedef struct {
         v2_i32 p_q8;

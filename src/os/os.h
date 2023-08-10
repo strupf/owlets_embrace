@@ -87,15 +87,22 @@ enum inp_dpad_direction {
         INP_DPAD_SW,
 };
 
-enum gfx_mode {
-        GFX_MODE_COPY,
-        GFX_MODE_WHITE_TRANSPARENT,
-        GFX_MODE_BLACK_TRANSPARENT,
-        GFX_MODE_FILL_WHITE,
-        GFX_MODE_FILL_BLACK,
-        GFX_MODE_XOR,
-        GFX_MODE_NXOR,
-        GFX_MODE_INV,
+enum gfx_sprite_mode {
+        GFX_SPRITE_COPY,
+        GFX_SPRITE_WHITE_TRANSPARENT,
+        GFX_SPRITE_BLACK_TRANSPARENT,
+        GFX_SPRITE_FILL_WHITE,
+        GFX_SPRITE_FILL_BLACK,
+        GFX_SPRITE_XOR,
+        GFX_SPRITE_NXOR,
+        GFX_SPRITE_INV,
+};
+
+enum gfx_prim_mode {
+        GFX_PRIM_SET,
+        GFX_PRIM_INV,
+        GFX_PRIM_XOR,
+        GFX_PRIM_NXOR,
 };
 
 enum timing_IDs {

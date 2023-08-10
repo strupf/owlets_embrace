@@ -77,4 +77,35 @@ enum obj_bucket {
         NUM_OBJ_BUCKETS = 64,
 };
 
+enum {
+        TILE_EMPTY      = 0,
+        TILE_BLOCK      = 1,
+        //
+        TILE_SLOPE_45   = 2,
+        TILE_SLOPE_45_1 = 2,
+        TILE_SLOPE_45_2,
+        TILE_SLOPE_45_3,
+        TILE_SLOPE_45_4,
+        //
+        TILE_SLOPE_LO   = 6,
+        TILE_SLOPE_LO_1 = 6,
+        TILE_SLOPE_LO_2,
+        TILE_SLOPE_LO_3,
+        TILE_SLOPE_LO_4,
+        TILE_SLOPE_LO_5,
+        TILE_SLOPE_LO_6,
+        TILE_SLOPE_LO_7,
+        TILE_SLOPE_LO_8,
+        //
+        TILE_SLOPE_HI   = 14,
+        TILE_SLOPE_HI_1 = 14,
+        TILE_SLOPE_HI_2,
+        TILE_SLOPE_HI_3,
+        TILE_SLOPE_HI_4,
+        TILE_SLOPE_HI_5,
+        TILE_SLOPE_HI_6,
+        TILE_SLOPE_HI_7,
+        TILE_SLOPE_HI_8,
+};
+
 #endif

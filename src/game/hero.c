@@ -284,31 +284,35 @@ static void hero_jump_particles(game_s *g, obj_s *o)
 {
         for (int i = 0; i < 6; i++) {
                 particle_s *particle = particle_spawn(g);
-                particle->ticks      = rng_max_u16(&g->rng, 10) + 4;
+                particle->ticks      = rng_range(4, 15);
                 particle->p_q8       = (v2_i32){o->pos.x + o->w / 2,
                                                 o->pos.y + o->h - 4};
                 particle->p_q8       = v2_shl(particle->p_q8, 8);
-                particle->p_q8.x += rng_i16(&g->rng) / 50;
-                particle->p_q8.y += rng_i16(&g->rng) / 50;
-                particle->v_q8 = (v2_i32){rng_i16(&g->rng) / 120,
-                                          rng_i16(&g->rng) / 220};
+
+                particle->p_q8.x += rng_range(-800, 800);
+                particle->p_q8.y += rng_range(-800, 800);
+
+                particle->v_q8.x = rng_range(-100, 100);
+                particle->v_q8.y = rng_range(-100, 100);
         }
 }
 
 static void hero_land_particles(game_s *g, obj_s *o)
 {
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 12; i++) {
                 particle_s *particle = particle_spawn(g);
 
                 particle->ticks = rng_max_u16(&g->rng, 8) + 5;
                 particle->p_q8  = (v2_i32){o->pos.x + o->w / 2,
                                            o->pos.y + o->h - 3};
-                particle->a_q8  = (v2_i32){0, 50};
                 particle->p_q8  = v2_shl(particle->p_q8, 8);
-                particle->p_q8.x += rng_i16(&g->rng) / 50;
-                particle->p_q8.y += rng_i16(&g->rng) / 100;
-                particle->v_q8 = (v2_i32){rng_i16(&g->rng) / 80,
-                                          rng_i16(&g->rng) / 80 - 200};
+                particle->a_q8  = (v2_i32){0, 50};
+
+                particle->p_q8.x += rng_range(-800, 800);
+                particle->p_q8.y += rng_range(-800, 800);
+
+                particle->v_q8.x = rng_range(-300, 300);
+                particle->v_q8.y = rng_range(-300, -100);
         }
 }
 

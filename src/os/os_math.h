@@ -177,6 +177,27 @@ static inline i32 rng_max_u16(u32 *state, u16 max)
         return i;
 }
 
+static inline u32 rng_u32()
+{
+        static u32 state = 213;
+        u32        x     = state;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        return (state = x);
+}
+
+// returns [lo; hi]
+// works for signed integer inputs, too
+static u32 rng_range_u32(u32 lo, u32 hi)
+{
+        u32 x = rng_u32();
+        u32 r = lo + x / (U32_MAX / (hi - lo + 1) + 1);
+        return r;
+}
+
+#define rng_range(LO, HI) rng_range_u32(LO, HI)
+
 // symmetrical right shift for pos and neg numbers
 static inline i32 q_shr_symm(i32 x, int sh)
 {

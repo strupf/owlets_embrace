@@ -146,7 +146,7 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
 
         u32 tileID = tiling.arr[n];
         if (tileID == 0) {
-                g->rtiles[n][0].flags = 0xFF;
+                g->rtiles[n][0].ID = TILEID_NULL;
                 return;
         }
         u32  t         = (tileID & 0x0FFFFFFFu) - TILESETID_COLLISION;
@@ -156,7 +156,7 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
 
         switch (tileshape) {
         case TILESHAPE_BLOCK: {
-                g->tiles[n] = 1;
+                g->tiles[n] = TILE_BLOCK;
                 int m       = 0;
                 // edges
                 if (autotile_fits(tiling, -1, +0, ttype)) m |= 0x40; // left
@@ -174,57 +174,59 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
                 if ((m & 0x14) == 0x14 && autotile_fits(tiling, +1, +1, ttype))
                         m |= 0x08; // bot right
 
-                g->rtiles[n][0].m     = m;
-                g->rtiles[n][0].flags = 0;
+                g->rtiles[n][0].m  = m;
+                g->rtiles[n][0].ID = TILEID_NULL;
 
                 // some tiles have variants
                 // if one of those is matched choose a random variant
+                int tx = 0, ty = 0;
                 switch (m) {
                 case 17: {
-                        int k              = rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 31: {
-                        int k              = 3 + rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 3 + rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 68: {
-                        int k              = 6 + rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 6 + rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 124: {
-                        int k              = 9 + rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 9 + rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 199: {
-                        int k              = 12 + rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 12 + rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 241: {
-                        int k              = 15 + rng_max_u16(&rngseed, 3);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 15 + rng_max_u16(&rngseed, 3);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 case 255: {
-                        int k              = 18 + rng_max_u16(&rngseed, 4);
-                        g->rtiles[n][0].tx = blob_duplicate[k * 2];
-                        g->rtiles[n][0].ty = blob_duplicate[k * 2 + 1];
+                        int k = 18 + rng_max_u16(&rngseed, 4);
+                        tx    = blob_duplicate[k * 2];
+                        ty    = blob_duplicate[k * 2 + 1];
                 } break;
                 default:
-                        g->rtiles[n][0].tx = blobpattern[m * 2];
-                        g->rtiles[n][0].ty = blobpattern[m * 2 + 1];
+                        tx = blobpattern[m * 2];
+                        ty = blobpattern[m * 2 + 1];
                         break;
                 }
+                g->rtiles[n][0].ID = tileID_encode(tx, ty);
 
         } break;
         case TILESHAPE_SLOPE_45: {
                 flags %= 4; // last 4 transformations are the same
-                g->tiles[n] = 2 + flags;
+                g->tiles[n] = TILE_SLOPE_45 + flags;
                 bool32 xn = 0, yn = 0, cn = 0; // neighbour in x, y and corner
 
                 switch (flags) {
@@ -255,18 +257,17 @@ void autotile_calc(game_s *g, autotiling_s tiling, int n)
                 }
 
                 // choose appropiate variant
-                int z = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
-
-                g->rtiles[n][0].flags = 0;
-                g->rtiles[n][0].tx    = z + 18;
-                g->rtiles[n][0].ty    = flags;
+                int z              = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
+                int tx             = 10 + z;
+                int ty             = 12 + flags;
+                g->rtiles[n][0].ID = tileID_encode(tx, ty);
         } break;
         case TILESHAPE_SLOPE_LO: {
-                g->tiles[n] = 6 + flags;
+                g->tiles[n] = TILE_SLOPE_LO + flags;
                 NOT_IMPLEMENTED
         } break;
         case TILESHAPE_SLOPE_HI: {
-                g->tiles[n] = 14 + flags;
+                g->tiles[n] = TILE_SLOPE_HI + flags;
                 NOT_IMPLEMENTED
         } break;
         }
@@ -331,10 +332,10 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
                         }
                         ASSERT(tileID == 0 || n_tileset >= 0);
 
-                        g->tiles[n]           = 0;
-                        g->rtiles[n][0].flags = 0xFF;
-                        g->rtiles[n][1].flags = 0xFF;
-                        autotiling_s tiling   = {tileIDs, width, height, x, y};
+                        g->tiles[n]         = 0;
+                        g->rtiles[n][0].ID  = TILEID_NULL;
+                        g->rtiles[n][1].ID  = TILEID_NULL;
+                        autotiling_s tiling = {tileIDs, width, height, x, y};
                         autotile_calc(g, tiling, n);
                 }
         }
@@ -406,8 +407,8 @@ void load_obj_layer(game_s *g, jsn_s jlayer)
                 load_obj_from_jsn(g, jobj);
         }
 }
-static int loadedonce = 1;
-void       game_load_map(game_s *g, const char *filename)
+
+void game_load_map(game_s *g, const char *filename)
 {
         // reset room
         for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
@@ -507,6 +508,7 @@ void       game_load_map(game_s *g, const char *filename)
         }
 
         textbox_init(&g->textbox);
+        static int loadedonce = 1;
         if (!loadedonce) {
                 loadedonce = 1;
                 PRINTF("load intro\n");

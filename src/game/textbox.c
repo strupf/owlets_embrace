@@ -64,20 +64,21 @@ void dialog_parse(const char *txt, dialog_tok_s *toks)
                                         i--;
                                         break;
                                 }
-                                if (cc == '\n' || cc == '\0') {
+
+                                if (cc == '\0' || (cc == '\n' &&
+                                                   (txt[i + 1] == '\0' ||
+                                                    txt[i + 1] == '\n'))) {
                                         tb->i1           = i - 1;
                                         dialog_tok_s *tp = &toks[ntok++];
                                         tp->type         = DIALOG_TOK_TEXT_NEW_PAGE;
-                                        tp->i0           = i;
                                         break;
                                 }
-                        };
+                        }
                 } break;
                 }
         }
         dialog_tok_s *tend = &toks[ntok++];
         tend->type         = DIALOG_TOK_END;
-        tend->i0           = 0;
 }
 
 void textbox_init(textbox_s *tb)
@@ -138,7 +139,12 @@ bool32 textbox_next_page(textbox_s *tb)
                 } break;
                 case DIALOG_TOK_TEXT: {
                         for (int i = tb->tok->i0; i <= tb->tok->i1; i++) {
-                                char      ci = tb->dialogmem[i];
+                                char ci = tb->dialogmem[i];
+                                if (ci == '\n') {
+                                        if (!textbox_new_line(tb, &line))
+                                                return 0;
+                                        continue;
+                                }
                                 fntchar_s fc = {0};
                                 fc.glyphID   = ci;
                                 fc.effectID  = tb->curreffect;

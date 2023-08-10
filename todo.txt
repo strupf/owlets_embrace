@@ -9,6 +9,7 @@ gameplay
     * damage/health mechanic
     * dying? quick respawn vs savepoints?
 * static spikes
+* implement low and high slopes, including rope logic
 
 
 loading
@@ -20,6 +21,7 @@ graphics
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
 * animated background art/layer/particles
+* finish tile animations
 
 textbox
 * typewriter noises

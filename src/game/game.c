@@ -4,12 +4,35 @@
 
 #include "game.h"
 
+u16 g_tileIDs[0x10000];
+
+typedef struct {
+        int ID;
+        int frames;
+        int cur;
+        u16 IDs[4];
+} tile_animation_s;
+
+static int       n_tileanimations;
+tile_animation_s g_tileanimations[16];
+
+void tileanimations_update()
+{
+        for (int n = 0; n < n_tileanimations; n++) {
+                tile_animation_s *a = &g_tileanimations[n];
+                g_tileIDs[a->ID]    = a->IDs[a->cur];
+        }
+}
+
 static void game_cull_scheduled(game_s *g);
 static void game_update_transition(game_s *g);
 static void cam_update(game_s *g, cam_s *c);
 
 void game_init(game_s *g)
 {
+        for (int n = 0; n < ARRLEN(g_tileIDs); n++) {
+                g_tileIDs[n] = n;
+        }
 
         gfx_set_inverted(1);
 
@@ -253,9 +276,8 @@ static void cam_update(game_s *g, cam_s *c)
 
 tilegrid_s game_tilegrid(game_s *g)
 {
-        tilegrid_s tg = {g->tiles,
-                         g->tiles_x, g->tiles_y,
-                         g->pixel_x, g->pixel_y};
+        tilegrid_s tg =
+            {g->tiles, g->tiles_x, g->tiles_y, g->pixel_x, g->pixel_y};
         return tg;
 }
 

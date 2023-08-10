@@ -357,8 +357,8 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
         int   x2         = rs.x - 1 + (rs.w <= zx ? rs.w : zx);
         int   y2         = rs.y - 1 + (rs.h <= zy ? rs.h : zy);
         int   cc         = pos.x - rs.x;
-        int   sh1        = 31 & (32 - (cc & 31)); // relative word alignment
-        int   sh0        = 32 - sh1;
+        int   s1         = 31 & (32 - (cc & 31)); // relative word alignment
+        int   s0         = 32 - s1;
         int   b1         = x1 >> 5;
         int   b2         = x2 >> 5;
         u32 *restrict dp = (u32 *)dst.px;
@@ -374,42 +374,46 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
                         u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
                         u32 sm = endian_u32(*sm_++) & mm;
                         u32 sp = endian_u32(*sp_++);
-                        u32 t0 = endian_u32(sm >> sh0);
-                        u32 p0 = endian_u32(sp >> sh0);
-                        u32 t1 = endian_u32(sm << sh1);
-                        u32 p1 = endian_u32(sp << sh1);
+                        u32 t0 = endian_u32(sm >> s0);
+                        u32 p0 = endian_u32(sp >> s0);
+                        u32 t1 = endian_u32(sm << s1);
+                        u32 p1 = endian_u32(sp << s1);
                         int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
                         int j1 = (((b << 5) + cc + 31) >> 5) + yd;
+                        u32 d0 = dp[j0];
+                        u32 d1 = dp[j1];
                         switch (mode) {
-                        case 1: // inverted, fallthrough
+                        case GFX_SPRITE_INV:
                                 p0 = ~p0;
-                                p1 = ~p1;
-                        case 0: // copy
-                                dp[j0] = (dp[j0] & ~t0) | (p0 & t0);
-                                dp[j1] = (dp[j1] & ~t1) | (p1 & t1);
+                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_COPY:
+                                d0 = (d0 & ~t0) | (p0 & t0);
+                                d1 = (d1 & ~t1) | (p1 & t1);
                                 break;
-                        case 6: // xor, fallthrough
+                        case GFX_SPRITE_XOR:
                                 p0 = ~p0;
-                                p1 = ~p1;
-                        case 5: // nxor
-                                dp[j0] = (dp[j0] & ~t0) | ((dp[j0] ^ p0) & t0);
-                                dp[j1] = (dp[j1] & ~t1) | ((dp[j1] ^ p1) & t1);
+                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_NXOR:
+                                d0 = (d0 & ~t0) | ((d0 ^ p0) & t0);
+                                d1 = (d1 & ~t1) | ((d1 ^ p1) & t1);
                                 break;
-                        case 7: // white transparent, fallthrough
+                        case GFX_SPRITE_WHITE_TRANSPARENT:
                                 t0 &= p0;
-                                t1 &= p1;
-                        case 4: // fill black
-                                dp[j0] |= t0;
-                                dp[j1] |= t1;
+                                t1 &= p1; // fallthrough
+                        case GFX_SPRITE_FILL_BLACK:
+                                d0 |= t0;
+                                d1 |= t1;
                                 break;
-                        case 2: // black transparent, fallthrough
+                        case GFX_SPRITE_BLACK_TRANSPARENT:
                                 t0 &= ~p0;
-                                t1 &= ~p1;
-                        case 3: // fillwhite
-                                dp[j0] &= ~t0;
-                                dp[j1] &= ~t1;
+                                t1 &= ~p1; // fallthrough
+                        case GFX_SPRITE_FILL_WHITE:
+                                d0 &= ~t0;
+                                d1 &= ~t1;
                                 break;
                         }
+                        dp[j0] = d0;
+                        dp[j1] = d1;
 
                         if (dm) {
                                 dm[j0] |= t0;
@@ -435,40 +439,41 @@ void gfx_rec_fill(rec_i32 r, int col)
         rec_i32 ri;
         rec_i32 rd = {0, 0, dst.w, dst.h};
         if (!intersect_rec(rd, r, &ri)) return;
-        int zx = dst.w - ri.x;
-        int zy = dst.h - ri.y;
-        int x1 = (0 >= -ri.x ? 0 : -ri.x);
-        int y1 = (0 >= -ri.y ? 0 : -ri.y);
-        int x2 = (ri.w <= zx ? ri.w : zx) - 1;
-        int y2 = (ri.h <= zy ? ri.h : zy) - 1;
-
-        // relative word alignment
-        int sh1          = (32 - (ri.x & 31)) & 31; // bit offset of words
-        int sh0          = 32 - sh1;
+        int zx           = dst.w - ri.x;
+        int zy           = dst.h - ri.y;
+        int x1           = (0 >= -ri.x ? 0 : -ri.x);
+        int y1           = (0 >= -ri.y ? 0 : -ri.y);
+        int x2           = (ri.w <= zx ? ri.w : zx) - 1;
+        int y2           = (ri.h <= zy ? ri.h : zy) - 1;
+        int cc           = ri.x;
+        int s1           = 31 & (32 - (cc & 31)); // relative word alignment
+        int s0           = 32 - s1;
         int b1           = x1 >> 5;
         int b2           = x2 >> 5;
+        u32 sp           = col ? 0xFFFFFFFFu : 0;
+        u32 p0           = endian_u32(sp >> s0);
+        u32 p1           = endian_u32(sp << s1);
         u32 *restrict dp = (u32 *)dst.px;
         u32 *restrict dm = (u32 *)dst.mask;
         for (int y = y1; y <= y2; y++) {
                 int yd = (y + ri.y) * dst.w_word;
                 for (int b = b1; b <= b2; b++) {
-                        int u  = (b == b1 ? x1 & 31 : 0);
-                        int v  = (b == b2 ? x2 & 31 : 31);
-                        u32 sm = (0xFFFFFFFFu >> u) & ~(0x7FFFFFFFu >> v);
-                        u32 sp = col ? 0xFFFFFFFFu : 0;
-                        u32 t0 = sm >> sh0;
-                        u32 p0 = sp >> sh0;
-                        u32 t1 = sm << sh1;
-                        u32 p1 = sp << sh1;
-                        int j0 = (((b << 5) + ri.x) >> 5) + yd;
-                        int j1 = (((b << 5) + ri.x + 31) >> 5) + yd;
-                        u32 d0 = endian_u32(dp[j0]);
-                        u32 d1 = endian_u32(dp[j1]);
-                        dp[j0] = endian_u32((d0 & ~t0) | (p0 & t0));
-                        dp[j1] = endian_u32((d1 & ~t1) | (p1 & t1));
-                        if (!dm) continue;
-                        dm[j0] = endian_u32(endian_u32(dm[j0]) | t0);
-                        dm[j1] = endian_u32(endian_u32(dm[j1]) | t1);
+                        int uu = (b == b1 ? x1 & 31 : 0);
+                        int vv = (b == b2 ? x2 & 31 : 31);
+                        u32 sm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
+                        u32 t0 = endian_u32(sm >> s0);
+                        u32 t1 = endian_u32(sm << s1);
+                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
+                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
+                        u32 d0 = dp[j0];
+                        u32 d1 = dp[j1];
+                        dp[j0] = (d0 & ~t0) | (p0 & t0);
+                        dp[j1] = (d1 & ~t1) | (p1 & t1);
+
+                        if (dm) {
+                                dm[j0] |= t0;
+                                dm[j1] |= t1;
+                        }
                 }
         }
 }

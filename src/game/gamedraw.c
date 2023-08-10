@@ -38,9 +38,12 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32
         {
                 rtile_s *rtiles = g->rtiles[x + y * g->tiles_x];
                 rtile_s  rt     = rtiles[0]; // todo
-                if (rt.flags == 0xFF) continue;
+                int      ID     = g_tileIDs[rt.ID];
+                if (ID == TILEID_NULL) continue;
+                int tx, ty;
+                tileID_decode(ID, &tx, &ty);
                 v2_i32  pos     = {(x << 4) - camx1, (y << 4) - camy1};
-                rec_i32 tilerec = {rt.tx << 4, rt.ty << 4, 16, 16};
+                rec_i32 tilerec = {tx << 4, ty << 4, 16, 16};
                 gfx_sprite_fast(tileset, pos, tilerec);
         }
         os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
@@ -63,14 +66,15 @@ static void testsprite()
         if (debug_inp_up()) cloudy--;
         if (debug_inp_down()) cloudy++;
         gfx_draw_to(emptytex);
-        gfx_sprite_(tex_get(TEXID_TESTSPRITE),
+        gfx_sprite_(tex_get(TEXID_CLOUDS),
                     (v2_i32){cloudx, cloudy},
-                    (rec_i32){0, 0, 200, 240}, 0);
+                    (rec_i32){0, 0, 160, 160}, 0);
         gfx_draw_to(tex_get(0));
         gfx_rec_fill((rec_i32){0, 0, 200, 240}, 1);
-        gfx_rec_fill((rec_i32){200, 0, 200, 240}, 0);
+        gfx_rec_fill((rec_i32){20, 0, 200, 240}, 0);
         int mode = (os_tick() / 50) % 8;
-        gfx_sprite_(emptytex, (v2_i32){100, 0},
+
+        gfx_sprite_(emptytex, (v2_i32){0, 0},
                     (rec_i32){0, 0, 512, 240}, mode);
 }
 
@@ -83,14 +87,11 @@ void game_draw(game_s *g)
         i32     camx1 = g->cam.pos.x - g->cam.wh;
         i32     camy1 = g->cam.pos.y - g->cam.hh;
         rec_i32 camr  = {camx1, camy1, g->cam.w, g->cam.h};
-        i32     x1, y1, x2, y2;
-        game_tile_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
 
-        x1 = 0;
-        y1 = 0;
-        x2 = g->tiles_x - 1;
-        y2 = g->tiles_y - 1;
         draw_background(g);
+
+        i32 x1, y1, x2, y2;
+        game_tile_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
         draw_tiles(g, x1, y1, x2, y2, camx1, camy1);
 
         obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
