@@ -46,14 +46,50 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, i32 camx1, i32
         os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
 }
 
+static void testsprite()
+{
+        static tex_s emptytex;
+        static int   once = 0;
+        if (!once) {
+                once     = 1;
+                emptytex = tex_create(512, 256, 1);
+        }
+        os_memset(emptytex.mask, 0, emptytex.w_byte * emptytex.h);
+        os_memset(emptytex.px, 0, emptytex.w_byte * emptytex.h);
+        static int cloudx = 0;
+        static int cloudy = 0;
+        if (debug_inp_left()) cloudx--;
+        if (debug_inp_right()) cloudx++;
+        if (debug_inp_up()) cloudy--;
+        if (debug_inp_down()) cloudy++;
+        gfx_draw_to(emptytex);
+        gfx_sprite_(tex_get(TEXID_TESTSPRITE),
+                    (v2_i32){cloudx, cloudy},
+                    (rec_i32){0, 0, 200, 240}, 0);
+        gfx_draw_to(tex_get(0));
+        gfx_rec_fill((rec_i32){0, 0, 200, 240}, 1);
+        gfx_rec_fill((rec_i32){200, 0, 200, 240}, 0);
+        int mode = (os_tick() / 50) % 8;
+        gfx_sprite_(emptytex, (v2_i32){100, 0},
+                    (rec_i32){0, 0, 512, 240}, mode);
+}
+
 void game_draw(game_s *g)
 {
+#if 0
+        testsprite();
+        return;
+#endif
         i32     camx1 = g->cam.pos.x - g->cam.wh;
         i32     camy1 = g->cam.pos.y - g->cam.hh;
         rec_i32 camr  = {camx1, camy1, g->cam.w, g->cam.h};
         i32     x1, y1, x2, y2;
         game_tile_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
 
+        x1 = 0;
+        y1 = 0;
+        x2 = g->tiles_x - 1;
+        y2 = g->tiles_y - 1;
         draw_background(g);
         draw_tiles(g, x1, y1, x2, y2, camx1, camy1);
 
@@ -70,6 +106,14 @@ void game_draw(game_s *g)
                         gfx_line_thick(r1->p.x - camx1, r1->p.y - camy1,
                                        r2->p.x - camx1, r2->p.y - camy1, 1, 1);
                 }
+        }
+
+        tex_s   tparticle = tex_get(TEXID_PARTICLE);
+        rec_i32 rparticle = {0, 0, 4, 4};
+        for (int n = 0; n < g->n_particles; n++) {
+                particle_s *p   = &g->particles[n];
+                v2_i32      pos = {(p->p_q8.x >> 8) - camx1, (p->p_q8.y >> 8) - camy1};
+                gfx_sprite_(tparticle, pos, rparticle, 0);
         }
 
         // simple transition animation

@@ -41,6 +41,13 @@ struct rtile_s {
         int m;
 };
 
+typedef struct {
+        v2_i32 p_q8;
+        v2_i32 v_q8;
+        v2_i32 a_q8;
+        i32    ticks;
+} particle_s;
+
 enum {
         TRANSITION_TICKS = 10,
 };
@@ -56,9 +63,9 @@ enum transition_phase {
 };
 
 struct game_s {
-        i32   tick;
-        cam_s cam;
-
+        i32    tick;
+        u32    rng;
+        cam_s  cam;
         hero_s hero;
 
         objset_s    obj_scheduled_delete; // objects scheduled for removal
@@ -67,6 +74,9 @@ struct game_s {
         obj_s      *obj_tag[NUM_OBJ_TAGS];
         int         n_objfree;
         objbucket_s objbuckets[NUM_OBJ_BUCKETS];
+
+        int        n_particles;
+        particle_s particles[64];
 
         textbox_s textbox;
 
@@ -98,5 +108,6 @@ void        game_tile_bounds_minmax(game_s *g, v2_i32 pmin, v2_i32 pmax,
 void        game_tile_bounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 void        game_tile_bounds_rec(game_s *g, rec_i32 r, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
+particle_s *particle_spawn(game_s *g);
 
 #endif

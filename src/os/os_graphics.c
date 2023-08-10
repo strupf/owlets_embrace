@@ -256,7 +256,7 @@ static inline int i_gfx_peek_px(tex_s t, int x, int y)
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return 0;
 
         int i = t.px[(x >> 3) + y * t.w_byte];
-        return ((i & (1 << (7 - (x & 7)))) > 0);
+        return ((i & (0x80 >> (x & 7))) > 0);
 }
 
 static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
@@ -267,7 +267,7 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
                 return;
         }
         int i = (x >> 3) + y * t.w_byte;
-        int m = 1 << (7 - (x & 7));
+        int m = 0x80 >> (x & 7);
         *px   = ((t.px[i] & m) > 0);
         *op   = (t.mask[i] & m);
 }
@@ -277,7 +277,7 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return;
 
         int i = (x >> 3) + y * t.w_byte;
-        int s = 1 << (7 - (x & 7));
+        int s = 0x80 >> (x & 7);
         if (col)
                 t.px[i] |= s; // set bit
         else
@@ -344,26 +344,23 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
         }
 }
 
-// TODO: doesnt work when drawing from a sprite without a mask
-//
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
-void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
+void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 {
-        tex_s dst = g_os.dst;
-        int   zx  = dst.w - pos.x;
-        int   zy  = dst.h - pos.y;
-        int   x1  = (0 >= -pos.x ? 0 : -pos.x) + rs.x;
-        int   y1  = (0 >= -pos.y ? 0 : -pos.y) + rs.y;
-        int   x2  = (rs.w <= zx ? rs.w : zx) + rs.x - 1;
-        int   y2  = (rs.h <= zy ? rs.h : zy) + rs.y - 1;
-
-        int cc           = pos.x - rs.x;
-        int sh1          = (32 - (cc & 31)) & 31; // relative word alignment
-        int sh0          = 32 - sh1;
-        int b1           = x1 >> 5;
-        int b2           = x2 >> 5;
+        tex_s dst        = g_os.dst;
+        int   zx         = dst.w - pos.x;
+        int   zy         = dst.h - pos.y;
+        int   x1         = rs.x + (0 >= -pos.x ? 0 : -pos.x);
+        int   y1         = rs.y + (0 >= -pos.y ? 0 : -pos.y);
+        int   x2         = rs.x - 1 + (rs.w <= zx ? rs.w : zx);
+        int   y2         = rs.y - 1 + (rs.h <= zy ? rs.h : zy);
+        int   cc         = pos.x - rs.x;
+        int   sh1        = 31 & (32 - (cc & 31)); // relative word alignment
+        int   sh0        = 32 - sh1;
+        int   b1         = x1 >> 5;
+        int   b2         = x2 >> 5;
         u32 *restrict dp = (u32 *)dst.px;
         u32 *restrict dm = (u32 *)dst.mask;
         for (int y = y1; y <= y2; y++) {
@@ -372,26 +369,64 @@ void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
                 u32 *restrict sm_ = &((u32 *)src.mask)[ii];
                 u32 *restrict sp_ = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
-                        int u  = (b == b1 ? x1 & 31 : 0);
-                        int v  = (b == b2 ? x2 & 31 : 31);
-                        u32 m  = (0xFFFFFFFFu >> u) & ~(0x7FFFFFFFu >> v);
-                        u32 sm = endian_u32(*sm_++) & m;
+                        int uu = (b == b1 ? x1 & 31 : 0);
+                        int vv = (b == b2 ? x2 & 31 : 31);
+                        u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
+                        u32 sm = endian_u32(*sm_++) & mm;
                         u32 sp = endian_u32(*sp_++);
-                        u32 t0 = sm >> sh0;
-                        u32 p0 = sp >> sh0;
-                        u32 t1 = sm << sh1;
-                        u32 p1 = sp << sh1;
-                        int j0 = (((b << 5) + cc) >> 5) + yd;
+                        u32 t0 = endian_u32(sm >> sh0);
+                        u32 p0 = endian_u32(sp >> sh0);
+                        u32 t1 = endian_u32(sm << sh1);
+                        u32 p1 = endian_u32(sp << sh1);
+                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
                         int j1 = (((b << 5) + cc + 31) >> 5) + yd;
-                        u32 d0 = endian_u32(dp[j0]);
-                        u32 d1 = endian_u32(dp[j1]);
-                        dp[j0] = endian_u32((d0 & ~t0) | (p0 & t0));
-                        dp[j1] = endian_u32((d1 & ~t1) | (p1 & t1));
-                        if (!dm) continue;
-                        dm[j0] |= endian_u32(endian_u32(dm[j0]) | t0);
-                        dm[j1] |= endian_u32(endian_u32(dm[j1]) | t1);
+                        switch (mode) {
+                        case 1: // inverted, fallthrough
+                                p0 = ~p0;
+                                p1 = ~p1;
+                        case 0: // copy
+                                dp[j0] = (dp[j0] & ~t0) | (p0 & t0);
+                                dp[j1] = (dp[j1] & ~t1) | (p1 & t1);
+                                break;
+                        case 6: // xor, fallthrough
+                                p0 = ~p0;
+                                p1 = ~p1;
+                        case 5: // nxor
+                                dp[j0] = (dp[j0] & ~t0) | ((dp[j0] ^ p0) & t0);
+                                dp[j1] = (dp[j1] & ~t1) | ((dp[j1] ^ p1) & t1);
+                                break;
+                        case 7: // white transparent, fallthrough
+                                t0 &= p0;
+                                t1 &= p1;
+                        case 4: // fill black
+                                dp[j0] |= t0;
+                                dp[j1] |= t1;
+                                break;
+                        case 2: // black transparent, fallthrough
+                                t0 &= ~p0;
+                                t1 &= ~p1;
+                        case 3: // fillwhite
+                                dp[j0] &= ~t0;
+                                dp[j1] &= ~t1;
+                                break;
+                        }
+
+                        if (dm) {
+                                dm[j0] |= t0;
+                                dm[j1] |= t1;
+                        }
                 }
         }
+}
+
+// TODO: doesnt work when drawing from a sprite without a mask
+//
+/* fast sprite drawing routine for untransformed sprites
+ * blits 32 pixelbits in one loop
+ */
+void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
+{
+        gfx_sprite_(src, pos, rs, 0);
 }
 
 void gfx_rec_fill(rec_i32 r, int col)

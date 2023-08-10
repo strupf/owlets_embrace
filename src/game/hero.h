@@ -27,6 +27,8 @@ struct hero_s {
         i32         edgeticks;
         int         inp;  // input mask
         int         inpp; // input mask previous frame
+        bool32      wasgrounded;
+        i32         vel_q8_prev;
 
         heroitem_s items[16];
 

@@ -19,6 +19,8 @@ enum tex_id {
         TEXID_ITEMS,
         TEXID_TEST,
         TEXID_CLOUDS,
+        TEXID_PARTICLE,
+        TEXID_TESTSPRITE,
         //
         NUM_TEXID
 };
@@ -167,6 +169,7 @@ tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
+void      gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
 void      gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void      gfx_draw_to(tex_s tex);

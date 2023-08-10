@@ -20,7 +20,6 @@ graphics
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
 * animated background art/layer/particles
-* particles for jumping/landing? -> dust
 
 textbox
 * typewriter noises
@@ -30,3 +29,4 @@ bugs
 * rope: removal of a point during tighten can result in three
     collinear points which span a degenerate triangle -> in that
     case delete the middle point, too
+? graphics: make textures without transparency mask work for sprites

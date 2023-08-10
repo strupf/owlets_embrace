@@ -34,7 +34,6 @@ typedef struct {
         i32 tick;
 #if defined(TARGET_DESKTOP)
         u8        framebuffer[OS_FRAMEBUFFER_SIZE];
-        u8        framebuffermk[OS_FRAMEBUFFER_SIZE];
         Color     texpx[416 * 240];
         Texture2D tex;
         bool32    inverted;

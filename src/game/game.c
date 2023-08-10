@@ -10,6 +10,7 @@ static void cam_update(game_s *g, cam_s *c);
 
 void game_init(game_s *g)
 {
+
         gfx_set_inverted(1);
 
         tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
@@ -18,6 +19,8 @@ void game_init(game_s *g)
         tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
         tex_put(TEXID_TEST, tex_load("assets/test.json"));
+        tex_put(TEXID_PARTICLE, tex_load("assets/particle.json"));
+        tex_put(TEXID_TESTSPRITE, tex_load("assets/testsprite.json"));
 
         tex_s tclouds = tex_load("assets/clouds.json");
         tex_put(TEXID_CLOUDS, tclouds);
@@ -36,6 +39,7 @@ void game_init(game_s *g)
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
         fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
 
+        g->rng    = 213;
         g->cam.w  = 400;
         g->cam.h  = 240;
         g->cam.wh = g->cam.w / 2;
@@ -128,6 +132,17 @@ void game_update(game_s *g)
 
         if (g->transitionphase) {
                 game_update_transition(g);
+        }
+
+        for (int n = g->n_particles - 1; n >= 0; n--) {
+                particle_s *p = &g->particles[n];
+                p->ticks--;
+                if (p->ticks == 0) {
+                        g->particles[n] = g->particles[--g->n_particles];
+                        continue;
+                }
+                p->v_q8 = v2_add(p->v_q8, p->a_q8);
+                p->p_q8 = v2_add(p->p_q8, p->v_q8);
         }
 }
 
@@ -290,4 +305,13 @@ void game_tile_bounds_rec(game_s *g, rec_i32 r,
         v2_i32 pmin = {r.x, r.y};
         v2_i32 pmax = {r.x + r.w, r.y + r.h};
         game_tile_bounds_minmax(g, pmin, pmax, x1, y1, x2, y2);
+}
+
+particle_s *particle_spawn(game_s *g)
+{
+        ASSERT(g->n_particles < ARRLEN(g->particles));
+
+        particle_s *p = &g->particles[g->n_particles++];
+        *p            = (const particle_s){0};
+        return p;
 }
