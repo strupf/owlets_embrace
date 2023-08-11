@@ -15,6 +15,8 @@ enum {
         DIALOG_TOK_END,
 };
 
+// returns true if str contains the same characters of exp, not
+// comparing the terminating \0 of exp
 static bool32 str_matches(const char *str, const char *exp)
 {
         for (int n = 0; exp[n] != '\0'; n++) {

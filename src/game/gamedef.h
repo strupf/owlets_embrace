@@ -16,6 +16,8 @@ enum {
         NUM_RENDERTILE_LAYERS = 2,
         NUM_OBJS              = 256,
         NUM_AUTOTILE_TYPES    = 32,
+        NUM_TILEANIMATIONS    = 16,
+        NUM_PARTICLES         = 256,
 };
 
 typedef struct game_s      game_s;
@@ -37,6 +39,8 @@ typedef struct obj_listc_s obj_listc_s;
 
 ARR_DEF_PRIMITIVE(obj, obj_s *)
 
+extern u16 g_tileIDs[0x10000];
+
 struct objhandle_s {
         int    gen;
         obj_s *o;
@@ -45,7 +49,6 @@ struct objhandle_s {
 enum obj_flag {
         OBJ_FLAG_NONE,
         OBJ_FLAG_ALIVE,
-        OBJ_FLAG_DUMMY,
         OBJ_FLAG_ACTOR,
         OBJ_FLAG_SOLID,
         OBJ_FLAG_HERO,
@@ -53,6 +56,8 @@ enum obj_flag {
         OBJ_FLAG_PICKUP,
         OBJ_FLAG_HOOK,
         OBJ_FLAG_INTERACT,
+        OBJ_FLAG_MOVABLE_ACTOR,
+        OBJ_FLAG_THINK_1,
         //
         NUM_OBJ_FLAGS
 };
@@ -71,8 +76,10 @@ enum obj_bucket {
         OBJ_BUCKET_NEW_AREA_COLLIDER,
         OBJ_BUCKET_PICKUP,
         OBJ_BUCKET_INTERACT,
+        OBJ_BUCKET_MOVABLE_ACTOR,
+        OBJ_BUCKET_THINK_1,
         //
-        NUM_OBJ_BUCKETS = 64,
+        NUM_OBJ_BUCKETS
 };
 
 enum {

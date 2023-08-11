@@ -31,6 +31,8 @@ struct hero_s {
         i32         vel_q8_prev;
 
         heroitem_s items[16];
+        int        n_items;
+        int        c_item;
 
         objhandle_s hook;
         rope_s      rope;

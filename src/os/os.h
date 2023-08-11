@@ -19,6 +19,7 @@ enum tex_id {
         TEXID_ITEMS,
         TEXID_CLOUDS,
         TEXID_PARTICLE,
+        TEXID_SOLID,
         //
         NUM_TEXID
 };
@@ -184,6 +185,7 @@ void      gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col);
 void      gfx_text_ascii(fnt_s *font, const char *txt, int x, int y);
 void      gfx_text(fnt_s *font, fntstr_s *str, int x, int y);
 void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
+void      gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3]); // 2 bits of subpixel precision
 //
 snd_s     snd_get(int ID);
 //

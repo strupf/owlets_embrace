@@ -177,23 +177,61 @@ static inline i32 rng_max_u16(u32 *state, u16 max)
         return i;
 }
 
-static inline u32 rng_u32()
+static inline u32 rngs_u32(u32 *state)
 {
-        static u32 state = 213;
-        u32        x     = state;
+        u32 x = *state;
         x ^= x << 13;
         x ^= x >> 17;
         x ^= x << 5;
-        return (state = x);
+        *state = x;
+        return x;
+}
+
+static inline u32 rng_u32()
+{
+        static u32 state = 213;
+        return rngs_u32(&state);
+}
+
+// returns [lo; hi]
+// works for signed integer inputs, too
+static inline u32 _rng_range_u32(u32 x, u32 lo, u32 hi)
+{
+        u32 r = lo + x / (U32_MAX / (hi - lo + 1) + 1);
+        return r;
+}
+
+// returns [lo; hi]
+static inline u32 _rng_max_u32(u32 x, u32 hi)
+{
+        u32 r = x / (U32_MAX / (hi + 1) + 1);
+        return r;
+}
+
+// returns [0; hi]
+static u32 rngs_max_u32(u32 *state, u32 hi)
+{
+        return _rng_max_u32(rngs_u32(state), hi);
 }
 
 // returns [lo; hi]
 // works for signed integer inputs, too
 static u32 rng_range_u32(u32 lo, u32 hi)
 {
-        u32 x = rng_u32();
-        u32 r = lo + x / (U32_MAX / (hi - lo + 1) + 1);
-        return r;
+        return _rng_range_u32(rng_u32(), lo, hi);
+}
+
+// returns [lo; hi]
+// works for signed integer inputs, too
+static u32 rngs_range_u32(u32 *state, u32 lo, u32 hi)
+{
+        return _rng_range_u32(rngs_u32(state), lo, hi);
+}
+
+// returns [0; hi]
+static u32 rng_max_u32(u32 hi)
+{
+        return _rng_max_u32(rng_u32(), 0, hi);
 }
 
 #define rng_range(LO, HI) rng_range_u32(LO, HI)
@@ -312,7 +350,7 @@ static div_u32_s div_u32_create(u32 d)
 
 static inline u32 div_u32_do(u32 n, div_u32_s d)
 {
-        u32 r = (((u64)n * d.mul) + d.add) >> d.shift;
+        u64 r = (((u64)n * d.mul) + d.add) >> d.shift;
         ASSERT(r == n / d.og);
         return r;
 }
@@ -739,9 +777,8 @@ static void points_from_rec(rec_i32 r, v2_i32 *pts)
 // returns interpolation data for the intersection:
 // S = A + [(B - A) * u] / den;
 // S = C + [(D - C) * v] / den;
-static inline void
-intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
-                  i32 *u, i32 *v, i32 *den)
+static inline void intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
+                                     i32 *u, i32 *v, i32 *den)
 {
         ASSERT(u && v && den);
         v2_i32 x = v2_sub(a, c);

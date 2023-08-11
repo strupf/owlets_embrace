@@ -40,6 +40,9 @@ struct obj_s {
         int        dir;
         int        p1;
         int        p2;
+        int        ID;
+
+        int facing;
 
         obj_s *parent;
         obj_s *next;
@@ -60,9 +63,12 @@ struct obj_s {
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
-        void *onsqueezearg;
         void (*onsqueeze)(game_s *g, obj_s *o);
         void (*oninteract)(game_s *g, obj_s *o);
+        void (*think_1)(game_s *g, obj_s *o);
+        void (*think_2)(game_s *g, obj_s *o);
+        void *userarg;
+        void *onsqueezearg;
 
         bool32      attached;
         ropenode_s *ropenode;

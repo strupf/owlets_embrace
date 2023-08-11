@@ -19,6 +19,7 @@ char *txt_read_file_alloc(const char *file, void *(*allocfunc)(size_t))
         e        = os_fclose(f);
         ASSERT(e == 0);
         buf[read] = '\0';
+        PRINTF("Read file: %s\n", file);
         return buf;
 }
 
@@ -36,6 +37,7 @@ int txt_read_file(const char *file, char *buf, size_t bufsize)
         e        = os_fclose(f);
         ASSERT(e == 0);
         buf[read] = '\0';
+        PRINTF("Read file: %s\n", file);
         return read;
 }
 

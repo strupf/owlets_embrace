@@ -102,8 +102,7 @@ static int rope_points_collinearity(v2_arr *pts, v2_i32 c)
 static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
                                  v2_arr *pts)
 {
-        if (!overlap_tri_pnt_incl(t1, p.p) ||
-            !overlap_tri_pnt_incl(t2, p.p))
+        if (!overlap_tri_pnt_incl(t1, p.p) || !overlap_tri_pnt_incl(t2, p.p))
                 return;
         // nasty with lots of calculations...
         // ONLY NEEDED FOR SOLID MOVEMENT though
@@ -130,7 +129,9 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         v2_i32 pmax1 = v2_max(t1.p[0], v2_max(t1.p[1], t1.p[2]));
         v2_i32 pmax2 = v2_max(t2.p[0], v2_max(t2.p[1], t2.p[2]));
         i32    x1, y1, x2, y2;
-        game_tile_bounds_minmax(g, v2_min(pmin1, pmin2), v2_max(pmax1, pmax2), &x1, &y1, &x2, &y2);
+        v2_i32 pmin = v2_min(pmin1, pmin2);
+        v2_i32 pmax = v2_max(pmax1, pmax2);
+        game_tile_bounds_minmax(g, pmin, pmax, &x1, &y1, &x2, &y2);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -171,10 +172,15 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
                 if (o->soliddisabled) continue;
                 v2_i32 p[4];
                 points_from_rec(obj_aabb(o), p);
-                for (int i = 0; i < 4; i++) {
-                        convex_vertex_s v1 = {p[i], p[(i + 1) & 3], p[(i + 3) & 3]};
-                        try_add_point_in_tri(v1, t1, t2, pts);
-                }
+
+                convex_vertex_s v0 = {p[0], p[1], p[2]};
+                convex_vertex_s v1 = {p[1], p[2], p[3]};
+                convex_vertex_s v2 = {p[2], p[3], p[0]};
+                convex_vertex_s v3 = {p[3], p[0], p[1]};
+                try_add_point_in_tri(v0, t1, t2, pts);
+                try_add_point_in_tri(v1, t1, t2, pts);
+                try_add_point_in_tri(v2, t1, t2, pts);
+                try_add_point_in_tri(v3, t1, t2, pts);
         }
 }
 

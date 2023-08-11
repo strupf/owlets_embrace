@@ -4,178 +4,24 @@
 
 #include "game.h"
 
-u16 g_tileIDs[0x10000];
+u16              g_tileIDs[0x10000];
+tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
-typedef struct {
-        int ID;
-        int frames;
-        int cur;
-        int ticks;
-        u16 IDs[4];
-} tile_animation_s;
-
-tile_animation_s g_tileanimations[4];
-
-void tileanimations_update()
-{
-        i32 tick = os_tick();
-        for (int n = 0; n < ARRLEN(g_tileanimations); n++) {
-                tile_animation_s *a = &g_tileanimations[n];
-                if (a->ticks == 0) continue;
-                g_tileIDs[a->ID] = a->IDs[(tick / a->ticks) % a->frames];
-        }
-}
-
-void load_tileatlas(int texID)
-{
-        const char *filenames[] = {"assets/tiles_0.json",
-                                   "assets/tiles_1.json",
-                                   "assets/tiles_2.json"};
-        enum {
-                TILEATLAS_TILES_X = 32,
-                TILEATLAS_W       = TILEATLAS_TILES_X * 16,
-                TILEATLAS_H       = 32 * ARRLEN(filenames) * 16,
-                TILEATLAS_W_BYTE  = TILEATLAS_TILES_X * 2,
-        };
-
-        tex_s t = tex_create(TILEATLAS_W, TILEATLAS_H, 1);
-        tex_put(texID, t);
-        int y_global = 0;
-        for (int n = 0; n < ARRLEN(filenames); n++) {
-                os_spmem_push();
-                const char *txtbuf = txt_read_file_alloc(filenames[n],
-                                                         os_spmem_alloc);
-                jsn_s       j;
-                jsn_root(txtbuf, &j);
-                i32 w = jsn_intk(j, "width");
-                i32 h = jsn_intk(j, "height");
-                ASSERT(w == TILEATLAS_W && h == TILEATLAS_W);
-                char *c = jsn_strkptr(j, "data");
-                for (int y = 0; y < h; y++) {
-                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
-                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
-                                int c1 = (char_hex_to_int(*c++)) << 4;
-                                int c2 = (char_hex_to_int(*c++));
-
-                                t.px[x + yy] = c1 | c2;
-                        }
-                }
-                for (int y = 0; y < h; y++) {
-                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
-                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
-                                int c1 = (char_hex_to_int(*c++)) << 4;
-                                int c2 = (char_hex_to_int(*c++));
-
-                                t.mask[x + yy] = c1 | c2;
-                        }
-                }
-                y_global += h;
-                os_spmem_pop();
-        }
-}
-
+static void tileanimations_update();
 static void game_cull_scheduled(game_s *g);
 static void game_update_transition(game_s *g);
-static void cam_update(game_s *g, cam_s *c);
 
-#ifdef TARGET_PD
-static LCDBitmap *menubm;
-
-void menufunction(void *arg)
+void solid_think(game_s *g, obj_s *o)
 {
-        PRINTF("print\n");
-}
-#endif
-
-void game_init(game_s *g)
-{
-#ifdef TARGET_PD
-        menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
-        PD->system->addMenuItem("Dummy", menufunction, NULL);
-        PD->system->setMenuImage(menubm, 0);
-#endif
-        for (int n = 0; n < ARRLEN(g_tileIDs); n++) {
-                g_tileIDs[n] = n;
+        obj_s *solid = o;
+        if (solid->pos.x > solid->p2) {
+                solid->dir = -ABS(solid->dir);
+        }
+        if (solid->pos.x < solid->p1) {
+                solid->dir = +ABS(solid->dir);
         }
 
-        tile_animation_s *a = &g_tileanimations[0];
-        a->ID               = tileID_encode_ts(1, 0, 0);
-        a->frames           = 3;
-        a->IDs[0]           = a->ID + 0;
-        a->IDs[1]           = a->ID + 1;
-        a->IDs[2]           = a->ID + 2;
-        a->ticks            = 20;
-
-        gfx_set_inverted(1);
-
-        load_tileatlas(TEXID_TILESET);
-        tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
-        tex_put(TEXID_FONT_DEBUG, tex_load("assets/font_debug.json"));
-        tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
-        tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
-        tex_put(TEXID_PARTICLE, tex_load("assets/particle.json"));
-
-        tex_s tclouds = tex_load("assets/clouds.json");
-        tex_put(TEXID_CLOUDS, tclouds);
-
-        // apply some "grey pattern"
-        for (int y = 0; y < tclouds.h; y++) {
-                for (int x = 0; x < tclouds.w; x++) {
-                        if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
-                                int i = (x >> 3) + y * tclouds.w_byte;
-                                int b = (x & 7);
-                                tclouds.mask[i] &= ~(1 << (7 - b)); // clear bit
-                        }
-                }
-        }
-
-        fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
-        fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
-
-        g->rng    = 213;
-        g->cam.w  = 400;
-        g->cam.h  = 240;
-        g->cam.wh = g->cam.w / 2;
-        g->cam.hh = g->cam.h / 2;
-
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ALIVE];
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ACTOR];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_ACTOR);
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_SOLID];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_SOLID);
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_NEW_AREA_COLLIDER];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_NEW_AREA_COLLIDER);
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_PICKUP];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_PICKUP);
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_INTERACT];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_INTERACT);
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-
-        game_load_map(g, "assets/map/template.tmj");
-
-        g->rtiles[29 + 9 * g->tiles_x][0].ID = tileID_encode_ts(1, 0, 0);
+        solid_move(g, solid, solid->dir, 0);
 }
 
 void game_update(game_s *g)
@@ -189,34 +35,20 @@ void game_update(game_s *g)
                 return;
         }
 
-        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
-        float       times  = os_time();
-        for (int i = 0; i < solids.n; i++) {
-                obj_s *solid = solids.o[i];
-                if (solid->pos.x > solid->p2) {
-                        solid->dir = -ABS(solid->dir);
-                }
-                if (solid->pos.x < solid->p1) {
-                        solid->dir = +ABS(solid->dir);
-                }
-
-                solid_move(g, solid, solid->dir, 0);
+        obj_listc_s thinkers = objbucket_list(g, OBJ_BUCKET_THINK_1);
+        for (int i = 0; i < thinkers.n; i++) {
+                obj_s *o = thinkers.o[i];
+                if (o->think_1) o->think_1(g, o);
         }
-        os_debug_time(TIMING_SOLID_UPDATE, os_time() - times);
 
-        obj_s *ohero;
-        float  timeh = os_time();
-        if (try_obj_from_handle(g->hero.obj, &ohero)) {
-
-                g->hero.inpp = g->hero.inp;
-                g->hero.inp  = 0;
-                hero_update(g, ohero, &g->hero);
-                if (g->transitionphase == TRANSITION_NONE) {
-                        hero_check_level_transition(g, ohero);
-                }
-                hero_pickup_logic(g, &g->hero, ohero);
+        obj_listc_s movactors = objbucket_list(g, OBJ_BUCKET_MOVABLE_ACTOR);
+        for (int i = 0; i < movactors.n; i++) {
+                obj_s *o = movactors.o[i];
+                obj_apply_movement(o);
+                v2_i32 dt = v2_sub(o->pos_new, o->pos);
+                obj_move_x(g, o, dt.x);
+                obj_move_y(g, o, dt.y);
         }
-        os_debug_time(TIMING_HERO_UPDATE, os_time() - timeh);
 
         // remove all objects scheduled to be deleted
         if (objset_len(&g->obj_scheduled_delete) > 0) {
@@ -277,6 +109,18 @@ static void game_update_transition(game_s *g)
         }
 }
 
+static void tileanimations_update()
+{
+        i32 tick = os_tick();
+        for (int n = 0; n < NUM_TILEANIMATIONS; n++) {
+                tile_animation_s *a = &g_tileanimations[n];
+                if (a->ticks == 0) continue;
+                int frame        = 0;
+                frame            = (tick / a->ticks) % a->frames;
+                g_tileIDs[a->ID] = a->IDs[frame];
+        }
+}
+
 static void game_cull_scheduled(game_s *g)
 {
         for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
@@ -288,63 +132,6 @@ static void game_cull_scheduled(game_s *g)
                 g->objfreestack[g->n_objfree++] = o_del;
         }
         objset_clr(&g->obj_scheduled_delete);
-}
-
-enum cam_values {
-        CAM_TARGET_SNAP_THRESHOLD = 1,
-        CAM_LERP_DISTANCESQ_FAST  = 1000,
-        CAM_LERP_DEN              = 8,
-        CAM_LERP_DEN_FAST         = 4,
-};
-
-static void cam_update(game_s *g, cam_s *c)
-{
-        obj_s *player;
-        bool32 offset_modified = 0;
-        if (try_obj_from_handle(g->hero.obj, &player)) {
-                v2_i32 targ = obj_aabb_center(player);
-                targ.y -= c->h >> 3; // offset camera slightly upwards
-                c->target = targ;
-
-                if (os_inp_dpad_y() == 1 &&
-                    game_area_blocked(g, obj_rec_bottom(player)) &&
-                    ABS(player->vel_q8.x) < 10) {
-                        offset_modified = 1;
-                        c->offset.y += 5;
-                        c->offset.y = MIN(c->offset.y, 100);
-                }
-        }
-
-        v2_i32 target = v2_add(c->target, c->offset);
-        if (!offset_modified) c->offset.y >>= 1;
-        v2_i32 dt  = v2_sub(target, c->pos);
-        i32    lsq = v2_lensq(dt);
-        if (lsq <= CAM_TARGET_SNAP_THRESHOLD) {
-                c->pos = target;
-        } else if (lsq < CAM_LERP_DISTANCESQ_FAST) {
-                c->pos = v2_lerp(c->pos, target, 1, CAM_LERP_DEN);
-        } else {
-                c->pos = v2_lerp(c->pos, target, 1, CAM_LERP_DEN_FAST);
-        }
-
-        int x1 = c->pos.x - c->wh;
-        int y1 = c->pos.y - c->hh;
-        if (x1 < 0) {
-                c->pos.x = c->wh;
-        }
-        if (y1 < 0) {
-                c->pos.y = c->hh;
-        }
-
-        // avoids round errors on uneven camera sizes
-        int x2 = (c->pos.x - c->wh) + c->w;
-        int y2 = (c->pos.y - c->hh) + c->h;
-        if (x2 > g->pixel_x) {
-                c->pos.x = g->pixel_x - c->w + c->wh;
-        }
-        if (y2 > g->pixel_y) {
-                c->pos.y = g->pixel_y - c->h + c->hh;
-        }
 }
 
 tilegrid_s game_tilegrid(game_s *g)
@@ -404,7 +191,7 @@ void game_tile_bounds_rec(game_s *g, rec_i32 r,
 
 particle_s *particle_spawn(game_s *g)
 {
-        ASSERT(g->n_particles < ARRLEN(g->particles));
+        ASSERT(g->n_particles < NUM_PARTICLES);
 
         particle_s *p = &g->particles[g->n_particles++];
         *p            = (const particle_s){0};

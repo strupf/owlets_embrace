@@ -5,6 +5,7 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "cam.h"
 #include "collision.h"
 #include "gamedef.h"
 #include "hero.h"
@@ -14,8 +15,6 @@
 #include "rope.h"
 #include "textbox.h"
 
-extern u16 g_tileIDs[0x10000];
-
 // Object bucket is an automatically filtered set of
 // active objects. The filter works using object flags (bitset)
 struct objbucket_s {
@@ -24,16 +23,6 @@ struct objbucket_s {
         int        op_func[2];
         objflags_s cmp_flag;
         int        cmp_func;
-};
-
-struct cam_s {
-        int    w;
-        int    h;
-        int    wh;
-        int    hh;
-        v2_i32 target;
-        v2_i32 offset;
-        v2_i32 pos;
 };
 
 struct rtile_s {
@@ -51,7 +40,7 @@ static inline u32 tileID_encode_ts(int tilesetID, int tx, int ty)
 
 static inline u32 tileID_encode(int tx, int ty)
 {
-        u32 ID = ((u32)ty << 5) | ((u32)tx);
+        u32 ID = ((u32)ty * 32) | ((u32)tx);
         return ID;
 }
 
@@ -67,6 +56,16 @@ typedef struct {
         v2_i32 a_q8;
         i32    ticks;
 } particle_s;
+
+typedef struct {
+        int ID;
+        int frames;
+        int cur;
+        int ticks;
+        u16 IDs[4];
+} tile_animation_s;
+
+extern tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
 enum {
         TRANSITION_TICKS = 10,
@@ -96,7 +95,7 @@ struct game_s {
         objbucket_s objbuckets[NUM_OBJ_BUCKETS];
 
         int        n_particles;
-        particle_s particles[64];
+        particle_s particles[NUM_PARTICLES];
 
         textbox_s textbox;
 
@@ -129,5 +128,6 @@ void        game_tile_bounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2
 void        game_tile_bounds_rec(game_s *g, rec_i32 r, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
 particle_s *particle_spawn(game_s *g);
+void        solid_think(game_s *g, obj_s *o);
 
 #endif

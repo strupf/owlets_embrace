@@ -1,6 +1,5 @@
 gameplay
 * selectable items/abilities (using the crank to cycle through?)
-    * rope as a dedicated usable item
 * path movement for moving platforms
     * linear, pingpong, circular
     * load path from map
@@ -8,13 +7,11 @@ gameplay
 * enemies
     * damage/health mechanic
     * dying? quick respawn vs savepoints?
-* static spikes
+* static spikes - as objects or tiles?
 * implement low and high slopes, including rope logic
 
 
 loading
-* different tilesets in Tiled
-* autotiles vs regular tiles
 * autotiling for low and high slopes
 
 graphics

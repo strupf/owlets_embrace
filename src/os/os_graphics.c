@@ -124,7 +124,7 @@ tex_s tex_load(const char *filename)
                         int c1 = (char_hex_to_int(*c++)) << 4;
                         int c2 = (char_hex_to_int(*c++));
 
-                        t.px[x + y * t.w_byte] = (u8)(c1 | c2);
+                        t.px[x + y * t.w_byte] = (c1 | c2);
                 }
         }
         os_spmem_pop();
@@ -265,6 +265,7 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
                 *op = 0;
                 return;
         }
+
         int i = (x >> 3) + y * t.w_byte;
         int m = 0x80 >> (x & 7);
         *px   = ((t.px[i] & m) > 0);
@@ -596,5 +597,75 @@ void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
 
                 gfx_sprite(fonttex, pp, r, 0);
                 p.x += font->glyph_widths[cID];
+        }
+}
+
+// 2 bits of subpixel precision
+// 0 ... 4
+// V     V
+// -------
+// |     |
+// |     |
+// -------
+// to texture map the whole area
+// from 0 incl to 7 incl (width of 8)
+//
+// 0               (7+1)<<2 -> right border of the pixel
+// V               V
+// |0|1|2|3|4|5|6|7|8|...
+void gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3])
+{
+        v2_i32 t12 = v2_sub(tri[2], tri[1]);
+        v2_i32 t20 = v2_sub(tri[0], tri[2]);
+        v2_i32 t01 = v2_sub(tri[1], tri[0]);
+        i32    den = v2_crs(t01, t20);
+        if (den == 0) return;
+        if (den < 0) {
+                den = -den;
+                t12 = v2_inv(t12);
+                t20 = v2_inv(t20);
+                t01 = v2_inv(t01);
+        }
+
+        tex_s     dst  = g_os.dst;
+        // min and max bounds on screen
+        v2_i32    pmin = v2_shr(v2_min(tri[0], v2_min(tri[1], tri[2])), 2);
+        v2_i32    pmax = v2_shr(v2_max(tri[0], v2_max(tri[1], tri[2])), 2);
+        // screen bounds
+        v2_i32    scr1 = v2_max(pmin, (v2_i32){0, 0});
+        v2_i32    scr2 = v2_min(pmax, (v2_i32){dst.w - 1, dst.h - 1});
+        // pixel midpoint for subpixel sampling
+        v2_i32    xya  = v2_add(v2_shl(scr1, 2), (v2_i32){2, 2});
+        // interpolators
+        i32       u0   = v2_crs(v2_sub(xya, tri[1]), t12);
+        i32       v0   = v2_crs(v2_sub(xya, tri[2]), t20);
+        i32       w0   = v2_crs(v2_sub(xya, tri[0]), t01);
+        i32       ux = t12.y << 2, uy = -t12.x << 2;
+        i32       vx = t20.y << 2, vy = -t20.x << 2;
+        i32       wx = t01.y << 2, wy = -t01.x << 2;
+        // quick divider
+        u32       dv  = 1u + ((u32)den << 2); // +1 -> prevent overflow of texcoord
+        div_u32_s div = div_u32_create(dv);
+
+        for (int y = scr1.y; y <= scr2.y; y++) {
+                i32 u = u0, v = v0, w = w0;
+                for (int x = scr1.x; x <= scr2.x; x++) {
+                        if ((u | v | w) >= 0) {
+                                u32 tu = mul_u32(u, tex[0].x) +
+                                         mul_u32(v, tex[1].x) +
+                                         mul_u32(w, tex[2].x);
+                                u32 tv = mul_u32(u, tex[0].y) +
+                                         mul_u32(v, tex[1].y) +
+                                         mul_u32(w, tex[2].y);
+                                // only works if numerator is positiv!
+                                int tx = div_u32_do(tu, div);
+                                int ty = div_u32_do(tv, div);
+                                int px, mk;
+                                i_gfx_peek(src, tx, ty, &px, &mk);
+                                i_gfx_put_px(dst, x, y, px, 0);
+                        }
+                        u += ux, v += vx, w += wx;
+                }
+                u0 += uy, v0 += vy, w0 += wy;
         }
 }

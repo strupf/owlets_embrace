@@ -24,6 +24,82 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8);
 void          hook_squeeze(game_s *g, obj_s *o);
 void          hero_squeeze(game_s *g, obj_s *o);
 
+static void obj_squeeze_delete(game_s *g, obj_s *o)
+{
+        obj_delete(g, o);
+}
+
+static void arrow_think(game_s *g, obj_s *o)
+{
+        rec_i32 aabb = obj_aabb(o);
+        aabb.x--;
+        aabb.y--;
+        aabb.w += 2;
+        aabb.h = 2;
+        if (game_area_blocked(g, aabb)) {
+                obj_delete(g, o);
+        }
+}
+
+static obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
+{
+        obj_s     *arrow = obj_create(g);
+        objflags_s flags = objflags_create(
+            OBJ_FLAG_ACTOR,
+            OBJ_FLAG_MOVABLE_ACTOR,
+            OBJ_FLAG_THINK_1);
+        obj_set_flags(g, arrow, flags);
+        arrow->think_1      = arrow_think;
+        arrow->ID           = 2;
+        arrow->w            = 8;
+        arrow->h            = 8;
+        arrow->pos.x        = p.x - arrow->w / 2;
+        arrow->pos.y        = p.y - arrow->h / 2;
+        arrow->vel_q8       = v_q8;
+        arrow->gravity_q8.y = 12;
+        arrow->drag_q8.x    = 256;
+        arrow->drag_q8.y    = 256;
+        arrow->onsqueeze    = obj_squeeze_delete;
+        return arrow;
+}
+
+static void hero_use_bow(game_s *g, obj_s *o, hero_s *h)
+{
+        int    xs    = o->facing;
+        v2_i32 ctr   = obj_aabb_center(o);
+        v2_i32 v_q8  = {xs * 1500, -300};
+        obj_s *arrow = arrow_create(g, ctr, v_q8);
+}
+
+static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
+{
+        obj_s *hook;
+        if (try_obj_from_handle(h->hook, &hook)) {
+                hook_destroy(g, h, o, hook); // destroy hook if present
+        } else {
+                // throw new hook
+                int dirx = os_inp_dpad_x();
+                int diry = os_inp_dpad_y();
+                if (dirx == 0 && diry == 0) diry = -1;
+
+                v2_i32 center  = obj_aabb_center(o);
+                v2_i32 vlaunch = {dirx, diry};
+
+                vlaunch = v2_shl(vlaunch, 10);
+                if (vlaunch.y < 0) {
+                        vlaunch.y = vlaunch.y * 5 / 4;
+                }
+                if (vlaunch.y == 0) {
+                        vlaunch.y = -500;
+                        vlaunch.x = vlaunch.x * 5 / 4;
+                }
+                obj_s *hook = hook_create(g, &h->rope, center, vlaunch);
+                h->hook     = objhandle_from_obj(hook);
+                o->ropenode = h->rope.head;
+                o->rope     = &h->rope;
+        }
+}
+
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
         if (os_inp_pressed(INP_LEFT)) h->inp |= HERO_INP_LEFT;
@@ -62,31 +138,13 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 
         // just pressed item button
         if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
-                obj_s *hook;
-
-                if (try_obj_from_handle(h->hook, &hook)) {
-                        hook_destroy(g, h, o, hook); // destroy hook if present
-                } else {
-                        // throw new hook
-                        int dirx = os_inp_dpad_x();
-                        int diry = os_inp_dpad_y();
-                        if (dirx == 0 && diry == 0) diry = -1;
-
-                        v2_i32 center  = obj_aabb_center(o);
-                        v2_i32 vlaunch = {dirx, diry};
-
-                        vlaunch = v2_shl(vlaunch, 10);
-                        if (vlaunch.y < 0) {
-                                vlaunch.y = vlaunch.y * 5 / 4;
-                        }
-                        if (vlaunch.y == 0) {
-                                vlaunch.y = -500;
-                                vlaunch.x = vlaunch.x * 5 / 4;
-                        }
-                        obj_s *hook = hook_create(g, &h->rope, center, vlaunch);
-                        h->hook     = objhandle_from_obj(hook);
-                        o->ropenode = h->rope.head;
-                        o->rope     = &h->rope;
+                switch (h->c_item) {
+                case 0:
+                        hero_use_bow(g, o, h);
+                        break;
+                case 1:
+                        hero_use_hook(g, o, h);
+                        break;
                 }
         }
 
@@ -95,6 +153,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 
         bool32 ropestretched = objhandle_is_valid(h->hook) && rope_stretched(g, &h->rope);
         if (xs != 0) {
+                o->facing  = xs;
                 int acc    = 0;
                 int velabs = ABS(o->vel_q8.x);
                 if (grounded) {
@@ -104,7 +163,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                         } else {
                                 o->drag_q8.x = 250;
                                 int accfrom  = pow_i32(velabs, 2);
-                                int accto    = pow_i32(1000, 2);
+                                int accto    = pow_i32(600, 2);
                                 acc          = lerp_i32(HERO_C_ACCX_MAX,
                                                         0, // min acc
                                                         accfrom,
@@ -241,6 +300,7 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
             OBJ_FLAG_ACTOR,
             OBJ_FLAG_HOOK);
         obj_set_flags(g, o, flags);
+
         o->w            = 8;
         o->h            = 8;
         o->pos.x        = p.x - o->w / 2;
@@ -263,8 +323,13 @@ obj_s *hero_create(game_s *g, hero_s *h)
 {
         obj_s     *hero  = obj_create(g);
         objflags_s flags = objflags_create(OBJ_FLAG_ACTOR,
-                                           OBJ_FLAG_HERO);
+                                           OBJ_FLAG_HERO,
+                                           OBJ_FLAG_MOVABLE_ACTOR,
+                                           OBJ_FLAG_THINK_1);
+        hero->userarg    = &g->hero;
         obj_set_flags(g, hero, flags);
+        hero->think_1    = hero_update;
+        hero->facing     = 1;
         hero->actorflags = ACTOR_FLAG_CLIMB_SLOPES |
                            ACTOR_FLAG_GLUE_GROUND;
         hero->pos.x        = 200;
@@ -358,22 +423,22 @@ void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
         }
 }
 
-void hero_update(game_s *g, obj_s *o, hero_s *h)
+void hero_update(game_s *g, obj_s *o)
 {
+        hero_s *h = (hero_s *)o->userarg;
+        h->inpp   = h->inp;
+        h->inp    = 0;
+
         hero_logic(g, o, &g->hero);
-        float timem = os_time();
-        obj_apply_movement(o);
-        v2_i32 dt = v2_sub(o->pos_new, o->pos);
-
-        v2_i32 herop = o->pos;
-        obj_move_x(g, o, dt.x);
-        obj_move_y(g, o, dt.y);
-        float timeh = os_time();
-        os_debug_time(TIMING_HERO_MOVE, timeh - timem);
-
+        float  timeh = os_time();
         obj_s *hook;
         if (try_obj_from_handle(h->hook, &hook)) {
                 hero_hook_update(g, o, h, hook);
         }
         os_debug_time(TIMING_HERO_HOOK, os_time() - timeh);
+
+        if (g->transitionphase == TRANSITION_NONE) {
+                hero_check_level_transition(g, o);
+        }
+        hero_pickup_logic(g, h, o);
 }
