@@ -119,12 +119,17 @@ enum timing_IDs {
 
 typedef struct {
         u8 *px;
-        u8 *mask;
+        u8 *mk;
         int w_word;
         int w_byte;
         int w;
         int h;
 } tex_s;
+
+typedef struct {
+        tex_s   t;
+        rec_i32 r;
+} texregion_s;
 
 typedef struct {
         tex_s tex;

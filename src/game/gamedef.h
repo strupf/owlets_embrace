@@ -12,12 +12,13 @@
 #define ASSET_PATH_DIALOGUE "assets/"
 
 enum {
-        NUM_TILES             = 256 * 256,
-        NUM_RENDERTILE_LAYERS = 2,
-        NUM_OBJS              = 256,
-        NUM_AUTOTILE_TYPES    = 32,
-        NUM_TILEANIMATIONS    = 16,
-        NUM_PARTICLES         = 256,
+        NUM_TILES                = 1024 * 1024,
+        NUM_OBJS                 = 256,
+        NUM_AUTOTILE_TYPES       = 32,
+        NUM_TILEANIMATIONS       = 16,
+        NUM_PARTICLES            = 256,
+        NUM_BACKGROUND_CLOUDS    = 16,
+        NUM_BACKGROUND_PARTICLES = 256,
 };
 
 typedef struct game_s      game_s;
@@ -36,9 +37,6 @@ typedef struct obj_listc_s obj_listc_s;
 #define foreach_tile_in_bounds(X1, Y1, X2, Y2, XIT, YIT) \
         for (int YIT = Y1; YIT <= Y2; YIT++)             \
                 for (int XIT = X1; XIT <= X2; XIT++)
-
-ARR_DEF_PRIMITIVE(obj, obj_s *)
-
 extern u16 g_tileIDs[0x10000];
 
 struct objhandle_s {
@@ -58,6 +56,8 @@ enum obj_flag {
         OBJ_FLAG_INTERACT,
         OBJ_FLAG_MOVABLE_ACTOR,
         OBJ_FLAG_THINK_1,
+        OBJ_FLAG_HURTABLE,
+        OBJ_FLAG_KILL_OFFSCREEN,
         //
         NUM_OBJ_FLAGS
 };
@@ -78,6 +78,8 @@ enum obj_bucket {
         OBJ_BUCKET_INTERACT,
         OBJ_BUCKET_MOVABLE_ACTOR,
         OBJ_BUCKET_THINK_1,
+        OBJ_BUCKET_HURTABLE,
+        OBJ_BUCKET_KILL_OFFSCREEN,
         //
         NUM_OBJ_BUCKETS
 };
@@ -87,13 +89,13 @@ enum {
         TILE_BLOCK      = 1,
         //
         TILE_SLOPE_45   = 2,
-        TILE_SLOPE_45_1 = 2,
+        TILE_SLOPE_45_1 = TILE_SLOPE_45,
         TILE_SLOPE_45_2,
         TILE_SLOPE_45_3,
         TILE_SLOPE_45_4,
         //
         TILE_SLOPE_LO   = 6,
-        TILE_SLOPE_LO_1 = 6,
+        TILE_SLOPE_LO_1 = TILE_SLOPE_LO,
         TILE_SLOPE_LO_2,
         TILE_SLOPE_LO_3,
         TILE_SLOPE_LO_4,
@@ -103,7 +105,7 @@ enum {
         TILE_SLOPE_LO_8,
         //
         TILE_SLOPE_HI   = 14,
-        TILE_SLOPE_HI_1 = 14,
+        TILE_SLOPE_HI_1 = TILE_SLOPE_HI,
         TILE_SLOPE_HI_2,
         TILE_SLOPE_HI_3,
         TILE_SLOPE_HI_4,

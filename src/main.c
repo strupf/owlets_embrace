@@ -109,7 +109,7 @@ static void draw_frame_diagrams()
 static void frame_diagram()
 {
         tdiagram = tex_create(DIAGRAM_W, DIAGRAM_H * 2, 1);
-        os_memset(tdiagram.mask, 0xFF, tdiagram.w_byte * tdiagram.h);
+        os_memset(tdiagram.mk, 0xFF, tdiagram.w_byte * tdiagram.h);
         gfx_draw_to(tdiagram);
         for (int n = 0; n < NUM_TIMING; n++) {
                 rec_i32 r = {0, (1 + n) * DIAGRAM_SPACING_Y, TIMING_FRAMES, 1};
@@ -196,6 +196,7 @@ static inline void os_prepare()
         PRINTF("= %lli kb\n", sgame + sos);
         frame_diagram();
         g_os.lasttime = os_time();
+        PRINTF("SIZE: %lli\n", sizeof(objset_s));
 }
 
 i32 os_tick()

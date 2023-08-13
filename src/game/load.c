@@ -22,12 +22,11 @@ enum {
  * www.cr31.co.uk/stagecast/wang/blob.html
  */
 typedef struct {
-        tmj_tilesets_s tilesets;
-        const u32     *arr;
-        const int      w;
-        const int      h;
-        const int      x;
-        const int      y;
+        u32 *arr;
+        int  w;
+        int  h;
+        int  x;
+        int  y;
 } autotiling_s;
 
 static inline bool32 is_autotile(u32 ID)
@@ -124,8 +123,8 @@ static void autotile_calc(game_s *g, autotiling_s tiling, int n)
                 if ((m & 0x14) == 0x14 && autotile_fits(tiling, +1, +1, ttype))
                         m |= 0x08; // bot right
 
-                g->rtiles[n][0].m  = m;
-                g->rtiles[n][0].ID = TILEID_NULL;
+                // g->rtiles[n][0].m  = m;
+                g->rtiles[n].ID = TILEID_NULL;
 
                 // some tiles have variants
                 // if one of those is matched choose a random variant
@@ -172,7 +171,7 @@ static void autotile_calc(game_s *g, autotiling_s tiling, int n)
                         ty = blobpattern[m * 2 + 1];
                         break;
                 }
-                g->rtiles[n][0].ID = tileID_encode(tx, ty + ytype);
+                g->rtiles[n].ID = tileID_encode(tx, ty + ytype);
 
         } break;
         case TILESHAPE_SLOPE_45: {
@@ -208,10 +207,10 @@ static void autotile_calc(game_s *g, autotiling_s tiling, int n)
                 }
 
                 // choose appropiate variant
-                int z              = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
-                int tx             = 18 + z;
-                int ty             = 0 + flags;
-                g->rtiles[n][0].ID = tileID_encode(tx, ty + ytype);
+                int z           = 4 - (cn ? 4 : ((yn > 0) << 1) | (xn > 0));
+                int tx          = 18 + z;
+                int ty          = 0 + flags;
+                g->rtiles[n].ID = tileID_encode(tx, ty + ytype);
         } break;
         case TILESHAPE_SLOPE_LO: {
                 g->tiles[n] = TILE_SLOPE_LO + flags;
@@ -227,8 +226,7 @@ static void autotile_calc(game_s *g, autotiling_s tiling, int n)
 // Tied tile IDs encode the tileID, the tileset and possible flipping flags.
 //   See: doc.mapeditor.org/en/stable/reference/global-tile-ids/
 void load_rendertile_layer(game_s *g, jsn_s jlayer,
-                           int width, int height,
-                           tmj_tilesets_s tilesets)
+                           int width, int height)
 {
         os_spmem_push();
         const u32 *tileIDs = tmj_tileID_array_from_tmj(jlayer,
@@ -239,13 +237,13 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
                         int n      = x + y * width;
                         u32 tileID = tileIDs[n];
 
-                        g->tiles[n]        = 0;
-                        g->rtiles[n][0].ID = TILEID_NULL;
-                        g->rtiles[n][1].ID = TILEID_NULL;
+                        g->tiles[n]      = 0;
+                        g->rtiles[n].ID  = TILEID_NULL;
+                        g->rtiles[n].ID2 = TILEID_NULL;
                         if (tileID == 0) continue;
 
                         if (is_autotile(tileID)) {
-                                autotiling_s tiling = {tilesets, tileIDs,
+                                autotiling_s tiling = {tileIDs,
                                                        width, height, x, y};
                                 autotile_calc(g, tiling, n);
                                 continue;
@@ -253,7 +251,7 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
 
                         u32 tileID_nf = (tileID & 0xFFFFFFFu) -
                                         (TMJ_TILESET_FGID);
-                        g->rtiles[n][0].ID = tileID_nf;
+                        g->rtiles[n].ID = tileID_nf;
                 }
         }
 
@@ -339,10 +337,12 @@ void game_load_map(game_s *g, const char *filename)
         bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
         ASSERT(has_tilesets);
 
+        /*
         tmj_tilesets_s tilesets = tmj_tilesets_parse(jtileset);
         for (int n = 0; n < tilesets.n; n++) {
                 PRINTF("name: %s\n", tilesets.sets[n].name);
         }
+        */
 
         foreach_jsn_childk (jroot, "layers", jlayer) {
                 char name[64] = {0};
@@ -350,7 +350,7 @@ void game_load_map(game_s *g, const char *filename)
                 if (0) {
                 } else if (streq(name, "autotile")) {
                         PRINTF("LOAD LAYER %s\n", name);
-                        load_rendertile_layer(g, jlayer, w, h, tilesets);
+                        load_rendertile_layer(g, jlayer, w, h);
                 } else if (streq(name, "obj")) {
                         load_obj_layer(g, jlayer);
                 }

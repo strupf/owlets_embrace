@@ -13,6 +13,28 @@ enum cam_values {
         CAM_LERP_DEN_FAST         = 4,
 };
 
+void cam_constrain_to_room(game_s *g, cam_s *c)
+{
+        int x1 = c->pos.x - c->wh;
+        int y1 = c->pos.y - c->hh;
+        if (x1 < 0) {
+                c->pos.x = c->wh;
+        }
+        if (y1 < 0) {
+                c->pos.y = c->hh;
+        }
+
+        // avoids round errors on uneven camera sizes
+        int x2 = (c->pos.x - c->wh) + c->w;
+        int y2 = (c->pos.y - c->hh) + c->h;
+        if (x2 > g->pixel_x) {
+                c->pos.x = g->pixel_x - c->w + c->wh;
+        }
+        if (y2 > g->pixel_y) {
+                c->pos.y = g->pixel_y - c->h + c->hh;
+        }
+}
+
 void cam_update(game_s *g, cam_s *c)
 {
         obj_s *player;
@@ -42,23 +64,5 @@ void cam_update(game_s *g, cam_s *c)
         } else {
                 c->pos = v2_lerp(c->pos, target, 1, CAM_LERP_DEN_FAST);
         }
-
-        int x1 = c->pos.x - c->wh;
-        int y1 = c->pos.y - c->hh;
-        if (x1 < 0) {
-                c->pos.x = c->wh;
-        }
-        if (y1 < 0) {
-                c->pos.y = c->hh;
-        }
-
-        // avoids round errors on uneven camera sizes
-        int x2 = (c->pos.x - c->wh) + c->w;
-        int y2 = (c->pos.y - c->hh) + c->h;
-        if (x2 > g->pixel_x) {
-                c->pos.x = g->pixel_x - c->w + c->wh;
-        }
-        if (y2 > g->pixel_y) {
-                c->pos.y = g->pixel_y - c->h + c->hh;
-        }
+        cam_constrain_to_room(g, c);
 }

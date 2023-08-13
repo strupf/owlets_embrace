@@ -47,7 +47,7 @@ void game_init(game_s *g)
                         if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
                                 int i = (x >> 3) + y * tclouds.w_byte;
                                 int b = (x & 7);
-                                tclouds.mask[i] &= ~(1 << (7 - b)); // clear bit
+                                tclouds.mk[i] &= ~(1 << (7 - b)); // clear bit
                         }
                 }
         }
@@ -109,6 +109,12 @@ void game_init(game_s *g)
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_THINK_1);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_KILL_OFFSCREEN];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_KILL_OFFSCREEN);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
 }
@@ -146,25 +152,20 @@ static void load_tileatlas(int texID)
                 ASSERT(w == TILEATLAS_W && h == TILEATLAS_W);
                 char *c = jsn_strkptr(j, "data");
 
-                // parse pixel data block (black/white)
-                for (int y = 0; y < h; y++) {
-                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
-                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
-                                int c1 = (char_hex_to_int(*c++)) << 4;
-                                int c2 = (char_hex_to_int(*c++));
-
-                                t.px[x + yy] = c1 | c2;
-                        }
-                }
-
-                // parse transparency block (opaque, transparent)
-                for (int y = 0; y < h; y++) {
-                        int yy = (y_global + y) * TILEATLAS_W_BYTE;
-                        for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
-                                int c1 = (char_hex_to_int(*c++)) << 4;
-                                int c2 = (char_hex_to_int(*c++));
-
-                                t.mask[x + yy] = c1 | c2;
+                // i = 0: parse pixel data block (black/white)
+                // i = 1: parse transparency block (opaque, transparent)
+                for (int i = 0; i < 2; i++) {
+                        for (int y = 0; y < h; y++) {
+                                int yy = (y_global + y) * TILEATLAS_W_BYTE;
+                                for (int x = 0; x < TILEATLAS_W_BYTE; x++) {
+                                        int c1 = (char_hex_to_int(*c++)) << 4;
+                                        int c2 = (char_hex_to_int(*c++));
+                                        int cc = c1 | c2;
+                                        if (i)
+                                                t.mk[x + yy] = cc;
+                                        else
+                                                t.px[x + yy] = cc;
+                                }
                         }
                 }
                 y_global += h;

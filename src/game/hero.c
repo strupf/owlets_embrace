@@ -21,15 +21,15 @@ static void   hero_jump_particles(game_s *g, obj_s *o);
 static void   hero_land_particles(game_s *g, obj_s *o);
 static void   hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook);
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8);
-void          hook_squeeze(game_s *g, obj_s *o);
-void          hero_squeeze(game_s *g, obj_s *o);
+void          hook_squeeze(game_s *g, obj_s *o, void *arg);
+void          hero_squeeze(game_s *g, obj_s *o, void *arg);
 
-static void obj_squeeze_delete(game_s *g, obj_s *o)
+static void obj_squeeze_delete(game_s *g, obj_s *o, void *arg)
 {
         obj_delete(g, o);
 }
 
-static void arrow_think(game_s *g, obj_s *o)
+static void arrow_think(game_s *g, obj_s *o, void *arg)
 {
         rec_i32 aabb = obj_aabb(o);
         aabb.x--;
@@ -47,7 +47,8 @@ static obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         objflags_s flags = objflags_create(
             OBJ_FLAG_ACTOR,
             OBJ_FLAG_MOVABLE_ACTOR,
-            OBJ_FLAG_THINK_1);
+            OBJ_FLAG_THINK_1,
+            OBJ_FLAG_KILL_OFFSCREEN);
         obj_set_flags(g, arrow, flags);
         arrow->think_1      = arrow_think;
         arrow->ID           = 2;
@@ -148,10 +149,10 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        int xs     = os_inp_dpad_x();
-        int velsgn = SGN(o->vel_q8.x);
-
+        int    xs            = os_inp_dpad_x();
+        int    velsgn        = SGN(o->vel_q8.x);
         bool32 ropestretched = objhandle_is_valid(h->hook) && rope_stretched(g, &h->rope);
+
         if (xs != 0) {
                 o->facing  = xs;
                 int acc    = 0;
@@ -227,8 +228,8 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
                 v2_i32 dthook = v2_sub(hook->pos_new, hook->pos);
-                obj_move_x(g, hook, dthook.x);
-                obj_move_y(g, hook, dthook.y);
+                actor_move_x(g, hook, dthook.x);
+                actor_move_y(g, hook, dthook.y);
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
                         hook->attached     = 1;
@@ -277,9 +278,9 @@ static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
         ohook->ropenode = NULL;
 }
 
-void hook_squeeze(game_s *g, obj_s *o)
+void hook_squeeze(game_s *g, obj_s *o, void *arg)
 {
-        hero_s *hero = (hero_s *)o->onsqueezearg;
+        hero_s *hero = (hero_s *)arg;
         obj_s  *ohero;
         if (try_obj_from_handle(hero->obj, &ohero)) {
                 hook_destroy(g, hero, ohero, o);
@@ -288,7 +289,7 @@ void hook_squeeze(game_s *g, obj_s *o)
         }
 }
 
-void hero_squeeze(game_s *g, obj_s *o)
+void hero_squeeze(game_s *g, obj_s *o, void *arg)
 {
         game_map_transition_start(g, "template.tmj");
 }
@@ -310,7 +311,7 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
         o->drag_q8.y    = 256;
         o->gravity_q8.y = 34;
         o->onsqueeze    = hook_squeeze;
-        o->onsqueezearg = &g->hero;
+        o->userarg      = &g->hero;
         rope_init(rope);
         rope->head->p = p;
         rope->tail->p = p;
@@ -383,7 +384,27 @@ static void hero_land_particles(game_s *g, obj_s *o)
 
 void hero_check_level_transition(game_s *g, obj_s *hero)
 {
-        rec_i32     haabb    = obj_aabb(hero);
+        rec_i32 haabb = obj_aabb(hero);
+
+        direction_e dir = 0;
+        if (haabb.x < 0) dir = DIRECTION_W;
+        if (haabb.y < 0) dir = DIRECTION_N;
+        if (haabb.x + haabb.w > g->pixel_x) dir = DIRECTION_E;
+        if (haabb.y + haabb.h > g->pixel_y) dir = DIRECTION_S;
+
+        if (dir) {
+                rec_i32 gaabb = haabb;
+                gaabb.x += g->roomlayout.curr->r.x;
+                gaabb.y += g->roomlayout.curr->r.y;
+                roomdesc_s *rd = roomlayout_get(&g->roomlayout, gaabb);
+                ASSERT(rd);
+                g->roomlayout.curr      = rd;
+                g->transition.enterfrom = dir;
+                g->transition.heroprev  = haabb;
+                g->transition.camprev   = g->cam;
+                game_map_transition_start(g, rd->filename);
+                return;
+        }
         obj_listc_s triggers = objbucket_list(g, OBJ_BUCKET_NEW_AREA_COLLIDER);
         for (int n = 0; n < triggers.n; n++) {
                 obj_s *coll = triggers.o[n];
@@ -417,15 +438,15 @@ void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
         for (int n = 0; n < list.n; n++) {
                 obj_s *oi = list.o[n];
                 if (overlap_rec_excl(aabb, obj_aabb(oi)) && oi->oninteract) {
-                        oi->oninteract(g, oi);
+                        oi->oninteract(g, oi, NULL);
                         break;
                 }
         }
 }
 
-void hero_update(game_s *g, obj_s *o)
+void hero_update(game_s *g, obj_s *o, void *arg)
 {
-        hero_s *h = (hero_s *)o->userarg;
+        hero_s *h = (hero_s *)arg;
         h->inpp   = h->inp;
         h->inp    = 0;
 
@@ -437,7 +458,7 @@ void hero_update(game_s *g, obj_s *o)
         }
         os_debug_time(TIMING_HERO_HOOK, os_time() - timeh);
 
-        if (g->transitionphase == TRANSITION_NONE) {
+        if (g->transition.phase == TRANSITION_NONE) {
                 hero_check_level_transition(g, o);
         }
         hero_pickup_logic(g, h, o);

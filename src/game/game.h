@@ -18,16 +18,16 @@
 // Object bucket is an automatically filtered set of
 // active objects. The filter works using object flags (bitset)
 struct objbucket_s {
-        objset_s   set;
-        objflags_s op_flag[2];
-        int        op_func[2];
-        objflags_s cmp_flag;
-        int        cmp_func;
+        objset_s      set;
+        objflags_s    op_flag[2];
+        objflag_op_e  op_func[2];
+        objflags_s    cmp_flag;
+        objflag_cmp_e cmp_func;
 };
 
 struct rtile_s {
         u16 ID;
-        u16 m; // only for debugging
+        u16 ID2;
 };
 
 #define TILEID_NULL U16_MAX
@@ -75,11 +75,57 @@ enum transition_type {
         TRANSITION_TYPE_SIMPLE,
 };
 
-enum transition_phase {
+typedef enum {
         TRANSITION_NONE,
         TRANSITION_FADE_OUT,
         TRANSITION_FADE_IN,
-};
+} transition_phase_e;
+
+typedef struct {
+        int    cloudtype;
+        v2_i32 pos;
+        i32    velx;
+} cloudbg_s;
+
+typedef struct {
+        v2_i32 pos;
+        v2_i32 vel;
+} particlebg_s;
+
+typedef struct {
+        cloudbg_s    clouds[NUM_BACKGROUND_CLOUDS];
+        int          nclouds;
+        particlebg_s particles[NUM_BACKGROUND_PARTICLES];
+        int          nparticles;
+} background_s;
+
+typedef struct {
+        char    filename[64];
+        rec_i32 r;
+} roomdesc_s;
+
+typedef struct {
+        roomdesc_s  rooms[64];
+        roomdesc_s *curr;
+        int         n_rooms;
+} roomlayout_s;
+
+typedef enum {
+        DIRECTION_NONE,
+        DIRECTION_W,
+        DIRECTION_N,
+        DIRECTION_E,
+        DIRECTION_S,
+} direction_e;
+
+typedef struct {
+        transition_phase_e phase;
+        int                ticks;
+        char               map[64]; // next map to load
+        rec_i32            heroprev;
+        cam_s              camprev;
+        direction_e        enterfrom;
+} transition_s;
 
 struct game_s {
         i32    tick;
@@ -96,25 +142,29 @@ struct game_s {
 
         int        n_particles;
         particle_s particles[NUM_PARTICLES];
+        textbox_s  textbox;
 
-        textbox_s textbox;
+        int     tiles_x;
+        int     tiles_y;
+        int     pixel_x;
+        int     pixel_y;
+        u8      tiles[NUM_TILES];
+        rtile_s rtiles[NUM_TILES];
 
-        int                tiles_x;
-        int                tiles_y;
-        int                pixel_x;
-        int                pixel_y;
-        ALIGNAS(4) u8      tiles[NUM_TILES];
-        ALIGNAS(4) rtile_s rtiles[NUM_TILES][NUM_RENDERTILE_LAYERS];
+        background_s background;
+        transition_s transition;
 
-        int  transitionphase;
-        int  transitionticks;
-        char transitionmap[64]; // next map to load
+        roomlayout_s roomlayout;
 };
 
+// loads a Tiled .world file
+void        roomlayout_load(roomlayout_s *rl, const char *filename);
+roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec);
 void        game_init(game_s *g);
 void        game_update(game_s *g);
 void        game_draw(game_s *g);
 void        game_close(game_s *g);
+void        game_trigger(game_s *g, int triggerID);
 //
 tilegrid_s  game_tilegrid(game_s *g);
 void        game_map_transition_start(game_s *g, const char *filename);

@@ -33,6 +33,28 @@ typedef struct {
         int   x;
 } pickupdata_s;
 
+typedef enum {
+        DOORTYPE_KEY,
+        DOORTYPE_ACTIVATION,
+        DOORTYPE_HIT,
+} doortype_e;
+
+typedef enum {
+        DOOROPEN_SLIDE_TOP,
+        DOOROPEN_DELETE,
+        DOOROPEN_CUSTOM,
+} dooropen_e;
+
+typedef struct {
+        doortype_e type;
+        dooropen_e open;
+        bool32     triggered;
+        int        moved;
+} doordata_s;
+
+typedef void (*objfunc_f)(game_s *g, obj_s *o, void *arg);
+typedef void (*objtrigger_f)(game_s *g, obj_s *o, int triggerID, void *arg);
+
 struct obj_s {
         int        gen;
         int        index;
@@ -41,8 +63,7 @@ struct obj_s {
         int        p1;
         int        p2;
         int        ID;
-
-        int facing;
+        int        facing;
 
         obj_s *parent;
         obj_s *next;
@@ -63,29 +84,40 @@ struct obj_s {
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
-        void (*onsqueeze)(game_s *g, obj_s *o);
-        void (*oninteract)(game_s *g, obj_s *o);
-        void (*think_1)(game_s *g, obj_s *o);
-        void (*think_2)(game_s *g, obj_s *o);
+        objfunc_f    onsqueeze;
+        objfunc_f    oninteract;
+        objfunc_f    think_1;
+        objfunc_f    think_2;
+        objtrigger_f ontrigger;
+
         void *userarg;
-        void *onsqueezearg;
 
         bool32      attached;
         ropenode_s *ropenode;
         rope_s     *rope;
 
         pickupdata_s pickup;
+        doordata_s   door;
 
         char        filename[64];
         pathmover_s path;
 };
 
+typedef struct obj_filter_s {
+        objflags_s    op_flag[2];
+        objflag_op_e  op_func[2];
+        objflags_s    cmp_flag;
+        objflag_cmp_e cmp_func;
+} obj_filter_s;
+
+bool32      obj_matches_filter(obj_s *o, obj_filter_s filter);
 bool32      objhandle_is_valid(objhandle_s h);
 bool32      objhandle_is_null(objhandle_s h);
 obj_s      *obj_from_handle(objhandle_s h);
 bool32      try_obj_from_handle(objhandle_s h, obj_s **o);
 objhandle_s objhandle_from_obj(obj_s *o);
 bool32      obj_contained_in_array(obj_s *o, obj_s **arr, int num);
+void        objset_add_all(game_s *g, objset_s *set);
 //
 obj_s      *obj_create(game_s *g);
 void        obj_delete(game_s *g, obj_s *o); // object still lives until the end of the frame
@@ -99,10 +131,8 @@ rec_i32     obj_rec_left(obj_s *o);  // these return a rectangle strip
 rec_i32     obj_rec_right(obj_s *o); // just next to the object's aabb
 rec_i32     obj_rec_bottom(obj_s *o);
 rec_i32     obj_rec_top(obj_s *o);
-void        obj_move_x(game_s *g, obj_s *o, int dx);
-void        obj_move_y(game_s *g, obj_s *o, int dy);
-bool32      actor_step_x(game_s *g, obj_s *o, int sx);
-bool32      actor_step_y(game_s *g, obj_s *o, int sy);
+void        actor_move_x(game_s *g, obj_s *o, int dx);
+void        actor_move_y(game_s *g, obj_s *o, int dy);
 void        solid_move(game_s *g, obj_s *o, int dx, int dy);
 void        obj_apply_movement(obj_s *o);
 //

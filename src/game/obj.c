@@ -5,6 +5,15 @@
 #include "obj.h"
 #include "game.h"
 
+bool32 obj_matches_filter(obj_s *o, obj_filter_s filter)
+{
+        objflags_s f = o->flags;
+
+        f = objflags_op(f, filter.op_flag[0], filter.op_func[0]);
+        f = objflags_op(f, filter.op_flag[1], filter.op_func[1]);
+        return objflags_cmp(f, filter.cmp_flag, filter.cmp_func);
+}
+
 bool32 objhandle_is_valid(objhandle_s h)
 {
         return (h.o && h.o->gen == h.gen);
@@ -78,7 +87,6 @@ void obj_set_flags(game_s *g, obj_s *o, objflags_s flags)
 
                 f = objflags_op(f, b->op_flag[0], b->op_func[0]);
                 f = objflags_op(f, b->op_flag[1], b->op_func[1]);
-
                 if (objflags_cmp(f, b->cmp_flag, b->cmp_func)) {
                         objset_add(&b->set, o);
                 } else {
@@ -182,28 +190,6 @@ rec_i32 obj_rec_top(obj_s *o)
         return r;
 }
 
-void obj_move_x(game_s *g, obj_s *o, int dx)
-{
-        int sx = SGN(dx);
-        for (int m = ABS(dx); m > 0; m--) {
-                if (!actor_step_x(g, o, sx)) {
-                        o->vel_q8.x = 0;
-                        break;
-                }
-        }
-}
-
-void obj_move_y(game_s *g, obj_s *o, int dy)
-{
-        int sy = SGN(dy);
-        for (int m = ABS(dy); m > 0; m--) {
-                if (!actor_step_y(g, o, sy)) {
-                        o->vel_q8.y = 0;
-                        break;
-                }
-        }
-}
-
 static bool32 actor_try_wiggle(game_s *g, obj_s *o)
 {
         rec_i32 aabb = obj_aabb(o);
@@ -221,7 +207,7 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
         }
         o->squeezed = 1;
         if (o->onsqueeze) {
-                o->onsqueeze(g, o);
+                o->onsqueeze(g, o, o->userarg);
         }
         return 0;
 }
@@ -236,7 +222,7 @@ static inline i_actor_step(game_s *g, obj_s *o, int sx, int sy)
         }
 }
 
-bool32 actor_step_x(game_s *g, obj_s *o, int sx)
+static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
 {
         ASSERT(ABS(sx) <= 1);
 
@@ -277,10 +263,9 @@ bool32 actor_step_x(game_s *g, obj_s *o, int sx)
         return 0;
 }
 
-bool32 actor_step_y(game_s *g, obj_s *o, int sy)
+static bool32 actor_step_y(game_s *g, obj_s *o, int sy)
 {
         ASSERT(ABS(sy) <= 1);
-
         rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
         if (!game_area_blocked(g, r)) {
                 i_actor_step(g, o, 0, sy);
@@ -289,6 +274,28 @@ bool32 actor_step_y(game_s *g, obj_s *o, int sy)
 
         o->vel_q8.y = 0;
         return 0;
+}
+
+void actor_move_x(game_s *g, obj_s *o, int dx)
+{
+        int sx = SGN(dx);
+        for (int m = ABS(dx); m > 0; m--) {
+                if (!actor_step_x(g, o, sx)) {
+                        o->vel_q8.x = 0;
+                        break;
+                }
+        }
+}
+
+void actor_move_y(game_s *g, obj_s *o, int dy)
+{
+        int sy = SGN(dy);
+        for (int m = ABS(dy); m > 0; m--) {
+                if (!actor_step_y(g, o, sy)) {
+                        o->vel_q8.y = 0;
+                        break;
+                }
+        }
 }
 
 static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
@@ -355,4 +362,25 @@ void interact_open_dialogue(game_s *g, obj_s *o)
         os_strcat(filename, ASSET_PATH_DIALOGUE);
         os_strcat(filename, o->filename);
         textbox_load_dialog(&g->textbox, filename);
+}
+
+void objset_add_all(game_s *g, objset_s *set)
+{
+        *set = g->objbuckets[OBJ_BUCKET_ALIVE].set;
+}
+
+void objset_apply_filter(objset_s *set, obj_filter_s filter)
+{
+        obj_s      *toremove[NUM_OBJS];
+        int         n_toremove = 0;
+        obj_listc_s lc         = objset_list(set);
+        for (int n = 0; n < lc.n; n++) {
+                obj_s *o = lc.o[n];
+                if (!obj_matches_filter(o, filter)) {
+                        toremove[n_toremove++] = o;
+                }
+        }
+        for (int n = 0; n < n_toremove; n++) {
+                objset_del(set, toremove[n]);
+        }
 }

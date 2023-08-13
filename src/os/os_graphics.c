@@ -268,8 +268,8 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
 
         int i = (x >> 3) + y * t.w_byte;
         int m = 0x80 >> (x & 7);
-        *px   = ((t.px[i] & m) > 0);
-        *op   = (t.mask[i] & m);
+        *px   = (t.px[i] & m) > 0;
+        *op   = (t.mk[i] & m);
 }
 
 static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
@@ -282,7 +282,7 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
                 t.px[i] |= s; // set bit
         else
                 t.px[i] &= ~s; // clear bit
-        if (t.mask) t.mask[i] |= s;
+        if (t.mk) t.mk[i] |= s;
 }
 
 void gfx_set_inverted(bool32 inv)
@@ -362,11 +362,11 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
         int   b1         = x1 >> 5;
         int   b2         = x2 >> 5;
         u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mask;
+        u32 *restrict dm = (u32 *)dst.mk;
         for (int y = y1; y <= y2; y++) {
                 int yd            = (y + pos.y - rs.y) * dst.w_word;
                 int ii            = b1 + y * src.w_word;
-                u32 *restrict sm_ = &((u32 *)src.mask)[ii];
+                u32 *restrict sm_ = &((u32 *)src.mk)[ii];
                 u32 *restrict sp_ = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
                         int uu = (b == b1 ? x1 & 31 : 0);
@@ -454,7 +454,7 @@ void gfx_rec_fill(rec_i32 r, int col)
         u32 p0           = endian_u32(sp >> s0);
         u32 p1           = endian_u32(sp << s1);
         u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mask;
+        u32 *restrict dm = (u32 *)dst.mk;
         for (int y = y1; y <= y2; y++) {
                 int yd = (y + ri.y) * dst.w_word;
                 for (int b = b1; b <= b2; b++) {

@@ -114,23 +114,23 @@ static inline objflags_s objflags_xor(objflags_s a, objflags_s b)
         return r;
 }
 
-enum {
+typedef enum {
         OBJFLAGS_CMP_ZERO,
         OBJFLAGS_CMP_NZERO,
         OBJFLAGS_CMP_EQ,
         OBJFLAGS_CMP_NEQ,
-};
+} objflag_cmp_e;
 
-enum {
+typedef enum {
         OBJFLAGS_OP_PASSTHROUGH,
         OBJFLAGS_OP_AND,
         OBJFLAGS_OP_NAND,
         OBJFLAGS_OP_XOR,
         OBJFLAGS_OP_NOT,
         OBJFLAGS_OP_OR,
-};
+} objflag_op_e;
 
-static bool32 objflags_cmp(objflags_s a, objflags_s b, int cmp)
+static bool32 objflags_cmp(objflags_s a, objflags_s b, objflag_cmp_e cmp)
 {
         switch (cmp) {
         case OBJFLAGS_CMP_ZERO: return objflags_cmp_zero(a);
@@ -141,7 +141,7 @@ static bool32 objflags_cmp(objflags_s a, objflags_s b, int cmp)
         return 0;
 }
 
-static objflags_s objflags_op(objflags_s a, objflags_s b, int op)
+static objflags_s objflags_op(objflags_s a, objflags_s b, objflag_op_e op)
 {
         switch (op) {
         case OBJFLAGS_OP_PASSTHROUGH: return a;

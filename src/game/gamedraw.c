@@ -23,9 +23,14 @@ static void draw_textbox(textbox_s *tb)
         }
 }
 
-static void draw_background(game_s *g)
+static void draw_background(background_s *bg, v2_i32 camp)
 {
-
+        for (int n = 0; n < bg->nclouds; n++) {
+                cloudbg_s c = bg->clouds[n];
+        }
+        for (int n = 0; n < bg->nparticles; n++) {
+                particlebg_s p = bg->particles[n];
+        }
         gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256});
 }
 
@@ -36,9 +41,8 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
         tex_s tileset = tex_get(TEXID_TILESET);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
-                rtile_s *rtiles = g->rtiles[x + y * g->tiles_x];
-                rtile_s  rt     = rtiles[0]; // todo
-                int      ID     = g_tileIDs[rt.ID];
+                rtile_s rt = g->rtiles[x + y * g->tiles_x];
+                int     ID = g_tileIDs[rt.ID];
                 if (ID == TILEID_NULL) continue;
                 int tx, ty;
                 tileID_decode(ID, &tx, &ty);
@@ -49,15 +53,20 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
         os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
 }
 
+static void draw_item_selection(game_s *g)
+{
+}
+
 static void draw_transition(game_s *g)
 {
-        switch (g->transitionphase) {
+        transition_s *t = &g->transition;
+        switch (t->phase) {
         case TRANSITION_FADE_IN: {
-                int x = lerp_i32(0, 410, g->transitionticks, TRANSITION_TICKS);
+                int x = lerp_i32(0, 410, t->ticks, TRANSITION_TICKS);
                 gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
         } break;
         case TRANSITION_FADE_OUT: {
-                int x = lerp_i32(410, 0, g->transitionticks, TRANSITION_TICKS);
+                int x = lerp_i32(410, 0, t->ticks, TRANSITION_TICKS);
                 gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
         } break;
         }
@@ -92,7 +101,7 @@ void game_draw(game_s *g)
         i32     x1, y1, x2, y2;
         game_tile_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
 
-        draw_background(g);
+        draw_background(&g->background, camp);
         draw_tiles(g, x1, y1, x2, y2, camp);
 
         obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
@@ -129,8 +138,9 @@ void game_draw(game_s *g)
                 draw_rope(&g->hero.rope, camp);
 
         draw_particles(g, camp);
+        draw_item_selection(g);
 
-        if (g->transitionphase)
+        if (g->transition.phase)
                 draw_transition(g);
         if (g->textbox.active)
                 draw_textbox(&g->textbox);

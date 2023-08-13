@@ -16,6 +16,7 @@ struct cam_s {
         v2_i32 pos;
 };
 
+void cam_constrain_to_room(game_s *g, cam_s *c);
 void cam_update(game_s *g, cam_s *c);
 
 #endif
