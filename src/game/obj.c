@@ -356,6 +356,23 @@ void obj_apply_movement(obj_s *o)
         o->subpos_q8.y &= 255;
 }
 
+obj_s *interactable_closest(game_s *g, v2_i32 p)
+{
+        obj_listc_s list    = objbucket_list(g, OBJ_BUCKET_INTERACT);
+        obj_s      *closest = NULL;
+        u32         dist    = U32_MAX;
+        for (int n = 0; n < list.n; n++) {
+                obj_s *oi = list.o[n];
+                v2_i32 pi = obj_aabb_center(oi);
+                u32    d  = v2_distancesq(p, pi);
+                if (d < dist) {
+                        dist    = d;
+                        closest = oi;
+                }
+        }
+        return closest;
+}
+
 void interact_open_dialogue(game_s *g, obj_s *o)
 {
         char filename[64] = {0};

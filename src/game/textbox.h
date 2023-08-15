@@ -10,6 +10,7 @@
 enum {
         TEXTBOX_LINES          = 4,
         TEXTBOX_CHARS_PER_LINE = 32,
+        TEXTBOX_NUM_CHOICES    = 4,
         TEXTBOX_TICKS_PER_CHAR = 1,
         TEXTBOX_FILE_MEM       = 0x10000,
         TEXTBOX_NUM_TOKS       = 256,
@@ -29,22 +30,33 @@ typedef struct {
         int       speed[TEXTBOX_CHARS_PER_LINE];
 } textboxline_s;
 
-struct textbox_s {
-        int           page_animation_state;
-        int           typewriter_tick;
-        int           curreffect;
-        int           currspeed;
-        int           curr_line;
-        int           curr_char;
-        bool32        shows_all;
-        bool32        active;
-        textboxline_s lines[TEXTBOX_LINES];
+typedef struct {
+        fntchar_s label[16];
+        int       labellen;
 
-        dialog_tok_s *tok;
-        dialog_tok_s  toks[TEXTBOX_NUM_TOKS];
-        char          dialogmem[TEXTBOX_FILE_MEM];
+        // location in text
+        char *txtptr;
+} textboxchoice_s;
+
+struct textbox_s {
+        int             page_animation_state;
+        int             typewriter_tick;
+        int             curreffect;
+        int             currspeed;
+        int             curr_line;
+        int             curr_char;
+        bool32          shows_all;
+        bool32          active;
+        textboxline_s   lines[TEXTBOX_LINES];
+        textboxchoice_s choices[TEXTBOX_NUM_CHOICES];
+        int             n_choices;
+        int             cur_choice;
+        dialog_tok_s   *tok;
+        dialog_tok_s    toks[TEXTBOX_NUM_TOKS];
+        char            dialogmem[TEXTBOX_FILE_MEM];
 };
 
+void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
 void   textbox_init(textbox_s *tb);
 void   textbox_clr(textbox_s *tb);
 void   textbox_update(textbox_s *tb);

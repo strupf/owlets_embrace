@@ -285,6 +285,11 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
         if (t.mk) t.mk[i] |= s;
 }
 
+void gfx_px(int x, int y, int col)
+{
+        i_gfx_put_px(g_os.dst, x, y, col, 0);
+}
+
 void gfx_set_inverted(bool32 inv)
 {
 #ifdef TARGET_PD
@@ -352,10 +357,10 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
         tex_s dst        = g_os.dst;
         int   zx         = dst.w - pos.x;
         int   zy         = dst.h - pos.y;
-        int   x1         = rs.x + (0 >= -pos.x ? 0 : -pos.x);
-        int   y1         = rs.y + (0 >= -pos.y ? 0 : -pos.y);
-        int   x2         = rs.x - 1 + (rs.w <= zx ? rs.w : zx);
-        int   y2         = rs.y - 1 + (rs.h <= zy ? rs.h : zy);
+        int   x1         = rs.x + MAX(0, -pos.x);
+        int   y1         = rs.y + MAX(0, -pos.y);
+        int   x2         = rs.x + MIN(rs.w, zx) - 1;
+        int   y2         = rs.y + MIN(rs.h, zy) - 1;
         int   cc         = pos.x - rs.x;
         int   s1         = 31 & (32 - (cc & 31)); // relative word alignment
         int   s0         = 32 - s1;
@@ -587,8 +592,8 @@ void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
                 v2_i32 pp = p;
                 switch (c.effectID) {
                 case FNT_EFFECT_SHAKE:
-                        pp.x += rng_i16(&rng) % 2;
-                        pp.y += rng_i16(&rng) % 2;
+                        pp.x += rngs_fast_i16(&rng) % 2;
+                        pp.y += rngs_fast_i16(&rng) % 2;
                         break;
                 case FNT_EFFECT_WAVE:
                         pp.y += sin_q16((os_tick() << 13) + (i << 16)) >> 15;

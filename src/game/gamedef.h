@@ -56,6 +56,7 @@ enum obj_flag {
         OBJ_FLAG_INTERACT,
         OBJ_FLAG_MOVABLE_ACTOR,
         OBJ_FLAG_THINK_1,
+        OBJ_FLAG_THINK_2,
         OBJ_FLAG_HURTABLE,
         OBJ_FLAG_KILL_OFFSCREEN,
         //
@@ -78,11 +79,20 @@ enum obj_bucket {
         OBJ_BUCKET_INTERACT,
         OBJ_BUCKET_MOVABLE_ACTOR,
         OBJ_BUCKET_THINK_1,
+        OBJ_BUCKET_THINK_2,
         OBJ_BUCKET_HURTABLE,
         OBJ_BUCKET_KILL_OFFSCREEN,
         //
         NUM_OBJ_BUCKETS
 };
+
+typedef enum {
+        DIRECTION_NONE,
+        DIRECTION_W,
+        DIRECTION_N,
+        DIRECTION_E,
+        DIRECTION_S,
+} direction_e;
 
 enum {
         TILE_EMPTY      = 0,

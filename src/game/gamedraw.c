@@ -15,7 +15,21 @@ static void draw_textbox(textbox_s *tb)
                 gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
         }
 
-        if (tb->shows_all) {
+        if (!tb->shows_all) return;
+
+        if (tb->n_choices) {
+                // draw choices if any
+                gfx_rec_fill((rec_i32){230, 60, 70, 100}, 0);
+                for (int n = 0; n < tb->n_choices; n++) {
+                        textboxchoice_s *tc      = &tb->choices[n];
+                        static const int spacing = 21;
+
+                        gfx_text_glyphs(&font, tc->label, tc->labellen,
+                                        250, 70 + spacing * n);
+                        gfx_rec_fill((rec_i32){235, 70 + spacing * tb->cur_choice, 10, 10}, 1);
+                }
+        } else {
+                // "next page" animated marker in corner
                 tb->page_animation_state += 10000;
                 tb->page_animation_state &= (Q16_ANGLE_TURN - 1);
                 int yy = sin_q16(tb->page_animation_state) >> 14;
@@ -23,15 +37,49 @@ static void draw_textbox(textbox_s *tb)
         }
 }
 
-static void draw_background(background_s *bg, v2_i32 camp)
+static void draw_background(backforeground_s *bg, v2_i32 camp)
 {
         for (int n = 0; n < bg->nclouds; n++) {
                 cloudbg_s c = bg->clouds[n];
         }
+
+        gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256});
+}
+
+static void particle_line(v2_i32 p0, v2_i32 p1)
+{
+        int dx = +ABS(p1.x - p0.x);
+        int dy = -ABS(p1.y - p0.y);
+        int sx = p0.x < p1.x ? 1 : -1;
+        int sy = p0.y < p1.y ? 1 : -1;
+        int er = dx + dy;
+        int xi = p0.x;
+        int yi = p0.y;
+        while (1) {
+                if ((xi & 1) ^ (yi & 1))
+                        gfx_px(xi, yi, 1, 0);
+                if (xi == p1.x && yi == p1.y) break;
+                int e2 = er * 2;
+                if (e2 >= dy) er += dy, xi += sx;
+                if (e2 <= dx) er += dx, yi += sy;
+        }
+}
+
+static void draw_foreground(backforeground_s *bg, v2_i32 camp)
+{
+        // wind animation
         for (int n = 0; n < bg->nparticles; n++) {
                 particlebg_s p = bg->particles[n];
+
+                v2_i32 pos1 = v2_add(v2_shr(p.pos[p.n], 8), camp);
+                for (int i = 1; i < 16; i++) {
+                        v2_i32 p2   = p.pos[(p.n + i) & 15];
+                        v2_i32 pos2 = v2_add(v2_shr(p2, 8), camp);
+
+                        particle_line(pos1, pos2);
+                        pos1 = pos2;
+                }
         }
-        gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256});
 }
 
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
@@ -55,6 +103,10 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
 
 static void draw_item_selection(game_s *g)
 {
+        tex_s titem = tex_get(TEXID_ITEMS);
+        gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, 0, 32, 32});
+        int itemID = g->hero.c_item;
+        gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, (itemID + 1) * 32, 32, 32});
 }
 
 static void draw_transition(game_s *g)
@@ -99,10 +151,9 @@ void game_draw(game_s *g)
                         -(g->cam.pos.y - g->cam.hh)};
         rec_i32 camr = {-camp.x, -camp.y, g->cam.w, g->cam.h};
         i32     x1, y1, x2, y2;
-        game_tile_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
+        tilegrid_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
 
-        draw_background(&g->background, camp);
-        draw_tiles(g, x1, y1, x2, y2, camp);
+        draw_background(&g->backforeground, camp);
 
         obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
         for (int n = 0; n < oalive.n; n++) {
@@ -137,8 +188,30 @@ void game_draw(game_s *g)
         if (objhandle_is_valid(g->hero.hook))
                 draw_rope(&g->hero.rope, camp);
 
+        draw_tiles(g, x1, y1, x2, y2, camp);
+
         draw_particles(g, camp);
+        draw_foreground(&g->backforeground, camp);
+
         draw_item_selection(g);
+
+        obj_s *ohero;
+        if (try_obj_from_handle(g->hero.obj, &ohero)) {
+                v2_i32 heroc        = obj_aabb_center(ohero);
+                obj_s *interactable = interactable_closest(g, heroc);
+
+                if (interactable) {
+                        v2_i32 pp = obj_aabb_center(interactable);
+                        if (v2_distancesq(pp, heroc) < 100) {
+                                pp.y -= 8 + 24;
+                                pp.x -= 8;
+                                v2_i32 pp2  = v2_add(pp, camp);
+                                tex_s  tint = tex_get(TEXID_SOLID);
+                                int    yy   = (os_tick() % 60) < 30 ? 16 : 0;
+                                gfx_sprite_fast(tint, pp2, (rec_i32){160, yy, 16, 16});
+                        }
+                }
+        }
 
         if (g->transition.phase)
                 draw_transition(g);

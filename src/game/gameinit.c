@@ -110,6 +110,12 @@ void game_init(game_s *g)
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
         {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_THINK_2];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_THINK_2);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_KILL_OFFSCREEN];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_KILL_OFFSCREEN);

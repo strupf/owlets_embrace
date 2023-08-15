@@ -5,15 +5,19 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "os/os.h"
+//
+#include "backforeground.h"
 #include "cam.h"
-#include "collision.h"
+#include "door.h"
 #include "gamedef.h"
 #include "hero.h"
+#include "maptransition.h"
 #include "obj.h"
 #include "objset.h"
-#include "os/os.h"
 #include "rope.h"
 #include "textbox.h"
+#include "tilegrid.h"
 
 // Object bucket is an automatically filtered set of
 // active objects. The filter works using object flags (bitset)
@@ -67,38 +71,6 @@ typedef struct {
 
 extern tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
-enum {
-        TRANSITION_TICKS = 10,
-};
-
-enum transition_type {
-        TRANSITION_TYPE_SIMPLE,
-};
-
-typedef enum {
-        TRANSITION_NONE,
-        TRANSITION_FADE_OUT,
-        TRANSITION_FADE_IN,
-} transition_phase_e;
-
-typedef struct {
-        int    cloudtype;
-        v2_i32 pos;
-        i32    velx;
-} cloudbg_s;
-
-typedef struct {
-        v2_i32 pos;
-        v2_i32 vel;
-} particlebg_s;
-
-typedef struct {
-        cloudbg_s    clouds[NUM_BACKGROUND_CLOUDS];
-        int          nclouds;
-        particlebg_s particles[NUM_BACKGROUND_PARTICLES];
-        int          nparticles;
-} background_s;
-
 typedef struct {
         char    filename[64];
         rec_i32 r;
@@ -109,23 +81,6 @@ typedef struct {
         roomdesc_s *curr;
         int         n_rooms;
 } roomlayout_s;
-
-typedef enum {
-        DIRECTION_NONE,
-        DIRECTION_W,
-        DIRECTION_N,
-        DIRECTION_E,
-        DIRECTION_S,
-} direction_e;
-
-typedef struct {
-        transition_phase_e phase;
-        int                ticks;
-        char               map[64]; // next map to load
-        rec_i32            heroprev;
-        cam_s              camprev;
-        direction_e        enterfrom;
-} transition_s;
 
 struct game_s {
         i32    tick;
@@ -142,7 +97,6 @@ struct game_s {
 
         int        n_particles;
         particle_s particles[NUM_PARTICLES];
-        textbox_s  textbox;
 
         int     tiles_x;
         int     tiles_y;
@@ -151,33 +105,30 @@ struct game_s {
         u8      tiles[NUM_TILES];
         rtile_s rtiles[NUM_TILES];
 
-        background_s background;
-        transition_s transition;
+        backforeground_s backforeground;
+        transition_s     transition;
 
         roomlayout_s roomlayout;
+        textbox_s    textbox;
 };
+extern game_s g_gamestate;
 
-// loads a Tiled .world file
-void        roomlayout_load(roomlayout_s *rl, const char *filename);
-roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec);
 void        game_init(game_s *g);
 void        game_update(game_s *g);
 void        game_draw(game_s *g);
 void        game_close(game_s *g);
 void        game_trigger(game_s *g, int triggerID);
+void        obj_interact_dialog(game_s *g, obj_s *o, void *arg);
 //
-tilegrid_s  game_tilegrid(game_s *g);
-void        game_map_transition_start(game_s *g, const char *filename);
 void        game_load_map(game_s *g, const char *filename);
 bool32      game_area_blocked(game_s *g, rec_i32 r);
 //
 obj_listc_s objbucket_list(game_s *g, int bucketID);
-void        game_tile_bounds_minmax(game_s *g, v2_i32 pmin, v2_i32 pmax,
-                                    i32 *x1, i32 *y1, i32 *x2, i32 *y2);
-void        game_tile_bounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
-void        game_tile_bounds_rec(game_s *g, rec_i32 r, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
 particle_s *particle_spawn(game_s *g);
 void        solid_think(game_s *g, obj_s *o);
+// loads a Tiled .world file
+void        roomlayout_load(roomlayout_s *rl, const char *filename);
+roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec);
 
 #endif

@@ -27,7 +27,7 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 180;
+        r->len_max     = 120;
         r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 190;
         r->spring_q8   = 248;
@@ -131,7 +131,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         i32    x1, y1, x2, y2;
         v2_i32 pmin = v2_min(pmin1, pmin2);
         v2_i32 pmax = v2_max(pmax1, pmax2);
-        game_tile_bounds_minmax(g, pmin, pmax, &x1, &y1, &x2, &y2);
+        tilegrid_bounds_minmax(g, pmin, pmax, &x1, &y1, &x2, &y2);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -442,7 +442,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
         const tri_i32 trispan = {pprev, pcurr, pnext};
         i32           x1, y1, x2, y2;
-        game_tile_bounds_tri(g, trispan, &x1, &y1, &x2, &y2);
+        tilegrid_bounds_tri(g, trispan, &x1, &y1, &x2, &y2);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -575,8 +575,8 @@ bool32 rope_intact(game_s *g, rope_s *r)
              r1 = r2, r2 = r2->next) {
                 lineseg_i32 ls = {r1->p, r2->p};
                 i32         x1, y1, x2, y2;
-                game_tile_bounds_minmax(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
-                                        &x1, &y1, &x2, &y2);
+                tilegrid_bounds_minmax(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
+                                       &x1, &y1, &x2, &y2);
                 foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
                 {
                         int t = g->tiles[x + y * g->tiles_x];

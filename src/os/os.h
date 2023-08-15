@@ -180,6 +180,8 @@ tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
+void      gfx_px(int x, int y, int col);
+void      gfx_sprite_tile(tex_s src, v2_i32 pos, v2_i32 tilepos);
 void      gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
 void      gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);

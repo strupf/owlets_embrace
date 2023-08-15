@@ -23,7 +23,8 @@ graphics
 
 textbox
 * typewriter noises
-* choice prompt in a dialogue
+* selectable choices with executable actions
+* different animation marker depending if dialog end or not
 
 bugs
 * rope: removal of a point during tighten can result in three

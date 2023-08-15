@@ -53,7 +53,7 @@ typedef struct {
 } doordata_s;
 
 typedef void (*objfunc_f)(game_s *g, obj_s *o, void *arg);
-typedef void (*objtrigger_f)(game_s *g, obj_s *o, int triggerID, void *arg);
+typedef void (*objtrigger_f)(game_s *g, obj_s *o, int triggerID);
 
 struct obj_s {
         int        gen;
@@ -135,16 +135,7 @@ void        actor_move_x(game_s *g, obj_s *o, int dx);
 void        actor_move_y(game_s *g, obj_s *o, int dy);
 void        solid_move(game_s *g, obj_s *o, int dx, int dy);
 void        obj_apply_movement(obj_s *o);
-//
-void        objset_add_all_in_radius(objset_s       *set,
-                                     const objset_s *src,
-                                     v2_i32 p, i32 r);
-void        objset_add_all_matching(objset_s       *set,
-                                    const objset_s *src,
-                                    objflags_s flags, int cmpf);
-void        objset_del_all_in_radius(objset_s *set, v2_i32 p, i32 r);
-void        objset_del_matching(objset_s *set, objflags_s flags, int cmpf);
-//
+obj_s      *interactable_closest(game_s *g, v2_i32 p);
 void        interact_open_dialogue(game_s *g, obj_s *o);
 
 #endif

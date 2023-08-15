@@ -266,9 +266,9 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
         obj_s *o = NULL;
         if (0) {
         } else if (streq(buf, "hero")) {
-                o        = hero_create(g, &g->hero);
-                o->pos.x = jsn_intk(jobj, "x");
-                o->pos.y = jsn_intk(jobj, "y");
+                // o        = hero_create(g, &g->hero);
+                // o->pos.x = jsn_intk(jobj, "x");
+                // o->pos.y = jsn_intk(jobj, "y");
         } else if (streq(buf, "sign")) {
                 o                = obj_create(g);
                 objflags_s flags = objflags_create(
@@ -363,33 +363,41 @@ void game_load_map(game_s *g, const char *filename)
         g->tiles_y = h;
         g->pixel_x = g->tiles_x << 4;
         g->pixel_y = g->tiles_y << 4;
+        cam_constrain_to_room(g, &g->cam);
 
+        obj_s *ohero = hero_create(g, &g->hero);
+        ohero->pos.x = 50;
+        ohero->pos.y = 100;
 #if 1
-        obj_s     *solid1  = obj_create(g);
-        objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
-                                             OBJ_FLAG_THINK_1);
-        obj_set_flags(g, solid1, flagss1);
-        solid1->think_1 = solid_think;
-        solid1->pos.x   = 100;
-        solid1->pos.y   = 100;
-        solid1->w       = 64;
-        solid1->h       = 48;
-        solid1->dir     = 1;
-        solid1->p2      = 300;
-        solid1->p1      = 100;
-        solid1->ID      = 1;
+        static int once = 0;
+        if (!once) {
+                obj_s     *solid1  = obj_create(g);
+                objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
+                                                     OBJ_FLAG_THINK_1);
+                obj_set_flags(g, solid1, flagss1);
+                solid1->think_1 = solid_think;
+                solid1->pos.x   = 170;
+                solid1->pos.y   = 100 - 20;
+                solid1->w       = 64;
+                solid1->h       = 48;
+                solid1->dir     = 1;
+                solid1->p2      = 240;
+                solid1->p1      = 180;
+                solid1->ID      = 1;
+                once            = 1;
+        }
+
 #endif
 
-        for (int i = 0; i < 10; i++) {
-                obj_s     *pickup = obj_create(g);
-                objflags_s flags3 = objflags_create(OBJ_FLAG_PICKUP);
-                obj_set_flags(g, pickup, flags3);
-                pickup->pos.x    = 500 + i * 30;
-                pickup->pos.y    = 340;
-                pickup->w        = 8;
-                pickup->h        = 8;
-                pickup->pickup.x = 1;
-        }
+        obj_s     *osign   = obj_create(g);
+        objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
+        obj_set_flags(g, osign, flagss2);
+        osign->pos.x      = 30;
+        osign->pos.y      = 100;
+        osign->w          = 16;
+        osign->h          = 24;
+        osign->oninteract = obj_interact_dialog;
+        os_strcat(osign->filename, "assets/introtext.txt");
 
         textbox_init(&g->textbox);
         static int loadedonce = 1;
@@ -401,5 +409,6 @@ void game_load_map(game_s *g, const char *filename)
                         jsn_strk(prop, "value", filename, sizeof(filename));
                         textbox_load_dialog(&g->textbox, filename);
                 }
+                textbox_load_dialog(&g->textbox, "assets/introtext.txt");
         }
 }

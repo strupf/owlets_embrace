@@ -156,7 +156,7 @@ static inline u32 add_u32(u32 a, u32 b)
 #endif
 
 // [0, 65535]
-static inline u32 rng_u16(u32 *state)
+static inline i32 rngs_fast_u16(u32 *state)
 {
         u32 x  = *state;
         x      = x * 1664525 + 1013904223;
@@ -165,15 +165,29 @@ static inline u32 rng_u16(u32 *state)
 }
 
 // [-32768, 32767]
-static inline i32 rng_i16(u32 *state)
+static inline i32 rngs_fast_i16(u32 *state)
 {
-        return ((i32)rng_u16(state) - 0x8000);
+        return ((i32)rngs_fast_u16(state) - 0x8000);
+}
+
+// [0, 65535]
+static inline i32 rng_fast_u16()
+{
+        static u32 state = 213;
+        return rngs_fast_u16(&state);
+}
+
+// [0, 65535]
+static inline i32 rng_fast_i16()
+{
+        static u32 state = 213;
+        return rngs_fast_i16(&state);
 }
 
 // [0, max) exclusive
 static inline i32 rng_max_u16(u32 *state, u16 max)
 {
-        u32 i = (rng_u16(state) * max) >> 16;
+        u32 i = (rngs_fast_u16(state) * max) >> 16;
         return i;
 }
 

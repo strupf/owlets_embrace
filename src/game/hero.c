@@ -141,10 +141,11 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
                 switch (h->c_item) {
                 case 0:
-                        hero_use_bow(g, o, h);
+                        hero_use_hook(g, o, h);
+
                         break;
                 case 1:
-                        hero_use_hook(g, o, h);
+                        hero_use_bow(g, o, h);
                         break;
                 }
         }
@@ -232,28 +233,28 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 actor_move_y(g, hook, dthook.y);
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
-                        hook->attached     = 1;
-                        hook->gravity_q8   = (v2_i32){0};
-                        hook->vel_q8       = (v2_i32){0};
-                        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
-                        for (int n = 0; n < solids.n; n++) {
-                                obj_s *solid = solids.o[n];
-                                if (solid_occupies(solid, hookrec)) {
-                                        hook->linkedsolid = objhandle_from_obj(solid);
-                                        break;
-                                }
+                        hook->attached   = 1;
+                        hook->gravity_q8 = (v2_i32){0};
+                        hook->vel_q8     = (v2_i32){0};
+                        obj_listc_s sld  = objbucket_list(g, OBJ_BUCKET_SOLID);
+                        for (int n = 0; n < sld.n; n++) {
+                                obj_s *solid = sld.o[n];
+                                if (!solid_occupies(solid, hookrec)) continue;
+                                hook->linkedsolid = objhandle_from_obj(solid);
+                                break;
                         }
                 }
         } else {
+                // check if still attached
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
-                if (!game_area_blocked(g, hookrec)) {
-                        hook->attached      = 0;
-                        hook->linkedsolid.o = NULL;
-                }
                 if (hook->linkedsolid.o) {
                         if (!solid_occupies(hook->linkedsolid.o, hookrec)) {
                                 hook->linkedsolid.o = NULL;
                         }
+                }
+                if (!game_area_blocked(g, hookrec)) {
+                        hook->attached      = 0;
+                        hook->linkedsolid.o = NULL;
                 }
         }
 
@@ -330,6 +331,7 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->userarg    = &g->hero;
         obj_set_flags(g, hero, flags);
         hero->think_1    = hero_update;
+        hero->onsqueeze  = hero_squeeze;
         hero->facing     = 1;
         hero->actorflags = ACTOR_FLAG_CLIMB_SLOPES |
                            ACTOR_FLAG_GLUE_GROUND;
@@ -340,9 +342,9 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->gravity_q8.y = HERO_C_GRAVITY;
         hero->drag_q8.x    = 256;
         hero->drag_q8.y    = 256; // no drag
-        hero->onsqueeze    = hero_squeeze;
-        *h                 = (const hero_s){0};
-        h->obj             = objhandle_from_obj(hero);
+
+        *h     = (const hero_s){0};
+        h->obj = objhandle_from_obj(hero);
         return hero;
 }
 
@@ -387,15 +389,21 @@ void hero_check_level_transition(game_s *g, obj_s *hero)
         rec_i32 haabb = obj_aabb(hero);
 
         direction_e dir = 0;
-        if (haabb.x < 0) dir = DIRECTION_W;
-        if (haabb.y < 0) dir = DIRECTION_N;
-        if (haabb.x + haabb.w > g->pixel_x) dir = DIRECTION_E;
-        if (haabb.y + haabb.h > g->pixel_y) dir = DIRECTION_S;
+        if (haabb.x <= 0) dir = DIRECTION_W;
+        if (haabb.y <= 0) dir = DIRECTION_N;
+        if (haabb.x + haabb.w >= g->pixel_x) dir = DIRECTION_E;
+        if (haabb.y + haabb.h >= g->pixel_y) dir = DIRECTION_S;
 
         if (dir) {
                 rec_i32 gaabb = haabb;
                 gaabb.x += g->roomlayout.curr->r.x;
                 gaabb.y += g->roomlayout.curr->r.y;
+                switch (dir) {
+                case DIRECTION_W: gaabb.x--; break;
+                case DIRECTION_E: gaabb.x++; break;
+                case DIRECTION_N: gaabb.y--; break;
+                case DIRECTION_S: gaabb.y++; break;
+                }
                 roomdesc_s *rd = roomlayout_get(&g->roomlayout, gaabb);
                 ASSERT(rd);
                 g->roomlayout.curr      = rd;
@@ -433,15 +441,10 @@ void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
 
 void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
 {
-        const obj_listc_s list = objbucket_list(g, OBJ_BUCKET_INTERACT);
-        rec_i32           aabb = obj_aabb(o);
-        for (int n = 0; n < list.n; n++) {
-                obj_s *oi = list.o[n];
-                if (overlap_rec_excl(aabb, obj_aabb(oi)) && oi->oninteract) {
-                        oi->oninteract(g, oi, NULL);
-                        break;
-                }
-        }
+        v2_i32 pc           = obj_aabb_center(o);
+        obj_s *interactable = interactable_closest(g, pc);
+        if (interactable)
+                interactable->oninteract(g, interactable, NULL);
 }
 
 void hero_update(game_s *g, obj_s *o, void *arg)
