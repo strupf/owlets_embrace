@@ -20,6 +20,7 @@ enum tex_id {
         TEXID_CLOUDS,
         TEXID_PARTICLE,
         TEXID_SOLID,
+        TEXID_HERO,
         //
         NUM_TEXID
 };
@@ -181,10 +182,13 @@ tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
 void      gfx_px(int x, int y, int col);
-void      gfx_sprite_tile(tex_s src, v2_i32 pos, v2_i32 tilepos);
+void      gfx_sprite_tile_16(tex_s src, v2_i32 pos, v2_i32 tilepos);
 void      gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
 void      gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
+void      gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4]);
+void      gfx_sprite_squished(tex_s src, i32 x, i32 y1, i32 y2, rec_i32 rs);
+void      gfx_tr_sprite_fast(texregion_s src, v2_i32 pos);
 void      gfx_draw_to(tex_s tex);
 void      gfx_rec_fill(rec_i32 r, int col);
 void      gfx_line(int x0, int y0, int x1, int y1, int col);

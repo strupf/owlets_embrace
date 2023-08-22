@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "obj.h"
-#include "game.h"
+#include "game/game.h"
 
 bool32 obj_matches_filter(obj_s *o, obj_filter_s filter)
 {
@@ -351,7 +351,7 @@ void obj_apply_movement(obj_s *o)
         o->vel_q8.x  = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
         o->vel_q8.y  = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
         o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
-        o->pos_new   = v2_add(o->pos, v2_shr(o->subpos_q8, 8));
+        o->tomove    = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
         o->subpos_q8.x &= 255;
         o->subpos_q8.y &= 255;
 }
@@ -360,7 +360,7 @@ obj_s *interactable_closest(game_s *g, v2_i32 p)
 {
         obj_listc_s list    = objbucket_list(g, OBJ_BUCKET_INTERACT);
         obj_s      *closest = NULL;
-        u32         dist    = U32_MAX;
+        u32         dist    = INTERACTABLE_DISTANCESQ;
         for (int n = 0; n < list.n; n++) {
                 obj_s *oi = list.o[n];
                 v2_i32 pi = obj_aabb_center(oi);

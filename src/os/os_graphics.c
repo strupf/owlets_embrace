@@ -85,7 +85,7 @@ void os_backend_graphics_begin()
 void os_backend_graphics_end()
 {
         PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
-        PD_drawFPS(384, 0);
+        PD_drawFPS(0, 0);
         PD_display(); // update all rows
 }
 
@@ -352,6 +352,55 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
+void gfx_sprite_tile_16(tex_s src, v2_i32 pos, v2_i32 tilepos)
+{
+        rec_i32 rs       = {tilepos.x << 4, tilepos.y << 4, 16, 16};
+        tex_s   dst      = g_os.dst;
+        int     zx       = dst.w - pos.x;
+        int     zy       = dst.h - pos.y;
+        int     x1       = rs.x + MAX(0, -pos.x);
+        int     y1       = rs.y + MAX(0, -pos.y);
+        int     x2       = rs.x + MIN(rs.w, zx) - 1;
+        int     y2       = rs.y + MIN(rs.h, zy) - 1;
+        int     cc       = pos.x - rs.x;
+        int     s1       = 31 & (32 - (cc & 31)); // relative word alignment
+        int     s0       = 32 - s1;
+        int     b1       = x1 >> 5;
+        int     b2       = x2 >> 5;
+        int     b        = b1;
+        int     uu       = x1 & 31;
+        int     vv       = x2 & 31;
+        u32     mm       = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
+        int     ja       = ((b << 5) + cc + uu) >> 5;
+        int     jb       = ((b << 5) + cc + 31) >> 5;
+        u32 *restrict dp = (u32 *)dst.px;
+        u32 *restrict dm = (u32 *)dst.mk;
+        for (int y = y1; y <= y2; y++) {
+                int yd = (y + pos.y - rs.y) * dst.w_word;
+                int ii = b1 + y * src.w_word;
+                u32 sm = endian_u32(((u32 *)src.mk)[ii]) & mm;
+                u32 sp = endian_u32(((u32 *)src.px)[ii]);
+                u32 t0 = endian_u32(sm >> s0);
+                u32 p0 = endian_u32(sp >> s0);
+                u32 t1 = endian_u32(sm << s1);
+                u32 p1 = endian_u32(sp << s1);
+                int j0 = ja + yd;
+                int j1 = jb + yd;
+                u32 d0 = dp[j0];
+                u32 d1 = dp[j1];
+                dp[j0] = (d0 & ~t0) | (p0 & t0);
+                dp[j1] = (d1 & ~t1) | (p1 & t1);
+
+                if (dm) {
+                        dm[j0] |= t0;
+                        dm[j1] |= t1;
+                }
+        }
+}
+
+/* fast sprite drawing routine for untransformed sprites
+ * blits 32 pixelbits in one loop
+ */
 void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 {
         tex_s dst        = g_os.dst;
@@ -436,6 +485,39 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
         gfx_sprite_(src, pos, rs, 0);
+}
+
+void gfx_tr_sprite_fast(texregion_s src, v2_i32 pos)
+{
+        gfx_sprite_(src.t, pos, src.r, 0);
+}
+
+void gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4])
+{
+        tex_s dst = g_os.dst;
+        for (int y = 0; y < dst.h; y++) {
+                for (int x = 0; x < dst.w; x++) {
+                        int tx = x + rs.x - pos.x;
+                        int ty = y + rs.y - pos.y;
+                        i32 xx = ((tx * m[0] + ty * m[1]) >> 12);
+                        i32 yy = ((tx * m[2] + ty * m[3]) >> 12);
+                        if (!(xx >= rs.x && yy >= rs.y &&
+                              xx < rs.x + rs.w && yy < rs.y + rs.h)) continue;
+                        i_gfx_put_px(dst, x, y, i_gfx_peek_px(src, xx, yy), 0);
+                }
+        }
+}
+
+void gfx_sprite_squished(tex_s src, i32 x, i32 y1, i32 y2, rec_i32 rs)
+{
+        tex_s dst = g_os.dst;
+        i32   hh  = y2 - y1;
+        if (hh == 0) return;
+        for (int y = y1; y <= y2; y++) {
+                i32     sy = (rs.h * (y - y1)) / hh + rs.y;
+                rec_i32 sr = {rs.x, sy, rs.w, 1};
+                gfx_sprite_fast(src, (v2_i32){x, y}, sr);
+        }
 }
 
 void gfx_rec_fill(rec_i32 r, int col)

@@ -4,7 +4,8 @@
 
 #ifndef DOOR_H
 #define DOOR_H
-#include "gamedef.h"
+
+#include "game/gamedef.h"
 
 void   door_think(game_s *g, obj_s *o);
 void   door_trigger(game_s *g, obj_s *o, int triggerID);

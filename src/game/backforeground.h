@@ -4,19 +4,27 @@
 
 #ifndef BACKFOREGROUND_H
 #define BACKFOREGROUND_H
+
 #include "gamedef.h"
+
+enum {
+        BG_NUM_CLOUDS      = 16,
+        BG_NUM_PARTICLES   = 256,
+        BG_NUM_CLOUD_TYPES = 3,
+        BG_WIND_PARTICLE_N = 16,
+};
 
 typedef struct {
         int    cloudtype;
-        v2_i32 pos;
-        i32    velx;
+        v2_i32 p; // q8
+        i32    v; // q8
 } cloudbg_s;
 
 typedef struct {
         int    n;
         v2_i32 p;
         v2_i32 v;
-        v2_i32 pos[16];
+        v2_i32 pos[BG_WIND_PARTICLE_N];
         v2_i32 circc;
         i32    ticks;
         i32    circticks;
@@ -24,10 +32,11 @@ typedef struct {
 } particlebg_s;
 
 typedef struct {
-        cloudbg_s    clouds[NUM_BACKGROUND_CLOUDS];
+        cloudbg_s    clouds[BG_NUM_CLOUDS];
         int          nclouds;
-        particlebg_s particles[NUM_BACKGROUND_PARTICLES];
+        particlebg_s particles[BG_NUM_PARTICLES];
         int          nparticles;
+        int          clouddirection;
 } backforeground_s;
 
 void background_foreground_animate(game_s *g);

@@ -42,7 +42,13 @@ void os_backend_inp_update()
         g_os.crankdocked  = 0;
         if (!g_os.crankdocked) {
                 g_os.crankp_q16 = g_os.crank_q16;
-                g_os.crank_q16 += (int)(5000.f * GetMouseWheelMove());
+                if (GetMouseWheelMove() != 0.f) {
+                        g_os.crank_q16 += (int)(5000.f * GetMouseWheelMove());
+                } else {
+                        if (IsKeyDown(KEY_E)) g_os.crank_q16 += 2048;
+                        if (IsKeyDown(KEY_Q)) g_os.crank_q16 -= 2048;
+                }
+
                 g_os.crank_q16 &= 0xFFFF;
         }
 }

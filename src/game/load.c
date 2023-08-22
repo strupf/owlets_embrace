@@ -337,13 +337,6 @@ void game_load_map(game_s *g, const char *filename)
         bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
         ASSERT(has_tilesets);
 
-        /*
-        tmj_tilesets_s tilesets = tmj_tilesets_parse(jtileset);
-        for (int n = 0; n < tilesets.n; n++) {
-                PRINTF("name: %s\n", tilesets.sets[n].name);
-        }
-        */
-
         foreach_jsn_childk (jroot, "layers", jlayer) {
                 char name[64] = {0};
                 jsn_strk(jlayer, "name", name, ARRLEN(name));
@@ -359,10 +352,11 @@ void game_load_map(game_s *g, const char *filename)
 
         os_spmem_pop();
 
-        g->tiles_x = w;
-        g->tiles_y = h;
-        g->pixel_x = g->tiles_x << 4;
-        g->pixel_y = g->tiles_y << 4;
+        g->tiles_x                       = w;
+        g->tiles_y                       = h;
+        g->pixel_x                       = g->tiles_x << 4;
+        g->pixel_y                       = g->tiles_y << 4;
+        g->backforeground.clouddirection = 1;
         cam_constrain_to_room(g, &g->cam);
 
         obj_s *ohero = hero_create(g, &g->hero);
@@ -373,6 +367,7 @@ void game_load_map(game_s *g, const char *filename)
         if (!once) {
                 obj_s     *solid1  = obj_create(g);
                 objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
+                                                     OBJ_FLAG_MOVABLE,
                                                      OBJ_FLAG_THINK_1);
                 obj_set_flags(g, solid1, flagss1);
                 solid1->think_1 = solid_think;

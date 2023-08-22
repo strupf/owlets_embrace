@@ -4,7 +4,7 @@
 
 #include "cam.h"
 #include "game.h"
-#include "obj.h"
+#include "obj/obj.h"
 
 enum cam_values {
         CAM_TARGET_SNAP_THRESHOLD = 1,

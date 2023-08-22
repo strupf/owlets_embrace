@@ -68,6 +68,10 @@ typedef int8_t         bool8;
 typedef int16_t        bool16;
 typedef int32_t        bool32;
 
+typedef u8  flags8;
+typedef u16 flags16;
+typedef u32 flags32;
+
 // 32-bit SIMD types
 typedef i32 i16x2;
 typedef u32 u16x2;

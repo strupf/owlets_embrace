@@ -12,13 +12,12 @@
 #define ASSET_PATH_DIALOGUE "assets/"
 
 enum {
-        NUM_TILES                = 1024 * 1024,
-        NUM_OBJS                 = 256,
-        NUM_AUTOTILE_TYPES       = 32,
-        NUM_TILEANIMATIONS       = 16,
-        NUM_PARTICLES            = 256,
-        NUM_BACKGROUND_CLOUDS    = 16,
-        NUM_BACKGROUND_PARTICLES = 256,
+        NUM_TILES               = 1024 * 1024,
+        NUM_OBJS                = 256,
+        NUM_AUTOTILE_TYPES      = 32,
+        NUM_TILEANIMATIONS      = 16,
+        NUM_PARTICLES           = 256,
+        INTERACTABLE_DISTANCESQ = 125,
 };
 
 typedef struct game_s      game_s;
@@ -54,7 +53,7 @@ enum obj_flag {
         OBJ_FLAG_PICKUP,
         OBJ_FLAG_HOOK,
         OBJ_FLAG_INTERACT,
-        OBJ_FLAG_MOVABLE_ACTOR,
+        OBJ_FLAG_MOVABLE,
         OBJ_FLAG_THINK_1,
         OBJ_FLAG_THINK_2,
         OBJ_FLAG_HURTABLE,
@@ -77,7 +76,7 @@ enum obj_bucket {
         OBJ_BUCKET_NEW_AREA_COLLIDER,
         OBJ_BUCKET_PICKUP,
         OBJ_BUCKET_INTERACT,
-        OBJ_BUCKET_MOVABLE_ACTOR,
+        OBJ_BUCKET_MOVABLE,
         OBJ_BUCKET_THINK_1,
         OBJ_BUCKET_THINK_2,
         OBJ_BUCKET_HURTABLE,

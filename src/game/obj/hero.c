@@ -3,9 +3,9 @@
 // =============================================================================
 
 #include "hero.h"
-#include "game.h"
+#include "game/game.h"
+#include "game/rope.h"
 #include "obj.h"
-#include "rope.h"
 
 enum hero_const {
         HERO_C_JUMP_INIT = -350,
@@ -46,7 +46,7 @@ static obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         obj_s     *arrow = obj_create(g);
         objflags_s flags = objflags_create(
             OBJ_FLAG_ACTOR,
-            OBJ_FLAG_MOVABLE_ACTOR,
+            OBJ_FLAG_MOVABLE,
             OBJ_FLAG_THINK_1,
             OBJ_FLAG_KILL_OFFSCREEN);
         obj_set_flags(g, arrow, flags);
@@ -103,13 +103,6 @@ static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
-        if (os_inp_pressed(INP_LEFT)) h->inp |= HERO_INP_LEFT;
-        if (os_inp_pressed(INP_RIGHT)) h->inp |= HERO_INP_RIGHT;
-        if (os_inp_pressed(INP_DOWN)) h->inp |= HERO_INP_DOWN;
-        if (os_inp_pressed(INP_UP)) h->inp |= HERO_INP_UP;
-        if (os_inp_pressed(INP_A)) h->inp |= HERO_INP_JUMP;
-        if (os_inp_pressed(INP_B)) h->inp |= HERO_INP_USE_ITEM;
-
         bool32 grounded = game_area_blocked(g, obj_rec_bottom(o));
         if (grounded) {
                 h->edgeticks = HERO_C_EDGETICKS;
@@ -228,9 +221,10 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
         if (!hook->attached) {
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
-                v2_i32 dthook = v2_sub(hook->pos_new, hook->pos);
-                actor_move_x(g, hook, dthook.x);
-                actor_move_y(g, hook, dthook.y);
+                actor_move_x(g, hook, hook->tomove.x);
+                actor_move_y(g, hook, hook->tomove.y);
+                hook->tomove.x  = 0;
+                hook->tomove.y  = 0;
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
                         hook->attached   = 1;
@@ -326,7 +320,7 @@ obj_s *hero_create(game_s *g, hero_s *h)
         obj_s     *hero  = obj_create(g);
         objflags_s flags = objflags_create(OBJ_FLAG_ACTOR,
                                            OBJ_FLAG_HERO,
-                                           OBJ_FLAG_MOVABLE_ACTOR,
+                                           OBJ_FLAG_MOVABLE,
                                            OBJ_FLAG_THINK_1);
         hero->userarg    = &g->hero;
         obj_set_flags(g, hero, flags);
@@ -342,9 +336,11 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->gravity_q8.y = HERO_C_GRAVITY;
         hero->drag_q8.x    = 256;
         hero->drag_q8.y    = 256; // no drag
+        hero->ID           = 3;
 
-        *h     = (const hero_s){0};
-        h->obj = objhandle_from_obj(hero);
+        *h         = (const hero_s){0};
+        h->n_items = 4;
+        h->obj     = objhandle_from_obj(hero);
         return hero;
 }
 
@@ -447,13 +443,39 @@ void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
                 interactable->oninteract(g, interactable, NULL);
 }
 
+static void hero_crank_item_selection(hero_s *h)
+{
+        // crank item input
+        int crankp_q16  = os_inp_crankp();
+        int crankc_q16  = os_inp_crank();
+        int crankchange = os_inp_crank_change();
+
+        // here we check if the crank "flipped over" the 180 deg position
+        if (crankchange > 0 &&
+            (crankp_q16 < 0x8000 && crankc_q16 >= 0x8000)) {
+                h->c_item = (h->c_item + 1) % h->n_items;
+        } else if (crankchange < 0 &&
+                   (crankp_q16 >= 0x8000 && crankc_q16 < 0x8000)) {
+                h->c_item = h->c_item == 0 ? h->n_items - 1 : h->c_item - 1;
+        }
+}
+
 void hero_update(game_s *g, obj_s *o, void *arg)
 {
         hero_s *h = (hero_s *)arg;
         h->inpp   = h->inp;
         h->inp    = 0;
 
-        hero_logic(g, o, &g->hero);
+        if (os_inp_pressed(INP_LEFT)) h->inp |= HERO_INP_LEFT;
+        if (os_inp_pressed(INP_RIGHT)) h->inp |= HERO_INP_RIGHT;
+        if (os_inp_pressed(INP_DOWN)) h->inp |= HERO_INP_DOWN;
+        if (os_inp_pressed(INP_UP)) h->inp |= HERO_INP_UP;
+        if (os_inp_pressed(INP_A)) h->inp |= HERO_INP_JUMP;
+        if (os_inp_pressed(INP_B)) h->inp |= HERO_INP_USE_ITEM;
+
+        hero_crank_item_selection(h);
+
+        hero_logic(g, o, h);
         float  timeh = os_time();
         obj_s *hook;
         if (try_obj_from_handle(h->hook, &hook)) {

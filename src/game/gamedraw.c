@@ -39,19 +39,33 @@ static void draw_textbox(textbox_s *tb)
 
 static void draw_background(backforeground_s *bg, v2_i32 camp)
 {
+        tex_s tclouds = tex_get(TEXID_CLOUDS);
         for (int n = 0; n < bg->nclouds; n++) {
-                cloudbg_s c = bg->clouds[n];
-        }
+                cloudbg_s c   = bg->clouds[n];
+                v2_i32    pos = v2_shr(c.p, 8);
+                pos.x         = (pos.x + 1) & ~1;
+                pos.y         = (pos.y + 1) & ~1;
+                rec_i32 r     = {0};
+                switch (c.cloudtype) {
+                case 0:
+                        r = (rec_i32){0, 0, 110, 90};
+                        break;
+                case 1:
+                        r = (rec_i32){125, 15, 80, 60};
+                        break;
+                case 2:
+                        r = (rec_i32){22, 110, 110, 60};
+                        break;
+                }
 
-        gfx_sprite_fast(tex_get(TEXID_CLOUDS), (v2_i32){50, 50}, (rec_i32){0, 0, 256, 256});
+                gfx_sprite_fast(tclouds, pos, r);
+        }
 }
 
-static void particle_line(v2_i32 p0, v2_i32 p1)
+static void wind_particle_line(v2_i32 p0, v2_i32 p1)
 {
-        int dx = +ABS(p1.x - p0.x);
-        int dy = -ABS(p1.y - p0.y);
-        int sx = p0.x < p1.x ? 1 : -1;
-        int sy = p0.y < p1.y ? 1 : -1;
+        int dx = +ABS(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
+        int dy = -ABS(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
         int er = dx + dy;
         int xi = p0.x;
         int yi = p0.y;
@@ -71,13 +85,13 @@ static void draw_foreground(backforeground_s *bg, v2_i32 camp)
         for (int n = 0; n < bg->nparticles; n++) {
                 particlebg_s p = bg->particles[n];
 
-                v2_i32 pos1 = v2_add(v2_shr(p.pos[p.n], 8), camp);
+                v2_i32 p1 = v2_add(v2_shr(p.pos[p.n], 8), camp);
                 for (int i = 1; i < 16; i++) {
-                        v2_i32 p2   = p.pos[(p.n + i) & 15];
-                        v2_i32 pos2 = v2_add(v2_shr(p2, 8), camp);
+                        int    k  = (p.n + i) & (BG_WIND_PARTICLE_N - 1);
+                        v2_i32 p2 = v2_add(v2_shr(p.pos[k], 8), camp);
 
-                        particle_line(pos1, pos2);
-                        pos1 = pos2;
+                        wind_particle_line(p1, p2);
+                        p1 = p2;
                 }
         }
 }
@@ -94,19 +108,75 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
                 if (ID == TILEID_NULL) continue;
                 int tx, ty;
                 tileID_decode(ID, &tx, &ty);
-                v2_i32  pos     = {(x << 4) + camp.x, (y << 4) + camp.y};
-                rec_i32 tilerec = {tx << 4, ty << 4, 16, 16};
-                gfx_sprite_fast(tileset, pos, tilerec);
+                v2_i32 pos  = {(x << 4) + camp.x, (y << 4) + camp.y};
+                v2_i32 tpos = {tx, ty};
+                gfx_sprite_tile_16(tileset, pos, tpos);
         }
         os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
 }
 
+#include <math.h>
 static void draw_item_selection(game_s *g)
 {
-        tex_s titem = tex_get(TEXID_ITEMS);
-        gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, 0, 32, 32});
-        int itemID = g->hero.c_item;
-        gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, (itemID + 1) * 32, 32, 32});
+        tex_s titem   = tex_get(TEXID_ITEMS);
+        // gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, 0, 32, 32});
+        int   itemID0 = g->hero.c_item == 0 ? g->hero.n_items - 1 : g->hero.c_item - 1;
+        int   itemID1 = g->hero.c_item;
+        int   itemID2 = (g->hero.c_item + 1) % g->hero.n_items;
+
+        os_spmem_push();
+
+        u8   *px  = os_spmem_allocz(sizeof(u8) * 64 * 128);
+        tex_s tt  = {0};
+        tt.px     = px;
+        tt.w      = 64;
+        tt.h      = 128;
+        tt.mk     = px + tt.w * tt.h;
+        tt.w_byte = tt.w / 8;
+        tt.w_word = tt.w / 32;
+
+        int i   = os_inp_crank();
+        int at1 = -((32 * i) >> 16);
+        int ii0 = itemID1;
+        int ii1 = itemID2;
+        if (i >= 0x8000) {
+                at1 += 32;
+                ii0 = itemID0;
+                ii1 = itemID1;
+        }
+
+        /* maps texture generated above onto a cylinder
+         * 1) point on circle
+         * 2) calc angle on circle
+         * 3) calc radians on circle, getting pos in image texture
+         *    image is "wrapped" onto cylinder
+         */
+
+        gfx_draw_to(tt);
+        gfx_sprite_fast(titem,
+                        (v2_i32){0, at1},
+                        (rec_i32){32, itemID0 * 32, 32, 32});
+        gfx_sprite_fast(titem,
+                        (v2_i32){0, at1 + 32},
+                        (rec_i32){32, itemID1 * 32, 32, 32});
+        gfx_sprite_fast(titem,
+                        (v2_i32){0, at1 + 64},
+                        (rec_i32){32, itemID2 * 32, 32, 32});
+        gfx_draw_to(tex_get(0));
+
+        for (int j = -16; j <= +16; j++) {
+                float r = 16.f;
+                float l = acosf((float)j / r) * r;
+                gfx_sprite_fast(tt, (v2_i32){400 - 32, 16 - j},
+                                (rec_i32){0, 24 + (int)l, 32, 1}); // y pos add is kinda magic number
+        }
+        os_spmem_pop();
+#if 0
+        char cc[2] = {0};
+        cc[0]      = itemID1 + '0';
+        fnt_s font = fnt_get(FNTID_DEFAULT);
+        gfx_text_ascii(&font, cc, 400 - 32 - 16, 8);
+#endif
 }
 
 static void draw_transition(game_s *g)
@@ -174,14 +244,17 @@ void game_draw(game_s *g)
                         if (o->vel_q8.y > +150) tx = 2;
                         gfx_sprite_(ttex, pos, (rec_i32){tx * 16, ty, 16, 16}, 0);
                 } break;
+                case 3: {
+                        v2_i32 pos  = v2_add(o->pos, camp);
+                        tex_s  ttex = tex_get(TEXID_HERO);
+                        pos.x -= 8;
+                        pos.y -= 22;
+                        gfx_sprite_(ttex, pos, (rec_i32){0, 0, 32, 48}, 0);
+                } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
                         gfx_rec_fill(r, 1);
                 } break;
-                }
-                if (o->ID == 1) {
-
-                } else {
                 }
         }
 
@@ -202,14 +275,12 @@ void game_draw(game_s *g)
 
                 if (interactable) {
                         v2_i32 pp = obj_aabb_center(interactable);
-                        if (v2_distancesq(pp, heroc) < 100) {
-                                pp.y -= 8 + 24;
-                                pp.x -= 8;
-                                v2_i32 pp2  = v2_add(pp, camp);
-                                tex_s  tint = tex_get(TEXID_SOLID);
-                                int    yy   = (os_tick() % 60) < 30 ? 16 : 0;
-                                gfx_sprite_fast(tint, pp2, (rec_i32){160, yy, 16, 16});
-                        }
+                        pp.y -= 8 + 24;
+                        pp.x -= 8;
+                        v2_i32 pp2  = v2_add(pp, camp);
+                        tex_s  tint = tex_get(TEXID_SOLID);
+                        int    yy   = (os_tick() % 60) < 30 ? 16 : 0;
+                        gfx_sprite_fast(tint, pp2, (rec_i32){160, yy, 16, 16});
                 }
         }
 

@@ -10,7 +10,7 @@
 #ifndef OBJFLAGS_H
 #define OBJFLAGS_H
 
-#include "gamedef.h"
+#include "game/gamedef.h"
 
 struct objflags_s {
         u32 i[2];

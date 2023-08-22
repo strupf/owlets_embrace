@@ -20,8 +20,7 @@ void solid_think(game_s *g, obj_s *o)
         if (solid->pos.x < solid->p1) {
                 solid->dir = +ABS(solid->dir);
         }
-
-        solid_move(g, solid, solid->dir, 0);
+        solid->tomove.x += solid->dir;
 }
 
 static void game_tick(game_s *g)
@@ -36,13 +35,26 @@ static void game_tick(game_s *g)
                 o->think_1(g, o, o->userarg);
         }
 
-        obj_listc_s movactors = objbucket_list(g, OBJ_BUCKET_MOVABLE_ACTOR);
-        for (int i = 0; i < movactors.n; i++) {
-                obj_s *o = movactors.o[i];
-                obj_apply_movement(o);
-                v2_i32 dt = v2_sub(o->pos_new, o->pos);
-                actor_move_x(g, o, dt.x);
-                actor_move_y(g, o, dt.y);
+        obj_listc_s movables = objbucket_list(g, OBJ_BUCKET_MOVABLE);
+        for (int i = 0; i < movables.n; i++) {
+                obj_apply_movement(movables.o[i]);
+        }
+
+        obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
+        for (int i = 0; i < solids.n; i++) {
+                obj_s *o = solids.o[i];
+                solid_move(g, o, o->tomove.x, o->tomove.y);
+                o->tomove.x = 0;
+                o->tomove.y = 0;
+        }
+
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+        for (int i = 0; i < actors.n; i++) {
+                obj_s *o = actors.o[i];
+                actor_move_x(g, o, o->tomove.x);
+                actor_move_y(g, o, o->tomove.y);
+                o->tomove.x = 0;
+                o->tomove.y = 0;
         }
 
         obj_listc_s thinkers2 = objbucket_list(g, OBJ_BUCKET_THINK_2);

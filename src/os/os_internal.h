@@ -9,7 +9,7 @@
 
 #define TIMING_RATE      16
 #define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 1
+#define OS_DESKTOP_SCALE 2
 #define OS_FPS_DELTA     0.02f // 50 FPS
 #define OS_DELTA_CAP     0.05f
 

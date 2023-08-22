@@ -1,5 +1,4 @@
 gameplay
-* selectable items/abilities (using the crank to cycle through?)
 * path movement for moving platforms
     * linear, pingpong, circular
     * load path from map
@@ -15,15 +14,14 @@ loading
 * autotiling for low and high slopes
 
 graphics
-* current selected item frame
+* finalize item frame
+* basic player animation
 * rope
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
-* animated background art/layer/particles
 
 textbox
 * typewriter noises
-* selectable choices with executable actions
 * different animation marker depending if dialog end or not
 
 bugs

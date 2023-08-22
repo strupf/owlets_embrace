@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "door.h"
-#include "game.h"
+#include "game/game.h"
 
 void door_think(game_s *g, obj_s *o)
 {

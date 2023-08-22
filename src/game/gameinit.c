@@ -37,6 +37,7 @@ void game_init(game_s *g)
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
         tex_put(TEXID_PARTICLE, tex_load("assets/particle.json"));
         tex_put(TEXID_SOLID, tex_load("assets/solid.json"));
+        tex_put(TEXID_HERO, tex_load("assets/player.json"));
 
         tex_s tclouds = tex_load("assets/clouds.json");
         tex_put(TEXID_CLOUDS, tclouds);
@@ -96,12 +97,10 @@ void game_init(game_s *g)
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
         {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_MOVABLE_ACTOR];
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_MOVABLE];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = objflags_create(OBJ_FLAG_MOVABLE_ACTOR,
-                                                 OBJ_FLAG_ACTOR);
-                b->cmp_func    = OBJFLAGS_CMP_EQ;
-                b->cmp_flag    = b->op_flag[0];
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_MOVABLE);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
         {
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_THINK_1];

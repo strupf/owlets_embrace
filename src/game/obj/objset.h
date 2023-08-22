@@ -19,7 +19,7 @@
 #ifndef OBJSET_H
 #define OBJSET_H
 
-#include "gamedef.h"
+#include "game/gamedef.h"
 
 struct objset_s {
         int    n;

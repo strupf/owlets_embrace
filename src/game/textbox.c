@@ -237,10 +237,7 @@ void textbox_update(textbox_s *tb)
         } else {
                 line = &tb->lines[++tb->curr_line];
                 if (line >= &tb->lines[TEXTBOX_LINES]) {
-                        tb->shows_all = 1;
-                        for (int n = 0; n < TEXTBOX_LINES; n++) {
-                                PRINTF("Len: %i\n", tb->lines[n].n);
-                        }
+                        tb->shows_all            = 1;
                         tb->page_animation_state = 0;
                         return;
                 }

@@ -13,10 +13,10 @@
 #ifndef OBJ_H
 #define OBJ_H
 
-#include "gamedef.h"
+#include "game/gamedef.h"
+#include "game/pathmovement.h"
+#include "game/rope.h"
 #include "objflags.h"
-#include "pathmovement.h"
-#include "rope.h"
 
 // movement is going to work similar like in Celeste
 // maddythorson.medium.com/celeste-and-towerfall-physics-d24bd2ae0fc5
@@ -74,13 +74,13 @@ struct obj_s {
         i32         w;
         i32         h;
         v2_i32      pos;
-        v2_i32      pos_new;
         v2_i32      subpos_q8;
         v2_i32      vel_q8;
         v2_i32      gravity_q8;
         v2_i32      drag_q8;
+        v2_i32      tomove; // distance to move the obj
         bool32      squeezed;
-        i32         actorflags;
+        flags32     actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 

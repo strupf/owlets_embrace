@@ -245,7 +245,7 @@ static u32 rngs_range_u32(u32 *state, u32 lo, u32 hi)
 // returns [0; hi]
 static u32 rng_max_u32(u32 hi)
 {
-        return _rng_max_u32(rng_u32(), 0, hi);
+        return _rng_max_u32(rng_u32(), hi);
 }
 
 #define rng_range(LO, HI) rng_range_u32(LO, HI)
@@ -516,7 +516,7 @@ static i32 atan_q16(i32 x)
 }
 
 // INPUT:  [-0x10000,0x10000] = [-1;1]
-// OUTPUT: [0, 0x10000] = [0;PI/2]
+// OUTPUT: [-0x10000, 0x10000] = [-PI/2;PI/2]
 static i32 asin_q16(i32 x)
 {
         if (x == 0) return 0;
@@ -531,6 +531,13 @@ static i32 asin_q16(i32 x)
         r = sqrt_u32(((0x10000 - i) << 16) + 0x800) * r;
         r = ((0xFFFF8000u - r)) >> 16;
         return (x >= 0 ? +(i32)r : -(i32)r);
+}
+
+// INPUT:  [-0x10000,0x10000] = [-1;1]
+// OUTPUT: [0, 0x20000] = [0;PI]
+static i32 acos_q16(i32 x)
+{
+        return 0x10000 - asin_q16(x);
 }
 
 // ============================================================================
