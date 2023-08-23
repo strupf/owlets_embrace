@@ -6,26 +6,61 @@
 
 snd_s snd_get(int ID)
 {
-        // PD->sound->fileplayer->
         ASSERT(0 <= ID && ID < NUM_SNDID);
         return g_os.snd_tab[ID];
 }
 
+static int os_audio_cb(void *context, i16 *left, i16 *right, int len)
+{
+        os_memclr(left, sizeof(i16) * len);
+
+        for (int i = 0; i < OS_NUM_AUDIO_CHANNELS; i++) {
+                audio_channel_s *ch = &g_os.audiochannels[i];
+                if (!ch->active) continue;
+
+                for (int n = 0; n < len; n++) {
+                        // sin wave
+                        ch->state += 1024;
+                        i32 l = left[n];
+                        l += (sin_q16(ch->state) >> 1);
+                        left[n] = CLAMP(l, I16_MIN, I16_MAX);
+                }
+        }
+        return 1;
+}
+
 #if defined(TARGET_DESKTOP)
+
+void audio_callback(void *buf, uint len)
+{
+        static i16 audiomem_local[0x4000];
+
+        if (os_audio_cb(NULL, audiomem_local, NULL, len)) {
+                os_memcpy(buf, audiomem_local, sizeof(i16) * len);
+        } else {
+                os_memclr(buf, sizeof(i16) * len);
+        }
+}
+
 void os_backend_audio_init()
 {
         InitAudioDevice();
+        g_os.audiochannels[0].active = 1;
+
+        g_os.audiostream = LoadAudioStream(44100, 16, 1);
+        SetAudioStreamCallback(g_os.audiostream, audio_callback);
+        PlayAudioStream(g_os.audiostream);
 }
 
 void os_backend_audio_close()
 {
+        UnloadAudioStream(g_os.audiostream);
         CloseAudioDevice();
 }
 
 #endif
 
 #if defined(TARGET_PD)
-// int AudioSourceFunction(void* context, i16* left, i16* right, int len); // len is # of samples in each buffer, function should return 1 if it produced output
 
 struct playdate_sound_fileplayer PD_s_fileplayer;
 struct playdate_sound_channel    PD_s_channel;
@@ -51,16 +86,9 @@ void os_backend_audio_init()
         PD_s_fileplayer        = *PD->sound->fileplayer;
         PD_s_channel           = *PD->sound->channel;
         PD_s_synth             = *PD->sound->synth;
-        /*
-        synth = PD_s_synth.newSynth();
-        PD_s_synth.setWaveform(synth, kWaveformTriangle);
-        PD_s_synth.playNote(synth, 100.f, 1.f, -1, 0);
-        */
 
-        // FilePlayer *fp         = PD_s_fileplayer.newPlayer();
-        // PD_s_fileplayer.loadIntoPlayer(fp, "assets/audiosample.mp3");
-        // PD_s_fileplayer.setVolume(fp, 1.f, 1.f);
-        // PD_s_fileplayer.play(fp, 0);
+        PD->sound->addSource(os_audio_cb, NULL, 0);
+        g_os.audiochannels[0].active = 1;
 }
 
 void os_backend_audio_close()

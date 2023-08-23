@@ -15,6 +15,13 @@ enum {
         DIALOG_TOK_END,
 };
 
+#include "raylib.h"
+
+#ifdef TARGET_DESKTOP
+static Sound sarray[4];
+static int   nsound;
+#endif
+
 // returns true if str contains the same characters of exp, not
 // comparing the terminating \0 of exp
 static bool32 str_matches(const char *str, const char *exp)
@@ -27,6 +34,16 @@ static bool32 str_matches(const char *str, const char *exp)
 
 static void dialog_parse(const char *txt, dialog_tok_s *toks)
 {
+#ifdef TARGET_DESKTOP
+        static int once = 0;
+        if (!once) {
+
+                for (int n = 0; n < 4; n++) {
+                        sarray[n] = LoadSound("assets/snd/speak1.wav");
+                }
+        }
+#endif
+
         int ntok = 0;
         for (int i = 0; txt[i] != '\0'; i++) {
                 ASSERT(ntok + 1 < TEXTBOX_NUM_TOKS);
@@ -184,7 +201,7 @@ bool32 textbox_next_page(textbox_s *tb)
                                 if (ci == '\n' || ci == '\r') {
                                         if (!textbox_new_line(tb, &line))
                                                 return 0;
-#if TARGET_PD
+#ifdef TARGET_PD
                                         i++; // skip two characters \r\n
 #endif
                                         continue;
@@ -232,8 +249,19 @@ void textbox_update(textbox_s *tb)
         tb->typewriter_tick = 0;
 
         if (tb->curr_char < line->n) {
-                tb->curr_char++;
+
+                int nn = line->chars[tb->curr_char++].glyphID;
+
                 line->n_shown++;
+                if (('A' <= nn && nn <= 'Z') ||
+                    ('a' <= nn && nn <= 'z')) {
+#ifdef TARGET_DESKTOP
+                        SetSoundPitch(sarray[nsound], (float)rng_range(90, 110) / 110.f);
+                        PlaySound(sarray[nsound]);
+                        nsound = (nsound + 1) % 4;
+#endif
+                }
+
         } else {
                 line = &tb->lines[++tb->curr_line];
                 if (line >= &tb->lines[TEXTBOX_LINES]) {

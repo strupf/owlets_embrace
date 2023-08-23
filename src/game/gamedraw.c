@@ -115,14 +115,19 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
         os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
 }
 
-#include <math.h>
+/* maps texture generated above onto a cylinder
+ * 1) point on circle
+ * 2) calc angle on circle
+ * 3) calc radians on circle, getting pos in image texture
+ *    image is "wrapped" onto cylinder
+ */
 static void draw_item_selection(game_s *g)
 {
-        tex_s titem   = tex_get(TEXID_ITEMS);
-        // gfx_sprite_fast(titem, (v2_i32){400 - 32, 0}, (rec_i32){0, 0, 32, 32});
-        int   itemID0 = g->hero.c_item == 0 ? g->hero.n_items - 1 : g->hero.c_item - 1;
-        int   itemID1 = g->hero.c_item;
-        int   itemID2 = (g->hero.c_item + 1) % g->hero.n_items;
+        hero_s *h       = &g->hero;
+        tex_s   titem   = tex_get(TEXID_ITEMS);
+        int     itemID0 = h->c_item == 0 ? h->n_items - 1 : h->c_item - 1;
+        int     itemID1 = h->c_item;
+        int     itemID2 = (h->c_item + 1) % h->n_items;
 
         os_spmem_push();
 
@@ -135,41 +140,29 @@ static void draw_item_selection(game_s *g)
         tt.w_byte = tt.w / 8;
         tt.w_word = tt.w / 32;
 
-        int i   = os_inp_crank();
-        int at1 = -((32 * i) >> 16);
-        int ii0 = itemID1;
-        int ii1 = itemID2;
-        if (i >= 0x8000) {
-                at1 += 32;
-                ii0 = itemID0;
-                ii1 = itemID1;
+        int ii = -((32 * os_inp_crank()) >> 16);
+        if (os_inp_crank() >= 0x8000) {
+                ii += 32;
         }
 
-        /* maps texture generated above onto a cylinder
-         * 1) point on circle
-         * 2) calc angle on circle
-         * 3) calc radians on circle, getting pos in image texture
-         *    image is "wrapped" onto cylinder
-         */
-
         gfx_draw_to(tt);
-        gfx_sprite_fast(titem,
-                        (v2_i32){0, at1},
+        gfx_sprite_fast(titem, (v2_i32){0, ii},
                         (rec_i32){32, itemID0 * 32, 32, 32});
-        gfx_sprite_fast(titem,
-                        (v2_i32){0, at1 + 32},
+        gfx_sprite_fast(titem, (v2_i32){0, ii + 32},
                         (rec_i32){32, itemID1 * 32, 32, 32});
-        gfx_sprite_fast(titem,
-                        (v2_i32){0, at1 + 64},
+        gfx_sprite_fast(titem, (v2_i32){0, ii + 64},
                         (rec_i32){32, itemID2 * 32, 32, 32});
         gfx_draw_to(tex_get(0));
 
         for (int j = -16; j <= +16; j++) {
-                float r = 16.f;
-                float l = acosf((float)j / r) * r;
-                gfx_sprite_fast(tt, (v2_i32){400 - 32, 16 - j},
+                float l = acosf((float)j / 16.f) * 16.f;
+                gfx_sprite_fast(tt, (v2_i32){400 - 32, 8 + (16 - j)},
                                 (rec_i32){0, 24 + (int)l, 32, 1}); // y pos add is kinda magic number
         }
+
+        gfx_sprite_fast(titem, (v2_i32){400 - 32 - 16, -8},
+                        (rec_i32){64, 0, 64, 64});
+
         os_spmem_pop();
 #if 0
         char cc[2] = {0};
@@ -248,7 +241,7 @@ void game_draw(game_s *g)
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_HERO);
                         pos.x -= 8;
-                        pos.y -= 22;
+                        pos.y -= 18;
                         gfx_sprite_(ttex, pos, (rec_i32){0, 0, 32, 48}, 0);
                 } break;
                 default: {
@@ -267,6 +260,24 @@ void game_draw(game_s *g)
         draw_foreground(&g->backforeground, camp);
 
         draw_item_selection(g);
+
+#if 1 // some debug drawing
+        for (int n = 1; n < g->water.nparticles; n++) {
+                i32 yy1 = water_amplitude(&g->water, n - 1);
+                i32 yy2 = water_amplitude(&g->water, n);
+                yy1 += 150;
+                yy2 += 150;
+                gfx_line_thick((n - 1) * 4, yy1, n * 4, yy2, 1, 1);
+        }
+
+        for (pathnode_s *pn1 = &g->pathmover.nodes[0], *pn2 = &g->pathmover.nodes[1];
+             pn1 && pn2; pn1 = pn2, pn2 = pn2->next) {
+                gfx_line(pn1->p.x, pn1->p.y, pn2->p.x, pn2->p.y, 1);
+                if (pn2 == &g->pathmover.nodes[0]) break;
+        }
+        v2_i32 pmpos = path_pos(&g->pathmover);
+        gfx_rec_fill((rec_i32){pmpos.x, pmpos.y, 16, 16}, 1);
+#endif
 
         obj_s *ohero;
         if (try_obj_from_handle(g->hero.obj, &ohero)) {

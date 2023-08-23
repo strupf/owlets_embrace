@@ -48,7 +48,7 @@ void game_init(game_s *g)
                         if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
                                 int i = (x >> 3) + y * tclouds.w_byte;
                                 int b = (x & 7);
-                                tclouds.mk[i] &= ~(1 << (7 - b)); // clear bit
+                                tclouds.px[i] &= ~(1 << (7 - b)); // clear bit
                         }
                 }
         }

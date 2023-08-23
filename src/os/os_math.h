@@ -167,7 +167,7 @@ static inline i32 rngs_fast_u16(u32 *state)
 // [-32768, 32767]
 static inline i32 rngs_fast_i16(u32 *state)
 {
-        return ((i32)rngs_fast_u16(state) - 0x8000);
+        return (i16)rngs_fast_u16(state);
 }
 
 // [0, 65535]
@@ -177,7 +177,7 @@ static inline i32 rng_fast_u16()
         return rngs_fast_u16(&state);
 }
 
-// [0, 65535]
+// [-32768, 32767]
 static inline i32 rng_fast_i16()
 {
         static u32 state = 213;

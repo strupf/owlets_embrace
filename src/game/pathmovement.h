@@ -7,39 +7,46 @@
 
 #include "gamedef.h"
 
-enum {
-        PATH_LINE,
-        PATH_CIRC,
+typedef enum {
+        PATH_TYPE_LINE,
+        PATH_TYPE_CIRC,
+} path_type_e;
+
+typedef enum {
+        PATH_LINE_STOP_END,
+        PATH_LINE_PINGPONG,
+} path_line_e;
+
+typedef struct pathnode_s pathnode_s;
+struct pathnode_s {
+        v2_i32      p;
+        pathnode_s *next;
+        pathnode_s *prev;
 };
 
-enum {
-        PATH_ONCE,
-        PATH_PINGPONG,
-};
-
 typedef struct {
-        v2_i32 p;
-} pathnode_s;
-
-typedef struct {
-        pathnode_s *from;
-        pathnode_s *to;
-        i32         len;
-} pathedge_s;
-
-typedef struct {
-        i32 from;
-        i32 to;
         i32 x;
+        i32 v;
 
-        pathnode_s nodes[16];
-        pathedge_s edges[16];
-        int        nnodes;
-        int        nedges;
+        path_type_e pathtype;
 
-        int pathtype;
+        union {
+                struct {
+                        pathnode_s *from;
+                        pathnode_s *to;
+                        path_line_e movetype;
+                        pathnode_s  nodes[16];
+                        i32         nodedistances[16];
+                };
+                struct {
+                        v2_i32 circcenter;
+                        i32    circr;
+                        i32    circumference;
+                };
+        };
 } pathmover_s;
 
-void path_update(pathmover_s *p);
+void   path_update(pathmover_s *p);
+v2_i32 path_pos(pathmover_s *p);
 
 #endif

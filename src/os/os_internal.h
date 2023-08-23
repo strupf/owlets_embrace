@@ -9,17 +9,29 @@
 
 #define TIMING_RATE      16
 #define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 2
+#define OS_DESKTOP_SCALE 1
 #define OS_FPS_DELTA     0.02f // 50 FPS
 #define OS_DELTA_CAP     0.05f
+
+/* RAM needed for 60s of raw music without streaming the file:
+ * 44100 Hz x 60s x 2 byte = 5.3 MB
+ * 22050 Hz x 60s x 2 byte = 2.7 MB
+ */
 
 enum {
         OS_SPMEM_STACK_HEIGHT = 16,
         OS_SPMEM_SIZE         = 0x100000, // 1 MB
         OS_ASSETMEM_SIZE      = 0x100000, // 1 MB
+        OS_MUSIC_MEM_SIZE     = 0x500000, // 5 MB
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,
+        OS_NUM_AUDIO_CHANNELS = 4,
 };
+
+typedef struct {
+        bool32 active;
+        i32    state;
+} audio_channel_s;
 
 typedef struct {
         char  labels[NUM_TIMING][16];
@@ -32,14 +44,15 @@ typedef struct {
 
         i32 tick;
 #if defined(TARGET_DESKTOP)
-        u8        framebuffer[OS_FRAMEBUFFER_SIZE];
-        Color     texpx[416 * 240];
-        Texture2D tex;
-        bool32    inverted;
-        int       scalingmode;
-        rec_i32   view;
-        int       buttons;
-        int       buttonsp;
+        u8          framebuffer[OS_FRAMEBUFFER_SIZE];
+        Color       texpx[416 * 240];
+        Texture2D   tex;
+        bool32      inverted;
+        int         scalingmode;
+        rec_i32     view;
+        int         buttons;
+        int         buttonsp;
+        AudioStream audiostream;
 #elif defined(TARGET_PD)
         u8       *framebuffer;
         PDButtons buttons;
@@ -64,6 +77,9 @@ typedef struct {
         char           *spmemstack[OS_SPMEM_STACK_HEIGHT];
         memarena_s      spmem;
         ALIGNAS(4) char spmem_raw[OS_SPMEM_SIZE];
+
+        audio_channel_s audiochannels[OS_NUM_AUDIO_CHANNELS];
+        ALIGNAS(4) char musicmem[OS_MUSIC_MEM_SIZE];
 } os_s;
 
 extern os_s g_os;

@@ -11,6 +11,26 @@ static void tileanimations_update();
 static void game_cull_scheduled(game_s *g);
 static void game_update_transition(game_s *g);
 
+void pathmover_init(pathmover_s *p)
+{
+        for (int n = 0; n < 5; n++) {
+                p->nodes[n].p = (v2_i32){rng_range(100, 400), rng_range(10, 210)};
+                if (n > 0) {
+                        p->nodes[n].prev = &p->nodes[n - 1];
+                }
+                if (n < 5 - 1) {
+                        p->nodes[n].next = &p->nodes[n + 1];
+                }
+        }
+        // p->nodes[0].prev = &p->nodes[4];
+        // p->nodes[4].next = &p->nodes[0];
+        p->movetype = PATH_LINE_PINGPONG;
+        p->pathtype = PATH_TYPE_LINE;
+        p->v        = 1;
+        p->from     = &p->nodes[0];
+        p->to       = &p->nodes[1];
+}
+
 void solid_think(game_s *g, obj_s *o)
 {
         obj_s *solid = o;
@@ -25,8 +45,16 @@ void solid_think(game_s *g, obj_s *o)
 
 static void game_tick(game_s *g)
 {
+        static int ponce = 0;
+        if (!ponce) {
+                ponce = 1;
+                pathmover_init(&g->pathmover);
+        }
+        path_update(&g->pathmover);
+        watersurface_update(&g->water);
         if (debug_inp_enter()) {
-                game_trigger(g, 4, NULL);
+                // game_trigger(g, 4, NULL);
+                water_impact(&g->water, 50, 10, 50000);
         }
 
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);

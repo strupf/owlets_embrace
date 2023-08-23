@@ -6,17 +6,50 @@
 
 void watersurface_update(watersurface_s *ws)
 {
-        // udpate spring forces
-        for (int n = 1; n < ws->nparticles - 1; n++) {
-                waterparticle_s *pl = &ws->particles[n - 1];
-                waterparticle_s *pr = &ws->particles[n + 1];
-                waterparticle_s *pc = &ws->particles[n];
+        const i32 FN_Q16 = ws->fneighbour_q16;
+        const i32 FZ_Q16 = ws->fzero_q16;
+        const int N      = ws->nparticles;
+
+        // forces and velocity integration
+        for (int i = 0; i < ws->loops; i++) {
+                for (int n = 1; n < N - 1; n++) {
+                        waterparticle_s *pl = &ws->particles[n - 1];
+                        waterparticle_s *pr = &ws->particles[n + 1];
+                        waterparticle_s *pc = &ws->particles[n];
+
+                        i32 f0 = pl->y_q12 + pr->y_q12 - pc->y_q12 * 2;
+                        i32 f  = f0 * FN_Q16 - pc->y_q12 * FZ_Q16;
+                        pc->v_q12 += (f >> 16) + rng_range(-64, 64);
+                }
+
+                for (int n = 0; n < N; n++) {
+                        ws->particles[n].y_q12 += ws->particles[n].v_q12;
+                }
         }
 
-        // integrate velocities
-        for (int n = 0; n < ws->nparticles; n++) {
+        // dampening
+        for (int n = 0; n < N; n++) {
                 waterparticle_s *pc = &ws->particles[n];
+
+                pc->v_q12 = (pc->v_q12 * ws->dampening_q12 + (1 << 11)) >> 12;
         }
+}
+
+void water_impact(watersurface_s *ws, int x, int r, int peak)
+{
+        const float L = 3.14159f / (float)r;
+        for (int i = -r; i <= r; i++) {
+                int c = x + i;
+                if (0 > c || c >= ws->nparticles) continue;
+                float v = (cosf((float)i * L) * peak + peak) * 0.5f;
+
+                ws->particles[c].y_q12 = (int)v;
+        }
+}
+
+int water_amplitude(watersurface_s *ws, int at)
+{
+        return ((ws->particles[at].y_q12 + (1 << 11)) >> 12) + ws->p.y;
 }
 
 bool32 water_overlaps_pt(water_s *w, v2_i32 p)

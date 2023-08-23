@@ -18,6 +18,7 @@
 #include "rope.h"
 #include "textbox.h"
 #include "tilegrid.h"
+#include "water.h"
 
 // Object bucket is an automatically filtered set of
 // active objects. The filter works using object flags (bitset)
@@ -110,6 +111,11 @@ struct game_s {
 
         roomlayout_s roomlayout;
         textbox_s    textbox;
+
+        watersurface_s  water;
+        waterparticle_s wparticles[256];
+
+        pathmover_s pathmover;
 };
 extern game_s g_gamestate;
 

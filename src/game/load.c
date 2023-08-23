@@ -357,6 +357,13 @@ void game_load_map(game_s *g, const char *filename)
         g->pixel_x                       = g->tiles_x << 4;
         g->pixel_y                       = g->tiles_y << 4;
         g->backforeground.clouddirection = 1;
+        g->water.particles               = g->wparticles;
+        g->water.nparticles              = 256;
+        g->water.dampening_q12           = 4060;
+        g->water.fneighbour_q16          = 2000;
+        g->water.fzero_q16               = 100;
+        g->water.loops                   = 3;
+        g->water.p                       = (v2_i32){0, 50};
         cam_constrain_to_room(g, &g->cam);
 
         obj_s *ohero = hero_create(g, &g->hero);
