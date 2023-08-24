@@ -35,6 +35,9 @@ struct hero_s {
         bool32      wasgrounded;
         i32         vel_q8_prev;
 
+        i32 swordticks;
+        int sworddir;
+
         bool32 aquired_item[NUM_HERO_ITEMS];
         int    c_item;
         int    n_items;
@@ -46,8 +49,5 @@ struct hero_s {
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, void *arg);
-void   hero_check_level_transition(game_s *g, obj_s *hero);
-void   hero_pickup_logic(game_s *g, hero_s *h, obj_s *o);
-void   hero_interact_logic(game_s *g, hero_s *h, obj_s *o);
 
 #endif

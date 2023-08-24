@@ -45,7 +45,7 @@ void audio_callback(void *buf, uint len)
 void os_backend_audio_init()
 {
         InitAudioDevice();
-        g_os.audiochannels[0].active = 1;
+        // g_os.audiochannels[0].active = 1;
 
         g_os.audiostream = LoadAudioStream(44100, 16, 1);
         SetAudioStreamCallback(g_os.audiostream, audio_callback);

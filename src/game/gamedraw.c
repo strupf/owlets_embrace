@@ -99,20 +99,23 @@ static void draw_foreground(backforeground_s *bg, v2_i32 camp)
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
 {
         ASSERT(0 <= x1 && 0 <= y1 && x2 < g->tiles_x && y2 < g->tiles_y);
-        float timet   = os_time();
-        tex_s tileset = tex_get(TEXID_TILESET);
-        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+
+        TIMING_BEGIN(TIMING_DRAW_TILES);
         {
-                rtile_s rt = g->rtiles[x + y * g->tiles_x];
-                int     ID = g_tileIDs[rt.ID];
-                if (ID == TILEID_NULL) continue;
-                int tx, ty;
-                tileID_decode(ID, &tx, &ty);
-                v2_i32 pos  = {(x << 4) + camp.x, (y << 4) + camp.y};
-                v2_i32 tpos = {tx, ty};
-                gfx_sprite_tile_16(tileset, pos, tpos);
+                tex_s tileset = tex_get(TEXID_TILESET);
+                foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+                {
+                        rtile_s rt = g->rtiles[x + y * g->tiles_x];
+                        int     ID = g_tileIDs[rt.ID];
+                        if (ID == TILEID_NULL) continue;
+                        int tx, ty;
+                        tileID_decode(ID, &tx, &ty);
+                        v2_i32 pos  = {(x << 4) + camp.x, (y << 4) + camp.y};
+                        v2_i32 tpos = {tx, ty};
+                        gfx_sprite_tile_16(tileset, pos, tpos);
+                }
         }
-        os_debug_time(TIMING_DRAW_TILES, os_time() - timet);
+        TIMING_END();
 }
 
 /* maps texture generated above onto a cylinder
@@ -225,7 +228,7 @@ void game_draw(game_s *g)
                 case 1: {
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_SOLID);
-                        gfx_sprite_(ttex, pos, (rec_i32){0, 0, 64, 48}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 0, 64, 48}, 0);
                 } break;
                 case 2: {
                         v2_i32 pos  = v2_add(o->pos, camp);
@@ -235,14 +238,26 @@ void game_draw(game_s *g)
                         if (o->vel_q8.x < 0) ty += 16;
                         if (o->vel_q8.y < -150) tx = 0;
                         if (o->vel_q8.y > +150) tx = 2;
-                        gfx_sprite_(ttex, pos, (rec_i32){tx * 16, ty, 16, 16}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){tx * 16, ty, 16, 16}, 0);
                 } break;
                 case 3: {
+
+                        if (g->hero.swordticks > 0) {
+                                rec_i32 hero_sword_hitbox(obj_s * o, hero_s * h);
+                                rec_i32 swordbox = hero_sword_hitbox(o, &g->hero);
+                                swordbox.x += camp.x;
+                                swordbox.y += camp.y;
+                                gfx_rec_fill(swordbox, 1);
+                        }
+
+                        // just got hit flashing
+                        if (o->invincibleticks > 0 && (o->invincibleticks & 15) < 8)
+                                break;
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_HERO);
                         pos.x -= 8;
                         pos.y -= 18;
-                        gfx_sprite_(ttex, pos, (rec_i32){0, 0, 32, 48}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 0, 32, 48}, 0);
                 } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
@@ -261,12 +276,12 @@ void game_draw(game_s *g)
 
         draw_item_selection(g);
 
-#if 1 // some debug drawing
+#if 0 // some debug drawing
         for (int n = 1; n < g->water.nparticles; n++) {
                 i32 yy1 = water_amplitude(&g->water, n - 1);
                 i32 yy2 = water_amplitude(&g->water, n);
-                yy1 += 150;
-                yy2 += 150;
+                yy1 += 184;
+                yy2 += 184;
                 gfx_line_thick((n - 1) * 4, yy1, n * 4, yy2, 1, 1);
         }
 

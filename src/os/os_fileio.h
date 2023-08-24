@@ -23,6 +23,7 @@ typedef SDFile OS_FILE;
 static inline OS_FILE *os_fopen(const char *file, const char *mode)
 {
         if (!file || !mode) return NULL;
+        PRINTF("read file: %s\n", file);
         switch (mode[0]) {
         case 'r': return PD->file->open(file, kFileRead);
         }

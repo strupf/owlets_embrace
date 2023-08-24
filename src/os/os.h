@@ -118,6 +118,12 @@ enum timing_IDs {
         NUM_TIMING
 };
 
+#define TIMING_BEGIN(ID) i_time_begin(ID)
+#define TIMING_END       i_time_end
+
+void i_time_begin(int ID);
+void i_time_end();
+
 typedef struct {
         u8 *px;
         u8 *mk;
@@ -200,52 +206,52 @@ void      gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3]); // 2 b
 //
 snd_s     snd_get(int ID);
 //
-void      os_debug_time(int ID, float time);
-i32       os_tick();
-int       os_inp_dpad_direction();
-int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
-int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
-bool32    os_inp_pressed(int b);
-bool32    os_inp_pressedp(int b);
-bool32    os_inp_just_released(int b);
-bool32    os_inp_just_pressed(int b);
-int       os_inp_crank_change();
-int       os_inp_crank();
-int       os_inp_crankp();
-bool32    os_inp_crank_dockedp();
-bool32    os_inp_crank_docked();
+
+i32    os_tick();
+int    os_inp_dpad_direction();
+int    os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
+int    os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
+bool32 os_inp_pressed(int b);
+bool32 os_inp_pressedp(int b);
+bool32 os_inp_just_released(int b);
+bool32 os_inp_just_pressed(int b);
+int    os_inp_crank_change();
+int    os_inp_crank();
+int    os_inp_crankp();
+bool32 os_inp_crank_dockedp();
+bool32 os_inp_crank_docked();
 //
-bool32    debug_inp_up();
-bool32    debug_inp_down();
-bool32    debug_inp_left();
-bool32    debug_inp_right();
-bool32    debug_inp_w();
-bool32    debug_inp_a();
-bool32    debug_inp_s();
-bool32    debug_inp_d();
-bool32    debug_inp_enter();
-bool32    debug_inp_space();
+bool32 debug_inp_up();
+bool32 debug_inp_down();
+bool32 debug_inp_left();
+bool32 debug_inp_right();
+bool32 debug_inp_w();
+bool32 debug_inp_a();
+bool32 debug_inp_s();
+bool32 debug_inp_d();
+bool32 debug_inp_enter();
+bool32 debug_inp_space();
 //
 // internal scratchpad memory stack
 // just a fixed sized bump allocator
-void      os_spmem_push(); // push the current state
-void      os_spmem_pop();  // pop and restore previous state
-void     *os_spmem_peek();
-void      os_spmem_set(void *p);
-void      os_spmem_clr();                    // reset bump allocator
-void     *os_spmem_alloc(size_t size);       // allocate memory
-void     *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
-void     *os_spmem_allocz(size_t size);      // allocate and zero memory
-void     *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
+void   os_spmem_push(); // push the current state
+void   os_spmem_pop();  // pop and restore previous state
+void  *os_spmem_peek();
+void   os_spmem_set(void *p);
+void   os_spmem_clr();                    // reset bump allocator
+void  *os_spmem_alloc(size_t size);       // allocate memory
+void  *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
+void  *os_spmem_allocz(size_t size);      // allocate and zero memory
+void  *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 //
-void      memarena_init(memarena_s *m, void *buf, size_t bufsize);
-void     *memarena_alloc(memarena_s *m, size_t s);
-void     *memarena_alloc_rem(memarena_s *m, size_t *s);
-void     *memarena_allocz(memarena_s *m, size_t s);
-void     *memarena_allocz_rem(memarena_s *m, size_t *s);
-void     *memarena_peek(memarena_s *m);
-void      memarena_set(memarena_s *m, void *p);
-void      memarena_clr(memarena_s *m);
+void   memarena_init(memarena_s *m, void *buf, size_t bufsize);
+void  *memarena_alloc(memarena_s *m, size_t s);
+void  *memarena_alloc_rem(memarena_s *m, size_t *s);
+void  *memarena_allocz(memarena_s *m, size_t s);
+void  *memarena_allocz_rem(memarena_s *m, size_t *s);
+void  *memarena_peek(memarena_s *m);
+void   memarena_set(memarena_s *m, void *p);
+void   memarena_clr(memarena_s *m);
 
 // MEMORY REPLACEMENTS =========================================================
 static inline void os_memset(void *dst, int val, size_t l)

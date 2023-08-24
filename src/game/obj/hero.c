@@ -7,22 +7,26 @@
 #include "game/rope.h"
 #include "obj.h"
 
-enum hero_const {
-        HERO_C_JUMP_INIT = -350,
-        HERO_C_ACCX_MAX  = 100,
-        HERO_C_JUMP_MAX  = 70,
+enum {
+        HERO_C_JUMP_INIT = -600,
+        HERO_C_ACCX_MAX  = 150,
+        HERO_C_JUMP_MAX  = 80,
         HERO_C_JUMP_MIN  = 0,
-        HERO_C_JUMPTICKS = 18,
+        HERO_C_JUMPTICKS = 10,
         HERO_C_EDGETICKS = 6,
-        HERO_C_GRAVITY   = 45,
+        HERO_C_GRAVITY   = 55,
 };
 
+static void   hero_update_sword(game_s *g, obj_s *o, hero_s *h);
+static void   hero_interact_logic(game_s *g, hero_s *h, obj_s *o);
+static void   hero_crank_item_selection(hero_s *h);
+static void   hero_check_hurtables(game_s *g, obj_s *ohero);
 static void   hero_jump_particles(game_s *g, obj_s *o);
 static void   hero_land_particles(game_s *g, obj_s *o);
 static void   hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook);
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8);
-void          hook_squeeze(game_s *g, obj_s *o, void *arg);
-void          hero_squeeze(game_s *g, obj_s *o, void *arg);
+static void   hook_squeeze(game_s *g, obj_s *o, void *arg);
+static void   hero_squeeze(game_s *g, obj_s *o, void *arg);
 
 static void obj_squeeze_delete(game_s *g, obj_s *o, void *arg)
 {
@@ -101,6 +105,36 @@ static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
         }
 }
 
+rec_i32 hero_sword_hitbox(obj_s *o, hero_s *h)
+{
+        rec_i32 hitbox = {o->pos.x + o->w, o->pos.y, 16, 16};
+        if (h->sworddir == -1) {
+                hitbox.x -= o->w + hitbox.w;
+        }
+        return hitbox;
+}
+
+static void hero_update_sword(game_s *g, obj_s *o, hero_s *h)
+{
+        h->swordticks--;
+        rec_i32 hitbox = hero_sword_hitbox(o, h);
+
+        obj_listc_s hittable = objbucket_list(g, OBJ_BUCKET_HURTABLE);
+        for (int n = 0; n < hittable.n; n++) {
+                obj_s *ohit = hittable.o[n];
+                if (overlap_rec_excl(obj_aabb(ohit), hitbox)) {
+                        obj_delete(g, ohit);
+                }
+        }
+}
+
+static void hero_use_sword(game_s *g, obj_s *o, hero_s *h)
+{
+        h->swordticks = 40;
+        h->sworddir   = o->facing;
+        hero_update_sword(g, o, h);
+}
+
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
         bool32 grounded = game_area_blocked(g, obj_rec_bottom(o));
@@ -130,16 +164,23 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 h->jumpticks = 0;
         }
 
-        // just pressed item button
-        if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
-                switch (h->c_item) {
-                case 0:
-                        hero_use_hook(g, o, h);
-
-                        break;
-                case 1:
-                        hero_use_bow(g, o, h);
-                        break;
+        h->c_item = HERO_ITEM_SWORD;
+        if (h->swordticks > 0) {
+                hero_update_sword(g, o, h);
+        } else {
+                // just pressed item button
+                if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
+                        switch (h->c_item) {
+                        case HERO_ITEM_HOOK:
+                                hero_use_hook(g, o, h);
+                                break;
+                        case HERO_ITEM_BOW:
+                                hero_use_bow(g, o, h);
+                                break;
+                        case HERO_ITEM_SWORD:
+                                hero_use_sword(g, o, h);
+                                break;
+                        }
                 }
         }
 
@@ -217,7 +258,8 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 hook_destroy(g, h, o, hook);
                 return;
         }
-        float timei = os_time();
+
+        TIMING_BEGIN(TIMING_ROPE);
         if (!hook->attached) {
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
@@ -260,7 +302,7 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 hook->vel_q8 = rope_adjust_connected_vel(g, r, r->tail,
                                                          hook->subpos_q8, hook->vel_q8);
         }
-        os_debug_time(TIMING_ROPE, os_time() - timei);
+        TIMING_END();
 }
 
 static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
@@ -273,7 +315,7 @@ static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
         ohook->ropenode = NULL;
 }
 
-void hook_squeeze(game_s *g, obj_s *o, void *arg)
+static void hook_squeeze(game_s *g, obj_s *o, void *arg)
 {
         hero_s *hero = (hero_s *)arg;
         obj_s  *ohero;
@@ -284,7 +326,7 @@ void hook_squeeze(game_s *g, obj_s *o, void *arg)
         }
 }
 
-void hero_squeeze(game_s *g, obj_s *o, void *arg)
+static void hero_squeeze(game_s *g, obj_s *o, void *arg)
 {
         game_map_transition_start(g, "template.tmj");
 }
@@ -380,7 +422,7 @@ static void hero_land_particles(game_s *g, obj_s *o)
         }
 }
 
-void hero_check_level_transition(game_s *g, obj_s *hero)
+static void hero_check_level_transition(game_s *g, obj_s *hero)
 {
         rec_i32 haabb = obj_aabb(hero);
 
@@ -419,7 +461,7 @@ void hero_check_level_transition(game_s *g, obj_s *hero)
         }
 }
 
-void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
+static void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
 {
         rec_i32     haabb   = obj_aabb(o);
         obj_listc_s pickups = objbucket_list(g, OBJ_BUCKET_PICKUP);
@@ -435,7 +477,7 @@ void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
         }
 }
 
-void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
+static void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
 {
         v2_i32 pc           = obj_aabb_center(o);
         obj_s *interactable = interactable_closest(g, pc);
@@ -460,6 +502,23 @@ static void hero_crank_item_selection(hero_s *h)
         }
 }
 
+static void hero_check_hurtables(game_s *g, obj_s *ohero)
+{
+        obj_listc_s hurtables = objbucket_list(g, OBJ_BUCKET_HURTS_PLAYER);
+        rec_i32     haabb     = obj_aabb(ohero);
+        for (int n = 0; n < hurtables.n; n++) {
+                obj_s *ho = hurtables.o[n];
+                if (overlap_rec_excl(obj_aabb(ho), haabb)) {
+                        ohero->invincibleticks = 30;
+                        v2_i32 c1              = obj_aabb_center(ho);
+                        v2_i32 c2              = obj_aabb_center(ohero);
+                        ohero->vel_q8.x        = SGN(c2.x - c1.x) * 750;
+                        ohero->vel_q8.y        = -500;
+                        break;
+                }
+        }
+}
+
 void hero_update(game_s *g, obj_s *o, void *arg)
 {
         hero_s *h = (hero_s *)arg;
@@ -474,17 +533,22 @@ void hero_update(game_s *g, obj_s *o, void *arg)
         if (os_inp_pressed(INP_B)) h->inp |= HERO_INP_USE_ITEM;
 
         hero_crank_item_selection(h);
-
         hero_logic(g, o, h);
-        float  timeh = os_time();
+
+        TIMING_BEGIN(TIMING_HERO_HOOK);
         obj_s *hook;
         if (try_obj_from_handle(h->hook, &hook)) {
                 hero_hook_update(g, o, h, hook);
         }
-        os_debug_time(TIMING_HERO_HOOK, os_time() - timeh);
+
+        TIMING_END();
 
         if (g->transition.phase == TRANSITION_NONE) {
                 hero_check_level_transition(g, o);
         }
         hero_pickup_logic(g, h, o);
+
+        if (o->invincibleticks-- <= 0) {
+                hero_check_hurtables(g, o);
+        }
 }

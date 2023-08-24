@@ -58,6 +58,7 @@ enum obj_flag {
         OBJ_FLAG_THINK_2,
         OBJ_FLAG_HURTABLE,
         OBJ_FLAG_KILL_OFFSCREEN,
+        OBJ_FLAG_HURTS_PLAYER,
         //
         NUM_OBJ_FLAGS
 };
@@ -81,6 +82,7 @@ enum obj_bucket {
         OBJ_BUCKET_THINK_2,
         OBJ_BUCKET_HURTABLE,
         OBJ_BUCKET_KILL_OFFSCREEN,
+        OBJ_BUCKET_HURTS_PLAYER,
         //
         NUM_OBJ_BUCKETS
 };

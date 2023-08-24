@@ -11,6 +11,7 @@
 #include "cam.h"
 #include "gamedef.h"
 #include "maptransition.h"
+#include "obj/blob.h"
 #include "obj/door.h"
 #include "obj/hero.h"
 #include "obj/obj.h"

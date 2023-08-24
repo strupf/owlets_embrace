@@ -146,7 +146,7 @@ static inline int os_do_tick()
                         }
                 }
 
-                float time1 = os_time();
+                TIMING_BEGIN(TIMING_UPDATE);
                 timeacc -= OS_FPS_DELTA;
                 os_spmem_clr();
                 os_backend_inp_update();
@@ -156,19 +156,21 @@ static inline int os_do_tick()
                 if (g_os.n_spmem > 0) {
                         // PRINTF("WARNING: spmem is not reset\n_spmem");
                 }
-                os_debug_time(TIMING_UPDATE, os_time() - time1);
+                TIMING_END();
         }
 
         if (timeacc != timeacc_tmp) {
-                float time1 = os_time();
+#if DIAGRAM_ENABLED
+                TIMING_BEGIN(TIMING_DRAW);
+#endif
                 os_spmem_clr();
                 g_os.dst = g_os.tex_tab[0];
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
 
 #if DIAGRAM_ENABLED
-                os_debug_time(TIMING_DRAW, os_time() - time1);
-                if (!g_gamestate.textbox.active) draw_frame_diagrams();
+                TIMING_END();
+                draw_frame_diagrams();
 #endif
                 os_backend_graphics_end();
                 os_backend_graphics_flip();
@@ -196,7 +198,6 @@ static inline void os_prepare()
         PRINTF("= %lli kb\n", sgame + sos);
         frame_diagram();
         g_os.lasttime = os_time();
-        PRINTF("SIZE: %lli\n", sizeof(objset_s));
 }
 
 i32 os_tick()
@@ -204,8 +205,27 @@ i32 os_tick()
         return g_os.tick;
 }
 
-void os_debug_time(int ID, float time)
+typedef struct {
+        int   ID;
+        float time;
+} debugtime_s;
+
+static struct {
+        debugtime_s stack[4];
+        int         n;
+} g_debugtime;
+
+void i_time_begin(int ID)
 {
-        timings_s *t       = &g_os.timings;
-        t->times[ID][t->n] = MAX(time, t->times[ID][t->n]);
+        debugtime_s *dt = &g_debugtime.stack[g_debugtime.n++];
+        dt->ID          = ID;
+        dt->time        = os_time();
+}
+
+void i_time_end()
+{
+        debugtime_s dt        = g_debugtime.stack[--g_debugtime.n];
+        float       time      = os_time() - dt.time;
+        timings_s  *t         = &g_os.timings;
+        t->times[dt.ID][t->n] = MAX(time, t->times[dt.ID][t->n]);
 }

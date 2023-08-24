@@ -120,6 +120,7 @@ typedef u32 u8x4;
 #define char_isdigit(C)   ('0' <= (C) && (C) <= '9')
 #define char_digit        char_isdigit
 #define char_digit_1_9(C) ('1' <= (C) && (C) <= '9')
+
 static int char_hex_to_int(char c)
 {
         switch (c) {
