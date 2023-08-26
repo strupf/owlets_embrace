@@ -73,18 +73,23 @@ struct obj_s {
         obj_s *fchild;
         obj_s *lchild;
 
-        i32         w;
-        i32         h;
+        i32 w;
+        i32 h;
+
         v2_i32      pos;
         v2_i32      subpos_q8;
         v2_i32      vel_q8;
         v2_i32      gravity_q8;
         v2_i32      drag_q8;
         v2_i32      tomove; // distance to move the obj
+        v2_i32      vel_prev_q8;
         bool32      squeezed;
         flags32     actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
+
+        i32 animation;
+        i32 animframe;
 
         objfunc_f    onsqueeze;
         objfunc_f    oninteract;

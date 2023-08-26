@@ -1,6 +1,5 @@
 gameplay
 * path movement for moving platforms
-    * linear, pingpong, circular
     * load path from map
 * talkable NPCs
 * enemies
@@ -14,7 +13,7 @@ loading
 * autotiling for low and high slopes
 
 graphics
-* finalize item frame
+* performant flipped sprite drawing
 * basic player animation
 * rope
     * better rendering (textured thick rope?)

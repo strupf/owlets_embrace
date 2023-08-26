@@ -6,38 +6,29 @@
 
 char *txt_read_file_alloc(const char *file, void *(*allocfunc)(size_t))
 {
-        ASSERT(file);
         OS_FILE *f = os_fopen(file, "r");
         ASSERT(f);
-        int e = os_fseek(f, 0, OS_SEEK_END);
-        ASSERT(e == 0);
-        int size  = (int)os_ftell(f);
-        e         = os_fseek(f, 0, OS_SEEK_SET);
-        char *buf = allocfunc((size_t)size + 2);
-        ASSERT(e == 0 && buf);
-        int read = (int)os_fread(buf, 1, size, f);
-        e        = os_fclose(f);
-        ASSERT(e == 0);
+        os_fseek(f, 0, OS_SEEK_END);
+        int size = (int)os_ftell(f);
+        os_fseek(f, 0, OS_SEEK_SET);
+        char *buf  = allocfunc((size_t)size + 2);
+        int   read = (int)os_fread(buf, 1, size, f);
+        os_fclose(f);
         buf[read] = '\0';
-        PRINTF("Read file: %s\n", file);
         return buf;
 }
 
 int txt_read_file(const char *file, char *buf, size_t bufsize)
 {
-        ASSERT(file && buf && bufsize);
         OS_FILE *f = os_fopen(file, "r");
         ASSERT(f);
-        int e = os_fseek(f, 0, OS_SEEK_END);
-        ASSERT(e == 0);
+        os_fseek(f, 0, OS_SEEK_END);
         int size = (int)os_ftell(f);
-        e        = os_fseek(f, 0, OS_SEEK_SET);
-        ASSERT(e == 0 && 0 < size && size + 1 < (int)bufsize);
+        os_fseek(f, 0, OS_SEEK_SET);
+        ASSERT(0 < size && size + 1 < (int)bufsize);
         int read = (int)os_fread(buf, 1, size, f);
-        e        = os_fclose(f);
-        ASSERT(e == 0);
+        os_fclose(f);
         buf[read] = '\0';
-        PRINTF("Read file: %s\n", file);
         return read;
 }
 

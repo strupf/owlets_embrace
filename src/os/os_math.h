@@ -248,6 +248,18 @@ static u32 rng_max_u32(u32 hi)
         return _rng_max_u32(rng_u32(), hi);
 }
 
+// returns [0, 1]
+static inline float rngf()
+{
+        return ((float)rng_u32() / (float)U32_MAX);
+}
+
+// returns [lo, hi]
+static inline float rngf_range(float lo, float hi)
+{
+        return (lo + rngf() * (hi - lo));
+}
+
 #define rng_range(LO, HI) rng_range_u32(LO, HI)
 
 // symmetrical right shift for pos and neg numbers

@@ -21,17 +21,42 @@
 enum {
         OS_SPMEM_STACK_HEIGHT = 16,
         OS_SPMEM_SIZE         = 0x100000, // 1 MB
-        OS_ASSETMEM_SIZE      = 0x100000, // 1 MB
-        OS_MUSIC_MEM_SIZE     = 0x500000, // 5 MB
+        OS_ASSETMEM_SIZE      = 0x400000, // 4 MB
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,
-        OS_NUM_AUDIO_CHANNELS = 4,
+        OS_NUM_AUDIO_CHANNELS = 8,
+};
+
+enum {
+        PLAYBACK_TYPE_SILENT,
+        PLAYBACK_TYPE_WAVE,
+        PLAYBACK_TYPE_GEN,
 };
 
 typedef struct {
-        bool32 active;
-        i32    state;
+        int   playback_type;
+        float vol;
+        float invpitch; // 1 / pitch
+
+        i16 *wavedata;
+        u32  wavelen;
+        u32  wavelen_og;
+        u32  wavepos;
+
+        int gentype;
+        u32 genfreq;
+        i32 genpos;
+        i32 sinincr; // = (freq * "2 pi") / 44100
+        i32 squarelen;
 } audio_channel_s;
+
+typedef struct {
+        OS_FILE *stream;
+        u32      streampos;
+        u32      streamlen;
+        float    vol;
+        float    invpitch; // 1 / pitch
+} music_channel_s;
 
 typedef struct {
         char  labels[NUM_TIMING][16];
@@ -78,10 +103,13 @@ typedef struct {
         memarena_s      spmem;
         ALIGNAS(4) char spmem_raw[OS_SPMEM_SIZE];
 
+        music_channel_s musicchannel;
         audio_channel_s audiochannels[OS_NUM_AUDIO_CHANNELS];
-        ALIGNAS(4) char musicmem[OS_MUSIC_MEM_SIZE];
 } os_s;
 
 extern os_s g_os;
+
+void *assetmem_alloc(size_t s);
+int   os_audio_cb(void *context, i16 *left, i16 *right, int len);
 
 #endif

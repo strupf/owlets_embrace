@@ -213,6 +213,14 @@ static void draw_particles(game_s *g, v2_i32 camp)
 
 void game_draw(game_s *g)
 {
+        /*
+        if (debug_inp_space()) {
+                gfx_sprite(tex_get(TEXID_HERO), (v2_i32){4, 8}, (rec_i32){24, 24, 200, 200}, 2);
+        }
+
+        gfx_sprite_(tex_get(TEXID_HERO), (v2_i32){4, 8}, (rec_i32){24, 24, 200, 200}, 1);
+        return;
+        */
         v2_i32  camp = {-(g->cam.pos.x - g->cam.wh),
                         -(g->cam.pos.y - g->cam.hh)};
         rec_i32 camr = {-camp.x, -camp.y, g->cam.w, g->cam.h};
@@ -255,9 +263,11 @@ void game_draw(game_s *g)
                                 break;
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_HERO);
-                        pos.x -= 8;
-                        pos.y -= 18;
-                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 0, 32, 48}, 0);
+                        pos.x -= 22;
+                        pos.y  = pos.y + o->h - 64;
+                        int fl = o->facing == 1 ? 0 : 2;
+
+                        gfx_sprite(ttex, pos, (rec_i32){o->animframe * 64, 0, 64, 64}, fl);
                 } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
@@ -314,4 +324,6 @@ void game_draw(game_s *g)
                 draw_transition(g);
         if (g->textbox.active)
                 draw_textbox(&g->textbox);
+
+        // gfx_sprite(tex_get(TEXID_HERO), (v2_i32){10, 256}, (rec_i32){0, 0, 256, 256}, 1);
 }

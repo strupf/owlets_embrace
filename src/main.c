@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "game/game.h"
+#include "os/backend.h"
 #include "os/os_internal.h"
 
 #define DIAGRAM_ENABLED   0
@@ -11,66 +12,8 @@
 #define DIAGRAM_W         TIMING_FRAMES
 #define DIAGRAM_H         (NUM_TIMING * DIAGRAM_SPACING_Y + 1)
 
-static inline void os_prepare();
-static inline int  os_do_tick();
-
-void os_backend_graphics_init();
-void os_backend_graphics_close();
-void os_backend_audio_init();
-void os_backend_audio_close();
-void os_backend_inp_init();
-void os_backend_inp_update();
-void os_backend_graphics_begin();
-void os_backend_graphics_end();
-void os_backend_graphics_flip();
-
 os_s   g_os;
 game_s g_gamestate;
-
-#ifdef TARGET_DESKTOP
-// DESKTOP =====================================================================
-int main()
-{
-        os_prepare();
-        while (!WindowShouldClose()) {
-                os_do_tick();
-        }
-
-        os_backend_audio_close();
-        os_backend_graphics_close();
-        return 0;
-}
-#elif defined(TARGET_PD)
-// PLAYDATE ====================================================================
-PlaydateAPI *PD;
-void (*PD_log)(const char *fmt, ...);
-float (*PD_elapsedtime)();
-
-int os_do_tick_pd(void *userdata)
-{
-        return os_do_tick();
-}
-
-#ifdef _WINDLL
-__declspec(dllexport)
-#endif
-    int eventHandler(PlaydateAPI *pd, PDSystemEvent event, uint32_t arg)
-{
-        switch (event) {
-        case kEventInit:
-                PD             = pd;
-                PD_log         = PD->system->logToConsole;
-                PD_elapsedtime = PD->system->getElapsedTime;
-                PD->system->setUpdateCallback(os_do_tick_pd, PD);
-                PD->system->resetElapsedTime();
-                os_prepare();
-                break;
-        }
-        return 0;
-}
-
-#endif
-// =============================================================================
 
 static tex_s tdiagram;
 
@@ -126,7 +69,7 @@ static void frame_diagram()
         os_strcat(g_os.timings.labels[TIMING_HERO_HOOK], "h_hook");
 }
 
-static inline int os_do_tick()
+int os_do_tick()
 {
         static float timeacc;
 
@@ -180,7 +123,7 @@ static inline int os_do_tick()
         return 0; // not rendered, don't update display
 }
 
-static inline void os_prepare()
+void os_prepare()
 {
         memarena_init(&g_os.spmem, g_os.spmem_raw, OS_SPMEM_SIZE);
         memarena_init(&g_os.assetmem, g_os.assetmem_raw, OS_ASSETMEM_SIZE);
@@ -228,4 +171,9 @@ void i_time_end()
         float       time      = os_time() - dt.time;
         timings_s  *t         = &g_os.timings;
         t->times[dt.ID][t->n] = MAX(time, t->times[dt.ID][t->n]);
+}
+
+void *assetmem_alloc(size_t s)
+{
+        return memarena_alloc(&g_os.assetmem, s);
 }

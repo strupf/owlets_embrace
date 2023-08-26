@@ -27,4 +27,10 @@
 #include "os/os_inp.c"
 #include "os/os_mem.c"
 //
+#ifdef TARGET_PD
+#include "os/backend_pd.c"
+#else
+#include "os/backend_rl.c"
+#endif
+//
 #include "main.c"

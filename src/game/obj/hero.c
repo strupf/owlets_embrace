@@ -9,7 +9,7 @@
 
 enum {
         HERO_C_JUMP_INIT = -600,
-        HERO_C_ACCX_MAX  = 150,
+        HERO_C_ACCX_MAX  = 130,
         HERO_C_JUMP_MAX  = 80,
         HERO_C_JUMP_MIN  = 0,
         HERO_C_JUMPTICKS = 10,
@@ -149,6 +149,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                         h->edgeticks = 0;
                         h->jumpticks = HERO_C_JUMPTICKS;
                         o->vel_q8.y  = HERO_C_JUMP_INIT;
+                        snd_play(snd_get(SNDID_JUMP));
                         hero_jump_particles(g, o);
                 } else if (h->jumpticks > 0) {
                         int jfrom = pow2_i32(HERO_C_JUMPTICKS - h->jumpticks);
@@ -551,4 +552,12 @@ void hero_update(game_s *g, obj_s *o, void *arg)
         if (o->invincibleticks-- <= 0) {
                 hero_check_hurtables(g, o);
         }
+
+        o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
+
+        if (o->vel_q8.x == 0)
+                o->animation = 0;
+        else if (o->vel_prev_q8.x == 0)
+                o->animation = 300;
+        o->animframe = (o->animation / 400) % 4;
 }

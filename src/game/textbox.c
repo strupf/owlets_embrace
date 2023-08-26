@@ -15,13 +15,6 @@ enum {
         DIALOG_TOK_END,
 };
 
-#include "raylib.h"
-
-#ifdef TARGET_DESKTOP
-static Sound sarray[4];
-static int   nsound;
-#endif
-
 // returns true if str contains the same characters of exp, not
 // comparing the terminating \0 of exp
 static bool32 str_matches(const char *str, const char *exp)
@@ -34,16 +27,6 @@ static bool32 str_matches(const char *str, const char *exp)
 
 static void dialog_parse(const char *txt, dialog_tok_s *toks)
 {
-#ifdef TARGET_DESKTOP
-        static int once = 0;
-        if (!once) {
-
-                for (int n = 0; n < 4; n++) {
-                        sarray[n] = LoadSound("assets/snd/speak1.wav");
-                }
-        }
-#endif
-
         int ntok = 0;
         for (int i = 0; txt[i] != '\0'; i++) {
                 ASSERT(ntok + 1 < TEXTBOX_NUM_TOKS);
@@ -255,11 +238,9 @@ void textbox_update(textbox_s *tb)
                 line->n_shown++;
                 if (('A' <= nn && nn <= 'Z') ||
                     ('a' <= nn && nn <= 'z')) {
-#ifdef TARGET_DESKTOP
-                        SetSoundPitch(sarray[nsound], (float)rng_range(90, 110) / 110.f);
-                        PlaySound(sarray[nsound]);
-                        nsound = (nsound + 1) % 4;
-#endif
+                        snd_play_ext(snd_get(SNDID_TYPEWRITE),
+                                     0.25f,
+                                     rngf_range(0.7f, 1.f));
                 }
 
         } else {

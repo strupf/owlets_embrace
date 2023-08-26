@@ -11,31 +11,6 @@ static void tileanimations_update();
 static void game_cull_scheduled(game_s *g);
 static void game_update_transition(game_s *g);
 
-// .wav format
-typedef struct {
-        char riff[4];
-        u32  size;
-        char wave[4];
-        char fmt[4];
-        u32  sectionchunk;
-        u16  typeformat;
-        u16  monostereo;
-        u32  samplefreq;
-        u32  bytespersec;
-        u16  alignment;
-        u16  bitspersample;
-        char data[4];
-        u32  datachunksize;
-} wavheader_s;
-
-void loadwav(const char *filename)
-{
-        os_spmem_push();
-        char        *f    = txt_read_file_alloc(filename, os_spmem_alloc);
-        wavheader_s *head = (wavheader_s *)f;
-        os_spmem_pop();
-}
-
 void pathmover_init(pathmover_s *p)
 {
         for (int n = 0; n < 5; n++) {
@@ -47,8 +22,6 @@ void pathmover_init(pathmover_s *p)
                         p->nodes[n].next = &p->nodes[n + 1];
                 }
         }
-
-        loadwav("assets/snd/choo.wav");
 
         // p->nodes[0].prev = &p->nodes[4];
         // p->nodes[4].next = &p->nodes[0];
@@ -77,7 +50,7 @@ static void game_tick(game_s *g)
         if (!ponce) {
                 ponce = 1;
                 pathmover_init(&g->pathmover);
-                blob_create(g);
+                // blob_create(g);
         }
         path_update(&g->pathmover);
         watersurface_update(&g->water);

@@ -347,11 +347,12 @@ void solid_move(game_s *g, obj_s *o, int dx, int dy)
 // the goal is to move a whole pixel left or right
 void obj_apply_movement(obj_s *o)
 {
-        o->vel_q8    = v2_add(o->vel_q8, o->gravity_q8);
-        o->vel_q8.x  = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
-        o->vel_q8.y  = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
-        o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
-        o->tomove    = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
+        o->vel_q8      = v2_add(o->vel_q8, o->gravity_q8);
+        o->vel_q8.x    = q_mulr(o->vel_q8.x, o->drag_q8.x, 8);
+        o->vel_q8.y    = q_mulr(o->vel_q8.y, o->drag_q8.y, 8);
+        o->vel_prev_q8 = o->vel_q8;
+        o->subpos_q8   = v2_add(o->subpos_q8, o->vel_q8);
+        o->tomove      = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
         o->subpos_q8.x &= 255;
         o->subpos_q8.y &= 255;
 }

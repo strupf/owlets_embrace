@@ -23,7 +23,6 @@ typedef SDFile OS_FILE;
 static inline OS_FILE *os_fopen(const char *file, const char *mode)
 {
         if (!file || !mode) return NULL;
-        PRINTF("read file: %s\n", file);
         switch (mode[0]) {
         case 'r': return PD->file->open(file, kFileRead);
         }
@@ -31,7 +30,7 @@ static inline OS_FILE *os_fopen(const char *file, const char *mode)
 }
 #define os_fseek                   PD->file->seek
 #define os_ftell                   PD->file->tell
-#define os_fread(PTR, S, NUM, FIL) PD->file->read(FIL, PTR, NUM)
+#define os_fread(PTR, S, NUM, FIL) PD->file->read(FIL, PTR, (NUM) * (S))
 #define os_fclose                  PD->file->close
 //
 #endif // playdate
@@ -40,6 +39,7 @@ static inline OS_FILE *os_fopen(const char *file, const char *mode)
 enum {
         OS_SEEK_END = SEEK_END,
         OS_SEEK_SET = SEEK_SET,
+        OS_SEEK_CUR = SEEK_CUR,
 };
 
 // reads a text file into the given buffer and

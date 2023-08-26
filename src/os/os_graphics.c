@@ -4,96 +4,6 @@
 
 #include "os_internal.h"
 
-#if defined(TARGET_DESKTOP) // =================================================
-void os_backend_graphics_init()
-{
-        InitWindow(400 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE, "raylib");
-        Image img = GenImageColor(416, 240, BLACK);
-        ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-        g_os.tex = LoadTextureFromImage(img);
-        SetTextureFilter(g_os.tex, TEXTURE_FILTER_POINT);
-        UnloadImage(img);
-        SetTargetFPS(60);
-}
-
-void os_backend_graphics_close()
-{
-        UnloadTexture(g_os.tex);
-        CloseWindow();
-}
-
-void os_backend_graphics_begin()
-{
-        os_memclr4(g_os.framebuffer, sizeof(g_os.framebuffer));
-}
-
-void os_backend_graphics_end()
-{
-        static const Color t_rgb[2] = {0x31, 0x2F, 0x28, 0xFF,
-                                       0xB1, 0xAF, 0xA8, 0xFF};
-
-        for (int y = 0; y < 240; y++) {
-                for (int x = 0; x < 400; x++) {
-                        int i         = (x >> 3) + y * 52;
-                        int k         = x + y * 416;
-                        int byt       = g_os.framebuffer[i];
-                        int bit       = (byt & (0x80 >> (x & 7))) > 0;
-                        g_os.texpx[k] = t_rgb[g_os.inverted ? !bit : bit];
-                }
-        }
-        UpdateTexture(g_os.tex, g_os.texpx);
-}
-
-void os_backend_graphics_flip()
-{
-        static const Rectangle rsrc =
-            {0, 0, 416, 240};
-        static const Rectangle rdst =
-            {0, 0, 416 * OS_DESKTOP_SCALE, 240 * OS_DESKTOP_SCALE};
-        static const Vector2 vorg =
-            {0, 0};
-        BeginDrawing();
-        ClearBackground(BLACK);
-        DrawTexturePro(g_os.tex, rsrc, rdst, vorg, 0.f, WHITE);
-        EndDrawing();
-}
-#endif
-
-#if defined(TARGET_PD) // ======================================================
-static void (*PD_display)(void);
-static void (*PD_drawFPS)(int x, int y);
-static void (*PD_markUpdatedRows)(int start, int end);
-
-void os_backend_graphics_init()
-{
-        PD_display         = PD->graphics->display;
-        PD_drawFPS         = PD->system->drawFPS;
-        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
-        PD->display->setRefreshRate(0.f);
-        g_os.framebuffer = PD->graphics->getFrame();
-}
-
-void os_backend_graphics_close()
-{
-}
-
-void os_backend_graphics_begin()
-{
-        os_memclr4(g_os.framebuffer, OS_FRAMEBUFFER_SIZE);
-}
-
-void os_backend_graphics_end()
-{
-        PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
-        PD_drawFPS(0, 0);
-        PD_display(); // update all rows
-}
-
-void os_backend_graphics_flip()
-{
-}
-#endif // ======================================================================
-
 tex_s tex_create(int w, int h, bool32 mask)
 {
         // bytes per row - rows aligned to 32 bit
@@ -102,7 +12,7 @@ tex_s tex_create(int w, int h, bool32 mask)
         size_t s      = sizeof(u8) * w_byte * h;
 
         // twice the size (1 bit white/black, 1 bit transparent/opaque)
-        void *mem = memarena_allocz(&g_os.assetmem, s * (mask ? 2 : 1));
+        void *mem = assetmem_alloc(s * (mask ? 2 : 1));
         u8   *px  = (u8 *)mem;
         u8   *mk  = (u8 *)(mask ? px + s : NULL);
         tex_s t   = {px, mk, w_word, w_byte, w, h};
@@ -394,6 +304,100 @@ void gfx_sprite_tile_16(tex_s src, v2_i32 pos, v2_i32 tilepos)
                 if (dm) {
                         dm[j0] |= t0;
                         dm[j1] |= t1;
+                }
+        }
+}
+
+static inline u32 bitrev(u32 x)
+{
+        u32 v = x;  // input bits to be reversed
+        u32 r = v;  // r will be reversed bits of v; first get LSB of v
+        int s = 31; // extra shift needed at end
+
+        for (v >>= 1; v; v >>= 1) {
+                r <<= 1;
+                r |= v & 1;
+                s--;
+        }
+        r <<= s; // shift when v's highest bits are zero
+        return r;
+}
+
+/* fast sprite drawing routine for untransformed sprites
+ * blits 32 pixelbits in one loop
+ */
+void gfx_sprite_m(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
+{
+        tex_s dst        = g_os.dst;
+        int   zx         = dst.w - pos.x;
+        int   zy         = dst.h - pos.y;
+        int   x1         = rs.x + MAX(0, -pos.x);
+        int   y1         = rs.y + MAX(0, -pos.y);
+        int   x2         = rs.x + MIN(rs.w, zx) - 1;
+        int   y2         = rs.y + MIN(rs.h, zy) - 1;
+        int   cc         = pos.x - rs.x;
+        int   s1         = 31 & (32 - (cc & 31)); // relative word alignment
+        int   s0         = 32 - s1;
+        int   b1         = x1 >> 5;
+        int   b2         = x2 >> 5;
+        u32 *restrict dp = (u32 *)dst.px;
+        u32 *restrict dm = (u32 *)dst.mk;
+        for (int y = y1; y <= y2; y++) {
+                int yd            = (y + pos.y - rs.y) * dst.w_word;
+                int ii            = b1 + y * src.w_word;
+                u32 *restrict sm_ = &((u32 *)src.mk)[ii];
+                u32 *restrict sp_ = &((u32 *)src.px)[ii];
+                for (int b = b1; b <= b2; b++) {
+                        int uu = (b == b1 ? x1 & 31 : 0);
+                        int vv = (b == b2 ? x2 & 31 : 31);
+                        u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
+                        u32 sm = endian_u32(*sm_++) & mm;
+                        u32 sp = endian_u32(*sp_++);
+                        u32 t0 = endian_u32(sm >> s0);
+                        u32 p0 = endian_u32(sp >> s0);
+                        u32 t1 = endian_u32(sm << s1);
+                        u32 p1 = endian_u32(sp << s1);
+                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
+                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
+                        u32 d0 = dp[j0];
+                        u32 d1 = dp[j1];
+                        switch (mode) {
+                        case GFX_SPRITE_INV:
+                                p0 = ~p0;
+                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_COPY:
+                                d0 = (d0 & ~t0) | (p0 & t0);
+                                d1 = (d1 & ~t1) | (p1 & t1);
+                                break;
+                        case GFX_SPRITE_XOR:
+                                p0 = ~p0;
+                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_NXOR:
+                                d0 = (d0 & ~t0) | ((d0 ^ p0) & t0);
+                                d1 = (d1 & ~t1) | ((d1 ^ p1) & t1);
+                                break;
+                        case GFX_SPRITE_WHITE_TRANSPARENT:
+                                t0 &= p0;
+                                t1 &= p1; // fallthrough
+                        case GFX_SPRITE_FILL_BLACK:
+                                d0 |= t0;
+                                d1 |= t1;
+                                break;
+                        case GFX_SPRITE_BLACK_TRANSPARENT:
+                                t0 &= ~p0;
+                                t1 &= ~p1; // fallthrough
+                        case GFX_SPRITE_FILL_WHITE:
+                                d0 &= ~t0;
+                                d1 &= ~t1;
+                                break;
+                        }
+                        dp[j0] = d0;
+                        dp[j1] = d1;
+
+                        if (dm) {
+                                dm[j0] |= t0;
+                                dm[j1] |= t1;
+                        }
                 }
         }
 }

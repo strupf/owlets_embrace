@@ -31,7 +31,7 @@ void game_init(game_s *g)
         gfx_set_inverted(1);
 
         load_tileatlas(TEXID_TILESET);
-        tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_8.json"));
+        tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_.json"));
         tex_put(TEXID_FONT_DEBUG, tex_load("assets/font_debug.json"));
         tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
         tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
@@ -55,6 +55,10 @@ void game_init(game_s *g)
 
         fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
         fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
+
+        snd_put(SNDID_DEFAULT, snd_load_wav("assets/snd/sample.wav"));
+        snd_put(SNDID_JUMP, snd_load_wav("assets/snd/jump.wav"));
+        snd_put(SNDID_TYPEWRITE, snd_load_wav("assets/snd/speak.wav"));
 
         g->rng    = 213;
         g->cam.w  = 400;
