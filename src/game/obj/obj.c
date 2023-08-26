@@ -330,8 +330,7 @@ static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 void solid_move(game_s *g, obj_s *o, int dx, int dy)
 {
         obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
-        o->soliddisabled   = 1;
-        v2_i32 vx          = {SGN(dx), 0};
+        v2_i32      vx     = {SGN(dx), 0};
         for (int m = ABS(dx); m > 0; m--) {
                 solid_step(g, o, vx, actors);
         }

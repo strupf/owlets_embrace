@@ -1110,6 +1110,10 @@ static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
 
 static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
 {
+        tri_i32 tris[2];
+        tris_from_rec(r, tris);
+        return overlap_tri_lineseg_excl(tris[0], l) ||
+               overlap_tri_lineseg_excl(tris[1], l);
         v2_i32 p[4];
         points_from_rec(r, p);
         if ((l.a.x <= p[0].x && l.b.x <= p[0].x) ||

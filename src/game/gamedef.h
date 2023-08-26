@@ -17,7 +17,7 @@ enum {
         NUM_AUTOTILE_TYPES      = 32,
         NUM_TILEANIMATIONS      = 16,
         NUM_PARTICLES           = 256,
-        INTERACTABLE_DISTANCESQ = 125,
+        INTERACTABLE_DISTANCESQ = 175,
 };
 
 typedef struct game_s      game_s;

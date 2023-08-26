@@ -33,12 +33,11 @@ static OS_FILE *i_open_wav_file(const char *filename, wavheader_s *wh)
         ASSERT(filename);
         OS_FILE *f = os_fopen(filename, "rb");
         ASSERT(f);
-        *wh = (wavheader_s){0};
         os_fread(wh, sizeof(wavheader_s), 1, f);
         ASSERT(wh->bitspersample == 16);
         os_fseek(f, sizeof(wavheader_s), OS_SEEK_SET);
         while (wh->subchunk2ID != 0x61746164U) { // "data"
-                os_fseek(f, 4, OS_SEEK_CUR);
+                // os_fseek(f, 4, OS_SEEK_CUR);
                 os_fread(&wh->subchunk2ID, 4, 1, f);
         }
         return f;
@@ -68,7 +67,6 @@ snd_s snd_load_wav(const char *filename)
 static void audio_channel_wave(audio_channel_s *ch, i16 *left, int len)
 {
         for (int n = 0; n < len; n++) {
-                float val = 0.f;
                 if (ch->wavepos >= ch->wavelen) {
                         ch->playback_type = PLAYBACK_TYPE_SILENT;
                         break;
@@ -76,16 +74,16 @@ static void audio_channel_wave(audio_channel_s *ch, i16 *left, int len)
 
                 u32 i = (u32)((float)ch->wavepos++ * ch->invpitch);
                 ASSERT(i < ch->wavelen_og);
-                val     = (float)ch->wavedata[i];
-                i32 l   = left[n] + (i32)(val * ch->vol);
-                left[n] = CLAMP(l, I16_MIN, I16_MAX);
+                i32 val = ch->wavedata[i];
+                val     = left[n] + ((val * ch->vol_q8) >> 8);
+                left[n] = CLAMP(val, I16_MIN, I16_MAX);
         }
 }
 
 static void audio_channel_gen(audio_channel_s *ch, i16 *left, int len)
 {
         for (int n = 0; n < len; n++) {
-                float val = 0.f;
+                i32 val = 0;
                 // sin wave
                 // freq = 44100 Hz / "2 pi" * v
                 // v = (freq * "2 pi") / 44100
@@ -93,46 +91,78 @@ static void audio_channel_gen(audio_channel_s *ch, i16 *left, int len)
                 case WAVE_TYPE_SINE: {
                         ch->genpos += ch->sinincr;
                         ch->genpos &= 0x3FFFF; // mod by "2 pi"
-                        val = (float)(sin_q16(ch->genpos) >> 1);
+                        val = sin_q16(ch->genpos) >> 1;
                 } break;
                 case WAVE_TYPE_SQUARE: {
                         ch->genpos++;
                         ch->genpos %= ch->squarelen;
                         if ((ch->genpos << 1) < ch->squarelen) {
-                                val = (float)I16_MIN;
+                                val = I16_MIN;
                         } else {
-                                val = (float)I16_MAX;
+                                val = I16_MAX;
                         }
                 } break;
                 }
-                i32 l   = left[n] + (i32)(val * ch->vol);
-                left[n] = CLAMP(l, I16_MIN, I16_MAX);
+                val     = left[n] + ((val * ch->vol_q8) >> 8);
+                left[n] = CLAMP(val, I16_MIN, I16_MAX);
+        }
+}
+
+// update loaded music chunk if we are running out of samples
+static void music_update_chunk(music_channel_s *ch, int samples_needed)
+{
+        int samples_chunked = OS_MUSICCHUNK_SAMPLES - ch->chunkpos;
+        if (samples_needed > 0 && samples_chunked >= samples_needed) return;
+
+        // place chunk beginning right at streampos
+        os_fseek(ch->stream,
+                 ch->datapos + ch->streampos * sizeof(i16),
+                 OS_SEEK_SET);
+        int samples_left    = ch->streamlen - ch->streampos;
+        int samples_to_read = MIN(OS_MUSICCHUNK_SAMPLES, samples_left);
+        os_fread(ch->chunk, sizeof(i16), samples_to_read, ch->stream);
+        ch->chunkpos = 0;
+}
+
+static void music_channel_fillbuf(music_channel_s *ch, i16 *left, int len)
+{
+        for (int n = 0; n < len; n++) {
+                i32 v   = ch->chunk[ch->chunkpos++];
+                left[n] = (v * ch->vol_q8) >> 8;
         }
 }
 
 static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
 {
-        for (int n = 0; n < len; n++) {
-                if (ch->streampos >= ch->streamlen) {
-                        mus_close();
-                        break;
-                }
-                ch->streampos++;
+        if (!ch->stream) {
+                os_memclr(left, sizeof(i16) * len);
+                return;
+        }
 
-                i16 v;
-                os_fread(&v, sizeof(i16), 1, ch->stream);
-                left[n] = (i32)((float)v * ch->vol);
+        music_update_chunk(ch, len);
+
+        int l = MIN(len, ch->streamlen - ch->streampos);
+        music_channel_fillbuf(ch, left, l);
+
+        ch->streampos += l;
+        if (ch->streampos < ch->streamlen) return;
+
+        int samples_left = len - l;
+        if (ch->looping) {
+                // fill remainder of buffer and restart
+                ch->streampos = 0;
+                music_update_chunk(ch, 0);
+                music_channel_fillbuf(ch, &left[l], samples_left);
+                ch->streampos = samples_left;
+        } else {
+                os_memclr(&left[l], samples_left * sizeof(i16));
+                mus_close();
         }
 }
 
 int os_audio_cb(void *context, i16 *left, i16 *right, int len)
 {
-        music_channel_s *mc = &g_os.musicchannel;
-        if (mc->stream) {
-                music_channel_stream(mc, left, len);
-        } else {
-                os_memclr(left, sizeof(i16) * len);
-        }
+        music_channel_stream(&g_os.musicchannel, left, len);
 
         for (int i = 0; i < OS_NUM_AUDIO_CHANNELS; i++) {
                 audio_channel_s *ch = &g_os.audiochannels[i];
@@ -157,10 +187,13 @@ void mus_play(const char *filename)
         u32 num_samples_i16 = wheader.subchunk2size / sizeof(i16);
 
         music_channel_s *ch = &g_os.musicchannel;
+        ch->datapos         = os_ftell(f);
         ch->stream          = f;
         ch->streamlen       = num_samples_i16;
         ch->streampos       = 0;
-        ch->vol             = 1.f;
+        ch->vol_q8          = 256;
+        ch->looping         = 1;
+        music_update_chunk(ch, 0);
 }
 
 void mus_close()
@@ -189,7 +222,7 @@ void snd_play_ext(snd_s s, float vol, float pitch)
                 ch->wavelen       = (u32)((float)s.len * pitch);
                 ch->invpitch      = 1.f / pitch;
                 ch->wavepos       = 0;
-                ch->vol           = vol;
+                ch->vol_q8        = (i32)(vol * 256.f);
                 break;
         }
 }

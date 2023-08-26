@@ -59,6 +59,9 @@ void game_init(game_s *g)
         snd_put(SNDID_DEFAULT, snd_load_wav("assets/snd/sample.wav"));
         snd_put(SNDID_JUMP, snd_load_wav("assets/snd/jump.wav"));
         snd_put(SNDID_TYPEWRITE, snd_load_wav("assets/snd/speak.wav"));
+        snd_put(SNDID_HERO_LAND, snd_load_wav("assets/snd/land.wav"));
+        snd_put(SNDID_STEP, snd_load_wav("assets/snd/step.wav"));
+        snd_put(SNDID_HOOK, snd_load_wav("assets/snd/hook.wav"));
 
         g->rng    = 213;
         g->cam.w  = 400;

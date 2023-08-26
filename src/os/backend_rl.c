@@ -96,7 +96,7 @@ void os_backend_audio_init()
         ch->squarelen        = 44100 / ch->genfreq;
         */
 
-        mus_play("assets/snd/pink.wav");
+        mus_play("assets/snd/background.wav");
         // snd_s pinks = snd_load_wav("assets/snd/pink.wav");
         // snd_play(pinks);
         g_os.audiostream = LoadAudioStream(44100, 16, 1);

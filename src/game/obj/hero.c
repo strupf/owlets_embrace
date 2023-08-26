@@ -81,6 +81,7 @@ static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
         obj_s *hook;
         if (try_obj_from_handle(h->hook, &hook)) {
                 hook_destroy(g, h, o, hook); // destroy hook if present
+                snd_play_ext(snd_get(SNDID_JUMP), 0.5f, 1.f);
         } else {
                 // throw new hook
                 int dirx = os_inp_dpad_x();
@@ -144,12 +145,16 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 h->edgeticks--;
         }
 
+        if (o->vel_prev_q8.y > 700 && grounded) {
+                snd_play(snd_get(SNDID_HERO_LAND));
+        }
+
         if (h->inp & HERO_INP_JUMP) {
                 if (!(h->inpp & HERO_INP_JUMP) && h->edgeticks > 0) {
                         h->edgeticks = 0;
                         h->jumpticks = HERO_C_JUMPTICKS;
                         o->vel_q8.y  = HERO_C_JUMP_INIT;
-                        snd_play(snd_get(SNDID_JUMP));
+                        snd_play_ext(snd_get(SNDID_JUMP), 0.15f, 1.f);
                         hero_jump_particles(g, o);
                 } else if (h->jumpticks > 0) {
                         int jfrom = pow2_i32(HERO_C_JUMPTICKS - h->jumpticks);
@@ -165,7 +170,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 h->jumpticks = 0;
         }
 
-        h->c_item = HERO_ITEM_SWORD;
+        h->c_item = HERO_ITEM_HOOK;
         if (h->swordticks > 0) {
                 hero_update_sword(g, o, h);
         } else {
@@ -270,6 +275,7 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 hook->tomove.y  = 0;
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
+                        snd_play_ext(snd_get(SNDID_HOOK), 0.5f, 0.8f);
                         hook->attached   = 1;
                         hook->gravity_q8 = (v2_i32){0};
                         hook->vel_q8     = (v2_i32){0};
@@ -555,9 +561,19 @@ void hero_update(game_s *g, obj_s *o, void *arg)
 
         o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
 
-        if (o->vel_q8.x == 0)
-                o->animation = 0;
-        else if (o->vel_prev_q8.x == 0)
+        bool32 grounded   = game_area_blocked(g, obj_rec_bottom(o));
+        o->animframe_prev = o->animframe;
+        if (o->vel_prev_q8.x == 0 && o->vel_q8.x != 0) {
                 o->animation = 300;
-        o->animframe = (o->animation / 400) % 4;
+        }
+
+        if (o->vel_q8.x == 0 && grounded) {
+                o->animation += 10;
+                o->animframe = 0;
+        } else {
+                o->animframe = (o->animation / 500) % 4;
+                if (grounded && o->animframe % 2 == 1 && o->animframe_prev != o->animframe) {
+                        snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
+                }
+        }
 }

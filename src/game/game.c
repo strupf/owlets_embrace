@@ -34,6 +34,7 @@ void pathmover_init(pathmover_s *p)
 
 void solid_think(game_s *g, obj_s *o)
 {
+        if (os_tick() & 1) return;
         obj_s *solid = o;
         if (solid->pos.x > solid->p2) {
                 solid->dir = -ABS(solid->dir);
@@ -161,7 +162,6 @@ void game_update(game_s *g)
         if (g->textbox.active) {
                 textbox_s *tb = &g->textbox;
                 textbox_input(g, tb);
-
                 return;
         }
 

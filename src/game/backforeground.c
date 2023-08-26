@@ -26,10 +26,11 @@ static void background_update_clouds(game_s *g, backforeground_s *bg)
                 c->cloudtype = rng_max_u32(BG_NUM_CLOUD_TYPES - 1);
                 c->v         = bg->clouddirection * rng_range(1, 64);
                 c->p.y       = rng_range(0, (g->pixel_y << 8));
+
                 if (c->v < 0) {
                         c->p.x = (g->pixel_x + 50) << 8;
                 } else {
-                        c->p.x = -(100 << 8);
+                        c->p.x = -(50 << 8);
                 }
         }
 }

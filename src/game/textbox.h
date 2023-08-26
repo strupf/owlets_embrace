@@ -39,6 +39,7 @@ typedef struct {
 } textboxchoice_s;
 
 struct textbox_s {
+        i32             closeticks;
         int             page_animation_state;
         int             typewriter_tick;
         int             curreffect;

@@ -90,6 +90,7 @@ struct obj_s {
 
         i32 animation;
         i32 animframe;
+        i32 animframe_prev;
 
         objfunc_f    onsqueeze;
         objfunc_f    oninteract;

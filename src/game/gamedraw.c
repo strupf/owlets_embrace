@@ -18,16 +18,18 @@ static void draw_textbox(textbox_s *tb)
         if (!tb->shows_all) return;
 
         if (tb->n_choices) {
+                rec_i32 rr = (rec_i32){0, 128, 200, 128};
+                gfx_sprite_fast(tex_get(TEXID_TEXTBOX), (v2_i32){243, 48}, rr);
                 // draw choices if any
-                gfx_rec_fill((rec_i32){230, 60, 70, 100}, 0);
+                // gfx_rec_fill((rec_i32){230, 60, 70, 100}, 0);
+                static const int spacing = 21;
                 for (int n = 0; n < tb->n_choices; n++) {
-                        textboxchoice_s *tc      = &tb->choices[n];
-                        static const int spacing = 21;
+                        textboxchoice_s *tc = &tb->choices[n];
 
                         gfx_text_glyphs(&font, tc->label, tc->labellen,
-                                        250, 70 + spacing * n);
-                        gfx_rec_fill((rec_i32){235, 70 + spacing * tb->cur_choice, 10, 10}, 1);
+                                        264, 70 + spacing * n);
                 }
+                gfx_rec_fill((rec_i32){250, 73 + spacing * tb->cur_choice, 10, 10}, 1);
         } else {
                 // "next page" animated marker in corner
                 tb->page_animation_state += 10000;
@@ -110,9 +112,9 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
                         if (ID == TILEID_NULL) continue;
                         int tx, ty;
                         tileID_decode(ID, &tx, &ty);
-                        v2_i32 pos  = {(x << 4) + camp.x, (y << 4) + camp.y};
-                        v2_i32 tpos = {tx, ty};
-                        gfx_sprite_tile_16(tileset, pos, tpos);
+                        v2_i32  pos = {(x << 4) + camp.x, (y << 4) + camp.y};
+                        rec_i32 r   = {tx << 4, ty << 4, 16, 16};
+                        gfx_sprite_fast(tileset, pos, r);
                 }
         }
         TIMING_END();
@@ -267,7 +269,21 @@ void game_draw(game_s *g)
                         pos.y  = pos.y + o->h - 64;
                         int fl = o->facing == 1 ? 0 : 2;
 
-                        gfx_sprite(ttex, pos, (rec_i32){o->animframe * 64, 0, 64, 64}, fl);
+                        int animy = 0;
+                        if (o->vel_q8.x == 0 && game_area_blocked(g, obj_rec_bottom(o)) &&
+                            (o->animation % 400) < 200) {
+                                animy += 64;
+                                o->animframe = 0;
+                        }
+
+                        gfx_sprite(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, fl);
+                } break;
+                case 5: {
+                        v2_i32 pos  = v2_add(o->pos, camp);
+                        tex_s  ttex = tex_get(TEXID_HERO);
+                        pos.x -= 10;
+                        pos.y = pos.y + o->h - 32;
+                        gfx_sprite(ttex, pos, (rec_i32){64, 96, 64, 64}, 0);
                 } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);

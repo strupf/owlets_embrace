@@ -30,6 +30,8 @@ enum snd_id {
         SNDID_JUMP,
         SNDID_TYPEWRITE,
         SNDID_HERO_LAND,
+        SNDID_STEP,
+        SNDID_HOOK,
         //
         NUM_SNDID
 };

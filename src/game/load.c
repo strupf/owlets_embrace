@@ -366,9 +366,6 @@ void game_load_map(game_s *g, const char *filename)
         g->water.p                       = (v2_i32){0, 50};
         cam_constrain_to_room(g, &g->cam);
 
-        obj_s *ohero = hero_create(g, &g->hero);
-        ohero->pos.x = 50;
-        ohero->pos.y = 100;
 #if 1
         static int once = 0;
         if (!once) {
@@ -378,28 +375,33 @@ void game_load_map(game_s *g, const char *filename)
                                                      OBJ_FLAG_THINK_1);
                 obj_set_flags(g, solid1, flagss1);
                 solid1->think_1 = solid_think;
-                solid1->pos.x   = 170;
+                solid1->pos.x   = 170 + 300 - 20 + 5 * 16;
                 solid1->pos.y   = 100 - 20;
                 solid1->w       = 64;
                 solid1->h       = 48;
                 solid1->dir     = 1;
-                solid1->p2      = 240;
-                solid1->p1      = 180;
+                solid1->p2      = 220 + 300 - 20 + 5 * 16;
+                solid1->p1      = 130 + 300 - 20 + 5 * 16;
                 solid1->ID      = 1;
                 once            = 1;
+
+                obj_s     *osign   = obj_create(g);
+                objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
+                obj_set_flags(g, osign, flagss2);
+                osign->pos.x      = 240 + 5 * 16;
+                osign->pos.y      = 106;
+                osign->w          = 16;
+                osign->h          = 24;
+                osign->ID         = 5;
+                osign->oninteract = obj_interact_dialog;
+                os_strcat(osign->filename, "assets/introtext.txt");
         }
 
 #endif
 
-        obj_s     *osign   = obj_create(g);
-        objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
-        obj_set_flags(g, osign, flagss2);
-        osign->pos.x      = 30;
-        osign->pos.y      = 100;
-        osign->w          = 16;
-        osign->h          = 24;
-        osign->oninteract = obj_interact_dialog;
-        os_strcat(osign->filename, "assets/introtext.txt");
+        obj_s *ohero = hero_create(g, &g->hero);
+        ohero->pos.x = 50;
+        ohero->pos.y = 100;
 
         textbox_init(&g->textbox);
         static int loadedonce = 1;

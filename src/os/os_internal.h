@@ -9,7 +9,7 @@
 
 #define TIMING_RATE      16
 #define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 1
+#define OS_DESKTOP_SCALE 2
 #define OS_FPS_DELTA     0.02f // 50 FPS
 #define OS_DELTA_CAP     0.05f
 
@@ -25,6 +25,8 @@ enum {
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,
         OS_NUM_AUDIO_CHANNELS = 8,
+        OS_MUSICCHUNK         = 0x40000, // 256 KB
+        OS_MUSICCHUNK_SAMPLES = OS_MUSICCHUNK / sizeof(i16),
 };
 
 enum {
@@ -35,27 +37,37 @@ enum {
 
 typedef struct {
         int   playback_type;
-        float vol;
+        i32   vol_q8;
         float invpitch; // 1 / pitch
 
-        i16 *wavedata;
-        u32  wavelen;
-        u32  wavelen_og;
-        u32  wavepos;
-
-        int gentype;
-        u32 genfreq;
-        i32 genpos;
-        i32 sinincr; // = (freq * "2 pi") / 44100
-        i32 squarelen;
+        union {
+                struct {
+                        i16 *wavedata;
+                        u32  wavelen;
+                        u32  wavelen_og;
+                        u32  wavepos;
+                };
+                struct {
+                        int gentype;
+                        u32 genfreq;
+                        i32 genpos;
+                        i32 sinincr; // = (freq * "2 pi") / 44100
+                        i32 squarelen;
+                };
+        };
 } audio_channel_s;
 
 typedef struct {
         OS_FILE *stream;
-        u32      streampos;
+        u32      datapos;
+        u32      streampos; // position in samples
         u32      streamlen;
-        float    vol;
+        i32      vol_q8;
         float    invpitch; // 1 / pitch
+        bool32   looping;
+
+        i16 chunk[OS_MUSICCHUNK_SAMPLES];
+        int chunkpos; // position in samples in chunk
 } music_channel_s;
 
 typedef struct {
@@ -105,6 +117,7 @@ typedef struct {
 
         music_channel_s musicchannel;
         audio_channel_s audiochannels[OS_NUM_AUDIO_CHANNELS];
+
 } os_s;
 
 extern os_s g_os;

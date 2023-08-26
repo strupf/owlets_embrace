@@ -8,20 +8,20 @@ gameplay
 * static spikes - as objects or tiles?
 * implement low and high slopes, including rope logic
 
-
 loading
 * autotiling for low and high slopes
 
 graphics
 * performant flipped sprite drawing
-* basic player animation
 * rope
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
 
 textbox
-* typewriter noises
 * different animation marker depending if dialog end or not
+
+audio
+* music pitch
 
 bugs
 * rope: removal of a point during tighten can result in three

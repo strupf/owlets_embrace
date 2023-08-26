@@ -42,6 +42,7 @@ void cam_update(game_s *g, cam_s *c)
         if (try_obj_from_handle(g->hero.obj, &player)) {
                 v2_i32 targ = obj_aabb_center(player);
                 targ.y -= c->h >> 3; // offset camera slightly upwards
+                targ.x += 50;
                 c->target = targ;
 
                 if (os_inp_dpad_y() == 1 &&

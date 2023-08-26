@@ -144,6 +144,7 @@ static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
 
 bool32 textbox_next_page(textbox_s *tb)
 {
+
         tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
         textbox_clr(tb);
         textboxline_s *line = &tb->lines[0];
@@ -205,7 +206,8 @@ bool32 textbox_next_page(textbox_s *tb)
                 }
                 tb->tok++;
         }
-        tb->active = 0;
+        // tb->active     = 0;
+        tb->closeticks = 2;
         return 0;
 }
 
@@ -225,6 +227,14 @@ void textbox_clr(textbox_s *tb)
 
 void textbox_update(textbox_s *tb)
 {
+        if (tb->closeticks > 0) {
+                tb->closeticks--;
+                if (tb->closeticks == 0) {
+                        tb->active = 0;
+                }
+                return;
+        }
+
         if (tb->shows_all) return;
         tb->typewriter_tick++;
         textboxline_s *line = &tb->lines[tb->curr_line];

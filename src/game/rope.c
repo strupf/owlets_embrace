@@ -265,6 +265,7 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
                 tri_i32 tri = {p_old, p_new, rn->prev->p};
                 ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
         }
+        //ASSERT(rope_intact(g, r));
 }
 
 /*
@@ -395,6 +396,7 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                 }
         }
 #endif
+        // ASSERT(rope_intact(g, r));
 }
 
 static bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
@@ -422,6 +424,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         // check if the three points are collinear
         if (v2_crs(v2_sub(pprev, pcurr), v2_sub(pnext, pcurr)) == 0) {
                 ropenode_delete(r, rc);
+                PRINTF("DELETE, COLLINEAR\n");
                 return;
         }
 
@@ -485,6 +488,21 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         }
 
         ropenode_delete(r, rc);
+        PRINTF("DELETE ONE NODE\n");
+        // ASSERT(rope_intact(g, r));
+        if (!rope_intact(g, r)) {
+                for (int n = 0; n < solids.n; n++) {
+                        obj_s *o = solids.o[n];
+                        if (o->soliddisabled) continue;
+                        v2_i32 p[4];
+                        points_from_rec(obj_aabb(o), p);
+                        if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+                            rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+                                return;
+                }
+        }
 
         os_spmem_push();
         v2_arr *hull = v2_arrcreate(16, os_spmem_alloc);
@@ -513,6 +531,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 void rope_update(game_s *g, rope_s *r)
 {
         ASSERT(r->head);
+        r->dirty = 1;
         if (!r->dirty) return;
         r->dirty          = 0;
         ropenode_s *rprev = r->head;
@@ -533,6 +552,8 @@ void rope_update(game_s *g, rope_s *r)
                 r->pmin = v2_min(r->pmin, rn->p);
                 r->pmax = v2_max(r->pmax, rn->p);
         }
+
+        // ASSERT(rope_intact(g, r));
 }
 
 static u32 rope_length_q4(game_s *g, rope_s *r)
