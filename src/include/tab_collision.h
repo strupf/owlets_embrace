@@ -4,7 +4,8 @@
 
 #ifndef TAB_COLLISION_H
 #define TAB_COLLISON_H
-#include "gamedef.h"
+
+#include "os/os_types.h"
 
 /* contains triangles for each tile describing its shape.
  */

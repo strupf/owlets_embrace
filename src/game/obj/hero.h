@@ -33,7 +33,6 @@ struct hero_s {
         flags32     inp;  // input mask
         flags32     inpp; // input mask previous frame
         bool32      wasgrounded;
-        i32         vel_q8_prev;
 
         i32 swordticks;
         int sworddir;

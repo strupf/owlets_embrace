@@ -294,33 +294,6 @@ static inline i32 muls_i32(i32 a, i32 b)
         return (i32)(CLAMP(x, I32_MIN, I32_MAX));
 }
 
-typedef struct {
-        u32 mul, add, og, shift;
-} div_u32_s;
-
-// from + (from - to) * num^x / den^x
-static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
-{
-        i32 d = den;
-        i32 n = num;
-        for (int k = 1; k < order; k++) {
-                d = mul_i32(d, den);
-                n = mul_i32(n, num);
-        }
-        i32 i = add_i32(from, mul_i32(sub_i32(to, from), n) / d);
-        return i;
-}
-
-static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
-{
-        // a + ((b - a) * num / den)
-        i32 d = sub_i32(b, a);
-        d     = mul_i32(d, num);
-        d     = divr_i32(d, den);
-        d     = add_i32(a, d);
-        return d;
-}
-
 static inline i32 pow_i32(i32 v, i32 power)
 {
         i32 r = v;
@@ -350,6 +323,17 @@ static inline i32 log2_i32(i32 x)
         return (x <= 0 ? 0 : log2_u32((u32)x));
 }
 
+// rounded division - stackoverflow.com/a/18067292
+static inline i32 divr_i32(i32 n, i32 d)
+{
+        i32 h = d / 2;
+        return ((n < 0 && d < 0) ? add_i32(n, h) : sub_i32(n, h)) / d;
+}
+
+typedef struct {
+        u32 mul, add, og, shift;
+} div_u32_s;
+
 static div_u32_s div_u32_create(u32 d)
 {
         div_u32_s r;
@@ -378,7 +362,7 @@ static inline u32 div_u32_do(u32 n, div_u32_s d)
 {
         u64 r = (((u64)n * d.mul) + d.add) >> d.shift;
         ASSERT(r == n / d.og);
-        return r;
+        return (u32)r;
 }
 
 static i32 sqrt_u32(u32 x)
@@ -420,11 +404,28 @@ static inline i32 sqrt_i32(i32 x)
         return sqrt_u32((u32)x);
 }
 
-// rounded division - stackoverflow.com/a/18067292
-static inline i32 divr_i32(i32 n, i32 d)
+// from + (from - to) * num^x / den^x
+static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
 {
-        i32 h = d / 2;
-        return ((n < 0 && d < 0) ? add_i32(n, h) : sub_i32(n, h)) / d;
+        i32 d = den;
+        i32 n = num;
+        for (int k = 1; k < order; k++) {
+                d = mul_i32(d, den);
+                n = mul_i32(n, num);
+        }
+        i32 i = add_i32(from, mul_i32(sub_i32(to, from), n) / d);
+        return i;
+}
+
+static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
+{
+        // a + ((b - a) * num / den)
+        i32 d = sub_i32(b, a);
+        d     = mul_i32(d, num);
+        d     = divr_i32(d, den);
+
+        d = add_i32(a, d);
+        return d;
 }
 
 static inline bool32 between_excl_incl_i32(i32 x, i32 a, i32 b)
@@ -977,10 +978,7 @@ static inline void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
 static inline void tri_pnt_barycentric_uvw(tri_i32 t, v2_i32 p,
                                            i32 *u, i32 *v, i32 *w)
 {
-        *u = v2_crs(v2_sub(t.p[1], t.p[0]), v2_sub(p, t.p[0]));
-        *v = v2_crs(v2_sub(t.p[0], t.p[2]), v2_sub(p, t.p[2]));
-        *w = v2_crs(v2_sub(t.p[2], t.p[1]), v2_sub(p, t.p[1]));
-        // barycentric_uvw(t.p[0], t.p[1], t.p[2], p, u, v, w);
+        barycentric_uvw(t.p[0], t.p[1], t.p[2], p, u, v, w);
 }
 
 // check for overlap - touching tri considered NOT overlapped
@@ -1051,34 +1049,6 @@ static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
         return !separated;
 }
 
-// TODO: NEEDS FURTHER CHECKING!
-// check for overlap - touching considered NOT overlapped
-static bool32 overlap_tri_lineseg_excl2(tri_i32 tri, lineseg_i32 l)
-{
-        lineseg_i32 t0 = {tri.p[0], tri.p[1]};
-        lineseg_i32 t1 = {tri.p[1], tri.p[2]};
-        lineseg_i32 t2 = {tri.p[0], tri.p[2]};
-        int         a0 = overlap_lineseg_excl(l, t0);
-        int         a1 = overlap_lineseg_excl(l, t1);
-        int         a2 = overlap_lineseg_excl(l, t2);
-        int         o1 = overlap_tri_pnt_excl(tri, l.a);
-        if (a0 || a1 || a2 || o1)
-                return 1;
-
-        // special case: line segment goes through the triangle
-        // and has its endpoints ON the boundary
-        // check if those endpoints lie on two different triangle lines
-        int b0 = overlap_lineseg_pnt_excl(t0, l.a);
-        int b1 = overlap_lineseg_pnt_excl(t1, l.a);
-        int b2 = overlap_lineseg_pnt_excl(t2, l.a);
-        int c0 = overlap_lineseg_pnt_excl(t0, l.b);
-        int c1 = overlap_lineseg_pnt_excl(t1, l.b);
-        int c2 = overlap_lineseg_pnt_excl(t2, l.b);
-        int l1 = ((b0) | (b1 << 1) | (b2 << 2));
-        int l2 = ((c0) | (c1 << 1) | (c2 << 2));
-        return (l1 ^ l2);
-}
-
 // backup overlap
 static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
 {
@@ -1110,10 +1080,6 @@ static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
 
 static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
 {
-        tri_i32 tris[2];
-        tris_from_rec(r, tris);
-        return overlap_tri_lineseg_excl(tris[0], l) ||
-               overlap_tri_lineseg_excl(tris[1], l);
         v2_i32 p[4];
         points_from_rec(r, p);
         if ((l.a.x <= p[0].x && l.b.x <= p[0].x) ||

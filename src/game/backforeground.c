@@ -9,7 +9,8 @@ enum {
         BACKGROUND_WIND_CIRCLE_R = 1900,
 };
 
-static void background_update_clouds(game_s *g, backforeground_s *bg)
+// called at half update rate!
+static void backforeground_clouds(game_s *g, backforeground_s *bg)
 {
         for (int n = bg->nclouds - 1; n >= 0; n--) {
                 cloudbg_s *c = &bg->clouds[n];
@@ -35,46 +36,47 @@ static void background_update_clouds(game_s *g, backforeground_s *bg)
         }
 }
 
-static void background_update_wind_particles(game_s *g, backforeground_s *bg)
+// called at half update rate!
+static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
 {
 
         // traverse backwards to avoid weird removal while iterating
         for (int n = bg->nparticles - 1; n >= 0; n--) {
                 particlebg_s *p = &bg->particles[n];
                 p->circcooldown--;
-                if (p->circcooldown <= 0 && rng_fast_u16() < 1200) { // enter wind circle animation
-                        p->ticks        = rng_range_u32(20, 50);
+                if (p->circcooldown <= 0 && rng_fast_u16() < 600) { // enter wind circle animation
+                        p->ticks        = rng_range_u32(15, 20);
                         p->circticks    = p->ticks;
                         p->circc.x      = p->p.x;
                         p->circc.y      = p->p.y - BACKGROUND_WIND_CIRCLE_R;
-                        p->circcooldown = p->circticks + 150;
+                        p->circcooldown = p->circticks + 70;
                 }
 
                 if (p->circticks > 0) { // run through circle but keep slowly moving forward
                         i32 a  = (Q16_ANGLE_TURN * (p->ticks - p->circticks)) / p->ticks;
                         p->p.x = p->circc.x + ((sin_q16(a) * BACKGROUND_WIND_CIRCLE_R) >> 16);
                         p->p.y = p->circc.y + ((cos_q16(a) * BACKGROUND_WIND_CIRCLE_R) >> 16);
-                        p->circc.x += 150;
+                        p->circc.x += 200;
                         p->circticks--;
                 } else {
                         p->p = v2_add(p->p, p->v);
-                        p->v.y += rng_range(-40, +40);
-                        p->v.y = CLAMP(p->v.y, -230, +230);
+                        p->v.y += rng_range(-60, +60);
+                        p->v.y = CLAMP(p->v.y, -400, +400);
                 }
 
                 p->pos[p->n] = p->p;
                 p->n         = (p->n + 1) & (BG_WIND_PARTICLE_N - 1);
 
-                if ((p->p.x >> 8) < -50 || (p->p.x >> 8) > g->pixel_x + 50) {
+                if ((p->p.x >> 8) < -100 || (p->p.x >> 8) > g->pixel_x + 100) {
                         bg->particles[n] = bg->particles[--bg->nparticles];
                 }
         }
 
-        if (bg->nparticles < BG_NUM_PARTICLES && (os_tick() & 31) == 0) {
+        if (bg->nparticles < BG_NUM_PARTICLES && (os_tick() & 15) == 0) {
                 particlebg_s *p = &bg->particles[bg->nparticles++];
                 p->p.x          = -(10 << 8);
                 p->p.y          = rng_range(0, g->pixel_y) << 8;
-                p->v.x          = rng_range(1000, 2000);
+                p->v.x          = rng_range(2000, 4000);
                 p->v.y          = 0;
                 p->circcooldown = 10;
                 p->circticks    = 0;
@@ -85,9 +87,10 @@ static void background_update_wind_particles(game_s *g, backforeground_s *bg)
         }
 }
 
-void background_foreground_animate(game_s *g)
+// called at half update rate!
+void backforeground_animate(game_s *g)
 {
         backforeground_s *bg = &g->backforeground;
-        background_update_clouds(g, bg);
-        background_update_wind_particles(g, bg);
+        backforeground_clouds(g, bg);
+        backforeground_wind_particles(g, bg);
 }

@@ -35,6 +35,14 @@ __declspec(dllexport)
                 os_backend_audio_close();
                 os_backend_graphics_close();
                 break;
+        case kEventInitLua:
+        case kEventLock:
+        case kEventUnlock:
+        case kEventPause:
+        case kEventResume:
+        case kEventKeyPressed:
+        case kEventKeyReleased:
+        case kEventLowPower: break;
         }
         return 0;
 }

@@ -41,10 +41,18 @@ tex_s tex_load(const char *filename)
         return t;
 }
 
-void tex_put(int ID, tex_s t)
+tex_s tex_put_load(int ID, const char *filename)
+{
+        tex_s t = tex_load(filename);
+        tex_put(ID, t);
+        return t;
+}
+
+tex_s tex_put(int ID, tex_s t)
 {
         ASSERT(0 <= ID && ID < NUM_TEXID);
         g_os.tex_tab[ID] = t;
+        return t;
 }
 
 tex_s tex_get(int ID)
@@ -59,6 +67,13 @@ fntstr_s fntstr_create(int numchars, void *(*allocfunc)(size_t))
         str.chars    = (fntchar_s *)allocfunc(sizeof(fntchar_s) * numchars);
         str.c        = numchars;
         return str;
+}
+
+fnt_s fnt_put_load(int ID, const char *filename)
+{
+        fnt_s f = fnt_load(filename);
+        fnt_put(ID, f);
+        return f;
 }
 
 void fnt_put(int ID, fnt_s f)
@@ -214,12 +229,19 @@ void gfx_draw_to(tex_s tex)
         g_os.dst = tex;
 }
 
+void gfx_draw_to_ID(int ID)
+{
+        gfx_draw_to(tex_get(ID));
+}
+
+#if 1 // archived
+
 /* this is a naive image drawing routine
  * can flip an image x, y and diagonal (rotate 90 degree)
  * could be hugely improved by figuring out a way to put multiple
  * pixels at once
  */
-void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
+void gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 {
         int xx, yy, xy, yx;
         int ff = flags & 7;
@@ -258,75 +280,32 @@ void gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
                 }
         }
 }
+#endif
 
-/* fast sprite drawing routine for untransformed sprites
- * blits 32 pixelbits in one loop
- */
-void gfx_sprite_tile_16(tex_s src, v2_i32 pos, v2_i32 tilepos)
+gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
+                                  int p4, int p5, int p6, int p7)
 {
-        rec_i32 rs       = {tilepos.x << 4, tilepos.y << 4, 16, 16};
-        tex_s   dst      = g_os.dst;
-        int     zx       = dst.w - pos.x;
-        int     zy       = dst.h - pos.y;
-        int     x1       = rs.x + MAX(0, -pos.x);
-        int     y1       = rs.y + MAX(0, -pos.y);
-        int     x2       = rs.x + MIN(rs.w, zx) - 1;
-        int     y2       = rs.y + MIN(rs.h, zy) - 1;
-        int     cc       = pos.x - rs.x;
-        int     s1       = 31 & (32 - (cc & 31)); // relative word alignment
-        int     s0       = 32 - s1;
-        int     b1       = x1 >> 5;
-        int     b2       = x2 >> 5;
-        int     b        = b1;
-        int     uu       = x1 & 31;
-        int     vv       = x2 & 31;
-        u32     mm       = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-        int     ja       = ((b << 5) + cc + uu) >> 5;
-        int     jb       = ((b << 5) + cc + 31) >> 5;
-        u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mk;
-        for (int y = y1; y <= y2; y++) {
-                int yd = (y + pos.y - rs.y) * dst.w_word;
-                int ii = b1 + y * src.w_word;
-                u32 sm = endian_u32(((u32 *)src.mk)[ii]) & mm;
-                u32 sp = endian_u32(((u32 *)src.px)[ii]);
-                u32 t0 = endian_u32(sm >> s0);
-                u32 p0 = endian_u32(sp >> s0);
-                u32 t1 = endian_u32(sm << s1);
-                u32 p1 = endian_u32(sp << s1);
-                int j0 = ja + yd;
-                int j1 = jb + yd;
-                u32 d0 = dp[j0];
-                u32 d1 = dp[j1];
-                dp[j0] = (d0 & ~t0) | (p0 & t0);
-                dp[j1] = (d1 & ~t1) | (p1 & t1);
+        u32 t[8] = {
+            ((u32)p0 << 24) | ((u32)p0 << 16) | ((u32)p0 << 8) | (u32)p0,
+            ((u32)p1 << 24) | ((u32)p1 << 16) | ((u32)p1 << 8) | (u32)p1,
+            ((u32)p2 << 24) | ((u32)p2 << 16) | ((u32)p2 << 8) | (u32)p2,
+            ((u32)p3 << 24) | ((u32)p3 << 16) | ((u32)p3 << 8) | (u32)p3,
+            ((u32)p4 << 24) | ((u32)p4 << 16) | ((u32)p4 << 8) | (u32)p4,
+            ((u32)p5 << 24) | ((u32)p5 << 16) | ((u32)p5 << 8) | (u32)p5,
+            ((u32)p6 << 24) | ((u32)p6 << 16) | ((u32)p6 << 8) | (u32)p6,
+            ((u32)p7 << 24) | ((u32)p7 << 16) | ((u32)p7 << 8) | (u32)p7};
 
-                if (dm) {
-                        dm[j0] |= t0;
-                        dm[j1] |= t1;
-                }
-        }
-}
-
-static inline u32 bitrev(u32 x)
-{
-        u32 v = x;  // input bits to be reversed
-        u32 r = v;  // r will be reversed bits of v; first get LSB of v
-        int s = 31; // extra shift needed at end
-
-        for (v >>= 1; v; v >>= 1) {
-                r <<= 1;
-                r |= v & 1;
-                s--;
-        }
-        r <<= s; // shift when v's highest bits are zero
-        return r;
+        gfx_pattern_s p = {t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
+                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
+                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
+                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]};
+        return p;
 }
 
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
-void gfx_sprite_m(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
+void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat)
 {
         tex_s dst        = g_os.dst;
         int   zx         = dst.w - pos.x;
@@ -342,21 +321,26 @@ void gfx_sprite_m(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
         int   b2         = x2 >> 5;
         u32 *restrict dp = (u32 *)dst.px;
         u32 *restrict dm = (u32 *)dst.mk;
+
         for (int y = y1; y <= y2; y++) {
-                int yd            = (y + pos.y - rs.y) * dst.w_word;
-                int ii            = b1 + y * src.w_word;
-                u32 *restrict sm_ = &((u32 *)src.mk)[ii];
-                u32 *restrict sp_ = &((u32 *)src.px)[ii];
+                int yd           = (y + pos.y - rs.y) * dst.w_word;
+                int ii           = b1 + y * src.w_word;
+                u32 *restrict zm = &((u32 *)src.mk)[ii];
+                u32 *restrict zp = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
                         int uu = (b == b1 ? x1 & 31 : 0);
                         int vv = (b == b2 ? x2 & 31 : 31);
                         u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-                        u32 sm = endian_u32(*sm_++) & mm;
-                        u32 sp = endian_u32(*sp_++);
+                        u32 sm = endian_u32(*zm++) & mm;
+                        u32 sp = endian_u32(*zp++);
+
+                        sm &= pat.p[y & 31];
+
                         u32 t0 = endian_u32(sm >> s0);
                         u32 p0 = endian_u32(sp >> s0);
                         u32 t1 = endian_u32(sm << s1);
                         u32 p1 = endian_u32(sp << s1);
+
                         int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
                         int j1 = (((b << 5) + cc + 31) >> 5) + yd;
                         u32 d0 = dp[j0];
@@ -405,80 +389,20 @@ void gfx_sprite_m(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
-void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
+void gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 {
-        tex_s dst        = g_os.dst;
-        int   zx         = dst.w - pos.x;
-        int   zy         = dst.h - pos.y;
-        int   x1         = rs.x + MAX(0, -pos.x);
-        int   y1         = rs.y + MAX(0, -pos.y);
-        int   x2         = rs.x + MIN(rs.w, zx) - 1;
-        int   y2         = rs.y + MIN(rs.h, zy) - 1;
-        int   cc         = pos.x - rs.x;
-        int   s1         = 31 & (32 - (cc & 31)); // relative word alignment
-        int   s0         = 32 - s1;
-        int   b1         = x1 >> 5;
-        int   b2         = x2 >> 5;
-        u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mk;
-        for (int y = y1; y <= y2; y++) {
-                int yd            = (y + pos.y - rs.y) * dst.w_word;
-                int ii            = b1 + y * src.w_word;
-                u32 *restrict sm_ = &((u32 *)src.mk)[ii];
-                u32 *restrict sp_ = &((u32 *)src.px)[ii];
-                for (int b = b1; b <= b2; b++) {
-                        int uu = (b == b1 ? x1 & 31 : 0);
-                        int vv = (b == b2 ? x2 & 31 : 31);
-                        u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-                        u32 sm = endian_u32(*sm_++) & mm;
-                        u32 sp = endian_u32(*sp_++);
-                        u32 t0 = endian_u32(sm >> s0);
-                        u32 p0 = endian_u32(sp >> s0);
-                        u32 t1 = endian_u32(sm << s1);
-                        u32 p1 = endian_u32(sp << s1);
-                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
-                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
-                        u32 d0 = dp[j0];
-                        u32 d1 = dp[j1];
-                        switch (mode) {
-                        case GFX_SPRITE_INV:
-                                p0 = ~p0;
-                                p1 = ~p1; // fallthrough
-                        case GFX_SPRITE_COPY:
-                                d0 = (d0 & ~t0) | (p0 & t0);
-                                d1 = (d1 & ~t1) | (p1 & t1);
-                                break;
-                        case GFX_SPRITE_XOR:
-                                p0 = ~p0;
-                                p1 = ~p1; // fallthrough
-                        case GFX_SPRITE_NXOR:
-                                d0 = (d0 & ~t0) | ((d0 ^ p0) & t0);
-                                d1 = (d1 & ~t1) | ((d1 ^ p1) & t1);
-                                break;
-                        case GFX_SPRITE_WHITE_TRANSPARENT:
-                                t0 &= p0;
-                                t1 &= p1; // fallthrough
-                        case GFX_SPRITE_FILL_BLACK:
-                                d0 |= t0;
-                                d1 |= t1;
-                                break;
-                        case GFX_SPRITE_BLACK_TRANSPARENT:
-                                t0 &= ~p0;
-                                t1 &= ~p1; // fallthrough
-                        case GFX_SPRITE_FILL_WHITE:
-                                d0 &= ~t0;
-                                d1 &= ~t1;
-                                break;
-                        }
-                        dp[j0] = d0;
-                        dp[j1] = d1;
-
-                        if (dm) {
-                                dm[j0] |= t0;
-                                dm[j1] |= t1;
-                        }
-                }
-        }
+        static const gfx_pattern_s pattern = {
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            //
+        };
+        gfx_sprite_ext(src, pos, rs, mode, pattern);
 }
 
 // TODO: doesnt work when drawing from a sprite without a mask
@@ -488,12 +412,12 @@ void gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
  */
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
-        gfx_sprite_(src, pos, rs, 0);
+        gfx_sprite_mode(src, pos, rs, 0);
 }
 
 void gfx_tr_sprite_fast(texregion_s src, v2_i32 pos)
 {
-        gfx_sprite_(src.t, pos, src.r, 0);
+        gfx_sprite_mode(src.t, pos, src.r, 0);
 }
 
 void gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4])
@@ -572,23 +496,17 @@ void gfx_rec_fill(rec_i32 r, int col)
 void gfx_line(int x0, int y0, int x1, int y1, int col)
 {
         tex_s dst = g_os.dst;
-        int   dx  = +ABS(x1 - x0);
-        int   dy  = -ABS(y1 - y0);
-        int   sx  = x0 < x1 ? 1 : -1;
-        int   sy  = y0 < y1 ? 1 : -1;
-        int   er  = dx + dy;
-        int   xi  = x0;
-        int   yi  = y0;
+        int   dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int   dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int   er = dx + dy;
+        int   xi = x0;
+        int   yi = y0;
         while (1) {
                 i_gfx_put_px(dst, xi, yi, col, 0);
-                if (xi == x1 && yi == y1) return;
+                if (xi == x1 && yi == y1) break;
                 int e2 = er * 2;
-                if (e2 >= dy) {
-                        er += dy, xi += sx;
-                }
-                if (e2 <= dx) {
-                        er += dx, yi += sy;
-                }
+                if (e2 >= dy) { er += dy, xi += sx; }
+                if (e2 <= dx) { er += dx, yi += sy; }
         }
 }
 
@@ -596,14 +514,12 @@ void gfx_line(int x0, int y0, int x1, int y1, int col)
 void gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col)
 {
         tex_s dst = g_os.dst;
-        int   dx  = +ABS(x1 - x0);
-        int   dy  = -ABS(y1 - y0);
-        int   sx  = x0 < x1 ? 1 : -1;
-        int   sy  = y0 < y1 ? 1 : -1;
-        int   er  = dx + dy;
-        int   xi  = x0;
-        int   yi  = y0;
-        int   r2  = r * r;
+        int   dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int   dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int   er = dx + dy;
+        int   xi = x0;
+        int   yi = y0;
+        int   r2 = r * r;
         while (1) {
                 for (int y = -r; y <= +r; y++) {
                         for (int x = -r; x <= +r; x++) {
@@ -612,14 +528,10 @@ void gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col)
                         }
                 }
 
-                if (xi == x1 && yi == y1) return;
+                if (xi == x1 && yi == y1) break;
                 int e2 = er * 2;
-                if (e2 >= dy) {
-                        er += dy, xi += sx;
-                }
-                if (e2 <= dx) {
-                        er += dx, yi += sy;
-                }
+                if (e2 >= dy) { er += dy, xi += sx; }
+                if (e2 <= dx) { er += dx, yi += sy; }
         }
 }
 
@@ -653,15 +565,14 @@ void gfx_text(fnt_s *font, fntstr_s *str, int x, int y)
                                  font->gridw,
                                  font->gridh};
 
-                gfx_sprite(fonttex, p, r, 0);
+                gfx_sprite_fast(fonttex, p, r);
                 p.x += font->glyph_widths[cID];
         }
 }
 
 void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
 {
-        static u32 rng     = 213;
-        tex_s      fonttex = font->tex;
+        tex_s fonttex = font->tex;
         gfx_draw_to(tex_get(TEXID_DISPLAY));
 
         v2_i32 p = {x, y};
@@ -678,15 +589,15 @@ void gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y)
                 v2_i32 pp = p;
                 switch (c.effectID) {
                 case FNT_EFFECT_SHAKE:
-                        pp.x += rngs_fast_i16(&rng) % 2;
-                        pp.y += rngs_fast_i16(&rng) % 2;
+                        pp.x += rng_range(-1, +1);
+                        pp.y += rng_range(-1, +1);
                         break;
                 case FNT_EFFECT_WAVE:
                         pp.y += sin_q16((os_tick() << 13) + (i << 16)) >> 15;
                         break;
                 }
 
-                gfx_sprite(fonttex, pp, r, 0);
+                gfx_sprite_fast(fonttex, pp, r);
                 p.x += font->glyph_widths[cID];
         }
 }

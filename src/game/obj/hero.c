@@ -138,7 +138,8 @@ static void hero_use_sword(game_s *g, obj_s *o, hero_s *h)
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
-        bool32 grounded = game_area_blocked(g, obj_rec_bottom(o));
+        bool32 canuseitems = 1;
+        bool32 grounded    = game_area_blocked(g, obj_rec_bottom(o));
         if (grounded) {
                 h->edgeticks = HERO_C_EDGETICKS;
         } else if (h->edgeticks > 0) {
@@ -157,36 +158,37 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                         snd_play_ext(snd_get(SNDID_JUMP), 0.15f, 1.f);
                         hero_jump_particles(g, o);
                 } else if (h->jumpticks > 0) {
-                        int jfrom = pow2_i32(HERO_C_JUMPTICKS - h->jumpticks);
+                        int jfrom = pow2_i32(HERO_C_JUMPTICKS - h->jumpticks--);
                         int jto   = pow2_i32(HERO_C_JUMPTICKS);
-                        int j     = lerp_i32(HERO_C_JUMP_MAX,
-                                             HERO_C_JUMP_MIN,
-                                             jfrom,
-                                             jto);
-                        o->vel_q8.y -= j;
-                        h->jumpticks--;
+                        o->vel_q8.y -= lerp_i32(HERO_C_JUMP_MAX,
+                                                HERO_C_JUMP_MIN,
+                                                jfrom,
+                                                jto);
                 }
         } else {
                 h->jumpticks = 0;
         }
 
         h->c_item = HERO_ITEM_HOOK;
+
         if (h->swordticks > 0) {
                 hero_update_sword(g, o, h);
-        } else {
-                // just pressed item button
-                if ((h->inp & HERO_INP_USE_ITEM) && !(h->inpp & HERO_INP_USE_ITEM)) {
-                        switch (h->c_item) {
-                        case HERO_ITEM_HOOK:
-                                hero_use_hook(g, o, h);
-                                break;
-                        case HERO_ITEM_BOW:
-                                hero_use_bow(g, o, h);
-                                break;
-                        case HERO_ITEM_SWORD:
-                                hero_use_sword(g, o, h);
-                                break;
-                        }
+                canuseitems = 0;
+        }
+
+        // just pressed item button
+        if (canuseitems && (h->inp & HERO_INP_USE_ITEM) &&
+            !(h->inpp & HERO_INP_USE_ITEM)) {
+                switch (h->c_item) {
+                case HERO_ITEM_HOOK:
+                        hero_use_hook(g, o, h);
+                        break;
+                case HERO_ITEM_BOW:
+                        hero_use_bow(g, o, h);
+                        break;
+                case HERO_ITEM_SWORD:
+                        hero_use_sword(g, o, h);
+                        break;
                 }
         }
 
@@ -218,8 +220,6 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                                 acc           = (SGN(dtrope.x) == xs ? 10 : 25);
                         } else if (velsgn == -xs) {
                                 acc = 50;
-                        } else if (velabs < 500) {
-                                acc = 25;
                         } else if (velabs < 1000) {
                                 acc = 25;
                         }
@@ -233,17 +233,15 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 o->drag_q8.x = 254;
         }
 
-        // PRINTF("%i\n", o->drag_q8.x);
         if (os_inp_just_pressed(INP_UP) && grounded &&
             o->vel_q8.x == 0 && o->vel_q8.y >= 0) {
                 hero_interact_logic(g, h, o);
         }
 
-        if (grounded && !h->wasgrounded && h->vel_q8_prev > 800) {
+        if (grounded && !h->wasgrounded && o->vel_prev_q8.y > 800) {
                 hero_land_particles(g, o);
         }
 
-        h->vel_q8_prev = o->vel_q8.y;
         h->wasgrounded = grounded;
 }
 
@@ -290,10 +288,8 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
         } else {
                 // check if still attached
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
-                if (hook->linkedsolid.o) {
-                        if (!solid_occupies(hook->linkedsolid.o, hookrec)) {
-                                hook->linkedsolid.o = NULL;
-                        }
+                if (hook->linkedsolid.o && !solid_occupies(hook->linkedsolid.o, hookrec)) {
+                        hook->linkedsolid.o = NULL;
                 }
                 if (!game_area_blocked(g, hookrec)) {
                         hook->attached      = 0;
@@ -444,6 +440,7 @@ static void hero_check_level_transition(game_s *g, obj_s *hero)
                 gaabb.x += g->roomlayout.curr->r.x;
                 gaabb.y += g->roomlayout.curr->r.y;
                 switch (dir) {
+                case DIRECTION_NONE: ASSERT(0); break;
                 case DIRECTION_W: gaabb.x--; break;
                 case DIRECTION_E: gaabb.x++; break;
                 case DIRECTION_N: gaabb.y--; break;

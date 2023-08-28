@@ -5,55 +5,26 @@
 #ifndef OS_H
 #define OS_H
 
+#include "assets.h"
 #include "os_fileio.h"
 #include "os_math.h"
 #include "os_types.h"
 #include "util/array.h"
-
-enum tex_id {
-        TEXID_DISPLAY,
-        TEXID_FONT_DEFAULT,
-        TEXID_FONT_DEBUG,
-        TEXID_TILESET,
-        TEXID_TEXTBOX,
-        TEXID_ITEMS,
-        TEXID_CLOUDS,
-        TEXID_PARTICLE,
-        TEXID_SOLID,
-        TEXID_HERO,
-        //
-        NUM_TEXID
-};
-
-enum snd_id {
-        SNDID_DEFAULT = 0,
-        SNDID_JUMP,
-        SNDID_TYPEWRITE,
-        SNDID_HERO_LAND,
-        SNDID_STEP,
-        SNDID_HOOK,
-        //
-        NUM_SNDID
-};
-
-enum fnt_id {
-        FNTID_DEFAULT,
-        FNTID_DEBUG,
-        //
-        NUM_FNTID
-};
 
 // ASCII encoding of printable characters
 // 32:   ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ?
 // 64: @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _
 // 96: ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ DEL
 enum fnt_glyph {
-        FNT_GLYPH_NEWLINE = 10,
-        FNT_GLYPH_SPACE   = 32,
-        FNT_GLYPH_A_U     = 65, // A upper case
-        FNT_GLYPH_A_L     = 97, // a lower case
+        FNT_GLYPH_NEWLINE  = 10,
+        FNT_GLYPH_SPACE    = 32,
+        FNT_GLYPH_A_U      = 65, // A upper case
+        FNT_GLYPH_A_L      = 97, // a lower case
+        FNT_GLYPH_BUTTON_A = 224,
+        FNT_GLYPH_BUTTON_B = 225,
+        FNT_GLYPH_DPAD     = 226,
         //
-        NUM_FNT_GLYPHS    = 256
+        NUM_FNT_GLYPHS     = 256
 };
 
 enum fnt_effect {
@@ -144,6 +115,13 @@ typedef struct {
 } texregion_s;
 
 typedef struct {
+        u32 p[32];
+} gfx_pattern_s;
+
+gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
+                                  int p4, int p5, int p6, int p7);
+
+typedef struct {
         tex_s tex;
         int   gridw;
         int   gridh;
@@ -180,6 +158,7 @@ enum {
         WAVE_TYPE_TRI,
 };
 
+fnt_s     fnt_put_load(int ID, const char *filename);
 void      fnt_put(int ID, fnt_s f);
 fnt_s     fnt_get(int ID);
 fnt_s     fnt_load(const char *filename);
@@ -193,22 +172,23 @@ int       fntstr_len(fntstr_s *f);
 void      fntstr_apply_effect(fntstr_s *f, int from, int to,
                               int effect, int tick);
 //
-void      tex_put(int ID, tex_s t);
+tex_s     tex_put_load(int ID, const char *filename);
+tex_s     tex_put(int ID, tex_s t);
 tex_s     tex_get(int ID);
 tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
 void      gfx_set_inverted(bool32 inv);
 void      gfx_px(int x, int y, int col);
-void      gfx_sprite_tile_16(tex_s src, v2_i32 pos, v2_i32 tilepos);
-void      gfx_sprite_m(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
-void      gfx_sprite_(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
+void      gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat);
+void      gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
-void      gfx_sprite(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
+void      gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void      gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4]);
 void      gfx_sprite_squished(tex_s src, i32 x, i32 y1, i32 y2, rec_i32 rs);
 void      gfx_tr_sprite_fast(texregion_s src, v2_i32 pos);
 void      gfx_draw_to(tex_s tex);
+void      gfx_draw_to_ID(int ID);
 void      gfx_rec_fill(rec_i32 r, int col);
 void      gfx_line(int x0, int y0, int x1, int y1, int col);
 void      gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col);
@@ -217,6 +197,7 @@ void      gfx_text(fnt_s *font, fntstr_s *str, int x, int y);
 void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
 void      gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3]); // 2 bits of subpixel precision
 //
+snd_s     snd_put_load(int ID, const char *filename);
 void      mus_play(const char *filename);
 void      mus_close();
 snd_s     snd_get(int ID);

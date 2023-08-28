@@ -10,6 +10,7 @@
 //
 #include "game/backforeground.c"
 #include "game/cam.c"
+#include "game/draw.c"
 #include "game/game.c"
 #include "game/gamedraw.c"
 #include "game/gameinit.c"

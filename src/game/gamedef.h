@@ -17,6 +17,7 @@ enum {
         NUM_AUTOTILE_TYPES      = 32,
         NUM_TILEANIMATIONS      = 16,
         NUM_PARTICLES           = 256,
+        NUM_CAMATTRACTORS       = 8,
         INTERACTABLE_DISTANCESQ = 175,
 };
 
@@ -59,6 +60,7 @@ enum obj_flag {
         OBJ_FLAG_HURTABLE,
         OBJ_FLAG_KILL_OFFSCREEN,
         OBJ_FLAG_HURTS_PLAYER,
+        OBJ_FLAG_CAM_ATTRACTOR,
         //
         NUM_OBJ_FLAGS
 };
@@ -83,6 +85,7 @@ enum obj_bucket {
         OBJ_BUCKET_HURTABLE,
         OBJ_BUCKET_KILL_OFFSCREEN,
         OBJ_BUCKET_HURTS_PLAYER,
+        OBJ_BUCKET_CAM_ATTRACTOR,
         //
         NUM_OBJ_BUCKETS
 };

@@ -31,16 +31,16 @@ void game_init(game_s *g)
         gfx_set_inverted(1);
 
         load_tileatlas(TEXID_TILESET);
-        tex_put(TEXID_FONT_DEFAULT, tex_load("assets/font_mono_.json"));
-        tex_put(TEXID_FONT_DEBUG, tex_load("assets/font_debug.json"));
-        tex_put(TEXID_TEXTBOX, tex_load("assets/textbox.json"));
-        tex_put(TEXID_ITEMS, tex_load("assets/items.json"));
-        tex_put(TEXID_PARTICLE, tex_load("assets/particle.json"));
-        tex_put(TEXID_SOLID, tex_load("assets/solid.json"));
-        tex_put(TEXID_HERO, tex_load("assets/player.json"));
-
-        tex_s tclouds = tex_load("assets/clouds.json");
-        tex_put(TEXID_CLOUDS, tclouds);
+        tex_put_load(TEXID_FONT_DEFAULT, "assets/font_mono_.json");
+        tex_put_load(TEXID_FONT_DEBUG, "assets/font_debug.json");
+        tex_put_load(TEXID_TEXTBOX, "assets/textbox.json");
+        tex_put_load(TEXID_ITEMS, "assets/items.json");
+        tex_put_load(TEXID_PARTICLE, "assets/particle.json");
+        tex_put_load(TEXID_SOLID, "assets/solid.json");
+        tex_put_load(TEXID_HERO, "assets/player.json");
+        tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
+        tex_put_load(TEXID_HOOK, "assets/hook.json");
+        tex_s tclouds = tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
 
         // apply some "grey pattern"
         for (int y = 0; y < tclouds.h; y++) {
@@ -53,15 +53,15 @@ void game_init(game_s *g)
                 }
         }
 
-        fnt_put(FNTID_DEFAULT, fnt_load("assets/fnt/font_default.json"));
-        fnt_put(FNTID_DEBUG, fnt_load("assets/fnt/font_debug.json"));
+        fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
+        fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");
 
-        snd_put(SNDID_DEFAULT, snd_load_wav("assets/snd/sample.wav"));
-        snd_put(SNDID_JUMP, snd_load_wav("assets/snd/jump.wav"));
-        snd_put(SNDID_TYPEWRITE, snd_load_wav("assets/snd/speak.wav"));
-        snd_put(SNDID_HERO_LAND, snd_load_wav("assets/snd/land.wav"));
-        snd_put(SNDID_STEP, snd_load_wav("assets/snd/step.wav"));
-        snd_put(SNDID_HOOK, snd_load_wav("assets/snd/hook.wav"));
+        snd_put_load(SNDID_DEFAULT, "assets/snd/sample.wav");
+        snd_put_load(SNDID_JUMP, "assets/snd/jump.wav");
+        snd_put_load(SNDID_TYPEWRITE, "assets/snd/speak.wav");
+        snd_put_load(SNDID_HERO_LAND, "assets/snd/land.wav");
+        snd_put_load(SNDID_STEP, "assets/snd/step.wav");
+        snd_put_load(SNDID_HOOK, "assets/snd/hook.wav");
 
         g->rng    = 213;
         g->cam.w  = 400;
@@ -139,6 +139,12 @@ void game_init(game_s *g)
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_HURTS_PLAYER);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_CAM_ATTRACTOR];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_CAM_ATTRACTOR);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
 }
@@ -168,9 +174,9 @@ static void load_tileatlas(int texID)
         int y_global = 0;
         for (int n = 0; n < ARRLEN(filenames); n++) {
                 os_spmem_push();
-                char *txtbuf = txt_read_file_alloc(filenames[n], os_spmem_alloc);
+                char *txt = txt_read_file_alloc(filenames[n], os_spmem_alloc);
                 jsn_s j;
-                jsn_root(txtbuf, &j);
+                jsn_root(txt, &j);
                 i32 w = jsn_intk(j, "width");
                 i32 h = jsn_intk(j, "height");
                 ASSERT(w == TILEATLAS_W && h == TILEATLAS_W);

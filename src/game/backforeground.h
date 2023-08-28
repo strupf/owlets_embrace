@@ -11,7 +11,7 @@ enum {
         BG_NUM_CLOUDS      = 16,
         BG_NUM_PARTICLES   = 256,
         BG_NUM_CLOUD_TYPES = 3,
-        BG_WIND_PARTICLE_N = 16,
+        BG_WIND_PARTICLE_N = 8,
 };
 
 typedef struct {
@@ -39,5 +39,5 @@ typedef struct {
         int          clouddirection;
 } backforeground_s;
 
-void background_foreground_animate(game_s *g);
+void backforeground_animate(game_s *g);
 #endif

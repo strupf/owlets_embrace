@@ -5,9 +5,10 @@
 #ifndef OS_TYPES_H
 #define OS_TYPES_H
 
+#include "binary_literal.h"
+
 // this is to enable editing Playdate specific stuff
 // and disable Visual Studio's definitions
-
 #if 0
 #undef TARGET_DESKTOP
 #define TARGET_PD
@@ -157,7 +158,7 @@ static bool32 char_matches_any(const char c, const char *chars)
         return 0;
 }
 
-static bool32 streq(char *str1, char *str2)
+static bool32 streq(const char *str1, const char *str2)
 {
         ASSERT(str1 && str2);
         for (int i = 0; str1[i] != '\0' && str2[i] != '\0'; i++) {
@@ -268,12 +269,6 @@ static i32 os_i32_from_str(const char *s)
                 i++;
         }
         return (res * sig);
-}
-
-static inline u32 endian_u32(u32 i)
-{
-        return (i >> 24) | ((i << 8) & 0xFF0000U) |
-               (i << 24) | ((i >> 8) & 0x00FF00U);
 }
 
 #endif

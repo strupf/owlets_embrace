@@ -2,13 +2,8 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "os_audio.h"
 #include "os_internal.h"
-
-snd_s snd_get(int ID)
-{
-        ASSERT(0 <= ID && ID < NUM_SNDID);
-        return g_os.snd_tab[ID];
-}
 
 // http://soundfile.sapp.org/doc/WaveFormat/
 typedef struct {
@@ -26,6 +21,19 @@ typedef struct {
         u32 subchunk2ID;
         u32 subchunk2size;
 } wavheader_s;
+
+snd_s snd_put_load(int ID, const char *filename)
+{
+        snd_s s = snd_load_wav(filename);
+        snd_put(ID, s);
+        return s;
+}
+
+snd_s snd_get(int ID)
+{
+        ASSERT(0 <= ID && ID < NUM_SNDID);
+        return g_os.snd_tab[ID];
+}
 
 static OS_FILE *i_open_wav_file(const char *filename, wavheader_s *wh)
 {
@@ -139,9 +147,8 @@ static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
                 return;
         }
 
+        int l = MIN(len, (int)(ch->streamlen - ch->streampos));
         music_update_chunk(ch, len);
-
-        int l = MIN(len, ch->streamlen - ch->streampos);
         music_channel_fillbuf(ch, left, l);
 
         ch->streampos += l;

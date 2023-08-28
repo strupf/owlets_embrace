@@ -23,6 +23,7 @@ void game_update_transition(game_s *g)
                 return;
 
         switch (t->phase) {
+        case TRANSITION_NONE: break;
         case TRANSITION_FADE_IN: {
                 char filename[64] = {0};
                 os_strcat(filename, ASSET_PATH_MAPS);

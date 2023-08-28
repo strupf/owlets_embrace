@@ -5,7 +5,7 @@
 #include "door.h"
 #include "game/game.h"
 
-void door_think(game_s *g, obj_s *o)
+void door_think(game_s *g, obj_s *o, void *arg)
 {
         if (o->door.moved > 0) {
                 solid_move(g, o, 0, -1);
@@ -46,7 +46,7 @@ obj_s *door_create(game_s *g)
             OBJ_FLAG_SOLID);
         obj_set_flags(g, o, flags);
         o->pos.x     = 16 * 17 + 5 * 16;
-        o->pos.y     = 192 - 130;
+        o->pos.y     = 192 - 130 - 64;
         o->w         = 16;
         o->h         = 64 + 16;
         o->ontrigger = door_trigger;

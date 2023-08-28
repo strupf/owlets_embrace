@@ -118,7 +118,7 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
 
 static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
 {
-        const char *txt = tb->dialogmem;
+        char *txt = tb->dialogmem;
         for (int k = 0; k < TEXTBOX_NUM_CHOICES; k++) {
                 tb->choices[k].labellen = 0;
         }
@@ -207,7 +207,7 @@ bool32 textbox_next_page(textbox_s *tb)
                 tb->tok++;
         }
         // tb->active     = 0;
-        tb->closeticks = 2;
+        tb->closeticks = 30;
         return 0;
 }
 
@@ -252,7 +252,6 @@ void textbox_update(textbox_s *tb)
                                      0.25f,
                                      rngf_range(0.7f, 1.f));
                 }
-
         } else {
                 line = &tb->lines[++tb->curr_line];
                 if (line >= &tb->lines[TEXTBOX_LINES]) {

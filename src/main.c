@@ -28,7 +28,7 @@ static void draw_frame_diagrams()
 
         for (int n = 0; n < NUM_TIMING; n++) {
                 int pos = (n + 1) * DIAGRAM_SPACING_Y;
-                int y1  = (int)(g_os.timings.times[n][x] * 1000000.f);
+                int y1  = (int)(g_os.timings.times[n][x] * 100000.f);
                 y1      = pos - MIN(y1, DIAGRAM_MAX_Y);
                 for (int y = y1; y <= pos; y++) {
                         tdiagram.px[u + y * tdiagram.w_byte] |= s;
@@ -67,6 +67,33 @@ static void frame_diagram()
         os_strcat(g_os.timings.labels[TIMING_SOLID_UPDATE], "solid");
         os_strcat(g_os.timings.labels[TIMING_HERO_MOVE], "h_move");
         os_strcat(g_os.timings.labels[TIMING_HERO_HOOK], "h_hook");
+}
+
+static float timeacc;
+
+int tick_game()
+{
+        // delta since last time tick_game was called
+        float time = os_time();
+        timeacc += time - g_os.lasttime;
+        if (timeacc > OS_DELTA_CAP)
+                timeacc = OS_DELTA_CAP;
+        g_os.lasttime = time;
+
+        // OS_FPS_DELTA = 1 / 50 (50 updated per second
+        bool32 updated = false;
+        while (timeacc >= OS_FPS_DELTA) {
+                timeacc -= OS_FPS_DELTA;
+                game_update(&g_gamestate);
+                updated = true;
+        }
+
+        // if game updated render a new frame
+        if (updated) {
+                game_draw(&g_gamestate);
+                return 1; // update the display
+        }
+        return 0; // not rendered, don't update display
 }
 
 int os_do_tick()

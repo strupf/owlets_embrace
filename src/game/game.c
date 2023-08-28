@@ -9,7 +9,6 @@ tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
 static void tileanimations_update();
 static void game_cull_scheduled(game_s *g);
-static void game_update_transition(game_s *g);
 
 void pathmover_init(pathmover_s *p)
 {
@@ -32,7 +31,7 @@ void pathmover_init(pathmover_s *p)
         p->to       = &p->nodes[1];
 }
 
-void solid_think(game_s *g, obj_s *o)
+void solid_think(game_s *g, obj_s *o, void *arg)
 {
         if (os_tick() & 1) return;
         obj_s *solid = o;
@@ -55,10 +54,6 @@ static void game_tick(game_s *g)
         }
         path_update(&g->pathmover);
         watersurface_update(&g->water);
-        if (debug_inp_enter()) {
-                // game_trigger(g, 4, NULL);
-                water_impact(&g->water, 50, 10, 50000);
-        }
 
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
@@ -108,13 +103,9 @@ static void game_tick(game_s *g)
                 game_cull_scheduled(g);
         }
 
-        cam_update(g, &g->cam);
-        tileanimations_update();
-
         for (int n = g->n_particles - 1; n >= 0; n--) {
                 particle_s *p = &g->particles[n];
-                p->ticks--;
-                if (p->ticks == 0) {
+                if (--p->ticks == 0) {
                         g->particles[n] = g->particles[--g->n_particles];
                         continue;
                 }
@@ -122,7 +113,7 @@ static void game_tick(game_s *g)
                 p->p_q8 = v2_add(p->p_q8, p->v_q8);
         }
 
-        background_foreground_animate(g);
+        cam_update(g, &g->cam);
 }
 
 static void textbox_input(game_s *g, textbox_s *tb)
@@ -159,6 +150,12 @@ void game_update(game_s *g)
                 door_create(g);
         }
 
+        if (os_tick() & 1) {
+                tileanimations_update();
+        } else {
+                backforeground_animate(g);
+        }
+
         if (g->textbox.active) {
                 textbox_s *tb = &g->textbox;
                 textbox_input(g, tb);
@@ -188,6 +185,7 @@ void game_close(game_s *g)
 {
 }
 
+// called at half update rate!
 static void tileanimations_update()
 {
         i32 tick = os_tick();
@@ -211,11 +209,6 @@ static void game_cull_scheduled(game_s *g)
                 g->objfreestack[g->n_objfree++] = o_del;
         }
         objset_clr(&g->obj_scheduled_delete);
-}
-
-bool32 solid_occupies(obj_s *solid, rec_i32 r)
-{
-        return overlap_rec_excl(obj_aabb(solid), r);
 }
 
 bool32 game_area_blocked(game_s *g, rec_i32 r)
@@ -274,9 +267,4 @@ void roomlayout_load(roomlayout_s *rl, const char *filename)
         }
 
         os_spmem_pop();
-}
-
-void obj_interact_dialog(game_s *g, obj_s *o, void *arg)
-{
-        textbox_load_dialog(&g->textbox, o->filename);
 }

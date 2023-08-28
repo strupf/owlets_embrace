@@ -11,7 +11,7 @@ enum {
         TEXTBOX_LINES          = 4,
         TEXTBOX_CHARS_PER_LINE = 32,
         TEXTBOX_NUM_CHOICES    = 4,
-        TEXTBOX_TICKS_PER_CHAR = 1,
+        TEXTBOX_TICKS_PER_CHAR = 2,
         TEXTBOX_FILE_MEM       = 0x10000,
         TEXTBOX_NUM_TOKS       = 256,
 };

@@ -142,8 +142,9 @@ rec_i32     obj_rec_top(obj_s *o);
 void        actor_move_x(game_s *g, obj_s *o, int dx);
 void        actor_move_y(game_s *g, obj_s *o, int dy);
 void        solid_move(game_s *g, obj_s *o, int dx, int dy);
+bool32      solid_occupies(obj_s *solid, rec_i32 r);
 void        obj_apply_movement(obj_s *o);
 obj_s      *interactable_closest(game_s *g, v2_i32 p);
-void        interact_open_dialogue(game_s *g, obj_s *o);
+void        interact_open_dialogue(game_s *g, obj_s *o, void *arg);
 
 #endif

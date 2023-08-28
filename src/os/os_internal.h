@@ -6,6 +6,7 @@
 #define OS_INTERNAL_H
 
 #include "os.h"
+#include "os_audio.h"
 
 #define TIMING_RATE      16
 #define TIMING_FRAMES    64
@@ -25,50 +26,7 @@ enum {
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,
         OS_NUM_AUDIO_CHANNELS = 8,
-        OS_MUSICCHUNK         = 0x40000, // 256 KB
-        OS_MUSICCHUNK_SAMPLES = OS_MUSICCHUNK / sizeof(i16),
 };
-
-enum {
-        PLAYBACK_TYPE_SILENT,
-        PLAYBACK_TYPE_WAVE,
-        PLAYBACK_TYPE_GEN,
-};
-
-typedef struct {
-        int   playback_type;
-        i32   vol_q8;
-        float invpitch; // 1 / pitch
-
-        union {
-                struct {
-                        i16 *wavedata;
-                        u32  wavelen;
-                        u32  wavelen_og;
-                        u32  wavepos;
-                };
-                struct {
-                        int gentype;
-                        u32 genfreq;
-                        i32 genpos;
-                        i32 sinincr; // = (freq * "2 pi") / 44100
-                        i32 squarelen;
-                };
-        };
-} audio_channel_s;
-
-typedef struct {
-        OS_FILE *stream;
-        u32      datapos;
-        u32      streampos; // position in samples
-        u32      streamlen;
-        i32      vol_q8;
-        float    invpitch; // 1 / pitch
-        bool32   looping;
-
-        i16 chunk[OS_MUSICCHUNK_SAMPLES];
-        int chunkpos; // position in samples in chunk
-} music_channel_s;
 
 typedef struct {
         char  labels[NUM_TIMING][16];
@@ -100,7 +58,6 @@ typedef struct {
         i32    crank_q16;
         i32    crankp_q16;
         float  lasttime;
-        int    n_spmem;
 
         tex_s dst;
 
@@ -111,6 +68,7 @@ typedef struct {
         memarena_s      assetmem;
         ALIGNAS(4) char assetmem_raw[OS_ASSETMEM_SIZE];
 
+        int             n_spmem;
         char           *spmemstack[OS_SPMEM_STACK_HEIGHT];
         memarena_s      spmem;
         ALIGNAS(4) char spmem_raw[OS_SPMEM_SIZE];
@@ -123,6 +81,5 @@ typedef struct {
 extern os_s g_os;
 
 void *assetmem_alloc(size_t s);
-int   os_audio_cb(void *context, i16 *left, i16 *right, int len);
 
 #endif

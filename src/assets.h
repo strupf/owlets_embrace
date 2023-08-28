@@ -1,0 +1,43 @@
+// =============================================================================
+// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// =============================================================================
+
+#ifndef ASSETS_H
+#define ASSETS_H
+
+enum tex_id {
+        TEXID_DISPLAY,
+        TEXID_FONT_DEFAULT,
+        TEXID_FONT_DEBUG,
+        TEXID_TILESET,
+        TEXID_TEXTBOX,
+        TEXID_ITEMS,
+        TEXID_CLOUDS,
+        TEXID_PARTICLE,
+        TEXID_SOLID,
+        TEXID_HERO,
+        TEXID_INPUT_EL,
+        TEXID_HOOK,
+        //
+        NUM_TEXID
+};
+
+enum snd_id {
+        SNDID_DEFAULT,
+        SNDID_JUMP,
+        SNDID_TYPEWRITE,
+        SNDID_HERO_LAND,
+        SNDID_STEP,
+        SNDID_HOOK,
+        //
+        NUM_SNDID
+};
+
+enum fnt_id {
+        FNTID_DEFAULT,
+        FNTID_DEBUG,
+        //
+        NUM_FNTID
+};
+
+#endif

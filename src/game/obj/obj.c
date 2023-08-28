@@ -190,6 +190,16 @@ rec_i32 obj_rec_top(obj_s *o)
         return r;
 }
 
+static inline void i_actor_step(game_s *g, obj_s *o, int sx, int sy)
+{
+        o->pos.x += sx;
+        o->pos.y += sy;
+        if (o->rope && o->ropenode) {
+                v2_i32 d = {sx, sy};
+                ropenode_move(g, o->rope, o->ropenode, d);
+        }
+}
+
 static bool32 actor_try_wiggle(game_s *g, obj_s *o)
 {
         rec_i32 aabb = obj_aabb(o);
@@ -199,8 +209,7 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
                 for (int x = -1; x <= +1; x++) {
                         rec_i32 r = translate_rec_xy(aabb, x, y);
                         if (!game_area_blocked(g, r)) {
-                                o->pos.x += x;
-                                o->pos.y += y;
+                                i_actor_step(g, o, x, y);
                                 return 1;
                         }
                 }
@@ -210,16 +219,6 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
                 o->onsqueeze(g, o, o->userarg);
         }
         return 0;
-}
-
-static inline i_actor_step(game_s *g, obj_s *o, int sx, int sy)
-{
-        o->pos.x += sx;
-        o->pos.y += sy;
-        if (o->rope && o->ropenode) {
-                v2_i32 d = {sx, sy};
-                ropenode_move(g, o->rope, o->ropenode, d);
-        }
 }
 
 static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
@@ -340,6 +339,11 @@ void solid_move(game_s *g, obj_s *o, int dx, int dy)
         }
 }
 
+bool32 solid_occupies(obj_s *solid, rec_i32 r)
+{
+        return overlap_rec_excl(obj_aabb(solid), r);
+}
+
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
@@ -373,7 +377,7 @@ obj_s *interactable_closest(game_s *g, v2_i32 p)
         return closest;
 }
 
-void interact_open_dialogue(game_s *g, obj_s *o)
+void interact_open_dialogue(game_s *g, obj_s *o, void *arg)
 {
         char filename[64] = {0};
         os_strcat(filename, ASSET_PATH_DIALOGUE);
@@ -400,4 +404,9 @@ void objset_apply_filter(objset_s *set, obj_filter_s filter)
         for (int n = 0; n < n_toremove; n++) {
                 objset_del(set, toremove[n]);
         }
+}
+
+void obj_interact_dialog(game_s *g, obj_s *o, void *arg)
+{
+        textbox_load_dialog(&g->textbox, o->filename);
 }

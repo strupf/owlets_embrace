@@ -21,7 +21,6 @@ static void draw_textbox(textbox_s *tb)
                 rec_i32 rr = (rec_i32){0, 128, 200, 128};
                 gfx_sprite_fast(tex_get(TEXID_TEXTBOX), (v2_i32){243, 48}, rr);
                 // draw choices if any
-                // gfx_rec_fill((rec_i32){230, 60, 70, 100}, 0);
                 static const int spacing = 21;
                 for (int n = 0; n < tb->n_choices; n++) {
                         textboxchoice_s *tc = &tb->choices[n];
@@ -73,7 +72,7 @@ static void wind_particle_line(v2_i32 p0, v2_i32 p1)
         int yi = p0.y;
         while (1) {
                 if ((xi & 1) ^ (yi & 1))
-                        gfx_px(xi, yi, 1, 0);
+                        gfx_px(xi, yi, 1);
                 if (xi == p1.x && yi == p1.y) break;
                 int e2 = er * 2;
                 if (e2 >= dy) er += dy, xi += sx;
@@ -88,7 +87,7 @@ static void draw_foreground(backforeground_s *bg, v2_i32 camp)
                 particlebg_s p = bg->particles[n];
 
                 v2_i32 p1 = v2_add(v2_shr(p.pos[p.n], 8), camp);
-                for (int i = 1; i < 16; i++) {
+                for (int i = 1; i < BG_WIND_PARTICLE_N; i++) {
                         int    k  = (p.n + i) & (BG_WIND_PARTICLE_N - 1);
                         v2_i32 p2 = v2_add(v2_shr(p.pos[k], 8), camp);
 
@@ -101,21 +100,18 @@ static void draw_foreground(backforeground_s *bg, v2_i32 camp)
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
 {
         ASSERT(0 <= x1 && 0 <= y1 && x2 < g->tiles_x && y2 < g->tiles_y);
-
         TIMING_BEGIN(TIMING_DRAW_TILES);
+        tex_s tileset = tex_get(TEXID_TILESET);
+        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
-                tex_s tileset = tex_get(TEXID_TILESET);
-                foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
-                {
-                        rtile_s rt = g->rtiles[x + y * g->tiles_x];
-                        int     ID = g_tileIDs[rt.ID];
-                        if (ID == TILEID_NULL) continue;
-                        int tx, ty;
-                        tileID_decode(ID, &tx, &ty);
-                        v2_i32  pos = {(x << 4) + camp.x, (y << 4) + camp.y};
-                        rec_i32 r   = {tx << 4, ty << 4, 16, 16};
-                        gfx_sprite_fast(tileset, pos, r);
-                }
+                rtile_s rt = g->rtiles[x + y * g->tiles_x];
+                int     ID = g_tileIDs[rt.ID];
+                if (ID == TILEID_NULL) continue;
+                int tx, ty;
+                tileID_decode(ID, &tx, &ty);
+                v2_i32  pos = {(x << 4) + camp.x, (y << 4) + camp.y};
+                rec_i32 r   = {tx << 4, ty << 4, 16, 16};
+                gfx_sprite_fast(tileset, pos, r);
         }
         TIMING_END();
 }
@@ -181,6 +177,7 @@ static void draw_transition(game_s *g)
 {
         transition_s *t = &g->transition;
         switch (t->phase) {
+        case TRANSITION_NONE: break;
         case TRANSITION_FADE_IN: {
                 int x = lerp_i32(0, 410, t->ticks, TRANSITION_TICKS);
                 gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
@@ -192,13 +189,36 @@ static void draw_transition(game_s *g)
         }
 }
 
+// naive thick line, works for now
+static void rope_line(int x0, int y0, int x1, int y1)
+{
+        int dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int er = dx + dy;
+        int xi = x0;
+        int yi = y0;
+        while (1) {
+                for (int y = -2; y <= +2; y++) {
+                        for (int x = -2; x <= +2; x++) {
+                                int sq = x * x + y * y;
+                                if (sq > 3) continue;
+                                gfx_px(xi + x, yi + y, 1);
+                        }
+                }
+                if (xi == x1 && yi == y1) break;
+                int e2 = er * 2;
+                if (e2 >= dy) { er += dy, xi += sx; }
+                if (e2 <= dx) { er += dx, yi += sy; }
+        }
+}
+
 static void draw_rope(rope_s *r, v2_i32 camp)
 {
         for (ropenode_s *r1 = r->head; r1 && r1->next; r1 = r1->next) {
                 ropenode_s *r2 = r1->next;
                 v2_i32      p1 = v2_add(r1->p, camp);
                 v2_i32      p2 = v2_add(r2->p, camp);
-                gfx_line_thick(p1.x, p1.y, p2.x, p2.y, 1, 1);
+                rope_line(p1.x, p1.y, p2.x, p2.y);
         }
 }
 
@@ -208,13 +228,54 @@ static void draw_particles(game_s *g, v2_i32 camp)
         rec_i32 rparticle = {0, 0, 4, 4};
         for (int n = 0; n < g->n_particles; n++) {
                 particle_s *p   = &g->particles[n];
-                v2_i32      pos = {(p->p_q8.x >> 8) + camp.x, (p->p_q8.y >> 8) + camp.y};
-                gfx_sprite_(tparticle, pos, rparticle, 0);
+                v2_i32      pos = v2_add(v2_shr(p->p_q8, 8), camp);
+                gfx_sprite_mode(tparticle, pos, rparticle, 0);
         }
 }
 
+static int hookpos  = -1500;
+static int slomo    = 0;
+static int wasslomo = 0;
+static int hdir     = 1;
+
 void game_draw(game_s *g)
 {
+        /*
+        if (debug_inp_space()) {
+                wasslomo = 0;
+                hookpos  = -1500;
+                slomo    = 0;
+                hdir     = 1;
+                return;
+        }
+        tex_s thook = tex_get(TEXID_HOOK);
+        if (slomo > 0) {
+
+                slomo += hdir;
+                if (slomo == 30) {
+                        hdir = -1;
+                }
+                int ss = slomo;
+                int vv = ss * ss;
+                hookpos += MAX((20 - ((vv * 20) / (30 * 30))) / 8, 1);
+        } else {
+                hookpos += 20;
+        }
+
+        int yyy = (os_tick() / (slomo ? 10 : 2)) % 6;
+        if (!wasslomo && hookpos >= 400) {
+                wasslomo = 1;
+                slomo    = 1;
+        }
+
+        gfx_sprite_fast(thook, (v2_i32){hookpos - 512, 50}, (rec_i32){0, yyy * 128, 512, 128});
+        for (int n = 1; n < 10; n++) {
+                gfx_sprite_fast(thook, (v2_i32){hookpos - 512 - n * 84, 50}, (rec_i32){0, yyy * 128, 84, 128});
+        }
+
+        return;
+        */
+
         /*
         if (debug_inp_space()) {
                 gfx_sprite(tex_get(TEXID_HERO), (v2_i32){4, 8}, (rec_i32){24, 24, 200, 200}, 2);
@@ -228,8 +289,10 @@ void game_draw(game_s *g)
         rec_i32 camr = {-camp.x, -camp.y, g->cam.w, g->cam.h};
         i32     x1, y1, x2, y2;
         tilegrid_bounds_rec(g, camr, &x1, &y1, &x2, &y2);
-
         draw_background(&g->backforeground, camp);
+
+        if (objhandle_is_valid(g->hero.hook))
+                draw_rope(&g->hero.rope, camp);
 
         obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
         for (int n = 0; n < oalive.n; n++) {
@@ -238,7 +301,7 @@ void game_draw(game_s *g)
                 case 1: {
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_SOLID);
-                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 0, 64, 48}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 0, 64, 48});
                 } break;
                 case 2: {
                         v2_i32 pos  = v2_add(o->pos, camp);
@@ -248,7 +311,7 @@ void game_draw(game_s *g)
                         if (o->vel_q8.x < 0) ty += 16;
                         if (o->vel_q8.y < -150) tx = 0;
                         if (o->vel_q8.y > +150) tx = 2;
-                        gfx_sprite_fast(ttex, pos, (rec_i32){tx * 16, ty, 16, 16}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){tx * 16, ty, 16, 16});
                 } break;
                 case 3: {
 
@@ -276,14 +339,14 @@ void game_draw(game_s *g)
                                 o->animframe = 0;
                         }
 
-                        gfx_sprite(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, fl);
+                        gfx_sprite_flip(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, fl);
                 } break;
                 case 5: {
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_HERO);
                         pos.x -= 10;
                         pos.y = pos.y + o->h - 32;
-                        gfx_sprite(ttex, pos, (rec_i32){64, 96, 64, 64}, 0);
+                        gfx_sprite_fast(ttex, pos, (rec_i32){64, 96, 64, 64});
                 } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
@@ -292,14 +355,10 @@ void game_draw(game_s *g)
                 }
         }
 
-        if (objhandle_is_valid(g->hero.hook))
-                draw_rope(&g->hero.rope, camp);
-
+        draw_particles(g, camp);
         draw_tiles(g, x1, y1, x2, y2, camp);
 
-        draw_particles(g, camp);
         draw_foreground(&g->backforeground, camp);
-
         draw_item_selection(g);
 
 #if 0 // some debug drawing
@@ -319,20 +378,20 @@ void game_draw(game_s *g)
         v2_i32 pmpos = path_pos(&g->pathmover);
         gfx_rec_fill((rec_i32){pmpos.x, pmpos.y, 16, 16}, 1);
 #endif
-
+        g->caninteract = !g->textbox.active;
         obj_s *ohero;
-        if (try_obj_from_handle(g->hero.obj, &ohero)) {
+        if (g->caninteract && try_obj_from_handle(g->hero.obj, &ohero)) {
                 v2_i32 heroc        = obj_aabb_center(ohero);
                 obj_s *interactable = interactable_closest(g, heroc);
 
                 if (interactable) {
                         v2_i32 pp = obj_aabb_center(interactable);
-                        pp.y -= 8 + 24;
+                        pp.y -= 32;
                         pp.x -= 8;
                         v2_i32 pp2  = v2_add(pp, camp);
-                        tex_s  tint = tex_get(TEXID_SOLID);
-                        int    yy   = (os_tick() % 60) < 30 ? 16 : 0;
-                        gfx_sprite_fast(tint, pp2, (rec_i32){160, yy, 16, 16});
+                        tex_s  tint = tex_get(TEXID_INPUT_EL);
+                        int    yy   = (os_tick() % 60) < 30 ? 32 : 0;
+                        gfx_sprite_fast(tint, pp2, (rec_i32){32 * 0, yy, 32, 32});
                 }
         }
 
@@ -340,6 +399,4 @@ void game_draw(game_s *g)
                 draw_transition(g);
         if (g->textbox.active)
                 draw_textbox(&g->textbox);
-
-        // gfx_sprite(tex_get(TEXID_HERO), (v2_i32){10, 256}, (rec_i32){0, 0, 256, 256}, 1);
 }

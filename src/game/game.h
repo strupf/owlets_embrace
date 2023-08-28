@@ -9,6 +9,7 @@
 //
 #include "backforeground.h"
 #include "cam.h"
+#include "draw.h"
 #include "gamedef.h"
 #include "maptransition.h"
 #include "obj/blob.h"
@@ -89,6 +90,7 @@ struct game_s {
         u32    rng;
         cam_s  cam;
         hero_s hero;
+        bool32 caninteract;
 
         objset_s    obj_scheduled_delete; // objects scheduled for removal
         obj_s       objs[NUM_OBJS];
@@ -133,7 +135,7 @@ bool32      game_area_blocked(game_s *g, rec_i32 r);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
 particle_s *particle_spawn(game_s *g);
-void        solid_think(game_s *g, obj_s *o);
+void        solid_think(game_s *g, obj_s *o, void *arg);
 // loads a Tiled .world file
 void        roomlayout_load(roomlayout_s *rl, const char *filename);
 roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec);

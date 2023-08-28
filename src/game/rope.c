@@ -27,7 +27,7 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 120;
+        r->len_max     = 150;
         r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 190;
         r->spring_q8   = 248;
@@ -168,7 +168,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
 
         const obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
         for (int n = 0; n < solids.n; n++) {
-                const obj_s *o = solids.o[n];
+                obj_s *o = solids.o[n];
                 if (o->soliddisabled) continue;
                 v2_i32 p[4];
                 points_from_rec(obj_aabb(o), p);
@@ -265,7 +265,7 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
                 tri_i32 tri = {p_old, p_new, rn->prev->p};
                 ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
         }
-        //ASSERT(rope_intact(g, r));
+        // ASSERT(rope_intact(g, r));
 }
 
 /*
@@ -531,7 +531,6 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 void rope_update(game_s *g, rope_s *r)
 {
         ASSERT(r->head);
-        r->dirty = 1;
         if (!r->dirty) return;
         r->dirty          = 0;
         ropenode_s *rprev = r->head;

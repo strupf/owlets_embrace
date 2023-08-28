@@ -2,7 +2,7 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "gamedef.h"
+#include "os/os.h"
 
 typedef struct {
         char name[64];

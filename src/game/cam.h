@@ -4,16 +4,17 @@
 
 #ifndef CAM_H
 #define CAM_H
+
 #include "gamedef.h"
 
 struct cam_s {
+        v2_i32 pos; // center pos
         int    w;
         int    h;
         int    wh;
         int    hh;
         v2_i32 target;
         v2_i32 offset;
-        v2_i32 pos;
 };
 
 void cam_constrain_to_room(game_s *g, cam_s *c);

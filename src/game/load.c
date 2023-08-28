@@ -4,7 +4,7 @@
 
 #include "game.h"
 #include "tab_autotiles.h"
-#include "tmj.h"
+#include "util/tmj.h"
 
 enum {
         TMJ_TILESET_FGID = 1025,
@@ -17,10 +17,7 @@ enum {
         TILESHAPE_SLOPE_HI,
 };
 
-/*
- * Set tiles automatically while loading.
- * www.cr31.co.uk/stagecast/wang/blob.html
- */
+// set tiles automatically - www.cr31.co.uk/stagecast/wang/blob.html
 typedef struct {
         u32 *arr;
         int  w;
@@ -28,6 +25,125 @@ typedef struct {
         int  x;
         int  y;
 } autotiling_s;
+
+static inline bool32 is_autotile(u32 ID);
+
+static void autotile_calc(game_s *g, autotiling_s tiling, int n);
+static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h);
+static void load_obj_from_jsn(game_s *g, jsn_s jobj);
+static void load_obj_layer(game_s *g, jsn_s jlayer);
+
+void game_load_map(game_s *g, const char *filename)
+{
+        // reset room
+        for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
+                obj_s *o               = &g->objs[n];
+                o->index               = n;
+                o->gen                 = 1;
+                g->objfreestack[n - 1] = o;
+        }
+        g->n_objfree = NUM_OBJS - 1;
+        objset_clr(&g->obj_scheduled_delete);
+        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
+                objset_clr(&g->objbuckets[n].set);
+        }
+
+        os_spmem_push();
+
+        const char *tmjbuf = txt_read_file_alloc(filename, os_spmem_alloc);
+        jsn_s       jroot, jtileset;
+        jsn_root(tmjbuf, &jroot);
+
+        int w = jsn_intk(jroot, "width");
+        int h = jsn_intk(jroot, "height");
+
+        ASSERT(w * h <= NUM_TILES);
+
+        bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
+        ASSERT(has_tilesets);
+
+        foreach_jsn_childk (jroot, "layers", jlayer) {
+                char name[64] = {0};
+                jsn_strk(jlayer, "name", name, ARRLEN(name));
+                if (0) {
+                } else if (streq(name, "autotile")) {
+                        PRINTF("LOAD LAYER %s\n", name);
+                        load_rendertile_layer(g, jlayer, w, h);
+                } else if (streq(name, "obj")) {
+                        load_obj_layer(g, jlayer);
+                }
+        }
+        PRINTF("\n");
+
+        os_spmem_pop();
+
+        g->tiles_x                       = w;
+        g->tiles_y                       = h;
+        g->pixel_x                       = g->tiles_x << 4;
+        g->pixel_y                       = g->tiles_y << 4;
+        g->backforeground.clouddirection = 1;
+        g->water.particles               = g->wparticles;
+        g->water.nparticles              = 256;
+        g->water.dampening_q12           = 4060;
+        g->water.fneighbour_q16          = 2000;
+        g->water.fzero_q16               = 100;
+        g->water.loops                   = 3;
+        g->water.p                       = (v2_i32){0, 50};
+
+#if 1
+        static int once = 0;
+        if (!once) {
+                obj_s     *solid1  = obj_create(g);
+                objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
+                                                     OBJ_FLAG_MOVABLE,
+                                                     OBJ_FLAG_THINK_1,
+                                                     OBJ_FLAG_CAM_ATTRACTOR);
+                obj_set_flags(g, solid1, flagss1);
+                solid1->think_1 = solid_think;
+                solid1->pos.x   = 170 + 300 - 20 + 5 * 16;
+                solid1->pos.y   = 100 - 20;
+                solid1->w       = 64;
+                solid1->h       = 48;
+                solid1->dir     = 1;
+                solid1->p2      = 220 + 300 - 20 + 5 * 16;
+                solid1->p1      = 130 + 300 - 20 + 5 * 16;
+                solid1->ID      = 1;
+                once            = 1;
+
+                obj_s     *osign   = obj_create(g);
+                objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
+                obj_set_flags(g, osign, flagss2);
+                osign->pos.x      = 240 + 5 * 16;
+                osign->pos.y      = 160;
+                osign->w          = 16;
+                osign->h          = 24;
+                osign->ID         = 5;
+                osign->oninteract = obj_interact_dialog;
+                os_strcat(osign->filename, "assets/introtext.txt");
+        }
+
+#endif
+
+        obj_s *ohero = hero_create(g, &g->hero);
+        ohero->pos.x = 50;
+        ohero->pos.y = 100;
+
+        g->cam.pos = obj_aabb_center(ohero);
+        cam_constrain_to_room(g, &g->cam);
+
+        textbox_init(&g->textbox);
+        static int loadedonce = 1;
+        if (!loadedonce) {
+                loadedonce = 1;
+                jsn_s prop;
+                if (tmj_property(jroot, "introtext", &prop)) {
+                        char filename[64] = {0};
+                        jsn_strk(prop, "value", filename, sizeof(filename));
+                        textbox_load_dialog(&g->textbox, filename);
+                }
+                textbox_load_dialog(&g->textbox, "assets/introtext.txt");
+        }
+}
 
 static inline bool32 is_autotile(u32 ID)
 {
@@ -84,8 +200,7 @@ static bool32 autotile_fits(autotiling_s tiling, int sx, int sy, int ttype)
         return (adjacency[i] & adjtab[l]) == adjtab[l];
 }
 
-/*
- * calc bitmask according to neighbours:
+/* calc bitmask according to neighbours:
  * 128| 1|2
  * --------
  *  64|  |4
@@ -223,18 +338,17 @@ static void autotile_calc(game_s *g, autotiling_s tiling, int n)
         }
 }
 
-// Tied tile IDs encode the tileID, the tileset and possible flipping flags.
-//   See: doc.mapeditor.org/en/stable/reference/global-tile-ids/
-void load_rendertile_layer(game_s *g, jsn_s jlayer,
-                           int width, int height)
+// Tiled tile IDs encode the tileID, the tileset and possible flipping flags.
+// See: doc.mapeditor.org/en/stable/reference/global-tile-ids/
+static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h)
 {
         os_spmem_push();
-        const u32 *tileIDs = tmj_tileID_array_from_tmj(jlayer,
-                                                       os_spmem_alloc);
-        const int  layer   = 0;
-        for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                        int n      = x + y * width;
+        u32 *tileIDs = tmj_tileID_array_from_tmj(jlayer,
+                                                 os_spmem_alloc);
+        int  layer   = 0;
+        for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                        int n      = x + y * w;
                         u32 tileID = tileIDs[n];
 
                         g->tiles[n]      = 0;
@@ -244,7 +358,7 @@ void load_rendertile_layer(game_s *g, jsn_s jlayer,
 
                         if (is_autotile(tileID)) {
                                 autotiling_s tiling = {tileIDs,
-                                                       width, height, x, y};
+                                                       w, h, x, y};
                                 autotile_calc(g, tiling, n);
                                 continue;
                         }
@@ -305,114 +419,5 @@ static void load_obj_layer(game_s *g, jsn_s jlayer)
 {
         foreach_jsn_childk (jlayer, "objects", jobj) {
                 load_obj_from_jsn(g, jobj);
-        }
-}
-
-void game_load_map(game_s *g, const char *filename)
-{
-        // reset room
-        for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
-                obj_s *o               = &g->objs[n];
-                o->index               = n;
-                o->gen                 = 1;
-                g->objfreestack[n - 1] = o;
-        }
-        g->n_objfree = NUM_OBJS - 1;
-        objset_clr(&g->obj_scheduled_delete);
-        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
-                objset_clr(&g->objbuckets[n].set);
-        }
-
-        os_spmem_push();
-
-        const char *tmjbuf = txt_read_file_alloc(filename, os_spmem_alloc);
-        jsn_s       jroot, jtileset;
-        jsn_root(tmjbuf, &jroot);
-
-        int w = jsn_intk(jroot, "width");
-        int h = jsn_intk(jroot, "height");
-
-        ASSERT(w * h <= NUM_TILES);
-
-        bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
-        ASSERT(has_tilesets);
-
-        foreach_jsn_childk (jroot, "layers", jlayer) {
-                char name[64] = {0};
-                jsn_strk(jlayer, "name", name, ARRLEN(name));
-                if (0) {
-                } else if (streq(name, "autotile")) {
-                        PRINTF("LOAD LAYER %s\n", name);
-                        load_rendertile_layer(g, jlayer, w, h);
-                } else if (streq(name, "obj")) {
-                        load_obj_layer(g, jlayer);
-                }
-        }
-        PRINTF("\n");
-
-        os_spmem_pop();
-
-        g->tiles_x                       = w;
-        g->tiles_y                       = h;
-        g->pixel_x                       = g->tiles_x << 4;
-        g->pixel_y                       = g->tiles_y << 4;
-        g->backforeground.clouddirection = 1;
-        g->water.particles               = g->wparticles;
-        g->water.nparticles              = 256;
-        g->water.dampening_q12           = 4060;
-        g->water.fneighbour_q16          = 2000;
-        g->water.fzero_q16               = 100;
-        g->water.loops                   = 3;
-        g->water.p                       = (v2_i32){0, 50};
-        cam_constrain_to_room(g, &g->cam);
-
-#if 1
-        static int once = 0;
-        if (!once) {
-                obj_s     *solid1  = obj_create(g);
-                objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
-                                                     OBJ_FLAG_MOVABLE,
-                                                     OBJ_FLAG_THINK_1);
-                obj_set_flags(g, solid1, flagss1);
-                solid1->think_1 = solid_think;
-                solid1->pos.x   = 170 + 300 - 20 + 5 * 16;
-                solid1->pos.y   = 100 - 20;
-                solid1->w       = 64;
-                solid1->h       = 48;
-                solid1->dir     = 1;
-                solid1->p2      = 220 + 300 - 20 + 5 * 16;
-                solid1->p1      = 130 + 300 - 20 + 5 * 16;
-                solid1->ID      = 1;
-                once            = 1;
-
-                obj_s     *osign   = obj_create(g);
-                objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
-                obj_set_flags(g, osign, flagss2);
-                osign->pos.x      = 240 + 5 * 16;
-                osign->pos.y      = 106;
-                osign->w          = 16;
-                osign->h          = 24;
-                osign->ID         = 5;
-                osign->oninteract = obj_interact_dialog;
-                os_strcat(osign->filename, "assets/introtext.txt");
-        }
-
-#endif
-
-        obj_s *ohero = hero_create(g, &g->hero);
-        ohero->pos.x = 50;
-        ohero->pos.y = 100;
-
-        textbox_init(&g->textbox);
-        static int loadedonce = 1;
-        if (!loadedonce) {
-                loadedonce = 1;
-                jsn_s prop;
-                if (tmj_property(jroot, "introtext", &prop)) {
-                        char filename[64] = {0};
-                        jsn_strk(prop, "value", filename, sizeof(filename));
-                        textbox_load_dialog(&g->textbox, filename);
-                }
-                textbox_load_dialog(&g->textbox, "assets/introtext.txt");
         }
 }
