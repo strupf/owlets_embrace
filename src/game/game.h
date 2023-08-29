@@ -91,7 +91,6 @@ struct game_s {
         u32    rng;
         cam_s  cam;
         hero_s hero;
-        bool32 caninteract;
 
         objset_s    obj_scheduled_delete; // objects scheduled for removal
         obj_s       objs[NUM_OBJS];
@@ -120,9 +119,15 @@ struct game_s {
         waterparticle_s wparticles[256];
 
         pathmover_s pathmover;
+
+        memheap_s       heap;
+        ALIGNAS(4) char heapmem[GAME_HEAPMEM];
 };
+
 extern game_s g_gamestate;
 
+void       *game_heapalloc(size_t size);
+void        game_heapfree(void *ptr);
 void        game_init(game_s *g);
 void        game_update(game_s *g);
 void        game_draw(game_s *g);

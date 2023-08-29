@@ -30,4 +30,3 @@ bugs
 * rope: removal of a point during tighten can result in three
     collinear points which span a degenerate triangle -> in that
     case delete the middle point, too
-? graphics: make textures without transparency mask work for sprites

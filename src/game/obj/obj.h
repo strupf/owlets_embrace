@@ -64,8 +64,7 @@ struct obj_s {
         int        p2;
         int        ID;
         int        facing;
-
-        int invincibleticks;
+        int        invincibleticks;
 
         obj_s *parent;
         obj_s *next;
@@ -73,9 +72,8 @@ struct obj_s {
         obj_s *fchild;
         obj_s *lchild;
 
-        i32 w;
-        i32 h;
-
+        i32         w;
+        i32         h;
         v2_i32      pos;
         v2_i32      subpos_q8;
         v2_i32      vel_q8;

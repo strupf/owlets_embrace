@@ -8,15 +8,16 @@
 #include "gamedef.h"
 
 enum {
-        TEXTBOX_LINES          = 4,
-        TEXTBOX_CHARS_PER_LINE = 32,
-        TEXTBOX_NUM_CHOICES    = 4,
-        TEXTBOX_TICKS_PER_CHAR = 1,
-        TEXTBOX_FILE_MEM       = 0x10000,
-        TEXTBOX_NUM_TOKS       = 256,
-        TEXTBOX_CLOSE_TICKS    = 10,
-        TEXTBOX_CLOSE_MAXFRAME = 3,
-        TEXBOX_CLOSE_DIV       = TEXTBOX_CLOSE_TICKS / TEXTBOX_CLOSE_MAXFRAME,
+        TEXTBOX_LINES                 = 4,
+        TEXTBOX_CHARS_PER_LINE        = 64,
+        TEXTBOX_NUM_CHOICES           = 4,
+        TEXTBOX_TICKS_PER_CHAR_Q4     = 24,
+        TEXTBOX_TICK_PUNCTUATION_MARK = 3, // factor!
+        TEXTBOX_FILE_MEM              = 0x10000,
+        TEXTBOX_NUM_TOKS              = 256,
+        TEXTBOX_CLOSE_TICKS           = 10,
+        TEXTBOX_CLOSE_MAXFRAME        = 3,
+        TEXBOX_CLOSE_DIV              = TEXTBOX_CLOSE_TICKS / TEXTBOX_CLOSE_MAXFRAME,
 };
 
 typedef struct {
@@ -44,11 +45,13 @@ typedef struct {
 struct textbox_s {
         i32             closeticks;
         int             page_animation_state;
-        int             typewriter_tick;
+        int             typewriter_tick_q4;
         int             curreffect;
         int             currspeed;
         int             curr_line;
         int             curr_char;
+        int             n_chars;
+        int             n_chars_shown;
         bool32          shows_all;
         bool32          active;
         textboxline_s   lines[TEXTBOX_LINES];
@@ -64,7 +67,7 @@ void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
 void   textbox_init(textbox_s *tb);
 void   textbox_clr(textbox_s *tb);
 void   textbox_update(textbox_s *tb);
-void   textbox_load_dialog(textbox_s *tb, const char *filename);
+void   textbox_load_dialog(textbox_s *tb, char *text);
 bool32 textbox_next_page(textbox_s *tb);
 
 #endif

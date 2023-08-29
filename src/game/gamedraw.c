@@ -60,6 +60,7 @@ static void draw_textbox(textbox_s *tb)
         fnt_s   font = fnt_get(FNTID_DEFAULT);
         rec_i32 r    = (rec_i32){0, 0, 400, 128};
         gfx_sprite_fast(tex_get(TEXID_TEXTBOX), (v2_i32){0, 128}, r);
+
         for (int l = 0; l < TEXTBOX_LINES; l++) {
                 textboxline_s *line = &tb->lines[l];
                 gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
@@ -188,8 +189,8 @@ static void draw_item_selection(game_s *g)
         tt.h      = 128;
         tt.w_byte = tt.w / 8;
         tt.w_word = tt.w / 32;
-        tt.px     = os_spmem_allocz(sizeof(u8) * tt.w_byte * tt.h * 2);
-        tt.mk     = tt.px + tt.w_byte * tt.h;
+        tt.px     = os_spmem_allocz(sizeof(u8) * tt.w_byte * tt.h);
+        tt.mk     = NULL;
 
         int ii = -((32 * os_inp_crank()) >> 16);
         if (os_inp_crank() >= 0x8000) {
@@ -437,9 +438,9 @@ void game_draw(game_s *g)
         v2_i32 pmpos = path_pos(&g->pathmover);
         gfx_rec_fill((rec_i32){pmpos.x, pmpos.y, 16, 16}, 1);
 #endif
-        g->caninteract = !g->textbox.active;
+        g->hero.caninteract = !g->textbox.active;
         obj_s *ohero;
-        if (g->caninteract && try_obj_from_handle(g->hero.obj, &ohero)) {
+        if (g->hero.caninteract && try_obj_from_handle(g->hero.obj, &ohero)) {
                 v2_i32 heroc        = obj_aabb_center(ohero);
                 obj_s *interactable = interactable_closest(g, heroc);
 
@@ -447,10 +448,10 @@ void game_draw(game_s *g)
                         v2_i32 pp = obj_aabb_center(interactable);
                         pp.y -= 32;
                         pp.x -= 8;
-                        v2_i32 pp2  = v2_add(pp, camp);
-                        tex_s  tint = tex_get(TEXID_INPUT_EL);
-                        int    yy   = (os_tick() % 60) < 30 ? 32 : 0;
-                        gfx_sprite_fast(tint, pp2, (rec_i32){32 * 0, yy, 32, 32});
+                        pp         = v2_add(pp, camp);
+                        tex_s tint = tex_get(TEXID_INPUT_EL);
+                        int   yy   = (os_tick() % 60) < 30 ? 32 : 0;
+                        gfx_sprite_fast(tint, pp, (rec_i32){32 * 0, yy, 32, 32});
                 }
         }
 

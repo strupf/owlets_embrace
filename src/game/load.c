@@ -47,6 +47,7 @@ void game_load_map(game_s *g, const char *filename)
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
                 objset_clr(&g->objbuckets[n].set);
         }
+        memheap_init(&g->heap, g->heapmem, GAME_HEAPMEM);
 
         os_spmem_push();
 
@@ -96,8 +97,7 @@ void game_load_map(game_s *g, const char *filename)
                 obj_s     *solid1  = obj_create(g);
                 objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
                                                      OBJ_FLAG_MOVABLE,
-                                                     OBJ_FLAG_THINK_1,
-                                                     OBJ_FLAG_CAM_ATTRACTOR);
+                                                     OBJ_FLAG_THINK_1);
                 obj_set_flags(g, solid1, flagss1);
                 solid1->think_1 = solid_think;
                 solid1->pos.x   = 170 + 300 - 20 + 5 * 16;
@@ -110,6 +110,7 @@ void game_load_map(game_s *g, const char *filename)
                 solid1->ID      = 1;
                 once            = 1;
 
+                /*
                 obj_s     *osign   = obj_create(g);
                 objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
                 obj_set_flags(g, osign, flagss2);
@@ -120,6 +121,7 @@ void game_load_map(game_s *g, const char *filename)
                 osign->ID         = 5;
                 osign->oninteract = obj_interact_dialog;
                 os_strcat(osign->filename, "assets/introtext.txt");
+                */
         }
 
 #endif
@@ -142,6 +144,61 @@ void game_load_map(game_s *g, const char *filename)
                         textbox_load_dialog(&g->textbox, filename);
                 }
                 textbox_load_dialog(&g->textbox, "assets/introtext.txt");
+        }
+}
+
+static void load_obj_from_jsn(game_s *g, jsn_s jobj)
+{
+        char buf[64];
+        jsn_strk(jobj, "name", buf, sizeof(buf));
+
+        obj_s *o = NULL;
+        if (0) {
+        } else if (streq(buf, "hero")) {
+                // o        = hero_create(g, &g->hero);
+                // o->pos.x = jsn_intk(jobj, "x");
+                // o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "newmap")) {
+                o                = obj_create(g);
+                objflags_s flags = objflags_create(
+                    OBJ_FLAG_NEW_AREA_COLLIDER);
+                obj_set_flags(g, o, flags);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+                o->w     = jsn_intk(jobj, "width");
+                o->h     = jsn_intk(jobj, "height");
+        } else if (streq(buf, "camattractor")) {
+                o                = obj_create(g);
+                objflags_s flags = objflags_create(
+                    OBJ_FLAG_CAM_ATTRACTOR);
+                obj_set_flags(g, o, flags);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "sign")) {
+                o                = obj_create(g);
+                objflags_s flags = objflags_create(
+                    OBJ_FLAG_INTERACT);
+                obj_set_flags(g, o, flags);
+                o->pos.x      = jsn_intk(jobj, "x");
+                o->pos.y      = jsn_intk(jobj, "y");
+                o->w          = jsn_intk(jobj, "width");
+                o->h          = jsn_intk(jobj, "height");
+                o->oninteract = obj_interact_dialog;
+        }
+
+        if (!o) return;
+
+        jsn_s prop;
+        if (tmj_property(jobj, "dialog", &prop) ||
+            tmj_property(jobj, "mapfile", &prop)) {
+                jsn_strk(prop, "value", o->filename, sizeof(o->filename));
+        }
+}
+
+static void load_obj_layer(game_s *g, jsn_s jlayer)
+{
+        foreach_jsn_childk (jlayer, "objects", jobj) {
+                load_obj_from_jsn(g, jobj);
         }
 }
 
@@ -370,54 +427,4 @@ static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h)
         }
 
         os_spmem_pop();
-}
-
-static void load_obj_from_jsn(game_s *g, jsn_s jobj)
-{
-        char buf[64];
-        jsn_strk(jobj, "name", buf, sizeof(buf));
-
-        obj_s *o = NULL;
-        if (0) {
-        } else if (streq(buf, "hero")) {
-                // o        = hero_create(g, &g->hero);
-                // o->pos.x = jsn_intk(jobj, "x");
-                // o->pos.y = jsn_intk(jobj, "y");
-        } else if (streq(buf, "sign")) {
-                o                = obj_create(g);
-                objflags_s flags = objflags_create(
-                    OBJ_FLAG_INTERACT);
-                obj_set_flags(g, o, flags);
-                o->pos.x      = jsn_intk(jobj, "x");
-                o->pos.y      = jsn_intk(jobj, "y");
-                o->w          = 16;
-                o->h          = 16;
-                o->oninteract = interact_open_dialogue;
-        } else if (streq(buf, "newmap")) {
-                o                = obj_create(g);
-                objflags_s flags = objflags_create(
-                    OBJ_FLAG_NEW_AREA_COLLIDER);
-                obj_set_flags(g, o, flags);
-                o->pos.x = jsn_intk(jobj, "x");
-                o->pos.y = jsn_intk(jobj, "y");
-                o->w     = jsn_intk(jobj, "width");
-                o->h     = jsn_intk(jobj, "height");
-        } else {
-                return;
-        }
-
-        jsn_s prop;
-        if (tmj_property(jobj, "dialogue", &prop)) {
-                jsn_strk(prop, "value", o->filename, sizeof(o->filename));
-        }
-        if (tmj_property(jobj, "mapfile", &prop)) {
-                jsn_strk(prop, "value", o->filename, sizeof(o->filename));
-        }
-}
-
-static void load_obj_layer(game_s *g, jsn_s jlayer)
-{
-        foreach_jsn_childk (jlayer, "objects", jobj) {
-                load_obj_from_jsn(g, jobj);
-        }
 }

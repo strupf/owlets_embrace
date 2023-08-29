@@ -23,9 +23,9 @@ struct hero_s {
         i32         edgeticks;
         bool32      wasgrounded;
         i32         facingticks; // how long the player is already facing that direction (signed)
-
-        i32 swordticks;
-        int sworddir;
+        bool32      caninteract;
+        i32         swordticks;
+        int         sworddir;
 
         flags32 aquired_items;
         int     selected_item;

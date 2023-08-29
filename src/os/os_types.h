@@ -152,8 +152,8 @@ static int char_hex_to_int(char c)
 
 static bool32 char_matches_any(const char c, const char *chars)
 {
-        for (int i = 0; chars[i] != '\0'; i++) {
-                if (chars[i] == c) return 1;
+        for (const char *cc = chars; *cc != '\0'; cc++) {
+                if (*cc == c) return 1;
         }
         return 0;
 }
@@ -177,6 +177,7 @@ static int os_strlen(const char *s)
         return l;
 }
 
+// copies src to dst INCLUDING 0 character
 static char *os_strcpy(char *dst, const char *src)
 {
         ASSERT(dst && src);
@@ -187,6 +188,7 @@ static char *os_strcpy(char *dst, const char *src)
         return dst;
 }
 
+// copies src to dst EXCLUDING 0 character
 static char *os_strncpy(char *dst, const char *src)
 {
         ASSERT(dst && src);

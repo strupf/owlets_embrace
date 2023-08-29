@@ -12,6 +12,7 @@
 #define ASSET_PATH_DIALOGUE "assets/"
 
 enum {
+        GAME_HEAPMEM            = 0x10000,
         NUM_TILES               = 1024 * 1024,
         NUM_OBJS                = 256,
         NUM_AUTOTILE_TYPES      = 32,

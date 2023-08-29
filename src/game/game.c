@@ -186,6 +186,16 @@ void game_close(game_s *g)
 {
 }
 
+void *game_heapalloc(size_t size)
+{
+        return memheap_alloc(&g_gamestate.heap, size);
+}
+
+void game_heapfree(void *ptr)
+{
+        memheap_free(&g_gamestate.heap, ptr);
+}
+
 // called at half update rate!
 static void tileanimations_update()
 {

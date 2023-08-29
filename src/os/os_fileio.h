@@ -84,6 +84,8 @@ i32    jsn_intk(jsn_s j, const char *key);
 u32    jsn_uint(jsn_s j);
 u32    jsn_uintk(jsn_s j, const char *key);
 char  *jsn_strkptr(jsn_s j, const char *key);
+char  *jsn_str_alloc(jsn_s j, void *(*allocfunc)(size_t));
+char  *jsn_strk_alloc(jsn_s j, const char *key, void *(*allocfunc)(size_t));
 char  *jsn_str(jsn_s j, char *buf, size_t bufsize);
 char  *jsn_strk(jsn_s j, const char *key, char *buf, size_t bufsize);
 void   jsn_print(jsn_s j);

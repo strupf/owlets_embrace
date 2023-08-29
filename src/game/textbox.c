@@ -19,8 +19,8 @@ enum {
 // comparing the terminating \0 of exp
 static bool32 str_matches(const char *str, const char *exp)
 {
-        for (int n = 0; exp[n] != '\0'; n++) {
-                if (str[n] != exp[n]) return 0;
+        for (const char *s = str, *e = exp; *e != '\0'; e++, s++) {
+                if (*s != *e) return 0;
         }
         return 1;
 }
@@ -96,20 +96,16 @@ void textbox_init(textbox_s *tb)
         textbox_clr(tb);
 }
 
-static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
-{
-        textboxline_s *line = *l;
-        line++;
-        if (line >= &tb->lines[TEXTBOX_LINES]) return 0;
-        line->n = 0;
-        *l      = line;
-        return 1;
-}
-
-void textbox_load_dialog(textbox_s *tb, const char *filename)
+void textbox_load_dialog(textbox_s *tb, char *text)
 {
         textbox_clr(tb);
-        txt_read_file(filename, tb->dialogmem, TEXTBOX_FILE_MEM);
+#if 1
+
+        txt_read_file(text, tb->dialogmem, TEXTBOX_FILE_MEM);
+
+#else
+        os_strcpy(tb->dialogmem, text);
+#endif
         dialog_parse(tb->dialogmem, tb->toks);
         tb->tok    = tb->toks;
         tb->active = 1;
@@ -142,10 +138,18 @@ static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
         }
 }
 
+static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
+{
+        textboxline_s *line = *l;
+        if (++line >= &tb->lines[TEXTBOX_LINES]) return 0;
+        line->n = 0;
+        *l      = line;
+        return 1;
+}
+
 bool32 textbox_next_page(textbox_s *tb)
 {
-
-        tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
+        tb->currspeed = TEXTBOX_TICKS_PER_CHAR_Q4;
         textbox_clr(tb);
         textboxline_s *line = &tb->lines[0];
         while (tb->tok->type != DIALOG_TOK_END) {
@@ -163,7 +167,7 @@ bool32 textbox_next_page(textbox_s *tb)
                                 if (tb->tok->i1 - tb->tok->i0 > 3) {
                                         tb->currspeed = os_i32_from_str(&s[3]);
                                 } else {
-                                        tb->currspeed = TEXTBOX_TICKS_PER_CHAR;
+                                        tb->currspeed = TEXTBOX_TICKS_PER_CHAR_Q4;
                                 }
                         } else if (str_matches(s, "trigger")) {
                         } else if (str_matches(s, "*")) {
@@ -194,15 +198,17 @@ bool32 textbox_next_page(textbox_s *tb)
                                 fc.glyphID   = ci;
                                 fc.effectID  = tb->curreffect;
                                 ASSERT(line->n < TEXTBOX_CHARS_PER_LINE);
-                                line->speed[line->n] = tb->currspeed;
+                                int speed = tb->currspeed;
+                                if (char_matches_any(ci, ".,!?"))
+                                        speed *= TEXTBOX_TICK_PUNCTUATION_MARK;
+                                line->speed[line->n] = speed;
                                 line->chars[line->n] = fc;
                                 line->n++;
                         }
                 } break;
-                case DIALOG_TOK_TEXT_NEW_PAGE: {
+                case DIALOG_TOK_TEXT_NEW_PAGE:
                         tb->tok++;
                         return 1;
-                } break;
                 }
                 tb->tok++;
         }
@@ -212,11 +218,11 @@ bool32 textbox_next_page(textbox_s *tb)
 
 void textbox_clr(textbox_s *tb)
 {
-        tb->typewriter_tick = 0;
-        tb->shows_all       = 0;
-        tb->curr_char       = 0;
-        tb->curr_line       = 0;
-        tb->n_choices       = 0;
+        tb->typewriter_tick_q4 = 0;
+        tb->shows_all          = 0;
+        tb->curr_char          = 0;
+        tb->curr_line          = 0;
+        tb->n_choices          = 0;
         for (int n = 0; n < TEXTBOX_LINES; n++) {
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
@@ -227,41 +233,39 @@ void textbox_clr(textbox_s *tb)
 void textbox_update(textbox_s *tb)
 {
         if (tb->closeticks > 0) {
-                tb->closeticks--;
-                if (tb->closeticks == 0) {
+                if (--tb->closeticks == 0) {
                         tb->active = 0;
                 }
                 return;
         }
 
         if (tb->shows_all) return;
-        tb->typewriter_tick++;
-        textboxline_s *line = &tb->lines[tb->curr_line];
-        if (tb->typewriter_tick < line->speed[tb->curr_char]) return;
-        tb->typewriter_tick = 0;
 
-        if (tb->curr_char < line->n) {
+        tb->typewriter_tick_q4 -= 16;
+        textboxline_s *line        = &tb->lines[tb->curr_line];
+        bool32         playedsound = 0;
+        while (tb->typewriter_tick_q4 <= 0) {
+                tb->typewriter_tick_q4 += line->speed[tb->curr_char];
 
-                int nn = line->chars[tb->curr_char++].glyphID;
+                while (tb->curr_char == line->n) {
+                        line          = &tb->lines[++tb->curr_line];
+                        tb->curr_char = 0;
+                        if (line >= &tb->lines[TEXTBOX_LINES]) {
+                                tb->shows_all            = 1;
+                                tb->page_animation_state = 0;
+                                break;
+                        }
+                }
 
+                int i = line->chars[tb->curr_char++].glyphID;
                 line->n_shown++;
-                if (('A' <= nn && nn <= 'Z') ||
-                    ('a' <= nn && nn <= 'z')) {
+
+                if (!playedsound && (('A' <= i && i <= 'Z') ||
+                                     ('a' <= i && i <= 'z'))) {
+                        playedsound = 1;
                         snd_play_ext(snd_get(SNDID_TYPEWRITE),
                                      0.25f,
                                      rngf_range(0.7f, 1.f));
-                }
-        } else {
-                line = &tb->lines[++tb->curr_line];
-                if (line >= &tb->lines[TEXTBOX_LINES]) {
-                        tb->shows_all            = 1;
-                        tb->page_animation_state = 0;
-                        return;
-                }
-                tb->curr_char = 0;
-                if (tb->curr_char < line->n) {
-                        tb->curr_char++;
-                        line->n_shown++;
                 }
         }
 }

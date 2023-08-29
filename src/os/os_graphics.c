@@ -338,13 +338,13 @@ void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s p
                 int  yd = (y + pos.y - rs.y) * dst.w_word;
                 int  ii = b1 + y * src.w_word;
                 u32  pt = pat.p[y & 31];
-                u32 *zm = &((u32 *)src.mk)[ii];
+                u32 *zm = src.mk ? &((u32 *)src.mk)[ii] : NULL;
                 u32 *zp = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
                         int uu = (b == b1 ? x1 & 31 : 0);
                         int vv = (b == b2 ? x2 & 31 : 31);
                         u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-                        u32 sm = endian_u32(*zm++) & mm;
+                        u32 sm = src.mk ? endian_u32(*zm++) & mm : mm;
                         u32 sp = endian_u32(*zp++);
                         u32 t0 = endian_u32(sm >> s0) & pt;
                         u32 p0 = endian_u32(sp >> s0);

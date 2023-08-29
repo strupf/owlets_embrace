@@ -368,6 +368,23 @@ char *jsn_strkptr(jsn_s j, const char *key)
         return &j.txt[jj.i + 1];
 }
 
+char *jsn_str_alloc(jsn_s j, void *(*allocfunc)(size_t))
+{
+        ASSERT(j.type == JSN_STR);
+        int    i0   = j.i + 1;
+        int    i1   = jsn_skip_str(j.txt, j.i) - 1;
+        size_t size = (size_t)(i1 - i0 + 1);
+        char  *buf  = (char *)allocfunc(size);
+        return jsn_str(j, buf, size);
+}
+
+char *jsn_strk_alloc(jsn_s j, const char *key, void *(*allocfunc)(size_t))
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return NULL;
+        return jsn_str_alloc(jj, allocfunc);
+}
+
 char *jsn_str(jsn_s j, char *buf, size_t bufsize)
 {
         ASSERT(j.type == JSN_STR);
