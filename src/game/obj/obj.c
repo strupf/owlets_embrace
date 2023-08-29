@@ -409,3 +409,8 @@ void obj_interact_dialog(game_s *g, obj_s *o, void *arg)
 {
         textbox_load_dialog(&g->textbox, o->filename);
 }
+
+void obj_squeeze_delete(game_s *g, obj_s *o, void *arg)
+{
+        obj_delete(g, o);
+}

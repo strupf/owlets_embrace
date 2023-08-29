@@ -2,7 +2,6 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "blob.h"
 #include "game/game.h"
 
 obj_s *blob_create(game_s *g)

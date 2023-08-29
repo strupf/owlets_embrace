@@ -459,4 +459,18 @@ void game_draw(game_s *g)
                 draw_transition(g);
         if (g->textbox.active)
                 draw_textbox(&g->textbox);
+
+#if 1 // pattern test
+        gfx_rec_fill((rec_i32){0, 0, 400, 240}, 1);
+        static int dir   = 1;
+        static int frame = 0;
+
+        if ((os_tick() % 4) == 0) {
+                frame += dir;
+                if (frame == 0 || frame == NUM_GFX_PATTERN - 1) dir = -dir;
+        }
+        gfx_set_pattern(g_gfx_patterns[frame]);
+        gfx_rec_fill((rec_i32){0, 0, 400, 240}, 0);
+        gfx_reset_pattern();
+#endif
 }

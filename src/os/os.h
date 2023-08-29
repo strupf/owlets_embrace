@@ -119,6 +119,21 @@ typedef struct {
         u32 p[32];
 } gfx_pattern_s;
 
+enum {
+        GFX_PATTERN_NONE = 0,
+        GFX_PATTERN_0,
+        GFX_PATTERN_1,
+        GFX_PATTERN_2,
+        GFX_PATTERN_3,
+        GFX_PATTERN_4,
+        GFX_PATTERN_5,
+        GFX_PATTERN_FULL = 16,
+        //
+        NUM_GFX_PATTERN
+};
+
+extern const gfx_pattern_s g_gfx_patterns[NUM_GFX_PATTERN];
+
 gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
                                   int p4, int p5, int p6, int p7);
 

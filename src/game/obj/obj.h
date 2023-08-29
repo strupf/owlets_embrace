@@ -145,5 +145,22 @@ void        obj_apply_movement(obj_s *o);
 obj_s      *interactable_closest(game_s *g, v2_i32 p);
 void        interact_open_dialogue(game_s *g, obj_s *o, void *arg);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
+void        obj_squeeze_delete(game_s *g, obj_s *o, void *arg);
+
+// SOME OBJECT FUNCTIONS =======================================================
+
+obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8);
+void   arrow_think(game_s *g, obj_s *o, void *arg);
+//
+obj_s *blob_create(game_s *g);
+void   blob_think(game_s *g, obj_s *o, void *arg);
+//
+void   door_think(game_s *g, obj_s *o, void *arg);
+void   door_trigger(game_s *g, obj_s *o, int triggerID);
+obj_s *door_create(game_s *g);
+//
+obj_s *npc_create(game_s *g);
+void   npc_think(game_s *g, obj_s *o, void *arg);
+void   npc_interact(game_s *g, obj_s *o, void *arg);
 
 #endif

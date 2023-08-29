@@ -2,6 +2,7 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "game/obj/arrow.c"
 #include "game/obj/blob.c"
 #include "game/obj/door.c"
 #include "game/obj/hero.c"

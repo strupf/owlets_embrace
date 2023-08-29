@@ -2,7 +2,6 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "door.h"
 #include "game/game.h"
 
 void door_think(game_s *g, obj_s *o, void *arg)
