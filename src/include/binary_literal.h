@@ -23,11 +23,15 @@ static inline unsigned int bitrev(unsigned int x)
         return r;
 }
 
+#ifdef __GNUC__
+#define endian_u32 __builtin_bswap32
+#else
 static inline unsigned int endian_u32(unsigned int i)
 {
         return (i >> 24) | ((i << 8) & 0xFF0000U) |
                (i << 24) | ((i >> 8) & 0x00FF00U);
 }
+#endif
 
 #define _BG2(A, B) A##B
 #define _BG(A, B)  _BG2(A, B)

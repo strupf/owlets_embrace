@@ -15,6 +15,7 @@
 #include "obj/blob.h"
 #include "obj/door.h"
 #include "obj/hero.h"
+#include "obj/npc.h"
 #include "obj/obj.h"
 #include "obj/objset.h"
 #include "rope.h"
@@ -41,20 +42,20 @@ struct rtile_s {
 
 static inline u32 tileID_encode_ts(int tilesetID, int tx, int ty)
 {
-        u32 ID = ((u32)(ty + tilesetID * 32) * 32) | ((u32)tx);
+        u32 ID = ((u32)(ty + (tilesetID << 5)) << 5) | (u32)tx;
         return ID;
 }
 
 static inline u32 tileID_encode(int tx, int ty)
 {
-        u32 ID = ((u32)ty * 32) | ((u32)tx);
+        u32 ID = ((u32)ty << 5) | (u32)tx;
         return ID;
 }
 
 static inline void tileID_decode(u32 ID, int *tx, int *ty)
 {
-        *tx = ID % 32;
-        *ty = ID / 32;
+        *tx = ID & 31; /* % 32 */
+        *ty = ID >> 5; /* / 32 */
 }
 
 typedef struct {
@@ -127,13 +128,10 @@ void        game_update(game_s *g);
 void        game_draw(game_s *g);
 void        game_close(game_s *g);
 void        game_trigger(game_s *g, int triggerID);
-void        obj_interact_dialog(game_s *g, obj_s *o, void *arg);
-//
 void        game_load_map(game_s *g, const char *filename);
 bool32      game_area_blocked(game_s *g, rec_i32 r);
-//
+void        obj_interact_dialog(game_s *g, obj_s *o, void *arg);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
-bool32      solid_occupies(obj_s *solid, rec_i32 r);
 particle_s *particle_spawn(game_s *g);
 void        solid_think(game_s *g, obj_s *o, void *arg);
 // loads a Tiled .world file

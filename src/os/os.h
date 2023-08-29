@@ -10,6 +10,7 @@
 #include "os_math.h"
 #include "os_types.h"
 #include "util/array.h"
+#include "util/memfunc.h"
 
 // ASCII encoding of printable characters
 // 32:   ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ?
@@ -146,12 +147,6 @@ typedef struct {
         int  len;
 } snd_s;
 
-typedef struct {
-        char *p;
-        char *pr;
-        char *mem;
-} memarena_s;
-
 enum {
         WAVE_TYPE_SINE,
         WAVE_TYPE_SQUARE,
@@ -178,6 +173,8 @@ tex_s     tex_get(int ID);
 tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
+void      gfx_set_pattern(gfx_pattern_s pat);
+void      gfx_reset_pattern();
 void      gfx_set_inverted(bool32 inv);
 void      gfx_px(int x, int y, int col);
 void      gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat);
@@ -242,15 +239,6 @@ void     *os_spmem_alloc(size_t size);       // allocate memory
 void     *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
 void     *os_spmem_allocz(size_t size);      // allocate and zero memory
 void     *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
-//
-void      memarena_init(memarena_s *m, void *buf, size_t bufsize);
-void     *memarena_alloc(memarena_s *m, size_t s);
-void     *memarena_alloc_rem(memarena_s *m, size_t *s);
-void     *memarena_allocz(memarena_s *m, size_t s);
-void     *memarena_allocz_rem(memarena_s *m, size_t *s);
-void     *memarena_peek(memarena_s *m);
-void      memarena_set(memarena_s *m, void *p);
-void      memarena_clr(memarena_s *m);
 
 // MEMORY REPLACEMENTS =========================================================
 static inline void os_memset(void *dst, int val, size_t l)

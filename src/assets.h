@@ -40,4 +40,6 @@ enum fnt_id {
         NUM_FNTID
 };
 
+void assets_load();
+
 #endif

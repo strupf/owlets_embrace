@@ -146,5 +146,6 @@ bool32      solid_occupies(obj_s *solid, rec_i32 r);
 void        obj_apply_movement(obj_s *o);
 obj_s      *interactable_closest(game_s *g, v2_i32 p);
 void        interact_open_dialogue(game_s *g, obj_s *o, void *arg);
+bool32      solid_occupies(obj_s *solid, rec_i32 r);
 
 #endif

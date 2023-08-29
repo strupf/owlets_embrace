@@ -10,7 +10,7 @@
 
 #define TIMING_RATE      16
 #define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 2
+#define OS_DESKTOP_SCALE 1
 #define OS_FPS_DELTA     0.02f // 50 FPS
 #define OS_DELTA_CAP     0.05f
 
@@ -36,17 +36,16 @@ typedef struct {
 
 typedef struct {
         timings_s timings;
+        i32       tick;
 
-        i32 tick;
 #if defined(TARGET_DESKTOP)
         u8          framebuffer[OS_FRAMEBUFFER_SIZE];
         Color       texpx[416 * 240];
         Texture2D   tex;
         bool32      inverted;
-        int         scalingmode;
         rec_i32     view;
-        int         buttons;
-        int         buttonsp;
+        flags32     buttons;
+        flags32     buttonsp;
         AudioStream audiostream;
 #elif defined(TARGET_PD)
         u8       *framebuffer;
@@ -59,7 +58,8 @@ typedef struct {
         i32    crankp_q16;
         float  lasttime;
 
-        tex_s dst;
+        tex_s         dst;
+        gfx_pattern_s dstpat;
 
         tex_s tex_tab[NUM_TEXID];
         fnt_s fnt_tab[NUM_FNTID];

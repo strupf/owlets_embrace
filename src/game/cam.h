@@ -14,7 +14,6 @@ struct cam_s {
         int    wh;
         int    hh;
         v2_i32 target;
-        v2_i32 offset;
 };
 
 void cam_constrain_to_room(game_s *g, cam_s *c);

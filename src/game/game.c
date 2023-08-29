@@ -112,8 +112,6 @@ static void game_tick(game_s *g)
                 p->v_q8 = v2_add(p->v_q8, p->a_q8);
                 p->p_q8 = v2_add(p->p_q8, p->v_q8);
         }
-
-        cam_update(g, &g->cam);
 }
 
 static void textbox_input(game_s *g, textbox_s *tb)
@@ -156,18 +154,21 @@ void game_update(game_s *g)
                 backforeground_animate(g);
         }
 
+        bool32 gameupdate = 1;
+
         if (g->textbox.active) {
                 textbox_s *tb = &g->textbox;
                 textbox_input(g, tb);
-                return;
-        }
-
-        if (g->transition.phase) {
+                gameupdate = 0;
+        } else if (g->transition.phase) {
                 game_update_transition(g);
-                return;
+                gameupdate = 0;
         }
 
-        game_tick(g);
+        if (gameupdate)
+                game_tick(g);
+
+        cam_update(g, &g->cam);
 }
 
 void game_trigger(game_s *g, int triggerID)

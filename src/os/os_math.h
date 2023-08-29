@@ -423,8 +423,7 @@ static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
         i32 d = sub_i32(b, a);
         d     = mul_i32(d, num);
         d     = divr_i32(d, den);
-
-        d = add_i32(a, d);
+        d     = add_i32(a, d);
         return d;
 }
 
@@ -674,9 +673,10 @@ static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
 static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
 {
         int sig = SGN(num) * SGN(den);
-        num     = ABS(num);
-        den     = ABS(den);
-        while (num >= 0x10000 && den >= 0x10000) { // reduce precision to avoid overflow
+
+        num = ABS(num);
+        den = ABS(den);
+        while (num >= 0x10000) { // reduce precision to avoid overflow
                 num >>= 1;
                 den >>= 1;
         }

@@ -7,6 +7,56 @@
 
 static void draw_textbox(textbox_s *tb)
 {
+        if (tb->closeticks > 0) {
+                gfx_pattern_s tpat;
+
+                int npat = (TEXTBOX_CLOSE_TICKS - tb->closeticks) /
+                           TEXBOX_CLOSE_DIV;
+                switch (npat) {
+                case 0:
+                        tpat = gfx_pattern_set_8x8(B8(11111111),
+                                                   B8(10101010),
+                                                   B8(11111111),
+                                                   B8(10101010),
+                                                   B8(11111111),
+                                                   B8(10101010),
+                                                   B8(11111111),
+                                                   B8(10101010));
+                        break;
+                case 1:
+                        tpat = gfx_pattern_set_8x8(B8(01010101),
+                                                   B8(10101010),
+                                                   B8(01010101),
+                                                   B8(10101010),
+                                                   B8(01010101),
+                                                   B8(10101010),
+                                                   B8(01010101),
+                                                   B8(10101010));
+                        break;
+                case 2:
+                        tpat = gfx_pattern_set_8x8(B8(00000000),
+                                                   B8(01010101),
+                                                   B8(00000000),
+                                                   B8(01010101),
+                                                   B8(00000000),
+                                                   B8(01010101),
+                                                   B8(00000000),
+                                                   B8(01010101));
+                        break;
+                case 3:
+                        tpat = gfx_pattern_set_8x8(B8(00000000),
+                                                   B8(01000100),
+                                                   B8(00000000),
+                                                   B8(00000000),
+                                                   B8(00000000),
+                                                   B8(01000100),
+                                                   B8(00000000),
+                                                   B8(00000000));
+                        break;
+                }
+
+                gfx_set_pattern(tpat);
+        }
         fnt_s   font = fnt_get(FNTID_DEFAULT);
         rec_i32 r    = (rec_i32){0, 0, 400, 128};
         gfx_sprite_fast(tex_get(TEXID_TEXTBOX), (v2_i32){0, 128}, r);
@@ -15,7 +65,10 @@ static void draw_textbox(textbox_s *tb)
                 gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
         }
 
-        if (!tb->shows_all) return;
+        if (!tb->shows_all) {
+                gfx_reset_pattern();
+                return;
+        }
 
         if (tb->n_choices) {
                 rec_i32 rr = (rec_i32){0, 128, 200, 128};
@@ -36,6 +89,7 @@ static void draw_textbox(textbox_s *tb)
                 int yy = sin_q16(tb->page_animation_state) >> 14;
                 gfx_rec_fill((rec_i32){370, 205 + yy, 10, 10}, 1);
         }
+        gfx_reset_pattern();
 }
 
 static void draw_background(backforeground_s *bg, v2_i32 camp)
@@ -124,46 +178,46 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
  */
 static void draw_item_selection(game_s *g)
 {
-        hero_s *h       = &g->hero;
-        tex_s   titem   = tex_get(TEXID_ITEMS);
-        int     itemID0 = h->c_item == 0 ? h->n_items - 1 : h->c_item - 1;
-        int     itemID1 = h->c_item;
-        int     itemID2 = (h->c_item + 1) % h->n_items;
+        hero_s *h = &g->hero;
+        if (h->aquired_items == 0) return;
 
         os_spmem_push();
 
-        u8   *px  = os_spmem_allocz(sizeof(u8) * 64 * 128);
         tex_s tt  = {0};
-        tt.px     = px;
-        tt.w      = 64;
+        tt.w      = 32;
         tt.h      = 128;
-        tt.mk     = px + tt.w * tt.h;
         tt.w_byte = tt.w / 8;
         tt.w_word = tt.w / 32;
+        tt.px     = os_spmem_allocz(sizeof(u8) * tt.w_byte * tt.h * 2);
+        tt.mk     = tt.px + tt.w_byte * tt.h;
 
         int ii = -((32 * os_inp_crank()) >> 16);
         if (os_inp_crank() >= 0x8000) {
                 ii += 32;
         }
 
-        gfx_draw_to(tt);
-        gfx_sprite_fast(titem, (v2_i32){0, ii},
-                        (rec_i32){32, itemID0 * 32, 32, 32});
-        gfx_sprite_fast(titem, (v2_i32){0, ii + 32},
-                        (rec_i32){32, itemID1 * 32, 32, 32});
-        gfx_sprite_fast(titem, (v2_i32){0, ii + 64},
-                        (rec_i32){32, itemID2 * 32, 32, 32});
-        gfx_draw_to(tex_get(0));
+        tex_s   titem   = tex_get(TEXID_ITEMS);
+        rec_i32 itemsrc = {32, 0, 32, 32};
 
-        for (int j = -16; j <= +16; j++) {
-                float l = acosf((float)j / 16.f) * 16.f;
-                gfx_sprite_fast(tt, (v2_i32){400 - 32, 8 + (16 - j)},
+        gfx_draw_to(tt);
+        {
+                itemsrc.y = h->selected_item_prev * 32;
+                gfx_sprite_fast(titem, (v2_i32){0, ii}, itemsrc);
+                itemsrc.y = h->selected_item * 32;
+                gfx_sprite_fast(titem, (v2_i32){0, ii + 32}, itemsrc);
+                itemsrc.y = h->selected_item_next * 32;
+                gfx_sprite_fast(titem, (v2_i32){0, ii + 64}, itemsrc);
+        }
+        gfx_draw_to_ID(0);
+
+        v2_i32  itemframepos = {400 - 32 - 16, -8};
+        rec_i32 itemframerec = {64, 0, 64, 64};
+        for (int y = -16; y <= +16; y++) {
+                float l = acosf((float)y / 16.f) * 16.f;
+                gfx_sprite_fast(tt, (v2_i32){400 - 32, 8 + (16 - y)},
                                 (rec_i32){0, 24 + (int)l, 32, 1}); // y pos add is kinda magic number
         }
-
-        gfx_sprite_fast(titem, (v2_i32){400 - 32 - 16, -8},
-                        (rec_i32){64, 0, 64, 64});
-
+        gfx_sprite_mode(titem, itemframepos, itemframerec, GFX_SPRITE_COPY);
         os_spmem_pop();
 #if 0
         char cc[2] = {0};
@@ -192,12 +246,17 @@ static void draw_transition(game_s *g)
 // naive thick line, works for now
 static void rope_line(int x0, int y0, int x1, int y1)
 {
-        int dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
-        int dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
-        int er = dx + dy;
-        int xi = x0;
-        int yi = y0;
+        int    dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int    dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int    er      = dx + dy;
+        int    xi      = x0;
+        int    yi      = y0;
+        v2_i32 p0      = {x0, y0};
+        v2_i32 p1      = {x1, y1};
+        i32    len     = v2_distance(p0, p1);
+        i32    nextdis = 20;
         while (1) {
+                v2_i32 pi = {xi, yi};
                 for (int y = -2; y <= +2; y++) {
                         for (int x = -2; x <= +2; x++) {
                                 int sq = x * x + y * y;
@@ -233,14 +292,14 @@ static void draw_particles(game_s *g, v2_i32 camp)
         }
 }
 
-static int hookpos  = -1500;
-static int slomo    = 0;
-static int wasslomo = 0;
-static int hdir     = 1;
-
 void game_draw(game_s *g)
 {
-        /*
+#if 0
+        // animation...
+        static int hookpos  = -1500;
+        static int slomo    = 0;
+        static int wasslomo = 0;
+        static int hdir     = 1;
         if (debug_inp_space()) {
                 wasslomo = 0;
                 hookpos  = -1500;
@@ -252,17 +311,17 @@ void game_draw(game_s *g)
         if (slomo > 0) {
 
                 slomo += hdir;
-                if (slomo == 30) {
+                if (slomo == 20) {
                         hdir = -1;
                 }
                 int ss = slomo;
                 int vv = ss * ss;
-                hookpos += MAX((20 - ((vv * 20) / (30 * 30))) / 8, 1);
+                hookpos += MIN(MAX((20 - ((vv * 20) / (20 * 20))) / 8, 1), 4);
         } else {
                 hookpos += 20;
         }
 
-        int yyy = (os_tick() / (slomo ? 10 : 2)) % 6;
+        int yyy = (os_tick() / (slomo ? 3000 : 2)) % 6;
         if (!wasslomo && hookpos >= 400) {
                 wasslomo = 1;
                 slomo    = 1;
@@ -274,7 +333,7 @@ void game_draw(game_s *g)
         }
 
         return;
-        */
+#endif
 
         /*
         if (debug_inp_space()) {

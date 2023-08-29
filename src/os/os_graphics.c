@@ -215,6 +215,18 @@ void gfx_px(int x, int y, int col)
         i_gfx_put_px(g_os.dst, x, y, col, 0);
 }
 
+void gfx_set_pattern(gfx_pattern_s pat)
+{
+        g_os.dstpat = pat;
+}
+
+void gfx_reset_pattern()
+{
+        for (int n = 0; n < 32; n++) {
+                g_os.dstpat.p[n] = 0xFFFFFFFFU;
+        }
+}
+
 void gfx_set_inverted(bool32 inv)
 {
 #ifdef TARGET_PD
@@ -307,38 +319,36 @@ gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
  */
 void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat)
 {
-        tex_s dst        = g_os.dst;
-        int   zx         = dst.w - pos.x;
-        int   zy         = dst.h - pos.y;
-        int   x1         = rs.x + MAX(0, -pos.x);
-        int   y1         = rs.y + MAX(0, -pos.y);
-        int   x2         = rs.x + MIN(rs.w, zx) - 1;
-        int   y2         = rs.y + MIN(rs.h, zy) - 1;
-        int   cc         = pos.x - rs.x;
-        int   s1         = 31 & (32 - (cc & 31)); // relative word alignment
-        int   s0         = 32 - s1;
-        int   b1         = x1 >> 5;
-        int   b2         = x2 >> 5;
-        u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mk;
+        tex_s dst = g_os.dst;
+        int   zx  = dst.w - pos.x;
+        int   zy  = dst.h - pos.y;
+        int   x1  = rs.x + MAX(0, -pos.x);
+        int   y1  = rs.y + MAX(0, -pos.y);
+        int   x2  = rs.x + MIN(rs.w, zx) - 1;
+        int   y2  = rs.y + MIN(rs.h, zy) - 1;
+        int   cc  = pos.x - rs.x;
+        int   s1  = 31 & (32 - (cc & 31)); // relative word alignment
+        int   s0  = 32 - s1;
+        int   b1  = x1 >> 5;
+        int   b2  = x2 >> 5;
+        u32  *dp  = (u32 *)dst.px;
+        u32  *dm  = (u32 *)dst.mk;
 
         for (int y = y1; y <= y2; y++) {
-                int yd           = (y + pos.y - rs.y) * dst.w_word;
-                int ii           = b1 + y * src.w_word;
-                u32 *restrict zm = &((u32 *)src.mk)[ii];
-                u32 *restrict zp = &((u32 *)src.px)[ii];
+                int  yd = (y + pos.y - rs.y) * dst.w_word;
+                int  ii = b1 + y * src.w_word;
+                u32  pt = pat.p[y & 31];
+                u32 *zm = &((u32 *)src.mk)[ii];
+                u32 *zp = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
                         int uu = (b == b1 ? x1 & 31 : 0);
                         int vv = (b == b2 ? x2 & 31 : 31);
                         u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
                         u32 sm = endian_u32(*zm++) & mm;
                         u32 sp = endian_u32(*zp++);
-
-                        sm &= pat.p[y & 31];
-
-                        u32 t0 = endian_u32(sm >> s0);
+                        u32 t0 = endian_u32(sm >> s0) & pt;
                         u32 p0 = endian_u32(sp >> s0);
-                        u32 t1 = endian_u32(sm << s1);
+                        u32 t1 = endian_u32(sm << s1) & pt;
                         u32 p1 = endian_u32(sp << s1);
 
                         int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
@@ -377,11 +387,9 @@ void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s p
                         }
                         dp[j0] = d0;
                         dp[j1] = d1;
-
-                        if (dm) {
-                                dm[j0] |= t0;
-                                dm[j1] |= t1;
-                        }
+                        if (!dm) continue;
+                        dm[j0] |= t0;
+                        dm[j1] |= t1;
                 }
         }
 }
@@ -391,18 +399,7 @@ void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s p
  */
 void gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 {
-        static const gfx_pattern_s pattern = {
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-            //
-        };
-        gfx_sprite_ext(src, pos, rs, mode, pattern);
+        gfx_sprite_ext(src, pos, rs, mode, g_os.dstpat);
 }
 
 // TODO: doesnt work when drawing from a sprite without a mask

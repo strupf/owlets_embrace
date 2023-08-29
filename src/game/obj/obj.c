@@ -133,8 +133,7 @@ bool32 obj_are_siblings(obj_s *a, obj_s *b)
 
 v2_i32 obj_aabb_center(obj_s *o)
 {
-        v2_i32 p = {o->pos.x + (o->w / 2),
-                    o->pos.y + (o->h / 2)};
+        v2_i32 p = {o->pos.x + (o->w >> 1), o->pos.y + (o->h >> 1)};
         return p;
 }
 

@@ -36,6 +36,7 @@ void os_backend_graphics_close()
 void os_backend_graphics_begin()
 {
         os_memclr4(g_os.framebuffer, sizeof(g_os.framebuffer));
+        gfx_reset_pattern();
 }
 
 void os_backend_graphics_end()

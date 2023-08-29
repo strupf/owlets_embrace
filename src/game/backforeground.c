@@ -10,6 +10,16 @@ enum {
 };
 
 // called at half update rate!
+static void backforeground_clouds(game_s *g, backforeground_s *bg);
+static void backforeground_wind_particles(game_s *g, backforeground_s *bg);
+
+void backforeground_animate(game_s *g)
+{
+        backforeground_s *bg = &g->backforeground;
+        backforeground_clouds(g, bg);
+        backforeground_wind_particles(g, bg);
+}
+
 static void backforeground_clouds(game_s *g, backforeground_s *bg)
 {
         for (int n = bg->nclouds - 1; n >= 0; n--) {
@@ -22,7 +32,7 @@ static void backforeground_clouds(game_s *g, backforeground_s *bg)
                 }
         }
 
-        if (bg->nclouds < BG_NUM_CLOUDS && (os_tick() & 63) == 0) {
+        if (bg->nclouds < BG_NUM_CLOUDS && rng_fast_u16() <= 1000) {
                 cloudbg_s *c = &bg->clouds[bg->nclouds++];
                 c->cloudtype = rng_max_u32(BG_NUM_CLOUD_TYPES - 1);
                 c->v         = bg->clouddirection * rng_range(1, 64);
@@ -36,7 +46,6 @@ static void backforeground_clouds(game_s *g, backforeground_s *bg)
         }
 }
 
-// called at half update rate!
 static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
 {
 
@@ -72,7 +81,7 @@ static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
                 }
         }
 
-        if (bg->nparticles < BG_NUM_PARTICLES && (os_tick() & 15) == 0) {
+        if (bg->nparticles < BG_NUM_PARTICLES && rng_fast_u16() <= 1000) {
                 particlebg_s *p = &bg->particles[bg->nparticles++];
                 p->p.x          = -(10 << 8);
                 p->p.y          = rng_range(0, g->pixel_y) << 8;
@@ -85,12 +94,4 @@ static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
                         p->pos[i] = p->p;
                 }
         }
-}
-
-// called at half update rate!
-void backforeground_animate(game_s *g)
-{
-        backforeground_s *bg = &g->backforeground;
-        backforeground_clouds(g, bg);
-        backforeground_wind_particles(g, bg);
 }

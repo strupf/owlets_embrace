@@ -5,6 +5,7 @@
 #include "game/obj/blob.c"
 #include "game/obj/door.c"
 #include "game/obj/hero.c"
+#include "game/obj/npc.c"
 #include "game/obj/obj.c"
 #include "game/obj/objset.c"
 //
@@ -28,10 +29,13 @@
 #include "os/os_inp.c"
 #include "os/os_mem.c"
 //
+#include "util/memfunc.c"
+//
 #ifdef TARGET_PD
 #include "os/backend_pd.c"
 #else
 #include "os/backend_rl.c"
 #endif
 //
+#include "assets.c"
 #include "main.c"

@@ -204,3 +204,51 @@ void *assetmem_alloc(size_t s)
 {
         return memarena_alloc(&g_os.assetmem, s);
 }
+
+void os_spmem_push()
+{
+        ASSERT(g_os.n_spmem < OS_SPMEM_STACK_HEIGHT);
+        g_os.spmemstack[g_os.n_spmem++] = memarena_peek(&g_os.spmem);
+}
+
+void os_spmem_pop()
+{
+        ASSERT(g_os.n_spmem > 0);
+        memarena_set(&g_os.spmem, g_os.spmemstack[--g_os.n_spmem]);
+}
+
+void *os_spmem_peek()
+{
+        return memarena_peek(&g_os.spmem);
+}
+
+void os_spmem_set(void *p)
+{
+        memarena_set(&g_os.spmem, p);
+}
+
+void os_spmem_clr()
+{
+        memarena_clr(&g_os.spmem);
+        g_os.n_spmem = 0;
+}
+
+void *os_spmem_alloc(size_t size)
+{
+        return memarena_alloc(&g_os.spmem, size);
+}
+
+void *os_spmem_alloc_rems(size_t *size)
+{
+        return memarena_alloc_rem(&g_os.spmem, size);
+}
+
+void *os_spmem_allocz(size_t size)
+{
+        return memarena_allocz(&g_os.spmem, size);
+}
+
+void *os_spmem_allocz_rem(size_t *size)
+{
+        return memarena_allocz_rem(&g_os.spmem, size);
+}

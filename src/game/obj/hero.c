@@ -138,6 +138,14 @@ static void hero_use_sword(game_s *g, obj_s *o, hero_s *h)
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
+        int xs = os_inp_dpad_x();
+        if (xs != 0 && xs != o->facing) {
+                o->facing      = xs;
+                h->facingticks = 0;
+        } else {
+                h->facingticks += o->facing;
+        }
+
         bool32 canuseitems = 1;
         bool32 grounded    = game_area_blocked(g, obj_rec_bottom(o));
         if (grounded) {
@@ -150,8 +158,8 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 snd_play(snd_get(SNDID_HERO_LAND));
         }
 
-        if (h->inp & HERO_INP_JUMP) {
-                if (!(h->inpp & HERO_INP_JUMP) && h->edgeticks > 0) {
+        if (os_inp_pressed(INP_A)) {
+                if (!os_inp_pressedp(INP_A) && h->edgeticks > 0) {
                         h->edgeticks = 0;
                         h->jumpticks = HERO_C_JUMPTICKS;
                         o->vel_q8.y  = HERO_C_JUMP_INIT;
@@ -169,17 +177,14 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 h->jumpticks = 0;
         }
 
-        h->c_item = HERO_ITEM_HOOK;
-
         if (h->swordticks > 0) {
                 hero_update_sword(g, o, h);
                 canuseitems = 0;
         }
 
         // just pressed item button
-        if (canuseitems && (h->inp & HERO_INP_USE_ITEM) &&
-            !(h->inpp & HERO_INP_USE_ITEM)) {
-                switch (h->c_item) {
+        if (canuseitems && os_inp_just_pressed(INP_B)) {
+                switch (h->selected_item) {
                 case HERO_ITEM_HOOK:
                         hero_use_hook(g, o, h);
                         break;
@@ -192,12 +197,10 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        int    xs            = os_inp_dpad_x();
         int    velsgn        = SGN(o->vel_q8.x);
         bool32 ropestretched = objhandle_is_valid(h->hook) && rope_stretched(g, &h->rope);
 
         if (xs != 0) {
-                o->facing  = xs;
                 int acc    = 0;
                 int velabs = ABS(o->vel_q8.x);
                 if (grounded) {
@@ -367,7 +370,7 @@ obj_s *hero_create(game_s *g, hero_s *h)
                                            OBJ_FLAG_HERO,
                                            OBJ_FLAG_MOVABLE,
                                            OBJ_FLAG_THINK_1);
-        hero->userarg    = &g->hero;
+        hero->userarg    = h;
         obj_set_flags(g, hero, flags);
         hero->think_1    = hero_update;
         hero->onsqueeze  = hero_squeeze;
@@ -383,9 +386,11 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->drag_q8.y    = 256; // no drag
         hero->ID           = 3;
 
-        *h         = (const hero_s){0};
-        h->n_items = 4;
-        h->obj     = objhandle_from_obj(hero);
+        *h     = (const hero_s){0};
+        h->obj = objhandle_from_obj(hero);
+        hero_aquire_item(h, HERO_ITEM_BOW);
+        hero_aquire_item(h, HERO_ITEM_HOOK);
+        hero_aquire_item(h, HERO_ITEM_SWORD);
         return hero;
 }
 
@@ -491,6 +496,8 @@ static void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
 
 static void hero_crank_item_selection(hero_s *h)
 {
+        if (h->aquired_items == 0) return;
+
         // crank item input
         int crankp_q16  = os_inp_crankp();
         int crankc_q16  = os_inp_crank();
@@ -499,10 +506,10 @@ static void hero_crank_item_selection(hero_s *h)
         // here we check if the crank "flipped over" the 180 deg position
         if (crankchange > 0 &&
             (crankp_q16 < 0x8000 && crankc_q16 >= 0x8000)) {
-                h->c_item = (h->c_item + 1) % h->n_items;
+                hero_set_cur_item(h, h->selected_item_next);
         } else if (crankchange < 0 &&
                    (crankp_q16 >= 0x8000 && crankc_q16 < 0x8000)) {
-                h->c_item = h->c_item == 0 ? h->n_items - 1 : h->c_item - 1;
+                hero_set_cur_item(h, h->selected_item_prev);
         }
 }
 
@@ -526,15 +533,6 @@ static void hero_check_hurtables(game_s *g, obj_s *ohero)
 void hero_update(game_s *g, obj_s *o, void *arg)
 {
         hero_s *h = (hero_s *)arg;
-        h->inpp   = h->inp;
-        h->inp    = 0;
-
-        if (os_inp_pressed(INP_LEFT)) h->inp |= HERO_INP_LEFT;
-        if (os_inp_pressed(INP_RIGHT)) h->inp |= HERO_INP_RIGHT;
-        if (os_inp_pressed(INP_DOWN)) h->inp |= HERO_INP_DOWN;
-        if (os_inp_pressed(INP_UP)) h->inp |= HERO_INP_UP;
-        if (os_inp_pressed(INP_A)) h->inp |= HERO_INP_JUMP;
-        if (os_inp_pressed(INP_B)) h->inp |= HERO_INP_USE_ITEM;
 
         hero_crank_item_selection(h);
         hero_logic(g, o, h);
@@ -573,4 +571,34 @@ void hero_update(game_s *g, obj_s *o, void *arg)
                         snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
                 }
         }
+}
+
+static inline int i_hero_itemID_get(hero_s *h, int dir)
+{
+        ASSERT(h->aquired_items != 0);
+        int i = h->selected_item;
+        while (1) {
+                i = (i + dir + NUM_HERO_ITEMS) % NUM_HERO_ITEMS;
+                if (h->aquired_items & (1 << i))
+                        return i;
+        }
+        return i;
+}
+
+void hero_set_cur_item(hero_s *h, int itemID)
+{
+        if (h->aquired_items == 0) return;
+
+        ASSERT(h->aquired_items & (1 << itemID));
+        h->selected_item      = itemID;
+        h->selected_item_prev = i_hero_itemID_get(h, -1);
+        h->selected_item_next = i_hero_itemID_get(h, +1);
+}
+
+void hero_aquire_item(hero_s *h, int itemID)
+{
+        ASSERT(((h->aquired_items >> itemID) & 1) == 0);
+
+        h->aquired_items |= 1 << itemID;
+        hero_set_cur_item(h, itemID);
 }

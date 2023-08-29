@@ -206,8 +206,7 @@ bool32 textbox_next_page(textbox_s *tb)
                 }
                 tb->tok++;
         }
-        // tb->active     = 0;
-        tb->closeticks = 30;
+        tb->closeticks = TEXTBOX_CLOSE_TICKS;
         return 0;
 }
 

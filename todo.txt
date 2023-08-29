@@ -1,12 +1,14 @@
 gameplay
-* path movement for moving platforms
-    * load path from map
+* load path movement from map
 * talkable NPCs
 * enemies
     * damage/health mechanic
     * dying? quick respawn vs savepoints?
 * static spikes - as objects or tiles?
 * implement low and high slopes, including rope logic
+* water tiles
+* 1-way platforms
+* ladders
 
 loading
 * autotiling for low and high slopes
@@ -16,6 +18,7 @@ graphics
 * rope
     * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
+* water tiles
 
 textbox
 * different animation marker depending if dialog end or not
