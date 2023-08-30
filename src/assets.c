@@ -93,18 +93,7 @@ void assets_load()
         tex_put_load(TEXID_HERO, "assets/player.json");
         tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
         tex_put_load(TEXID_HOOK, "assets/hook.json");
-        tex_s tclouds = tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
-
-        // apply some "grey pattern"
-        for (int y = 0; y < tclouds.h; y++) {
-                for (int x = 0; x < tclouds.w; x++) {
-                        if (((x + y) % 2 == 0) || x % 2 == 0 || y % 4 == 0) {
-                                int i = (x >> 3) + y * tclouds.w_byte;
-                                int b = (x & 7);
-                                tclouds.px[i] &= ~(1 << (7 - b)); // clear bit
-                        }
-                }
-        }
+        tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
 
         fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
         fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");

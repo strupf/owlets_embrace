@@ -116,17 +116,11 @@ typedef struct {
 } texregion_s;
 
 typedef struct {
-        u32 p[32];
+        u32 p[8];
 } gfx_pattern_s;
 
 enum {
         GFX_PATTERN_NONE = 0,
-        GFX_PATTERN_0,
-        GFX_PATTERN_1,
-        GFX_PATTERN_2,
-        GFX_PATTERN_3,
-        GFX_PATTERN_4,
-        GFX_PATTERN_5,
         GFX_PATTERN_FULL = 16,
         //
         NUM_GFX_PATTERN

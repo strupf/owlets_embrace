@@ -201,8 +201,11 @@ static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return;
 
+        int xx = x & 7;
+        if ((g_os.dstpat.p[y & 7] & (1 << xx)) == 0) return;
+
         int i = (x >> 3) + y * t.w_byte;
-        int s = 0x80 >> (x & 7);
+        int s = 0x80 >> xx;
         if (col)
                 t.px[i] |= s; // set bit
         else
@@ -222,9 +225,7 @@ void gfx_set_pattern(gfx_pattern_s pat)
 
 void gfx_reset_pattern()
 {
-        for (int n = 0; n < 32; n++) {
-                g_os.dstpat.p[n] = 0xFFFFFFFFU;
-        }
+        gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_FULL]);
 }
 
 void gfx_set_inverted(bool32 inv)
@@ -297,20 +298,18 @@ void gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
                                   int p4, int p5, int p6, int p7)
 {
-        u32 t[8] = {
-            ((u32)p0 << 24) | ((u32)p0 << 16) | ((u32)p0 << 8) | (u32)p0,
-            ((u32)p1 << 24) | ((u32)p1 << 16) | ((u32)p1 << 8) | (u32)p1,
-            ((u32)p2 << 24) | ((u32)p2 << 16) | ((u32)p2 << 8) | (u32)p2,
-            ((u32)p3 << 24) | ((u32)p3 << 16) | ((u32)p3 << 8) | (u32)p3,
-            ((u32)p4 << 24) | ((u32)p4 << 16) | ((u32)p4 << 8) | (u32)p4,
-            ((u32)p5 << 24) | ((u32)p5 << 16) | ((u32)p5 << 8) | (u32)p5,
-            ((u32)p6 << 24) | ((u32)p6 << 16) | ((u32)p6 << 8) | (u32)p6,
-            ((u32)p7 << 24) | ((u32)p7 << 16) | ((u32)p7 << 8) | (u32)p7};
-
-        gfx_pattern_s p = {t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
-                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
-                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
-                           t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7]};
+#define GFX_PATTERN_SET_32(B) \
+        (((u32)B << 24) | ((u32)B << 16) | ((u32)B << 8) | (u32)B)
+        gfx_pattern_s p = {
+            GFX_PATTERN_SET_32(p0),
+            GFX_PATTERN_SET_32(p1),
+            GFX_PATTERN_SET_32(p2),
+            GFX_PATTERN_SET_32(p3),
+            GFX_PATTERN_SET_32(p4),
+            GFX_PATTERN_SET_32(p5),
+            GFX_PATTERN_SET_32(p6),
+            GFX_PATTERN_SET_32(p7)};
+#undef GFX_PATTERN_SET_32
         return p;
 }
 
@@ -335,9 +334,11 @@ void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s p
         u32  *dm  = (u32 *)dst.mk;
 
         for (int y = y1; y <= y2; y++) {
-                int  yd = (y + pos.y - rs.y) * dst.w_word;
+                int yr = y + pos.y - rs.y;
+                u32 pt = pat.p[yr & 7];
+                if (pt == 0) continue;
+                int  yd = yr * dst.w_word;
                 int  ii = b1 + y * src.w_word;
-                u32  pt = pat.p[y & 31];
                 u32 *zm = src.mk ? &((u32 *)src.mk)[ii] : NULL;
                 u32 *zp = &((u32 *)src.px)[ii];
                 for (int b = b1; b <= b2; b++) {
@@ -347,8 +348,8 @@ void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s p
                         u32 sm = src.mk ? endian_u32(*zm++) & mm : mm;
                         u32 sp = endian_u32(*zp++);
                         u32 t0 = endian_u32(sm >> s0) & pt;
-                        u32 p0 = endian_u32(sp >> s0);
                         u32 t1 = endian_u32(sm << s1) & pt;
+                        u32 p0 = endian_u32(sp >> s0);
                         u32 p1 = endian_u32(sp << s1);
 
                         int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
@@ -468,9 +469,10 @@ void gfx_rec_fill(rec_i32 r, int col)
         u32 *restrict dp = (u32 *)dst.px;
         u32 *restrict dm = (u32 *)dst.mk;
         for (int y = y1; y <= y2; y++) {
-                int yd = (y + ri.y) * dst.w_word;
-
-                u32 pt = g_os.dstpat.p[y & 31];
+                int yr = y + ri.y;
+                int yd = yr * dst.w_word;
+                u32 pt = g_os.dstpat.p[y & 7];
+                if (!pt) continue;
                 for (int b = b1; b <= b2; b++) {
                         int uu = (b == b1 ? x1 & 31 : 0);
                         int vv = (b == b2 ? x2 & 31 : 31);
@@ -483,11 +485,9 @@ void gfx_rec_fill(rec_i32 r, int col)
                         u32 d1 = dp[j1];
                         dp[j0] = (d0 & ~t0) | (p0 & t0);
                         dp[j1] = (d1 & ~t1) | (p1 & t1);
-
-                        if (dm) {
-                                dm[j0] |= t0;
-                                dm[j1] |= t1;
-                        }
+                        if (!dm) continue;
+                        dm[j0] |= t0;
+                        dm[j1] |= t1;
                 }
         }
 }
@@ -672,154 +672,55 @@ void gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3])
 }
 
 const gfx_pattern_s g_gfx_patterns[NUM_GFX_PATTERN] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     //
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-    0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
     0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
     0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
     //
     0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
     0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
-    0x22222222U, 0x00000000U, 0x88888888U, 0x00000000U,
     //
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
     0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
     0x22222222U, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
     //
     0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
     0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
     //
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
     0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
     0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
     //
     0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
     0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
     //
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
     0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
     0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
     //
     0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U, // checkerboard
     0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-    0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
     //
     // from here on basically only inverted
     0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
     0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xAAAAAAAAU, 0x55555555U, 0xEEEEEEEEU,
     //
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
     0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
     0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xEEEEEEEEU,
     //
     0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
     0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xBBBBBBBBU, 0x55555555U, 0xFFFFFFFFU,
     //
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
     0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
     0x55555555U, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
     //
     0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
     0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU,
     //
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
-    0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
     0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
     0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U, 0xFFFFFFFFU,
     //
     0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
     0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0x77777777U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
     //
     0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
     0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-    //
-
     //
 };

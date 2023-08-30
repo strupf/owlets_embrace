@@ -13,6 +13,11 @@ void arrow_think(game_s *g, obj_s *o, void *arg)
         aabb.h = 2;
         if (game_area_blocked(g, aabb)) {
                 obj_delete(g, o);
+                return;
+        }
+
+        if (o->vel_q8.x != 0) {
+                o->facing = SGN(o->vel_q8.x);
         }
 }
 
@@ -31,6 +36,7 @@ obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         arrow->h            = 8;
         arrow->pos.x        = p.x - arrow->w / 2;
         arrow->pos.y        = p.y - arrow->h / 2;
+        arrow->facing       = SGN(v_q8.x);
         arrow->vel_q8       = v_q8;
         arrow->gravity_q8.y = 12;
         arrow->drag_q8.x    = 256;

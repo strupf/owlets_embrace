@@ -101,7 +101,7 @@ void game_load_map(game_s *g, const char *filename)
                 obj_set_flags(g, solid1, flagss1);
                 solid1->think_1 = solid_think;
                 solid1->pos.x   = 170 + 300 - 20 + 5 * 16;
-                solid1->pos.y   = 100 - 20;
+                solid1->pos.y   = 100 + 30;
                 solid1->w       = 64;
                 solid1->h       = 48;
                 solid1->dir     = 1;
@@ -109,19 +109,6 @@ void game_load_map(game_s *g, const char *filename)
                 solid1->p1      = 130 + 300 - 20 + 5 * 16;
                 solid1->ID      = 1;
                 once            = 1;
-
-                /*
-                obj_s     *osign   = obj_create(g);
-                objflags_s flagss2 = objflags_create(OBJ_FLAG_INTERACT);
-                obj_set_flags(g, osign, flagss2);
-                osign->pos.x      = 240 + 5 * 16;
-                osign->pos.y      = 160;
-                osign->w          = 16;
-                osign->h          = 24;
-                osign->ID         = 5;
-                osign->oninteract = obj_interact_dialog;
-                os_strcat(osign->filename, "assets/introtext.txt");
-                */
         }
 
 #endif

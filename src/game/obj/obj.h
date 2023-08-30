@@ -65,6 +65,7 @@ struct obj_s {
         int        ID;
         int        facing;
         int        invincibleticks;
+        int        die_animation;
 
         obj_s *parent;
         obj_s *next;

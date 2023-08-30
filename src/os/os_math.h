@@ -419,7 +419,7 @@ static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 {
-        // a + ((b - a) * num / den)
+        // return a + ((b - a) * num / den);
         i32 d = sub_i32(b, a);
         d     = mul_i32(d, num);
         d     = divr_i32(d, den);

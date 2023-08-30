@@ -95,6 +95,7 @@ static void draw_textbox(textbox_s *tb)
 
 static void draw_background(backforeground_s *bg, v2_i32 camp)
 {
+        gfx_set_pattern(g_gfx_patterns[5]);
         tex_s tclouds = tex_get(TEXID_CLOUDS);
         for (int n = 0; n < bg->nclouds; n++) {
                 cloudbg_s c   = bg->clouds[n];
@@ -116,18 +117,19 @@ static void draw_background(backforeground_s *bg, v2_i32 camp)
 
                 gfx_sprite_fast(tclouds, pos, r);
         }
+        gfx_reset_pattern();
 }
 
 static void wind_particle_line(v2_i32 p0, v2_i32 p1)
 {
+
         int dx = +ABS(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
         int dy = -ABS(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
         int er = dx + dy;
         int xi = p0.x;
         int yi = p0.y;
         while (1) {
-                if ((xi & 1) ^ (yi & 1))
-                        gfx_px(xi, yi, 1);
+                gfx_px(xi, yi, 1);
                 if (xi == p1.x && yi == p1.y) break;
                 int e2 = er * 2;
                 if (e2 >= dy) er += dy, xi += sx;
@@ -137,6 +139,7 @@ static void wind_particle_line(v2_i32 p0, v2_i32 p1)
 
 static void draw_foreground(backforeground_s *bg, v2_i32 camp)
 {
+        gfx_set_pattern(g_gfx_patterns[7]);
         // wind animation
         for (int n = 0; n < bg->nparticles; n++) {
                 particlebg_s p = bg->particles[n];
@@ -150,6 +153,7 @@ static void draw_foreground(backforeground_s *bg, v2_i32 camp)
                         p1 = p2;
                 }
         }
+        gfx_reset_pattern();
 }
 
 static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
@@ -231,17 +235,11 @@ static void draw_item_selection(game_s *g)
 static void draw_transition(game_s *g)
 {
         transition_s *t = &g->transition;
-        switch (t->phase) {
-        case TRANSITION_NONE: break;
-        case TRANSITION_FADE_IN: {
-                int x = lerp_i32(0, 410, t->ticks, TRANSITION_TICKS);
-                gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
-        } break;
-        case TRANSITION_FADE_OUT: {
-                int x = lerp_i32(410, 0, t->ticks, TRANSITION_TICKS);
-                gfx_rec_fill((rec_i32){0, 0, x, 240}, 1);
-        } break;
-        }
+
+        int f = lerp_i32(0, NUM_GFX_PATTERN - 1, t->ticks, TRANSITION_TICKS);
+        gfx_set_pattern(g_gfx_patterns[f]);
+        gfx_rec_fill((rec_i32){0, 0, 400, 240}, 1);
+        gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_FULL]);
 }
 
 // naive thick line, works for now
@@ -335,15 +333,6 @@ void game_draw(game_s *g)
 
         return;
 #endif
-
-        /*
-        if (debug_inp_space()) {
-                gfx_sprite(tex_get(TEXID_HERO), (v2_i32){4, 8}, (rec_i32){24, 24, 200, 200}, 2);
-        }
-
-        gfx_sprite_(tex_get(TEXID_HERO), (v2_i32){4, 8}, (rec_i32){24, 24, 200, 200}, 1);
-        return;
-        */
         v2_i32  camp = {-(g->cam.pos.x - g->cam.wh),
                         -(g->cam.pos.y - g->cam.hh)};
         rec_i32 camr = {-camp.x, -camp.y, g->cam.w, g->cam.h};
@@ -367,8 +356,7 @@ void game_draw(game_s *g)
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_SOLID);
                         int    tx   = 1;
-                        int    ty   = 96;
-                        if (o->vel_q8.x < 0) ty += 16;
+                        int    ty   = 96 + (o->facing == -1 ? 16 : 0);
                         if (o->vel_q8.y < -150) tx = 0;
                         if (o->vel_q8.y > +150) tx = 2;
                         gfx_sprite_fast(ttex, pos, (rec_i32){tx * 16, ty, 16, 16});
@@ -460,12 +448,12 @@ void game_draw(game_s *g)
         if (g->textbox.active)
                 draw_textbox(&g->textbox);
 
-#if 1 // pattern test
+#if 0 // pattern test
         gfx_rec_fill((rec_i32){0, 0, 400, 240}, 1);
         static int dir   = 1;
         static int frame = 0;
 
-        if ((os_tick() % 4) == 0) {
+        if ((os_tick() % 2) == 0) {
                 frame += dir;
                 if (frame == 0 || frame == NUM_GFX_PATTERN - 1) dir = -dir;
         }

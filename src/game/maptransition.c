@@ -18,13 +18,12 @@ void game_map_transition_start(game_s *g, const char *filename)
 void game_update_transition(game_s *g)
 {
         transition_s *t = &g->transition;
-        t->ticks++;
-        if (t->ticks < TRANSITION_TICKS)
-                return;
 
         switch (t->phase) {
         case TRANSITION_NONE: break;
         case TRANSITION_FADE_IN: {
+                if (++t->ticks < TRANSITION_TICKS) break;
+                t->phase          = TRANSITION_FADE_OUT;
                 char filename[64] = {0};
                 os_strcat(filename, ASSET_PATH_MAPS);
                 os_strcat(filename, t->map);
@@ -57,11 +56,10 @@ void game_update_transition(game_s *g)
                         cam_constrain_to_room(g, &g->cam);
                 }
 
-                t->phase = TRANSITION_FADE_OUT;
-                t->ticks = 0;
         } break;
         case TRANSITION_FADE_OUT:
-                t->phase = TRANSITION_NONE;
+                if (--t->ticks == 0)
+                        t->phase = TRANSITION_NONE;
                 break;
         }
 }
