@@ -103,6 +103,15 @@ static void game_tick(game_s *g)
                 game_cull_scheduled(g);
         }
 
+        obj_listc_s spriteanim = objbucket_list(g, OBJ_BUCKET_SPRITE_ANIM);
+        for (int n = 0; n < spriteanim.n; n++) {
+                obj_s *o = spriteanim.o[n];
+                for (int i = 0; i < o->nspriteanim; i++) {
+                        sprite_anim_s *sa = &(o->spriteanim[i].a);
+                        sprite_anim_update(sa);
+                }
+        }
+
         for (int n = g->n_particles - 1; n >= 0; n--) {
                 particle_s *p = &g->particles[n];
                 if (--p->ticks == 0) {

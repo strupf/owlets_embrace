@@ -26,6 +26,7 @@ struct hero_s {
         bool32      caninteract;
         i32         swordticks;
         int         sworddir;
+        v2_i32      ppos;
 
         flags32 aquired_items;
         int     selected_item;

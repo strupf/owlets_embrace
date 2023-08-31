@@ -71,7 +71,7 @@ static void cam_player_input(game_s *g, cam_s *c)
 
         if (g->textbox.active) {
                 c->target.y += CAM_TEXTBOX_Y_OFFSET;
-        } else if (os_inp_dpad_y() == 1 &&
+        } else if (os_inp_dpad_y() == 1 && os_inp_dpad_x() == 0 &&
                    game_area_blocked(g, obj_rec_bottom(player)) &&
                    ABS(player->vel_q8.x) < 10) {
                 c->target.y += CAM_LOOK_DOWN_OFFSET;

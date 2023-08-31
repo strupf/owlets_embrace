@@ -16,7 +16,6 @@ loading
 graphics
 * performant flipped sprite drawing
 * rope
-    * better rendering (textured thick rope?)
     * "hanging" animation of rope when not stretched
 * water tiles
 
@@ -30,3 +29,4 @@ bugs
 * rope: removal of a point during tighten can result in three
     collinear points which span a degenerate triangle -> in that
     case delete the middle point, too
+* player plays walking sound/animation when walking against a wall

@@ -191,11 +191,13 @@ void      gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
 void      gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void      gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4]);
-void      gfx_sprite_squished(tex_s src, i32 x, i32 y1, i32 y2, rec_i32 rs);
 void      gfx_tr_sprite_fast(texregion_s src, v2_i32 pos);
+void      gfx_tr_sprite_mode(texregion_s src, v2_i32 pos, int mode);
+void      gfx_tr_sprite_flip(texregion_s src, v2_i32 pos, int flags);
 void      gfx_draw_to(tex_s tex);
 void      gfx_draw_to_ID(int ID);
 void      gfx_rec_fill(rec_i32 r, int col);
+void      gfx_tri_fill(v2_i32 p0, v2_i32 p1, v2_i32 p2, int col);
 void      gfx_line(int x0, int y0, int x1, int y1, int col);
 void      gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col);
 void      gfx_text_ascii(fnt_s *font, const char *txt, int x, int y);

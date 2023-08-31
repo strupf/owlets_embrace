@@ -110,6 +110,12 @@ void game_init(game_s *g)
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_CAM_ATTRACTOR);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_SPRITE_ANIM];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_SPRITE_ANIM);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
 
         game_load_map(g, "assets/map/template.tmj");
 }

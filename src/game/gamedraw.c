@@ -242,42 +242,23 @@ static void draw_transition(game_s *g)
         gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_FULL]);
 }
 
-// naive thick line, works for now
-static void rope_line(int x0, int y0, int x1, int y1)
-{
-        int    dx = +ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
-        int    dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
-        int    er      = dx + dy;
-        int    xi      = x0;
-        int    yi      = y0;
-        v2_i32 p0      = {x0, y0};
-        v2_i32 p1      = {x1, y1};
-        i32    len     = v2_distance(p0, p1);
-        i32    nextdis = 20;
-        while (1) {
-                v2_i32 pi = {xi, yi};
-                for (int y = -2; y <= +2; y++) {
-                        for (int x = -2; x <= +2; x++) {
-                                int sq = x * x + y * y;
-                                if (sq > 3) continue;
-                                gfx_px(xi + x, yi + y, 1);
-                        }
-                }
-                if (xi == x1 && yi == y1) break;
-                int e2 = er * 2;
-                if (e2 >= dy) { er += dy, xi += sx; }
-                if (e2 <= dx) { er += dx, yi += sy; }
-        }
-}
-
 static void draw_rope(rope_s *r, v2_i32 camp)
 {
         for (ropenode_s *r1 = r->head; r1 && r1->next; r1 = r1->next) {
                 ropenode_s *r2 = r1->next;
                 v2_i32      p1 = v2_add(r1->p, camp);
                 v2_i32      p2 = v2_add(r2->p, camp);
-                rope_line(p1.x, p1.y, p2.x, p2.y);
+                gfx_line_thick(p1.x, p1.y, p2.x, p2.y, 3, 1);
         }
+
+        gfx_set_pattern(g_gfx_patterns[8]);
+        for (ropenode_s *r1 = r->head; r1 && r1->next; r1 = r1->next) {
+                ropenode_s *r2 = r1->next;
+                v2_i32      p1 = v2_add(r1->p, camp);
+                v2_i32      p2 = v2_add(r2->p, camp);
+                gfx_line_thick(p1.x, p1.y, p2.x, p2.y, 1, 0);
+        }
+        gfx_reset_pattern();
 }
 
 static void draw_particles(game_s *g, v2_i32 camp)
@@ -346,6 +327,7 @@ void game_draw(game_s *g)
         obj_listc_s oalive = objbucket_list(g, OBJ_BUCKET_ALIVE);
         for (int n = 0; n < oalive.n; n++) {
                 obj_s *o = oalive.o[n];
+
                 switch (o->ID) {
                 case 1: {
                         v2_i32 pos  = v2_add(o->pos, camp);
@@ -386,8 +368,18 @@ void game_draw(game_s *g)
                                 animy += 64;
                                 o->animframe = 0;
                         }
-
+#if 0
+                        gfx_set_pattern(g_gfx_patterns[3]);
+                        rec_i32 oaabb = obj_aabb(o);
+                        oaabb.x += camp.x;
+                        oaabb.y += camp.y;
+                        oaabb.w += 30;
+                        oaabb.h += 30;
+                        gfx_rec_fill(oaabb, 1);
+                        gfx_reset_pattern();
+#else
                         gfx_sprite_flip(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, fl);
+#endif
                 } break;
                 case 5: {
                         v2_i32 pos  = v2_add(o->pos, camp);
@@ -400,6 +392,12 @@ void game_draw(game_s *g)
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
                         gfx_rec_fill(r, 1);
                 } break;
+                }
+
+                for (int i = 0; i < o->nspriteanim; i++) {
+                        obj_sprite_anim_s *sa   = &o->spriteanim[i];
+                        texregion_s        texr = sprite_anim_get(sa);
+                        gfx_tr_sprite_mode(texr, o->pos, 0);
                 }
         }
 

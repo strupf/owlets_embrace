@@ -13,6 +13,7 @@
 #ifndef OBJ_H
 #define OBJ_H
 
+#include "game/draw.h"
 #include "game/gamedef.h"
 #include "game/pathmovement.h"
 #include "game/rope.h"
@@ -55,6 +56,12 @@ typedef struct {
 typedef void (*objfunc_f)(game_s *g, obj_s *o, void *arg);
 typedef void (*objtrigger_f)(game_s *g, obj_s *o, int triggerID);
 
+typedef struct {
+        sprite_anim_s a;
+        v2_i32        offset;
+        int           mode;
+} obj_sprite_anim_s;
+
 struct obj_s {
         int        gen;
         int        index;
@@ -73,8 +80,9 @@ struct obj_s {
         obj_s *fchild;
         obj_s *lchild;
 
-        i32         w;
-        i32         h;
+        i32 w;
+        i32 h;
+
         v2_i32      pos;
         v2_i32      subpos_q8;
         v2_i32      vel_q8;
@@ -86,6 +94,9 @@ struct obj_s {
         flags32     actorflags;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
+
+        obj_sprite_anim_s spriteanim[4];
+        int               nspriteanim;
 
         i32 animation;
         i32 animframe;

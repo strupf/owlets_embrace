@@ -522,7 +522,7 @@ void hero_update(game_s *g, obj_s *o, void *arg)
                 o->animation = 300;
         }
 
-        if (o->vel_q8.x == 0 && grounded) {
+        if (h->ppos.x == o->pos.x && grounded) {
                 o->animation += 10;
                 o->animframe = 0;
         } else {
@@ -531,6 +531,8 @@ void hero_update(game_s *g, obj_s *o, void *arg)
                         snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
                 }
         }
+
+        h->ppos = o->pos;
 }
 
 static inline int i_hero_itemID_get(hero_s *h, int dir)

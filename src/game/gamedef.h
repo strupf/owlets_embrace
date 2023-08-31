@@ -62,6 +62,7 @@ enum obj_flag {
         OBJ_FLAG_KILL_OFFSCREEN,
         OBJ_FLAG_HURTS_PLAYER,
         OBJ_FLAG_CAM_ATTRACTOR,
+        OBJ_FLAG_SPRITE_ANIM,
         //
         NUM_OBJ_FLAGS
 };
@@ -87,6 +88,7 @@ enum obj_bucket {
         OBJ_BUCKET_KILL_OFFSCREEN,
         OBJ_BUCKET_HURTS_PLAYER,
         OBJ_BUCKET_CAM_ATTRACTOR,
+        OBJ_BUCKET_SPRITE_ANIM,
         //
         NUM_OBJ_BUCKETS
 };

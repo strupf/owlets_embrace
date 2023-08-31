@@ -197,20 +197,49 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
         *op   = (t.mk[i] & m);
 }
 
+// TODO: implement mode
 static inline void i_gfx_put_px(tex_s t, int x, int y, int col, int mode)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return;
-
-        int xx = x & 7;
-        if ((g_os.dstpat.p[y & 7] & (1 << xx)) == 0) return;
-
-        int i = (x >> 3) + y * t.w_byte;
-        int s = 0x80 >> xx;
-        if (col)
-                t.px[i] |= s; // set bit
-        else
-                t.px[i] &= ~s; // clear bit
+        int s = 0x80 >> (x & 7);
+        if ((g_os.dstpat.p[y & 7] & s) == 0) return;
+        int i   = (x >> 3) + y * t.w_byte;
+        t.px[i] = (col ? t.px[i] | s : t.px[i] & ~s); // set or clear bit
         if (t.mk) t.mk[i] |= s;
+}
+
+static inline void i_gfx_fill_span(int y, int xa, int xb, int col)
+{
+        tex_s dst = g_os.dst;
+        if (!(0 <= y && y < dst.h)) return;
+        if (xa == xb) {
+                i_gfx_put_px(dst, xa, y, col, 0);
+                return;
+        }
+
+        int x1 = MAX(0, xa);
+        int x2 = MIN(dst.w - 1, xb);
+        if (x2 <= x1) return;
+
+        u32 pt = g_os.dstpat.p[y & 7];
+        if (!pt) return;
+
+        int  yd = y * dst.w_word;
+        int  b1 = (x1 >> 5) + yd;
+        int  b2 = (x2 >> 5) + yd;
+        u32  sp = col ? 0xFFFFFFFFu : 0;
+        u32 *dp = (u32 *)dst.px;
+        u32 *dm = (u32 *)dst.mk;
+
+        for (int b = b1; b <= b2; b++) {
+                int uu = (b == b1 ? x1 & 31 : 0);
+                int vv = (b == b2 ? x2 & 31 : 31);
+                u32 sm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
+                u32 t0 = endian_u32(sm) & pt;
+                dp[b]  = (dp[b] & ~t0) | (sp & t0);
+                if (!dm) continue;
+                dm[b] |= t0;
+        }
 }
 
 void gfx_px(int x, int y, int col)
@@ -295,21 +324,19 @@ void gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
 }
 #endif
 
+static inline u32 i_gfx_pattern_u32_from_u8(int b)
+{
+        return (((u32)b << 24) | ((u32)b << 16) | ((u32)b << 8) | (u32)b);
+}
+
 gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
                                   int p4, int p5, int p6, int p7)
 {
-#define GFX_PATTERN_SET_32(B) \
-        (((u32)B << 24) | ((u32)B << 16) | ((u32)B << 8) | (u32)B)
         gfx_pattern_s p = {
-            GFX_PATTERN_SET_32(p0),
-            GFX_PATTERN_SET_32(p1),
-            GFX_PATTERN_SET_32(p2),
-            GFX_PATTERN_SET_32(p3),
-            GFX_PATTERN_SET_32(p4),
-            GFX_PATTERN_SET_32(p5),
-            GFX_PATTERN_SET_32(p6),
-            GFX_PATTERN_SET_32(p7)};
-#undef GFX_PATTERN_SET_32
+            i_gfx_pattern_u32_from_u8(p0), i_gfx_pattern_u32_from_u8(p1),
+            i_gfx_pattern_u32_from_u8(p2), i_gfx_pattern_u32_from_u8(p3),
+            i_gfx_pattern_u32_from_u8(p4), i_gfx_pattern_u32_from_u8(p5),
+            i_gfx_pattern_u32_from_u8(p6), i_gfx_pattern_u32_from_u8(p7)};
         return p;
 }
 
@@ -418,6 +445,16 @@ void gfx_tr_sprite_fast(texregion_s src, v2_i32 pos)
         gfx_sprite_mode(src.t, pos, src.r, 0);
 }
 
+void gfx_tr_sprite_mode(texregion_s src, v2_i32 pos, int mode)
+{
+        gfx_sprite_mode(src.t, pos, src.r, mode);
+}
+
+void gfx_tr_sprite_flip(texregion_s src, v2_i32 pos, int flags)
+{
+        gfx_sprite_flip(src.t, pos, src.r, flags);
+}
+
 void gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4])
 {
         tex_s dst = g_os.dst;
@@ -434,61 +471,47 @@ void gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4])
         }
 }
 
-void gfx_sprite_squished(tex_s src, i32 x, i32 y1, i32 y2, rec_i32 rs)
+void gfx_rec_fill(rec_i32 r, int col)
 {
         tex_s dst = g_os.dst;
-        i32   hh  = y2 - y1;
-        if (hh == 0) return;
-        for (int y = y1; y <= y2; y++) {
-                i32     sy = (rs.h * (y - y1)) / hh + rs.y;
-                rec_i32 sr = {rs.x, sy, rs.w, 1};
-                gfx_sprite_fast(src, (v2_i32){x, y}, sr);
+        int   ya  = r.y;
+        int   yb  = r.y + r.h;
+        int   y1  = MAX(0, ya);
+        int   y2  = MIN(dst.h - 1, yb);
+        for (int y = y1; y < y2; y++) {
+                i_gfx_fill_span(y, r.x, r.x + r.w, col);
         }
 }
 
-void gfx_rec_fill(rec_i32 r, int col)
+void gfx_tri_fill(v2_i32 p0, v2_i32 p1, v2_i32 p2, int col)
 {
-        tex_s   dst = g_os.dst;
-        rec_i32 ri;
-        rec_i32 rd = {0, 0, dst.w, dst.h};
-        if (!intersect_rec(rd, r, &ri)) return;
-        int zx           = dst.w - ri.x;
-        int zy           = dst.h - ri.y;
-        int x1           = (0 >= -ri.x ? 0 : -ri.x);
-        int y1           = (0 >= -ri.y ? 0 : -ri.y);
-        int x2           = (ri.w <= zx ? ri.w : zx) - 1;
-        int y2           = (ri.h <= zy ? ri.h : zy) - 1;
-        int cc           = ri.x;
-        int s1           = 31 & (32 - (cc & 31)); // relative word alignment
-        int s0           = 32 - s1;
-        int b1           = x1 >> 5;
-        int b2           = x2 >> 5;
-        u32 sp           = col ? 0xFFFFFFFFu : 0;
-        u32 p0           = endian_u32(sp >> s0);
-        u32 p1           = endian_u32(sp << s1);
-        u32 *restrict dp = (u32 *)dst.px;
-        u32 *restrict dm = (u32 *)dst.mk;
+        tex_s  dst = g_os.dst;
+        v2_i32 t0 = p0, t1 = p1, t2 = p2;
+        if (t0.y > t1.y) SWAP(v2_i32, t0, t1);
+        if (t0.y > t2.y) SWAP(v2_i32, t0, t2);
+        if (t1.y > t2.y) SWAP(v2_i32, t1, t2);
+        int th = t2.y - t0.y;
+        if (th == 0) return;
+        int h1 = t1.y - t0.y + 1;
+        int h2 = t2.y - t1.y + 1;
+        i32 d0 = t2.x - t0.x;
+        i32 d1 = t1.x - t0.x;
+        i32 d2 = t2.x - t1.x;
+        i32 y0 = MAX(0, t0.y);
+        i32 y1 = MIN(dst.h - 1, t1.y);
+        i32 y2 = MIN(dst.h - 1, t2.y);
+        for (int y = y0; y <= y1; y++) {
+                i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
+                i32 x2 = t0.x + (d1 * (y - t0.y)) / h1;
+                if (x2 < x1) SWAP(i32, x1, x2);
+                i_gfx_fill_span(y, x1, x2, col);
+        }
+
         for (int y = y1; y <= y2; y++) {
-                int yr = y + ri.y;
-                int yd = yr * dst.w_word;
-                u32 pt = g_os.dstpat.p[y & 7];
-                if (!pt) continue;
-                for (int b = b1; b <= b2; b++) {
-                        int uu = (b == b1 ? x1 & 31 : 0);
-                        int vv = (b == b2 ? x2 & 31 : 31);
-                        u32 sm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-                        u32 t0 = endian_u32(sm >> s0) & pt;
-                        u32 t1 = endian_u32(sm << s1) & pt;
-                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
-                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
-                        u32 d0 = dp[j0];
-                        u32 d1 = dp[j1];
-                        dp[j0] = (d0 & ~t0) | (p0 & t0);
-                        dp[j1] = (d1 & ~t1) | (p1 & t1);
-                        if (!dm) continue;
-                        dm[j0] |= t0;
-                        dm[j1] |= t1;
-                }
+                i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
+                i32 x2 = t1.x + (d2 * (y - t1.y)) / h2;
+                if (x2 < x1) SWAP(i32, x1, x2);
+                i_gfx_fill_span(y, x1, x2, col);
         }
 }
 
@@ -520,10 +543,12 @@ void gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col)
         int   yi = y0;
         int   r2 = r * r;
         while (1) {
-                for (int y = -r; y <= +r; y++) {
-                        for (int x = -r; x <= +r; x++) {
+                for (int y = 0; y <= +r; y++) {
+                        for (int x = r; x >= 0; x--) {
                                 if (x * x + y * y > r2) continue;
-                                i_gfx_put_px(dst, xi + x, yi + y, col, 0);
+                                i_gfx_fill_span(yi - y, xi - x, xi + x, col);
+                                i_gfx_fill_span(yi + y, xi - x, xi + x, col);
+                                break;
                         }
                 }
 
