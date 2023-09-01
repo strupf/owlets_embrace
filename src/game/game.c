@@ -52,9 +52,12 @@ static void game_tick(game_s *g)
                 pathmover_init(&g->pathmover);
                 // blob_create(g);
         }
+
         path_update(&g->pathmover);
         watersurface_update(&g->water);
-
+        if (debug_inp_enter()) {
+                water_impact(&g->water, 50, 10, 30000);
+        }
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
                 obj_s *o = thinkers1.o[i];
@@ -123,30 +126,6 @@ static void game_tick(game_s *g)
         }
 }
 
-static void textbox_input(game_s *g, textbox_s *tb)
-{
-        textbox_update(tb);
-        if (!tb->shows_all) return;
-
-        if (os_inp_just_pressed(INP_A)) {
-                if (tb->n_choices) {
-                        textbox_select_choice(g, tb, tb->cur_choice);
-                } else {
-                        textbox_next_page(tb);
-                }
-        } else if (tb->n_choices) {
-                if (os_inp_just_pressed(INP_DOWN))
-                        tb->cur_choice++;
-                if (os_inp_just_pressed(INP_UP))
-                        tb->cur_choice--;
-
-                if (tb->cur_choice < 0)
-                        tb->cur_choice = tb->n_choices - 1;
-                if (tb->cur_choice >= tb->n_choices)
-                        tb->cur_choice = 0;
-        }
-}
-
 void game_update(game_s *g)
 {
         static int once = 0;
@@ -163,12 +142,14 @@ void game_update(game_s *g)
                 backforeground_animate(g);
         }
 
-        bool32 gameupdate = 1;
-
-        if (g->textbox.active) {
-                textbox_s *tb = &g->textbox;
-                textbox_input(g, tb);
-                gameupdate = 0;
+        bool32     gameupdate = 1;
+        textbox_s *tb         = &g->textbox;
+        if (textbox_state(tb) != TEXTBOX_STATE_INACTIVE) {
+                textbox_update(g, tb);
+                if (textbox_blocking(tb)) {
+                        textbox_input(g, tb);
+                        gameupdate = 0;
+                }
         } else if (g->transition.phase) {
                 game_update_transition(g);
                 gameupdate = 0;
@@ -178,6 +159,8 @@ void game_update(game_s *g)
                 game_tick(g);
 
         cam_update(g, &g->cam);
+        if (os_inp_crankp() != os_inp_crank())
+                g->itemselection_dirty = 1;
 }
 
 void game_trigger(game_s *g, int triggerID)
@@ -251,11 +234,12 @@ obj_listc_s objbucket_list(game_s *g, int bucketID)
 
 particle_s *particle_spawn(game_s *g)
 {
-        ASSERT(g->n_particles < NUM_PARTICLES);
-
-        particle_s *p = &g->particles[g->n_particles++];
-        *p            = (const particle_s){0};
-        return p;
+        if (g->n_particles < NUM_PARTICLES) {
+                particle_s *p = &g->particles[g->n_particles++];
+                *p            = (const particle_s){0};
+                return p;
+        }
+        return NULL;
 }
 
 roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec)

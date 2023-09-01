@@ -348,9 +348,9 @@ obj_s *hero_create(game_s *g, hero_s *h)
 
         *h     = (const hero_s){0};
         h->obj = objhandle_from_obj(hero);
-        hero_aquire_item(h, HERO_ITEM_BOW);
-        hero_aquire_item(h, HERO_ITEM_HOOK);
-        hero_aquire_item(h, HERO_ITEM_SWORD);
+        hero_aquire_item(g, h, HERO_ITEM_BOW);
+        hero_aquire_item(g, h, HERO_ITEM_HOOK);
+        hero_aquire_item(g, h, HERO_ITEM_SWORD);
         return hero;
 }
 
@@ -557,10 +557,11 @@ void hero_set_cur_item(hero_s *h, int itemID)
         h->selected_item_next = i_hero_itemID_get(h, +1);
 }
 
-void hero_aquire_item(hero_s *h, int itemID)
+void hero_aquire_item(game_s *g, hero_s *h, int itemID)
 {
         ASSERT(((h->aquired_items >> itemID) & 1) == 0);
 
         h->aquired_items |= 1 << itemID;
         hero_set_cur_item(h, itemID);
+        g->itemselection_dirty = 1;
 }

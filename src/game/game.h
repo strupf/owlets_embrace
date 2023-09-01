@@ -89,6 +89,9 @@ struct game_s {
         cam_s  cam;
         hero_s hero;
 
+        bool32 itemselection_dirty;
+        tex_s  itemselection_cache;
+
         objset_s    obj_scheduled_delete; // objects scheduled for removal
         obj_s       objs[NUM_OBJS];
         obj_s      *objfreestack[NUM_OBJS];

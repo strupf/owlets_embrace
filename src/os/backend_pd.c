@@ -69,8 +69,7 @@ void os_backend_graphics_begin()
 void os_backend_graphics_end()
 {
         PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
-        PD_drawFPS(0, 0);
-        PD_display(); // update all rows
+        PD_display();                        // update all rows
 }
 
 void os_backend_graphics_flip()
@@ -79,7 +78,7 @@ void os_backend_graphics_flip()
 
 void os_backend_audio_init()
 {
-        mus_play("assets/snd/pink.wav");
+        // mus_play("assets/snd/pink.wav");
         PD->sound->addSource(os_audio_cb, NULL, 0);
 }
 

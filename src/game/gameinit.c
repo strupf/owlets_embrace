@@ -27,6 +27,7 @@ void game_init(game_s *g)
         }
 
         assets_load();
+        g->itemselection_cache = tex_create(ITEM_FRAME_SIZE, ITEM_FRAME_SIZE, 1);
 
         g->rng    = 213;
         g->cam.w  = 400;

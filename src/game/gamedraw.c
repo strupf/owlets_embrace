@@ -2,61 +2,30 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "draw.h"
 #include "game.h"
 #include "os/os.h"
 
 static void draw_textbox(textbox_s *tb)
 {
-        if (tb->closeticks > 0) {
-                gfx_pattern_s tpat;
-
-                int npat = (TEXTBOX_CLOSE_TICKS - tb->closeticks) /
-                           TEXBOX_CLOSE_DIV;
-                switch (npat) {
-                case 0:
-                        tpat = gfx_pattern_set_8x8(B8(11111111),
-                                                   B8(10101010),
-                                                   B8(11111111),
-                                                   B8(10101010),
-                                                   B8(11111111),
-                                                   B8(10101010),
-                                                   B8(11111111),
-                                                   B8(10101010));
-                        break;
-                case 1:
-                        tpat = gfx_pattern_set_8x8(B8(01010101),
-                                                   B8(10101010),
-                                                   B8(01010101),
-                                                   B8(10101010),
-                                                   B8(01010101),
-                                                   B8(10101010),
-                                                   B8(01010101),
-                                                   B8(10101010));
-                        break;
-                case 2:
-                        tpat = gfx_pattern_set_8x8(B8(00000000),
-                                                   B8(01010101),
-                                                   B8(00000000),
-                                                   B8(01010101),
-                                                   B8(00000000),
-                                                   B8(01010101),
-                                                   B8(00000000),
-                                                   B8(01010101));
-                        break;
-                case 3:
-                        tpat = gfx_pattern_set_8x8(B8(00000000),
-                                                   B8(01000100),
-                                                   B8(00000000),
-                                                   B8(00000000),
-                                                   B8(00000000),
-                                                   B8(01000100),
-                                                   B8(00000000),
-                                                   B8(00000000));
-                        break;
-                }
-
-                gfx_set_pattern(tpat);
+        int state = textbox_state(tb);
+        switch (state) {
+        case TEXTBOX_STATE_OPENING: {
+                int patternID = lerp_i32(GFX_PATTERN_0,
+                                         GFX_PATTERN_100,
+                                         tb->animationticks,
+                                         TEXTBOX_ANIMATION_TICKS);
+                gfx_set_pattern(gfx_pattern_get(patternID));
+        } break;
+        case TEXTBOX_STATE_CLOSING: {
+                int patternID = lerp_i32(GFX_PATTERN_100,
+                                         GFX_PATTERN_0,
+                                         tb->animationticks,
+                                         TEXTBOX_ANIMATION_TICKS);
+                gfx_set_pattern(gfx_pattern_get(patternID));
+        } break;
         }
+
         fnt_s   font = fnt_get(FNTID_DEFAULT);
         rec_i32 r    = (rec_i32){0, 0, 400, 128};
         gfx_sprite_fast(tex_get(TEXID_TEXTBOX), (v2_i32){0, 128}, r);
@@ -66,7 +35,7 @@ static void draw_textbox(textbox_s *tb)
                 gfx_text_glyphs(&font, line->chars, line->n_shown, 20, 150 + 21 * l);
         }
 
-        if (!tb->shows_all) {
+        if (state == TEXTBOX_STATE_WRITING) {
                 gfx_reset_pattern();
                 return;
         }
@@ -95,7 +64,7 @@ static void draw_textbox(textbox_s *tb)
 
 static void draw_background(backforeground_s *bg, v2_i32 camp)
 {
-        gfx_set_pattern(g_gfx_patterns[5]);
+        gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_31]);
         tex_s tclouds = tex_get(TEXID_CLOUDS);
         for (int n = 0; n < bg->nclouds; n++) {
                 cloudbg_s c   = bg->clouds[n];
@@ -122,7 +91,6 @@ static void draw_background(backforeground_s *bg, v2_i32 camp)
 
 static void wind_particle_line(v2_i32 p0, v2_i32 p1)
 {
-
         int dx = +ABS(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
         int dy = -ABS(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
         int er = dx + dy;
@@ -139,9 +107,10 @@ static void wind_particle_line(v2_i32 p0, v2_i32 p1)
 
 static void draw_foreground(backforeground_s *bg, v2_i32 camp)
 {
-        gfx_set_pattern(g_gfx_patterns[7]);
+        gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_44]);
         // wind animation
-        for (int n = 0; n < bg->nparticles; n++) {
+        int n2 = bg->nparticles;
+        for (int n = 0; n < n2; n++) {
                 particlebg_s p = bg->particles[n];
 
                 v2_i32 p1 = v2_add(v2_shr(p.pos[p.n], 8), camp);
@@ -181,65 +150,67 @@ static void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
  * 3) calc radians on circle, getting pos in image texture
  *    image is "wrapped" onto cylinder
  */
+static void item_selection_redraw(game_s *g, hero_s *h)
+{
+        // interpolator based on crank position
+        int ii = -((ITEM_SIZE * os_inp_crank()) >> 16);
+        if (os_inp_crank() >= 0x8000) {
+                ii += ITEM_SIZE;
+        }
+
+        int itemIDs[3] = {h->selected_item_prev,
+                          h->selected_item,
+                          h->selected_item_next};
+
+        tex_s titem = tex_get(TEXID_ITEMS);
+        gfx_draw_to(g->itemselection_cache);
+        gfx_tex_clr(g->itemselection_cache);
+
+        for (int y = -ITEM_BARREL_R; y <= +ITEM_BARREL_R; y++) {
+                int     a_q16   = (y << 16) / ITEM_BARREL_R;
+                int     arccos  = (acos_q16(a_q16) * ITEM_SIZE) >> (16 + 1);
+                int     loc     = arccos + ITEM_SIZE - ii;
+                int     itemi   = loc / ITEM_SIZE;
+                int     yy      = ITEM_SIZE * itemIDs[itemi] + loc % ITEM_SIZE;
+                int     uu      = ITEM_BARREL_R - y + ITEM_Y_OFFS;
+                rec_i32 itemrow = {ITEM_SIZE, yy, ITEM_SIZE, 1};
+                gfx_sprite_fast(titem, (v2_i32){ITEM_X_OFFS, uu}, itemrow);
+        }
+
+        gfx_sprite_mode(titem, (v2_i32){0, 0}, (rec_i32){64, 0, 64, 64},
+                        GFX_SPRITE_COPY);
+        gfx_draw_to_ID(0);
+}
+
 static void draw_item_selection(game_s *g)
 {
         hero_s *h = &g->hero;
         if (h->aquired_items == 0) return;
-
-        os_spmem_push();
-
-        tex_s tt  = {0};
-        tt.w      = 32;
-        tt.h      = 128;
-        tt.w_byte = tt.w / 8;
-        tt.w_word = tt.w / 32;
-        tt.px     = os_spmem_allocz(sizeof(u8) * tt.w_byte * tt.h);
-        tt.mk     = NULL;
-
-        int ii = -((32 * os_inp_crank()) >> 16);
-        if (os_inp_crank() >= 0x8000) {
-                ii += 32;
+        if (g->itemselection_dirty) {
+                item_selection_redraw(g, h);
+                g->itemselection_dirty = 0;
         }
-
-        tex_s   titem   = tex_get(TEXID_ITEMS);
-        rec_i32 itemsrc = {32, 0, 32, 32};
-
-        gfx_draw_to(tt);
-        {
-                itemsrc.y = h->selected_item_prev * 32;
-                gfx_sprite_fast(titem, (v2_i32){0, ii}, itemsrc);
-                itemsrc.y = h->selected_item * 32;
-                gfx_sprite_fast(titem, (v2_i32){0, ii + 32}, itemsrc);
-                itemsrc.y = h->selected_item_next * 32;
-                gfx_sprite_fast(titem, (v2_i32){0, ii + 64}, itemsrc);
-        }
-        gfx_draw_to_ID(0);
-
-        v2_i32  itemframepos = {400 - 32 - 16, -8};
-        rec_i32 itemframerec = {64, 0, 64, 64};
-        for (int y = -16; y <= +16; y++) {
-                float l = acosf((float)y / 16.f) * 16.f;
-                gfx_sprite_fast(tt, (v2_i32){400 - 32, 8 + (16 - y)},
-                                (rec_i32){0, 24 + (int)l, 32, 1}); // y pos add is kinda magic number
-        }
-        gfx_sprite_mode(titem, itemframepos, itemframerec, GFX_SPRITE_COPY);
-        os_spmem_pop();
-#if 0
-        char cc[2] = {0};
-        cc[0]      = itemID1 + '0';
-        fnt_s font = fnt_get(FNTID_DEFAULT);
-        gfx_text_ascii(&font, cc, 400 - 32 - 16, 8);
-#endif
+        gfx_sprite_mode(g->itemselection_cache,
+                        (v2_i32){400 - ITEM_FRAME_SIZE,
+                                 240 - ITEM_FRAME_SIZE},
+                        (rec_i32){0, 0,
+                                  ITEM_FRAME_SIZE,
+                                  ITEM_FRAME_SIZE},
+                        GFX_SPRITE_COPY);
 }
 
 static void draw_transition(game_s *g)
 {
         transition_s *t = &g->transition;
 
-        int f = lerp_i32(0, NUM_GFX_PATTERN - 1, t->ticks, TRANSITION_TICKS);
-        gfx_set_pattern(g_gfx_patterns[f]);
+        int ticks     = TRANSITION_FADE_TICKS - t->ticks;
+        int patternID = lerp_i32(GFX_PATTERN_100,
+                                 GFX_PATTERN_0,
+                                 MAX(ticks, 0),
+                                 TRANSITION_FADE_TICKS);
+        gfx_set_pattern(gfx_pattern_get(patternID));
         gfx_rec_fill((rec_i32){0, 0, 400, 240}, 1);
-        gfx_set_pattern(g_gfx_patterns[GFX_PATTERN_FULL]);
+        gfx_reset_pattern();
 }
 
 static void draw_rope(rope_s *r, v2_i32 camp)
@@ -274,6 +245,24 @@ static void draw_particles(game_s *g, v2_i32 camp)
 
 void game_draw(game_s *g)
 {
+#if 0
+        tex_s      ttt    = tex_get(TEXID_HERO);
+        static int posxx  = 0;
+        static int posyy  = 0;
+        int        fflags = 1;
+        posxx += os_inp_dpad_x();
+        posyy += os_inp_dpad_y();
+        gfx_set_pattern(gfx_pattern_get(14));
+        gfx_sprite_ext(ttt, (v2_i32){0, 0},
+                       (rec_i32){0, 0, 256, 256}, 0, 0);
+
+        gfx_sprite_ext(ttt, (v2_i32){posxx, posyy + 118},
+                       (rec_i32){29, 5, 100, 100}, fflags, 0);
+        gfx_sprite_ext(ttt, (v2_i32){posxx, posyy},
+                       (rec_i32){29, 5, 100, 100}, fflags,
+                       GFX_SPRITE_COPY);
+        return;
+#endif
 #if 0
         // animation...
         static int hookpos  = -1500;
@@ -359,8 +348,7 @@ void game_draw(game_s *g)
                         v2_i32 pos  = v2_add(o->pos, camp);
                         tex_s  ttex = tex_get(TEXID_HERO);
                         pos.x -= 22;
-                        pos.y  = pos.y + o->h - 64;
-                        int fl = o->facing == 1 ? 0 : 2;
+                        pos.y = pos.y + o->h - 64;
 
                         int animy = 0;
                         if (o->vel_q8.x == 0 && game_area_blocked(g, obj_rec_bottom(o)) &&
@@ -378,7 +366,8 @@ void game_draw(game_s *g)
                         gfx_rec_fill(oaabb, 1);
                         gfx_reset_pattern();
 #else
-                        gfx_sprite_flip(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, fl);
+                        gfx_sprite_ext(ttex, pos, (rec_i32){o->animframe * 64, animy, 64, 64},
+                                       o->facing == 1 ? 0 : GFX_SPRITE_X, 0);
 #endif
                 } break;
                 case 5: {
@@ -387,6 +376,13 @@ void game_draw(game_s *g)
                         pos.x -= 10;
                         pos.y = pos.y + o->h - 32;
                         gfx_sprite_fast(ttex, pos, (rec_i32){64, 96, 64, 64});
+                } break;
+                case 6: {
+                        v2_i32 pos  = v2_add(o->pos, camp);
+                        tex_s  ttex = tex_get(TEXID_SOLID);
+                        pos.x -= 10;
+                        pos.y = pos.y + o->h - 32;
+                        gfx_sprite_fast(ttex, pos, (rec_i32){0, 144, 32, 32});
                 } break;
                 default: {
                         rec_i32 r = translate_rec(obj_aabb(o), camp);
@@ -401,19 +397,39 @@ void game_draw(game_s *g)
                 }
         }
 
-        draw_particles(g, camp);
+        if (!os_low_fps()) {
+                draw_particles(g, camp);
+        }
+
         draw_tiles(g, x1, y1, x2, y2, camp);
 
-        draw_foreground(&g->backforeground, camp);
+        if (!os_low_fps()) {
+                draw_foreground(&g->backforeground, camp);
+        }
         draw_item_selection(g);
 
 #if 0 // some debug drawing
+
         for (int n = 1; n < g->water.nparticles; n++) {
                 i32 yy1 = water_amplitude(&g->water, n - 1);
                 i32 yy2 = water_amplitude(&g->water, n);
-                yy1 += 184;
-                yy2 += 184;
-                gfx_line_thick((n - 1) * 4, yy1, n * 4, yy2, 1, 1);
+                yy1 += 100;
+                yy2 += 100;
+
+                int xx1   = (n - 1) * 4;
+                int xx2   = n * 4;
+                int y_max = MAX(yy1, yy2);
+
+                v2_i32 wp0 = {xx1, yy1};
+                v2_i32 wp1 = {xx2, yy2};
+                v2_i32 wp2 = {yy1 < yy2 ? xx1 : xx2, y_max};
+                gfx_set_pattern(gfx_pattern_get(14));
+                gfx_tri_fill(wp0, wp1, wp2, 1);
+                gfx_rec_fill((rec_i32){xx1, y_max, 4, 100}, 1);
+                gfx_reset_pattern();
+                gfx_line(xx1, yy1, xx2, yy2, 1);
+                gfx_line(xx1, yy1 + 1, xx2, yy2 + 1, 1);
+                gfx_line(xx1, yy1 + 2, xx2, yy2 + 2, 1);
         }
 
         for (pathnode_s *pn1 = &g->pathmover.nodes[0], *pn2 = &g->pathmover.nodes[1];
@@ -424,7 +440,7 @@ void game_draw(game_s *g)
         v2_i32 pmpos = path_pos(&g->pathmover);
         gfx_rec_fill((rec_i32){pmpos.x, pmpos.y, 16, 16}, 1);
 #endif
-        g->hero.caninteract = !g->textbox.active;
+        g->hero.caninteract = (textbox_state(&g->textbox) == 0);
         obj_s *ohero;
         if (g->hero.caninteract && try_obj_from_handle(g->hero.obj, &ohero)) {
                 v2_i32 heroc        = obj_aabb_center(ohero);
@@ -443,20 +459,6 @@ void game_draw(game_s *g)
 
         if (g->transition.phase)
                 draw_transition(g);
-        if (g->textbox.active)
+        if (textbox_state(&g->textbox) != TEXTBOX_STATE_INACTIVE)
                 draw_textbox(&g->textbox);
-
-#if 0 // pattern test
-        gfx_rec_fill((rec_i32){0, 0, 400, 240}, 1);
-        static int dir   = 1;
-        static int frame = 0;
-
-        if ((os_tick() % 2) == 0) {
-                frame += dir;
-                if (frame == 0 || frame == NUM_GFX_PATTERN - 1) dir = -dir;
-        }
-        gfx_set_pattern(g_gfx_patterns[frame]);
-        gfx_rec_fill((rec_i32){0, 0, 400, 240}, 0);
-        gfx_reset_pattern();
-#endif
 }

@@ -15,6 +15,17 @@ enum {
         DIALOG_TOK_END,
 };
 
+int textbox_state(textbox_s *tb)
+{
+        return tb->state;
+}
+
+bool32 textbox_blocking(textbox_s *tb)
+{
+        return (tb->state == TEXTBOX_STATE_WRITING ||
+                tb->state == TEXTBOX_STATE_WAITING);
+}
+
 // returns true if str contains the same characters of exp, not
 // comparing the terminating \0 of exp
 static bool32 str_matches(const char *str, const char *exp)
@@ -91,25 +102,28 @@ static void dialog_parse(const char *txt, dialog_tok_s *toks)
         tend->type         = DIALOG_TOK_END;
 }
 
-void textbox_init(textbox_s *tb)
+static void textbox_clr(textbox_s *tb)
 {
-        textbox_clr(tb);
+        tb->animationticks     = 0;
+        tb->typewriter_tick_q4 = 0;
+        tb->curr_char          = 0;
+        tb->curr_line          = 0;
+        tb->n_choices          = 0;
+        for (int n = 0; n < TEXTBOX_LINES; n++) {
+                textboxline_s *l = &tb->lines[n];
+                l->n             = 0;
+                l->n_shown       = 0;
+                os_memclr(l->trigger, sizeof(l->trigger));
+        }
 }
 
-void textbox_load_dialog(textbox_s *tb, char *text)
+static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
 {
-        textbox_clr(tb);
-#if 1
-
-        txt_read_file(text, tb->dialogmem, TEXTBOX_FILE_MEM);
-
-#else
-        os_strcpy(tb->dialogmem, text);
-#endif
-        dialog_parse(tb->dialogmem, tb->toks);
-        tb->tok    = tb->toks;
-        tb->active = 1;
-        textbox_next_page(tb);
+        textboxline_s *line = *l;
+        if (++line >= &tb->lines[TEXTBOX_LINES]) return 0;
+        line->n = 0;
+        *l      = line;
+        return 1;
 }
 
 static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
@@ -138,16 +152,7 @@ static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
         }
 }
 
-static inline bool32 textbox_new_line(textbox_s *tb, textboxline_s **l)
-{
-        textboxline_s *line = *l;
-        if (++line >= &tb->lines[TEXTBOX_LINES]) return 0;
-        line->n = 0;
-        *l      = line;
-        return 1;
-}
-
-bool32 textbox_next_page(textbox_s *tb)
+static bool32 textbox_next_page(textbox_s *tb)
 {
         tb->currspeed = TEXTBOX_TICKS_PER_CHAR_Q4;
         textbox_clr(tb);
@@ -170,6 +175,9 @@ bool32 textbox_next_page(textbox_s *tb)
                                         tb->currspeed = TEXTBOX_TICKS_PER_CHAR_Q4;
                                 }
                         } else if (str_matches(s, "trigger")) {
+                                int triggerID          = os_i32_from_str(&s[8]);
+                                line->trigger[line->n] = triggerID;
+                                // game_trigger(&g_gamestate, triggerID);
                         } else if (str_matches(s, "*")) {
                                 tb->curreffect = FNT_EFFECT_SHAKE;
                         } else if (str_matches(s, "/*")) {
@@ -212,34 +220,73 @@ bool32 textbox_next_page(textbox_s *tb)
                 }
                 tb->tok++;
         }
-        tb->closeticks = TEXTBOX_CLOSE_TICKS;
+        tb->state = TEXTBOX_STATE_CLOSING;
         return 0;
 }
 
-void textbox_clr(textbox_s *tb)
+void textbox_init(textbox_s *tb)
 {
-        tb->typewriter_tick_q4 = 0;
-        tb->shows_all          = 0;
-        tb->curr_char          = 0;
-        tb->curr_line          = 0;
-        tb->n_choices          = 0;
-        for (int n = 0; n < TEXTBOX_LINES; n++) {
-                textboxline_s *l = &tb->lines[n];
-                l->n             = 0;
-                l->n_shown       = 0;
+        textbox_clr(tb);
+}
+
+void textbox_load_dialog(textbox_s *tb, char *text)
+{
+
+        textbox_clr(tb);
+#if 1
+
+        txt_read_file(text, tb->dialogmem, TEXTBOX_FILE_MEM);
+
+#else
+        os_strcpy(tb->dialogmem, text);
+#endif
+        dialog_parse(tb->dialogmem, tb->toks);
+        tb->tok   = tb->toks;
+        tb->state = TEXTBOX_STATE_OPENING;
+        textbox_next_page(tb);
+}
+
+void textbox_input(game_s *g, textbox_s *tb)
+{
+        if (tb->state != TEXTBOX_STATE_WAITING) return;
+        if (os_inp_just_pressed(INP_A)) {
+                os_inp_set_pressedp(INP_A); // disable "just pressed A" for this frame
+                if (tb->n_choices) {
+                        textbox_select_choice(g, tb, tb->cur_choice);
+                } else {
+                        if (textbox_next_page(tb)) {
+                                tb->state = TEXTBOX_STATE_WRITING;
+                        }
+                }
+        } else if (tb->n_choices) {
+                if (os_inp_just_pressed(INP_DOWN)) {
+                        tb->cur_choice = (++tb->cur_choice + tb->n_choices) %
+                                         tb->n_choices;
+                }
+                if (os_inp_just_pressed(INP_UP)) {
+                        tb->cur_choice = (--tb->cur_choice + tb->n_choices) %
+                                         tb->n_choices;
+                }
         }
 }
 
-void textbox_update(textbox_s *tb)
+void textbox_update(game_s *g, textbox_s *tb)
 {
-        if (tb->closeticks > 0) {
-                if (--tb->closeticks == 0) {
-                        tb->active = 0;
+        switch (tb->state) {
+        case TEXTBOX_STATE_OPENING:
+                if (++tb->animationticks == TEXTBOX_ANIMATION_TICKS) {
+                        tb->state          = TEXTBOX_STATE_WRITING;
+                        tb->animationticks = 0;
                 }
                 return;
+        case TEXTBOX_STATE_CLOSING:
+                if (++tb->animationticks == TEXTBOX_ANIMATION_TICKS) {
+                        tb->state          = TEXTBOX_STATE_INACTIVE;
+                        tb->animationticks = 0;
+                }
+                return;
+        case TEXTBOX_STATE_WAITING: return;
         }
-
-        if (tb->shows_all) return;
 
         tb->typewriter_tick_q4 -= 16;
         textboxline_s *line        = &tb->lines[tb->curr_line];
@@ -251,17 +298,21 @@ void textbox_update(textbox_s *tb)
                         line          = &tb->lines[++tb->curr_line];
                         tb->curr_char = 0;
                         if (line >= &tb->lines[TEXTBOX_LINES]) {
-                                tb->shows_all            = 1;
+                                tb->state                = TEXTBOX_STATE_WAITING;
                                 tb->page_animation_state = 0;
                                 break;
                         }
                 }
 
-                int i = line->chars[tb->curr_char++].glyphID;
+                int i = line->chars[tb->curr_char].glyphID;
+                if (line->trigger[tb->curr_char] != 0) {
+                        game_trigger(g, line->trigger[tb->curr_char++]);
+                }
+                tb->curr_char++;
                 line->n_shown++;
+                if (playedsound) continue;
 
-                if (!playedsound && (('A' <= i && i <= 'Z') ||
-                                     ('a' <= i && i <= 'z'))) {
+                if (('A' <= i && i <= 'Z') || ('a' <= i && i <= 'z')) {
                         playedsound = 1;
                         snd_play_ext(snd_get(SNDID_TYPEWRITE),
                                      0.25f,
@@ -272,8 +323,8 @@ void textbox_update(textbox_s *tb)
 
 void textbox_select_choice(game_s *g, textbox_s *tb, int choiceID)
 {
-        ASSERT(tb->shows_all && tb->n_choices > 0);
-        tb->active           = 0;
+        ASSERT(tb->state == TEXTBOX_STATE_WAITING && tb->n_choices > 0);
+        tb->state            = TEXTBOX_STATE_CLOSING;
         textboxchoice_s *tc  = &tb->choices[choiceID];
         const char      *txt = tc->txtptr;
         if (0) {
@@ -283,6 +334,7 @@ void textbox_select_choice(game_s *g, textbox_s *tb, int choiceID)
                         filename[k] = txt[i];
                 }
                 textbox_load_dialog(tb, filename);
+                tb->state = TEXTBOX_STATE_WRITING;
         } else if (str_matches(txt, "trigger")) {
                 int triggerID = os_i32_from_str(&txt[8]);
                 game_trigger(g, triggerID);

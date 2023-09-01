@@ -6,6 +6,7 @@
 #include "os/backend.h"
 #include "os/os_internal.h"
 
+#define SHOW_FPS_UPS      1
 #define DIAGRAM_ENABLED   0
 #define DIAGRAM_MAX_Y     17
 #define DIAGRAM_SPACING_Y 20
@@ -41,10 +42,10 @@ static void draw_frame_diagrams()
                 int i = u + y;
                 g_os.framebuffer[i] |= s;
         }
-        fnt_s font = fnt_get(FNTID_DEBUG);
+
         for (int n = 0; n < NUM_TIMING; n++) {
                 int pos = n * DIAGRAM_SPACING_Y + 7;
-                gfx_text_ascii(&font, g_os.timings.labels[n],
+                gfx_text_ascii(&g_os.fnt_tab[FNTID_DEBUG], g_os.timings.labels[n],
                                DIAGRAM_W + 2, pos);
         }
 }
@@ -69,45 +70,27 @@ static void frame_diagram()
         os_strcat(g_os.timings.labels[TIMING_HERO_HOOK], "h_hook");
 }
 
-static float timeacc;
-
-int tick_game()
-{
-        // delta since last time tick_game was called
-        float time = os_time();
-        timeacc += time - g_os.lasttime;
-        if (timeacc > OS_DELTA_CAP)
-                timeacc = OS_DELTA_CAP;
-        g_os.lasttime = time;
-
-        // OS_FPS_DELTA = 1 / 50 (50 updated per second
-        bool32 updated = false;
-        while (timeacc >= OS_FPS_DELTA) {
-                timeacc -= OS_FPS_DELTA;
-                game_update(&g_gamestate);
-                updated = true;
-        }
-
-        // if game updated render a new frame
-        if (updated) {
-                game_draw(&g_gamestate);
-                return 1; // update the display
-        }
-        return 0; // not rendered, don't update display
-}
-
 int os_do_tick()
 {
         static float timeacc;
+        static float timeacc_fps;
+        static int   fps_counter; // frames per second
+        static int   ups_counter; // updates per second
+        static int   timingcounter;
 
-        float time = os_time();
-        timeacc += time - g_os.lasttime;
+        float time   = os_time();
+        float timedt = time - g_os.lasttime;
+        timeacc_fps += timedt;
+        timeacc += timedt;
         if (timeacc > OS_DELTA_CAP) timeacc = OS_DELTA_CAP;
-        g_os.lasttime            = time;
-        float      timeacc_tmp   = timeacc;
-        static int timingcounter = 0;
+        g_os.lasttime = time;
+
+        bool32 renderframe = 0;
         while (timeacc >= OS_FPS_DELTA) {
+                timeacc -= OS_FPS_DELTA;
+                renderframe = 1;
                 timingcounter++;
+                ups_counter++;
                 if (timingcounter == TIMING_RATE) {
                         timingcounter  = 0;
                         g_os.timings.n = (g_os.timings.n + 1) & (TIMING_FRAMES - 1);
@@ -117,41 +100,56 @@ int os_do_tick()
                 }
 
                 TIMING_BEGIN(TIMING_UPDATE);
-                timeacc -= OS_FPS_DELTA;
                 os_spmem_clr();
                 os_backend_inp_update();
                 game_update(&g_gamestate);
                 g_gamestate.tick++;
                 g_os.tick++;
-                if (g_os.n_spmem > 0) {
-                        // PRINTF("WARNING: spmem is not reset\n_spmem");
-                }
                 TIMING_END();
+                if (g_os.n_spmem > 0) {
+                        PRINTF("WARNING: spmem is not reset\n_spmem");
+                }
         }
 
-        if (timeacc != timeacc_tmp) {
-#if DIAGRAM_ENABLED
+        if (renderframe) {
+                fps_counter++;
                 TIMING_BEGIN(TIMING_DRAW);
-#endif
                 os_spmem_clr();
-                g_os.dst = g_os.tex_tab[0];
+                gfx_draw_to_ID(0);
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
+                TIMING_END();
+#if SHOW_FPS_UPS
+                char fpstext[16] = {0};
+                os_strcat_i32(fpstext, g_os.ups);
+                os_strcat(fpstext, "|");
+                os_strcat_i32(fpstext, g_os.fps);
+                gfx_rec_fill((rec_i32){0, 0, 48, 12}, 0);
+                gfx_text_ascii(&g_os.fnt_tab[FNTID_DEBUG], fpstext, 2, 2);
+#endif
 
 #if DIAGRAM_ENABLED
-                TIMING_END();
                 draw_frame_diagrams();
 #endif
                 os_backend_graphics_end();
                 os_backend_graphics_flip();
-                return 1; // update the display
         }
+
+        if (timeacc_fps >= 1.f) {
+                timeacc_fps -= 1.f;
+                g_os.fps    = fps_counter;
+                g_os.ups    = ups_counter;
+                ups_counter = 0;
+                fps_counter = 0;
+        }
+
         os_backend_graphics_flip();
-        return 0; // not rendered, don't update display
+        return renderframe; // not rendered, don't update display
 }
 
 void os_prepare()
 {
+
         memarena_init(&g_os.spmem, g_os.spmem_raw, OS_SPMEM_SIZE);
         memarena_init(&g_os.assetmem, g_os.assetmem_raw, OS_ASSETMEM_SIZE);
         os_backend_graphics_init();
@@ -168,11 +166,18 @@ void os_prepare()
         PRINTF("= %lli kb\n", sgame + sos);
         frame_diagram();
         g_os.lasttime = os_time();
+        g_os.fps      = OS_FPS;
+        g_os.ups      = OS_FPS;
 }
 
 i32 os_tick()
 {
         return g_os.tick;
+}
+
+bool32 os_low_fps()
+{
+        return (g_os.fps <= OS_FPS_LOW);
 }
 
 typedef struct {

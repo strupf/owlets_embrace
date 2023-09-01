@@ -75,6 +75,12 @@ enum gfx_sprite_mode {
         GFX_SPRITE_INV,
 };
 
+enum gfx_sprite_flip {
+        GFX_SPRITE_Y  = 1,
+        GFX_SPRITE_X  = 2,
+        GFX_SPRITE_XY = GFX_SPRITE_Y | GFX_SPRITE_X,
+};
+
 enum gfx_prim_mode {
         GFX_PRIM_SET,
         GFX_PRIM_INV,
@@ -115,18 +121,44 @@ typedef struct {
         rec_i32 r;
 } texregion_s;
 
+enum {
+        GFX_COL_BLACK = 0,
+        GFX_COL_WHITE = 1,
+        GFX_COL_CLEAR = 2,
+        GFX_COL_NXOR  = 3,
+};
+
 typedef struct {
         u32 p[8];
 } gfx_pattern_s;
 
 enum {
-        GFX_PATTERN_NONE = 0,
-        GFX_PATTERN_FULL = 16,
+        GFX_PATTERN_0,
+        GFX_PATTERN_6,
+        GFX_PATTERN_13,
+        GFX_PATTERN_19,
+        GFX_PATTERN_25,
+        GFX_PATTERN_31,
+        GFX_PATTERN_38,
+        GFX_PATTERN_44,
+        GFX_PATTERN_50,
+        GFX_PATTERN_56,
+        GFX_PATTERN_63,
+        GFX_PATTERN_69,
+        GFX_PATTERN_75,
+        GFX_PATTERN_81,
+        GFX_PATTERN_88,
+        GFX_PATTERN_94,
+        GFX_PATTERN_100,
         //
-        NUM_GFX_PATTERN
+        NUM_GFX_PATTERN,
+        GFX_PATTERN_NONE = GFX_PATTERN_0,
+        GFX_PATTERN_FULL = GFX_PATTERN_100,
 };
 
 extern const gfx_pattern_s g_gfx_patterns[NUM_GFX_PATTERN];
+
+#define gfx_pattern_get(ID) g_gfx_patterns[ID]
 
 gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
                                   int p4, int p5, int p6, int p7);
@@ -182,14 +214,14 @@ tex_s     tex_get(int ID);
 tex_s     tex_create(int w, int h, bool32 mask);
 tex_s     tex_load(const char *filename);
 //
+void      gfx_tex_clr(tex_s t);
 void      gfx_set_pattern(gfx_pattern_s pat);
 void      gfx_reset_pattern();
 void      gfx_set_inverted(bool32 inv);
 void      gfx_px(int x, int y, int col);
-void      gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat);
+void      gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int flags, int mode);
 void      gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
 void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
-void      gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags);
 void      gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4]);
 void      gfx_tr_sprite_fast(texregion_s src, v2_i32 pos);
 void      gfx_tr_sprite_mode(texregion_s src, v2_i32 pos, int mode);
@@ -215,6 +247,8 @@ void      snd_play_ext(snd_s s, float vol, float pitch);
 void      snd_play(snd_s s);
 //
 i32       os_tick();
+bool32    os_low_fps();               // if game is running slow
+void      os_inp_set_pressedp(int b); // deactivate just pressed for the current frame
 int       os_inp_dpad_direction();
 int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
 int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
@@ -222,9 +256,9 @@ bool32    os_inp_pressed(int b);
 bool32    os_inp_pressedp(int b);
 bool32    os_inp_just_released(int b);
 bool32    os_inp_just_pressed(int b);
-int       os_inp_crank_change();
-int       os_inp_crank();
-int       os_inp_crankp();
+int       os_inp_crank_change(); // crank angle [0, 65535]
+int       os_inp_crank();        // crank angle [0, 65535]
+int       os_inp_crankp();       // crank angle [0, 65535]
 bool32    os_inp_crank_dockedp();
 bool32    os_inp_crank_docked();
 //
@@ -256,7 +290,21 @@ static inline void os_memset(void *dst, int val, size_t l)
 {
         int   len = (int)l;
         char *d   = (char *)dst;
-        for (int n = 0; n < len; n++) *d++ = (char)val;
+        for (int n = 0; n < len; n++) *d++ = val;
+}
+
+// MEMORY REPLACEMENTS =========================================================
+static inline void os_memset4(void *dst, int val, size_t l)
+{
+        ASSERT(((uintptr_t)dst & 3) == 0);
+        ASSERT((l & 3) == 0);
+        ASSERT(sizeof(int) == 4);
+
+        char c[4] = {val, val, val, val};
+        int  v    = *(int *)c;
+        int *d    = (int *)dst;
+        int  len  = (int)l;
+        for (int n = 0; n < len; n += 4) *d++ = v;
 }
 
 static inline void *os_memcpy(void *dst, const void *src, size_t l)
@@ -286,7 +334,7 @@ static inline void os_memclr(void *dst, size_t l)
 {
         int   len = (int)l;
         char *d   = (char *)dst;
-        for (int n = 0; n < len; n++) d[n] = 0;
+        for (int n = 0; n < len; n++) *d++ = 0;
 }
 
 static inline void os_memclr4(void *dst, size_t l)

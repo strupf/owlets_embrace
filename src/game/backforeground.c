@@ -48,7 +48,6 @@ static void backforeground_clouds(game_s *g, backforeground_s *bg)
 
 static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
 {
-
         // traverse backwards to avoid weird removal while iterating
         for (int n = bg->nparticles - 1; n >= 0; n--) {
                 particlebg_s *p = &bg->particles[n];
@@ -63,8 +62,10 @@ static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
 
                 if (p->circticks > 0) { // run through circle but keep slowly moving forward
                         i32 a  = (Q16_ANGLE_TURN * (p->ticks - p->circticks)) / p->ticks;
-                        p->p.x = p->circc.x + ((sin_q16(a) * BACKGROUND_WIND_CIRCLE_R) >> 16);
-                        p->p.y = p->circc.y + ((cos_q16(a) * BACKGROUND_WIND_CIRCLE_R) >> 16);
+                        int xx = sin_q16_fast(a) * BACKGROUND_WIND_CIRCLE_R;
+                        int yy = cos_q16_fast(a) * BACKGROUND_WIND_CIRCLE_R;
+                        p->p.x = p->circc.x + (xx >> 16);
+                        p->p.y = p->circc.y + (yy >> 16);
                         p->circc.x += 200;
                         p->circticks--;
                 } else {

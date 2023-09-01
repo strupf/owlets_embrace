@@ -8,7 +8,9 @@
 #include "gamedef.h"
 
 enum {
-        TRANSITION_TICKS = 15,
+        TRANSITION_TICKS       = 15,
+        TRANSITION_BLACK_TICKS = 3,
+        TRANSITION_FADE_TICKS  = TRANSITION_TICKS - TRANSITION_BLACK_TICKS,
 };
 
 enum transition_type {

@@ -8,16 +8,22 @@
 #include "gamedef.h"
 
 enum {
+        TEXTBOX_STATE_INACTIVE,
+        TEXTBOX_STATE_OPENING,
+        TEXTBOX_STATE_WRITING,
+        TEXTBOX_STATE_WAITING,
+        TEXTBOX_STATE_CLOSING,
+};
+
+enum {
         TEXTBOX_LINES                 = 4,
         TEXTBOX_CHARS_PER_LINE        = 64,
         TEXTBOX_NUM_CHOICES           = 4,
-        TEXTBOX_TICKS_PER_CHAR_Q4     = 24,
-        TEXTBOX_TICK_PUNCTUATION_MARK = 3, // factor!
+        TEXTBOX_TICKS_PER_CHAR_Q4     = 20,
+        TEXTBOX_TICK_PUNCTUATION_MARK = 2, // factor!
         TEXTBOX_FILE_MEM              = 0x10000,
         TEXTBOX_NUM_TOKS              = 256,
-        TEXTBOX_CLOSE_TICKS           = 10,
-        TEXTBOX_CLOSE_MAXFRAME        = 3,
-        TEXBOX_CLOSE_DIV              = TEXTBOX_CLOSE_TICKS / TEXTBOX_CLOSE_MAXFRAME,
+        TEXTBOX_ANIMATION_TICKS       = 6,
 };
 
 typedef struct {
@@ -32,6 +38,7 @@ typedef struct {
 
         fntchar_s chars[TEXTBOX_CHARS_PER_LINE];
         int       speed[TEXTBOX_CHARS_PER_LINE];
+        int       trigger[TEXTBOX_CHARS_PER_LINE];
 } textboxline_s;
 
 typedef struct {
@@ -43,7 +50,7 @@ typedef struct {
 } textboxchoice_s;
 
 struct textbox_s {
-        i32             closeticks;
+        int             animationticks;
         int             page_animation_state;
         int             typewriter_tick_q4;
         int             curreffect;
@@ -53,7 +60,7 @@ struct textbox_s {
         int             n_chars;
         int             n_chars_shown;
         bool32          shows_all;
-        bool32          active;
+        int             state;
         textboxline_s   lines[TEXTBOX_LINES];
         textboxchoice_s choices[TEXTBOX_NUM_CHOICES];
         int             n_choices;
@@ -63,11 +70,12 @@ struct textbox_s {
         char            dialogmem[TEXTBOX_FILE_MEM];
 };
 
-void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
+int    textbox_state(textbox_s *tb);
 void   textbox_init(textbox_s *tb);
-void   textbox_clr(textbox_s *tb);
-void   textbox_update(textbox_s *tb);
+void   textbox_update(game_s *g, textbox_s *tb);
+bool32 textbox_blocking(textbox_s *tb);
+void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
 void   textbox_load_dialog(textbox_s *tb, char *text);
-bool32 textbox_next_page(textbox_s *tb);
+void   textbox_input(game_s *g, textbox_s *tb);
 
 #endif

@@ -69,7 +69,7 @@ static void cam_player_input(game_s *g, cam_s *c)
         c->target.y -= c->h >> 3; // offset camera slightly upwards
         c->target.x += CLAMP(g->hero.facingticks, -25, +25);
 
-        if (g->textbox.active) {
+        if (textbox_blocking(&g->textbox)) {
                 c->target.y += CAM_TEXTBOX_Y_OFFSET;
         } else if (os_inp_dpad_y() == 1 && os_inp_dpad_x() == 0 &&
                    game_area_blocked(g, obj_rec_bottom(player)) &&

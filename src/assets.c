@@ -6,6 +6,35 @@
 #include "game/game.h"
 #include "os/os.h"
 
+static void load_tileanimations(const char *filename);
+static void load_tileatlas(int texID);
+
+void assets_load()
+{
+        load_tileanimations("assets/tileanimations.json");
+        load_tileatlas(TEXID_TILESET);
+        tex_put_load(TEXID_FONT_DEFAULT, "assets/font_mono_.json");
+        tex_put_load(TEXID_FONT_DEBUG, "assets/font_debug.json");
+        tex_put_load(TEXID_TEXTBOX, "assets/textbox.json");
+        tex_put_load(TEXID_ITEMS, "assets/items.json");
+        tex_put_load(TEXID_PARTICLE, "assets/particle.json");
+        tex_put_load(TEXID_SOLID, "assets/misctex.json");
+        tex_put_load(TEXID_HERO, "assets/player.json");
+        tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
+        tex_put_load(TEXID_HOOK, "assets/hook.json");
+        tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
+
+        fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
+        fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");
+
+        snd_put_load(SNDID_DEFAULT, "assets/snd/sample.wav");
+        snd_put_load(SNDID_JUMP, "assets/snd/jump.wav");
+        snd_put_load(SNDID_TYPEWRITE, "assets/snd/speak.wav");
+        snd_put_load(SNDID_HERO_LAND, "assets/snd/land.wav");
+        snd_put_load(SNDID_STEP, "assets/snd/step.wav");
+        snd_put_load(SNDID_HOOK, "assets/snd/hook.wav");
+}
+
 static void load_tileanimations(const char *filename)
 {
         os_spmem_push();
@@ -78,30 +107,4 @@ static void load_tileatlas(int texID)
                 y_global += h;
                 os_spmem_pop();
         }
-}
-
-void assets_load()
-{
-        load_tileanimations("assets/tileanimations.json");
-        load_tileatlas(TEXID_TILESET);
-        tex_put_load(TEXID_FONT_DEFAULT, "assets/font_mono_.json");
-        tex_put_load(TEXID_FONT_DEBUG, "assets/font_debug.json");
-        tex_put_load(TEXID_TEXTBOX, "assets/textbox.json");
-        tex_put_load(TEXID_ITEMS, "assets/items.json");
-        tex_put_load(TEXID_PARTICLE, "assets/particle.json");
-        tex_put_load(TEXID_SOLID, "assets/solid.json");
-        tex_put_load(TEXID_HERO, "assets/player.json");
-        tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
-        tex_put_load(TEXID_HOOK, "assets/hook.json");
-        tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
-
-        fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
-        fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");
-
-        snd_put_load(SNDID_DEFAULT, "assets/snd/sample.wav");
-        snd_put_load(SNDID_JUMP, "assets/snd/jump.wav");
-        snd_put_load(SNDID_TYPEWRITE, "assets/snd/speak.wav");
-        snd_put_load(SNDID_HERO_LAND, "assets/snd/land.wav");
-        snd_put_load(SNDID_STEP, "assets/snd/step.wav");
-        snd_put_load(SNDID_HOOK, "assets/snd/hook.wav");
 }

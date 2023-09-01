@@ -34,7 +34,7 @@ void door_trigger(game_s *g, obj_s *o, int triggerID)
                 o->think_1    = door_think;
                 o->door.moved = 60;
                 snd_play(snd_get(SNDID_HERO_LAND));
-                textbox_load_dialog(&g->textbox, "assets/dialog_2.txt");
+                // textbox_load_dialog(&g->textbox, "assets/dialog_2.txt");
         }
 }
 

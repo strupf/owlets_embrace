@@ -365,6 +365,20 @@ static inline u32 div_u32_do(u32 n, div_u32_s d)
         return (u32)r;
 }
 
+static int sqrt_u16(int x)
+{
+        ASSERT(0 <= x && x < 65536);
+
+        int r = x, q = 0, b = 0x4000;
+        for (int k = 0; k < 8; k++) {
+                int t = q + b;
+                q >>= 1;
+                if (r >= t) { r -= t, q += b; }
+                b >>= 2;
+        }
+        return q;
+}
+
 static i32 sqrt_u32(u32 x)
 {
         u32 r = x, q = 0, b = 0x40000000U;
@@ -451,29 +465,15 @@ static inline bool32 between_incl_i32(i32 x, i32 a, i32 b)
 
 // p: angle, where 2 PI = 262144 = 0x40000
 // output: [-65536, 65536] = [-1; +1]
-static inline i32 cos_q16(i32 p)
+static i32 cos_q16(i32 p)
 {
-        u32 i   = (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
-        int neg = 0;
-#if 1
+        u32 i   = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+        int neg = (0x10000 <= i && i < 0x30000);
         switch (i >> 16) {
-        case 0: break;
-        case 1: i = 0x20000 - i, neg = 1; break;
-        case 2: i = i - 0x20000, neg = 1; break;
-        case 3: i = 0x40000 - i; break;
+        case 1: i = 0x20000 - i; break; // [65536, 131071]
+        case 2: i = i - 0x20000; break; // [131072, 196607]
+        case 3: i = 0x40000 - i; break; // [196608, 262143]
         }
-#else
-        if (i >= 0x30000) {
-                i = 0x40000 - i;
-        } else if (i >= 0x20000) {
-                i   = i - 0x20000;
-                neg = 1;
-        } else if (i >= 0x10000) {
-                i   = 0x20000 - i;
-                neg = 1;
-        }
-#endif
-
         if (i == 0x10000) return 0;
         i = (i * i + 0x8000) >> 16;
         u32 r;
@@ -483,7 +483,6 @@ static inline i32 cos_q16(i32 p)
         r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
         r = 0x13BD4 - ((i * r) >> 16); // (PI/2)^4 / 24
         r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
-
         return neg ? -(i32)r : (i32)r;
 }
 
@@ -492,6 +491,34 @@ static inline i32 cos_q16(i32 p)
 static inline i32 sin_q16(i32 p)
 {
         return cos_q16(p - 0x10000);
+}
+
+// p: angle, where 2 PI = 262144 = 0x40000
+// output: [-65536, 65536] = [-1; +1]
+static i32 cos_q16_fast(i32 p)
+{
+        u32 i   = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+        int neg = (0x10000 <= i && i < 0x30000);
+        switch (i >> 16) {
+        case 1: i = 0x20000 - i; break; // [65536, 131071]
+        case 2: i = i - 0x20000; break; // [131072, 196607]
+        case 3: i = 0x40000 - i; break; // [196608, 262143]
+        }
+        if (i == 0x10000) return 0;
+        i = (i * i) >> 16;
+        u32 r;
+        r = 0x0051F;                   // Constants multiplied by scaling:
+        r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
+        r = 0x13BD3 - ((i * r) >> 16); // (PI/2)^4 / 24
+        r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
+        return neg ? -(i32)r : (i32)r;
+}
+
+// p: angle, where 262144 = 0x40000 = 2 PI
+// output: [-65536, 65536] = [-1; +1]
+static inline i32 sin_q16_fast(i32 p)
+{
+        return cos_q16_fast(p - 0x10000);
 }
 
 // input: [0,65536] = [0,1]
@@ -531,18 +558,19 @@ static i32 atan_q16(i32 x)
 // OUTPUT: [-0x10000, 0x10000] = [-PI/2;PI/2]
 static i32 asin_q16(i32 x)
 {
+        ASSERT(-0x10000 <= x && x <= 0x10000);
         if (x == 0) return 0;
-        u32 i = (u32)(x >= 0 ? x : -x);
-        if (i == 0x10000) return (x >= 0 ? +0x10000 : -0x10000);
-
+        if (x == +0x10000) return +0x10000;
+        if (x == -0x10000) return -0x10000;
+        u32 i = (u32)(x > 0 ? x : -x);
         u32 r;
         r = 0x030D;
         r = 0x0C1A - ((r * i) >> 16);
         r = 0x2292 - ((r * i) >> 16);
         r = 0xFFFC - ((r * i) >> 16);
         r = sqrt_u32(((0x10000 - i) << 16) + 0x800) * r;
-        r = ((0xFFFF8000u - r)) >> 16;
-        return (x >= 0 ? +(i32)r : -(i32)r);
+        r = ((0xFFFF8000U - r)) >> 16;
+        return (x > 0 ? +(i32)r : -(i32)r);
 }
 
 // INPUT:  [-0x10000,0x10000] = [-1;1]

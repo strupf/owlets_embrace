@@ -28,11 +28,8 @@ void sprite_anim_update(sprite_anim_s *a)
                 }
         } break;
         case SPRITE_ANIM_MODE_RNG: {
-                int oldframe = a->frame;
-                for (int trys = 0; trys < 4; trys++) {
-                        a->frame = rng_fast_u16() % a->nframes;
-                        if (a->frame != oldframe) break;
-                }
+                int f    = rng_fast_u16() % a->nframes;
+                a->frame = f == a->frame ? rng_fast_u16() % a->nframes : f;
         } break;
         }
 }

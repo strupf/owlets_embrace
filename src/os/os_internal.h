@@ -8,11 +8,16 @@
 #include "os.h"
 #include "os_audio.h"
 
-#define TIMING_RATE      16
-#define TIMING_FRAMES    64
-#define OS_DESKTOP_SCALE 4
-#define OS_FPS_DELTA     0.02f // 50 FPS
-#define OS_DELTA_CAP     0.05f
+enum {
+        TIMING_RATE      = 64,
+        TIMING_FRAMES    = 64,
+        OS_DESKTOP_SCALE = 2,
+        OS_FPS           = 50,
+        OS_FPS_LOW       = OS_FPS / 2,
+};
+
+#define OS_FPS_DELTA (1.f / (float)OS_FPS)
+#define OS_DELTA_CAP (4.f / (float)OS_FPS)
 
 /* RAM needed for 60s of raw music without streaming the file:
  * 44100 Hz x 60s x 2 byte = 5.3 MB
@@ -57,6 +62,8 @@ typedef struct {
         i32    crank_q16;
         i32    crankp_q16;
         float  lasttime;
+        int    fps;
+        int    ups;
 
         tex_s         dst;
         gfx_pattern_s dstpat;

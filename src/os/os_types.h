@@ -19,7 +19,6 @@
 // RAYLIB ======================================================================
 #include "include/raylib.h"
 #include <assert.h>
-#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>

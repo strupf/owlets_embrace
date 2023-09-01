@@ -171,6 +171,7 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o->w          = jsn_intk(jobj, "width");
                 o->h          = jsn_intk(jobj, "height");
                 o->oninteract = obj_interact_dialog;
+                o->ID         = 6;
         }
 
         if (!o) return;

@@ -37,13 +37,13 @@ void watersurface_update(watersurface_s *ws)
 
 void water_impact(watersurface_s *ws, int x, int r, int peak)
 {
-        const float L = 3.14159f / (float)r;
         for (int i = -r; i <= r; i++) {
                 int c = x + i;
                 if (0 > c || c >= ws->nparticles) continue;
-                float v = (cosf((float)i * L) * peak + peak) * 0.5f;
+                int a = (i * Q16_ANGLE_TURN) / (r << 1);
+                int v = (((cos_q16_fast(a) * peak) >> 16) + peak) >> 1;
 
-                ws->particles[c].y_q12 = (int)v;
+                ws->particles[c].y_q12 = v;
         }
 }
 

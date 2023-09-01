@@ -24,7 +24,7 @@ void os_backend_graphics_init()
         g_os.tex = LoadTextureFromImage(img);
         SetTextureFilter(g_os.tex, TEXTURE_FILTER_POINT);
         UnloadImage(img);
-        SetTargetFPS(60);
+        SetTargetFPS(120);
 }
 
 void os_backend_graphics_close()
@@ -35,7 +35,7 @@ void os_backend_graphics_close()
 
 void os_backend_graphics_begin()
 {
-        os_memclr4(g_os.framebuffer, sizeof(g_os.framebuffer));
+        os_memclr(g_os.framebuffer, sizeof(g_os.framebuffer));
         gfx_reset_pattern();
 }
 

@@ -146,6 +146,11 @@ int os_inp_dpad_y()
         return 0;
 }
 
+void os_inp_set_pressedp(int b)
+{
+        g_os.buttonsp |= b;
+}
+
 bool32 os_inp_pressed(int b)
 {
         return (g_os.buttons & b);

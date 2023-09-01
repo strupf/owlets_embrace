@@ -175,6 +175,12 @@ void fntstr_apply_effect(fntstr_s *f, int from, int to,
         }
 }
 
+void gfx_tex_clr(tex_s t)
+{
+        size_t s = sizeof(u8) * t.w_byte * t.h * (t.mk ? 2 : 1);
+        os_memclr4(t.px, s);
+}
+
 static inline int i_gfx_peek_px(tex_s t, int x, int y)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return 0;
@@ -236,7 +242,19 @@ static inline void i_gfx_fill_span(int y, int xa, int xb, int col)
                 int vv = (b == b2 ? x2 & 31 : 31);
                 u32 sm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
                 u32 t0 = endian_u32(sm) & pt;
-                dp[b]  = (dp[b] & ~t0) | (sp & t0);
+                u32 d0 = dp[b];
+                switch (col) {
+                case GFX_COL_BLACK:
+                        break;
+                case GFX_COL_WHITE:
+                        break;
+                case GFX_COL_CLEAR:
+                        break;
+                case GFX_COL_NXOR:
+                        sp = ~d0;
+                        break;
+                }
+                dp[b] = (d0 & ~t0) | (sp & t0);
                 if (!dm) continue;
                 dm[b] |= t0;
         }
@@ -276,54 +294,6 @@ void gfx_draw_to_ID(int ID)
         gfx_draw_to(tex_get(ID));
 }
 
-#if 1 // archived
-
-/* this is a naive image drawing routine
- * can flip an image x, y and diagonal (rotate 90 degree)
- * could be hugely improved by figuring out a way to put multiple
- * pixels at once
- */
-void gfx_sprite_flip(tex_s src, v2_i32 pos, rec_i32 rs, int flags)
-{
-        int xx, yy, xy, yx;
-        int ff = flags & 7;
-        int xa = rs.x;
-        int ya = rs.y;
-        switch (ff) {
-        case 0: xx = +1, yy = +1, xy = yx = 0; break;
-        case 1: xx = +1, yy = -1, xy = yx = 0, ya += rs.h - 1; break;                 /* flipy */
-        case 2: xx = -1, yy = +1, xy = yx = 0, xa += rs.w - 1; break;                 /* flipx */
-        case 3: xx = -1, yy = -1, xy = yx = 0, xa += rs.w - 1, ya += rs.h - 1; break; /* flip xy / rotate 180 */
-        case 4: xy = +1, yx = +1, xx = yy = 0; break;                                 /* rotate 90 cw, then flip x */
-        case 5: xy = -1, yx = +1, xx = yy = 0, xa += rs.w - 1; break;                 /* rotate 90 ccw */
-        case 6: xy = +1, yx = -1, xx = yy = 0, ya += rs.h - 1; break;                 /* rotate 90 cw */
-        case 7: xy = -1, yx = -1, xx = yy = 0, xa += rs.w - 1, ya += rs.h - 1; break; /* rotate 90 cw, then flip y */
-        }
-
-        tex_s dst = g_os.dst;
-        int   zx  = dst.w - pos.x;
-        int   zy  = dst.h - pos.y;
-        int   dx  = ff >= 4 ? rs.h : rs.w;
-        int   dy  = ff >= 4 ? rs.w : rs.h;
-        int   x2  = dx <= zx ? dx : zx;
-        int   y2  = dy <= zy ? dy : zy;
-        int   x1  = 0 >= -pos.x ? 0 : -pos.x;
-        int   y1  = 0 >= -pos.y ? 0 : -pos.y;
-
-        for (int y = y1; y < y2; y++) {
-                for (int x = x1; x < x2; x++) {
-                        int xp = x + pos.x;
-                        int yp = y + pos.y;
-                        int xs = x * xx + y * xy + xa;
-                        int ys = x * yx + y * yy + ya;
-                        int px, op;
-                        i_gfx_peek(src, xs, ys, &px, &op);
-                        if (op) i_gfx_put_px(dst, xp, yp, px, 0);
-                }
-        }
-}
-#endif
-
 static inline u32 i_gfx_pattern_u32_from_u8(int b)
 {
         return (((u32)b << 24) | ((u32)b << 16) | ((u32)b << 8) | (u32)b);
@@ -343,98 +313,101 @@ gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
-void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int mode, gfx_pattern_s pat)
+void gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int flags, int mode)
 {
         tex_s dst = g_os.dst;
-        int   zx  = dst.w - pos.x;
-        int   zy  = dst.h - pos.y;
-        int   x1  = rs.x + MAX(0, -pos.x);
-        int   y1  = rs.y + MAX(0, -pos.y);
-        int   x2  = rs.x + MIN(rs.w, zx) - 1;
-        int   y2  = rs.y + MIN(rs.h, zy) - 1;
-        int   cc  = pos.x - rs.x;
-        int   s1  = 31 & (32 - (cc & 31)); // relative word alignment
-        int   s0  = 32 - s1;
-        int   b1  = x1 >> 5;
-        int   b2  = x2 >> 5;
-        u32  *dp  = (u32 *)dst.px;
-        u32  *dm  = (u32 *)dst.mk;
+        int   xx  = (flags & GFX_SPRITE_X ? -1 : +1); // XY flipping factors
+        int   yy  = (flags & GFX_SPRITE_Y ? -1 : +1);
+        int   xa  = rs.x + (flags & GFX_SPRITE_X ? pos.x + rs.w - 1 : -pos.x);
+        int   ya  = rs.y + (flags & GFX_SPRITE_Y ? pos.y + rs.h - 1 : -pos.y);
+        int   x1  = MAX(pos.x, 0); // pixel bounds on canvas
+        int   y1  = MAX(pos.y, 0);
+        int   x2  = MIN(pos.x + rs.w, dst.w) - 1;
+        int   y2  = MIN(pos.y + rs.h, dst.h) - 1;
+        int   b1  = (x1 >> 5);                         // first dst byte in x
+        int   b2  = (x2 >> 5);                         // last dst byte in x
+        int   s0  = (32 - ((pos.x - rs.x) & 31)) & 31; // alignment shift
+        int   s1  = (32 - s0) & 31;
 
+        // calc pixel coord in source image from canvas pixel coord
+        // src_x = dst_x * xx + xa   | xx and yy are either +1 or -1
+        // dst_x = (src_x - xa) * xx | xx and yy are either +1 or -1
         for (int y = y1; y <= y2; y++) {
-                int yr = y + pos.y - rs.y;
-                u32 pt = pat.p[yr & 7];
-                if (pt == 0) continue;
-                int  yd = yr * dst.w_word;
-                int  ii = b1 + y * src.w_word;
-                u32 *zm = src.mk ? &((u32 *)src.mk)[ii] : NULL;
-                u32 *zp = &((u32 *)src.px)[ii];
+                int  ys = (y * yy + ya) * src.w_word; // source y coord cache
+                int  jj = b1 + y * dst.w_word;
+                u32  pt = g_os.dstpat.p[y & 7]; // pattern mask
+                u32 *dp = &((u32 *)dst.px)[jj];
+                u32 *dm = dst.mk ? &((u32 *)dst.mk)[jj] : NULL;
                 for (int b = b1; b <= b2; b++) {
-                        int uu = (b == b1 ? x1 & 31 : 0);
-                        int vv = (b == b2 ? x2 & 31 : 31);
-                        u32 mm = (0xFFFFFFFFu >> uu) & ~(0x7FFFFFFFu >> vv);
-                        u32 sm = src.mk ? endian_u32(*zm++) & mm : mm;
-                        u32 sp = endian_u32(*zp++);
-                        u32 t0 = endian_u32(sm >> s0) & pt;
-                        u32 t1 = endian_u32(sm << s1) & pt;
-                        u32 p0 = endian_u32(sp >> s0);
-                        u32 p1 = endian_u32(sp << s1);
+                        int xs0 = ((b << 5)) * xx + xa;
+                        int xs1 = ((b << 5) + 31) * xx + xa;
+                        u32 t   = 0; // rendered pixels mask
+                        u32 p   = 0; // black and white bits
+                        if (!(flags & GFX_SPRITE_X)) {
+                                int i0 = (xs0 >> 5) + ys;
+                                int i1 = (xs1 >> 5) + ys;
+                                p |= endian_u32(((u32 *)src.px)[i0]) << s0;
+                                p |= endian_u32(((u32 *)src.px)[i1]) >> s1;
+                                t |= endian_u32(((u32 *)src.mk)[i0]) << s0;
+                                t |= endian_u32(((u32 *)src.mk)[i1]) >> s1;
+                        } else { // flipped X
+                                // xs0 and xs1 are logically swapped
+                                xs1 = MAX(xs1, 0);
+                                xs0 = MIN(xs0, src.w - 1);
 
-                        int j0 = (((b << 5) + cc + uu) >> 5) + yd; // <- +uu -> prevent underflow under certain conditions!
-                        int j1 = (((b << 5) + cc + 31) >> 5) + yd;
-                        u32 d0 = dp[j0];
-                        u32 d1 = dp[j1];
+                                // construct masks manually...
+                                // optimize at some point?
+                                for (int xs = xs1; xs <= xs0; xs++) {
+                                        int i0 = (xs >> 5) + ys;
+                                        u32 sp = endian_u32(((u32 *)src.px)[i0]);
+                                        u32 sm = endian_u32(((u32 *)src.mk)[i0]);
+                                        int xd = (xs - xa) * xx;
+                                        u32 ms = 0x80000000U >> (xs & 31);
+                                        u32 md = 0x80000000U >> (xd & 31);
+                                        if (!(sm & ms)) continue;
+                                        t |= md;
+                                        if (sp & ms) p |= md;
+                                }
+                        }
+
+                        if (b == b1) // mask off pixels out of left drawing boundary
+                                t &= ((0xFFFFFFFFU >> (x1 & 31)));
+                        if (b == b2) // mask off pixels out of right drawing boundary
+                                t &= ~(0x7FFFFFFFU >> (x2 & 31));
+                        t     = endian_u32(t & pt);
+                        p     = endian_u32(p);
+                        u32 d = *dp;
                         switch (mode) {
-                        case GFX_SPRITE_INV:
-                                p0 = ~p0;
-                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_INV: p = ~p; // fallthrough
                         case GFX_SPRITE_COPY:
-                                d0 = (d0 & ~t0) | (p0 & t0);
-                                d1 = (d1 & ~t1) | (p1 & t1);
+                                d = (d & ~t) | (t & p);
                                 break;
-                        case GFX_SPRITE_XOR:
-                                p0 = ~p0;
-                                p1 = ~p1; // fallthrough
+                        case GFX_SPRITE_XOR: p = ~p; // fallthrough
                         case GFX_SPRITE_NXOR:
-                                d0 = (d0 & ~t0) | ((d0 ^ p0) & t0);
-                                d1 = (d1 & ~t1) | ((d1 ^ p1) & t1);
+                                d = (d & ~t) | ((d ^ p) & t);
                                 break;
-                        case GFX_SPRITE_WHITE_TRANSPARENT:
-                                t0 &= p0;
-                                t1 &= p1; // fallthrough
+                        case GFX_SPRITE_WHITE_TRANSPARENT: t &= p; // fallthrough
                         case GFX_SPRITE_FILL_BLACK:
-                                d0 |= t0;
-                                d1 |= t1;
+                                d |= t;
                                 break;
-                        case GFX_SPRITE_BLACK_TRANSPARENT:
-                                t0 &= ~p0;
-                                t1 &= ~p1; // fallthrough
+                        case GFX_SPRITE_BLACK_TRANSPARENT: t &= ~p; // fallthrough
                         case GFX_SPRITE_FILL_WHITE:
-                                d0 &= ~t0;
-                                d1 &= ~t1;
+                                d &= ~t;
                                 break;
                         }
-                        dp[j0] = d0;
-                        dp[j1] = d1;
+
+                        *dp++ = d;
                         if (!dm) continue;
-                        dm[j0] |= t0;
-                        dm[j1] |= t1;
+                        *dm++ |= t;
                 }
         }
 }
 
-/* fast sprite drawing routine for untransformed sprites
- * blits 32 pixelbits in one loop
- */
 void gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode)
 {
-        gfx_sprite_ext(src, pos, rs, mode, g_os.dstpat);
+        gfx_sprite_ext(src, pos, rs, 0, mode);
 }
 
-// TODO: doesnt work when drawing from a sprite without a mask
-//
-/* fast sprite drawing routine for untransformed sprites
- * blits 32 pixelbits in one loop
- */
 void gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs)
 {
         gfx_sprite_mode(src, pos, rs, 0);
@@ -452,7 +425,7 @@ void gfx_tr_sprite_mode(texregion_s src, v2_i32 pos, int mode)
 
 void gfx_tr_sprite_flip(texregion_s src, v2_i32 pos, int flags)
 {
-        gfx_sprite_flip(src.t, pos, src.r, flags);
+        gfx_sprite_ext(src.t, pos, src.r, flags, 0);
 }
 
 void gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4])
@@ -477,7 +450,7 @@ void gfx_rec_fill(rec_i32 r, int col)
         int   ya  = r.y;
         int   yb  = r.y + r.h;
         int   y1  = MAX(0, ya);
-        int   y2  = MIN(dst.h - 1, yb);
+        int   y2  = MIN(dst.h, yb);
         for (int y = y1; y < y2; y++) {
                 i_gfx_fill_span(y, r.x, r.x + r.w, col);
         }

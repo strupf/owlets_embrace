@@ -41,6 +41,6 @@ struct hero_s {
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o, void *arg);
 void   hero_set_cur_item(hero_s *h, int itemID);
-void   hero_aquire_item(hero_s *h, int itemID);
+void   hero_aquire_item(game_s *g, hero_s *h, int itemID);
 
 #endif

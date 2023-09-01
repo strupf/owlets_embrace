@@ -38,4 +38,13 @@ void        sprite_anim_update(sprite_anim_s *a);
 void        sprite_anim_set(sprite_anim_s *a, int frame, int time);
 texregion_s sprite_anim_get(sprite_anim_s *a);
 
+enum {
+        ITEM_FRAME_SIZE = 64,
+        ITEM_BARREL_R   = 16,
+        ITEM_BARREL_D   = ITEM_BARREL_R * 2,
+        ITEM_SIZE       = 32,
+        ITEM_X_OFFS     = 16,
+        ITEM_Y_OFFS     = 16,
+};
+
 #endif
