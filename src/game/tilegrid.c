@@ -45,7 +45,7 @@ bool32 tiles_area(tilegrid_s tg, rec_i32 r)
                 int y1 = (ty == ty1 ? py1 & 15 : 15);
                 for (int tx = tx0; tx <= tx1; tx++) {
                         int tl = tg.tiles[tx + ty * tg.tiles_x];
-                        if (tl == 0) continue;
+                        if (!(0 < tl && tl < NUM_TILE_BLOCKS)) continue;
                         if (tl == 1) return 1;
                         int x0 = (tx == tx0 ? px0 & 15 : 0);
                         int x1 = (tx == tx1 ? px1 & 15 : 15);
@@ -68,6 +68,7 @@ bool32 tiles_at(tilegrid_s tg, i32 x, i32 y)
         int tiley = y >> 4;
         int t     = tg.tiles[tilex + tiley * tg.tiles_x];
         if (t <= 1) return t; // ID = 0 all 0, ID = 1 all 1
+        if (!(0 < t && t < NUM_TILE_BLOCKS)) return 0;
         return (g_pxmask_tab[t][y & 15] & (0x8000 >> (x & 15)));
 }
 

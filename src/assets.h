@@ -18,6 +18,8 @@ enum tex_id {
         TEXID_HERO,
         TEXID_INPUT_EL,
         TEXID_HOOK,
+        TEXID_LAYER_1,
+        TEXID_TITLESCREEN,
         //
         NUM_TEXID
 };

@@ -11,18 +11,13 @@
 enum {
         TIMING_RATE      = 64,
         TIMING_FRAMES    = 64,
-        OS_DESKTOP_SCALE = 2,
+        OS_DESKTOP_SCALE = 1,
         OS_FPS           = 50,
         OS_FPS_LOW       = OS_FPS / 2,
 };
 
 #define OS_FPS_DELTA (1.f / (float)OS_FPS)
 #define OS_DELTA_CAP (4.f / (float)OS_FPS)
-
-/* RAM needed for 60s of raw music without streaming the file:
- * 44100 Hz x 60s x 2 byte = 5.3 MB
- * 22050 Hz x 60s x 2 byte = 2.7 MB
- */
 
 enum {
         OS_SPMEM_STACK_HEIGHT = 16,
@@ -65,8 +60,7 @@ typedef struct {
         int    fps;
         int    ups;
 
-        tex_s         dst;
-        gfx_pattern_s dstpat;
+        tex_s g_layer_1;
 
         tex_s tex_tab[NUM_TEXID];
         fnt_s fnt_tab[NUM_FNTID];

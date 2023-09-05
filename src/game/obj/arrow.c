@@ -29,7 +29,7 @@ obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
             OBJ_FLAG_MOVABLE,
             OBJ_FLAG_THINK_1,
             OBJ_FLAG_KILL_OFFSCREEN);
-        obj_set_flags(g, arrow, flags);
+        obj_apply_flags(g, arrow, flags);
         arrow->think_1      = arrow_think;
         arrow->ID           = 2;
         arrow->w            = 8;

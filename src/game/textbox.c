@@ -259,13 +259,13 @@ void textbox_input(game_s *g, textbox_s *tb)
                         }
                 }
         } else if (tb->n_choices) {
-                if (os_inp_just_pressed(INP_DOWN)) {
-                        tb->cur_choice = (++tb->cur_choice + tb->n_choices) %
-                                         tb->n_choices;
+                if (os_inp_just_pressed(INP_DOWN) &&
+                    ++tb->cur_choice >= tb->n_choices) {
+                        tb->cur_choice = 0;
                 }
-                if (os_inp_just_pressed(INP_UP)) {
-                        tb->cur_choice = (--tb->cur_choice + tb->n_choices) %
-                                         tb->n_choices;
+                if (os_inp_just_pressed(INP_UP) &&
+                    --tb->cur_choice < 0) {
+                        tb->cur_choice = tb->n_choices - 1;
                 }
         }
 }

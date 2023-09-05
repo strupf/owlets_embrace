@@ -142,8 +142,12 @@ void game_update(game_s *g)
                 backforeground_animate(g);
         }
 
+        if (g->areaname_display_ticks > 0)
+                g->areaname_display_ticks--;
+
         bool32     gameupdate = 1;
         textbox_s *tb         = &g->textbox;
+        g->hero.caninteract   = (textbox_state(tb) == TEXTBOX_STATE_INACTIVE);
         if (textbox_state(tb) != TEXTBOX_STATE_INACTIVE) {
                 textbox_update(g, tb);
                 if (textbox_blocking(tb)) {
@@ -195,8 +199,7 @@ static void tileanimations_update()
         for (int n = 0; n < NUM_TILEANIMATIONS; n++) {
                 tile_animation_s *a = &g_tileanimations[n];
                 if (a->ticks == 0) continue;
-                int frame        = 0;
-                frame            = (tick / a->ticks) % a->frames;
+                int frame        = (tick / a->ticks) % a->frames;
                 g_tileIDs[a->ID] = a->IDs[frame];
         }
 }
@@ -224,6 +227,13 @@ bool32 game_area_blocked(game_s *g, rec_i32 r)
                         return 1;
         }
         return 0;
+}
+
+bool32 game_is_ladder(game_s *g, v2_i32 p)
+{
+        if (!(0 <= p.x && p.x < g->pixel_x && 0 <= p.y && p.y < g->pixel_y))
+                return 0;
+        return g->tiles[(p.x >> 4) + (p.y >> 4) * g->tiles_x] == TILE_LADDER;
 }
 
 obj_listc_s objbucket_list(game_s *g, int bucketID)

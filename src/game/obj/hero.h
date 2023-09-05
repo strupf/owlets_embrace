@@ -17,8 +17,15 @@ enum hero_item {
         NUM_HERO_ITEMS,
 };
 
+enum hero_state_machine {
+        HERO_STATE_LADDER,
+        HERO_STATE_GROUND,
+        HERO_STATE_AIR,
+};
+
 struct hero_s {
         objhandle_s obj;
+        int         state;
         i32         jumpticks;
         i32         edgeticks;
         bool32      wasgrounded;
@@ -26,16 +33,17 @@ struct hero_s {
         bool32      caninteract;
         i32         swordticks;
         int         sworddir;
+        bool32      onladder;
+        int         ladderx;
         v2_i32      ppos;
-
-        flags32 aquired_items;
-        int     selected_item;
-        int     selected_item_prev;
-        int     selected_item_next;
-
+        flags32     aquired_items;
+        int         selected_item;
+        int         selected_item_prev;
+        int         selected_item_next;
         objhandle_s hook;
         rope_s      rope;
         int         pickups;
+        char        playername[LENGTH_PLAYERNAME];
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);

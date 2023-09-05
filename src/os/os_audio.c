@@ -59,7 +59,9 @@ snd_s snd_load_wav(const char *filename)
         u32 num_samples_i16 = wheader.subchunk2size / sizeof(i16);
         os_spmem_push();
         i16 *buf = os_spmem_alloc(num_samples_i16);
-        os_fread(buf, sizeof(i16), num_samples_i16, f);
+
+        // we don't check for errors here...
+        os_fread_n(buf, sizeof(i16), num_samples_i16, f);
         os_fclose(f);
 
         snd_s snd = {0};
@@ -74,6 +76,7 @@ snd_s snd_load_wav(const char *filename)
 
 static void audio_channel_wave(audio_channel_s *ch, i16 *left, int len)
 {
+        i16 *buf = left;
         for (int n = 0; n < len; n++) {
                 if (ch->wavepos >= ch->wavelen) {
                         ch->playback_type = PLAYBACK_TYPE_SILENT;
@@ -83,8 +86,8 @@ static void audio_channel_wave(audio_channel_s *ch, i16 *left, int len)
                 u32 i = (u32)((float)ch->wavepos++ * ch->invpitch);
                 ASSERT(i < ch->wavelen_og);
                 i32 val = ch->wavedata[i];
-                val     = left[n] + ((val * ch->vol_q8) >> 8);
-                left[n] = CLAMP(val, I16_MIN, I16_MAX);
+                val     = *buf + ((val * ch->vol_q8) >> 8);
+                *buf++  = CLAMP(val, I16_MIN, I16_MAX);
         }
 }
 
@@ -128,15 +131,37 @@ static void music_update_chunk(music_channel_s *ch, int samples_needed)
                  OS_SEEK_SET);
         int samples_left    = ch->streamlen - ch->streampos;
         int samples_to_read = MIN(OS_MUSICCHUNK_SAMPLES, samples_left);
-        os_fread(ch->chunk, sizeof(i16), samples_to_read, ch->stream);
+
+        // we don't check for errors here...
+        os_fread_n(ch->chunk, sizeof(i16), samples_to_read, ch->stream);
         ch->chunkpos = 0;
 }
 
 static void music_channel_fillbuf(music_channel_s *ch, i16 *left, int len)
 {
-        for (int n = 0; n < len; n++) {
-                i32 v   = ch->chunk[ch->chunkpos++];
-                left[n] = (v * ch->vol_q8) >> 8;
+        i16 *chunk = &ch->chunk[ch->chunkpos];
+        ch->chunkpos += len;
+
+        if (ch->vol_q8 == 256) { // no modification necessary, just memcpy
+                os_memcpy(left, chunk, sizeof(i16) * len);
+                return;
+        }
+
+        i16 *buf  = left;
+        int  n    = 0;
+        int  len4 = len - 4;
+        while (n < len4) {
+                buf[0] = (chunk[0] * ch->vol_q8) >> 8;
+                buf[1] = (chunk[1] * ch->vol_q8) >> 8;
+                buf[2] = (chunk[2] * ch->vol_q8) >> 8;
+                buf[3] = (chunk[3] * ch->vol_q8) >> 8;
+                buf += 4;
+                chunk += 4;
+                n += 4;
+        }
+        while (n < len) {
+                *buf++ = (*chunk++ * ch->vol_q8) >> 8;
+                n++;
         }
 }
 

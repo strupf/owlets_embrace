@@ -8,6 +8,11 @@
 #include "os/os.h"
 #include "util/array.h"
 
+enum {
+        GAMESTATE_MAIN_MENU,
+        GAMESTATE_GAMEPLAY,
+};
+
 #define ASSET_PATH_MAPS     "assets/map/"
 #define ASSET_PATH_DIALOGUE "assets/"
 
@@ -15,11 +20,18 @@ enum {
         GAME_HEAPMEM            = 0x10000,
         NUM_TILES               = 1024 * 1024,
         NUM_OBJS                = 256,
-        NUM_AUTOTILE_TYPES      = 32,
+        NUM_AUTOTILE_MAIN       = 8,
+        NUM_AUTOTILE_BG         = 48,
+        NUM_AUTOTILE_TYPES      = NUM_AUTOTILE_BG + NUM_AUTOTILE_MAIN,
         NUM_TILEANIMATIONS      = 16,
         NUM_PARTICLES           = 256,
         NUM_CAMATTRACTORS       = 8,
         INTERACTABLE_DISTANCESQ = 175,
+        AREA_NAME_DISPLAY_TICKS = 100,
+        AREA_NAME_FADE_TICKS    = (AREA_NAME_DISPLAY_TICKS * 1) / 4,
+        TILE_LAYER_MAIN         = 1,
+        TILE_LAYER_BG           = 0,
+        LENGTH_PLAYERNAME       = 16,
 };
 
 typedef struct game_s      game_s;
@@ -130,6 +142,9 @@ enum {
         TILE_SLOPE_HI_6,
         TILE_SLOPE_HI_7,
         TILE_SLOPE_HI_8,
+        //
+        NUM_TILE_BLOCKS,
+        TILE_LADDER,
 };
 
 #endif

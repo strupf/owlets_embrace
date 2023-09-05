@@ -80,10 +80,10 @@ v2_i32 path_pos(pathmover_s *p)
 {
         switch (p->pathtype) {
         case PATH_TYPE_CIRC: {
-                float  a   = 2.f * 3.14159f * ((float)p->x / (float)p->circumference);
+                i32    a   = (Q16_ANGLE_TURN * p->x) / p->circumference;
                 v2_i32 res = {
-                    p->circcenter.x + (int)(sinf(a) * (float)p->circr),
-                    p->circcenter.y + (int)(cosf(a) * (float)p->circr)};
+                    p->circcenter.x + ((sin_q16(a) * p->circr) >> 16),
+                    p->circcenter.y + ((cos_q16(a) * p->circr) >> 16)};
                 return res;
         }
         case PATH_TYPE_LINE: {

@@ -16,6 +16,7 @@
 #include "obj/obj.h"
 #include "obj/objset.h"
 #include "rope.h"
+#include "savefile.h"
 #include "textbox.h"
 #include "tilegrid.h"
 #include "water.h"
@@ -31,8 +32,7 @@ struct objbucket_s {
 };
 
 struct rtile_s {
-        u16 ID;
-        u16 ID2;
+        u16 ID[2];
 };
 
 #define TILEID_NULL U16_MAX
@@ -70,6 +70,11 @@ typedef struct {
         u16 IDs[4];
 } tile_animation_s;
 
+typedef struct {
+        texregion_s tr;
+        v2_i32      p;
+} decal_s;
+
 extern tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
 typedef struct {
@@ -84,10 +89,15 @@ typedef struct {
 } roomlayout_s;
 
 struct game_s {
-        i32    tick;
+        i32 tick;
+        int state;
+
         u32    rng;
         cam_s  cam;
         hero_s hero;
+
+        i32  areaname_display_ticks;
+        char areaname[64];
 
         bool32 itemselection_dirty;
         tex_s  itemselection_cache;
@@ -135,6 +145,7 @@ void        game_close(game_s *g);
 void        game_trigger(game_s *g, int triggerID);
 void        game_load_map(game_s *g, const char *filename);
 bool32      game_area_blocked(game_s *g, rec_i32 r);
+bool32      game_is_ladder(game_s *g, v2_i32 p);
 void        obj_interact_dialog(game_s *g, obj_s *o, void *arg);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 particle_s *particle_spawn(game_s *g);

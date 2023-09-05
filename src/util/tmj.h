@@ -2,6 +2,9 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#ifndef TMJ_H
+#define TMJ_H
+
 #include "os/os.h"
 
 typedef struct {
@@ -18,6 +21,12 @@ typedef struct {
         tmj_tileset_s sets[16];
         int           n;
 } tmj_tilesets_s;
+
+typedef struct {
+        u32 *arr;
+        int  w;
+        int  h;
+} tmj_tilelayer_s;
 
 static tmj_tileset_s tmj_get_tileset(tmj_tilesets_s *sets, u32 ID)
 {
@@ -88,3 +97,4 @@ static bool32 tmj_property(jsn_s j, const char *pname, jsn_s *property)
         }
         return 0;
 }
+#endif

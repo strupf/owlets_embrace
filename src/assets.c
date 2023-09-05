@@ -23,6 +23,7 @@ void assets_load()
         tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
         tex_put_load(TEXID_HOOK, "assets/hook.json");
         tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
+        tex_put_load(TEXID_TITLESCREEN, "assets/titlescreen.json");
 
         fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
         fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");

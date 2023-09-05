@@ -40,6 +40,13 @@
 extern PlaydateAPI *PD;
 extern void (*PD_log)(const char *fmt, ...);
 extern float (*PD_elapsedtime)();
+extern int (*PD_ftell)(SDFile *file);
+extern int (*PD_fread)(SDFile *file, void *buf, unsigned int len);
+extern int (*PD_fseek)(SDFile *file, int pos, int whence);
+extern int (*PD_fwrite)(SDFile *file, const void *buf, unsigned int len);
+extern SDFile *(*PD_fopen)(const char *path, FileOptions mode);
+extern int (*PD_fclose)(SDFile *file);
+
 #define ASSERT(E)
 #define STATIC_ASSERT(E, M)
 

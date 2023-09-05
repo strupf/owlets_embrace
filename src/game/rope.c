@@ -135,7 +135,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
-                if (t == 0) continue;
+                if (!(0 < t && t < NUM_TILE_BLOCKS)) continue;
                 v2_i32 pos = {x << 4, y << 4};
                 if (t == TILE_BLOCK) {
                         v2_i32  p[4];
@@ -449,7 +449,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
-                if (t == 0) continue;
+                if (!(0 < t && t < NUM_TILE_BLOCKS)) continue;
                 v2_i32 pos = {x << 4, y << 4};
                 if (t == TILE_BLOCK) {
                         v2_i32  p[4];
@@ -600,7 +600,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
                 foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
                 {
                         int t = g->tiles[x + y * g->tiles_x];
-                        if (t == 0) continue;
+                        if (!(0 < t && t < NUM_TILE_BLOCKS)) continue;
                         v2_i32 pos = {x << 4, y << 4};
                         if (t == TILE_BLOCK) {
                                 rec_i32 rr = {pos.x, pos.y, 16, 16};

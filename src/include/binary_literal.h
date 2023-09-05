@@ -23,10 +23,13 @@ static inline unsigned int bitrev(unsigned int x)
         return r;
 }
 
-#ifdef __GNUC__
-#define endian_u32 __builtin_bswap32
+#if defined(__GNUC__)
+#define bswap32 __builtin_bswap32
+#elif defined(_MSC_VER)
+#include <stdlib.h>
+#define bswap32 _byteswap_ulong
 #else
-static inline unsigned int endian_u32(unsigned int i)
+static inline unsigned int bswap32(unsigned int i)
 {
         return (i >> 24) | ((i << 8) & 0xFF0000U) |
                (i << 24) | ((i >> 8) & 0x00FF00U);

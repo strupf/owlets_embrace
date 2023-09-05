@@ -73,6 +73,7 @@ struct obj_s {
         int        facing;
         int        invincibleticks;
         int        die_animation;
+        i32        timer;
 
         obj_s *parent;
         obj_s *next;
@@ -128,6 +129,9 @@ typedef struct obj_filter_s {
         objflag_cmp_e cmp_func;
 } obj_filter_s;
 
+#define obj_set_flags(GAME, OBJ, ...)   i_obj_set_flags(GAME, OBJ, __VA_ARGS__, -1)
+#define obj_unset_flags(GAME, OBJ, ...) i_obj_unset_flags(GAME, OBJ, __VA_ARGS__, -1)
+
 bool32      obj_matches_filter(obj_s *o, obj_filter_s filter);
 bool32      objhandle_is_valid(objhandle_s h);
 bool32      objhandle_is_null(objhandle_s h);
@@ -139,7 +143,9 @@ void        objset_add_all(game_s *g, objset_s *set);
 //
 obj_s      *obj_create(game_s *g);
 void        obj_delete(game_s *g, obj_s *o); // object still lives until the end of the frame
-void        obj_set_flags(game_s *g, obj_s *o, objflags_s flags);
+void        obj_apply_flags(game_s *g, obj_s *o, objflags_s flags);
+void        i_obj_set_flags(game_s *g, obj_s *o, ...);
+void        i_obj_unset_flags(game_s *g, obj_s *o, ...);
 bool32      obj_is_direct_child(obj_s *o, obj_s *parent);
 bool32      obj_is_child_any_depth(obj_s *o, obj_s *parent);
 bool32      obj_are_siblings(obj_s *a, obj_s *b);
@@ -174,5 +180,8 @@ obj_s *door_create(game_s *g);
 obj_s *npc_create(game_s *g);
 void   npc_think(game_s *g, obj_s *o, void *arg);
 void   npc_interact(game_s *g, obj_s *o, void *arg);
+//
+void   bomb_think(game_s *g, obj_s *o, void *arg);
+obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8);
 
 #endif

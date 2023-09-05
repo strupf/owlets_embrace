@@ -78,7 +78,7 @@ void obj_delete(game_s *g, obj_s *o)
         objset_add(&g->obj_scheduled_delete, o);
 }
 
-void obj_set_flags(game_s *g, obj_s *o, objflags_s flags)
+void obj_apply_flags(game_s *g, obj_s *o, objflags_s flags)
 {
         o->flags = flags;
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
@@ -93,6 +93,34 @@ void obj_set_flags(game_s *g, obj_s *o, objflags_s flags)
                         objset_del(&b->set, o);
                 }
         }
+}
+
+void i_obj_set_flags(game_s *g, obj_s *o, ...)
+{
+        objflags_s flags = o->flags;
+        va_list    ap;
+        va_start(ap, o);
+        while (1) {
+                int i = va_arg(ap, int);
+                if (i < 0) break;
+                flags = objflags_set(flags, i);
+        }
+        va_end(ap);
+        obj_apply_flags(g, o, flags);
+}
+
+void i_obj_unset_flags(game_s *g, obj_s *o, ...)
+{
+        objflags_s flags = o->flags;
+        va_list    ap;
+        va_start(ap, o);
+        while (1) {
+                int i = va_arg(ap, int);
+                if (i < 0) break;
+                flags = objflags_unset(flags, i);
+        }
+        va_end(ap);
+        obj_apply_flags(g, o, flags);
 }
 
 bool32 obj_is_direct_child(obj_s *o, obj_s *parent)

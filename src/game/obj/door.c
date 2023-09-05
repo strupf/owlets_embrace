@@ -15,7 +15,7 @@ void door_think(game_s *g, obj_s *o, void *arg)
                         objflags_s flags = o->flags;
                         flags            = objflags_unset(flags,
                                                           OBJ_FLAG_THINK_1);
-                        obj_set_flags(g, o, flags);
+                        obj_apply_flags(g, o, flags);
                 } else if (o->door.moved % 8 == 0) {
                         snd_play_ext(snd_get(SNDID_HERO_LAND), 0.5f, rngf_range(1.1f, 1.4f));
                 }
@@ -30,7 +30,7 @@ void door_trigger(game_s *g, obj_s *o, int triggerID)
                 objflags_s flags  = o->flags;
                 flags             = objflags_set(flags,
                                                  OBJ_FLAG_THINK_1);
-                obj_set_flags(g, o, flags);
+                obj_apply_flags(g, o, flags);
                 o->think_1    = door_think;
                 o->door.moved = 60;
                 snd_play(snd_get(SNDID_HERO_LAND));
@@ -43,7 +43,7 @@ obj_s *door_create(game_s *g)
         obj_s     *o     = obj_create(g);
         objflags_s flags = objflags_create(
             OBJ_FLAG_SOLID);
-        obj_set_flags(g, o, flags);
+        obj_apply_flags(g, o, flags);
         o->pos.x     = 16 * 17 + 5 * 16;
         o->pos.y     = 192 - 130 - 64;
         o->w         = 16;

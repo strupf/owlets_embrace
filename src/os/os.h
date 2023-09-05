@@ -64,21 +64,21 @@ enum inp_dpad_direction {
         INP_DPAD_SW,
 };
 
-enum gfx_sprite_mode {
-        GFX_SPRITE_COPY,
-        GFX_SPRITE_WHITE_TRANSPARENT,
-        GFX_SPRITE_BLACK_TRANSPARENT,
-        GFX_SPRITE_FILL_WHITE,
-        GFX_SPRITE_FILL_BLACK,
-        GFX_SPRITE_XOR,
-        GFX_SPRITE_NXOR,
-        GFX_SPRITE_INV,
+enum {
+        SPRITE_CPY, // copy
+        SPRITE_W_T, // white transparent
+        SPRITE_B_T, // black transparent
+        SPRITE_W_F, // fill white
+        SPRITE_B_F, // fill black
+        SPRITE_XOR, // xor
+        SPRITE_NXR, // nxor
+        SPRITE_INV, // invert
 };
 
-enum gfx_sprite_flip {
-        GFX_SPRITE_Y  = 1,
-        GFX_SPRITE_X  = 2,
-        GFX_SPRITE_XY = GFX_SPRITE_Y | GFX_SPRITE_X,
+enum {
+        SPRITE_FLIP_Y  = 1,
+        SPRITE_FLIP_X  = 2,
+        SPRITE_FLIP_XY = SPRITE_FLIP_X | SPRITE_FLIP_Y,
 };
 
 enum gfx_prim_mode {
@@ -121,16 +121,25 @@ typedef struct {
         rec_i32 r;
 } texregion_s;
 
-enum {
-        GFX_COL_BLACK = 0,
-        GFX_COL_WHITE = 1,
-        GFX_COL_CLEAR = 2,
-        GFX_COL_NXOR  = 3,
-};
-
 typedef struct {
         u32 p[8];
 } gfx_pattern_s;
+
+typedef struct {
+        tex_s         dst;
+        tex_s         src;
+        gfx_pattern_s pat;
+        v2_i32        offset;
+        int           col; // color for primitive drawing
+        int           sprmode;
+} gfx_context_s;
+
+enum {
+        GFX_COL_WHITE = 0,
+        GFX_COL_BLACK = 1,
+        GFX_COL_CLEAR = 2,
+        GFX_COL_NXOR  = 3,
+};
 
 enum {
         GFX_PATTERN_0,
@@ -194,96 +203,86 @@ enum {
         WAVE_TYPE_TRI,
 };
 
-fnt_s     fnt_put_load(int ID, const char *filename);
-void      fnt_put(int ID, fnt_s f);
-fnt_s     fnt_get(int ID);
-fnt_s     fnt_load(const char *filename);
-fntstr_s  fntstr_create(int numchars, void *(*allocfunc)(size_t));
-int       fntlength_px(fnt_s *font, fntchar_s *chars, int l);
-int       fntlength_px_ascii(fnt_s *font, const char *txt, int l);
-fntchar_s fntchar_from_glyphID(int glyphID);
-bool32    fntstr_append_glyph(fntstr_s *f, int glyphID);
-int       fntstr_append_ascii(fntstr_s *f, const char *txt);
-int       fntstr_len(fntstr_s *f);
-void      fntstr_apply_effect(fntstr_s *f, int from, int to,
-                              int effect, int tick);
+fnt_s         fnt_put_load(int ID, const char *filename);
+void          fnt_put(int ID, fnt_s f);
+fnt_s         fnt_get(int ID);
+fnt_s         fnt_load(const char *filename);
+fntstr_s      fntstr_create(int numchars, void *(*allocfunc)(size_t));
+int           fntlength_px(fnt_s *font, fntchar_s *chars, int l);
+int           fntlength_px_ascii(fnt_s *font, const char *txt, int l);
+fntchar_s     fntchar_from_glyphID(int glyphID);
+bool32        fntstr_append_glyph(fntstr_s *f, int glyphID);
+int           fntstr_append_ascii(fntstr_s *f, const char *txt);
+int           fntstr_len(fntstr_s *f);
+void          fntstr_apply_effect(fntstr_s *f, int from, int to,
+                                  int effect, int tick);
 //
-tex_s     tex_put_load(int ID, const char *filename);
-tex_s     tex_put(int ID, tex_s t);
-tex_s     tex_get(int ID);
-tex_s     tex_create(int w, int h, bool32 mask);
-tex_s     tex_load(const char *filename);
+tex_s         tex_put_load(int ID, const char *filename);
+tex_s         tex_put(int ID, tex_s t);
+tex_s         tex_get(int ID);
+tex_s         tex_create(int w, int h, bool32 mask);
+tex_s         tex_load(const char *filename);
 //
-void      gfx_tex_clr(tex_s t);
-void      gfx_set_pattern(gfx_pattern_s pat);
-void      gfx_reset_pattern();
-void      gfx_set_inverted(bool32 inv);
-void      gfx_px(int x, int y, int col);
-void      gfx_sprite_ext(tex_s src, v2_i32 pos, rec_i32 rs, int flags, int mode);
-void      gfx_sprite_mode(tex_s src, v2_i32 pos, rec_i32 rs, int mode);
-void      gfx_sprite_fast(tex_s src, v2_i32 pos, rec_i32 rs); // rec size has to be aligned to 8
-void      gfx_sprite_matrix(tex_s src, v2_i32 pos, rec_i32 rs, i32 m[4]);
-void      gfx_tr_sprite_fast(texregion_s src, v2_i32 pos);
-void      gfx_tr_sprite_mode(texregion_s src, v2_i32 pos, int mode);
-void      gfx_tr_sprite_flip(texregion_s src, v2_i32 pos, int flags);
-void      gfx_draw_to(tex_s tex);
-void      gfx_draw_to_ID(int ID);
-void      gfx_rec_fill(rec_i32 r, int col);
-void      gfx_tri_fill(v2_i32 p0, v2_i32 p1, v2_i32 p2, int col);
-void      gfx_line(int x0, int y0, int x1, int y1, int col);
-void      gfx_line_thick(int x0, int y0, int x1, int y1, int r, int col);
-void      gfx_text_ascii(fnt_s *font, const char *txt, int x, int y);
-void      gfx_text(fnt_s *font, fntstr_s *str, int x, int y);
-void      gfx_text_glyphs(fnt_s *font, fntchar_s *chars, int l, int x, int y);
-void      gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3]); // 2 bits of subpixel precision
+gfx_context_s gfx_context_create(tex_s dst);
+void          gfx_tex_clr(tex_s t);
+void          gfx_set_inverted(bool32 inv);
+void          gfx_px(gfx_context_s ctx, int x, int y);
+void          gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags);
+void          gfx_rec_fill(gfx_context_s ctx, rec_i32 r);
+void          gfx_tri_fill(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2);
+void          gfx_line(gfx_context_s ctx, v2_i32 p0, v2_i32 p1);
+void          gfx_line_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, int r);
+void          gfx_text_ascii(gfx_context_s ctx, fnt_s *font, const char *txt, v2_i32 p);
+void          gfx_text(gfx_context_s ctx, fnt_s *font, fntstr_s *str, v2_i32 p);
+void          gfx_text_glyphs(gfx_context_s ctx, fnt_s *font, fntchar_s *chars, int l, v2_i32 p);
 //
-snd_s     snd_put_load(int ID, const char *filename);
-void      mus_play(const char *filename);
-void      mus_close();
-snd_s     snd_get(int ID);
-void      snd_put(int ID, snd_s s);
-snd_s     snd_load_wav(const char *filename);
-void      snd_play_ext(snd_s s, float vol, float pitch);
-void      snd_play(snd_s s);
+snd_s         snd_put_load(int ID, const char *filename);
+void          mus_play(const char *filename);
+void          mus_close();
+snd_s         snd_get(int ID);
+void          snd_put(int ID, snd_s s);
+snd_s         snd_load_wav(const char *filename);
+void          snd_play_ext(snd_s s, float vol, float pitch);
+void          snd_play(snd_s s);
 //
-i32       os_tick();
-bool32    os_low_fps();               // if game is running slow
-void      os_inp_set_pressedp(int b); // deactivate just pressed for the current frame
-int       os_inp_dpad_direction();
-int       os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
-int       os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
-bool32    os_inp_pressed(int b);
-bool32    os_inp_pressedp(int b);
-bool32    os_inp_just_released(int b);
-bool32    os_inp_just_pressed(int b);
-int       os_inp_crank_change(); // crank angle [0, 65535]
-int       os_inp_crank();        // crank angle [0, 65535]
-int       os_inp_crankp();       // crank angle [0, 65535]
-bool32    os_inp_crank_dockedp();
-bool32    os_inp_crank_docked();
+i32           os_tick();
+bool32        os_low_fps();               // if game is running slow
+void          os_inp_set_pressedp(int b); // deactivate just pressed for the current frame
+int           os_inp_dpad_direction();
+int           os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)
+int           os_inp_dpad_y(); // returns -1 (up), 0 or +1 (down)
+bool32        os_inp_pressed(int b);
+bool32        os_inp_pressedp(int b);
+bool32        os_inp_just_released(int b);
+bool32        os_inp_just_pressed(int b);
+int           os_inp_crank_change(); // crank angle [0, 65535]
+int           os_inp_crank();        // crank angle [0, 65535]
+int           os_inp_crankp();       // crank angle [0, 65535]
+bool32        os_inp_crank_dockedp();
+bool32        os_inp_crank_docked();
 //
-bool32    debug_inp_up();
-bool32    debug_inp_down();
-bool32    debug_inp_left();
-bool32    debug_inp_right();
-bool32    debug_inp_w();
-bool32    debug_inp_a();
-bool32    debug_inp_s();
-bool32    debug_inp_d();
-bool32    debug_inp_enter();
-bool32    debug_inp_space();
+bool32        debug_inp_up();
+bool32        debug_inp_down();
+bool32        debug_inp_left();
+bool32        debug_inp_right();
+bool32        debug_inp_w();
+bool32        debug_inp_a();
+bool32        debug_inp_s();
+bool32        debug_inp_d();
+bool32        debug_inp_enter();
+bool32        debug_inp_space();
 //
 // internal scratchpad memory stack
 // just a fixed sized bump allocator
-void      os_spmem_push(); // push the current state
-void      os_spmem_pop();  // pop and restore previous state
-void     *os_spmem_peek();
-void      os_spmem_set(void *p);
-void      os_spmem_clr();                    // reset bump allocator
-void     *os_spmem_alloc(size_t size);       // allocate memory
-void     *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
-void     *os_spmem_allocz(size_t size);      // allocate and zero memory
-void     *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
+void          os_spmem_push(); // push the current state
+void          os_spmem_pop();  // pop and restore previous state
+void         *os_spmem_peek();
+void          os_spmem_set(void *p);
+void          os_spmem_clr();                    // reset bump allocator
+void         *os_spmem_alloc(size_t size);       // allocate memory
+void         *os_spmem_alloc_rems(size_t *size); // allocate remaining memory
+void         *os_spmem_allocz(size_t size);      // allocate and zero memory
+void         *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 
 // MEMORY REPLACEMENTS =========================================================
 static inline void os_memset(void *dst, int val, size_t l)

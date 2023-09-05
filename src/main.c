@@ -6,7 +6,7 @@
 #include "os/backend.h"
 #include "os/os_internal.h"
 
-#define SHOW_FPS_UPS      1
+#define SHOW_FPS_UPS      0
 #define DIAGRAM_ENABLED   0
 #define DIAGRAM_MAX_Y     17
 #define DIAGRAM_SPACING_Y 20
@@ -20,6 +20,9 @@ static tex_s tdiagram;
 
 static void draw_frame_diagrams()
 {
+        gfx_context_s ctx = gfx_context_create(tdiagram);
+        ctx.col           = 1;
+
         int u = (g_os.timings.n >> 3);
         int s = 1 << (7 - (g_os.timings.n & 7));
         int x = g_os.timings.n;
@@ -36,8 +39,8 @@ static void draw_frame_diagrams()
                 }
         }
 
-        gfx_sprite_fast(tdiagram, (v2_i32){0, 0},
-                        (rec_i32){0, 0, DIAGRAM_W, DIAGRAM_H});
+        gfx_sprite(ctx, (v2_i32){0, 0},
+                   (rec_i32){0, 0, DIAGRAM_W, DIAGRAM_H}, 0);
         for (int y = 0; y <= DIAGRAM_H * 52; y += 2 * 52) {
                 int i = u + y;
                 g_os.framebuffer[i] |= s;
@@ -45,19 +48,23 @@ static void draw_frame_diagrams()
 
         for (int n = 0; n < NUM_TIMING; n++) {
                 int pos = n * DIAGRAM_SPACING_Y + 7;
-                gfx_text_ascii(&g_os.fnt_tab[FNTID_DEBUG], g_os.timings.labels[n],
-                               DIAGRAM_W + 2, pos);
+                gfx_text_ascii(ctx, &g_os.fnt_tab[FNTID_DEBUG], g_os.timings.labels[n],
+                               (v2_i32){DIAGRAM_W + 2, pos});
         }
 }
 
 static void frame_diagram()
 {
+
         tdiagram = tex_create(DIAGRAM_W, DIAGRAM_H * 2, 1);
         os_memset(tdiagram.mk, 0xFF, tdiagram.w_byte * tdiagram.h);
-        gfx_draw_to(tdiagram);
+
+        gfx_context_s ctx = gfx_context_create(tdiagram);
+        ctx.col           = 1;
+
         for (int n = 0; n < NUM_TIMING; n++) {
                 rec_i32 r = {0, (1 + n) * DIAGRAM_SPACING_Y, TIMING_FRAMES, 1};
-                gfx_rec_fill(r, 1);
+                gfx_rec_fill(ctx, r);
         }
 
         os_strcat(g_os.timings.labels[TIMING_UPDATE], "tick");
@@ -115,17 +122,17 @@ int os_do_tick()
                 fps_counter++;
                 TIMING_BEGIN(TIMING_DRAW);
                 os_spmem_clr();
-                gfx_draw_to_ID(0);
                 os_backend_graphics_begin();
                 game_draw(&g_gamestate);
                 TIMING_END();
 #if SHOW_FPS_UPS
-                char fpstext[16] = {0};
+                gfx_context_s ctx         = gfx_context_create(tex_get(0));
+                char          fpstext[16] = {0};
                 os_strcat_i32(fpstext, g_os.ups);
                 os_strcat(fpstext, "|");
                 os_strcat_i32(fpstext, g_os.fps);
-                gfx_rec_fill((rec_i32){0, 0, 48, 12}, 0);
-                gfx_text_ascii(&g_os.fnt_tab[FNTID_DEBUG], fpstext, 2, 2);
+                gfx_rec_fill(ctx, (rec_i32){0, 0, 48, 12});
+                gfx_text_ascii(ctx, &g_os.fnt_tab[FNTID_DEBUG], fpstext, (v2_i32){2, 2});
 #endif
 
 #if DIAGRAM_ENABLED
@@ -149,7 +156,6 @@ int os_do_tick()
 
 void os_prepare()
 {
-
         memarena_init(&g_os.spmem, g_os.spmem_raw, OS_SPMEM_SIZE);
         memarena_init(&g_os.assetmem, g_os.assetmem_raw, OS_ASSETMEM_SIZE);
         os_backend_graphics_init();
@@ -157,7 +163,8 @@ void os_prepare()
         os_backend_inp_init();
         g_os.tex_tab[0] = (tex_s){g_os.framebuffer, NULL, 13, 52, 400, 240};
         game_init(&g_gamestate);
-
+        g_os.g_layer_1 = tex_create(400, 240, 1);
+        tex_put(TEXID_LAYER_1, g_os.g_layer_1);
         size_t sgame = sizeof(game_s) / 1024;
         size_t sos   = sizeof(os_s) / 1024;
         PRINTF("\n");
@@ -168,6 +175,9 @@ void os_prepare()
         g_os.lasttime = os_time();
         g_os.fps      = OS_FPS;
         g_os.ups      = OS_FPS;
+
+        savefile_write(0, &g_gamestate);
+        savefile_load(0, &g_gamestate);
 }
 
 i32 os_tick()

@@ -218,7 +218,7 @@ static inline u32 _rng_range_u32(u32 x, u32 lo, u32 hi)
 // returns [lo; hi]
 static inline u32 _rng_max_u32(u32 x, u32 hi)
 {
-        u32 r = x / (U32_MAX / (hi + 1) + 1);
+        u32 r = hi == 0 ? 0 : x / (U32_MAX / (hi + 1) + 1);
         return r;
 }
 
@@ -429,6 +429,13 @@ static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
         }
         i32 i = add_i32(from, mul_i32(sub_i32(to, from), n) / d);
         return i;
+}
+
+static inline i32 lerp_fast_i32(i32 a, i32 b, i32 num, i32 den)
+{
+        // return a + ((b - a) * num / den);
+        i32 d = add_i32(a, mul_i32(sub_i32(b, a), num) / den);
+        return d;
 }
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)

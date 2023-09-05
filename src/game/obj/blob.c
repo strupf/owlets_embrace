@@ -12,7 +12,7 @@ obj_s *blob_create(game_s *g)
                                            OBJ_FLAG_MOVABLE,
                                            OBJ_FLAG_THINK_1,
                                            OBJ_FLAG_HURTS_PLAYER);
-        obj_set_flags(g, o, flags);
+        obj_apply_flags(g, o, flags);
         o->pos.x        = 100;
         o->pos.y        = 100;
         o->w            = 20;

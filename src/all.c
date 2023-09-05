@@ -10,6 +10,7 @@
 #include "game/obj/obj.c"
 #include "game/obj/objset.c"
 //
+#include "game/autotiling.c"
 #include "game/backforeground.c"
 #include "game/cam.c"
 #include "game/draw.c"
@@ -20,6 +21,7 @@
 #include "game/maptransition.c"
 #include "game/pathmovement.c"
 #include "game/rope.c"
+#include "game/savefile.c"
 #include "game/textbox.c"
 #include "game/tilegrid.c"
 #include "game/water.c"

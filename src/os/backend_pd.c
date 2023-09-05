@@ -7,6 +7,12 @@
 PlaydateAPI *PD;
 void (*PD_log)(const char *fmt, ...);
 float (*PD_elapsedtime)();
+int (*PD_ftell)(SDFile *file);
+int (*PD_fread)(SDFile *file, void *buf, unsigned int len);
+int (*PD_fseek)(SDFile *file, int pos, int whence);
+int (*PD_fwrite)(SDFile *file, const void *buf, unsigned int len);
+SDFile *(*PD_fopen)(const char *path, FileOptions mode);
+int (*PD_fclose)(SDFile *file);
 
 static void (*PD_display)(void);
 static void (*PD_drawFPS)(int x, int y);
@@ -52,6 +58,13 @@ void os_backend_graphics_init()
         PD_display         = PD->graphics->display;
         PD_drawFPS         = PD->system->drawFPS;
         PD_markUpdatedRows = PD->graphics->markUpdatedRows;
+        PD_fseek           = PD->file->seek;
+        PD_ftell           = PD->file->tell;
+        PD_fread           = PD->file->read;
+        PD_fwrite          = PD->file->write;
+        PD_fopen           = PD->file->open;
+        PD_fclose          = PD->file->close;
+
         PD->display->setRefreshRate(0.f);
         g_os.framebuffer = PD->graphics->getFrame();
 }
@@ -63,7 +76,6 @@ void os_backend_graphics_close()
 void os_backend_graphics_begin()
 {
         os_memclr4(g_os.framebuffer, OS_FRAMEBUFFER_SIZE);
-        gfx_reset_pattern();
 }
 
 void os_backend_graphics_end()

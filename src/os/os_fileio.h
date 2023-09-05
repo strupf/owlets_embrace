@@ -10,28 +10,32 @@
 #if defined(TARGET_DESKTOP)
 // RAYLIB ======================================================================
 typedef FILE OS_FILE;
-#define os_fopen  fopen
-#define os_fseek  fseek
-#define os_ftell  ftell
-#define os_fread  fread
-#define os_fclose fclose
+#define os_fread_n  fread
+#define os_fwrite_n fwrite
+#define os_fread    fread
+#define os_fwrite   fwrite
+#define os_fopen    fopen
+#define os_fseek    fseek
+#define os_ftell    ftell
+#define os_fclose   fclose
+
 //
 #elif defined(TARGET_PD)
 // PLAYDATE ====================================================================
 typedef SDFile OS_FILE;
+enum {
+        PDFW = kFileWrite,
+        PDFR = kFileRead | kFileReadData,
+};
 
-static inline OS_FILE *os_fopen(const char *file, const char *mode)
-{
-        if (!file || !mode) return NULL;
-        switch (mode[0]) {
-        case 'r': return PD->file->open(file, kFileRead);
-        }
-        return NULL;
-}
-#define os_fseek                   PD->file->seek
-#define os_ftell                   PD->file->tell
-#define os_fread(PTR, S, NUM, FIL) PD->file->read(FIL, PTR, (NUM) * (S))
-#define os_fclose                  PD->file->close
+#define os_fopen(FIL, M)             PD_fopen(FIL, M[0] == 'w' ? PDFW : PDFR)
+#define os_fread_n(P, SIZE, N, FIL)  PD_fread(FIL, P, (SIZE) * (N))
+#define os_fwrite_n(P, SIZE, N, FIL) PD_fwrite(FIL, P, (SIZE) * (N))
+#define os_fread(P, SIZE, N, FIL)    (os_fread_n(P, S, N, FIL) / (SIZE))
+#define os_fwrite(P, SIZE, N, FIL)   (os_fwrite_n(P, S, N, FIL) / (SIZE))
+#define os_fseek                     PD_fseek
+#define os_ftell                     PD_ftell
+#define os_fclose                    PD_fclose
 //
 #endif // playdate
 // =============================================================================
