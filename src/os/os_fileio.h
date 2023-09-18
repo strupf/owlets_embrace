@@ -31,8 +31,8 @@ enum {
 #define os_fopen(FIL, M)             PD_fopen(FIL, M[0] == 'w' ? PDFW : PDFR)
 #define os_fread_n(P, SIZE, N, FIL)  PD_fread(FIL, P, (SIZE) * (N))
 #define os_fwrite_n(P, SIZE, N, FIL) PD_fwrite(FIL, P, (SIZE) * (N))
-#define os_fread(P, SIZE, N, FIL)    (os_fread_n(P, S, N, FIL) / (SIZE))
-#define os_fwrite(P, SIZE, N, FIL)   (os_fwrite_n(P, S, N, FIL) / (SIZE))
+#define os_fread(P, SIZE, N, FIL)    (os_fread_n(P, SIZE, N, FIL) / (SIZE))
+#define os_fwrite(P, SIZE, N, FIL)   (os_fwrite_n(P, SIZE, N, FIL) / (SIZE))
 #define os_fseek                     PD_fseek
 #define os_ftell                     PD_ftell
 #define os_fclose                    PD_fclose

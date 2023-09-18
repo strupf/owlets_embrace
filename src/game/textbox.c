@@ -109,11 +109,15 @@ static void textbox_clr(textbox_s *tb)
         tb->curr_char          = 0;
         tb->curr_line          = 0;
         tb->n_choices          = 0;
+        tb->magic              = 0xDEADBEEF;
         for (int n = 0; n < TEXTBOX_LINES; n++) {
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
                 l->n_shown       = 0;
                 os_memclr(l->trigger, sizeof(l->trigger));
+                for (int n = 0; n < TEXTBOX_CHARS_PER_LINE; n++) {
+                        l->speed[n] = TEXTBOX_TICKS_PER_CHAR_Q4;
+                }
         }
 }
 
@@ -140,7 +144,8 @@ static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
                 textboxchoice_s *tc = &tb->choices[tb->n_choices++];
 
                 for (i++; txt[i] != '['; i++) {
-                        char      ck              = txt[i];
+                        char ck = txt[i];
+                        PRINTF("%c\n", ck);
                         fntchar_s fc              = {0};
                         fc.glyphID                = (int)ck;
                         tc->label[tc->labellen++] = fc;
@@ -149,6 +154,13 @@ static void textbox_cmd_choice(textbox_s *tb, dialog_tok_s *tok)
                 tc->txtptr = &txt[i + 1];
                 for (i++; txt[i] != ']'; i++)
                         ;
+        }
+        PRINTF("labels\n");
+        for (int k = 0; k < TEXTBOX_NUM_CHOICES; k++) {
+                textboxchoice_s *tc = &tb->choices[k];
+                for (int i = 0; i < tc->labellen; i++) {
+                        PRINTF("%c\n", tb->choices[k].label[i].glyphID);
+                }
         }
 }
 
@@ -168,6 +180,8 @@ static bool32 textbox_next_page(textbox_s *tb)
                                 tb->curreffect = FNT_EFFECT_NONE;
                         } else if (str_matches(s, "n")) {
                                 if (!textbox_new_line(tb, &line)) return 0;
+                        } else if (str_matches(s, "-")) {
+                                line->speed[line->n] = TEXTBOX_TICKS_PER_CHAR_Q4 * 8;
                         } else if (str_matches(s, ">>")) {
                                 if (tb->tok->i1 - tb->tok->i0 > 3) {
                                         tb->currspeed = os_i32_from_str(&s[3]);
@@ -229,14 +243,11 @@ void textbox_init(textbox_s *tb)
         textbox_clr(tb);
 }
 
-void textbox_load_dialog(textbox_s *tb, char *text)
+void textbox_load_dialog(textbox_s *tb, char *filename)
 {
-
         textbox_clr(tb);
 #if 1
-
-        txt_read_file(text, tb->dialogmem, TEXTBOX_FILE_MEM);
-
+        txt_read_file(filename, tb->dialogmem, TEXTBOX_FILE_MEM);
 #else
         os_strcpy(tb->dialogmem, text);
 #endif
@@ -300,7 +311,7 @@ void textbox_update(game_s *g, textbox_s *tb)
                         if (line >= &tb->lines[TEXTBOX_LINES]) {
                                 tb->state                = TEXTBOX_STATE_WAITING;
                                 tb->page_animation_state = 0;
-                                break;
+                                return;
                         }
                 }
 

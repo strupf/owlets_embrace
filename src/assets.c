@@ -24,6 +24,7 @@ void assets_load()
         tex_put_load(TEXID_HOOK, "assets/hook.json");
         tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
         tex_put_load(TEXID_TITLESCREEN, "assets/titlescreen.json");
+        tex_put(TEXID_ITEM_SELECT_CACHE, tex_create(ITEM_FRAME_SIZE, ITEM_FRAME_SIZE, 1));
 
         fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
         fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");
@@ -33,7 +34,8 @@ void assets_load()
         snd_put_load(SNDID_TYPEWRITE, "assets/snd/speak.wav");
         snd_put_load(SNDID_HERO_LAND, "assets/snd/land.wav");
         snd_put_load(SNDID_STEP, "assets/snd/step.wav");
-        snd_put_load(SNDID_HOOK, "assets/snd/hook.wav");
+        snd_put_load(SNDID_HOOKATTACH, "assets/snd/hookattach.wav");
+        snd_put_load(SNDID_BOW, "assets/snd/bow.wav");
 }
 
 static void load_tileanimations(const char *filename)

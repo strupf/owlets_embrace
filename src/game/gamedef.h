@@ -9,18 +9,18 @@
 #include "util/array.h"
 
 enum {
-        GAMESTATE_MAIN_MENU,
         GAMESTATE_GAMEPLAY,
+        GAMESTATE_TITLE,
 };
 
 #define ASSET_PATH_MAPS     "assets/map/"
 #define ASSET_PATH_DIALOGUE "assets/"
 
 enum {
-        GAME_HEAPMEM            = 0x10000,
+        GAME_HEAPMEM            = 0x40000,
         NUM_TILES               = 1024 * 1024,
         NUM_OBJS                = 256,
-        NUM_AUTOTILE_MAIN       = 8,
+        NUM_AUTOTILE_MAIN       = 16,
         NUM_AUTOTILE_BG         = 48,
         NUM_AUTOTILE_TYPES      = NUM_AUTOTILE_BG + NUM_AUTOTILE_MAIN,
         NUM_TILEANIMATIONS      = 16,
@@ -32,6 +32,7 @@ enum {
         TILE_LAYER_MAIN         = 1,
         TILE_LAYER_BG           = 0,
         LENGTH_PLAYERNAME       = 16,
+        LENGTH_AREAFILENAME     = 64,
 };
 
 typedef struct game_s      game_s;
@@ -71,10 +72,14 @@ enum obj_flag {
         OBJ_FLAG_THINK_1,
         OBJ_FLAG_THINK_2,
         OBJ_FLAG_HURTABLE,
+        OBJ_FLAG_ENEMY,
         OBJ_FLAG_KILL_OFFSCREEN,
         OBJ_FLAG_HURTS_PLAYER,
         OBJ_FLAG_CAM_ATTRACTOR,
         OBJ_FLAG_SPRITE_ANIM,
+        OBJ_FLAG_RENDERABLE,
+        OBJ_FLAG_ANIMATE,
+        OBJ_FLAG_HURTS_ENEMIES,
         //
         NUM_OBJ_FLAGS
 };
@@ -101,6 +106,10 @@ enum obj_bucket {
         OBJ_BUCKET_HURTS_PLAYER,
         OBJ_BUCKET_CAM_ATTRACTOR,
         OBJ_BUCKET_SPRITE_ANIM,
+        OBJ_BUCKET_RENDERABLE,
+        OBJ_BUCKET_ANIMATE,
+        OBJ_BUCKET_ENEMY,
+        OBJ_BUCKET_HURTS_ENEMIES,
         //
         NUM_OBJ_BUCKETS
 };

@@ -4,14 +4,9 @@
 
 #include "game/game.h"
 
-void arrow_think(game_s *g, obj_s *o, void *arg)
+void arrow_think(game_s *g, obj_s *o)
 {
-        rec_i32 aabb = obj_aabb(o);
-        aabb.x--;
-        aabb.y--;
-        aabb.w += 2;
-        aabb.h = 2;
-        if (game_area_blocked(g, aabb)) {
+        if (o->actorres != 0 || o->hit_enemy) {
                 obj_delete(g, o);
                 return;
         }
@@ -27,10 +22,11 @@ obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         objflags_s flags = objflags_create(
             OBJ_FLAG_ACTOR,
             OBJ_FLAG_MOVABLE,
-            OBJ_FLAG_THINK_1,
-            OBJ_FLAG_KILL_OFFSCREEN);
+            OBJ_FLAG_THINK_2,
+            OBJ_FLAG_KILL_OFFSCREEN,
+            OBJ_FLAG_HURTS_ENEMIES);
         obj_apply_flags(g, arrow, flags);
-        arrow->think_1      = arrow_think;
+        arrow->think_2      = arrow_think;
         arrow->ID           = 2;
         arrow->w            = 8;
         arrow->h            = 8;

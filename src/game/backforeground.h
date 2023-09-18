@@ -8,7 +8,11 @@
 #include "gamedef.h"
 
 enum {
-        BG_NUM_CLOUDS      = 16,
+        BACKGROUND_WIND_CIRCLE_R = 1900,
+};
+
+enum {
+        BG_NUM_CLOUDS      = 32,
         BG_NUM_PARTICLES   = 256,
         BG_NUM_CLOUD_TYPES = 3,
         BG_WIND_PARTICLE_N = 8,
@@ -39,5 +43,6 @@ typedef struct {
         int          clouddirection;
 } backforeground_s;
 
+void backforeground_setup(game_s *g);
 void backforeground_animate(game_s *g);
 #endif

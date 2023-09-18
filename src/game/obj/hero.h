@@ -26,6 +26,8 @@ enum hero_state_machine {
 struct hero_s {
         objhandle_s obj;
         int         state;
+        //
+        bool32      itemselection_dirty;
         i32         jumpticks;
         i32         edgeticks;
         bool32      wasgrounded;
@@ -47,8 +49,8 @@ struct hero_s {
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);
-void   hero_update(game_s *g, obj_s *o, void *arg);
+void   hero_update(game_s *g, obj_s *o);
 void   hero_set_cur_item(hero_s *h, int itemID);
-void   hero_aquire_item(game_s *g, hero_s *h, int itemID);
+void   hero_aquire_item(hero_s *h, int itemID);
 
 #endif

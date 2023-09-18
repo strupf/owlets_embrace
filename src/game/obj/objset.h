@@ -45,5 +45,7 @@ void        objset_clr(objset_s *set);
 int         objset_len(objset_s *set);
 obj_s      *objset_at(objset_s *set, int i);
 obj_listc_s objset_list(objset_s *set);
+void        objset_sort(objset_s *set, int (*cmpf)(const obj_s *a, const obj_s *b));
+void        objset_print(objset_s *set);
 
 #endif

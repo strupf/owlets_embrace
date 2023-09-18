@@ -10,6 +10,9 @@
 #define CATCH_OVERFLOW 1
 #define WARN_OVERFLOW  1
 
+#define PI_FLOAT  3.1415927f
+#define PI2_FLOAT 6.2831853f
+
 typedef struct {
         i32 num;
         i32 den;
@@ -155,6 +158,57 @@ static inline u32 add_u32(u32 a, u32 b)
 #define shl_u32(A, S) ((u32)(A) << (S))
 #endif
 
+static inline i32 abs_i(i32 x)
+{
+        return (x > 0 ? x : -x);
+}
+
+static inline i32 sgn_i(i32 x)
+{
+        if (x > 0) return +1;
+        if (x < 0) return -1;
+        return 0;
+}
+
+static inline i32 max_i(i32 a, i32 b)
+{
+        return (a > b ? a : b);
+}
+
+static inline i32 min_i(i32 a, i32 b)
+{
+        return (a < b ? a : b);
+}
+
+static inline i32 clamp_i(i32 x, i32 lo, i32 hi)
+{
+        if (x < lo) return lo;
+        if (x > hi) return hi;
+        return x;
+}
+
+static inline float abs_f(float x)
+{
+        return (x > 0.f ? x : -x);
+}
+
+static inline float sgn_f(float x)
+{
+        if (x > 0.f) return +1.f;
+        if (x < 0.f) return -1.f;
+        return 0.f;
+}
+
+static inline float max_f(float a, float b)
+{
+        return (a > b ? a : b);
+}
+
+static inline float min_f(float a, float b)
+{
+        return (a < b ? a : b);
+}
+
 // [0, 65535]
 static inline i32 rngs_fast_u16(u32 *state)
 {
@@ -279,19 +333,19 @@ static inline i32 q_mulr(i32 a, i32 b, int q)
 static inline i32 adds_i32(i32 a, i32 b)
 {
         i64 x = (i64)a + (i64)b;
-        return (i32)(CLAMP(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 subs_i32(i32 a, i32 b)
 {
         i64 x = (i64)a - (i64)b;
-        return (i32)(CLAMP(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 muls_i32(i32 a, i32 b)
 {
         i64 x = (i64)a * (i64)b;
-        return (i32)(CLAMP(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 pow_i32(i32 v, i32 power)
@@ -537,7 +591,7 @@ static i32 atan_q16(i32 x)
         // taylor expansion works for x [0, 1]
         // for bigger x: atan(x) = PI/2 - atan(1/x)
         i32 add = 0, mul = +1;
-        u32 i = x >= 0 ? (u32)x : (u32)(-x);
+        u32 i = (u32)abs_i(x);
         if (i > 0x10000) {
                 i   = 0xFFFFFFFFU / i;
                 add = 0x10000;
@@ -569,7 +623,7 @@ static i32 asin_q16(i32 x)
         if (x == 0) return 0;
         if (x == +0x10000) return +0x10000;
         if (x == -0x10000) return -0x10000;
-        u32 i = (u32)(x > 0 ? x : -x);
+        u32 i = (u32)abs_i(x);
         u32 r;
         r = 0x030D;
         r = 0x0C1A - ((r * i) >> 16);
@@ -587,6 +641,17 @@ static i32 acos_q16(i32 x)
         return 0x10000 - asin_q16(x);
 }
 
+static float sin_f(float x)
+{
+        float i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
+        return ((float)sin_q16((i32)(i * (float)Q16_ANGLE_TURN)) / 65536.f);
+}
+
+static float cos_f(float x)
+{
+        float i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
+        return ((float)cos_q16((i32)(i * (float)Q16_ANGLE_TURN)) / 65536.f);
+}
 // ============================================================================
 // V2I
 // ============================================================================
@@ -594,14 +659,14 @@ static i32 acos_q16(i32 x)
 // returns the minimum component
 static inline v2_i32 v2_min(v2_i32 a, v2_i32 b)
 {
-        v2_i32 r = {MIN(a.x, b.x), MIN(a.y, b.y)};
+        v2_i32 r = {min_i(a.x, b.x), min_i(a.y, b.y)};
         return r;
 }
 
 // returns the maximum component
 static inline v2_i32 v2_max(v2_i32 a, v2_i32 b)
 {
-        v2_i32 r = {MAX(a.x, b.x), MAX(a.y, b.y)};
+        v2_i32 r = {max_i(a.x, b.x), max_i(a.y, b.y)};
         return r;
 }
 
@@ -672,8 +737,8 @@ static inline i32 v2_crs(v2_i32 a, v2_i32 b)
 
 static inline u32 v2_lensq(v2_i32 a)
 {
-        u32 x = ABS(a.x);
-        u32 y = ABS(a.y);
+        u32 x = abs_i(a.x);
+        u32 y = abs_i(a.y);
         return add_u32(mul_u32(x, x), mul_u32(y, y));
 }
 
@@ -707,10 +772,10 @@ static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
 
 static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
 {
-        int sig = SGN(num) * SGN(den);
+        int sig = sgn_i(num) * sgn_i(den);
 
-        num = ABS(num);
-        den = ABS(den);
+        num = abs_i(num);
+        den = abs_i(den);
         while (num >= 0x10000) { // reduce precision to avoid overflow
                 num >>= 1;
                 den >>= 1;

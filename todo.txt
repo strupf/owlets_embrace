@@ -8,7 +8,6 @@ gameplay
 * implement low and high slopes, including rope logic
 * water tiles
 * 1-way platforms
-* ladders
 
 loading
 * autotiling for low and high slopes
@@ -25,6 +24,7 @@ audio
 * music pitch
 
 bugs
+* rope: modification of solids or tiles have to set the "dirty" flag
 * rope: removal of a point during tighten can result in three
     collinear points which span a degenerate triangle -> in that
     case delete the middle point, too

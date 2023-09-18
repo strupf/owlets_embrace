@@ -20,6 +20,7 @@ enum tex_id {
         TEXID_HOOK,
         TEXID_LAYER_1,
         TEXID_TITLESCREEN,
+        TEXID_ITEM_SELECT_CACHE,
         //
         NUM_TEXID
 };
@@ -30,7 +31,8 @@ enum snd_id {
         SNDID_TYPEWRITE,
         SNDID_HERO_LAND,
         SNDID_STEP,
-        SNDID_HOOK,
+        SNDID_HOOKATTACH,
+        SNDID_BOW,
         //
         NUM_SNDID
 };

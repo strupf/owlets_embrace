@@ -97,10 +97,8 @@ struct game_s {
         hero_s hero;
 
         i32  areaname_display_ticks;
-        char areaname[64];
-
-        bool32 itemselection_dirty;
-        tex_s  itemselection_cache;
+        char areaname[64]; // the ingame area name to display
+        char areafilename[LENGTH_AREAFILENAME];
 
         objset_s    obj_scheduled_delete; // objects scheduled for removal
         obj_s       objs[NUM_OBJS];
@@ -125,8 +123,8 @@ struct game_s {
         roomlayout_s roomlayout;
         textbox_s    textbox;
 
-        watersurface_s  water;
-        waterparticle_s wparticles[256];
+        watersurface_s water;
+        ocean_s        ocean;
 
         pathmover_s pathmover;
 
@@ -136,8 +134,8 @@ struct game_s {
 
 extern game_s g_gamestate;
 
-void       *game_heapalloc(size_t size);
-void        game_heapfree(void *ptr);
+void       *game_heapalloc(game_s *g, size_t size);
+void        game_heapfree(game_s *g, void *ptr);
 void        game_init(game_s *g);
 void        game_update(game_s *g);
 void        game_draw(game_s *g);
@@ -146,10 +144,12 @@ void        game_trigger(game_s *g, int triggerID);
 void        game_load_map(game_s *g, const char *filename);
 bool32      game_area_blocked(game_s *g, rec_i32 r);
 bool32      game_is_ladder(game_s *g, v2_i32 p);
-void        obj_interact_dialog(game_s *g, obj_s *o, void *arg);
+void        obj_interact_dialog(game_s *g, obj_s *o);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 particle_s *particle_spawn(game_s *g);
-void        solid_think(game_s *g, obj_s *o, void *arg);
+void        solid_think(game_s *g, obj_s *o);
+void        game_cull_scheduled(game_s *g);
+void        tileanimations_update();
 // loads a Tiled .world file
 void        roomlayout_load(roomlayout_s *rl, const char *filename);
 roomdesc_s *roomlayout_get(roomlayout_s *rl, rec_i32 rec);

@@ -56,21 +56,13 @@ snd_s snd_load_wav(const char *filename)
         wavheader_s wheader;
         OS_FILE    *f = i_open_wav_file(filename, &wheader);
 
-        u32 num_samples_i16 = wheader.subchunk2size / sizeof(i16);
-        os_spmem_push();
-        i16 *buf = os_spmem_alloc(num_samples_i16);
-
-        // we don't check for errors here...
-        os_fread_n(buf, sizeof(i16), num_samples_i16, f);
-        os_fclose(f);
-
         snd_s snd = {0};
         snd.data  = assetmem_alloc(wheader.subchunk2size);
-        snd.len   = num_samples_i16;
-        for (int n = 0; n < (int)num_samples_i16; n++) {
-                snd.data[n] = buf[n];
-        }
-        os_spmem_pop();
+        snd.len   = wheader.subchunk2size / sizeof(i16);
+
+        // we don't check for errors here...
+        os_fread_n(snd.data, 1, wheader.subchunk2size, f);
+        os_fclose(f);
         return snd;
 }
 
@@ -87,7 +79,7 @@ static void audio_channel_wave(audio_channel_s *ch, i16 *left, int len)
                 ASSERT(i < ch->wavelen_og);
                 i32 val = ch->wavedata[i];
                 val     = *buf + ((val * ch->vol_q8) >> 8);
-                *buf++  = CLAMP(val, I16_MIN, I16_MAX);
+                *buf++  = clamp_i(val, I16_MIN, I16_MAX);
         }
 }
 
@@ -115,7 +107,7 @@ static void audio_channel_gen(audio_channel_s *ch, i16 *left, int len)
                 } break;
                 }
                 val     = left[n] + ((val * ch->vol_q8) >> 8);
-                left[n] = CLAMP(val, I16_MIN, I16_MAX);
+                left[n] = clamp_i(val, I16_MIN, I16_MAX);
         }
 }
 
@@ -130,7 +122,7 @@ static void music_update_chunk(music_channel_s *ch, int samples_needed)
                  ch->datapos + ch->streampos * sizeof(i16),
                  OS_SEEK_SET);
         int samples_left    = ch->streamlen - ch->streampos;
-        int samples_to_read = MIN(OS_MUSICCHUNK_SAMPLES, samples_left);
+        int samples_to_read = min_i(OS_MUSICCHUNK_SAMPLES, samples_left);
 
         // we don't check for errors here...
         os_fread_n(ch->chunk, sizeof(i16), samples_to_read, ch->stream);
@@ -172,7 +164,7 @@ static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
                 return;
         }
 
-        int l = MIN(len, (int)(ch->streamlen - ch->streampos));
+        int l = min_i(len, (int)(ch->streamlen - ch->streampos));
         music_update_chunk(ch, len);
         music_channel_fillbuf(ch, left, l);
 

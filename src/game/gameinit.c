@@ -28,8 +28,6 @@ void game_init(game_s *g)
 
         assets_load();
 
-        g->itemselection_cache = tex_create(ITEM_FRAME_SIZE, ITEM_FRAME_SIZE, 1);
-
         g->rng    = 213;
         g->cam.w  = 400;
         g->cam.h  = 240;
@@ -116,6 +114,30 @@ void game_init(game_s *g)
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_SPRITE_ANIM];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
                 b->op_flag[0]  = objflags_create(OBJ_FLAG_SPRITE_ANIM);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_RENDERABLE];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_RENDERABLE);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ANIMATE];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_ANIMATE);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ENEMY];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_ENEMY);
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_HURTS_ENEMIES];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = objflags_create(OBJ_FLAG_HURTS_ENEMIES);
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
 

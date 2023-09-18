@@ -13,6 +13,6 @@ enum {
 
 bool32 savefile_exists(int saveID);
 bool32 savefile_write(int saveID, game_s *g);
-bool32 savefile_load(int saveID, game_s *g);
+bool32 savefile_read(int saveID, game_s *g);
 
 #endif

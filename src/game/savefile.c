@@ -8,7 +8,7 @@
 
 typedef struct {
         u32  playeritems;
-        char currentmap[32];
+        char areafilename[32];
         char playername[LENGTH_PLAYERNAME];
 } savedata_s;
 
@@ -45,6 +45,7 @@ bool32 savefile_write(int saveID, game_s *g)
         savedata_s sd  = {0};
         sd.playeritems = g->hero.aquired_items;
         os_memcpy(sd.playername, g->hero.playername, LENGTH_PLAYERNAME);
+        os_memcpy(sd.areafilename, g->areafilename, LENGTH_AREAFILENAME);
 
         if (os_fwrite(&sd, sizeof(savedata_s), 1, file) != 1) {
                 os_fclose(file);
@@ -56,7 +57,7 @@ bool32 savefile_write(int saveID, game_s *g)
         return 1;
 }
 
-bool32 savefile_load(int saveID, game_s *g)
+bool32 savefile_read(int saveID, game_s *g)
 {
         OS_FILE *file = savefile_open(saveID, "r");
         if (!file) {
@@ -71,6 +72,7 @@ bool32 savefile_load(int saveID, game_s *g)
                 return 0;
         }
 
+        game_load_map(g, sd.areafilename);
         g->hero.aquired_items = sd.playeritems;
         os_memcpy(g->hero.playername, sd.playername, LENGTH_PLAYERNAME);
 

@@ -2,7 +2,7 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "backend.h"
+#include "os_internal.h"
 
 PlaydateAPI *PD;
 void (*PD_log)(const char *fmt, ...);
@@ -17,10 +17,39 @@ int (*PD_fclose)(SDFile *file);
 static void (*PD_display)(void);
 static void (*PD_drawFPS)(int x, int y);
 static void (*PD_markUpdatedRows)(int start, int end);
+static float (*PD_crank)(void);
+static int (*PD_crankdocked)(void);
+static void (*PD_buttonstate)(PDButtons *, PDButtons *, PDButtons *);
 
 int os_do_tick_pd(void *userdata)
 {
         return os_do_tick();
+}
+
+void os_backend_init()
+{
+        // graphics
+        PD_display         = PD->graphics->display;
+        PD_drawFPS         = PD->system->drawFPS;
+        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
+        PD_fseek           = PD->file->seek;
+        PD_ftell           = PD->file->tell;
+        PD_fread           = PD->file->read;
+        PD_fwrite          = PD->file->write;
+        PD_fopen           = PD->file->open;
+        PD_fclose          = PD->file->close;
+        PD_crank           = PD->system->getCrankAngle;
+        PD_crankdocked     = PD->system->isCrankDocked;
+        PD_buttonstate     = PD->system->getButtonState;
+
+        PD->display->setRefreshRate(0.f);
+        g_os.framebuffer = PD->graphics->getFrame();
+        PD->sound->addSource(os_audio_cb, NULL, 0);
+}
+
+void os_backend_close()
+{
+        mus_close();
 }
 
 #ifdef _WINDLL
@@ -38,8 +67,7 @@ __declspec(dllexport)
                 os_prepare();
                 break;
         case kEventTerminate:
-                os_backend_audio_close();
-                os_backend_graphics_close();
+                os_backend_close();
                 break;
         case kEventInitLua:
         case kEventLock:
@@ -51,26 +79,6 @@ __declspec(dllexport)
         case kEventLowPower: break;
         }
         return 0;
-}
-
-void os_backend_graphics_init()
-{
-        PD_display         = PD->graphics->display;
-        PD_drawFPS         = PD->system->drawFPS;
-        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
-        PD_fseek           = PD->file->seek;
-        PD_ftell           = PD->file->tell;
-        PD_fread           = PD->file->read;
-        PD_fwrite          = PD->file->write;
-        PD_fopen           = PD->file->open;
-        PD_fclose          = PD->file->close;
-
-        PD->display->setRefreshRate(0.f);
-        g_os.framebuffer = PD->graphics->getFrame();
-}
-
-void os_backend_graphics_close()
-{
 }
 
 void os_backend_graphics_begin()
@@ -88,13 +96,26 @@ void os_backend_graphics_flip()
 {
 }
 
-void os_backend_audio_init()
+void os_backend_inp_update()
 {
-        // mus_play("assets/snd/pink.wav");
-        PD->sound->addSource(os_audio_cb, NULL, 0);
+        g_os.buttonsp     = g_os.buttons;
+        g_os.crankdockedp = g_os.crankdocked;
+        PD_buttonstate(&g_os.buttons, NULL, NULL);
+        g_os.crankdocked = PD_crankdocked();
+
+        if (!g_os.crankdocked) {
+                g_os.crankp_q16 = g_os.crank_q16;
+                g_os.crank_q16  = (int)(PD_crank() * 182.04444f) & 0xFFFF;
+        }
 }
 
-void os_backend_audio_close()
-{
-        mus_close();
-}
+bool32 debug_inp_up() { return os_inp_pressed(INP_UP); }
+bool32 debug_inp_down() { return os_inp_pressed(INP_DOWN); }
+bool32 debug_inp_left() { return os_inp_pressed(INP_LEFT); }
+bool32 debug_inp_right() { return os_inp_pressed(INP_RIGHT); }
+bool32 debug_inp_w() { return 0; }
+bool32 debug_inp_a() { return 0; }
+bool32 debug_inp_s() { return 0; }
+bool32 debug_inp_d() { return 0; }
+bool32 debug_inp_enter() { return 0; }
+bool32 debug_inp_space() { return 0; }

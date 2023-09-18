@@ -4,7 +4,7 @@
 
 #include "game/game.h"
 
-void door_think(game_s *g, obj_s *o, void *arg)
+void door_think(game_s *g, obj_s *o)
 {
         if (o->door.moved > 0) {
                 solid_move(g, o, 0, -1);

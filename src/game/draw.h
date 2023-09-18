@@ -5,7 +5,9 @@
 #ifndef DRAW_H
 #define DRAW_H
 
+#include "backforeground.h"
 #include "gamedef.h"
+#include "rope.h"
 
 enum {
         SPRITE_ANIM_FRAMES = 16,
@@ -46,5 +48,14 @@ enum {
         ITEM_X_OFFS     = 16,
         ITEM_Y_OFFS     = 16,
 };
+
+void merge_layer(tex_s screen, tex_s layer);
+void draw_background(backforeground_s *bg, v2_i32 camp);
+void draw_foreground(backforeground_s *bg, v2_i32 camp);
+void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, int l, v2_i32 camp);
+void draw_transition(game_s *g);
+void draw_rope(rope_s *r, v2_i32 camp);
+void draw_particles(game_s *g, v2_i32 camp);
+void draw_game_UI(game_s *g, v2_i32 camp);
 
 #endif

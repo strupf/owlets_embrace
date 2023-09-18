@@ -5,13 +5,35 @@
 #include "backforeground.h"
 #include "game.h"
 
-enum {
-        BACKGROUND_WIND_CIRCLE_R = 1900,
-};
-
 // called at half update rate!
 static void backforeground_clouds(game_s *g, backforeground_s *bg);
 static void backforeground_wind_particles(game_s *g, backforeground_s *bg);
+
+static cloudbg_s *spawn_cloud(game_s *g, backforeground_s *bg)
+{
+        ASSERT(bg->nclouds < BG_NUM_CLOUDS);
+        cloudbg_s *c = &bg->clouds[bg->nclouds++];
+        c->cloudtype = rng_max_u32(BG_NUM_CLOUD_TYPES - 1);
+        c->v         = bg->clouddirection * rng_range(1, 16);
+        c->p.y       = rng_range(-50, 240) << 8;
+
+        if (c->v < 0) {
+                c->p.x = (400 + 100) << 8;
+        } else {
+                c->p.x = -(100 << 8);
+        }
+        return c;
+}
+
+void backforeground_setup(game_s *g)
+{
+        backforeground_s *bg = &g->backforeground;
+        for (int n = 0; n < 16; n++) {
+                cloudbg_s *c = spawn_cloud(g, bg);
+                c->p.x       = rng_range(-100, 400 + 100) << 8;
+                c->p.y       = rng_range(-100, 240) << 8;
+        }
+}
 
 void backforeground_animate(game_s *g)
 {
@@ -32,17 +54,8 @@ static void backforeground_clouds(game_s *g, backforeground_s *bg)
                 }
         }
 
-        if (bg->nclouds < BG_NUM_CLOUDS && rng_fast_u16() <= 1000) {
-                cloudbg_s *c = &bg->clouds[bg->nclouds++];
-                c->cloudtype = rng_max_u32(BG_NUM_CLOUD_TYPES - 1);
-                c->v         = bg->clouddirection * rng_range(1, 64);
-                c->p.y       = rng_range(0, (g->pixel_y << 8));
-
-                if (c->v < 0) {
-                        c->p.x = (g->pixel_x + 50) << 8;
-                } else {
-                        c->p.x = -(50 << 8);
-                }
+        if (bg->nclouds < BG_NUM_CLOUDS && rng_fast_u16() <= 200) {
+                cloudbg_s *c = spawn_cloud(g, bg);
         }
 }
 
@@ -77,12 +90,12 @@ static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
                 p->pos[p->n] = p->p;
                 p->n         = (p->n + 1) & (BG_WIND_PARTICLE_N - 1);
 
-                if ((p->p.x >> 8) < -100 || (p->p.x >> 8) > g->pixel_x + 100) {
+                if ((p->p.x >> 8) < -200 || (p->p.x >> 8) > g->pixel_x + 200) {
                         bg->particles[n] = bg->particles[--bg->nparticles];
                 }
         }
 
-        if (bg->nparticles < BG_NUM_PARTICLES && rng_fast_u16() <= 1000) {
+        if (bg->nparticles < BG_NUM_PARTICLES && rng_fast_u16() <= 16000) {
                 particlebg_s *p = &bg->particles[bg->nparticles++];
                 p->p.x          = -(10 << 8);
                 p->p.y          = rng_range(0, g->pixel_y) << 8;

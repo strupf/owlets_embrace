@@ -21,10 +21,10 @@ obj_s *npc_create(game_s *g)
         return o;
 }
 
-void npc_think(game_s *g, obj_s *o, void *arg)
+void npc_think(game_s *g, obj_s *o)
 {
 }
 
-void npc_interact(game_s *g, obj_s *o, void *arg)
+void npc_interact(game_s *g, obj_s *o)
 {
 }

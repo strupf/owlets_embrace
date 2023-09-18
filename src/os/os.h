@@ -5,6 +5,14 @@
 #ifndef OS_H
 #define OS_H
 
+#define OS_SHOW_FPS    0
+#define OS_SHOW_TIMING 0
+
+enum {
+        OS_FPS     = 50,
+        OS_FPS_LOW = OS_FPS / 2,
+};
+
 #include "assets.h"
 #include "os_fileio.h"
 #include "os_math.h"
@@ -101,11 +109,21 @@ enum timing_IDs {
         NUM_TIMING
 };
 
-#define TIMING_BEGIN(ID) i_time_begin(ID)
-#define TIMING_END       i_time_end
-
+#if OS_SHOW_TIMING
+#define TIMING_BEGIN(ID)    i_time_begin(ID)
+#define TIMING_END          i_time_end
+#define TIMING_DRAW_DIAGRAM i_time_draw
+#define TIMING_TICK_DIAGRAM i_time_tick
 void i_time_begin(int ID);
 void i_time_end();
+void i_time_draw();
+void i_time_tick();
+#else
+#define TIMING_BEGIN(ID)
+#define TIMING_END()
+#define TIMING_DRAW_DIAGRAM()
+#define TIMING_TICK_DIAGRAM()
+#endif
 
 typedef struct {
         u8 *px;
@@ -116,10 +134,28 @@ typedef struct {
         int h;
 } tex_s;
 
+extern tex_s g_tex_screen;
+extern tex_s g_tex_layer_1;
+extern tex_s g_tex_layer_2;
+extern tex_s g_tex_layer_3;
+
 typedef struct {
         tex_s   t;
         rec_i32 r;
 } texregion_s;
+
+typedef struct {
+        float m[9];
+} sprite_matrix_s;
+
+sprite_matrix_s sprite_matrix_identity();
+sprite_matrix_s sprite_matrix_add(sprite_matrix_s a, sprite_matrix_s b);
+sprite_matrix_s sprite_matrix_sub(sprite_matrix_s a, sprite_matrix_s b);
+sprite_matrix_s sprite_matrix_mul(sprite_matrix_s a, sprite_matrix_s b);
+sprite_matrix_s sprite_matrix_rotate(float angle);
+sprite_matrix_s sprite_matrix_scale(float scx, float scy);
+sprite_matrix_s sprite_matrix_shear(float shx, float shy);
+sprite_matrix_s sprite_matrix_offset(float x, float y);
 
 typedef struct {
         u32 p[8];
@@ -129,7 +165,6 @@ typedef struct {
         tex_s         dst;
         tex_s         src;
         gfx_pattern_s pat;
-        v2_i32        offset;
         int           col; // color for primitive drawing
         int           sprmode;
 } gfx_context_s;
@@ -222,14 +257,20 @@ tex_s         tex_put(int ID, tex_s t);
 tex_s         tex_get(int ID);
 tex_s         tex_create(int w, int h, bool32 mask);
 tex_s         tex_load(const char *filename);
+tex_s         tex_new_screen_layer();
 //
 gfx_context_s gfx_context_create(tex_s dst);
 void          gfx_tex_clr(tex_s t);
 void          gfx_set_inverted(bool32 inv);
 void          gfx_px(gfx_context_s ctx, int x, int y);
+void          gfx_sprite_tile16(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags);
 void          gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags);
+void          gfx_sprite_rotated_(gfx_context_s ctx, v2_i32 pos, rec_i32 r, v2_i32 origin, float angle);
+void          gfx_sprite_rotated(gfx_context_s ctx, rec_i32 r, sprite_matrix_s mt);
 void          gfx_rec_fill(gfx_context_s ctx, rec_i32 r);
 void          gfx_tri_fill(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2);
+void          gfx_tri(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2);
+void          gfx_tri_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2, int r);
 void          gfx_line(gfx_context_s ctx, v2_i32 p0, v2_i32 p1);
 void          gfx_line_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, int r);
 void          gfx_text_ascii(gfx_context_s ctx, fnt_s *font, const char *txt, v2_i32 p);

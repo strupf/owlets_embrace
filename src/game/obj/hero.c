@@ -8,32 +8,56 @@
 #include "obj.h"
 
 enum {
-        HERO_C_JUMP_INIT = -600,
-        HERO_C_ACCX_MAX  = 130,
+        HERO_C_JUMP_INIT = -700,
+        HERO_C_ACCX_MAX  = 135,
         HERO_C_JUMP_MAX  = 80,
         HERO_C_JUMP_MIN  = 0,
-        HERO_C_JUMPTICKS = 10,
+        HERO_C_JUMPTICKS = 12,
         HERO_C_EDGETICKS = 6,
         HERO_C_GRAVITY   = 55,
 };
 
 static void   hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook);
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8);
-static void   hook_squeeze(game_s *g, obj_s *o, void *arg);
+static void   hook_squeeze(game_s *g, obj_s *o);
 static void   hero_update_sword(game_s *g, obj_s *o, hero_s *h);
 static void   hero_interact_logic(game_s *g, hero_s *h, obj_s *o);
 static void   hero_crank_item_selection(hero_s *h);
 static void   hero_check_hurtables(game_s *g, obj_s *ohero);
 static void   hero_jump_particles(game_s *g, obj_s *o);
 static void   hero_land_particles(game_s *g, obj_s *o);
-static void   hero_squeeze(game_s *g, obj_s *o, void *arg);
+static void   hero_squeeze(game_s *g, obj_s *o);
+static void   hero_animate(game_s *g, obj_s *o);
+
+static void hero_animate(game_s *g, obj_s *o)
+{
+        hero_s *h = &g->hero;
+        o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
+
+        bool32 grounded   = game_area_blocked(g, obj_rec_bottom(o));
+        o->animframe_prev = o->animframe;
+        if (o->vel_prev_q8.x == 0 && o->vel_q8.x != 0) {
+                o->animation = 300;
+        }
+
+        if (h->ppos.x == o->pos.x && grounded) {
+                o->animation += 10;
+                o->animframe = 0;
+        } else {
+                o->animframe = (o->animation / 500) % 4;
+                if (grounded && o->animframe % 2 == 1 && o->animframe_prev != o->animframe) {
+                        snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
+                }
+        }
+}
 
 static void hero_use_bow(game_s *g, obj_s *o, hero_s *h)
 {
         int    xs    = o->facing;
         v2_i32 ctr   = obj_aabb_center(o);
-        v2_i32 v_q8  = {xs * 1500, -300};
+        v2_i32 v_q8  = {xs * 2000, -300};
         obj_s *arrow = arrow_create(g, ctr, v_q8);
+        snd_play_ext(snd_get(SNDID_BOW), 1.f, 1.f);
 }
 
 static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
@@ -51,7 +75,7 @@ static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
                 v2_i32 center  = obj_aabb_center(o);
                 v2_i32 vlaunch = {dirx, diry};
 
-                vlaunch = v2_shl(vlaunch, 10);
+                vlaunch = v2_shl(vlaunch, 11);
                 if (vlaunch.y < 0) {
                         vlaunch.y = vlaunch.y * 5 / 4;
                 }
@@ -210,10 +234,10 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        int    velsgn        = SGN(o->vel_q8.x);
+        int    velsgn        = sgn_i(o->vel_q8.x);
         bool32 ropestretched = objhandle_is_valid(h->hook) && rope_stretched(g, &h->rope);
         int    xacc          = 0;
-        int    velabs        = ABS(o->vel_q8.x);
+        int    velabs        = abs_i(o->vel_q8.x);
 
         if (xs == 0) {
                 o->drag_q8.x = (grounded ? 130 : 245);
@@ -234,15 +258,27 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
+        if (ropestretched && !grounded) {
+                // try to "jump up" on ledges when roped
+                ropenode_s *rprev = o->ropenode->prev ? o->ropenode->prev : o->ropenode->next;
+                v2_i32      vv    = v2_sub(rprev->p, o->ropenode->p);
+                if (abs_i(vv.y) < 4 && ((vv.x < 0 && game_area_blocked(g, obj_rec_left(o))) ||
+                                        (vv.x > 0 && game_area_blocked(g, obj_rec_right(o))))) {
+                        PRINTF("JUMP\n");
+                        o->vel_q8.y -= 250;
+                        o->vel_q8.x -= sgn_i(vv.x) * 250;
+                }
+        }
+
         if (xs != 0 && !grounded) {
                 o->drag_q8.x = 245;
                 if (ropestretched) {
                         v2_i32 dtrope = v2_sub(h->rope.head->p, h->rope.head->next->p);
-                        xacc          = (SGN(dtrope.x) == xs ? 10 : 25);
+                        xacc          = (sgn_i(dtrope.x) == xs ? 15 : 30);
                 } else if (velsgn == -xs) {
-                        xacc = 50;
+                        xacc = 75;
                 } else if (velabs < 1000) {
-                        xacc = 25;
+                        xacc = 35;
                 }
         }
 
@@ -273,7 +309,7 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
         }
         if (crankchange) {
                 r->len_max_q16 += crankchange * 100;
-                r->len_max_q16 = CLAMP(r->len_max_q16, 0x40000, 400 << 16);
+                r->len_max_q16 = clamp_i(r->len_max_q16, 0x40000, 400 << 16);
                 r->len_max     = r->len_max_q16 >> 16;
         }
 
@@ -286,13 +322,12 @@ static void hero_hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
         if (!hook->attached) {
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
-                actor_move_x(g, hook, hook->tomove.x);
-                actor_move_y(g, hook, hook->tomove.y);
+                actor_move(g, hook, hook->tomove.x, hook->tomove.y);
                 hook->tomove.x  = 0;
                 hook->tomove.y  = 0;
                 rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
                 if (game_area_blocked(g, hookrec)) {
-                        snd_play_ext(snd_get(SNDID_HOOK), 0.5f, 0.8f);
+                        snd_play_ext(snd_get(SNDID_HOOKATTACH), 0.5f, 0.8f);
                         hook->attached   = 1;
                         hook->gravity_q8 = (v2_i32){0};
                         hook->vel_q8     = (v2_i32){0};
@@ -337,9 +372,9 @@ static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
         ohook->ropenode = NULL;
 }
 
-static void hook_squeeze(game_s *g, obj_s *o, void *arg)
+static void hook_squeeze(game_s *g, obj_s *o)
 {
-        hero_s *hero = (hero_s *)arg;
+        hero_s *hero = (hero_s *)&g->hero;
         obj_s  *ohero;
         if (try_obj_from_handle(hero->obj, &ohero)) {
                 hook_destroy(g, hero, ohero, o);
@@ -348,7 +383,7 @@ static void hook_squeeze(game_s *g, obj_s *o, void *arg)
         }
 }
 
-static void hero_squeeze(game_s *g, obj_s *o, void *arg)
+static void hero_squeeze(game_s *g, obj_s *o)
 {
         game_map_transition_start(g, "template.tmj");
 }
@@ -370,7 +405,6 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8)
         o->drag_q8.y    = 256;
         o->gravity_q8.y = 34;
         o->onsqueeze    = hook_squeeze;
-        o->userarg      = &g->hero;
         rope_init(rope);
         rope->head->p = p;
         rope->tail->p = p;
@@ -386,13 +420,14 @@ obj_s *hero_create(game_s *g, hero_s *h)
         objflags_s flags = objflags_create(OBJ_FLAG_ACTOR,
                                            OBJ_FLAG_HERO,
                                            OBJ_FLAG_MOVABLE,
-                                           OBJ_FLAG_THINK_1);
-        hero->userarg    = h;
+                                           OBJ_FLAG_THINK_1,
+                                           OBJ_FLAG_ANIMATE);
         obj_apply_flags(g, hero, flags);
-        hero->think_1    = hero_update;
-        hero->onsqueeze  = hero_squeeze;
-        hero->facing     = 1;
-        hero->actorflags = ACTOR_FLAG_CLIMB_SLOPES |
+        hero->animate_func = hero_animate;
+        hero->think_1      = hero_update;
+        hero->onsqueeze    = hero_squeeze;
+        hero->facing       = 1;
+        hero->actorflags   = ACTOR_FLAG_CLIMB_SLOPES |
                            ACTOR_FLAG_GLUE_GROUND;
         hero->pos.x        = 200;
         hero->pos.y        = 20;
@@ -404,9 +439,9 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->ID           = 3;
         *h                 = (const hero_s){0};
         h->obj             = objhandle_from_obj(hero);
-        hero_aquire_item(g, h, HERO_ITEM_BOW);
-        hero_aquire_item(g, h, HERO_ITEM_HOOK);
-        hero_aquire_item(g, h, HERO_ITEM_SWORD);
+        hero_aquire_item(h, HERO_ITEM_BOW);
+        hero_aquire_item(h, HERO_ITEM_HOOK);
+        hero_aquire_item(h, HERO_ITEM_SWORD);
         return hero;
 }
 
@@ -507,7 +542,7 @@ static void hero_interact_logic(game_s *g, hero_s *h, obj_s *o)
         v2_i32 pc           = obj_aabb_center(o);
         obj_s *interactable = interactable_closest(g, pc);
         if (interactable)
-                interactable->oninteract(g, interactable, NULL);
+                interactable->oninteract(g, interactable);
 }
 
 static void hero_crank_item_selection(hero_s *h)
@@ -539,18 +574,19 @@ static void hero_check_hurtables(game_s *g, obj_s *ohero)
                         ohero->invincibleticks = 30;
                         v2_i32 c1              = obj_aabb_center(ho);
                         v2_i32 c2              = obj_aabb_center(ohero);
-                        ohero->vel_q8.x        = SGN(c2.x - c1.x) * 750;
+                        ohero->vel_q8.x        = sgn_i(c2.x - c1.x) * 750;
                         ohero->vel_q8.y        = -500;
                         break;
                 }
         }
 }
 
-void hero_update(game_s *g, obj_s *o, void *arg)
+void hero_update(game_s *g, obj_s *o)
 {
-        hero_s *h = (hero_s *)arg;
-
+        hero_s *h = (hero_s *)&g->hero;
+        h->ppos   = o->pos;
         hero_crank_item_selection(h);
+
         hero_logic(g, o, h);
 
         TIMING_BEGIN(TIMING_HERO_HOOK);
@@ -569,26 +605,6 @@ void hero_update(game_s *g, obj_s *o, void *arg)
         if (o->invincibleticks-- <= 0) {
                 hero_check_hurtables(g, o);
         }
-
-        o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
-
-        bool32 grounded   = game_area_blocked(g, obj_rec_bottom(o));
-        o->animframe_prev = o->animframe;
-        if (o->vel_prev_q8.x == 0 && o->vel_q8.x != 0) {
-                o->animation = 300;
-        }
-
-        if (h->ppos.x == o->pos.x && grounded) {
-                o->animation += 10;
-                o->animframe = 0;
-        } else {
-                o->animframe = (o->animation / 500) % 4;
-                if (grounded && o->animframe % 2 == 1 && o->animframe_prev != o->animframe) {
-                        snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
-                }
-        }
-
-        h->ppos = o->pos;
 }
 
 static inline int i_hero_itemID_get(hero_s *h, int dir)
@@ -613,11 +629,11 @@ void hero_set_cur_item(hero_s *h, int itemID)
         h->selected_item_next = i_hero_itemID_get(h, +1);
 }
 
-void hero_aquire_item(game_s *g, hero_s *h, int itemID)
+void hero_aquire_item(hero_s *h, int itemID)
 {
         ASSERT(((h->aquired_items >> itemID) & 1) == 0);
 
         h->aquired_items |= 1 << itemID;
         hero_set_cur_item(h, itemID);
-        g->itemselection_dirty = 1;
+        h->itemselection_dirty = 1;
 }

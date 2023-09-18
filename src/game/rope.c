@@ -27,7 +27,7 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 150;
+        r->len_max     = 180;
         r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 190;
         r->spring_q8   = 248;
@@ -424,7 +424,6 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         // check if the three points are collinear
         if (v2_crs(v2_sub(pprev, pcurr), v2_sub(pnext, pcurr)) == 0) {
                 ropenode_delete(r, rc);
-                PRINTF("DELETE, COLLINEAR\n");
                 return;
         }
 
@@ -488,7 +487,6 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         }
 
         ropenode_delete(r, rc);
-        PRINTF("DELETE ONE NODE\n");
         // ASSERT(rope_intact(g, r));
         if (!rope_intact(g, r)) {
                 for (int n = 0; n < solids.n; n++) {

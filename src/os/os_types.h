@@ -6,6 +6,10 @@
 #define OS_TYPES_H
 
 #include "binary_literal.h"
+#include <math.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 // this is to enable editing Playdate specific stuff
 // and disable Visual Studio's definitions
@@ -19,10 +23,7 @@
 // RAYLIB ======================================================================
 #include "include/raylib.h"
 #include <assert.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #define os_time       (float)GetTime
 #define ASSERT        assert
@@ -31,10 +32,6 @@
 #elif defined(TARGET_PD)
 // PLAYDATE ====================================================================
 #include "pd_api.h"
-#include <math.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
 #define os_time PD_elapsedtime
 
 extern PlaydateAPI *PD;
@@ -75,6 +72,7 @@ typedef uint64_t       u64;
 typedef int8_t         bool8;
 typedef int16_t        bool16;
 typedef int32_t        bool32;
+typedef float          f32;
 
 typedef u8  flags8;
 typedef u16 flags16;

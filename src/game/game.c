@@ -7,9 +7,6 @@
 u16              g_tileIDs[0x10000];
 tile_animation_s g_tileanimations[NUM_TILEANIMATIONS];
 
-static void tileanimations_update();
-static void game_cull_scheduled(game_s *g);
-
 void pathmover_init(pathmover_s *p)
 {
         for (int n = 0; n < 5; n++) {
@@ -31,7 +28,7 @@ void pathmover_init(pathmover_s *p)
         p->to       = &p->nodes[1];
 }
 
-void solid_think(game_s *g, obj_s *o, void *arg)
+void solid_think(game_s *g, obj_s *o)
 {
         if (os_tick() & 1) return;
         obj_s *solid = o;
@@ -54,19 +51,24 @@ static void game_tick(game_s *g)
         }
 
         path_update(&g->pathmover);
-        watersurface_update(&g->water);
+        water_update(&g->water);
+        ocean_update(&g->ocean);
         if (debug_inp_enter()) {
                 water_impact(&g->water, 50, 10, 30000);
         }
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
-                obj_s *o = thinkers1.o[i];
-                o->think_1(g, o, o->userarg);
+                o->think_1(g, thinkers1.o[i]);
         }
 
         obj_listc_s movables = objbucket_list(g, OBJ_BUCKET_MOVABLE);
         for (int i = 0; i < movables.n; i++) {
                 obj_apply_movement(movables.o[i]);
+        }
+
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+        for (int i = 0; i < actors.n; i++) {
+                actors.o[i]->actorres = 0;
         }
 
         obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
@@ -77,23 +79,49 @@ static void game_tick(game_s *g)
                 o->tomove.y = 0;
         }
 
-        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
         for (int i = 0; i < actors.n; i++) {
                 obj_s *o = actors.o[i];
-                actor_move_x(g, o, o->tomove.x);
-                actor_move_y(g, o, o->tomove.y);
+                actor_move(g, o, o->tomove.x, o->tomove.y);
                 o->tomove.x = 0;
                 o->tomove.y = 0;
+        }
+
+        obj_listc_s enemyhurt = objbucket_list(g, OBJ_BUCKET_HURTS_ENEMIES);
+        obj_listc_s enemies   = objbucket_list(g, OBJ_BUCKET_ENEMY);
+        for (int n = 0; n < enemyhurt.n; n++) {
+                obj_s *o = enemyhurt.o[n];
+                for (int i = 0; i < enemies.n; i++) {
+                        obj_s *e = enemies.o[i];
+                        if (overlap_rec_excl(obj_aabb(o), obj_aabb(e))) {
+                                obj_delete(g, e);
+                                o->hit_enemy = 1;
+
+                                for (int i = 0; i < 60; i++) {
+                                        particle_s *particle = particle_spawn(g);
+                                        particle->ticks      = rng_range(15, 25);
+                                        particle->p_q8       = (v2_i32){o->pos.x + o->w / 2,
+                                                                        o->pos.y + o->h - 4};
+                                        particle->p_q8       = v2_shl(particle->p_q8, 8);
+
+                                        particle->p_q8.x += rng_range(-800, 800);
+                                        particle->p_q8.y += rng_range(-800, 800);
+
+                                        particle->v_q8.x = rng_range(-300, 300);
+                                        particle->v_q8.y = rng_range(-300, 300);
+                                        particle->a_q8.y = 30;
+                                }
+                        }
+                }
         }
 
         obj_listc_s thinkers2 = objbucket_list(g, OBJ_BUCKET_THINK_2);
         for (int i = 0; i < thinkers2.n; i++) {
                 obj_s *o = thinkers2.o[i];
-                o->think_2(g, o, o->userarg);
+                o->think_2(g, o);
         }
 
         obj_listc_s okilloff   = objbucket_list(g, OBJ_BUCKET_KILL_OFFSCREEN);
-        rec_i32     roffscreen = {-16, -16, g->pixel_x + 16, g->pixel_y + 16};
+        rec_i32     roffscreen = {-256, -256, g->pixel_x + 256, g->pixel_y + 256};
         for (int n = 0; n < okilloff.n; n++) {
                 obj_s *o = okilloff.o[n];
                 if (!overlap_rec_excl(roffscreen, obj_aabb(o))) {
@@ -102,8 +130,13 @@ static void game_tick(game_s *g)
         }
 
         // remove all objects scheduled to be deleted
-        if (objset_len(&g->obj_scheduled_delete) > 0) {
-                game_cull_scheduled(g);
+        game_cull_scheduled(g);
+
+        obj_listc_s animators = objbucket_list(g, OBJ_BUCKET_ANIMATE);
+        for (int n = 0; n < animators.n; n++) {
+                obj_s *o = animators.o[n];
+                ASSERT(o->animate_func);
+                o->animate_func(g, o);
         }
 
         obj_listc_s spriteanim = objbucket_list(g, OBJ_BUCKET_SPRITE_ANIM);
@@ -126,7 +159,7 @@ static void game_tick(game_s *g)
         }
 }
 
-void game_update(game_s *g)
+static void update_gameplay(game_s *g)
 {
         static int once = 0;
         if (!once) {
@@ -164,7 +197,23 @@ void game_update(game_s *g)
 
         cam_update(g, &g->cam);
         if (os_inp_crankp() != os_inp_crank())
-                g->itemselection_dirty = 1;
+                g->hero.itemselection_dirty = 1;
+}
+
+static void update_title(game_s *g)
+{
+}
+
+void game_update(game_s *g)
+{
+        switch (g->state) {
+        case GAMESTATE_TITLE: {
+                update_title(g);
+        } break;
+        case GAMESTATE_GAMEPLAY: {
+                update_gameplay(g);
+        } break;
+        }
 }
 
 void game_trigger(game_s *g, int triggerID)
@@ -182,18 +231,18 @@ void game_close(game_s *g)
 {
 }
 
-void *game_heapalloc(size_t size)
+void *game_heapalloc(game_s *g, size_t size)
 {
-        return memheap_alloc(&g_gamestate.heap, size);
+        return memheap_alloc(&g->heap, size);
 }
 
-void game_heapfree(void *ptr)
+void game_heapfree(game_s *g, void *ptr)
 {
-        memheap_free(&g_gamestate.heap, ptr);
+        memheap_free(&g->heap, ptr);
 }
 
 // called at half update rate!
-static void tileanimations_update()
+void tileanimations_update()
 {
         i32 tick = os_tick();
         for (int n = 0; n < NUM_TILEANIMATIONS; n++) {
@@ -204,9 +253,11 @@ static void tileanimations_update()
         }
 }
 
-static void game_cull_scheduled(game_s *g)
+void game_cull_scheduled(game_s *g)
 {
-        for (int n = 0; n < objset_len(&g->obj_scheduled_delete); n++) {
+        int len = objset_len(&g->obj_scheduled_delete);
+        if (len == 0) return;
+        for (int n = 0; n < len; n++) {
                 obj_s *o_del = objset_at(&g->obj_scheduled_delete, n);
                 for (int i = 0; i < NUM_OBJ_BUCKETS; i++) {
                         objset_del(&g->objbuckets[i].set, o_del);

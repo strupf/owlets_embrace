@@ -217,16 +217,29 @@ static inline void i_gfx_put_px(gfx_context_s ctx, int x, int y)
         if (ctx.dst.mk) ctx.dst.mk[i] |= s;
 }
 
-static inline void i_gfx_fill_span(gfx_context_s ctx, int y, int xa, int xb)
+// TODO: implement mode
+static inline void i_gfx_px_shape(gfx_context_s ctx, int x, int y)
+{
+        if (!(0 <= x && x < ctx.dst.w && 0 <= y && y < ctx.dst.h)) return;
+        int s = 0x80 >> (x & 7);
+        if ((ctx.pat.p[y & 7] & s) == 0) return;
+        int i         = (x >> 3) + y * ctx.dst.w_byte;
+        ctx.dst.px[i] = (ctx.col ? ctx.dst.px[i] | s : ctx.dst.px[i] & ~s); // set or clear bit
+        if (ctx.dst.mk) ctx.dst.mk[i] |= s;
+}
+
+static inline void i_gfx_span_shape(gfx_context_s ctx, int y, int xa, int xb)
 {
         if (!(0 <= y && y < ctx.dst.h)) return;
+        /*
         if (xa == xb) {
-                i_gfx_put_px(ctx, xa, y);
+                i_gfx_px_shape(ctx, xa, y);
                 return;
         }
+        */
 
-        int x1 = MAX(0, xa);
-        int x2 = MIN(ctx.dst.w - 1, xb);
+        int x1 = max_i(0, xa);
+        int x2 = min_i(ctx.dst.w - 1, xb);
         if (x2 <= x1) return;
 
         u32 pt = ctx.pat.p[y & 7];
@@ -236,8 +249,8 @@ static inline void i_gfx_fill_span(gfx_context_s ctx, int y, int xa, int xb)
         int  b2 = (x2 >> 5) + y * ctx.dst.w_word;
         u32 *dp = &((u32 *)ctx.dst.px)[b1];
         u32 *dm = ctx.dst.mk ? &((u32 *)ctx.dst.mk)[b1] : NULL;
-        u32  ul = bswap32(((0xFFFFFFFFu >> (x1 & 31))));
-        u32  ur = bswap32(~(0x7FFFFFFFu >> (x2 & 31)));
+        u32  ul = bswap32(((0xFFFFFFFFU >> (x1 & 31))));
+        u32  ur = bswap32(~(0x7FFFFFFFU >> (x2 & 31)));
         for (int b = b1; b <= b2; b++) {
                 u32 t = pt;
                 if (b == b1) t &= ul;
@@ -247,9 +260,11 @@ static inline void i_gfx_fill_span(gfx_context_s ctx, int y, int xa, int xb)
                 switch (ctx.col) {
                 case GFX_COL_BLACK: d |= t; break;
                 case GFX_COL_WHITE: d &= ~t; break;
-                case GFX_COL_CLEAR: break;
+                case GFX_COL_CLEAR:
+
+                        break;
                 case GFX_COL_NXOR:
-                        NOT_IMPLEMENTED
+                        d = (d & ~t) | ((d ^ t) & t);
                         break;
                 }
 
@@ -261,7 +276,7 @@ static inline void i_gfx_fill_span(gfx_context_s ctx, int y, int xa, int xb)
 
 void gfx_px(gfx_context_s ctx, int x, int y)
 {
-        i_gfx_put_px(ctx, x, y);
+        i_gfx_px_shape(ctx, x, y);
 }
 
 void gfx_set_inverted(bool32 inv)
@@ -275,15 +290,28 @@ void gfx_set_inverted(bool32 inv)
 
 gfx_context_s gfx_context_create(tex_s dst)
 {
-        gfx_context_s ctx = {0};
-        ctx.dst           = dst;
-        for (int i = 0; i < 8; i++) ctx.pat.p[i] = 0xFFFFFFFFU;
+        gfx_context_s ctx     = {0};
+        ctx.dst               = dst;
+        gfx_pattern_s pattern = {
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+            0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
+        ctx.pat = pattern;
         return ctx;
 }
 
-static inline u32 i_gfx_pattern_u32_from_u8(int b)
+static inline u32 i_gfx_pattern_u32_from_u8(u32 b)
 {
-        return (((u32)b << 24) | ((u32)b << 16) | ((u32)b << 8) | (u32)b);
+        return ((b << 24) | (b << 16) | (b << 8) | b);
+}
+
+gfx_pattern_s gfx_context_pattern4(int p0, int p1, int p2, int p3)
+{
+        u32           t0  = i_gfx_pattern_u32_from_u8((p0 << 4) | (p0));
+        u32           t1  = i_gfx_pattern_u32_from_u8((p1 << 4) | (p1));
+        u32           t2  = i_gfx_pattern_u32_from_u8((p2 << 4) | (p2));
+        u32           t3  = i_gfx_pattern_u32_from_u8((p3 << 4) | (p3));
+        gfx_pattern_s pat = {t0, t1, t2, t3, t0, t1, t2, t3};
+        return pat;
 }
 
 gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
@@ -300,27 +328,59 @@ gfx_pattern_s gfx_pattern_set_8x8(int p0, int p1, int p2, int p3,
 /* fast sprite drawing routine for untransformed sprites
  * blits 32 pixelbits in one loop
  */
-void gfx_sprite(gfx_context_s ctx, v2_i32 position, rec_i32 rs, int flags)
+void gfx_sprite_tile16(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
 {
-        v2_i32 pos = v2_add(position, ctx.offset);
-        int    xx  = flags & SPRITE_FLIP_X ? -1 : +1; // XY flipping factors
-        int    yy  = flags & SPRITE_FLIP_Y ? -1 : +1;
-        int    xa  = rs.x + (flags & SPRITE_FLIP_X ? pos.x + rs.w - 1 : -pos.x);
-        int    ya  = rs.y + (flags & SPRITE_FLIP_Y ? pos.y + rs.h - 1 : -pos.y);
-        int    x1  = MAX(pos.x, 0); // pixel bounds on canvas inclusive
-        int    y1  = MAX(pos.y, 0);
-        int    x2  = MIN(pos.x + rs.w, ctx.dst.w) - 1;
-        int    y2  = MIN(pos.y + rs.h, ctx.dst.h) - 1;
-        int    b1  = x1 >> 5;                      // first dst byte in x
-        int    b2  = x2 >> 5;                      // last dst byte in x
-        int    s1  = 31 & (pos.x - rs.x);          // word alignment and shift
-        int    s0  = 31 & (32 - s1);               // word alignment and shift
-        u32    ul  = ((0xFFFFFFFFU >> (x1 & 31))); // boundary masks
-        u32    ur  = ~(0x7FFFFFFFU >> (x2 & 31));
-        u32   *dp  = (u32 *)ctx.dst.px;
-        u32   *dm  = (u32 *)ctx.dst.mk;
-        u32   *sp  = (u32 *)ctx.src.px;
-        u32   *sm  = (u32 *)ctx.src.mk;
+        ASSERT((rs.x & 15) == 0);
+        ASSERT((rs.y & 15) == 0);
+        ASSERT((rs.w) == 16);
+        ASSERT((rs.h) == 16);
+        gfx_sprite(ctx, pos, rs, flags);
+}
+
+static inline void i_spritepx(u32 *dp, u32 *dm, u32 pt, u32 pp, u32 tt, int m)
+{
+        u32 t = bswap32(tt & pt); // mask off pattern pixels
+        u32 p = bswap32(pp);
+
+        switch (m) {
+        case SPRITE_INV: p = ~p; // fallthrough
+        case SPRITE_CPY: *dp = (*dp & ~t) | (p & t); break;
+        case SPRITE_XOR: p = ~p; // fallthrough
+        case SPRITE_NXR: *dp = (*dp & ~t) | ((*dp ^ p) & t); break;
+        case SPRITE_W_T: t &= p; // fallthrough
+        case SPRITE_B_F: *dp |= t; break;
+        case SPRITE_B_T: t &= ~p; // fallthrough
+        case SPRITE_W_F: *dp &= ~t; break;
+        }
+
+        if (dm) { // write opaque pixel info if mask is present
+                *dm |= t;
+        }
+}
+
+/* fast sprite drawing routine for untransformed sprites
+ * blits 32 pixelbits in one loop
+ */
+void gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
+{
+        int  xx = flags & SPRITE_FLIP_X ? -1 : +1; // XY flipping factors
+        int  yy = flags & SPRITE_FLIP_Y ? -1 : +1;
+        int  xa = rs.x + (flags & SPRITE_FLIP_X ? pos.x + rs.w - 1 : -pos.x);
+        int  ya = rs.y + (flags & SPRITE_FLIP_Y ? pos.y + rs.h - 1 : -pos.y);
+        int  x1 = max_i(pos.x, 0); // pixel bounds on canvas inclusive
+        int  y1 = max_i(pos.y, 0);
+        int  x2 = min_i(pos.x + rs.w, ctx.dst.w) - 1;
+        int  y2 = min_i(pos.y + rs.h, ctx.dst.h) - 1;
+        int  b1 = x1 >> 5;                      // first dst byte in x
+        int  b2 = x2 >> 5;                      // last dst byte in x
+        int  s1 = 31 & (pos.x - rs.x);          // word alignment and shift
+        int  s0 = 31 & (32 - s1);               // word alignment and shift
+        u32  ul = ((0xFFFFFFFFU >> (x1 & 31))); // boundary masks
+        u32  ur = ~(0x7FFFFFFFU >> (x2 & 31));
+        u32 *dp = (u32 *)ctx.dst.px;
+        u32 *dm = (u32 *)ctx.dst.mk;
+        u32 *sp = (u32 *)ctx.src.px;
+        u32 *sm = (u32 *)ctx.src.mk;
 
         // calc pixel coord in source image from canvas pixel coord
         // src_x = (dst_x * xx) + xa   | xx and yy are either +1 or -1
@@ -341,8 +401,8 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 position, rec_i32 rs, int flags)
                                 // flip x - construct masks manually...
                                 // optimize at some point?
                                 // xs0 and xs1 are logically swapped
-                                xs1 = MAX(xs1, 0);
-                                xs0 = MIN(xs0, ctx.src.w - 1);
+                                xs1 = max_i(xs1, 0);
+                                xs0 = min_i(xs0, ctx.src.w - 1);
                                 t   = sm ? 0 : 0xFFFFFFFFU;
                                 p   = 0;
                                 for (int xs = xs1; xs <= xs0; xs++) {
@@ -358,8 +418,8 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 position, rec_i32 rs, int flags)
                         } else {
                                 // a destination word overlaps two source words
                                 // unless drawing position is word aligned on x
-                                xs0    = CLAMP(xs0, 0, ctx.src.w - 1);
-                                xs1    = CLAMP(xs1, 0, ctx.src.w - 1);
+                                xs0    = clamp_i(xs0, 0, ctx.src.w - 1);
+                                xs1    = clamp_i(xs1, 0, ctx.src.w - 1);
                                 int i0 = (xs0 >> 5) + ys;
                                 int i1 = (xs1 >> 5) + ys;
 
@@ -373,9 +433,12 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 position, rec_i32 rs, int flags)
                         if (b == b1) t &= ul; // mask off out of bounds pixels
                         if (b == b2) t &= ur;
                         if (t == 0) continue;
-                        t     = bswap32(t & pt); // mask off pattern pixels
-                        p     = bswap32(p);
                         int j = b + y * ctx.dst.w_word;
+#if 1
+                        i_spritepx(&dp[j], dm ? &dm[j] : NULL, pt, p, t, ctx.sprmode);
+#else
+                        t = bswap32(t & pt); // mask off pattern pixels
+                        p = bswap32(p);
                         switch (ctx.sprmode) {
                         case SPRITE_INV: p = ~p; // fallthrough
                         case SPRITE_CPY: dp[j] = (dp[j] & ~t) | (p & t); break;
@@ -390,26 +453,163 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 position, rec_i32 rs, int flags)
                         if (dm) { // write opaque pixel info if mask is present
                                 dm[j] |= t;
                         }
+#endif
+                }
+        }
+}
+
+sprite_matrix_s sprite_matrix_identity()
+{
+        sprite_matrix_s m = {1.f, 0.f, 0.f,
+                             0.f, 1.f, 0.f,
+                             0.f, 0.f, 1.f};
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_add(sprite_matrix_s a, sprite_matrix_s b)
+{
+        sprite_matrix_s m;
+        for (int n = 0; n < 9; n++)
+                m.m[n] = a.m[n] + b.m[n];
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_sub(sprite_matrix_s a, sprite_matrix_s b)
+{
+        sprite_matrix_s m;
+        for (int n = 0; n < 9; n++)
+                m.m[n] = a.m[n] - b.m[n];
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_mul(sprite_matrix_s a, sprite_matrix_s b)
+{
+        sprite_matrix_s m;
+        for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                        m.m[i + j * 3] = a.m[i + 0 * 3] * b.m[0 + j * 3] +
+                                         a.m[i + 1 * 3] * b.m[1 + j * 3] +
+                                         a.m[i + 2 * 3] * b.m[2 + j * 3];
+                }
+        }
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_rotate(float angle)
+{
+        float           si = sin_f(angle);
+        float           co = cos_f(angle);
+        sprite_matrix_s m  = {+co, -si, 0.f,
+                              +si, +co, 0.f,
+                              0.f, 0.f, 1.f};
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_scale(float scx, float scy)
+{
+        sprite_matrix_s m = {scx, 0.f, 0.f,
+                             0.f, scy, 0.f,
+                             0.f, 0.f, 1.f};
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_shear(float shx, float shy)
+{
+        sprite_matrix_s m = {1.f, shx, 0.f,
+                             shy, 1.f, 0.f,
+                             0.f, 0.f, 1.f};
+        return m;
+}
+
+sprite_matrix_s sprite_matrix_offset(float x, float y)
+{
+        sprite_matrix_s m = {1.f, 0.f, x,
+                             0.f, 1.f, y,
+                             0.f, 0.f, 1.f};
+        return m;
+}
+
+void gfx_sprite_rotated(gfx_context_s ctx, rec_i32 r, sprite_matrix_s m)
+{
+        int x1 = 0;
+        int y1 = 0;
+        int x2 = ctx.dst.w - 1;
+        int y2 = ctx.dst.h - 1;
+        f32 u1 = (f32)(r.x);
+        f32 v1 = (f32)(r.y);
+        f32 u2 = (f32)(r.x + r.w);
+        f32 v2 = (f32)(r.y + r.h);
+
+        for (int y = y1; y <= y2; y++) {
+                for (int x = x1; x <= x2; x++) {
+                        f32 t = (f32)(x + r.x);
+                        f32 s = (f32)(y + r.y);
+                        f32 u = t * m.m[0] + s * m.m[1] + m.m[2] + 0.5f;
+                        f32 v = t * m.m[3] + s * m.m[4] + m.m[5] + 0.5f;
+                        if (!(u1 <= u && u < u2)) continue;
+                        if (!(v1 <= v && v < v2)) continue;
+                        int px, mk;
+                        i_gfx_peek(ctx.src, (int)u, (int)v, &px, &mk);
+                        if (!mk) continue;
+                        ctx.col = px;
+                        i_gfx_put_px(ctx, x, y);
+                }
+        }
+}
+
+void gfx_sprite_rotated_(gfx_context_s ctx, v2_i32 pos, rec_i32 r, v2_i32 origin, float angle)
+{
+        origin.x += r.x;
+        origin.y += r.y;
+        sprite_matrix_s m1 = sprite_matrix_offset(+(f32)origin.x, +(f32)origin.y);
+        sprite_matrix_s m3 = sprite_matrix_offset(-(f32)pos.x - (f32)origin.x, -(f32)pos.y - (f32)origin.y);
+        sprite_matrix_s m4 = sprite_matrix_rotate(angle);
+
+        sprite_matrix_s m = sprite_matrix_identity();
+        m                 = sprite_matrix_mul(m, m3);
+        m                 = sprite_matrix_mul(m, m4);
+        m                 = sprite_matrix_mul(m, m1);
+
+        int x1 = 0;
+        int y1 = 0;
+        int x2 = ctx.dst.w - 1;
+        int y2 = ctx.dst.h - 1;
+        f32 u1 = (f32)(r.x);
+        f32 v1 = (f32)(r.y);
+        f32 u2 = (f32)(r.x + r.w);
+        f32 v2 = (f32)(r.y + r.h);
+
+        for (int y = y1; y <= y2; y++) {
+                for (int x = x1; x <= x2; x++) {
+                        f32 t = (f32)(x + r.x);
+                        f32 s = (f32)(y + r.y);
+                        f32 u = t * m.m[0] + s * m.m[1] + m.m[2] + 0.5f;
+                        f32 v = t * m.m[3] + s * m.m[4] + m.m[5] + 0.5f;
+                        if (!(u1 <= u && u < u2)) continue;
+                        if (!(v1 <= v && v < v2)) continue;
+                        int px, mk;
+                        i_gfx_peek(ctx.src, (int)u, (int)v, &px, &mk);
+                        if (!mk) continue;
+                        ctx.col = px;
+                        i_gfx_put_px(ctx, x, y);
                 }
         }
 }
 
 void gfx_rec_fill(gfx_context_s ctx, rec_i32 r)
 {
-        r.x += ctx.offset.x;
-        r.y += ctx.offset.y;
         int y1 = MAX(0, r.y);
         int y2 = MIN(ctx.dst.h, r.y + r.h);
         for (int y = y1; y < y2; y++) {
-                i_gfx_fill_span(ctx, y, r.x, r.x + r.w);
+                i_gfx_span_shape(ctx, y, r.x, r.x + r.w);
         }
 }
 
 void gfx_tri_fill(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2)
 {
-        v2_i32 t0 = v2_add(p0, ctx.offset);
-        v2_i32 t1 = v2_add(p1, ctx.offset);
-        v2_i32 t2 = v2_add(p2, ctx.offset);
+        v2_i32 t0 = p0;
+        v2_i32 t1 = p1;
+        v2_i32 t2 = p2;
         if (t0.y > t1.y) SWAP(v2_i32, t0, t1);
         if (t0.y > t2.y) SWAP(v2_i32, t0, t2);
         if (t1.y > t2.y) SWAP(v2_i32, t1, t2);
@@ -427,28 +627,40 @@ void gfx_tri_fill(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2)
                 i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
                 i32 x2 = t0.x + (d1 * (y - t0.y)) / h1;
                 if (x2 < x1) SWAP(i32, x1, x2);
-                i_gfx_fill_span(ctx, y, x1, x2);
+                i_gfx_span_shape(ctx, y, x1, x2);
         }
 
         for (int y = y1; y <= y2; y++) {
                 i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
                 i32 x2 = t1.x + (d2 * (y - t1.y)) / h2;
                 if (x2 < x1) SWAP(i32, x1, x2);
-                i_gfx_fill_span(ctx, y, x1, x2);
+                i_gfx_span_shape(ctx, y, x1, x2);
         }
+}
+
+void gfx_tri(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2)
+{
+        gfx_line(ctx, p0, p1);
+        gfx_line(ctx, p0, p2);
+        gfx_line(ctx, p1, p2);
+}
+
+void gfx_tri_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, v2_i32 p2, int r)
+{
+        gfx_line_thick(ctx, p0, p1, r);
+        gfx_line_thick(ctx, p0, p2, r);
+        gfx_line_thick(ctx, p1, p2, r);
 }
 
 void gfx_line(gfx_context_s ctx, v2_i32 p0, v2_i32 p1)
 {
-        p0     = v2_add(p0, ctx.offset);
-        p1     = v2_add(p1, ctx.offset);
-        int dx = +ABS(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
-        int dy = -ABS(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
+        int dx = +abs_i(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
+        int dy = -abs_i(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
         int er = dx + dy;
         int xi = p0.x;
         int yi = p0.y;
         while (1) {
-                i_gfx_put_px(ctx, xi, yi);
+                i_gfx_px_shape(ctx, xi, yi);
                 if (xi == p1.x && yi == p1.y) break;
                 int e2 = er * 2;
                 if (e2 >= dy) { er += dy, xi += sx; }
@@ -459,10 +671,8 @@ void gfx_line(gfx_context_s ctx, v2_i32 p0, v2_i32 p1)
 // naive thick line, works for now
 void gfx_line_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, int r)
 {
-        p0     = v2_add(p0, ctx.offset);
-        p1     = v2_add(p1, ctx.offset);
-        int dx = +ABS(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
-        int dy = -ABS(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
+        int dx = +abs_i(p1.x - p0.x), sx = p0.x < p1.x ? 1 : -1;
+        int dy = -abs_i(p1.y - p0.y), sy = p0.y < p1.y ? 1 : -1;
         int er = dx + dy;
         int xi = p0.x;
         int yi = p0.y;
@@ -471,8 +681,8 @@ void gfx_line_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, int r)
                 for (int y = 0; y <= +r; y++) {
                         for (int x = r; x >= 0; x--) {
                                 if (x * x + y * y > r2) continue;
-                                i_gfx_fill_span(ctx, yi - y, xi - x, xi + x);
-                                i_gfx_fill_span(ctx, yi + y, xi - x, xi + x);
+                                i_gfx_span_shape(ctx, yi - y, xi - x, xi + x);
+                                i_gfx_span_shape(ctx, yi + y, xi - x, xi + x);
                                 break;
                         }
                 }

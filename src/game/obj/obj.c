@@ -123,6 +123,11 @@ void i_obj_unset_flags(game_s *g, obj_s *o, ...)
         obj_apply_flags(g, o, flags);
 }
 
+int obj_cmp_renderable(const obj_s *a, const obj_s *b)
+{
+        return (a->renderpriority > b->renderpriority);
+}
+
 bool32 obj_is_direct_child(obj_s *o, obj_s *parent)
 {
         for (obj_s *it = parent->fchild; it; it = it->next) {
@@ -217,6 +222,18 @@ rec_i32 obj_rec_top(obj_s *o)
         return r;
 }
 
+void obj_stop_on_walls(game_s *g, obj_s *o)
+{
+        if ((o->vel_q8.y < 0 && game_area_blocked(g, obj_rec_top(o))) ||
+            (o->vel_q8.y > 0 && game_area_blocked(g, obj_rec_bottom(o)))) {
+                o->vel_q8.y = 0;
+        }
+        if ((o->vel_q8.x < 0 && game_area_blocked(g, obj_rec_left(o))) ||
+            (o->vel_q8.x > 0 && game_area_blocked(g, obj_rec_right(o)))) {
+                o->vel_q8.x = 0;
+        }
+}
+
 static inline void i_actor_step(game_s *g, obj_s *o, int sx, int sy)
 {
         o->pos.x += sx;
@@ -241,16 +258,16 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
                         }
                 }
         }
-        o->squeezed = 1;
+        o->actorres |= ACTOR_RES_SQUEEZED;
         if (o->onsqueeze) {
-                o->onsqueeze(g, o, o->userarg);
+                o->onsqueeze(g, o);
         }
         return 0;
 }
 
 static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
 {
-        ASSERT(ABS(sx) <= 1);
+        ASSERT(abs_i(sx) <= 1);
 
         rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
         if (!game_area_blocked(g, r)) {
@@ -285,38 +302,40 @@ static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
                 }
         }
 
-        o->vel_q8.x = 0;
+        if (sx == 1) {
+                o->actorres |= ACTOR_RES_TOUCHED_X_POS;
+        } else {
+                o->actorres |= ACTOR_RES_TOUCHED_X_NEG;
+        }
         return 0;
 }
 
 static bool32 actor_step_y(game_s *g, obj_s *o, int sy)
 {
-        ASSERT(ABS(sy) <= 1);
+        ASSERT(abs_i(sy) <= 1);
         rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
         if (!game_area_blocked(g, r)) {
                 i_actor_step(g, o, 0, sy);
                 return 1;
         }
-
-        o->vel_q8.y = 0;
+        if (sy == 1) {
+                o->actorres |= ACTOR_RES_TOUCHED_Y_POS;
+        } else {
+                o->actorres |= ACTOR_RES_TOUCHED_Y_NEG;
+        }
         return 0;
 }
 
-void actor_move_x(game_s *g, obj_s *o, int dx)
+void actor_move(game_s *g, obj_s *o, int dx, int dy)
 {
-        int sx = SGN(dx);
-        for (int m = ABS(dx); m > 0; m--) {
+        for (int m = abs_i(dx), sx = sgn_i(dx); m > 0; m--) {
                 if (!actor_step_x(g, o, sx)) {
                         o->vel_q8.x = 0;
                         break;
                 }
         }
-}
 
-void actor_move_y(game_s *g, obj_s *o, int dy)
-{
-        int sy = SGN(dy);
-        for (int m = ABS(dy); m > 0; m--) {
+        for (int m = abs_i(dy), sy = sgn_i(dy); m > 0; m--) {
                 if (!actor_step_y(g, o, sy)) {
                         o->vel_q8.y = 0;
                         break;
@@ -326,7 +345,7 @@ void actor_move_y(game_s *g, obj_s *o, int dy)
 
 static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 {
-        ASSERT((ABS(dt.x) == 1 && dt.y == 0) || (ABS(dt.y) == 1 && dt.x == 0));
+        ASSERT((abs_i(dt.x) == 1 && dt.y == 0) || (abs_i(dt.y) == 1 && dt.x == 0));
 
         obj_s *hero;
         if (try_obj_from_handle(g->hero.obj, &hero) && hero->rope) {
@@ -340,7 +359,7 @@ static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 
         for (int n = 0; n < actors.n; n++) {
                 obj_s *a = actors.o[n];
-                if (a->squeezed) continue;
+                if (a->actorres & ACTOR_RES_SQUEEZED) continue;
                 rec_i32 aabb  = obj_aabb(a);
                 rec_i32 rfeet = translate_rec(obj_rec_bottom(a), dt);
                 if (overlap_rec_excl(r, aabb) ||
@@ -356,12 +375,12 @@ static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 void solid_move(game_s *g, obj_s *o, int dx, int dy)
 {
         obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
-        v2_i32      vx     = {SGN(dx), 0};
-        for (int m = ABS(dx); m > 0; m--) {
+        v2_i32      vx     = {sgn_i(dx), 0};
+        for (int m = abs_i(dx); m > 0; m--) {
                 solid_step(g, o, vx, actors);
         }
-        v2_i32 vy = {0, SGN(dy)};
-        for (int m = ABS(dy); m > 0; m--) {
+        v2_i32 vy = {0, sgn_i(dy)};
+        for (int m = abs_i(dy); m > 0; m--) {
                 solid_step(g, o, vy, actors);
         }
 }
@@ -404,7 +423,7 @@ obj_s *interactable_closest(game_s *g, v2_i32 p)
         return closest;
 }
 
-void interact_open_dialogue(game_s *g, obj_s *o, void *arg)
+void interact_open_dialogue(game_s *g, obj_s *o)
 {
         char filename[64] = {0};
         os_strcat(filename, ASSET_PATH_DIALOGUE);
@@ -433,12 +452,12 @@ void objset_apply_filter(objset_s *set, obj_filter_s filter)
         }
 }
 
-void obj_interact_dialog(game_s *g, obj_s *o, void *arg)
+void obj_interact_dialog(game_s *g, obj_s *o)
 {
         textbox_load_dialog(&g->textbox, o->filename);
 }
 
-void obj_squeeze_delete(game_s *g, obj_s *o, void *arg)
+void obj_squeeze_delete(game_s *g, obj_s *o)
 {
         obj_delete(g, o);
 }

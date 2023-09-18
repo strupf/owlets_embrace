@@ -27,7 +27,16 @@ typedef struct {
         int             nsurfaces;
 } water_s;
 
-void   watersurface_update(watersurface_s *ws);
+typedef struct {
+        watersurface_s water;
+        watersurface_s ocean;
+        int            y;
+} ocean_s;
+
+int    ocean_base_amplitude(ocean_s *o, int at);
+int    ocean_amplitude(ocean_s *o, int at);
+void   ocean_update(ocean_s *o);
+void   water_update(watersurface_s *ws);
 int    water_amplitude(watersurface_s *ws, int at);
 void   water_impact(watersurface_s *ws, int x, int r, int peak);
 bool32 water_overlaps_pt(water_s *w, v2_i32 p);

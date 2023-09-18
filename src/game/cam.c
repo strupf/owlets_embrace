@@ -8,13 +8,13 @@
 
 enum cam_values {
         CAM_LERP_DISTANCESQ_FAST = 1000,
-        CAM_LERP_DEN             = 8,
-        CAM_LERP_DEN_FAST        = 4,
+        CAM_LERP_DEN             = 4,
+        CAM_LERP_DEN_FAST        = 2,
         CAM_ATTRACT_DIST         = 300,
         CAM_ATTRACT_DISTSQ       = CAM_ATTRACT_DIST * CAM_ATTRACT_DIST,
         CAM_ATTRACT_FACTOR       = 3,
         CAM_TEXTBOX_Y_OFFSET     = 80,
-        CAM_LOOK_DOWN_OFFSET     = 80,
+        CAM_LOOK_DOWN_OFFSET     = 85,
 };
 
 void cam_constrain_to_room(game_s *g, cam_s *c)
@@ -66,11 +66,12 @@ static void cam_player_input(game_s *g, cam_s *c)
         if (!try_obj_from_handle(g->hero.obj, &player)) return;
 
         c->target = obj_aabb_center(player);
-        c->target.y -= c->h >> 3; // offset camera slightly upwards
-        c->target.x += CLAMP(g->hero.facingticks, -25, +25);
+        c->target.y -= 46; // offset camera slightly upwards
+        c->target.x += clamp_i(g->hero.facingticks >> 2, -35, +35);
 
         if (textbox_blocking(&g->textbox)) {
-                c->target.y += CAM_TEXTBOX_Y_OFFSET;
+                if (g->textbox.type == TEXTBOX_TYPE_STATIC_BOX)
+                        c->target.y += CAM_TEXTBOX_Y_OFFSET;
         } else if (os_inp_dpad_y() == 1 && os_inp_dpad_x() == 0 &&
                    game_area_blocked(g, obj_rec_bottom(player)) &&
                    ABS(player->vel_q8.x) < 10) {
@@ -81,13 +82,19 @@ static void cam_player_input(game_s *g, cam_s *c)
 void cam_update(game_s *g, cam_s *c)
 {
         cam_player_input(g, c);
-        cam_attractors(g, c);
+        if (!textbox_blocking(&g->textbox)) {
+                cam_attractors(g, c);
+        }
 
-        i32 lsq = v2_distancesq(c->pos, c->target);
+        i32    lsq  = v2_distancesq(c->pos, c->target);
+        v2_i32 ppos = c->pos;
         if (lsq < CAM_LERP_DISTANCESQ_FAST) {
                 c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN);
         } else {
                 c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN_FAST);
         }
+
         cam_constrain_to_room(g, c);
+        if (c->lockedx) c->pos.x = ppos.x;
+        if (c->lockedy) c->pos.y = ppos.y;
 }

@@ -4,15 +4,16 @@
 
 #include "game/game.h"
 
-static void bomb_explode(game_s *g, obj_s *o, void *arg)
+static void bomb_explode(game_s *g, obj_s *o)
 {
         obj_delete(g, o);
 }
 
-void bomb_think(game_s *g, obj_s *o, void *arg)
+void bomb_think(game_s *g, obj_s *o)
 {
+        obj_stop_on_walls(g, o);
         if (--o->timer == 0) {
-                bomb_explode(g, o, arg);
+                bomb_explode(g, o);
         }
 }
 

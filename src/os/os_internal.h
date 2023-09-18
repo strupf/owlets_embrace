@@ -8,14 +8,6 @@
 #include "os.h"
 #include "os_audio.h"
 
-enum {
-        TIMING_RATE      = 64,
-        TIMING_FRAMES    = 64,
-        OS_DESKTOP_SCALE = 1,
-        OS_FPS           = 50,
-        OS_FPS_LOW       = OS_FPS / 2,
-};
-
 #define OS_FPS_DELTA (1.f / (float)OS_FPS)
 #define OS_DELTA_CAP (4.f / (float)OS_FPS)
 
@@ -29,14 +21,7 @@ enum {
 };
 
 typedef struct {
-        char  labels[NUM_TIMING][16];
-        float times[NUM_TIMING][TIMING_FRAMES];
-        int   n;
-} timings_s;
-
-typedef struct {
-        timings_s timings;
-        i32       tick;
+        i32 tick;
 
 #if defined(TARGET_DESKTOP)
         u8          framebuffer[OS_FRAMEBUFFER_SIZE];
@@ -82,5 +67,15 @@ typedef struct {
 extern os_s g_os;
 
 void *assetmem_alloc(size_t s);
+
+void os_prepare();
+int  os_do_tick();
+
+void os_backend_init();
+void os_backend_close();
+void os_backend_inp_update();
+void os_backend_graphics_begin();
+void os_backend_graphics_end();
+void os_backend_graphics_flip();
 
 #endif

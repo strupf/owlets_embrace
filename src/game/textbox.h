@@ -8,6 +8,11 @@
 #include "gamedef.h"
 
 enum {
+        TEXTBOX_TYPE_STATIC_BOX,
+        TEXTBOX_TYPE_SPEECH_BUBBLE,
+};
+
+enum {
         TEXTBOX_STATE_INACTIVE,
         TEXTBOX_STATE_OPENING,
         TEXTBOX_STATE_WRITING,
@@ -19,8 +24,8 @@ enum {
         TEXTBOX_LINES                 = 4,
         TEXTBOX_CHARS_PER_LINE        = 64,
         TEXTBOX_NUM_CHOICES           = 4,
-        TEXTBOX_TICKS_PER_CHAR_Q4     = 20,
-        TEXTBOX_TICK_PUNCTUATION_MARK = 2, // factor!
+        TEXTBOX_TICKS_PER_CHAR_Q4     = 32,
+        TEXTBOX_TICK_PUNCTUATION_MARK = 3, // factor!
         TEXTBOX_FILE_MEM              = 0x10000,
         TEXTBOX_NUM_TOKS              = 256,
         TEXTBOX_ANIMATION_TICKS       = 6,
@@ -50,6 +55,8 @@ typedef struct {
 } textboxchoice_s;
 
 struct textbox_s {
+        int             type;        // how the textbox is rendered
+        v2_i32          speaker_pos; // used for speech bubbles
         int             animationticks;
         int             page_animation_state;
         int             typewriter_tick_q4;
@@ -62,6 +69,7 @@ struct textbox_s {
         bool32          shows_all;
         int             state;
         textboxline_s   lines[TEXTBOX_LINES];
+        int             magic;
         textboxchoice_s choices[TEXTBOX_NUM_CHOICES];
         int             n_choices;
         int             cur_choice;
@@ -75,7 +83,7 @@ void   textbox_init(textbox_s *tb);
 void   textbox_update(game_s *g, textbox_s *tb);
 bool32 textbox_blocking(textbox_s *tb);
 void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
-void   textbox_load_dialog(textbox_s *tb, char *text);
+void   textbox_load_dialog(textbox_s *tb, char *filename);
 void   textbox_input(game_s *g, textbox_s *tb);
 
 #endif

@@ -28,6 +28,14 @@ enum actor_flag {
         ACTOR_FLAG_GLUE_GROUND        = 0x4, // avoids bumbing down a slope
 };
 
+enum actor_res_flag {
+        ACTOR_RES_TOUCHED_X_POS = 0x01,
+        ACTOR_RES_TOUCHED_X_NEG = 0x02,
+        ACTOR_RES_TOUCHED_Y_POS = 0x04,
+        ACTOR_RES_TOUCHED_Y_NEG = 0x08,
+        ACTOR_RES_SQUEEZED      = 0x10,
+};
+
 typedef struct {
         void (*action)(game_s *g, void *arg);
         void *actionarg;
@@ -53,9 +61,6 @@ typedef struct {
         int        moved;
 } doordata_s;
 
-typedef void (*objfunc_f)(game_s *g, obj_s *o, void *arg);
-typedef void (*objtrigger_f)(game_s *g, obj_s *o, int triggerID);
-
 typedef struct {
         sprite_anim_s a;
         v2_i32        offset;
@@ -73,7 +78,25 @@ struct obj_s {
         int        facing;
         int        invincibleticks;
         int        die_animation;
-        i32        timer;
+        bool32     hit_enemy;
+
+        struct {
+                i32     animation;
+                i32     animframe;
+                i32     animframe_prev;
+                u32     renderpriority;
+                rec_i32 spriterec;
+                tex_s   spritetex;
+                int     spriteflags;
+                int     spritemode;
+                void (*animate_func)(game_s *g, obj_s *o);
+                void (*render_func)(game_s *g, obj_s *o, v2_i32 camp);
+        };
+
+        // some more or less generic variables
+        int timer;
+        int state;
+        int type;
 
         obj_s *parent;
         obj_s *next;
@@ -91,25 +114,19 @@ struct obj_s {
         v2_i32      drag_q8;
         v2_i32      tomove; // distance to move the obj
         v2_i32      vel_prev_q8;
-        bool32      squeezed;
         flags32     actorflags;
+        flags32     actorres;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
         obj_sprite_anim_s spriteanim[4];
         int               nspriteanim;
 
-        i32 animation;
-        i32 animframe;
-        i32 animframe_prev;
-
-        objfunc_f    onsqueeze;
-        objfunc_f    oninteract;
-        objfunc_f    think_1;
-        objfunc_f    think_2;
-        objtrigger_f ontrigger;
-
-        void *userarg;
+        void (*onsqueeze)(game_s *g, obj_s *o);
+        void (*oninteract)(game_s *g, obj_s *o);
+        void (*think_1)(game_s *g, obj_s *o);
+        void (*think_2)(game_s *g, obj_s *o);
+        void (*ontrigger)(game_s *g, obj_s *o, int triggerID);
 
         bool32      attached;
         ropenode_s *ropenode;
@@ -140,6 +157,7 @@ bool32      try_obj_from_handle(objhandle_s h, obj_s **o);
 objhandle_s objhandle_from_obj(obj_s *o);
 bool32      obj_contained_in_array(obj_s *o, obj_s **arr, int num);
 void        objset_add_all(game_s *g, objset_s *set);
+int         obj_cmp_renderable(const obj_s *a, const obj_s *b);
 //
 obj_s      *obj_create(game_s *g);
 void        obj_delete(game_s *g, obj_s *o); // object still lives until the end of the frame
@@ -155,33 +173,36 @@ rec_i32     obj_rec_left(obj_s *o);  // these return a rectangle strip
 rec_i32     obj_rec_right(obj_s *o); // just next to the object's aabb
 rec_i32     obj_rec_bottom(obj_s *o);
 rec_i32     obj_rec_top(obj_s *o);
-void        actor_move_x(game_s *g, obj_s *o, int dx);
-void        actor_move_y(game_s *g, obj_s *o, int dy);
+void        obj_stop_on_walls(game_s *g, obj_s *o);
+void        actor_move(game_s *g, obj_s *o, int dx, int dy);
 void        solid_move(game_s *g, obj_s *o, int dx, int dy);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
 void        obj_apply_movement(obj_s *o);
 obj_s      *interactable_closest(game_s *g, v2_i32 p);
-void        interact_open_dialogue(game_s *g, obj_s *o, void *arg);
+void        interact_open_dialogue(game_s *g, obj_s *o);
 bool32      solid_occupies(obj_s *solid, rec_i32 r);
-void        obj_squeeze_delete(game_s *g, obj_s *o, void *arg);
+void        obj_squeeze_delete(game_s *g, obj_s *o);
 
 // SOME OBJECT FUNCTIONS =======================================================
 
 obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8);
-void   arrow_think(game_s *g, obj_s *o, void *arg);
+void   arrow_think(game_s *g, obj_s *o);
 //
 obj_s *blob_create(game_s *g);
-void   blob_think(game_s *g, obj_s *o, void *arg);
+void   blob_think(game_s *g, obj_s *o);
 //
-void   door_think(game_s *g, obj_s *o, void *arg);
+void   door_think(game_s *g, obj_s *o);
 void   door_trigger(game_s *g, obj_s *o, int triggerID);
 obj_s *door_create(game_s *g);
 //
 obj_s *npc_create(game_s *g);
-void   npc_think(game_s *g, obj_s *o, void *arg);
-void   npc_interact(game_s *g, obj_s *o, void *arg);
+void   npc_think(game_s *g, obj_s *o);
+void   npc_interact(game_s *g, obj_s *o);
 //
-void   bomb_think(game_s *g, obj_s *o, void *arg);
+void   bomb_think(game_s *g, obj_s *o);
 obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8);
+//
+obj_s *crumbleblock_create(game_s *g);
+obj_s *boat_create(game_s *g);
 
 #endif
