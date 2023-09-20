@@ -29,7 +29,7 @@ void rope_init(rope_s *r)
         r->tail        = rt;
         r->len_max     = 180;
         r->len_max_q16 = r->len_max << 16;
-        r->damping_q8  = 190;
+        r->damping_q8  = 220;
         r->spring_q8   = 248;
 }
 
@@ -131,7 +131,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, v2_arr *pts)
         i32    x1, y1, x2, y2;
         v2_i32 pmin = v2_min(pmin1, pmin2);
         v2_i32 pmax = v2_max(pmax1, pmax2);
-        tilegrid_bounds_minmax(g, pmin, pmax, &x1, &y1, &x2, &y2);
+        room_tilebounds_pts(g, pmin, pmax, &x1, &y1, &x2, &y2);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -268,6 +268,67 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
         // ASSERT(rope_intact(g, r));
 }
 
+static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
+{
+        const v2_i32      p_beg  = point;
+        const v2_i32      p_end  = v2_add(p_beg, dt);
+        const v2_i32      p_pst  = v2_sub(p_beg, dt);
+        const lineseg_i32 ls_mov = {p_beg, p_end};
+        const lineray_i32 lr_pst = {p_beg, p_pst};
+
+        // first move all nodes which are directly hit by a
+        // solid vertex
+        // here we SUPPOSE that neither head nor tail are directly
+        // modified but instead pushed via an attached actor
+        for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
+             r1 = r2, r2 = r2->next) {
+                if (!overlap_lineseg_pnt_incl_excl(ls_mov, r1->p)) {
+                        continue;
+                }
+
+                v2_i32 rnold = r1->p;
+                r1->p        = p_end;
+                if (r1->prev) {
+                        tri_i32 tri = {r1->prev->p, rnold, p_end};
+                        ropenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
+                }
+                if (r1->next) {
+                        tri_i32 tri = {r1->next->p, rnold, p_end};
+                        ropenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
+                }
+        }
+
+        // now check penetrating segments
+        for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
+             r1 = r2, r2 = r2->next) {
+                const lineseg_i32 ls = {r1->p, r2->p};
+
+                // shall not overlap "piston" ray
+                if (overlap_lineseg_lineray_excl(ls, lr_pst))
+                        continue;
+                // moving line segment of "piston" should
+                // overlap the rope segment
+                if (!overlap_lineseg_incl(ls, ls_mov) ||
+                    v2_eq(r1->p, p_beg) || v2_eq(r1->p, p_end) ||
+                    v2_eq(r2->p, p_beg) || v2_eq(r2->p, p_end)) {
+                        continue;
+                }
+
+                if (overlap_lineseg_pnt_excl(ls, p_end)) {
+                        // point lies exactly on the rope segment
+                        // between r1 and r2 and isn't necessary
+                        continue;
+                }
+
+                ropenode_s *ri  = ropenode_insert(r, r1, r2, p_end);
+                // only consider points which are on the
+                // "side of penetration"
+                tri_i32     tri = {r1->p, r2->p, p_end};
+                ropenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
+                ropenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
+        }
+}
+
 /*
  * bug (also see sketch) -> temporary solution added in points in tri (linesegs)
  * node is pushed by solid to the left
@@ -312,91 +373,9 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
                               r->pmax.x - r->pmin.x, r->pmax.y - r->pmin.y};
         if (!overlap_rec_excl(rec, ropebounds)) return;
         r->dirty = 1;
-        // this is only for debugging purposes to rerun
-        // this algorithm through the debugger on break points
-        // rope_s rcopy = *r;
 
-        for (int n = 0; n < 2; n++) {
-                const v2_i32      p_beg  = points[n];
-                const v2_i32      p_end  = v2_add(p_beg, dt);
-                const v2_i32      p_pst  = v2_sub(p_beg, dt);
-                const lineseg_i32 ls_mov = {p_beg, p_end};
-                const lineray_i32 lr_pst = {p_beg, p_pst};
-
-                // first move all nodes which are directly hit by a
-                // solid vertex
-                // here we SUPPOSE that neither head nor tail are directly
-                // modified but instead pushed via an attached actor
-                for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
-                     r1 = r2, r2 = r2->next) {
-                        if (!overlap_lineseg_pnt_incl_excl(ls_mov, r1->p)) {
-                                continue;
-                        }
-
-                        v2_i32 rnold = r1->p;
-                        r1->p        = p_end;
-                        if (r1->prev) {
-                                tri_i32 tri = {r1->prev->p, rnold, p_end};
-                                ropenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
-                        }
-                        if (r1->next) {
-                                tri_i32 tri = {r1->next->p, rnold, p_end};
-                                ropenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
-                        }
-                }
-
-                // now check penetrating segments
-                for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
-                     r1 = r2, r2 = r2->next) {
-                        const lineseg_i32 ls = {r1->p, r2->p};
-
-                        // shall not overlap "piston" ray
-                        if (overlap_lineseg_lineray_excl(ls, lr_pst))
-                                continue;
-                        // moving line segment of "piston" should
-                        // overlap the rope segment
-                        if (!overlap_lineseg_incl(ls, ls_mov) ||
-                            v2_eq(r1->p, p_beg) || v2_eq(r1->p, p_end) ||
-                            v2_eq(r2->p, p_beg) || v2_eq(r2->p, p_end)) {
-                                continue;
-                        }
-
-                        if (overlap_lineseg_pnt_excl(ls, p_end)) {
-                                // point lies exactly on the rope segment
-                                // between r1 and r2 and isn't necessary
-                                continue;
-                        }
-
-                        ropenode_s *ri  = ropenode_insert(r, r1, r2, p_end);
-                        // only consider points which are on the
-                        // "side of penetration"
-                        tri_i32     tri = {r1->p, r2->p, p_end};
-                        ropenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
-                        ropenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
-                }
-        }
-
-#if 0
-        // for debugging purposes
-        // double check that no line segment overlaps the solid
-        // after the routine above
-        for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
-             r1 = r2, r2 = r2->next) {
-                v2_i32      p1  = r1->p;
-                v2_i32      p2  = r2->p;
-                lineseg_i32 ls1 = {p1, p2};
-                tri_i32     tris[2];
-                rec_i32     rr = obj_aabb(solid);
-                rr.x += dt.x;
-                rr.y += dt.y;
-                bool32 a = overlap_rec_lineseg_excl(rr, ls1);
-                // ASSERT(!a);
-                if (a) {
-                        // rope_moved_by_solid(g, &rcopy, solid, dt);
-                }
-        }
-#endif
-        // ASSERT(rope_intact(g, r));
+        rope_move_vertex(g, r, dt, points[0]);
+        rope_move_vertex(g, r, dt, points[1]);
 }
 
 static bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
@@ -444,7 +423,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
 
         const tri_i32 trispan = {pprev, pcurr, pnext};
         i32           x1, y1, x2, y2;
-        tilegrid_bounds_tri(g, trispan, &x1, &y1, &x2, &y2);
+        room_tilebounds_tri(g, trispan, &x1, &y1, &x2, &y2);
         foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
         {
                 int t = g->tiles[x + y * g->tiles_x];
@@ -487,6 +466,8 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         }
 
         ropenode_delete(r, rc);
+
+        /*
         // ASSERT(rope_intact(g, r));
         if (!rope_intact(g, r)) {
                 for (int n = 0; n < solids.n; n++) {
@@ -501,6 +482,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                                 return;
                 }
         }
+        */
 
         os_spmem_push();
         v2_arr *hull = v2_arrcreate(16, os_spmem_alloc);
@@ -593,8 +575,8 @@ bool32 rope_intact(game_s *g, rope_s *r)
              r1 = r2, r2 = r2->next) {
                 lineseg_i32 ls = {r1->p, r2->p};
                 i32         x1, y1, x2, y2;
-                tilegrid_bounds_minmax(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
-                                       &x1, &y1, &x2, &y2);
+                room_tilebounds_pts(g, v2_min(r1->p, r2->p), v2_max(r1->p, r2->p),
+                                    &x1, &y1, &x2, &y2);
                 foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
                 {
                         int t = g->tiles[x + y * g->tiles_x];
@@ -603,30 +585,23 @@ bool32 rope_intact(game_s *g, rope_s *r)
                         if (t == TILE_BLOCK) {
                                 rec_i32 rr = {pos.x, pos.y, 16, 16};
                                 if (overlap_rec_lineseg_excl(rr, ls)) {
-                                        PRINTF("TILES\n");
                                         return 0;
                                 }
-                                continue;
-                        }
-                        if (t < TILE_SLOPE_HI) {
+                        } else if (t < TILE_SLOPE_HI) {
                                 tri_i32 tr = translate_tri(tilecolliders[t], pos);
                                 if (overlap_tri_lineseg_excl(tr, ls)) {
-                                        PRINTF("TILES\n");
-                                        overlap_tri_lineseg_excl(tr, ls); // ony for debugging
                                         return 0;
                                 }
-                                continue;
+                        } else {
+                                NOT_IMPLEMENTED
                         }
-                        NOT_IMPLEMENTED
                 }
 
                 obj_listc_s solids = objbucket_list(g, OBJ_BUCKET_SOLID);
                 for (int n = 0; n < solids.n; n++) {
-                        obj_s  *o  = solids.o[n];
-                        rec_i32 ro = obj_aabb(o);
+                        rec_i32 ro = obj_aabb(solids.o[n]);
                         if (overlap_rec_lineseg_excl(ro, ls)) {
-                                PRINTF("SOLID\n");
-                                overlap_rec_lineseg_excl(ro, ls); // ony for debugging
+                                PRINTF("BREAKME\n");
                                 return 0;
                         }
                 }

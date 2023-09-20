@@ -4,7 +4,7 @@
 
 #include "cam.h"
 #include "game.h"
-#include "obj/obj.h"
+#include "obj.h"
 
 enum cam_values {
         CAM_LERP_DISTANCESQ_FAST = 1000,
@@ -65,15 +65,16 @@ static void cam_player_input(game_s *g, cam_s *c)
         obj_s *player;
         if (!try_obj_from_handle(g->hero.obj, &player)) return;
 
-        c->target = obj_aabb_center(player);
-        c->target.y -= 46; // offset camera slightly upwards
-        c->target.x += clamp_i(g->hero.facingticks >> 2, -35, +35);
+        c->facetick = clamp_i(c->facetick + player->facing, -64, +64);
+        c->target   = obj_aabb_center(player);
+        c->target.y += -46; // offset camera slightly upwards
+        c->target.x += c->facetick >> 1;
 
         if (textbox_blocking(&g->textbox)) {
                 if (g->textbox.type == TEXTBOX_TYPE_STATIC_BOX)
                         c->target.y += CAM_TEXTBOX_Y_OFFSET;
         } else if (os_inp_dpad_y() == 1 && os_inp_dpad_x() == 0 &&
-                   game_area_blocked(g, obj_rec_bottom(player)) &&
+                   room_area_blocked(g, obj_rec_bottom(player)) &&
                    ABS(player->vel_q8.x) < 10) {
                 c->target.y += CAM_LOOK_DOWN_OFFSET;
         }

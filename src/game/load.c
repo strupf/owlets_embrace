@@ -2,17 +2,19 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "autotiling.h"
 #include "game.h"
 #include "util/tmj.h"
 
+bool32 is_autotile(u32 tileID);
+void   autotile_calc(game_s *g, u32 *arr, int w, int h, int x, int y, int n, int layerID);
+
+static void game_reset_for_load(game_s *g);
 static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h, int layerID);
 static void load_obj_from_jsn(game_s *g, jsn_s jobj);
 static void load_obj_layer(game_s *g, jsn_s jlayer);
 
-void game_load_map(game_s *g, const char *filename)
+static void game_reset_for_load(game_s *g)
 {
-        // reset room
         for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
                 obj_s *o               = &g->objs[n];
                 o->index               = n;
@@ -27,7 +29,16 @@ void game_load_map(game_s *g, const char *filename)
         os_memclr(g->tiles, sizeof(g->tiles));
         memheap_init(&g->heap, g->heapmem, GAME_HEAPMEM);
 
-        os_strcpy(g->areafilename, filename);
+        g->nclouds      = 0;
+        g->nparticles   = 0;
+        g->n_particles  = 0;
+        g->n_savepoints = 0;
+}
+
+void game_load_map(game_s *g, const char *filename)
+{
+        game_reset_for_load(g);
+        os_strcpy(g->area_filename, filename);
 
         os_spmem_push();
         const char *tmjbuf = txt_read_file_alloc(filename, os_spmem_alloc);
@@ -37,6 +48,7 @@ void game_load_map(game_s *g, const char *filename)
         int w = jsn_intk(jroot, "width");
         int h = jsn_intk(jroot, "height");
         ASSERT(w * h <= NUM_TILES);
+        os_memset4(g->rtiles, 0xFF, sizeof(u32) * w * h);
 
         bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
         ASSERT(has_tilesets);
@@ -58,10 +70,12 @@ void game_load_map(game_s *g, const char *filename)
 
         os_spmem_pop();
 
-        g->tiles_x                       = w;
-        g->tiles_y                       = h;
-        g->pixel_x                       = g->tiles_x << 4;
-        g->pixel_y                       = g->tiles_y << 4;
+        g->tiles_x = w;
+        g->tiles_y = h;
+        g->pixel_x = g->tiles_x << 4;
+        g->pixel_y = g->tiles_y << 4;
+
+        /*
         g->backforeground.clouddirection = 1;
 
         g->ocean.ocean.particles      = (waterparticle_s *)game_heapalloc(g, sizeof(waterparticle_s) * 1024);
@@ -87,27 +101,26 @@ void game_load_map(game_s *g, const char *filename)
         g->water.fzero_q16      = 100;
         g->water.loops          = 3;
         g->water.p              = (v2_i32){0};
+        */
+
 #if 1
         static int once = 0;
         if (!once) {
-                obj_s     *solid1  = obj_create(g);
-                objflags_s flagss1 = objflags_create(OBJ_FLAG_SOLID,
-                                                     OBJ_FLAG_MOVABLE,
-                                                     OBJ_FLAG_THINK_1);
-                obj_apply_flags(g, solid1, flagss1);
-                solid1->think_1 = solid_think;
-                solid1->pos.x   = 500;
-                solid1->pos.y   = 680;
-                solid1->w       = 64;
-                solid1->h       = 48;
-                solid1->dir     = -1;
-                solid1->p2      = solid1->pos.x + 170;
-                solid1->p1      = solid1->pos.x - 20;
-                solid1->ID      = 1;
-                once            = 1;
+                obj_s *solid1 = obj_create(g);
+                obj_apply_flags(g, solid1, OBJ_FLAG_SOLID | OBJ_FLAG_MOVABLE);
+                solid1->pos.x = 500;
+                solid1->pos.y = 680;
+                solid1->w     = 64;
+                solid1->h     = 48;
+                solid1->dir   = -1;
+                solid1->p2    = solid1->pos.x + 170;
+                solid1->p1    = solid1->pos.x - 20;
+                solid1->ID    = 1;
+                once          = 1;
         }
 
 #endif
+        obj_s *oblob = blob_create(g);
         obj_s *ohero = hero_create(g, &g->hero);
         ohero->pos.x = 10 * 16;
         ohero->pos.y = 100;
@@ -117,11 +130,15 @@ void game_load_map(game_s *g, const char *filename)
 
         textbox_init(&g->textbox);
 
-        os_strcpy(g->areaname, "samplename");
-        g->areaname_display_ticks = AREA_NAME_DISPLAY_TICKS;
+        os_strcpy(g->area_name, "samplename");
+        g->area_name_ticks = AREA_NAME_DISPLAY_TICKS;
 
         // mus_play("assets/snd/background.wav");
-        backforeground_setup(g);
+
+        g->curr_world      = world_area_parent(filename);
+        g->curr_world_area = world_area_by_filename(filename);
+
+        ASSERT(g->curr_world && g->curr_world_area);
 }
 
 static void load_obj_from_jsn(game_s *g, jsn_s jobj)
@@ -136,31 +153,25 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 // o->pos.x = jsn_intk(jobj, "x");
                 // o->pos.y = jsn_intk(jobj, "y");
         } else if (streq(buf, "newmap")) {
-                o                = obj_create(g);
-                objflags_s flags = objflags_create(
-                    OBJ_FLAG_NEW_AREA_COLLIDER);
-                obj_apply_flags(g, o, flags);
+                o = obj_create(g);
+                obj_apply_flags(g, o, OBJ_FLAG_NEW_AREA_COLLIDER);
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
                 o->w     = jsn_intk(jobj, "width");
                 o->h     = jsn_intk(jobj, "height");
         } else if (streq(buf, "camattractor")) {
-                o                = obj_create(g);
-                objflags_s flags = objflags_create(
-                    OBJ_FLAG_CAM_ATTRACTOR);
-                obj_apply_flags(g, o, flags);
+                o = obj_create(g);
+                obj_apply_flags(g, o, OBJ_FLAG_CAM_ATTRACTOR);
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
         } else if (streq(buf, "sign")) {
-                o                = obj_create(g);
-                objflags_s flags = objflags_create(
-                    OBJ_FLAG_INTERACT);
-                obj_apply_flags(g, o, flags);
+                o = obj_create(g);
+                obj_apply_flags(g, o, OBJ_FLAG_INTERACT);
                 o->pos.x      = jsn_intk(jobj, "x");
                 o->pos.y      = jsn_intk(jobj, "y");
                 o->w          = jsn_intk(jobj, "width");
                 o->h          = jsn_intk(jobj, "height");
-                o->oninteract = obj_interact_dialog;
+                o->oninteract = obj_interact_open_dialog;
                 o->ID         = 6;
         } else if (streq(buf, "crumble")) {
                 o        = crumbleblock_create(g);
@@ -194,8 +205,6 @@ static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h, int lay
         {
                 int n      = x + y * w;
                 u32 tileID = tileIDs[n];
-
-                g->rtiles[n].ID[layerID] = TILEID_NULL;
                 if (tileID == 0) continue;
 
                 if (is_autotile(tileID)) {
@@ -203,7 +212,7 @@ static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h, int lay
                 } else {
                         u32 tID = (tileID & 0xFFFFFFFU) - TMJ_TILESET_FGID;
 
-                        g->rtiles[n].ID[layerID] = tID;
+                        g->rtiles[n] = rtile_set(g->rtiles[n], tID, layerID);
                         if (layerID != TILE_LAYER_MAIN) continue;
 
                         if (tID == tileID_encode_ts(4, 0, 0)) {

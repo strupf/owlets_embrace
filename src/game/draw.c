@@ -40,6 +40,7 @@ void sprite_anim_set(sprite_anim_s *a, int frame, int time)
         a->time  = time;
 }
 
+/*
 texregion_s sprite_anim_get(sprite_anim_s *a)
 {
         texregion_s t = {a->tex,
@@ -49,3 +50,4 @@ texregion_s sprite_anim_get(sprite_anim_s *a)
                          a->sh};
         return t;
 }
+*/

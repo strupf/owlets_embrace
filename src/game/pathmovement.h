@@ -5,7 +5,7 @@
 #ifndef PATHMOVEMENT_H
 #define PATHMOVEMENT_H
 
-#include "gamedef.h"
+#include "os/os.h"
 
 typedef enum {
         PATH_TYPE_LINE,

@@ -72,6 +72,8 @@ static mhblock_s *mhblock_aquire_free(memheap_s *m, size_t size)
                 size_t exc = (b->s - size);
                 if (exc >= 2 * sizeof(mhblock_s)) {
                         mhblock_s *s = (mhblock_s *)((char *)b + size);
+                        s->prev      = NULL;
+                        s->next      = NULL;
                         s->s         = exc;
                         b->s         = size;
                         s->prevphys  = b;
@@ -82,6 +84,7 @@ static mhblock_s *mhblock_aquire_free(memheap_s *m, size_t size)
                         }
                         mhblock_add_to(&m->free, s);
                 }
+
                 return b;
         }
         ASSERT(0);
@@ -164,7 +167,7 @@ void *memheap_realloc(memheap_s *m, void *ptr, size_t s)
 void memheap_clr(memheap_s *m)
 {
         mhblock_s *b = (mhblock_s *)m->buf;
-        *b           = (const mhblock_s){0};
+        *b           = (mhblock_s){0};
         b->s         = m->bufsize;
         m->busy      = NULL;
         m->free      = b;

@@ -362,21 +362,6 @@ static inline i32 pow2_i32(i32 v)
         return mul_i32(v, v);
 }
 
-static i32 log2_u32(u32 x)
-{
-        static i32 logtab[32] = {
-            0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
-            8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6, 26, 5, 4, 31};
-        u32 v = x;
-        v |= v >> 1, v |= v >> 2, v |= v >> 4, v |= v >> 8, v |= v >> 16;
-        return logtab[(v * 0x07C4ACDDU) >> 27];
-}
-
-static inline i32 log2_i32(i32 x)
-{
-        return (x <= 0 ? 0 : log2_u32((u32)x));
-}
-
 // rounded division - stackoverflow.com/a/18067292
 static inline i32 divr_i32(i32 n, i32 d)
 {
@@ -391,7 +376,7 @@ typedef struct {
 static div_u32_s div_u32_create(u32 d)
 {
         div_u32_s r;
-        u32       l = log2_u32(d);
+        u32       l = log2_32(d);
         r.og        = d;
         r.shift     = l + 32;
         if ((d & (d - 1)) == 0) {
@@ -419,20 +404,6 @@ static inline u32 div_u32_do(u32 n, div_u32_s d)
         return (u32)r;
 }
 
-static int sqrt_u16(int x)
-{
-        ASSERT(0 <= x && x < 65536);
-
-        int r = x, q = 0, b = 0x4000;
-        for (int k = 0; k < 8; k++) {
-                int t = q + b;
-                q >>= 1;
-                if (r >= t) { r -= t, q += b; }
-                b >>= 2;
-        }
-        return q;
-}
-
 static i32 sqrt_u32(u32 x)
 {
         u32 r = x, q = 0, b = 0x40000000U;
@@ -444,26 +415,6 @@ static i32 sqrt_u32(u32 x)
                 b >>= 2;
         }
         return (i32)q;
-}
-
-// result fits in u32
-static i64 sqrt_u64(u64 x)
-{
-        u64 r = x, q = 0, b = 0x4000000000000000ULL;
-        while (b > r) b >>= 2;
-        while (b > 0) {
-                u64 t = q + b;
-                q >>= 1;
-                if (r >= t) { r -= t, q += b; }
-                b >>= 2;
-        }
-        return (i64)q;
-}
-
-static inline i64 sqrt_i64(i64 x)
-{
-        ASSERT(x >= 0);
-        return sqrt_u64((u64)x);
 }
 
 static inline i32 sqrt_i32(i32 x)
@@ -568,6 +519,7 @@ static i32 cos_q16_fast(i32 p)
         if (i == 0x10000) return 0;
         i = (i * i) >> 16;
         u32 r;
+        // 2 less terms than the other cos
         r = 0x0051F;                   // Constants multiplied by scaling:
         r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
         r = 0x13BD3 - ((i * r) >> 16); // (PI/2)^4 / 24

@@ -5,7 +5,7 @@
 #ifndef TEXTBOX_H
 #define TEXTBOX_H
 
-#include "gamedef.h"
+#include "game_def.h"
 
 enum {
         TEXTBOX_TYPE_STATIC_BOX,

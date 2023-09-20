@@ -9,7 +9,7 @@
 
 /* contains triangles for each tile describing its shape.
  */
-const tri_i32 tilecolliders[] = {
+const tri_i32 tilecolliders[32] = {
     // dummy triangles
     0, 0, 0, 0, 0, 0, // empty
     0, 0, 0, 0, 0, 0, // solid
@@ -49,7 +49,7 @@ const tri_i32 tilecolliders[] = {
 
 // operate on 16x16 tiles
 // these are the collision masks per pixel row of a tile
-static const int g_pxmask_tab[][16] = {
+const int g_pxmask_tab[32][16] = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
     //
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,

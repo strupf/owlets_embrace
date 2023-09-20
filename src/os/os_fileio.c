@@ -325,13 +325,18 @@ void jsn_print(jsn_s j)
 i32 jsn_int(jsn_s j)
 {
         int i1  = jsn_skip_num(j.txt, j.i);
-        int n   = 0;
         i32 res = 0;
-        for (int i = j.i; i < i1; i++, n++) {
+        int s   = +1;
+        int i0  = j.i;
+        if (j.txt[j.i] == '-') {
+                s = -1;
+                i0++;
+        }
+        for (int i = i0; i < i1; i++) {
                 res *= 10;
                 res += char_hex_to_int(j.txt[i]);
         }
-        return res;
+        return (res * s);
 }
 
 i32 jsn_intk(jsn_s j, const char *key)

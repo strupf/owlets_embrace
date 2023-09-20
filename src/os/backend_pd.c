@@ -81,11 +81,6 @@ __declspec(dllexport)
         return 0;
 }
 
-void os_backend_graphics_begin()
-{
-        os_memclr4(g_os.framebuffer, OS_FRAMEBUFFER_SIZE);
-}
-
 void os_backend_graphics_end()
 {
         PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated

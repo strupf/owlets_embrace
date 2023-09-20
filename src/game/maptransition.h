@@ -5,7 +5,8 @@
 #ifndef MAPTRANSITION_H
 #define MAPTRANSITION_H
 
-#include "gamedef.h"
+#include "cam.h"
+#include "game_def.h"
 
 enum {
         TRANSITION_TICKS       = 15,
@@ -13,26 +14,26 @@ enum {
         TRANSITION_FADE_TICKS  = TRANSITION_TICKS - TRANSITION_BLACK_TICKS,
 };
 
-enum transition_type {
+enum {
         TRANSITION_TYPE_SIMPLE,
 };
 
-typedef enum {
+enum {
         TRANSITION_NONE,
         TRANSITION_FADE_OUT,
         TRANSITION_FADE_IN,
-} transition_phase_e;
+};
 
-typedef struct {
-        transition_phase_e phase;
-        int                ticks;
-        char               map[64]; // next map to load
-        rec_i32            heroprev;
-        cam_s              camprev;
-        direction_e        enterfrom;
-} transition_s;
+struct transition_s {
+        int     phase;
+        int     ticks;
+        char    map[64]; // next map to load
+        rec_i32 heroprev;
+        cam_s   camprev;
+        int     enterfrom;
+};
 
-void game_update_transition(game_s *g);
-void game_map_transition_start(game_s *g, const char *filename);
+void transition_update(game_s *g);
+void transition_start(game_s *g, const char *filename);
 
 #endif

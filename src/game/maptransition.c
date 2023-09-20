@@ -5,7 +5,7 @@
 #include "maptransition.h"
 #include "game.h"
 
-void game_map_transition_start(game_s *g, const char *filename)
+void transition_start(game_s *g, const char *filename)
 {
         transition_s *t = &g->transition;
         if (t->phase) return;
@@ -15,19 +15,15 @@ void game_map_transition_start(game_s *g, const char *filename)
         os_strcpy(t->map, filename);
 }
 
-void game_update_transition(game_s *g)
+void transition_update(game_s *g)
 {
         transition_s *t = &g->transition;
-
         switch (t->phase) {
         case TRANSITION_NONE: break;
         case TRANSITION_FADE_IN: {
                 if (++t->ticks < TRANSITION_TICKS) break;
-                t->phase          = TRANSITION_FADE_OUT;
-                char filename[64] = {0};
-                os_strcat(filename, ASSET_PATH_MAPS);
-                os_strcat(filename, t->map);
-                game_load_map(g, filename);
+                t->phase = TRANSITION_FADE_OUT;
+                game_load_map(g, t->map);
                 obj_s *ohero;
                 if (t->enterfrom) {
                         try_obj_from_handle(g->hero.obj, &ohero);

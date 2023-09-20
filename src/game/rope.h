@@ -5,10 +5,7 @@
 #ifndef ROPE_H
 #define ROPE_H
 
-#include "gamedef.h"
-
-typedef struct ropenode_s ropenode_s;
-typedef struct rope_s     rope_s;
+#include "game_def.h"
 
 struct ropenode_s {
         ropenode_s *next;

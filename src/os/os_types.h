@@ -77,6 +77,7 @@ typedef float          f32;
 typedef u8  flags8;
 typedef u16 flags16;
 typedef u32 flags32;
+typedef u64 flags64;
 
 // 32-bit SIMD types
 typedef i32 i16x2;
@@ -275,6 +276,15 @@ static i32 os_i32_from_str(const char *s)
                 i++;
         }
         return (res * sig);
+}
+
+static inline int ptr_find(const void *ptr, const void **parr, int n)
+{
+        for (int i = 0; i < n; i++) {
+                if (ptr == parr[i])
+                        return i;
+        }
+        return -1;
 }
 
 #endif

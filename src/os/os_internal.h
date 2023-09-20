@@ -6,7 +6,52 @@
 #define OS_INTERNAL_H
 
 #include "os.h"
-#include "os_audio.h"
+
+enum {
+        OS_MUSICCHUNK         = 0x40000, // 256 KB
+        OS_MUSICCHUNK_SAMPLES = OS_MUSICCHUNK / sizeof(i16),
+};
+
+enum {
+        PLAYBACK_TYPE_SILENT,
+        PLAYBACK_TYPE_WAVE,
+        PLAYBACK_TYPE_GEN,
+};
+
+typedef struct {
+        int   playback_type;
+        i32   vol_q8;
+        float invpitch; // 1 / pitch
+
+        union {
+                struct {
+                        i16 *wavedata;
+                        u32  wavelen;
+                        u32  wavelen_og;
+                        u32  wavepos;
+                };
+                struct {
+                        int gentype;
+                        u32 genfreq;
+                        i32 genpos;
+                        i32 sinincr; // = (freq * "2 pi") / 44100
+                        i32 squarelen;
+                };
+        };
+} audio_channel_s;
+
+typedef struct {
+        OS_FILE *stream;
+        u32      datapos;
+        u32      streampos; // position in samples
+        u32      streamlen;
+        i32      vol_q8;
+        float    invpitch; // 1 / pitch
+        bool32   looping;
+
+        i16 chunk[OS_MUSICCHUNK_SAMPLES];
+        int chunkpos; // position in samples in chunk
+} music_channel_s;
 
 #define OS_FPS_DELTA (1.f / (float)OS_FPS)
 #define OS_DELTA_CAP (4.f / (float)OS_FPS)
@@ -70,11 +115,11 @@ void *assetmem_alloc(size_t s);
 
 void os_prepare();
 int  os_do_tick();
+int  os_audio_cb(void *context, i16 *left, i16 *right, int len);
 
 void os_backend_init();
 void os_backend_close();
 void os_backend_inp_update();
-void os_backend_graphics_begin();
 void os_backend_graphics_end();
 void os_backend_graphics_flip();
 

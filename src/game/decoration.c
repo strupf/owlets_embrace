@@ -2,8 +2,10 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "backforeground.h"
+#include "decoration.h"
 #include "game.h"
+
+/*
 
 // called at half update rate!
 static void backforeground_clouds(game_s *g, backforeground_s *bg);
@@ -107,5 +109,34 @@ static void backforeground_wind_particles(game_s *g, backforeground_s *bg)
                 for (int i = 0; i < BG_WIND_PARTICLE_N; i++) {
                         p->pos[i] = p->p;
                 }
+        }
+}
+
+*/
+
+static void tileanimations_update();
+
+void room_deco_animate(game_s *g)
+{
+        for (int n = g->n_particles - 1; n >= 0; n--) {
+                particle_s *p = &g->particles[n];
+                if (--p->ticks == 0) {
+                        g->particles[n] = g->particles[--g->n_particles];
+                        continue;
+                }
+                p->v_q8 = v2_add(p->v_q8, p->a_q8);
+                p->p_q8 = v2_add(p->p_q8, p->v_q8);
+        }
+}
+
+// called at half update rate!
+static void tileanimations_update()
+{
+        i32 tick = os_tick();
+        for (int n = 0; n < 0x10000; n++) {
+                tile_animation_s *a = &g_tileanimations[n];
+                if (a->ticks == 0) continue;
+                int frame        = (tick / a->ticks) % a->frames;
+                g_tileIDs[a->ID] = a->IDs[frame];
         }
 }

@@ -3,16 +3,8 @@
 // =============================================================================
 
 #include "obj.h"
-#include "game/game.h"
-
-bool32 obj_matches_filter(obj_s *o, obj_filter_s filter)
-{
-        objflags_s f = o->flags;
-
-        f = objflags_op(f, filter.op_flag[0], filter.op_func[0]);
-        f = objflags_op(f, filter.op_flag[1], filter.op_func[1]);
-        return objflags_cmp(f, filter.cmp_flag, filter.cmp_func);
-}
+#include "game.h"
+#include "rope.h"
 
 bool32 objhandle_is_valid(objhandle_s h)
 {
@@ -29,26 +21,18 @@ obj_s *obj_from_handle(objhandle_s h)
         return (h.o && h.o->gen == h.gen ? h.o : NULL);
 }
 
-bool32 try_obj_from_handle(objhandle_s h, obj_s **o)
-{
-        obj_s *obj = obj_from_handle(h);
-        if (obj) {
-                *o = obj;
-                return 1;
-        }
-        return 0;
-}
-
 objhandle_s objhandle_from_obj(obj_s *o)
 {
         objhandle_s h = {o->gen, o};
         return h;
 }
 
-bool32 obj_contained_in_array(obj_s *o, obj_s **arr, int num)
+bool32 try_obj_from_handle(objhandle_s h, obj_s **o)
 {
-        for (int n = 0; n < num; n++) {
-                if (arr[n] == o) return 1;
+        obj_s *obj = obj_from_handle(h);
+        if (obj) {
+                *o = obj;
+                return 1;
         }
         return 0;
 }
@@ -78,90 +62,9 @@ void obj_delete(game_s *g, obj_s *o)
         objset_add(&g->obj_scheduled_delete, o);
 }
 
-void obj_apply_flags(game_s *g, obj_s *o, objflags_s flags)
+bool32 obj_contained_in_array(obj_s *o, obj_s **arr, int num)
 {
-        o->flags = flags;
-        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
-                objbucket_s *b = &g->objbuckets[n];
-                objflags_s   f = flags;
-
-                f = objflags_op(f, b->op_flag[0], b->op_func[0]);
-                f = objflags_op(f, b->op_flag[1], b->op_func[1]);
-                if (objflags_cmp(f, b->cmp_flag, b->cmp_func)) {
-                        objset_add(&b->set, o);
-                } else {
-                        objset_del(&b->set, o);
-                }
-        }
-}
-
-void i_obj_set_flags(game_s *g, obj_s *o, ...)
-{
-        objflags_s flags = o->flags;
-        va_list    ap;
-        va_start(ap, o);
-        while (1) {
-                int i = va_arg(ap, int);
-                if (i < 0) break;
-                flags = objflags_set(flags, i);
-        }
-        va_end(ap);
-        obj_apply_flags(g, o, flags);
-}
-
-void i_obj_unset_flags(game_s *g, obj_s *o, ...)
-{
-        objflags_s flags = o->flags;
-        va_list    ap;
-        va_start(ap, o);
-        while (1) {
-                int i = va_arg(ap, int);
-                if (i < 0) break;
-                flags = objflags_unset(flags, i);
-        }
-        va_end(ap);
-        obj_apply_flags(g, o, flags);
-}
-
-int obj_cmp_renderable(const obj_s *a, const obj_s *b)
-{
-        return (a->renderpriority > b->renderpriority);
-}
-
-bool32 obj_is_direct_child(obj_s *o, obj_s *parent)
-{
-        for (obj_s *it = parent->fchild; it; it = it->next) {
-                if (it == o) return 1;
-        }
-        return 0;
-}
-
-bool32 obj_is_child_any_depth(obj_s *o, obj_s *parent)
-{
-        if (!parent->fchild) return 0;
-        obj_s *stack[64] = {parent->fchild};
-        int    n         = 1;
-        do {
-                for (obj_s *it = stack[--n]; it; it = it->next) {
-                        if (it == o) return 1;
-                        if (it->fchild) {
-                                ASSERT(n < ARRLEN(stack));
-                                stack[n++] = it->fchild;
-                        }
-                }
-        } while (n > 0);
-        return 0;
-}
-
-bool32 obj_are_siblings(obj_s *a, obj_s *b)
-{
-        for (obj_s *o = a->next; o; o = o->next) {
-                if (o == b) return 1;
-        }
-        for (obj_s *o = a->prev; o; o = o->prev) {
-                if (o == b) return 1;
-        }
-        return 0;
+        return ptr_find(o, arr, num) >= 0;
 }
 
 v2_i32 obj_aabb_center(obj_s *o)
@@ -176,65 +79,186 @@ rec_i32 obj_aabb(obj_s *o)
         return r;
 }
 
-/* ________
- * | |    |
- * | |AABB|
- * |_|____|
- */
 rec_i32 obj_rec_left(obj_s *o)
 {
         rec_i32 r = {o->pos.x - 1, o->pos.y, 1, o->h};
         return r;
 }
 
-/*   ________
- *   |    | |
- *   |AABB| |
- *   |____|_|
- */
 rec_i32 obj_rec_right(obj_s *o)
 {
         rec_i32 r = {o->pos.x + o->w, o->pos.y, 1, o->h};
         return r;
 }
 
-/*   ______
- *   |    |
- *   |AABB|
- *   |____|
- *   |____|
- */
 rec_i32 obj_rec_bottom(obj_s *o)
 {
         rec_i32 r = {o->pos.x, o->pos.y + o->h, o->w, 1};
         return r;
 }
 
-/*   ______
- *   |____|
- *   |    |
- *   |AABB|
- *   |____|
- */
 rec_i32 obj_rec_top(obj_s *o)
 {
         rec_i32 r = {o->pos.x, o->pos.y - 1, o->w, 1};
         return r;
 }
 
-void obj_stop_on_walls(game_s *g, obj_s *o)
+void obj_apply_flags(game_s *g, obj_s *o, flags64 flags)
 {
-        if ((o->vel_q8.y < 0 && game_area_blocked(g, obj_rec_top(o))) ||
-            (o->vel_q8.y > 0 && game_area_blocked(g, obj_rec_bottom(o)))) {
-                o->vel_q8.y = 0;
-        }
-        if ((o->vel_q8.x < 0 && game_area_blocked(g, obj_rec_left(o))) ||
-            (o->vel_q8.x > 0 && game_area_blocked(g, obj_rec_right(o)))) {
-                o->vel_q8.x = 0;
+        o->flags = flags;
+        for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
+                objbucket_s *b = &g->objbuckets[n];
+                flags64      f = flags;
+
+                f = objflags_op(f, b->op_flag[0], b->op_func[0]);
+                f = objflags_op(f, b->op_flag[1], b->op_func[1]);
+                if (objflags_cmp(f, b->cmp_flag, b->cmp_func)) {
+                        objset_add(&b->set, o);
+                } else {
+                        objset_del(&b->set, o);
+                }
         }
 }
 
-static inline void i_actor_step(game_s *g, obj_s *o, int sx, int sy)
+void obj_set_flags(game_s *g, obj_s *o, flags64 flags)
+{
+        obj_apply_flags(g, o, o->flags | flags);
+}
+
+void obj_unset_flags(game_s *g, obj_s *o, flags64 flags)
+{
+        obj_apply_flags(g, o, o->flags & ~flags);
+}
+
+void obj_interact_open_dialog(game_s *g, obj_s *o)
+{
+}
+
+obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
+{
+        obj_s      *closest       = NULL;
+        u32         closestdist   = INTERACTABLE_DIST;
+        obj_listc_s interactables = objbucket_list(g, OBJ_BUCKET_INTERACT);
+        for (int n = 0; n < interactables.n; n++) {
+                obj_s *o      = interactables.o[n];
+                v2_i32 oc     = obj_aabb_center(o);
+                u32    distsq = v2_distancesq(oc, pos);
+                if (distsq < closestdist) {
+                        closestdist = distsq;
+                        closest     = o;
+                }
+        }
+        return closest;
+}
+
+objset_s *objset_create(void *(*allocfunc)(size_t))
+{
+        objset_s *set = (objset_s *)allocfunc(sizeof(objset_s));
+        objset_clr(set);
+        return set;
+}
+
+bool32 objset_add(objset_s *set, obj_s *o)
+{
+        int i = o->index;
+        if (i == 0 || set->s[i] != 0) return 0;
+        int n     = ++set->n;
+        set->s[i] = n;
+        set->d[n] = i;
+        set->o[n] = o;
+        return 1;
+}
+
+bool32 objset_del(objset_s *set, obj_s *o)
+{
+        int i = o->index;
+        int j = set->s[i];
+        if (j == 0) return 0;
+        int n     = set->n--;
+        int k     = set->d[n];
+        set->d[n] = 0;
+        set->d[j] = k;
+        set->s[k] = j;
+        set->s[i] = 0;
+        set->o[j] = set->o[n];
+        return 1;
+}
+
+bool32 objset_contains(objset_s *set, obj_s *o)
+{
+        int i = o->index;
+        return (set->s[i] != 0);
+}
+
+void objset_clr(objset_s *set)
+{
+        if (set->n > 0) {
+                *set = (const objset_s){0};
+        }
+}
+
+int objset_len(objset_s *set)
+{
+        return set->n;
+}
+
+obj_s *objset_at(objset_s *set, int i)
+{
+        ASSERT(0 <= i && i < set->n);
+        return set->o[1 + i];
+}
+
+obj_listc_s objset_list(objset_s *set)
+{
+        obj_listc_s l = {&set->o[1], set->n};
+        return l;
+}
+
+void objset_print(objset_s *set)
+{
+        for (int n = 0; n < NUM_OBJS; n++) {
+                PRINTF("%i| s: %i d: %i | o: %i %i\n", n, set->s[n], set->d[n], set->o[n] ? set->o[n]->index : -1, set->o[n] ? set->o[n]->ID : -1);
+        }
+}
+
+static void objset_swap(objset_s *set, int i, int j)
+{
+        int si = set->s[i];
+        int sj = set->s[j];
+        SWAP(obj_s *, set->o[si], set->o[sj]);
+        SWAP(int, set->d[si], set->d[sj]);
+        SWAP(int, set->s[i], set->s[j]);
+}
+
+void objset_sort(objset_s *set, int (*cmpf)(const obj_s *a, const obj_s *b))
+{
+        while (1) {
+                bool32 swapped = 0;
+                for (int n = 1; n < set->n; n++) {
+                        obj_s *a = set->o[n + 1];
+                        obj_s *b = set->o[n];
+                        if (cmpf(a, b) > 0) {
+                                objset_swap(set, a->index, b->index);
+                                swapped = 1;
+                        }
+                }
+                if (!swapped) break;
+        }
+}
+
+obj_listc_s objbucket_list(game_s *g, int bucketID)
+{
+        ASSERT(0 <= bucketID && bucketID < NUM_OBJ_BUCKETS);
+        return objset_list(&g->objbuckets[bucketID].set);
+}
+
+void objbucket_copy_to_set(game_s *g, int bucketID, objset_s *set)
+{
+        ASSERT(0 <= bucketID && bucketID < NUM_OBJ_BUCKETS);
+        *set = g->objbuckets[bucketID].set;
+}
+
+static inline void actor_step(game_s *g, obj_s *o, int sx, int sy)
 {
         o->pos.x += sx;
         o->pos.y += sy;
@@ -247,13 +271,13 @@ static inline void i_actor_step(game_s *g, obj_s *o, int sx, int sy)
 static bool32 actor_try_wiggle(game_s *g, obj_s *o)
 {
         rec_i32 aabb = obj_aabb(o);
-        if (!game_area_blocked(g, aabb)) return 1;
+        if (!room_area_blocked(g, aabb)) return 1;
 
         for (int y = -1; y <= +1; y++) {
                 for (int x = -1; x <= +1; x++) {
                         rec_i32 r = translate_rec_xy(aabb, x, y);
-                        if (!game_area_blocked(g, r)) {
-                                i_actor_step(g, o, x, y);
+                        if (!room_area_blocked(g, r)) {
+                                actor_step(g, o, x, y);
                                 return 1;
                         }
                 }
@@ -270,15 +294,15 @@ static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
         ASSERT(abs_i(sx) <= 1);
 
         rec_i32 r = translate_rec_xy(obj_aabb(o), sx, 0);
-        if (!game_area_blocked(g, r)) {
-                i_actor_step(g, o, sx, 0);
+        if (!room_area_blocked(g, r)) {
+                actor_step(g, o, sx, 0);
 
                 if (o->actorflags & ACTOR_FLAG_GLUE_GROUND) {
                         rec_i32 r1 = translate_rec_xy(obj_aabb(o), 0, +1);
                         rec_i32 r2 = translate_rec_xy(obj_aabb(o), 0, +2);
-                        if (game_area_blocked(g, r1) == 0 &&
-                            game_area_blocked(g, r2)) {
-                                i_actor_step(g, o, 0, 1);
+                        if (room_area_blocked(g, r1) == 0 &&
+                            room_area_blocked(g, r2)) {
+                                actor_step(g, o, 0, 1);
                         }
                 }
                 return 1;
@@ -288,15 +312,15 @@ static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
         // check if object can climb slopes and try it out
         if (o->actorflags & ACTOR_FLAG_CLIMB_SLOPES) {
                 rec_i32 r1 = translate_rec_xy(obj_aabb(o), sx, -1);
-                if (!game_area_blocked(g, r1)) {
-                        i_actor_step(g, o, sx, -1);
+                if (!room_area_blocked(g, r1)) {
+                        actor_step(g, o, sx, -1);
                         return 1;
                 }
 
                 if (o->actorflags & ACTOR_FLAG_CLIMB_STEEP_SLOPES) {
                         rec_i32 r2 = translate_rec_xy(obj_aabb(o), sx, -2);
-                        if (!game_area_blocked(g, r2)) {
-                                i_actor_step(g, o, sx, -2);
+                        if (!room_area_blocked(g, r2)) {
+                                actor_step(g, o, sx, -2);
                                 return 1;
                         }
                 }
@@ -314,8 +338,8 @@ static bool32 actor_step_y(game_s *g, obj_s *o, int sy)
 {
         ASSERT(abs_i(sy) <= 1);
         rec_i32 r = translate_rec_xy(obj_aabb(o), 0, sy);
-        if (!game_area_blocked(g, r)) {
-                i_actor_step(g, o, 0, sy);
+        if (!room_area_blocked(g, r)) {
+                actor_step(g, o, 0, sy);
                 return 1;
         }
         if (sy == 1) {
@@ -404,60 +428,4 @@ void obj_apply_movement(obj_s *o)
         o->tomove      = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
         o->subpos_q8.x &= 255;
         o->subpos_q8.y &= 255;
-}
-
-obj_s *interactable_closest(game_s *g, v2_i32 p)
-{
-        obj_listc_s list    = objbucket_list(g, OBJ_BUCKET_INTERACT);
-        obj_s      *closest = NULL;
-        u32         dist    = INTERACTABLE_DISTANCESQ;
-        for (int n = 0; n < list.n; n++) {
-                obj_s *oi = list.o[n];
-                v2_i32 pi = obj_aabb_center(oi);
-                u32    d  = v2_distancesq(p, pi);
-                if (d < dist) {
-                        dist    = d;
-                        closest = oi;
-                }
-        }
-        return closest;
-}
-
-void interact_open_dialogue(game_s *g, obj_s *o)
-{
-        char filename[64] = {0};
-        os_strcat(filename, ASSET_PATH_DIALOGUE);
-        os_strcat(filename, o->filename);
-        textbox_load_dialog(&g->textbox, filename);
-}
-
-void objset_add_all(game_s *g, objset_s *set)
-{
-        *set = g->objbuckets[OBJ_BUCKET_ALIVE].set;
-}
-
-void objset_apply_filter(objset_s *set, obj_filter_s filter)
-{
-        obj_s      *toremove[NUM_OBJS];
-        int         n_toremove = 0;
-        obj_listc_s lc         = objset_list(set);
-        for (int n = 0; n < lc.n; n++) {
-                obj_s *o = lc.o[n];
-                if (!obj_matches_filter(o, filter)) {
-                        toremove[n_toremove++] = o;
-                }
-        }
-        for (int n = 0; n < n_toremove; n++) {
-                objset_del(set, toremove[n]);
-        }
-}
-
-void obj_interact_dialog(game_s *g, obj_s *o)
-{
-        textbox_load_dialog(&g->textbox, o->filename);
-}
-
-void obj_squeeze_delete(game_s *g, obj_s *o)
-{
-        obj_delete(g, o);
 }

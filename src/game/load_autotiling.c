@@ -2,7 +2,7 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "autotiling.h"
+#include "game.h"
 #include "util/tmj.h"
 
 // x and y coordinate IDs in blob pattern
@@ -524,5 +524,6 @@ void autotile_calc(game_s *g, u32 *arr, int w, int h,
         } break;
         }
 
-        g->rtiles[n].ID[layerID] = tileID_encode(tx, ty + ytype * 8);
+        u32 tileid   = tileID_encode(tx, ty + ytype * 8);
+        g->rtiles[n] = rtile_set(g->rtiles[n], tileid, layerID);
 }

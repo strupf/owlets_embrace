@@ -4,7 +4,7 @@
 
 #include "os_internal.h"
 
-#define RL_1080P 1 // used for capturing trailer footage
+#define RL_1080P 0 // used for capturing trailer footage
 #define RL_SCALE 1
 
 int main()
@@ -26,7 +26,7 @@ void os_backend_init()
         InitWindow(1920, 1080, "raylib");
 #else
         SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-        InitWindow(400 * RL_SCALE + 64, 240 * RL_SCALE + 64, "raylib");
+        InitWindow(400 * RL_SCALE, 240 * RL_SCALE, "raylib");
 #endif
 
         Image img = GenImageColor(416, 240, BLACK);
@@ -62,11 +62,6 @@ void os_backend_close()
         CloseAudioDevice();
         UnloadTexture(g_os.tex);
         CloseWindow();
-}
-
-void os_backend_graphics_begin()
-{
-        os_memclr(g_os.framebuffer, sizeof(g_os.framebuffer));
 }
 
 void os_backend_graphics_end()

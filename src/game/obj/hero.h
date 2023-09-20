@@ -5,7 +5,9 @@
 #ifndef HERO_H
 #define HERO_H
 
-#include "game/gamedef.h"
+typedef struct hero_s hero_s;
+
+#include "game/obj.h"
 #include "game/rope.h"
 
 enum hero_item {
@@ -45,11 +47,12 @@ struct hero_s {
         objhandle_s hook;
         rope_s      rope;
         int         pickups;
-        char        playername[LENGTH_PLAYERNAME];
+        char        playername[LEN_STR_PLAYER_NAME];
 };
 
 obj_s *hero_create(game_s *g, hero_s *h);
 void   hero_update(game_s *g, obj_s *o);
+bool32 hero_has_item(hero_s *h, int itemID);
 void   hero_set_cur_item(hero_s *h, int itemID);
 void   hero_aquire_item(hero_s *h, int itemID);
 

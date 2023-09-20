@@ -8,32 +8,48 @@
 #ifndef BINARY_LITERAL_H
 #define BINARY_LITERAL_H
 
-static inline unsigned int bitrev(unsigned int x)
+static inline unsigned int bitrev32(unsigned int x)
 {
-        unsigned int v = x;  // input bits to be reversed
-        unsigned int r = v;  // r will be reversed bits of v; first get LSB of v
-        int          s = 31; // extra shift needed at end
-
-        for (v >>= 1; v; v >>= 1) {
+        unsigned int r = x;
+        int          s = 31;
+        for (unsigned int v = (x >> 1); v; v >>= 1) {
                 r <<= 1;
                 r |= v & 1;
                 s--;
         }
-        r <<= s; // shift when v's highest bits are zero
+        r <<= s;
         return r;
 }
 
 #if defined(__GNUC__)
-#define bswap32 __builtin_bswap32
+#define bswap32    __builtin_bswap32
+#define log2_32(X) (31 - __builtin_clz(X))
 #elif defined(_MSC_VER)
-#include <stdlib.h>
+#include <intrin.h>
 #define bswap32 _byteswap_ulong
+static inline int log2_32(unsigned long i)
+{
+        unsigned long x;
+        _BitScanReverse(&x, i);
+        return (int)x;
+}
 #else
 static inline unsigned int bswap32(unsigned int i)
 {
         return (i >> 24) | ((i << 8) & 0xFF0000U) |
                (i << 24) | ((i >> 8) & 0x00FF00U);
 }
+
+static inline int log2_32(unsigned int x)
+{
+        static const unsigned int logtab[32] = {
+            0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
+            8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6, 26, 5, 4, 31};
+        unsigned int v = x;
+        v |= v >> 1, v |= v >> 2, v |= v >> 4, v |= v >> 8, v |= v >> 16;
+        return logtab[(v * 0x7C4ACDDU) >> 27];
+}
+
 #endif
 
 #define _BG2(A, B) A##B

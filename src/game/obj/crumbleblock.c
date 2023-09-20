@@ -3,18 +3,18 @@
 // =============================================================================
 
 #include "game/game.h"
-#include "obj.h"
+#include "game/obj.h"
 
-void crumbleblock_think_idle(game_s *g, obj_s *o);
-void crumbleblock_think_crumbling(game_s *g, obj_s *o);
-void crumbleblock_think_broken(game_s *g, obj_s *o);
+static void crumbleblock_think_idle(game_s *g, obj_s *o);
+static void crumbleblock_think_crumbling(game_s *g, obj_s *o);
+static void crumbleblock_think_broken(game_s *g, obj_s *o);
 
 obj_s *crumbleblock_create(game_s *g)
 {
         obj_s *o = obj_create(g);
-        obj_set_flags(g, o,
-                      OBJ_FLAG_SOLID,
-                      OBJ_FLAG_THINK_1);
+        obj_apply_flags(g, o,
+                        OBJ_FLAG_SOLID |
+                            OBJ_FLAG_THINK_1);
         o->think_1 = crumbleblock_think_idle;
         o->state   = 0;
         o->ID      = 11;
@@ -24,7 +24,7 @@ obj_s *crumbleblock_create(game_s *g)
         return o;
 }
 
-void crumbleblock_think_idle(game_s *g, obj_s *o)
+static void crumbleblock_think_idle(game_s *g, obj_s *o)
 {
         obj_s *hero;
         if (!try_obj_from_handle(g->hero.obj, &hero)) return;
@@ -39,7 +39,7 @@ void crumbleblock_think_idle(game_s *g, obj_s *o)
         }
 }
 
-void crumbleblock_think_crumbling(game_s *g, obj_s *o)
+static void crumbleblock_think_crumbling(game_s *g, obj_s *o)
 {
         if (--o->timer == 0) {
                 o->think_1 = crumbleblock_think_broken;
@@ -49,7 +49,7 @@ void crumbleblock_think_crumbling(game_s *g, obj_s *o)
         }
 }
 
-void crumbleblock_think_broken(game_s *g, obj_s *o)
+static void crumbleblock_think_broken(game_s *g, obj_s *o)
 {
         if (--o->timer == 0) {
                 o->think_1 = crumbleblock_think_idle;

@@ -5,7 +5,7 @@
 #ifndef CAM_H
 #define CAM_H
 
-#include "gamedef.h"
+#include "game_def.h"
 
 struct cam_s {
         v2_i32 pos; // center pos
@@ -13,6 +13,7 @@ struct cam_s {
         int    h;
         int    wh;
         int    hh;
+        int    facetick;
         v2_i32 target;
         bool32 lockedx;
         bool32 lockedy;

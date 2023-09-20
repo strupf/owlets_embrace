@@ -7,6 +7,7 @@
 
 void boat_think(game_s *g, obj_s *o)
 {
+        /*
         static int boatticks = 0;
 
         v2_i32 cc = obj_aabb_center(o);
@@ -35,16 +36,17 @@ void boat_think(game_s *g, obj_s *o)
         } else {
                 o->drag_q8.y = 256;
         }
+        */
 }
 
 obj_s *boat_create(game_s *g)
 {
         obj_s *o = obj_create(g);
         obj_set_flags(g, o,
-                      OBJ_FLAG_SOLID,
-                      OBJ_FLAG_MOVABLE,
-                      OBJ_FLAG_SOLID,
-                      OBJ_FLAG_THINK_1);
+                      OBJ_FLAG_SOLID |
+                          OBJ_FLAG_MOVABLE |
+                          OBJ_FLAG_SOLID |
+                          OBJ_FLAG_THINK_1);
         o->think_1      = boat_think;
         o->pos.x        = 100;
         o->pos.y        = 800 + 8;

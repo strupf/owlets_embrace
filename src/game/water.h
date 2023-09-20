@@ -5,7 +5,7 @@
 #ifndef WATER_H
 #define WATER_H
 
-#include "gamedef.h"
+#include "os/os.h"
 
 typedef struct {
         i32 y_q12;

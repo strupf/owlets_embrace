@@ -2,10 +2,10 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef BACKFOREGROUND_H
-#define BACKFOREGROUND_H
+#ifndef DECORATION_H
+#define DECORATION_H
 
-#include "gamedef.h"
+#include "game_def.h"
 
 enum {
         BACKGROUND_WIND_CIRCLE_R = 1900,
@@ -36,13 +36,12 @@ typedef struct {
 } particlebg_s;
 
 typedef struct {
-        cloudbg_s    clouds[BG_NUM_CLOUDS];
-        int          nclouds;
-        particlebg_s particles[BG_NUM_PARTICLES];
-        int          nparticles;
-        int          clouddirection;
-} backforeground_s;
+        v2_i32 p_q8;
+        v2_i32 v_q8;
+        v2_i32 a_q8;
+        i32    ticks;
+} particle_s;
 
-void backforeground_setup(game_s *g);
-void backforeground_animate(game_s *g);
+void room_deco_animate(game_s *g);
+
 #endif
