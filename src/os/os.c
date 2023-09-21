@@ -5,8 +5,7 @@
 #include "game/game.h"
 #include "os_internal.h"
 
-os_s   g_os;
-game_s g_gamestate;
+os_s g_os;
 
 tex_s g_tex_screen;
 tex_s g_tex_layer_1;
@@ -95,12 +94,15 @@ void os_prepare()
         game_init(&g_gamestate);
 
         tex_put(TEXID_LAYER_1, g_tex_layer_1);
-        size_t sgame = sizeof(game_s) / 1024;
-        size_t sos   = sizeof(os_s) / 1024;
+        size_t sgame = sizeof(g_gamestate) +
+                       sizeof(g_tileanimations) +
+                       sizeof(g_tileIDs) +
+                       sizeof(tilecolliders);
+        size_t sos = sizeof(os_s);
         PRINTF("\n");
-        PRINTF("Size game: %lli kb\n", sgame);
-        PRINTF("Size os: %lli kb\n", sos);
-        PRINTF("= %lli kb\n", sgame + sos);
+        PRINTF("Size game: %lli kb\n", sgame / 1024);
+        PRINTF("Size os: %lli kb\n", sos / 1024);
+        PRINTF("= %lli kb\n", (sgame + sos) / 1024);
         g_os.lasttime = os_time();
         g_os.fps      = OS_FPS;
         g_os.ups      = OS_FPS;

@@ -4,6 +4,12 @@
 
 #include "game/game.h"
 
+enum {
+        DOOR_STATE_CLOSED,
+        DOOR_STATE_MOVING,
+        DOOR_STATE_OPEN,
+};
+
 static void door_think(game_s *g, obj_s *o);
 static void door_trigger(game_s *g, obj_s *o, int triggerID);
 
@@ -16,44 +22,28 @@ obj_s *door_create(game_s *g)
         o->w         = 16;
         o->h         = 64 + 16;
         o->ontrigger = door_trigger;
+        o->state     = DOOR_STATE_CLOSED;
         o->ID        = 4;
         return o;
 }
 
 static void door_think(game_s *g, obj_s *o)
 {
-        /*
-        if (o->door.moved > 0) {
-                solid_move(g, o, 0, -1);
-                o->door.moved--;
-
-                if (o->door.moved == 0) {
-                        snd_play_ext(snd_get(SNDID_HERO_LAND), 3.f, 4.f);
-                        objflags_s flags = o->flags;
-                        flags            = objflags_unset(flags,
-                                                          OBJ_FLAG_THINK_1);
-                        obj_apply_flags(g, o, flags);
-                } else if (o->door.moved % 8 == 0) {
-                        snd_play_ext(snd_get(SNDID_HERO_LAND), 0.5f, rngf_range(1.1f, 1.4f));
-                }
+        if (--o->timer <= 0) {
+                o->state = DOOR_STATE_OPEN;
+                obj_unset_flags(g, o, OBJ_FLAG_THINK_1);
+                return;
         }
-        */
+        o->tomove.y = -1;
 }
 
 static void door_trigger(game_s *g, obj_s *o, int triggerID)
 {
-        /*
-        if (o->ID == triggerID && !o->door.triggered) {
-                // obj_delete(g, o);
-                o->door.triggered = 1;
-                objflags_s flags  = o->flags;
-                flags             = objflags_set(flags,
-                                                 OBJ_FLAG_THINK_1);
-                obj_apply_flags(g, o, flags);
-                o->think_1    = door_think;
-                o->door.moved = 60;
-                snd_play(snd_get(SNDID_HERO_LAND));
-                // textbox_load_dialog(&g->textbox, "assets/dialog_2.txt");
+        if (o->ID == triggerID) {
+                o->ontrigger = NULL;
+                obj_set_flags(g, o, OBJ_FLAG_THINK_1);
+                o->think_1 = door_think;
+                o->timer   = 60;
+                o->state   = DOOR_STATE_MOVING;
         }
-        */
 }

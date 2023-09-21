@@ -9,11 +9,12 @@
 #include "decoration.h"
 #include "draw.h"
 #include "game_def.h"
-#include "maptransition.h"
 #include "obj.h"
 #include "obj/hero.h"
 #include "rope.h"
+#include "savefile.h"
 #include "textbox.h"
+#include "transition.h"
 #include "water.h"
 #include "world.h"
 
@@ -70,7 +71,7 @@ typedef struct {
 struct game_s {
         i32    tick;
         int    state;
-        int    savestate_slotID;
+        int    savefile_slotID;
         u32    rng;
         cam_s  cam;
         hero_s hero;
@@ -107,8 +108,8 @@ struct game_s {
         int pixel_x; // dimensions in pixels
         int pixel_y;
 
-        ALIGNAS(4) u8 tiles[NUM_TILES];  // collision tiles
-        u32           rtiles[NUM_TILES]; // render tiles
+        u8  tiles[NUM_TILES];  // collision tiles
+        u32 rtiles[NUM_TILES]; // render tiles
 
         // available save points in this area
         savepoint_s savepoints[4];
@@ -125,19 +126,15 @@ struct game_s {
 };
 
 extern game_s           g_gamestate;
-extern u16              g_tileIDs[0x10000];
-extern tile_animation_s g_tileanimations[0x10000];
-extern const tri_i32    tilecolliders[32];
+extern u16              g_tileIDs[GAME_NUM_TILEIDS];
+extern tile_animation_s g_tileanimations[GAME_NUM_TILEANIMATIONS];
+extern const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS];
 
 void   game_init(game_s *g);
 void   game_update(game_s *g);
 void   game_draw(game_s *g);
 void   game_close(game_s *g);
 //
-bool32 game_savestate_new(game_s *g, int slotID);
-bool32 game_savestate_load(game_s *g, int slotID);
-bool32 game_savestate_save(game_s *g);
-bool32 game_savestate_exists(int slotID);
 void  *game_heapalloc(game_s *g, size_t size);
 void   game_heapfree(game_s *g, void *ptr);
 //
@@ -147,6 +144,7 @@ void   game_obj_group_collisions(game_s *g);
 void   game_cull_scheduled(game_s *g);
 //
 bool32 room_area_blocked(game_s *g, rec_i32 r);
+bool32 room_overlaps_tileID(game_s *g, rec_i32 r, int tileID);
 bool32 room_is_ladder(game_s *g, v2_i32 p);
 void   room_tilebounds_pts(game_s *g, v2_i32 p1, v2_i32 p2, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 void   room_tilebounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2, i32 *y2);

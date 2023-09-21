@@ -59,6 +59,10 @@ void obj_delete(game_s *g, obj_s *o)
 {
         ASSERT(!objset_contains(&g->obj_scheduled_delete, o));
         ASSERT(!obj_contained_in_array(o, g->objfreestack, g->n_objfree));
+        if (o->ondelete) { // execute ondelete exactly once
+                o->ondelete(g, o);
+                o->ondelete = NULL;
+        }
         objset_add(&g->obj_scheduled_delete, o);
 }
 
@@ -132,17 +136,18 @@ void obj_unset_flags(game_s *g, obj_s *o, flags64 flags)
 
 void obj_interact_open_dialog(game_s *g, obj_s *o)
 {
+        PRINTF("open");
+        textbox_load_dialog(&g->textbox, o->filename);
 }
 
 obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 {
         obj_s      *closest       = NULL;
-        u32         closestdist   = INTERACTABLE_DIST;
+        u32         closestdist   = INTERACTABLE_DISTSQ;
         obj_listc_s interactables = objbucket_list(g, OBJ_BUCKET_INTERACT);
         for (int n = 0; n < interactables.n; n++) {
                 obj_s *o      = interactables.o[n];
-                v2_i32 oc     = obj_aabb_center(o);
-                u32    distsq = v2_distancesq(oc, pos);
+                u32    distsq = v2_distancesq(obj_aabb_center(o), pos);
                 if (distsq < closestdist) {
                         closestdist = distsq;
                         closest     = o;
@@ -214,13 +219,6 @@ obj_listc_s objset_list(objset_s *set)
         return l;
 }
 
-void objset_print(objset_s *set)
-{
-        for (int n = 0; n < NUM_OBJS; n++) {
-                PRINTF("%i| s: %i d: %i | o: %i %i\n", n, set->s[n], set->d[n], set->o[n] ? set->o[n]->index : -1, set->o[n] ? set->o[n]->ID : -1);
-        }
-}
-
 static void objset_swap(objset_s *set, int i, int j)
 {
         int si = set->s[i];
@@ -243,6 +241,65 @@ void objset_sort(objset_s *set, int (*cmpf)(const obj_s *a, const obj_s *b))
                         }
                 }
                 if (!swapped) break;
+        }
+}
+
+void objset_print(objset_s *set)
+{
+        for (int n = 0; n < NUM_OBJS; n++) {
+                PRINTF("%i| s: %i d: %i | o: %i %i\n", n, set->s[n], set->d[n], set->o[n] ? set->o[n]->index : -1, set->o[n] ? set->o[n]->ID : -1);
+        }
+}
+
+void objset_filter_overlap_circ(objset_s *set, v2_i32 p, i32 r, bool32 inv)
+{
+        obj_s      *to_remove[NUM_OBJS];
+        int         n_remove = 0;
+        obj_listc_s l        = objset_list(set);
+        for (int n = 0; n < l.n; n++) {
+                obj_s *o = l.o[n];
+                if (overlap_rec_circ(obj_aabb(o), p, r) != inv) {
+                        to_remove[n_remove++] = o;
+                }
+        }
+
+        for (int n = 0; n < n_remove; n++) {
+                objset_del(set, to_remove[n]);
+        }
+}
+
+void objset_filter_in_distance(objset_s *set, v2_i32 p, i32 r, bool32 inv)
+{
+        obj_s      *to_remove[NUM_OBJS];
+        int         n_remove = 0;
+        obj_listc_s l        = objset_list(set);
+        u32         r2       = (u32)r * (u32)r;
+        for (int n = 0; n < l.n; n++) {
+                obj_s *o = l.o[n];
+                if ((v2_distancesq(obj_aabb_center(o), p) > r2) != inv) {
+                        to_remove[n_remove++] = o;
+                }
+        }
+
+        for (int n = 0; n < n_remove; n++) {
+                objset_del(set, to_remove[n]);
+        }
+}
+
+void objset_filter_overlap_rec(objset_s *set, rec_i32 r, bool32 inv)
+{
+        obj_s      *to_remove[NUM_OBJS];
+        int         n_remove = 0;
+        obj_listc_s l        = objset_list(set);
+        for (int n = 0; n < l.n; n++) {
+                obj_s *o = l.o[n];
+                if (overlap_rec_excl(obj_aabb(o), r) != inv) {
+                        to_remove[n_remove++] = o;
+                }
+        }
+
+        for (int n = 0; n < n_remove; n++) {
+                objset_del(set, to_remove[n]);
         }
 }
 
@@ -282,7 +339,8 @@ static bool32 actor_try_wiggle(game_s *g, obj_s *o)
                         }
                 }
         }
-        o->actorres |= ACTOR_RES_SQUEEZED;
+
+        o->squeezed = 1;
         if (o->onsqueeze) {
                 o->onsqueeze(g, o);
         }
@@ -326,11 +384,6 @@ static bool32 actor_step_x(game_s *g, obj_s *o, int sx)
                 }
         }
 
-        if (sx == 1) {
-                o->actorres |= ACTOR_RES_TOUCHED_X_POS;
-        } else {
-                o->actorres |= ACTOR_RES_TOUCHED_X_NEG;
-        }
         return 0;
 }
 
@@ -341,11 +394,6 @@ static bool32 actor_step_y(game_s *g, obj_s *o, int sy)
         if (!room_area_blocked(g, r)) {
                 actor_step(g, o, 0, sy);
                 return 1;
-        }
-        if (sy == 1) {
-                o->actorres |= ACTOR_RES_TOUCHED_Y_POS;
-        } else {
-                o->actorres |= ACTOR_RES_TOUCHED_Y_NEG;
         }
         return 0;
 }
@@ -383,7 +431,7 @@ static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 
         for (int n = 0; n < actors.n; n++) {
                 obj_s *a = actors.o[n];
-                if (a->actorres & ACTOR_RES_SQUEEZED) continue;
+                if (a->squeezed) continue;
                 rec_i32 aabb  = obj_aabb(a);
                 rec_i32 rfeet = translate_rec(obj_rec_bottom(a), dt);
                 if (overlap_rec_excl(r, aabb) ||

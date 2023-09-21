@@ -103,24 +103,6 @@ void game_load_map(game_s *g, const char *filename)
         g->water.p              = (v2_i32){0};
         */
 
-#if 1
-        static int once = 0;
-        if (!once) {
-                obj_s *solid1 = obj_create(g);
-                obj_apply_flags(g, solid1, OBJ_FLAG_SOLID | OBJ_FLAG_MOVABLE);
-                solid1->pos.x = 500;
-                solid1->pos.y = 680;
-                solid1->w     = 64;
-                solid1->h     = 48;
-                solid1->dir   = -1;
-                solid1->p2    = solid1->pos.x + 170;
-                solid1->p1    = solid1->pos.x - 20;
-                solid1->ID    = 1;
-                once          = 1;
-        }
-
-#endif
-        obj_s *oblob = blob_create(g);
         obj_s *ohero = hero_create(g, &g->hero);
         ohero->pos.x = 10 * 16;
         ohero->pos.y = 100;
@@ -217,6 +199,9 @@ static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h, int lay
 
                         if (tID == tileID_encode_ts(4, 0, 0)) {
                                 g->tiles[n] = TILE_LADDER;
+                        }
+                        if (tID == tileID_encode_ts(4, 1, 3)) {
+                                g->tiles[n] = TILE_SPIKES;
                         }
                 }
         }

@@ -52,13 +52,19 @@ struct objhandle_s {
         obj_s *o;
 };
 
+typedef struct {
+        bool32  hidden;
+        int     texID;
+        int     flags;
+        int     mode;
+        rec_i32 r;
+        v2_i32  offset;
+} objsprite_s;
+
 struct obj_s {
         int     gen;
         int     index;
         flags64 flags;
-        int     dir;
-        int     p1;
-        int     p2;
         int     ID;
         int     facing;
         int     invincibleticks;
@@ -68,6 +74,9 @@ struct obj_s {
         int     damage;
         int     health;
         int     healthmax;
+
+        objsprite_s sprites[4];
+        int         n_sprites;
 
         struct {
                 i32     animation;
@@ -85,6 +94,7 @@ struct obj_s {
         // some more or less generic variables
         int timer;
         int state;
+        int substate;
         int type;
 
         i32 w;
@@ -98,7 +108,7 @@ struct obj_s {
         v2_i32      tomove; // distance to move the obj
         v2_i32      vel_prev_q8;
         flags32     actorflags;
-        flags32     actorres;
+        bool32      squeezed;
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
@@ -107,6 +117,7 @@ struct obj_s {
         void (*think_1)(game_s *g, obj_s *o);
         void (*think_2)(game_s *g, obj_s *o);
         void (*ontrigger)(game_s *g, obj_s *o, int triggerID);
+        void (*ondelete)(game_s *g, obj_s *o);
 
         bool32      attached;
         ropenode_s *ropenode;
@@ -124,10 +135,10 @@ typedef struct {
 #define OBJ_FLAG_ALIVE             (1ULL << 1)
 #define OBJ_FLAG_ACTOR             (1ULL << 2)
 #define OBJ_FLAG_SOLID             (1ULL << 3)
-#define OBJ_FLAG_HERO              (1ULL << 4)
+#define OBJ_FLAG______UNUSED3      (1ULL << 4)
 #define OBJ_FLAG_NEW_AREA_COLLIDER (1ULL << 5)
 #define OBJ_FLAG_PICKUP            (1ULL << 6)
-#define OBJ_FLAG_UNUSED________    (1ULL << 7)
+#define OBJ_FLAG______UNUSED1      (1ULL << 7)
 #define OBJ_FLAG_INTERACT          (1ULL << 8)
 #define OBJ_FLAG_MOVABLE           (1ULL << 9)
 #define OBJ_FLAG_THINK_1           (1ULL << 10)
@@ -137,7 +148,7 @@ typedef struct {
 #define OBJ_FLAG_KILL_OFFSCREEN    (1ULL << 14)
 #define OBJ_FLAG_HURTS_PLAYER      (1ULL << 15)
 #define OBJ_FLAG_CAM_ATTRACTOR     (1ULL << 16)
-#define OBJ_FLAG_SPRITE_ANIM       (1ULL << 17)
+#define OBJ_FLAG______UNUSED2      (1ULL << 17)
 #define OBJ_FLAG_RENDERABLE        (1ULL << 18)
 #define OBJ_FLAG_ANIMATE           (1ULL << 19)
 #define OBJ_FLAG_HURTS_ENEMIES     (1ULL << 20)
@@ -194,6 +205,10 @@ obj_s      *objset_at(objset_s *set, int i);
 obj_listc_s objset_list(objset_s *set);
 void        objset_sort(objset_s *set, int (*cmpf)(const obj_s *a, const obj_s *b));
 void        objset_print(objset_s *set);
+//
+void        objset_filter_overlap_circ(objset_s *set, v2_i32 p, i32 r, bool32 inv);
+void        objset_filter_in_distance(objset_s *set, v2_i32 p, i32 r, bool32 inv);
+void        objset_filter_overlap_rec(objset_s *set, rec_i32 r, bool32 inv);
 
 // bucket of obj matching flags
 struct objbucket_s {
@@ -219,7 +234,6 @@ enum obj_bucket {
         OBJ_BUCKET_HURTS_ENEMIES,
         OBJ_BUCKET_HURTS_PLAYER,
         OBJ_BUCKET_CAM_ATTRACTOR,
-        OBJ_BUCKET_SPRITE_ANIM,
         OBJ_BUCKET_RENDERABLE,
         OBJ_BUCKET_ANIMATE,
         OBJ_BUCKET_ENEMY,
@@ -230,18 +244,10 @@ enum obj_bucket {
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 void        objbucket_copy_to_set(game_s *g, int bucketID, objset_s *set);
 
-enum actor_flag {
+enum {
         ACTOR_FLAG_CLIMB_SLOPES       = 0x1, // can climb 45 slopes
         ACTOR_FLAG_CLIMB_STEEP_SLOPES = 0x2, // can climb steep slopes
         ACTOR_FLAG_GLUE_GROUND        = 0x4, // avoids bumbing down a slope
-};
-
-enum actor_res_flag {
-        ACTOR_RES_TOUCHED_X_POS = 0x01,
-        ACTOR_RES_TOUCHED_X_NEG = 0x02,
-        ACTOR_RES_TOUCHED_Y_POS = 0x04,
-        ACTOR_RES_TOUCHED_Y_NEG = 0x08,
-        ACTOR_RES_SQUEEZED      = 0x10,
 };
 
 void   actor_move(game_s *g, obj_s *o, int dx, int dy);

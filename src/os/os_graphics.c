@@ -184,6 +184,27 @@ void gfx_tex_clr(tex_s t)
         }
 }
 
+static inline void i_gfx_apply_px(u32 *dp, u32 *dm, u32 pt, u32 pp, u32 tt, int m)
+{
+        u32 t = bswap32(tt & pt); // mask off pattern pixels
+        u32 p = bswap32(pp);
+
+        switch (m) {
+        case GFX_MODE_INV: p = ~p; // fallthrough
+        case GFX_MODE_CPY: *dp = (*dp & ~t) | (p & t); break;
+        case GFX_MODE_XOR: p = ~p; // fallthrough
+        case GFX_MODE_NXR: *dp = (*dp & ~t) | ((*dp ^ p) & t); break;
+        case GFX_MODE_W_T: t &= p; // fallthrough
+        case GFX_MODE_B_F: *dp |= t; break;
+        case GFX_MODE_B_T: t &= ~p; // fallthrough
+        case GFX_MODE_W_F: *dp &= ~t; break;
+        }
+
+        if (dm) { // write opaque pixel info if mask is present
+                *dm |= t;
+        }
+}
+
 static inline int i_gfx_peek_px(tex_s t, int x, int y)
 {
         if (!(0 <= x && x < t.w && 0 <= y && y < t.h)) return 0;
@@ -210,11 +231,32 @@ static inline void i_gfx_peek(tex_s t, int x, int y, int *px, int *op)
 static inline void i_gfx_put_px(gfx_context_s ctx, int x, int y)
 {
         if (!(0 <= x && x < ctx.dst.w && 0 <= y && y < ctx.dst.h)) return;
-        int s = 0x80 >> (x & 7);
-        if ((ctx.pat.p[y & 7] & s) == 0) return;
-        int i         = (x >> 3) + y * ctx.dst.w_byte;
-        ctx.dst.px[i] = (ctx.col ? ctx.dst.px[i] | s : ctx.dst.px[i] & ~s); // set or clear bit
-        if (ctx.dst.mk) ctx.dst.mk[i] |= s;
+
+        int  j  = (x >> 5) + y * ctx.dst.w_word;
+        u32 *dp = &((u32 *)ctx.dst.px)[j];
+        u32 *dm = ctx.dst.mk ? &((u32 *)ctx.dst.mk)[j] : NULL;
+
+        u32 s  = 0x80000000U >> (x & 31);
+        u32 pt = ctx.pat.p[y & 7];
+        u32 px;
+        u32 tt;
+
+        switch (ctx.col) {
+        case GFX_PRIM_BW:
+                px = (pt & s ? s : 0);
+                tt = s;
+                break;
+        case GFX_PRIM_BLACK_TRANSPARENT:
+                px = s;
+                tt = px;
+                break;
+        case GFX_PRIM_WHITE_TRANSPARENT:
+                px = 0;
+                tt = (pt & s ? s : 0);
+                break;
+        }
+
+        i_gfx_apply_px(dp, dm, pt, px, tt, ctx.sprmode);
 }
 
 // TODO: implement mode
@@ -231,16 +273,16 @@ static inline void i_gfx_px_shape(gfx_context_s ctx, int x, int y)
 static inline void i_gfx_span_shape(gfx_context_s ctx, int y, int xa, int xb)
 {
         if (!(0 <= y && y < ctx.dst.h)) return;
-        /*
-        if (xa == xb) {
-                i_gfx_px_shape(ctx, xa, y);
-                return;
-        }
-        */
 
         int x1 = max_i(0, xa);
         int x2 = min_i(ctx.dst.w - 1, xb);
         if (x2 <= x1) return;
+#if 0
+        for (int xxx = x1; xxx <= x2; xxx++) {
+                i_gfx_put_px(ctx, xxx, y);
+        }
+        return;
+#endif
 
         u32 pt = ctx.pat.p[y & 7];
         if (!pt) return;
@@ -355,64 +397,6 @@ static inline void i_spritepx(u32 *dp, u32 *dm, u32 pt, u32 pp, u32 tt, int m)
 
         if (dm) { // write opaque pixel info if mask is present
                 *dm |= t;
-        }
-}
-
-void gfx_sprite_fast(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
-{
-        int  xx = +1; // XY flipping factors
-        int  yy = +1;
-        int  xa = rs.x - pos.x;
-        int  ya = rs.y - pos.y;
-        int  x1 = max_i(pos.x, 0); // pixel bounds on canvas inclusive
-        int  y1 = max_i(pos.y, 0);
-        int  x2 = min_i(pos.x + rs.w, ctx.dst.w) - 1;
-        int  y2 = min_i(pos.y + rs.h, ctx.dst.h) - 1;
-        int  b1 = x1 >> 5;                      // first dst byte in x
-        int  b2 = x2 >> 5;                      // last dst byte in x
-        int  s1 = 31 & (pos.x - rs.x);          // word alignment and shift
-        int  s0 = 31 & (32 - s1);               // word alignment and shift
-        u32  ul = ((0xFFFFFFFFU >> (x1 & 31))); // boundary masks
-        u32  ur = ~(0x7FFFFFFFU >> (x2 & 31));
-        u32 *dp = (u32 *)ctx.dst.px;
-        u32 *dm = (u32 *)ctx.dst.mk;
-        u32 *sp = (u32 *)ctx.src.px;
-        u32 *sm = (u32 *)ctx.src.mk;
-
-        // calc pixel coord in source image from canvas pixel coord
-        // src_x = (dst_x * xx) + xa   | xx and yy are either +1 or -1
-        // dst_x = (src_x - xa) * xx | xx and yy are either +1 or -1
-
-        u32 t; // rendered pixels mask
-        u32 p; // black and white bits
-        for (int y = y1; y <= y2; y++) {
-                u32 pt = ctx.pat.p[y & 7];               // pattern mask
-                if (pt == 0) continue;                   // mask is empty
-                int ys = (y * yy + ya) * ctx.src.w_word; // source y coord cache
-
-                for (int b = b1; b <= b2; b++) {
-                        int xs0 = xa + xx * ((b << 5));
-                        int xs1 = xa + xx * ((b << 5) + 31);
-
-                        // a destination word overlaps two source words
-                        // unless drawing position is word aligned on x
-                        xs0    = clamp_i(xs0, 0, ctx.src.w - 1);
-                        xs1    = clamp_i(xs1, 0, ctx.src.w - 1);
-                        int i0 = (xs0 >> 5) + ys;
-                        int i1 = (xs1 >> 5) + ys;
-
-                        p = (bswap32(sp[i0]) << s0) | (bswap32(sp[i1]) >> s1);
-                        if (sm)
-                                t = (bswap32(sm[i0]) << s0) | (bswap32(sm[i1]) >> s1);
-                        else
-                                t = 0xFFFFFFFFU;
-
-                        if (b == b1) t &= ul; // mask off out of bounds pixels
-                        if (b == b2) t &= ur;
-                        if (t == 0) continue;
-                        int j = b + y * ctx.dst.w_word;
-                        i_spritepx(&dp[j], dm ? &dm[j] : NULL, pt, p, t, ctx.sprmode);
-                }
         }
 }
 

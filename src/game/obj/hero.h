@@ -19,6 +19,22 @@ enum hero_item {
         NUM_HERO_ITEMS,
 };
 
+enum {
+        HERO_WIDTH          = 16,
+        HERO_HEIGHT         = 24,
+        HERO_ROPE_MIN       = 50 << 16,
+        HERO_ROPE_MAX       = 300 << 16,
+        HERO_ROPE_REEL_RATE = 64,
+        HERO_C_JUMP_INIT    = 700,
+        HERO_C_ACCX_MAX     = 135,
+        HERO_C_JUMP_MAX     = 80,
+        HERO_C_JUMP_MIN     = 0,
+        HERO_C_JUMPTICKS    = 12,
+        HERO_C_EDGETICKS    = 6,
+        HERO_C_GRAVITY      = 55,
+        HERO_C_WHIP_TICKS   = 40,
+};
+
 enum hero_state_machine {
         HERO_STATE_LADDER,
         HERO_STATE_GROUND,
@@ -29,31 +45,25 @@ struct hero_s {
         objhandle_s obj;
         int         state;
         //
-        bool32      itemselection_dirty;
+        bool32      hashook;
         i32         jumpticks;
         i32         edgeticks;
         bool32      wasgrounded;
-        i32         facingticks; // how long the player is already facing that direction (signed)
         bool32      caninteract;
-        i32         swordticks;
-        int         sworddir;
         bool32      onladder;
         int         ladderx;
         v2_i32      ppos;
-        flags32     aquired_items;
-        int         selected_item;
-        int         selected_item_prev;
-        int         selected_item_next;
         objhandle_s hook;
         rope_s      rope;
-        int         pickups;
+        int         whip_ticks;
+        i32         rope_len_q16;
         char        playername[LEN_STR_PLAYER_NAME];
 };
 
-obj_s *hero_create(game_s *g, hero_s *h);
-void   hero_update(game_s *g, obj_s *o);
-bool32 hero_has_item(hero_s *h, int itemID);
-void   hero_set_cur_item(hero_s *h, int itemID);
-void   hero_aquire_item(hero_s *h, int itemID);
+obj_s  *hero_create(game_s *g, hero_s *h);
+void    hero_update(game_s *g, obj_s *o);
+bool32  hero_using_hook(hero_s *h);
+bool32  hero_using_whip(hero_s *h);
+rec_i32 hero_whip_hitbox(hero_s *h);
 
 #endif

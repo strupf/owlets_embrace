@@ -109,7 +109,6 @@ static void textbox_clr(textbox_s *tb)
         tb->curr_char          = 0;
         tb->curr_line          = 0;
         tb->n_choices          = 0;
-        tb->magic              = 0xDEADBEEF;
         for (int n = 0; n < TEXTBOX_LINES; n++) {
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
@@ -309,8 +308,7 @@ void textbox_update(game_s *g, textbox_s *tb)
                         line          = &tb->lines[++tb->curr_line];
                         tb->curr_char = 0;
                         if (line >= &tb->lines[TEXTBOX_LINES]) {
-                                tb->state                = TEXTBOX_STATE_WAITING;
-                                tb->page_animation_state = 0;
+                                tb->state = TEXTBOX_STATE_WAITING;
                                 return;
                         }
                 }

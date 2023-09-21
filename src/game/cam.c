@@ -6,7 +6,7 @@
 #include "game.h"
 #include "obj.h"
 
-enum cam_values {
+enum {
         CAM_LERP_DISTANCESQ_FAST = 1000,
         CAM_LERP_DEN             = 4,
         CAM_LERP_DEN_FAST        = 2,

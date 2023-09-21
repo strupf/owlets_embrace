@@ -8,9 +8,18 @@
 #include "os.h"
 
 enum {
+        OS_SPMEM_STACK_HEIGHT = 4,
+        OS_SPMEM_SIZE         = 0x100000, // 1 MB
+        OS_ASSETMEM_SIZE      = 0x200000, // 2 MB
+        //
+        OS_FRAMEBUFFER_SIZE   = 52 * 240,
+        OS_NUM_AUDIO_CHANNELS = 4,
         OS_MUSICCHUNK         = 0x40000, // 256 KB
         OS_MUSICCHUNK_SAMPLES = OS_MUSICCHUNK / sizeof(i16),
 };
+
+#define OS_FPS_DELTA (1.f / (float)OS_FPS)
+#define OS_DELTA_CAP (4.f / (float)OS_FPS)
 
 enum {
         PLAYBACK_TYPE_SILENT,
@@ -52,18 +61,6 @@ typedef struct {
         i16 chunk[OS_MUSICCHUNK_SAMPLES];
         int chunkpos; // position in samples in chunk
 } music_channel_s;
-
-#define OS_FPS_DELTA (1.f / (float)OS_FPS)
-#define OS_DELTA_CAP (4.f / (float)OS_FPS)
-
-enum {
-        OS_SPMEM_STACK_HEIGHT = 16,
-        OS_SPMEM_SIZE         = 0x100000, // 1 MB
-        OS_ASSETMEM_SIZE      = 0x400000, // 4 MB
-        //
-        OS_FRAMEBUFFER_SIZE   = 52 * 240,
-        OS_NUM_AUDIO_CHANNELS = 8,
-};
 
 typedef struct {
         i32 tick;

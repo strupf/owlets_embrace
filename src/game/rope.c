@@ -27,10 +27,20 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->len_max     = 180;
-        r->len_max_q16 = r->len_max << 16;
         r->damping_q8  = 220;
         r->spring_q8   = 248;
+}
+
+void rope_set_len_max(rope_s *r, i32 len_max)
+{
+        r->len_max     = len_max;
+        r->len_max_q16 = len_max << 16;
+}
+
+void rope_set_len_max_q16(rope_s *r, i32 len_max_q16)
+{
+        r->len_max_q16 = len_max_q16;
+        r->len_max     = len_max_q16 >> 16;
 }
 
 ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)

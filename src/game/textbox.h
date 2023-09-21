@@ -58,7 +58,6 @@ struct textbox_s {
         int             type;        // how the textbox is rendered
         v2_i32          speaker_pos; // used for speech bubbles
         int             animationticks;
-        int             page_animation_state;
         int             typewriter_tick_q4;
         int             curreffect;
         int             currspeed;
@@ -69,7 +68,6 @@ struct textbox_s {
         bool32          shows_all;
         int             state;
         textboxline_s   lines[TEXTBOX_LINES];
-        int             magic;
         textboxchoice_s choices[TEXTBOX_NUM_CHOICES];
         int             n_choices;
         int             cur_choice;

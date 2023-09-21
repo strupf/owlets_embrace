@@ -112,12 +112,6 @@ void game_init(game_s *g)
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
         {
-                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_SPRITE_ANIM];
-                b->op_func[0]  = OBJFLAGS_OP_AND;
-                b->op_flag[0]  = OBJ_FLAG_SPRITE_ANIM;
-                b->cmp_func    = OBJFLAGS_CMP_NZERO;
-        }
-        {
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_RENDERABLE];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
                 b->op_flag[0]  = OBJ_FLAG_RENDERABLE;
@@ -142,5 +136,5 @@ void game_init(game_s *g)
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
 
-        game_savestate_new(g, 0);
+        game_savefile_new(g, 0);
 }

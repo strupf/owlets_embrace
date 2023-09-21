@@ -89,11 +89,22 @@ enum {
         SPRITE_FLIP_XY = SPRITE_FLIP_X | SPRITE_FLIP_Y,
 };
 
-enum gfx_prim_mode {
-        GFX_PRIM_SET,
-        GFX_PRIM_INV,
-        GFX_PRIM_XOR,
-        GFX_PRIM_NXOR,
+// primitive color modes, relevant for patterns
+enum {
+        GFX_PRIM_BW,                // 1 in pattern is black, 0 is white
+        GFX_PRIM_BLACK_TRANSPARENT, // 1 in pattern is black, 0 is transparent
+        GFX_PRIM_WHITE_TRANSPARENT, // 1 in pattern is white, 0 is transparent
+};
+
+enum {
+        GFX_MODE_CPY, // copy
+        GFX_MODE_W_T, // white transparent
+        GFX_MODE_B_T, // black transparent
+        GFX_MODE_W_F, // fill white
+        GFX_MODE_B_F, // fill black
+        GFX_MODE_XOR, // xor
+        GFX_MODE_NXR, // nxor
+        GFX_MODE_INV, // invert
 };
 
 enum timing_IDs {

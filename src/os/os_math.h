@@ -808,6 +808,20 @@ static inline bool32 overlap_rec_excl(rec_i32 a, rec_i32 b)
                   (b.x + b.w <= a.x) || (b.y + b.h <= a.y)));
 }
 
+static inline bool32 overlap_rec_circ(rec_i32 rec, v2_i32 ctr, i32 r)
+{
+        i32    rx1 = rec.x, rx2 = rec.x + rec.w;
+        i32    ry1 = rec.y, ry2 = rec.y + rec.h;
+        v2_i32 tp = ctr;
+
+        if (ctr.x < rx1) tp.x = rx1;
+        else if (ctr.x > rx2) tp.x = rx2;
+        if (ctr.y < ry1) tp.y = ry1;
+        else if (ctr.y > ry2) tp.y = ry2;
+
+        return (v2_distancesq(ctr, tp) < r * r);
+}
+
 // check for point containment - touching rectangle considered INSIDE
 static inline bool32 contain_rec_pnt_incl(rec_i32 r, v2_i32 p)
 {

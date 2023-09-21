@@ -11,10 +11,10 @@ static void crumbleblock_think_broken(game_s *g, obj_s *o);
 
 obj_s *crumbleblock_create(game_s *g)
 {
-        obj_s *o = obj_create(g);
-        obj_apply_flags(g, o,
-                        OBJ_FLAG_SOLID |
-                            OBJ_FLAG_THINK_1);
+        obj_s  *o     = obj_create(g);
+        flags64 flags = OBJ_FLAG_SOLID |
+                        OBJ_FLAG_THINK_1;
+        obj_apply_flags(g, o, flags);
         o->think_1 = crumbleblock_think_idle;
         o->state   = 0;
         o->ID      = 11;

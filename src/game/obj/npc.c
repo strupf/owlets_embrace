@@ -9,8 +9,11 @@ static void npc_interact(game_s *g, obj_s *o);
 
 obj_s *npc_create(game_s *g)
 {
-        obj_s *o = obj_create(g);
-        obj_apply_flags(g, o, OBJ_FLAG_ACTOR | OBJ_FLAG_INTERACT | OBJ_FLAG_THINK_1);
+        obj_s  *o     = obj_create(g);
+        flags64 flags = OBJ_FLAG_ACTOR |
+                        OBJ_FLAG_INTERACT |
+                        OBJ_FLAG_THINK_1;
+        obj_apply_flags(g, o, flags);
         o->think_1      = npc_think;
         o->w            = 16;
         o->h            = 32;

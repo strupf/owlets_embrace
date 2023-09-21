@@ -6,11 +6,19 @@
 
 static void blob_think(game_s *g, obj_s *o);
 static void blob_think_2(game_s *g, obj_s *o);
+static void blob_animate(game_s *g, obj_s *o);
 
 obj_s *blob_create(game_s *g)
 {
-        obj_s *o = obj_create(g);
-        obj_apply_flags(g, o, OBJ_FLAG_HURTABLE | OBJ_FLAG_ACTOR | OBJ_FLAG_MOVABLE | OBJ_FLAG_THINK_1 | OBJ_FLAG_THINK_2 | OBJ_FLAG_HURTS_PLAYER | OBJ_FLAG_ENEMY);
+        obj_s  *o     = obj_create(g);
+        flags64 flags = OBJ_FLAG_HURTABLE |
+                        OBJ_FLAG_ACTOR |
+                        OBJ_FLAG_MOVABLE |
+                        OBJ_FLAG_THINK_1 |
+                        OBJ_FLAG_THINK_2 |
+                        OBJ_FLAG_HURTS_PLAYER |
+                        OBJ_FLAG_ENEMY;
+        obj_apply_flags(g, o, flags);
         o->pos.x        = 200;
         o->pos.y        = 100;
         o->w            = 20;
@@ -67,4 +75,8 @@ static void blob_think_2(game_s *g, obj_s *o)
                         return;
                 }
         }
+}
+
+static void blob_animate(game_s *g, obj_s *o)
+{
 }

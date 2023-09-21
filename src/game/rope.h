@@ -29,6 +29,8 @@ struct rope_s {
 };
 
 void   rope_init(rope_s *r);
+void   rope_set_len_max(rope_s *r, i32 len_max);
+void   rope_set_len_max_q16(rope_s *r, i32 len_max_q16);
 void   ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt);
 void   rope_update(game_s *g, rope_s *r);
 bool32 rope_intact(game_s *g, rope_s *r);

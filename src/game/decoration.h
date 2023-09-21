@@ -12,7 +12,7 @@ enum {
 };
 
 enum {
-        BG_NUM_CLOUDS      = 32,
+        BG_NUM_CLOUDS      = 64,
         BG_NUM_PARTICLES   = 256,
         BG_NUM_CLOUD_TYPES = 3,
         BG_WIND_PARTICLE_N = 8,
@@ -42,6 +42,7 @@ typedef struct {
         i32    ticks;
 } particle_s;
 
+void decoration_setup(game_s *g);
 void room_deco_animate(game_s *g);
 
 #endif
