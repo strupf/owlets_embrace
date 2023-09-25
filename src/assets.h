@@ -21,6 +21,7 @@ enum tex_id {
         TEXID_LAYER_1,
         TEXID_TITLESCREEN,
         TEXID_ITEM_SELECT_CACHE,
+        TEXID_TITLE,
         //
         NUM_TEXID
 };

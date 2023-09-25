@@ -57,7 +57,7 @@ struct hero_s {
         rope_s      rope;
         int         whip_ticks;
         i32         rope_len_q16;
-        char        playername[LEN_STR_PLAYER_NAME];
+        char        hero_name[LEN_STR_HERO_NAME];
 };
 
 obj_s  *hero_create(game_s *g, hero_s *h);

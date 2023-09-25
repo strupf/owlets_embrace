@@ -260,6 +260,17 @@ static inline void i_gfx_put_px(gfx_context_s ctx, int x, int y)
 }
 
 // TODO: implement mode
+static inline void i_gfx_px_(gfx_context_s ctx, int x, int y, int col)
+{
+        if (!(0 <= x && x < ctx.dst.w && 0 <= y && y < ctx.dst.h)) return;
+        int s = 0x80 >> (x & 7);
+        if ((ctx.pat.p[y & 7] & s) == 0) return;
+        int i         = (x >> 3) + y * ctx.dst.w_byte;
+        ctx.dst.px[i] = (col ? ctx.dst.px[i] | s : ctx.dst.px[i] & ~s); // set or clear bit
+        if (ctx.dst.mk) ctx.dst.mk[i] |= s;
+}
+
+// TODO: implement mode
 static inline void i_gfx_px_shape(gfx_context_s ctx, int x, int y)
 {
         if (!(0 <= x && x < ctx.dst.w && 0 <= y && y < ctx.dst.h)) return;
@@ -613,8 +624,8 @@ void gfx_sprite_rotated_(gfx_context_s ctx, v2_i32 pos, rec_i32 r, v2_i32 origin
                         int px, mk;
                         i_gfx_peek(ctx.src, (int)u, (int)v, &px, &mk);
                         if (!mk) continue;
-                        ctx.col = px;
-                        i_gfx_put_px(ctx, x, y);
+                        // ctx.col = px;
+                        i_gfx_px_(ctx, x, y, px);
                 }
         }
 }

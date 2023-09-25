@@ -156,6 +156,25 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
         return closest;
 }
 
+int obj_get_with_ID(game_s *g, int ID, objset_s *set)
+{
+        obj_listc_s l = obj_list_all(g);
+        int         i = 0;
+        for (int n = 0; n < l.n; n++) {
+                obj_s *o = l.o[n];
+                if (o->ID == ID) {
+                        objset_add(set, o);
+                        i++;
+                }
+        }
+        return i;
+}
+
+bool32 obj_overlaps_spikes(game_s *g, obj_s *o)
+{
+        return (room_overlaps_tileID(g, obj_aabb(o), TILE_SPIKES));
+}
+
 objset_s *objset_create(void *(*allocfunc)(size_t))
 {
         objset_s *set = (objset_s *)allocfunc(sizeof(objset_s));
@@ -301,6 +320,11 @@ void objset_filter_overlap_rec(objset_s *set, rec_i32 r, bool32 inv)
         for (int n = 0; n < n_remove; n++) {
                 objset_del(set, to_remove[n]);
         }
+}
+
+obj_listc_s obj_list_all(game_s *g)
+{
+        return objbucket_list(g, 0);
 }
 
 obj_listc_s objbucket_list(game_s *g, int bucketID)

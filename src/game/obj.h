@@ -7,23 +7,35 @@
 
 #include "game_def.h"
 
-typedef enum {
+enum {
+        OBJ_ID_NULL = 100,
+        OBJ_ID_HERO,
+        OBJ_ID_HOOK,
+        OBJ_ID_SIGN,
+        OBJ_ID_NPC,
+        OBJ_ID_SLIME,
+        OBJ_ID_BOAT,
+        OBJ_ID_CRUMBLEBLOCK,
+        OBJ_ID_SAVEPOINT,
+};
+
+enum {
         OBJFLAGS_CMP_ZERO,
         OBJFLAGS_CMP_NZERO,
         OBJFLAGS_CMP_EQ,
         OBJFLAGS_CMP_NEQ,
-} objflag_cmp_e;
+};
 
-typedef enum {
+enum {
         OBJFLAGS_OP_PASSTHROUGH,
         OBJFLAGS_OP_AND,
         OBJFLAGS_OP_NAND,
         OBJFLAGS_OP_XOR,
         OBJFLAGS_OP_NOT,
         OBJFLAGS_OP_OR,
-} objflag_op_e;
+};
 
-static bool32 objflags_cmp(flags64 a, flags64 b, objflag_cmp_e cmp)
+static bool32 objflags_cmp(flags64 a, flags64 b, int cmp)
 {
         switch (cmp) {
         case OBJFLAGS_CMP_ZERO: return a == 0;
@@ -34,7 +46,7 @@ static bool32 objflags_cmp(flags64 a, flags64 b, objflag_cmp_e cmp)
         return 0;
 }
 
-static flags64 objflags_op(flags64 a, flags64 b, objflag_op_e op)
+static flags64 objflags_op(flags64 a, flags64 b, int op)
 {
         switch (op) {
         case OBJFLAGS_OP_PASSTHROUGH: return a;
@@ -46,6 +58,19 @@ static flags64 objflags_op(flags64 a, flags64 b, objflag_op_e op)
         }
         return a;
 }
+
+enum {
+        DAMAGE_SRC_SPIKE        = 0x0001,
+        DAMAGE_SRC_LAVA         = 0x0002,
+        //
+        DAMAGE_SRC_ENEMY_LIGHT  = 0x0100,
+        DAMAGE_SRC_ENEMY_NORMAL = 0x0200,
+        DAMAGE_SRC_ENEMY_HARD   = 0x0400,
+        //
+        DAMAGE_SRC_HERO_LIGHT   = 0x1000,
+        DAMAGE_SRC_HERO_NORMAL  = 0x2000,
+        DAMAGE_SRC_HERO_HARD    = 0x4000,
+};
 
 struct objhandle_s {
         int    gen;
@@ -66,30 +91,18 @@ struct obj_s {
         int     index;
         flags64 flags;
         int     ID;
+        u32     tiledID; // object ID from tiled map editor
         int     facing;
         int     invincibleticks;
         int     die_animation;
-        obj_s  *colliders[16];
-        int     n_colliders;
-        int     damage;
-        int     health;
-        int     healthmax;
 
-        objsprite_s sprites[4];
-        int         n_sprites;
+        obj_s *colliders[64];
+        int    n_colliders;
+        void (*handleobjcollision)(game_s *g, obj_s *o);
 
-        struct {
-                i32     animation;
-                i32     animframe;
-                i32     animframe_prev;
-                u32     renderpriority;
-                rec_i32 spriterec;
-                tex_s   spritetex;
-                int     spriteflags;
-                int     spritemode;
-                void (*animate_func)(game_s *g, obj_s *o);
-                void (*render_func)(game_s *g, obj_s *o, v2_i32 camp);
-        };
+        int damage;
+        int health;
+        int healthmax;
 
         // some more or less generic variables
         int timer;
@@ -112,12 +125,14 @@ struct obj_s {
         objhandle_s linkedsolid;
         bool32      soliddisabled;
 
+        void (*animate_func)(game_s *g, obj_s *o);
         void (*onsqueeze)(game_s *g, obj_s *o);
         void (*oninteract)(game_s *g, obj_s *o);
         void (*think_1)(game_s *g, obj_s *o);
         void (*think_2)(game_s *g, obj_s *o);
         void (*ontrigger)(game_s *g, obj_s *o, int triggerID);
         void (*ondelete)(game_s *g, obj_s *o);
+        void (*renderfunc)(game_s *g, obj_s *o, v2_i32 camp);
 
         bool32      attached;
         ropenode_s *ropenode;
@@ -125,6 +140,14 @@ struct obj_s {
 
         char filename[64];
 };
+
+typedef struct { // struct with additional memory to use inheritance
+        obj_s o;
+        char  mem[1024];
+        u32   magic;
+} obj_generic_s;
+
+#define super (&o->base)
 
 typedef struct {
         obj_s *a;
@@ -180,6 +203,8 @@ void        obj_set_flags(game_s *g, obj_s *o, flags64 flags);
 void        obj_unset_flags(game_s *g, obj_s *o, flags64 flags);
 void        obj_interact_open_dialog(game_s *g, obj_s *o);
 obj_s      *obj_closest_interactable(game_s *g, v2_i32 pos);
+int         obj_get_with_ID(game_s *g, int ID, objset_s *set);
+bool32      obj_overlaps_spikes(game_s *g, obj_s *o);
 
 // sparse set / slot map obj - ID, ID - obj
 struct objset_s {
@@ -212,11 +237,11 @@ void        objset_filter_overlap_rec(objset_s *set, rec_i32 r, bool32 inv);
 
 // bucket of obj matching flags
 struct objbucket_s {
-        objset_s      set;
-        flags64       op_flag[2];
-        objflag_op_e  op_func[2];
-        flags64       cmp_flag;
-        objflag_cmp_e cmp_func;
+        objset_s set;
+        flags64  op_flag[2];
+        int      op_func[2];
+        flags64  cmp_flag;
+        int      cmp_func;
 };
 
 enum obj_bucket {
@@ -241,6 +266,7 @@ enum obj_bucket {
         NUM_OBJ_BUCKETS
 };
 
+obj_listc_s obj_list_all(game_s *g);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 void        objbucket_copy_to_set(game_s *g, int bucketID, objset_s *set);
 
@@ -262,5 +288,6 @@ obj_s *npc_create(game_s *g);
 obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8);
 obj_s *crumbleblock_create(game_s *g);
 obj_s *boat_create(game_s *g);
+obj_s *savepoint_create(game_s *g);
 
 #endif

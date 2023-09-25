@@ -291,6 +291,10 @@ void          gfx_text_glyphs(gfx_context_s ctx, fnt_s *font, fntchar_s *chars, 
 snd_s         snd_put_load(int ID, const char *filename);
 void          mus_play(const char *filename);
 void          mus_close();
+bool32        mus_playing();
+void          mus_fade_out(int ticks);
+void          mus_fade_in(const char *filename, int ticks);
+void          mus_fade_to(const char *filename);
 snd_s         snd_get(int ID);
 void          snd_put(int ID, snd_s s);
 snd_s         snd_load_wav(const char *filename);

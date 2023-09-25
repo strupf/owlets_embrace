@@ -102,26 +102,6 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
         }
 }
 
-void draw_transition(game_s *g)
-{
-        if (g->transition.phase == 0) return;
-        gfx_context_s ctx       = gfx_context_create(tex_get(0));
-        int           patternID = GFX_PATTERN_100;
-        int           ticks     = g->transition.ticks;
-        switch (g->transition.phase) {
-        case TRANSITION_FADE_IN: ticks = TRANSITION_TICKS - ticks;
-        case TRANSITION_FADE_OUT:
-                patternID = lerp_i32(GFX_PATTERN_100,
-                                     GFX_PATTERN_0,
-                                     max_i(ticks, 0),
-                                     TRANSITION_TICKS);
-                break;
-        }
-        ctx.pat = gfx_pattern_get(patternID);
-        ctx.col = 1;
-        gfx_rec_fill(ctx, (rec_i32){0, 0, 400, 240});
-}
-
 void draw_rope(rope_s *r, v2_i32 camp)
 {
         gfx_context_s ctx = gfx_context_create(tex_get(0));
@@ -350,7 +330,7 @@ static void draw_gameplay(game_s *g)
                         ctx.src   = tex_get(TEXID_SOLID);
                         int   tx  = 0;
                         int   ty  = 80;
-                        float ang = atan2f(-o->vel_q8.y, o->vel_q8.x);
+                        float ang = atan2f((float)-o->vel_q8.y, (float)o->vel_q8.x);
                         pos.x -= 16;
                         pos.y -= 8;
                         gfx_sprite_rotated_(ctx, pos,
@@ -374,15 +354,9 @@ static void draw_gameplay(game_s *g)
                         pos.y = pos.y + o->h - 64;
 
                         int animy = 0;
-                        if (o->vel_q8.x == 0 && room_area_blocked(g, obj_rec_bottom(o)) &&
-                            (o->animation % 400) < 200) {
-                                animy += 64;
-                                o->animframe = 0;
-                        }
-
                         int flags = o->facing == 1 ? 0 : SPRITE_FLIP_X;
-                        gfx_sprite(ctx, pos, (rec_i32){o->animframe * 64, animy, 64, 64}, flags);
-                        gfx_rec_fill(ctx, translate_rec(obj_aabb(o), camp));
+                        gfx_sprite(ctx, pos, (rec_i32){0 * 64, animy, 64, 64}, flags);
+                        // gfx_rec_fill(ctx, translate_rec(obj_aabb(o), camp));
                 } break;
                 case 5: {
                         ctx.src = tex_get(TEXID_HERO);
@@ -511,11 +485,6 @@ static void draw_gameplay(game_s *g)
         }
 
         draw_game_UI(g, camp);
-        draw_transition(g);
-}
-
-static void draw_title(game_s *g)
-{
 }
 
 void game_draw(game_s *g)
@@ -527,7 +496,28 @@ void game_draw(game_s *g)
                 draw_gameplay(g);
         } break;
         case GAMESTATE_TITLE: {
-                draw_title(g);
+                draw_title(g, &g->mainmenu);
         } break;
+        }
+
+        fading_s *f = &g->global_fade;
+        if (fading_phase(f) != 0) {
+                gfx_context_s ctx = gfx_context_create(tex_get(0));
+                int           p   = GFX_PATTERN_0;
+                switch (fading_phase(f)) {
+                case FADE_PHASE_OUT:
+                        p = fading_lerp(f, GFX_PATTERN_0, GFX_PATTERN_100);
+                        break;
+                case FADE_PHASE_PAUSE:
+                        p = GFX_PATTERN_100;
+                        break;
+                case FADE_PHASE_IN:
+                        p = fading_lerp(f, GFX_PATTERN_100, GFX_PATTERN_0);
+                        break;
+                }
+
+                ctx.pat = gfx_pattern_get(p);
+                ctx.col = 1;
+                gfx_rec_fill(ctx, (rec_i32){0, 0, 400, 240});
         }
 }

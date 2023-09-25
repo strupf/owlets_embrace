@@ -19,6 +19,7 @@ static void   hero_animate(game_s *g, obj_s *o);
 static void hero_animate(game_s *g, obj_s *o)
 {
         hero_s *h = &g->hero;
+        /*
         o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
 
         bool32 grounded   = room_area_blocked(g, obj_rec_bottom(o));
@@ -36,6 +37,7 @@ static void hero_animate(game_s *g, obj_s *o)
                         // snd_play_ext(snd_get(SNDID_STEP), 0.5f, rngf_range(0.8f, 1.f));
                 }
         }
+        */
 }
 
 static void hero_use_whip(game_s *g, obj_s *o, hero_s *h)
@@ -75,9 +77,6 @@ static void hero_unset_ladder(game_s *g, obj_s *o, hero_s *h)
 
 static void hero_logic(game_s *g, obj_s *o, hero_s *h)
 {
-        if (room_overlaps_tileID(g, obj_aabb(o), TILE_SPIKES)) {
-                PRINTF("SPIKE\n");
-        }
 
         bool32 grounded = room_area_blocked(g, obj_rec_bottom(o));
         if (grounded) {
@@ -429,8 +428,7 @@ static void hero_land_particles(game_s *g, obj_s *o)
 
 static void hero_check_level_transition(game_s *g, obj_s *hero)
 {
-        transition_s *t = &g->transition;
-        if (t->phase != TRANSITION_NONE) return;
+        if (transition_active(g)) return;
         rec_i32 haabb = obj_aabb(hero);
 
         // clamp to current room and determine direction to which to slide

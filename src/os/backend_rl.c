@@ -90,10 +90,11 @@ void os_backend_graphics_flip()
 #else
         int       dstw = 400 * RL_SCALE;
         int       dsth = 240 * RL_SCALE;
-        Rectangle rdst = {(GetScreenWidth() - dstw) / 2, (GetScreenHeight() - dsth) / 2,
-                          dstw, dsth};
+        Rectangle rdst = {(float)((GetScreenWidth() - dstw) / 2),
+                          (float)((GetScreenHeight() - dsth) / 2),
+                          (float)dstw, (float)dsth};
 #endif
-        DrawTexturePro(g_os.tex, (Rectangle){0, 0, 400, 240}, rdst, (Vector2){0}, 0.f, WHITE);
+        DrawTexturePro(g_os.tex, (Rectangle){0.f, 0.f, 400.f, 240.f}, rdst, (Vector2){0}, 0.f, WHITE);
         EndDrawing();
 }
 

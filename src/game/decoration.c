@@ -22,6 +22,7 @@ void decoration_setup(game_s *g)
 
 void room_deco_animate(game_s *g)
 {
+        tileanimations_update();
         decoration_clouds(g);
         decoration_wind_particles(g);
         for (int n = g->n_particles - 1; n >= 0; n--) {
@@ -123,7 +124,7 @@ static void decoration_wind_particles(game_s *g)
 static void tileanimations_update()
 {
         i32 tick = os_tick();
-        for (int n = 0; n < 0x10000; n++) {
+        for (int n = 0; n < GAME_NUM_TILEANIMATIONS; n++) {
                 tile_animation_s *a = &g_tileanimations[n];
                 if (a->ticks == 0) continue;
                 int frame        = (tick / a->ticks) % a->frames;

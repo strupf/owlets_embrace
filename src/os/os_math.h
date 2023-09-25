@@ -187,6 +187,13 @@ static inline i32 clamp_i(i32 x, i32 lo, i32 hi)
         return x;
 }
 
+static inline i64 clamp_l(i64 x, i64 lo, i64 hi)
+{
+        if (x < lo) return lo;
+        if (x > hi) return hi;
+        return x;
+}
+
 static inline float abs_f(float x)
 {
         return (x > 0.f ? x : -x);
@@ -333,19 +340,19 @@ static inline i32 q_mulr(i32 a, i32 b, int q)
 static inline i32 adds_i32(i32 a, i32 b)
 {
         i64 x = (i64)a + (i64)b;
-        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_l(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 subs_i32(i32 a, i32 b)
 {
         i64 x = (i64)a - (i64)b;
-        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_l(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 muls_i32(i32 a, i32 b)
 {
         i64 x = (i64)a * (i64)b;
-        return (i32)(clamp_i(x, I32_MIN, I32_MAX));
+        return (i32)(clamp_l(x, I32_MIN, I32_MAX));
 }
 
 static inline i32 pow_i32(i32 v, i32 power)
@@ -808,7 +815,7 @@ static inline bool32 overlap_rec_excl(rec_i32 a, rec_i32 b)
                   (b.x + b.w <= a.x) || (b.y + b.h <= a.y)));
 }
 
-static inline bool32 overlap_rec_circ(rec_i32 rec, v2_i32 ctr, i32 r)
+static inline bool32 overlap_rec_circ(rec_i32 rec, v2_i32 ctr, u32 r)
 {
         i32    rx1 = rec.x, rx2 = rec.x + rec.w;
         i32    ry1 = rec.y, ry2 = rec.y + rec.h;

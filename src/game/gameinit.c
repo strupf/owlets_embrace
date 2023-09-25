@@ -17,7 +17,7 @@ void game_init(game_s *g)
 {
 #ifdef TARGET_PD
         menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
-        PD->system->addMenuItem("Dummy", menufunction, NULL);
+        PD->system->addMenuItem("Option", menufunction, NULL);
         PD->system->setMenuImage(menubm, 0);
 #endif
         gfx_set_inverted(1);
@@ -29,11 +29,14 @@ void game_init(game_s *g)
         assets_load();
         world_def_init();
 
-        g->rng    = 213;
-        g->cam.w  = 400;
-        g->cam.h  = 240;
-        g->cam.wh = g->cam.w / 2;
-        g->cam.hh = g->cam.h / 2;
+        g->mainmenu.state       = MAINMENU_STATE_TITLE;
+        g->mainmenu.num_options = 1;
+        g->state                = GAMESTATE_TITLE;
+        g->rng                  = 213;
+        g->cam.w                = 400;
+        g->cam.h                = 240;
+        g->cam.wh               = g->cam.w / 2;
+        g->cam.hh               = g->cam.h / 2;
 
         {
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_ALIVE];
@@ -135,6 +138,4 @@ void game_init(game_s *g)
                 b->op_flag[0]  = OBJ_FLAG_HURTS_ENEMIES;
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
-
-        game_savefile_new(g, 0);
 }

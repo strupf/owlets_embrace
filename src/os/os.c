@@ -33,6 +33,7 @@ int os_do_tick()
                 timeacc -= OS_FPS_DELTA;
                 ups_counter++;
                 os_spmem_clr();
+                os_audio_tick();
                 os_backend_inp_update();
                 game_update(&g_gamestate);
                 g_gamestate.tick++;
@@ -80,9 +81,6 @@ void os_prepare()
         memarena_init(&g_os.spmem, g_os.spmem_raw, OS_SPMEM_SIZE);
         memarena_init(&g_os.assetmem, g_os.assetmem_raw, OS_ASSETMEM_SIZE);
         os_backend_init();
-
-        int ii = log2_32(77);
-        PRINTF("log2: %i\n", ii);
 
         g_tex_screen  = (tex_s){g_os.framebuffer, NULL, 13, 52, 400, 240};
         g_tex_layer_1 = tex_create(400, 240, 1);

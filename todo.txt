@@ -1,10 +1,10 @@
 gameplay
+* interactable doors
+* melee weapon
 * load path movement from map
 * talkable NPCs
 * enemies
     * damage/health mechanic
-    * dying? quick respawn vs savepoints?
-* static spikes - as objects or tiles?
 * implement low and high slopes, including rope logic
 * water tiles
 * 1-way platforms
@@ -13,6 +13,7 @@ loading
 * autotiling for low and high slopes
 
 graphics
+* render melee weapon
 * rope
     * "hanging" animation of rope when not stretched
 * water tiles

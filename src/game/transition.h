@@ -6,29 +6,19 @@
 #define TRANSITION_H
 
 #include "cam.h"
+#include "fading.h"
 #include "game_def.h"
 
-enum {
-        TRANSITION_TICKS       = 15,
-        TRANSITION_BLACK_TICKS = 10,
-};
-
-enum {
-        TRANSITION_NONE,
-        TRANSITION_FADE_OUT,
-        TRANSITION_FADE_BLACK,
-        TRANSITION_FADE_IN,
-};
-
 struct transition_s {
-        int    phase;
-        int    ticks;
+        bool32 inprogress;
         char   map[64]; // next map to load
         v2_i32 teleportto;
+        v2_i32 vel;
         int    dir_slide;
 };
 
-void transition_update(game_s *g);
-void transition_start(game_s *g, char *filename, v2_i32 location, int dir_slide);
+void   transition_update(game_s *g);
+void   transition_start(game_s *g, char *filename, v2_i32 location, int dir_slide);
+bool32 transition_active(game_s *g);
 
 #endif

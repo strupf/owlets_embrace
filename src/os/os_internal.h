@@ -50,6 +50,11 @@ typedef struct {
 } audio_channel_s;
 
 typedef struct {
+        int      vol_q8_fade_out;
+        int      fade_out_ticks_og;
+        int      fade_out_ticks;
+        int      fade_in_ticks;
+        int      fade_in_ticks_og;
         OS_FILE *stream;
         u32      datapos;
         u32      streampos; // position in samples
@@ -113,6 +118,7 @@ void *assetmem_alloc(size_t s);
 void os_prepare();
 int  os_do_tick();
 int  os_audio_cb(void *context, i16 *left, i16 *right, int len);
+void os_audio_tick();
 
 void os_backend_init();
 void os_backend_close();

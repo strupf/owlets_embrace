@@ -49,6 +49,8 @@ const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS] = {
 
 static void game_tick(game_s *g)
 {
+        game_savefile_delete(0);
+
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
                 obj_s *o = thinkers1.o[i];
@@ -118,8 +120,7 @@ static void update_gameplay(game_s *g)
                         textbox_input(g, tb);
                         gameupdate = 0;
                 }
-        } else if (g->transition.phase) {
-                transition_update(g);
+        } else if (transition_active(g)) {
                 gameupdate = 0;
         }
 
@@ -127,22 +128,24 @@ static void update_gameplay(game_s *g)
                 game_tick(g);
 
         cam_update(g, &g->cam);
-}
 
-static void update_title(game_s *g)
-{
+        for (int n = 1; n < NUM_OBJS; n++) { // check for overrides
+                ASSERT(g->objs[n].magic == MAGIC_NUM_OBJ);
+        }
 }
 
 void game_update(game_s *g)
 {
         switch (g->state) {
         case GAMESTATE_TITLE: {
-                update_title(g);
+                update_title(g, &g->mainmenu);
         } break;
         case GAMESTATE_GAMEPLAY: {
                 update_gameplay(g);
         } break;
         }
+
+        fading_update(&g->global_fade);
 }
 
 void game_trigger(game_s *g, int triggerID)
@@ -188,11 +191,11 @@ void game_cull_scheduled(game_s *g)
 // naive brute force obj collisions
 void game_obj_group_collisions(game_s *g)
 {
-        os_spmem_push();
+        obj_listc_s l = objbucket_list(g, OBJ_BUCKET_ALIVE);
+        for (int i = 0; i < l.n; i++) {
+                l.o[i]->n_colliders = 0;
+        }
 
-        obj_pair_s *pairs  = (obj_pair_s *)os_spmem_alloc(sizeof(obj_pair_s) * NUM_OBJS * NUM_OBJS);
-        int         npairs = 0;
-        obj_listc_s l      = objbucket_list(g, OBJ_BUCKET_ALIVE);
         for (int i = 0; i < l.n; i++) {
                 obj_s  *oi = l.o[i];
                 rec_i32 ri = obj_aabb(oi);
@@ -200,26 +203,30 @@ void game_obj_group_collisions(game_s *g)
                         obj_s  *oj = l.o[j];
                         rec_i32 rj = obj_aabb(oj);
                         if (!overlap_rec_excl(ri, rj)) continue;
-                        obj_pair_s pair = {oi, oj};
-                        pairs[npairs++] = pair;
+                        oi->colliders[oi->n_colliders++] = oj;
+                        oj->colliders[oj->n_colliders++] = oi;
                 }
         }
-
-        os_spmem_pop();
-}
-
-savepoint_s *game_create_savepoint(game_s *g)
-{
-        ASSERT(g->n_savepoints < ARRLEN(g->savepoints));
-        return &(g->savepoints[g->n_savepoints++]);
 }
 
 particle_s *particle_spawn(game_s *g)
 {
-        if (g->n_particles < 256) {
+        if (g->n_particles < NUM_PARTICLES) {
                 particle_s *p = &g->particles[g->n_particles++];
                 *p            = (const particle_s){0};
                 return p;
         }
         return NULL;
+}
+
+void game_fade(game_s *g,
+               int     ticks_fade_out,
+               int     ticks_fade_black,
+               int     ticks_fade_in,
+               void(fadecb)(game_s *g, void *arg), void *arg)
+{
+}
+
+bool32 game_fading(game_s *g)
+{
 }

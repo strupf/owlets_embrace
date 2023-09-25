@@ -202,6 +202,33 @@ int os_audio_cb(void *context, i16 *left, i16 *right, int len)
         return 1;
 }
 
+void os_audio_tick()
+{
+        music_channel_s *ch = &g_os.musicchannel;
+        if (!ch->stream) return;
+        if (ch->fade_out_ticks > 0) {
+                ch->fade_out_ticks--;
+                if (ch->fade_out_ticks == 0) {
+                        mus_close();
+                        return;
+                }
+
+                ch->vol_q8 = (ch->vol_q8_fade_out * ch->fade_out_ticks) / ch->fade_out_ticks_og;
+        }
+}
+
+bool32 mus_playing()
+{
+        return (g_os.musicchannel.stream != NULL);
+}
+
+void mus_fade_out(int ticks)
+{
+        if (!mus_playing()) return;
+        music_channel_s *ch = &g_os.musicchannel;
+        ch->fade_out_ticks  = ticks;
+}
+
 void mus_play(const char *filename)
 {
         wavheader_s wheader;

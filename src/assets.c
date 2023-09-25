@@ -24,6 +24,7 @@ void assets_load()
         tex_put_load(TEXID_HOOK, "assets/hook.json");
         tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
         tex_put_load(TEXID_TITLESCREEN, "assets/titlescreen.json");
+        tex_put_load(TEXID_TITLE, "assets/title.json");
         tex_put(TEXID_ITEM_SELECT_CACHE, tex_create(ITEM_FRAME_SIZE, ITEM_FRAME_SIZE, 1));
 
         fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");

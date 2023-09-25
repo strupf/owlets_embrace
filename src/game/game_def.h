@@ -10,31 +10,34 @@
 #define ASSET_PATH_MAPS     "assets/map/"
 #define ASSET_PATH_DIALOGUE "assets/"
 
-typedef struct objhandle_s        objhandle_s;
-typedef struct obj_s              obj_s;
-typedef struct room_s             room_s;
-typedef struct objset_s           objset_s;
-typedef struct obj_listc_s        obj_listc_s;
-typedef struct objbucket_s        objbucket_s;
-typedef struct game_s             game_s;
-typedef struct textbox_s          textbox_s;
-typedef struct ropenode_s         ropenode_s;
-typedef struct rope_s             rope_s;
-typedef struct transition_s       transition_s;
-typedef struct cam_s              cam_s;
-typedef struct savefile_preview_s savefile_preview_s;
+typedef struct objhandle_s  objhandle_s;
+typedef struct obj_s        obj_s;
+typedef struct room_s       room_s;
+typedef struct objset_s     objset_s;
+typedef struct obj_listc_s  obj_listc_s;
+typedef struct objbucket_s  objbucket_s;
+typedef struct game_s       game_s;
+typedef struct textbox_s    textbox_s;
+typedef struct ropenode_s   ropenode_s;
+typedef struct rope_s       rope_s;
+typedef struct transition_s transition_s;
+typedef struct cam_s        cam_s;
+
+#define MAGIC_NUM_OBJ 0xDEADBEEFU
 
 enum {
+        NUM_PARTICLES           = 256,
         GAME_NUM_TILEIDS        = 0x10000,
-        GAME_NUM_TILEANIMATIONS = 0x10000,
+        GAME_NUM_TILEANIMATIONS = 64,
         GAME_NUM_TILECOLLIDERS  = 32,
         GAME_HEAPMEM            = 0x40000,
         NUM_TILES               = 0x40000,
         NUM_OBJS                = 256,
-        AREA_NAME_DISPLAY_TICKS = 100,
+        OBJ_ADD_MEM             = 0x1000,
+        AREA_NAME_DISPLAY_TICKS = 200,
         AREA_NAME_FADE_TICKS    = (AREA_NAME_DISPLAY_TICKS * 1) / 4,
         LEN_STR_AREA_FILENAME   = 64,
-        LEN_STR_PLAYER_NAME     = 16,
+        LEN_STR_HERO_NAME       = 16,
         INTERACTABLE_DISTSQ     = 150,
         NUM_AUTOTILE_MAIN       = 16,
         NUM_AUTOTILE_BG         = 48,

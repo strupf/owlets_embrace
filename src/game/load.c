@@ -16,7 +16,10 @@ static void load_obj_layer(game_s *g, jsn_s jlayer);
 static void game_reset_for_load(game_s *g)
 {
         for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
-                obj_s *o               = &g->objs[n];
+                obj_generic_s *og = &g->objs[n];
+                og->magic         = MAGIC_NUM_OBJ;
+                ASSERT((void *)og == (void *)&g->objs[n].o);
+                obj_s *o               = (obj_s *)og;
                 o->index               = n;
                 o->gen                 = 1;
                 g->objfreestack[n - 1] = o;
@@ -29,10 +32,9 @@ static void game_reset_for_load(game_s *g)
         os_memclr(g->tiles, sizeof(g->tiles));
         memheap_init(&g->heap, g->heapmem, GAME_HEAPMEM);
 
-        g->nclouds      = 0;
-        g->nparticles   = 0;
-        g->n_particles  = 0;
-        g->n_savepoints = 0;
+        g->nclouds     = 0;
+        g->nparticles  = 0;
+        g->n_particles = 0;
 }
 
 void game_load_map(game_s *g, const char *filename)
@@ -112,8 +114,9 @@ void game_load_map(game_s *g, const char *filename)
 
         textbox_init(&g->textbox);
 
-        os_strcpy(g->area_name, "samplename");
+        os_strcpy(g->area_name, "Forgotten temple");
         g->area_name_ticks = AREA_NAME_DISPLAY_TICKS;
+        decoration_setup(g);
 
         // mus_play("assets/snd/background.wav");
 
@@ -159,9 +162,15 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o        = crumbleblock_create(g);
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "savepoint")) {
+                o        = savepoint_create(g);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
         }
 
         if (!o) return;
+
+        o->tiledID = jsn_intk(jobj, "id");
 
         jsn_s prop;
         if (tmj_property(jobj, "dialog", &prop) ||

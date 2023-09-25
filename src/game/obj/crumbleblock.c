@@ -28,7 +28,6 @@ static void crumbleblock_think_idle(game_s *g, obj_s *o)
 {
         obj_s *hero;
         if (!try_obj_from_handle(g->hero.obj, &hero)) return;
-
         rec_i32 herofeet = obj_rec_bottom(hero);
         rec_i32 aabb     = obj_aabb(o);
 
