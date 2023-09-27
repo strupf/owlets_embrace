@@ -21,7 +21,7 @@ enum {
 };
 
 enum {
-        TEXTBOX_LINES                 = 4,
+        TEXTBOX_LINES                 = 3,
         TEXTBOX_CHARS_PER_LINE        = 64,
         TEXTBOX_NUM_CHOICES           = 4,
         TEXTBOX_TICKS_PER_CHAR_Q4     = 32,
@@ -29,6 +29,11 @@ enum {
         TEXTBOX_FILE_MEM              = 0x10000,
         TEXTBOX_NUM_TOKS              = 256,
         TEXTBOX_ANIMATION_TICKS       = 6,
+};
+
+enum {
+        TEXTBOX_MODE_SPEAK,
+        TEXTBOX_MODE_STATIC_SIGN,
 };
 
 typedef struct {
@@ -55,6 +60,7 @@ typedef struct {
 } textboxchoice_s;
 
 struct textbox_s {
+        int             mode;
         int             type;        // how the textbox is rendered
         v2_i32          speaker_pos; // used for speech bubbles
         int             animationticks;
@@ -63,8 +69,6 @@ struct textbox_s {
         int             currspeed;
         int             curr_line;
         int             curr_char;
-        int             n_chars;
-        int             n_chars_shown;
         bool32          shows_all;
         int             state;
         textboxline_s   lines[TEXTBOX_LINES];
@@ -82,6 +86,7 @@ void   textbox_update(game_s *g, textbox_s *tb);
 bool32 textbox_blocking(textbox_s *tb);
 void   textbox_select_choice(game_s *g, textbox_s *tb, int choiceID);
 void   textbox_load_dialog(textbox_s *tb, char *filename);
+void   textbox_load_dialog_mode(textbox_s *tb, char *filename, int textbox_mode);
 void   textbox_input(game_s *g, textbox_s *tb);
 
 #endif

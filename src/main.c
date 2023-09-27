@@ -9,15 +9,16 @@
 #include "game/obj/door.c"
 #include "game/obj/hero.c"
 #include "game/obj/npc.c"
+#include "game/obj/objsign.c"
 #include "game/obj/savepoint.c"
 //
 #include "game/cam.c"
 #include "game/decoration.c"
 #include "game/draw.c"
+#include "game/draw_ui.c"
 #include "game/fading.c"
 #include "game/game.c"
-#include "game/gamedraw.c"
-#include "game/gameinit.c"
+#include "game/init.c"
 #include "game/load.c"
 #include "game/load_autotiling.c"
 #include "game/obj.c"
@@ -44,6 +45,3 @@
 #include "util/memfunc.c"
 //
 #include "assets.c"
-//
-#include "game/game.h"
-#include "os/os_internal.h"

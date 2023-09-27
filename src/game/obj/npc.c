@@ -22,6 +22,7 @@ obj_s *npc_create(game_s *g)
         o->drag_q8.y    = 255;
         o->gravity_q8.y = 30;
         o->actorflags   = ACTOR_FLAG_CLIMB_SLOPES;
+        o->ID           = OBJ_ID_NPC;
         return o;
 }
 

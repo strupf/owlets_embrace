@@ -52,7 +52,7 @@ obj_s *boat_create(game_s *g)
         o->pos.y        = 800 + 8;
         o->w            = 100;
         o->h            = 20;
-        o->ID           = 10;
+        o->ID           = OBJ_ID_BOAT;
         o->gravity_q8.y = 20;
         return o;
 }

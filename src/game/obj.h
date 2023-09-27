@@ -13,11 +13,71 @@ enum {
         OBJ_ID_HOOK,
         OBJ_ID_SIGN,
         OBJ_ID_NPC,
-        OBJ_ID_SLIME,
+        OBJ_ID_BLOB,
         OBJ_ID_BOAT,
+        OBJ_ID_DOOR,
+        OBJ_ID_ARROW,
+        OBJ_ID_BOMB,
         OBJ_ID_CRUMBLEBLOCK,
         OBJ_ID_SAVEPOINT,
 };
+
+enum {
+        OBJ_TAG_DUMMY,
+        OBJ_TAG_HERO,
+        //
+        NUM_OBJ_TAGS
+};
+
+enum {
+        OBJ_BUCKET_ALIVE,
+        OBJ_BUCKET_ACTOR,
+        OBJ_BUCKET_SOLID,
+        OBJ_BUCKET_NEW_AREA_COLLIDER,
+        OBJ_BUCKET_PICKUP,
+        OBJ_BUCKET_INTERACT,
+        OBJ_BUCKET_MOVABLE,
+        OBJ_BUCKET_THINK_1,
+        OBJ_BUCKET_THINK_2,
+        OBJ_BUCKET_HURTABLE,
+        OBJ_BUCKET_KILL_OFFSCREEN,
+        OBJ_BUCKET_HURTS_ENEMIES,
+        OBJ_BUCKET_HURTS_PLAYER,
+        OBJ_BUCKET_CAM_ATTRACTOR,
+        OBJ_BUCKET_RENDERABLE,
+        OBJ_BUCKET_ANIMATE,
+        OBJ_BUCKET_ENEMY,
+        //
+        NUM_OBJ_BUCKETS
+};
+
+enum {
+        INTERACTABLE_TYPE_DEFAULT,
+        INTERACTABLE_TYPE_SPEAK,
+        INTERACTABLE_TYPE_READ,
+};
+
+#define OBJ_FLAG_NONE              0
+#define OBJ_FLAG_ALIVE             (1ULL << 1)
+#define OBJ_FLAG_ACTOR             (1ULL << 2)
+#define OBJ_FLAG_SOLID             (1ULL << 3)
+#define OBJ_FLAG______UNUSED3      (1ULL << 4)
+#define OBJ_FLAG_NEW_AREA_COLLIDER (1ULL << 5)
+#define OBJ_FLAG_PICKUP            (1ULL << 6)
+#define OBJ_FLAG______UNUSED1      (1ULL << 7)
+#define OBJ_FLAG_INTERACT          (1ULL << 8)
+#define OBJ_FLAG_MOVABLE           (1ULL << 9)
+#define OBJ_FLAG_THINK_1           (1ULL << 10)
+#define OBJ_FLAG_THINK_2           (1ULL << 11)
+#define OBJ_FLAG_HURTABLE          (1ULL << 12)
+#define OBJ_FLAG_ENEMY             (1ULL << 13)
+#define OBJ_FLAG_KILL_OFFSCREEN    (1ULL << 14)
+#define OBJ_FLAG_HURTS_PLAYER      (1ULL << 15)
+#define OBJ_FLAG_CAM_ATTRACTOR     (1ULL << 16)
+#define OBJ_FLAG______UNUSED2      (1ULL << 17)
+#define OBJ_FLAG_RENDERABLE        (1ULL << 18)
+#define OBJ_FLAG_ANIMATE           (1ULL << 19)
+#define OBJ_FLAG_HURTS_ENEMIES     (1ULL << 20)
 
 enum {
         OBJFLAGS_CMP_ZERO,
@@ -87,9 +147,12 @@ typedef struct {
 } objsprite_s;
 
 struct obj_s {
+        u32 magic;
+
         int     gen;
         int     index;
         flags64 flags;
+        flags32 tags;
         int     ID;
         u32     tiledID; // object ID from tiled map editor
         int     facing;
@@ -133,6 +196,8 @@ struct obj_s {
         void (*ontrigger)(game_s *g, obj_s *o, int triggerID);
         void (*ondelete)(game_s *g, obj_s *o);
         void (*renderfunc)(game_s *g, obj_s *o, v2_i32 camp);
+        int animation;
+        int interactable_type;
 
         bool32      attached;
         ropenode_s *ropenode;
@@ -143,46 +208,26 @@ struct obj_s {
 
 typedef struct { // struct with additional memory to use inheritance
         obj_s o;
-        char  mem[1024];
+        char  mem[0x1000];
         u32   magic;
 } obj_generic_s;
-
-#define super (&o->base)
 
 typedef struct {
         obj_s *a;
         obj_s *b;
 } obj_pair_s;
 
-#define OBJ_FLAG_NONE              0
-#define OBJ_FLAG_ALIVE             (1ULL << 1)
-#define OBJ_FLAG_ACTOR             (1ULL << 2)
-#define OBJ_FLAG_SOLID             (1ULL << 3)
-#define OBJ_FLAG______UNUSED3      (1ULL << 4)
-#define OBJ_FLAG_NEW_AREA_COLLIDER (1ULL << 5)
-#define OBJ_FLAG_PICKUP            (1ULL << 6)
-#define OBJ_FLAG______UNUSED1      (1ULL << 7)
-#define OBJ_FLAG_INTERACT          (1ULL << 8)
-#define OBJ_FLAG_MOVABLE           (1ULL << 9)
-#define OBJ_FLAG_THINK_1           (1ULL << 10)
-#define OBJ_FLAG_THINK_2           (1ULL << 11)
-#define OBJ_FLAG_HURTABLE          (1ULL << 12)
-#define OBJ_FLAG_ENEMY             (1ULL << 13)
-#define OBJ_FLAG_KILL_OFFSCREEN    (1ULL << 14)
-#define OBJ_FLAG_HURTS_PLAYER      (1ULL << 15)
-#define OBJ_FLAG_CAM_ATTRACTOR     (1ULL << 16)
-#define OBJ_FLAG______UNUSED2      (1ULL << 17)
-#define OBJ_FLAG_RENDERABLE        (1ULL << 18)
-#define OBJ_FLAG_ANIMATE           (1ULL << 19)
-#define OBJ_FLAG_HURTS_ENEMIES     (1ULL << 20)
+typedef struct {
+        rec_i32 r;
+        int     flags;
+        int     damage;
+} hitbox_s;
 
-enum obj_tag {
-        OBJ_TAG_DUMMY,
-        OBJ_TAG_HERO,
-        //
-        NUM_OBJ_TAGS
-};
-
+obj_s      *obj_get_tagged(game_s *g, int tag);
+bool32      obj_tag(game_s *g, obj_s *o, int tag);
+bool32      obj_untag(game_s *g, obj_s *o, int tag);
+bool32      obj_is_tagged(obj_s *o, int tag);
+//
 bool32      objhandle_is_valid(objhandle_s h);
 bool32      objhandle_is_null(objhandle_s h);
 obj_s      *obj_from_handle(objhandle_s h);
@@ -244,28 +289,6 @@ struct objbucket_s {
         int      cmp_func;
 };
 
-enum obj_bucket {
-        OBJ_BUCKET_ALIVE,
-        OBJ_BUCKET_ACTOR,
-        OBJ_BUCKET_SOLID,
-        OBJ_BUCKET_NEW_AREA_COLLIDER,
-        OBJ_BUCKET_PICKUP,
-        OBJ_BUCKET_INTERACT,
-        OBJ_BUCKET_MOVABLE,
-        OBJ_BUCKET_THINK_1,
-        OBJ_BUCKET_THINK_2,
-        OBJ_BUCKET_HURTABLE,
-        OBJ_BUCKET_KILL_OFFSCREEN,
-        OBJ_BUCKET_HURTS_ENEMIES,
-        OBJ_BUCKET_HURTS_PLAYER,
-        OBJ_BUCKET_CAM_ATTRACTOR,
-        OBJ_BUCKET_RENDERABLE,
-        OBJ_BUCKET_ANIMATE,
-        OBJ_BUCKET_ENEMY,
-        //
-        NUM_OBJ_BUCKETS
-};
-
 obj_listc_s obj_list_all(game_s *g);
 obj_listc_s objbucket_list(game_s *g, int bucketID);
 void        objbucket_copy_to_set(game_s *g, int bucketID, objset_s *set);
@@ -289,5 +312,6 @@ obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8);
 obj_s *crumbleblock_create(game_s *g);
 obj_s *boat_create(game_s *g);
 obj_s *savepoint_create(game_s *g);
+obj_s *sign_create(game_s *g);
 
 #endif

@@ -23,7 +23,8 @@ typedef struct rope_s       rope_s;
 typedef struct transition_s transition_s;
 typedef struct cam_s        cam_s;
 
-#define MAGIC_NUM_OBJ 0xDEADBEEFU
+#define MAGIC_NUM_OBJ_1 0xDEADBEEFU
+#define MAGIC_NUM_OBJ_2 0xC0FFEEEEU
 
 enum {
         NUM_PARTICLES           = 256,
@@ -36,9 +37,10 @@ enum {
         OBJ_ADD_MEM             = 0x1000,
         AREA_NAME_DISPLAY_TICKS = 200,
         AREA_NAME_FADE_TICKS    = (AREA_NAME_DISPLAY_TICKS * 1) / 4,
+        LEN_STR_AREA_NAME       = 64,
         LEN_STR_AREA_FILENAME   = 64,
         LEN_STR_HERO_NAME       = 16,
-        INTERACTABLE_DISTSQ     = 150,
+        INTERACTABLE_DISTSQ     = 200,
         NUM_AUTOTILE_MAIN       = 16,
         NUM_AUTOTILE_BG         = 48,
         NUM_AUTOTILE_TYPES      = (NUM_AUTOTILE_BG + NUM_AUTOTILE_MAIN),

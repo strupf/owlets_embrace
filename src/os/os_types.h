@@ -55,6 +55,19 @@ extern int (*PD_fclose)(SDFile *file);
 #endif
 //
 #endif
+
+static void print_bin_u32(unsigned int v)
+{
+        char str[33] = {0};
+        for (int i = 0; i < 32; i++) {
+                if ((v & (1U << (31 - i)))) {
+                        str[i] = '1';
+                } else {
+                        str[i] = '0';
+                }
+        }
+        PRINTF("%s\n", str);
+}
 // =============================================================================
 
 typedef unsigned char  uchar;
@@ -103,6 +116,7 @@ typedef u32 u8x4;
 #define U8_MIN  0
 
 #define NOT_IMPLEMENTED  ASSERT(0);
+#define BAD_PATH         ASSERT(0);
 #define GLUE2(A, B)      A##B
 #define GLUE(A, B)       GLUE2(A, B)
 #define ARRLEN(A)        (sizeof(A) / sizeof(A[0]))

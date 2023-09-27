@@ -341,14 +341,6 @@ void         *os_spmem_allocz(size_t size);      // allocate and zero memory
 void         *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 
 // MEMORY REPLACEMENTS =========================================================
-static inline void os_memset(void *dst, int val, size_t l)
-{
-        int   len = (int)l;
-        char *d   = (char *)dst;
-        for (int n = 0; n < len; n++) *d++ = val;
-}
-
-// MEMORY REPLACEMENTS =========================================================
 static inline void os_memset4(void *dst, int val, size_t l)
 {
         ASSERT(((uintptr_t)dst & 3) == 0);
@@ -360,6 +352,39 @@ static inline void os_memset4(void *dst, int val, size_t l)
         int *d    = (int *)dst;
         int  len  = (int)l;
         for (int n = 0; n < len; n += 4) *d++ = v;
+}
+
+static inline void os_memclr4(void *dst, size_t l)
+{
+        ASSERT(((uintptr_t)dst & 3) == 0);
+        ASSERT((l & 3) == 0);
+        ASSERT(sizeof(int) == 4);
+
+        int *d   = (int *)dst;
+        int  len = (int)l;
+        for (int n = 0; n < len; n += 4) *d++ = 0;
+}
+
+static inline void *os_memcpy4(void *dst, const void *src, size_t l)
+{
+        if (dst == src) return dst;
+        ASSERT(((uintptr_t)dst & 3) == 0);
+        ASSERT(((uintptr_t)src & 3) == 0);
+        ASSERT((l & 3) == 0);
+        ASSERT(sizeof(int) == 4);
+
+        int       *d   = (int *)dst;
+        const int *s   = (const int *)src;
+        int        len = (int)l;
+        for (int n = 0; n < len; n += 4) *d++ = *s++;
+        return dst;
+}
+
+static inline void os_memset(void *dst, int val, size_t l)
+{
+        int   len = (int)l;
+        char *d   = (char *)dst;
+        for (int n = 0; n < len; n++) *d++ = val;
 }
 
 static inline void *os_memcpy(void *dst, const void *src, size_t l)
@@ -392,29 +417,4 @@ static inline void os_memclr(void *dst, size_t l)
         for (int n = 0; n < len; n++) *d++ = 0;
 }
 
-static inline void os_memclr4(void *dst, size_t l)
-{
-        ASSERT(((uintptr_t)dst & 3) == 0);
-        ASSERT((l & 3) == 0);
-        ASSERT(sizeof(int) == 4);
-
-        int *d   = (int *)dst;
-        int  len = (int)l;
-        for (int n = 0; n < len; n += 4) *d++ = 0;
-}
-
-static inline void *os_memcpy4(void *dst, const void *src, size_t l)
-{
-        if (dst == src) return dst;
-        ASSERT(((uintptr_t)dst & 3) == 0);
-        ASSERT(((uintptr_t)src & 3) == 0);
-        ASSERT((l & 3) == 0);
-        ASSERT(sizeof(int) == 4);
-
-        int       *d   = (int *)dst;
-        const int *s   = (const int *)src;
-        int        len = (int)l;
-        for (int n = 0; n < len; n += 4) *d++ = *s++;
-        return dst;
-}
 #endif

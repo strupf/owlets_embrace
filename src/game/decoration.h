@@ -36,13 +36,43 @@ typedef struct {
 } particlebg_s;
 
 typedef struct {
+        // values for Tiled's layer config
+        f32 parallax_x;
+        f32 parallax_y;
+        f32 parallax_offx;
+        f32 parallax_offy;
+} parallax_img_s;
+
+typedef struct {
+        v2_i32 pos;
+        int    type;
+} grass_s;
+
+typedef struct {
         v2_i32 p_q8;
         v2_i32 v_q8;
         v2_i32 a_q8;
         i32    ticks;
 } particle_s;
 
+typedef struct {
+        parallax_img_s parallax;
+
+        int        n_particles;
+        particle_s particles[NUM_PARTICLES];
+
+        cloudbg_s    clouds[BG_NUM_CLOUDS];
+        int          nclouds;
+        particlebg_s particlesbg[BG_NUM_PARTICLES];
+        int          nparticles;
+        int          clouddirection;
+
+} backforeground_s;
+
+void backforeground_setup(game_s *g, backforeground_s *b);
+void backforeground_animate(game_s *g, backforeground_s *b);
+
 void decoration_setup(game_s *g);
-void room_deco_animate(game_s *g);
+void decoration_animate(game_s *g);
 
 #endif

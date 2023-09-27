@@ -113,7 +113,8 @@ static void update_gameplay(game_s *g)
 
         bool32     gameupdate = 1;
         textbox_s *tb         = &g->textbox;
-        g->hero.caninteract   = (textbox_state(tb) == TEXTBOX_STATE_INACTIVE);
+        hero_s    *h          = (hero_s *)obj_get_tagged(g, OBJ_TAG_HERO);
+        h->caninteract        = (textbox_state(tb) == TEXTBOX_STATE_INACTIVE);
         if (textbox_state(tb) != TEXTBOX_STATE_INACTIVE) {
                 textbox_update(g, tb);
                 if (textbox_blocking(tb)) {
@@ -130,7 +131,8 @@ static void update_gameplay(game_s *g)
         cam_update(g, &g->cam);
 
         for (int n = 1; n < NUM_OBJS; n++) { // check for overrides
-                ASSERT(g->objs[n].magic == MAGIC_NUM_OBJ);
+                ASSERT(g->objs[n].magic == MAGIC_NUM_OBJ_2);
+                ASSERT(g->objs[n].o.magic == MAGIC_NUM_OBJ_1);
         }
 }
 
@@ -217,16 +219,4 @@ particle_s *particle_spawn(game_s *g)
                 return p;
         }
         return NULL;
-}
-
-void game_fade(game_s *g,
-               int     ticks_fade_out,
-               int     ticks_fade_black,
-               int     ticks_fade_in,
-               void(fadecb)(game_s *g, void *arg), void *arg)
-{
-}
-
-bool32 game_fading(game_s *g)
-{
 }

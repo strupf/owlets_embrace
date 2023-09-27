@@ -98,9 +98,9 @@ void os_prepare()
                        sizeof(tilecolliders);
         size_t sos = sizeof(os_s);
         PRINTF("\n");
-        PRINTF("Size game: %lli kb\n", sgame / 1024);
-        PRINTF("Size os: %lli kb\n", sos / 1024);
-        PRINTF("= %lli kb\n", (sgame + sos) / 1024);
+        PRINTF("Size game: %i kb\n", sgame / 1024);
+        PRINTF("Size os: %i kb\n", sos / 1024);
+        PRINTF("= %i kb\n", (sgame + sos) / 1024);
         g_os.lasttime = os_time();
         g_os.fps      = OS_FPS;
         g_os.ups      = OS_FPS;

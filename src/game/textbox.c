@@ -242,31 +242,32 @@ void textbox_init(textbox_s *tb)
         textbox_clr(tb);
 }
 
-void textbox_load_dialog(textbox_s *tb, char *filename)
+void textbox_load_dialog_mode(textbox_s *tb, char *filename, int textbox_mode)
 {
         textbox_clr(tb);
-#if 1
         txt_read_file(filename, tb->dialogmem, TEXTBOX_FILE_MEM);
-#else
-        os_strcpy(tb->dialogmem, text);
-#endif
         dialog_parse(tb->dialogmem, tb->toks);
         tb->tok   = tb->toks;
         tb->state = TEXTBOX_STATE_OPENING;
+        tb->mode  = textbox_mode;
         textbox_next_page(tb);
+}
+
+void textbox_load_dialog(textbox_s *tb, char *filename)
+{
+        textbox_load_dialog_mode(tb, filename, TEXTBOX_MODE_SPEAK);
 }
 
 void textbox_input(game_s *g, textbox_s *tb)
 {
         if (tb->state != TEXTBOX_STATE_WAITING) return;
+
         if (os_inp_just_pressed(INP_A)) {
                 os_inp_set_pressedp(INP_A); // disable "just pressed A" for this frame
                 if (tb->n_choices) {
                         textbox_select_choice(g, tb, tb->cur_choice);
-                } else {
-                        if (textbox_next_page(tb)) {
-                                tb->state = TEXTBOX_STATE_WRITING;
-                        }
+                } else if (textbox_next_page(tb)) {
+                        tb->state = TEXTBOX_STATE_WRITING;
                 }
         } else if (tb->n_choices) {
                 if (os_inp_just_pressed(INP_DOWN) &&
@@ -296,6 +297,15 @@ void textbox_update(game_s *g, textbox_s *tb)
                 }
                 return;
         case TEXTBOX_STATE_WAITING: return;
+        }
+
+        if (tb->mode == TEXTBOX_MODE_STATIC_SIGN) {
+                tb->shows_all = 1;
+                tb->state     = TEXTBOX_STATE_WAITING;
+                for (int i = 0; i < TEXTBOX_LINES; i++) {
+                        tb->lines[i].n_shown = tb->lines[i].n;
+                }
+                return;
         }
 
         tb->typewriter_tick_q4 -= 16;

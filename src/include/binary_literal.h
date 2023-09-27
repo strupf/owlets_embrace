@@ -8,7 +8,7 @@
 #ifndef BINARY_LITERAL_H
 #define BINARY_LITERAL_H
 
-static inline unsigned int bitrev32(unsigned int x)
+static inline unsigned int brev32(unsigned int x)
 {
         unsigned int r = x;
         int          s = 31;

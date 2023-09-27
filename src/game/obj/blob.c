@@ -28,7 +28,7 @@ obj_s *blob_create(game_s *g)
         o->gravity_q8.y = 30;
         o->drag_q8.x    = 256;
         o->drag_q8.y    = 256; // no drag
-        o->ID           = 13;
+        o->ID           = OBJ_ID_BLOB;
         return o;
 }
 

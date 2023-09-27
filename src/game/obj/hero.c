@@ -7,7 +7,7 @@
 #include "game/obj.h"
 #include "game/rope.h"
 
-static void   hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook);
+static void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8, i32 len_max);
 static void   hook_squeeze(game_s *g, obj_s *o);
 static void   hero_check_hurtables(game_s *g, obj_s *ohero);
@@ -18,7 +18,34 @@ static void   hero_animate(game_s *g, obj_s *o);
 
 static void hero_animate(game_s *g, obj_s *o)
 {
-        hero_s *h = &g->hero;
+        static int animticks = 0;
+
+        hero_s *h           = (hero_s *)o;
+        bool32  grounded    = room_area_blocked(g, obj_rec_bottom(o));
+        bool32  onladder    = h->onladder;
+        i32     vx          = o->vel_q8.x;
+        bool32  touch_right = room_area_blocked(g, obj_rec_right(o));
+        bool32  touch_left  = room_area_blocked(g, obj_rec_left(o));
+
+        if (grounded) {
+                if (vx == 0) {
+                        animticks = 0;
+                } else {
+                        if ((vx < 0 && touch_left) ||
+                            (vx > 0 && touch_right)) {
+                                animticks = 0;
+                        } else {
+                                animticks += abs_i(vx);
+                        }
+                }
+        }
+
+        if (!grounded || onladder) {
+                animticks = 0;
+        }
+
+        o->animation = (animticks / 5000) % 4;
+
         /*
         o->animation += (int)((float)ABS(o->vel_q8.x) * 0.1f);
 
@@ -40,13 +67,16 @@ static void hero_animate(game_s *g, obj_s *o)
         */
 }
 
-static void hero_use_whip(game_s *g, obj_s *o, hero_s *h)
+static void hero_use_whip(game_s *g, obj_s *o)
 {
+        hero_s *h     = (hero_s *)o;
         h->whip_ticks = HERO_C_WHIP_TICKS;
 }
 
-static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
+static void hero_use_hook(game_s *g, obj_s *o)
 {
+        hero_s *h = (hero_s *)o;
+
         // throw new hook
         int dirx = os_inp_dpad_x();
         int diry = os_inp_dpad_y();
@@ -63,24 +93,25 @@ static void hero_use_hook(game_s *g, obj_s *o, hero_s *h)
                 vlaunch.y = -500;
                 vlaunch.x = vlaunch.x * 5 / 4;
         }
-        obj_s *hook = hook_create(g, &h->rope, center, vlaunch, h->rope_len_q16);
+        obj_s *hook = hook_create(g, &g->rope, center, vlaunch, h->rope_len_q16);
         h->hook     = objhandle_from_obj(hook);
-        o->ropenode = h->rope.head;
-        o->rope     = &h->rope;
+        o->ropenode = g->rope.head;
+        o->rope     = &g->rope;
 }
 
-static void hero_unset_ladder(game_s *g, obj_s *o, hero_s *h)
+static void hero_unset_ladder(game_s *g, obj_s *o)
 {
+        hero_s *h = (hero_s *)o;
         obj_set_flags(g, o, OBJ_FLAG_MOVABLE);
         h->onladder = 0;
 }
 
-static void hero_logic(game_s *g, obj_s *o, hero_s *h)
+static void hero_logic(game_s *g, obj_s *o)
 {
-
-        bool32 grounded = room_area_blocked(g, obj_rec_bottom(o));
+        hero_s *h        = (hero_s *)o;
+        bool32  grounded = room_area_blocked(g, obj_rec_bottom(o));
         if (grounded) {
-                hero_unset_ladder(g, o, h);
+                hero_unset_ladder(g, o);
                 h->edgeticks = HERO_C_EDGETICKS;
                 h->state     = HERO_STATE_GROUND;
         } else if (h->edgeticks > 0) {
@@ -91,7 +122,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 v2_i32 lp = obj_aabb_center(o);
                 h->state  = HERO_STATE_LADDER;
                 if (os_inp_just_pressed(INP_A) || !room_is_ladder(g, lp)) {
-                        hero_unset_ladder(g, o, h);
+                        hero_unset_ladder(g, o);
                 }
                 if (os_inp_just_pressed(INP_A)) {
                         h->edgeticks = 1;
@@ -111,7 +142,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         }
 
         int xs = os_inp_dpad_x();
-        if (!hero_using_whip(h) && xs != 0 && xs != o->facing) {
+        if (!hero_using_whip(o) && xs != 0 && xs != o->facing) {
                 o->facing = xs;
         }
 
@@ -163,25 +194,25 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         if (crankchange_q16) {
                 h->rope_len_q16 += crankchange_q16 * HERO_ROPE_REEL_RATE;
                 h->rope_len_q16 = clamp_i(h->rope_len_q16, HERO_ROPE_MIN, HERO_ROPE_MAX);
-                if (hero_using_hook(h)) {
-                        rope_set_len_max_q16(&h->rope, h->rope_len_q16);
+                if (hero_using_hook(o)) {
+                        rope_set_len_max_q16(&g->rope, h->rope_len_q16);
                 }
         }
 
         bool32 canuseitems = h->hashook &&
-                             !hero_using_hook(h) &&
-                             !hero_using_whip(h);
+                             !hero_using_hook(o) &&
+                             !hero_using_whip(o);
 
         // just pressed item button
         if (os_inp_just_pressed(INP_B)) {
-                if (hero_using_hook(h)) {
-                        hook_destroy(g, h, o, h->hook.o); // destroy hook if present
+                if (hero_using_hook(o)) {
+                        hook_destroy(g, o, h->hook.o); // destroy hook if present
                         snd_play_ext(snd_get(SNDID_JUMP), 0.5f, 1.f);
                 } else if (canuseitems) {
                         if (h->rope_len_q16 == HERO_ROPE_MIN) {
-                                hero_use_whip(g, o, h);
+                                hero_use_whip(g, o);
                         } else {
-                                hero_use_hook(g, o, h);
+                                hero_use_hook(g, o);
                         }
                 }
         }
@@ -209,7 +240,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
                 }
         }
 
-        bool32 ropestretched = hero_using_hook(h) && rope_stretched(g, &h->rope);
+        bool32 ropestretched = hero_using_hook(o) && rope_stretched(g, &g->rope);
 
         if (ropestretched && !grounded) {
                 // try to "jump up" on ledges when roped
@@ -226,7 +257,7 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         if (xs != 0 && !grounded) {
                 o->drag_q8.x = 245;
                 if (ropestretched) {
-                        v2_i32 dtrope = v2_sub(h->rope.head->p, h->rope.head->next->p);
+                        v2_i32 dtrope = v2_sub(g->rope.head->p, g->rope.head->next->p);
                         xacc          = (sgn_i(dtrope.x) == xs ? 15 : 30);
                 } else if (velsgn == -xs) {
                         xacc = 75;
@@ -255,12 +286,13 @@ static void hero_logic(game_s *g, obj_s *o, hero_s *h)
         h->wasgrounded = grounded;
 }
 
-static void hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
+static void hook_update(game_s *g, obj_s *o, obj_s *hook)
 {
-        rope_s *r = &h->rope;
+        hero_s *h = (hero_s *)o;
+        rope_s *r = &g->rope;
 
-        if (!rope_intact(g, &h->rope)) {
-                hook_destroy(g, h, o, hook);
+        if (!rope_intact(g, &g->rope)) {
+                hook_destroy(g, o, hook);
                 return;
         }
 
@@ -297,7 +329,7 @@ static void hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
                 }
         }
 
-        rope_update(g, &h->rope);
+        rope_update(g, &g->rope);
         if (hook->attached) {
                 o->vel_q8 = rope_adjust_connected_vel(g, r, r->head,
                                                       o->subpos_q8, o->vel_q8);
@@ -308,8 +340,9 @@ static void hook_update(game_s *g, obj_s *o, hero_s *h, obj_s *hook)
         TIMING_END();
 }
 
-static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
+static void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
 {
+        hero_s *h = (hero_s *)ohero;
         obj_delete(g, ohook);
         h->hook.o       = NULL;
         ohero->ropenode = NULL;
@@ -320,17 +353,20 @@ static void hook_destroy(game_s *g, hero_s *h, obj_s *ohero, obj_s *ohook)
 
 static void hook_squeeze(game_s *g, obj_s *o)
 {
-        hero_s *hero = (hero_s *)&g->hero;
-        obj_s  *ohero;
+        /*
+        obj_s *ohero;
         if (try_obj_from_handle(hero->obj, &ohero)) {
                 hook_destroy(g, hero, ohero, o);
         } else {
                 ASSERT(0);
         }
+        */
+        NOT_IMPLEMENTED
 }
 
 static void hero_squeeze(game_s *g, obj_s *o)
 {
+        NOT_IMPLEMENTED
         // transition_start(g, "template.tmj");
 }
 
@@ -347,6 +383,7 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8, i32 le
         o->drag_q8.y    = 256;
         o->gravity_q8.y = 34;
         o->onsqueeze    = hook_squeeze;
+        o->ID           = OBJ_ID_HOOK;
         rope_init(rope);
         rope_set_len_max_q16(rope, len_max_q16);
         rope->head->p = p;
@@ -357,7 +394,7 @@ static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8, i32 le
         return o;
 }
 
-obj_s *hero_create(game_s *g, hero_s *h)
+obj_s *hero_create(game_s *g)
 {
         obj_s  *hero  = obj_create(g);
         flags64 flags = OBJ_FLAG_ACTOR |
@@ -365,6 +402,7 @@ obj_s *hero_create(game_s *g, hero_s *h)
                         OBJ_FLAG_THINK_1 |
                         OBJ_FLAG_ANIMATE;
         obj_apply_flags(g, hero, flags);
+        obj_tag(g, hero, OBJ_TAG_HERO);
         hero->animate_func = hero_animate;
         hero->think_1      = hero_update;
         hero->onsqueeze    = hero_squeeze;
@@ -378,12 +416,11 @@ obj_s *hero_create(game_s *g, hero_s *h)
         hero->gravity_q8.y = HERO_C_GRAVITY;
         hero->drag_q8.x    = 256;
         hero->drag_q8.y    = 256; // no drag
-        hero->ID           = 3;
+        hero->ID           = OBJ_ID_HERO;
 
-        *h              = (const hero_s){0};
+        hero_s *h       = (hero_s *)hero;
         h->hashook      = 1;
         h->rope_len_q16 = HERO_ROPE_MIN + 1;
-        h->obj          = objhandle_from_obj(hero);
         return hero;
 }
 
@@ -506,8 +543,9 @@ static void hero_check_level_transition(game_s *g, obj_s *hero)
         }
 }
 
-static void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
+static void hero_pickup_logic(game_s *g, obj_s *o)
 {
+        hero_s     *h       = (hero_s *)o;
         rec_i32     haabb   = obj_aabb(o);
         obj_listc_s pickups = objbucket_list(g, OBJ_BUCKET_PICKUP);
         for (int n = 0; n < pickups.n; n++) {
@@ -520,6 +558,7 @@ static void hero_pickup_logic(game_s *g, hero_s *h, obj_s *o)
 
 static void hero_check_hurtables(game_s *g, obj_s *ohero)
 {
+        hero_s *h = (hero_s *)ohero;
         if (ohero->invincibleticks-- > 0) return;
         obj_listc_s hurtables = objbucket_list(g, OBJ_BUCKET_HURTS_PLAYER);
         rec_i32     haabb     = obj_aabb(ohero);
@@ -538,49 +577,51 @@ static void hero_check_hurtables(game_s *g, obj_s *ohero)
 
 void hero_update(game_s *g, obj_s *o)
 {
-        hero_s *h = (hero_s *)&g->hero;
+        hero_s *h = (hero_s *)o;
         h->ppos   = o->pos;
 
-        hero_logic(g, o, h);
+        hero_logic(g, o);
 
-        if (hero_using_hook(h)) {
+        if (hero_using_hook(o)) {
                 TIMING_BEGIN(TIMING_HERO_HOOK);
                 obj_s *hook = obj_from_handle(h->hook);
-                hook_update(g, o, h, hook);
+                hook_update(g, o, hook);
                 TIMING_END();
-        } else if (hero_using_whip(h)) {
+        } else if (hero_using_whip(o)) {
                 h->whip_ticks--;
         }
 
         hero_check_level_transition(g, o);
-        hero_pickup_logic(g, h, o);
+        hero_pickup_logic(g, o);
         hero_check_hurtables(g, o);
 }
 
-bool32 hero_using_hook(hero_s *h)
+bool32 hero_using_hook(obj_s *o)
 {
+        hero_s *h = (hero_s *)o;
         if (objhandle_is_valid(h->hook)) {
-                ASSERT(h->obj.o->ropenode);
+                ASSERT(o->ropenode);
                 return 1;
         }
         return 0;
 }
 
-bool32 hero_using_whip(hero_s *h)
+bool32 hero_using_whip(obj_s *o)
 {
+        hero_s *h = (hero_s *)o;
         return h->whip_ticks > 0;
 }
 
-rec_i32 hero_whip_hitbox(hero_s *h)
+rec_i32 hero_whip_hitbox(obj_s *o)
 {
-        obj_s  *ohero   = h->obj.o;
-        rec_i32 aabb    = obj_aabb(ohero);
-        rec_i32 whipbox = {ohero->pos.x,
-                           ohero->pos.y,
+        hero_s *h       = (hero_s *)o;
+        rec_i32 aabb    = obj_aabb(o);
+        rec_i32 whipbox = {o->pos.x,
+                           o->pos.y,
                            30,
                            20};
-        if (ohero->facing == +1) {
-                whipbox.x += ohero->w;
+        if (o->facing == +1) {
+                whipbox.x += o->w;
         } else {
                 whipbox.x -= whipbox.w;
         }

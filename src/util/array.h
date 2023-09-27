@@ -15,6 +15,31 @@
 
 #include "os/os_types.h"
 
+/*
+typedef struct {
+        void **data;
+        i16   *d;
+        i16   *s;
+        int    n;
+        int    c;
+
+        u32 *free;
+        int  n_free;
+} slotmap_s;
+
+u32 slotmap_new(slotmap_s *sm)
+{
+        if (sm->n_free > 0) {
+                u32 i = sm->free[--sm->n_free];
+                return i;
+        }
+}
+
+void slotmap_del(slotmap_s *sm, int i)
+{
+}
+*/
+
 #define ARR_DEF_BASE(NAME, T)                                                 \
         typedef struct {                                                      \
                 T  *data;                                                     \

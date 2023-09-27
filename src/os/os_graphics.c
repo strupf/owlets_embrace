@@ -458,6 +458,29 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
                                 xs0 = min_i(xs0, ctx.src.w - 1);
                                 t   = sm ? 0 : 0xFFFFFFFFU;
                                 p   = 0;
+
+#if 0
+                                // this here is not working, need to figure it out
+                                int ii0 = (xs1 >> 5) + ys;
+                                int ii1 = (xs0 >> 5) + ys;
+
+                                u32 sm0 = sm ? bswap32(sm[ii0]) : 0xFFFFFFFFU;
+                                u32 sm1 = sm ? bswap32(sm[ii1]) : 0xFFFFFFFFU;
+                                u32 sp0 = bswap32(sp[ii0]);
+                                u32 sp1 = bswap32(sp[ii1]);
+
+                                int ss1 = 31 & (-pos.x + rs.x + rs.w); // word alignment and shift
+                                int ss0 = 31 & (32 - ss1); // word alignment and shift
+
+                                sm0 = brev32(sm0);
+                                sm1 = brev32(sm1);
+                                sp0 = brev32(sp0);
+                                sp1 = brev32(sp1);
+
+                                p = (sp0 >> ss0) | (sp1 << ss1);
+                                t = (sm0 >> ss0) | (sm1 << ss1);
+
+#else
                                 for (int xs = xs1; xs <= xs0; xs++) {
                                         int i0 = (xs >> 5) + ys;
                                         u32 ms = 0x80000000U >> (xs & 31);
@@ -468,6 +491,7 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
                                         if (!(bswap32(sp[i0]) & ms)) continue;
                                         p |= md;
                                 }
+#endif
                         } else {
                                 // a destination word overlaps two source words
                                 // unless drawing position is word aligned on x

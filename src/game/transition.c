@@ -16,8 +16,7 @@ static void cb_transition_load(void *arg)
         game_s       *g = (game_s *)arg;
         transition_s *t = &g->transition;
         game_load_map(g, t->map);
-        obj_s *ohero;
-        try_obj_from_handle(g->hero.obj, &ohero);
+        obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
         ohero->pos    = t->teleportto;
         ohero->vel_q8 = t->vel;
         if (t->dir_slide == DIRECTION_N)
@@ -36,7 +35,8 @@ static void transition_start(game_s *g, char *filename, v2_i32 location, int dir
         t->teleportto = location;
         t->dir_slide  = dir_slide;
         if (dir_slide) {
-                t->vel = g->hero.obj.o->vel_q8;
+                obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+                t->vel       = ohero->vel_q8;
         } else {
                 t->vel = (v2_i32){0};
         }

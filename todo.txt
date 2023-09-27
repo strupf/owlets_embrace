@@ -9,10 +9,16 @@ gameplay
 * water tiles
 * 1-way platforms
 
+title screen
+* modification of savefiles
+* preview of savefiles
+* finish savepoints
+
 loading
 * autotiling for low and high slopes
 
 graphics
+* grass animation
 * render melee weapon
 * rope
     * "hanging" animation of rope when not stretched

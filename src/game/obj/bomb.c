@@ -25,6 +25,7 @@ obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         bomb->drag_q8.x    = 256;
         bomb->drag_q8.y    = 256;
         bomb->onsqueeze    = bomb_explode;
+        bomb->ID           = OBJ_ID_BOMB;
         return bomb;
 }
 

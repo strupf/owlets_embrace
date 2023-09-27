@@ -6,6 +6,40 @@
 #include "game.h"
 #include "rope.h"
 
+obj_s *obj_get_tagged(game_s *g, int tag)
+{
+        obj_s *o = g->obj_tag[tag];
+        return o;
+}
+
+bool32 obj_tag(game_s *g, obj_s *o, int tag)
+{
+        flags32 t = 1U << tag;
+        if (obj_is_tagged(o, tag)) return 0;
+        if (obj_get_tagged(g, tag)) return 0;
+        g->obj_tag[tag] = o;
+        o->tags |= t;
+        return 1;
+}
+
+bool32 obj_untag(game_s *g, obj_s *o, int tag)
+{
+        flags32 t = 1U << tag;
+        if (obj_is_tagged(o, tag)) {
+                o->tags &= ~t;
+                ASSERT(g->obj_tag[tag] == o);
+                g->obj_tag[tag] = NULL;
+                return 1;
+        }
+        return 0;
+}
+
+bool32 obj_is_tagged(obj_s *o, int tag)
+{
+        flags32 t = 1U << tag;
+        return (o->tags & t);
+}
+
 bool32 objhandle_is_valid(objhandle_s h)
 {
         return (h.o && h.o->gen == h.gen);
@@ -43,12 +77,15 @@ obj_s *obj_create(game_s *g)
         obj_s *o = g->objfreestack[--g->n_objfree];
         ASSERT(!objset_contains(&g->objbuckets[0].set, o));
 
-        int                index   = o->index;
-        int                gen     = o->gen;
-        static const obj_s objzero = {0};
-        *o                         = objzero;
-        o->gen                     = gen;
-        o->index                   = index;
+        int index = o->index;
+        int gen   = o->gen;
+
+        obj_generic_s *og = (obj_generic_s *)o;
+        *og               = (const obj_generic_s){0};
+        og->magic         = MAGIC_NUM_OBJ_2;
+        o->magic          = MAGIC_NUM_OBJ_1;
+        o->gen            = gen;
+        o->index          = index;
 
         objset_add(&g->objbuckets[0].set, o);
 
@@ -136,7 +173,6 @@ void obj_unset_flags(game_s *g, obj_s *o, flags64 flags)
 
 void obj_interact_open_dialog(game_s *g, obj_s *o)
 {
-        PRINTF("open");
         textbox_load_dialog(&g->textbox, o->filename);
 }
 
@@ -443,10 +479,10 @@ static void solid_step(game_s *g, obj_s *o, v2_i32 dt, obj_listc_s actors)
 {
         ASSERT((abs_i(dt.x) == 1 && dt.y == 0) || (abs_i(dt.y) == 1 && dt.x == 0));
 
-        obj_s *hero;
-        if (try_obj_from_handle(g->hero.obj, &hero) && hero->rope) {
+        hero_s *hero = (hero_s *)obj_get_tagged(g, OBJ_TAG_HERO);
+        if (hero && hero->o.rope) {
                 o->soliddisabled = 1;
-                rope_moved_by_solid(g, hero->rope, o, dt);
+                rope_moved_by_solid(g, hero->o.rope, o, dt);
                 o->soliddisabled = 0;
         }
 

@@ -20,7 +20,7 @@ static void select_game_file(game_s *g, int slotID)
 {
         game_savefile_new(g, slotID);
         fading_start(&g->global_fade,
-                     60, 60, 60,
+                     30, 10, 30,
                      switch_to_gameplay,
                      NULL,
                      g);
@@ -44,6 +44,11 @@ static void cb_fade_to_select_file(void *arg)
         m->state       = MAINMENU_STATE_SELECT_FILE;
         m->curr_option = 0;
         m->num_options = 3;
+
+        savefile_s sf;
+        game_savefile_preview(0, &sf);
+        game_savefile_preview(1, &sf);
+        game_savefile_preview(2, &sf);
 }
 
 static void cb_fade_to_title(void *arg)
@@ -157,7 +162,7 @@ void draw_title(game_s *g, mainmenu_s *m)
 
                 gfx_sprite_rotated_(ctx_logo, (v2_i32){(int)xx, (int)yy},
                                     (rec_i32){256, 0, 64, 64},
-                                    (v2_i32){32.f, 32.f}, ang);
+                                    (v2_i32){32, 32}, ang);
                 gfx_sprite(ctx_logo, (v2_i32){70, 10}, (rec_i32){0, 0, 256, 128}, 0);
         }
 

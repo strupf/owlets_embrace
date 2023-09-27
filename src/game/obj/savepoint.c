@@ -13,6 +13,7 @@ obj_s *savepoint_create(game_s *g)
         flags64 flags = OBJ_FLAG_INTERACT;
         obj_apply_flags(g, o, flags);
         o->oninteract = savepoint_interact;
+        o->ID         = OBJ_ID_SAVEPOINT;
         PRINTF("savepoint created");
         return o;
 }

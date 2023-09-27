@@ -20,7 +20,7 @@ enum hero_item {
 };
 
 enum {
-        HERO_WIDTH          = 16,
+        HERO_WIDTH          = 8,
         HERO_HEIGHT         = 24,
         HERO_ROPE_MIN       = 50 << 16,
         HERO_ROPE_MAX       = 300 << 16,
@@ -42,7 +42,7 @@ enum hero_state_machine {
 };
 
 struct hero_s {
-        objhandle_s obj;
+        obj_s       o;
         int         state;
         //
         bool32      hashook;
@@ -54,16 +54,14 @@ struct hero_s {
         int         ladderx;
         v2_i32      ppos;
         objhandle_s hook;
-        rope_s      rope;
         int         whip_ticks;
         i32         rope_len_q16;
-        char        hero_name[LEN_STR_HERO_NAME];
 };
 
-obj_s  *hero_create(game_s *g, hero_s *h);
+obj_s  *hero_create(game_s *g);
 void    hero_update(game_s *g, obj_s *o);
-bool32  hero_using_hook(hero_s *h);
-bool32  hero_using_whip(hero_s *h);
-rec_i32 hero_whip_hitbox(hero_s *h);
+bool32  hero_using_hook(obj_s *o);
+bool32  hero_using_whip(obj_s *o);
+rec_i32 hero_whip_hitbox(obj_s *o);
 
 #endif

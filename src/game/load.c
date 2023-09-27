@@ -16,14 +16,19 @@ static void load_obj_layer(game_s *g, jsn_s jlayer);
 static void game_reset_for_load(game_s *g)
 {
         for (int n = 1; n < NUM_OBJS; n++) { // obj at index 0 is "dead"
-                obj_generic_s *og = &g->objs[n];
-                og->magic         = MAGIC_NUM_OBJ;
-                ASSERT((void *)og == (void *)&g->objs[n].o);
-                obj_s *o               = (obj_s *)og;
+                obj_generic_s *og      = &g->objs[n];
+                obj_s         *o       = (obj_s *)og;
+                og->magic              = MAGIC_NUM_OBJ_2;
+                o->magic               = MAGIC_NUM_OBJ_1;
                 o->index               = n;
                 o->gen                 = 1;
                 g->objfreestack[n - 1] = o;
         }
+
+        for (int n = 0; n < NUM_OBJ_TAGS; n++) {
+                g->obj_tag[n] = NULL;
+        }
+
         g->n_objfree = NUM_OBJS - 1;
         objset_clr(&g->obj_scheduled_delete);
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
@@ -105,7 +110,7 @@ void game_load_map(game_s *g, const char *filename)
         g->water.p              = (v2_i32){0};
         */
 
-        obj_s *ohero = hero_create(g, &g->hero);
+        obj_s *ohero = hero_create(g);
         ohero->pos.x = 10 * 16;
         ohero->pos.y = 100;
 
@@ -150,14 +155,11 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
         } else if (streq(buf, "sign")) {
-                o = obj_create(g);
-                obj_apply_flags(g, o, OBJ_FLAG_INTERACT);
-                o->pos.x      = jsn_intk(jobj, "x");
-                o->pos.y      = jsn_intk(jobj, "y");
-                o->w          = jsn_intk(jobj, "width");
-                o->h          = jsn_intk(jobj, "height");
-                o->oninteract = obj_interact_open_dialog;
-                o->ID         = 6;
+                o        = sign_create(g);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+                o->w     = jsn_intk(jobj, "width");
+                o->h     = jsn_intk(jobj, "height");
         } else if (streq(buf, "crumble")) {
                 o        = crumbleblock_create(g);
                 o->pos.x = jsn_intk(jobj, "x");

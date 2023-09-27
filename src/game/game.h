@@ -69,9 +69,8 @@ struct game_s {
         int        savefile_slotID;
         u32        rng;
         cam_s      cam;
-        hero_s     hero;
-        int        area_name_ticks; // how long the area name is already displayed
-        char       area_name[64];   // the ingame area name to display
+        int        area_name_ticks;              // how long the area name is already displayed
+        char       area_name[LEN_STR_AREA_NAME]; // the ingame area name to display
         char       area_filename[LEN_STR_AREA_FILENAME];
 
         cloudbg_s    clouds[BG_NUM_CLOUDS];
@@ -87,7 +86,10 @@ struct game_s {
         f32 parallax_offy;
 
         int        n_particles;
-        particle_s particles[256];
+        particle_s particles[NUM_PARTICLES];
+
+        char   hero_name[LEN_STR_HERO_NAME];
+        rope_s rope;
 
         // objects
         objset_s      obj_scheduled_delete;        // objects scheduled for removal
@@ -135,13 +137,6 @@ void        game_trigger(game_s *g, int triggerID);
 void        game_load_map(game_s *g, const char *filename);
 void        game_obj_group_collisions(game_s *g);
 void        game_cull_scheduled(game_s *g);
-//
-void        game_fade(game_s *g,
-                      int     ticks_fade_out,
-                      int     ticks_fade_black,
-                      int     ticks_fade_in,
-                      void(fadecb)(game_s *g, void *arg), void *arg);
-bool32      game_fading(game_s *g);
 //
 bool32      room_area_blocked(game_s *g, rec_i32 r);
 bool32      room_overlaps_tileID(game_s *g, rec_i32 r, int tileID);

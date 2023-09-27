@@ -17,7 +17,7 @@ obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
                         OBJ_FLAG_HURTS_ENEMIES;
         obj_apply_flags(g, arrow, flags);
         arrow->think_2      = arrow_think;
-        arrow->ID           = 2;
+        arrow->ID           = OBJ_ID_ARROW;
         arrow->w            = 8;
         arrow->h            = 8;
         arrow->pos.x        = p.x - arrow->w / 2;

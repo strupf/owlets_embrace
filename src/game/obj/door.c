@@ -4,6 +4,13 @@
 
 #include "game/game.h"
 
+typedef struct {
+        obj_s o;
+        int   state;
+        int   open_ticks;
+        int   ticks;
+} door_s;
+
 enum {
         DOOR_STATE_CLOSED,
         DOOR_STATE_MOVING,
@@ -23,7 +30,10 @@ obj_s *door_create(game_s *g)
         o->h         = 64 + 16;
         o->ontrigger = door_trigger;
         o->state     = DOOR_STATE_CLOSED;
-        o->ID        = 4;
+        o->ID        = OBJ_ID_DOOR;
+
+        door_s *d = (door_s *)o;
+        d->state  = DOOR_STATE_CLOSED;
         return o;
 }
 

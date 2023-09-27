@@ -12,7 +12,7 @@ enum {
 };
 
 typedef struct savefile_s {
-        bool32 used;
+        bool32 in_use;
         int    saveslotID;
         i32    tick;
         u32    savepointID;
@@ -23,10 +23,8 @@ typedef struct savefile_s {
 bool32 game_savefile_new(game_s *g, int slotID);
 bool32 game_savefile_load(game_s *g, int slotID);
 bool32 game_savefile_save(game_s *g);
-bool32 game_savefile_exists(int slotID);
 bool32 game_savefile_copy(int slotID_from, int slotID_to);
 bool32 game_savefile_delete(int slotID);
-bool32 game_savefile_write_unused(int slotID);
 
 // tries to load a preview of the savefile if present
 // (quick glance of the progress)

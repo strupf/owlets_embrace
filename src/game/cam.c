@@ -7,15 +7,20 @@
 #include "obj.h"
 
 enum {
-        CAM_LERP_DISTANCESQ_FAST = 1000,
-        CAM_LERP_DEN             = 4,
-        CAM_LERP_DEN_FAST        = 2,
+        CAM_LERP_DISTANCESQ_FAST = 1500,
+        CAM_LERP_DEN             = 6,
+        CAM_LERP_DEN_FAST        = 3,
         CAM_ATTRACT_DIST         = 300,
         CAM_ATTRACT_DISTSQ       = CAM_ATTRACT_DIST * CAM_ATTRACT_DIST,
         CAM_ATTRACT_FACTOR       = 3,
         CAM_TEXTBOX_Y_OFFSET     = 80,
         CAM_LOOK_DOWN_OFFSET     = 85,
 };
+
+void cam_set_mode(cam_s *c, int mode)
+{
+        c->mode = mode;
+}
 
 void cam_constrain_to_room(game_s *g, cam_s *c)
 {
@@ -35,67 +40,56 @@ void cam_constrain_to_room(game_s *g, cam_s *c)
                 c->pos.y = g->pixel_y - c->h + c->hh;
 }
 
-static void cam_attractors(game_s *g, cam_s *c)
-{
-        // gravitate towards points of interest
-        v2_i32      attract    = {0};
-        i32         nattract   = 0;
-        obj_listc_s attractors = objbucket_list(g, OBJ_BUCKET_CAM_ATTRACTOR);
-        for (int n = 0; n < attractors.n; n++) {
-                v2_i32 ca   = attractors.o[n]->pos;
-                i32    dist = v2_distancesq(ca, c->pos);
-                if (dist < CAM_ATTRACT_DISTSQ) {
-                        i32 weight = CAM_ATTRACT_DISTSQ - dist;
-                        attract    = v2_add(attract, v2_mul(ca, weight));
-                        nattract += weight;
-                }
-        }
-
-        if (nattract == 0) return;
-
-        attract   = v2_div(attract, nattract);
-        i32 dist  = v2_distancesq(attract, c->pos);
-        i32 num   = CAM_ATTRACT_DISTSQ - dist;
-        i32 den   = CAM_ATTRACT_DISTSQ * CAM_ATTRACT_FACTOR;
-        c->target = v2_lerp(c->target, attract, num, den);
-}
-
 static void cam_player_input(game_s *g, cam_s *c)
 {
-        obj_s *player;
-        if (!try_obj_from_handle(g->hero.obj, &player)) return;
+        obj_s *player = obj_get_tagged(g, OBJ_TAG_HERO);
+        if (!player) return;
 
         c->facetick = clamp_i(c->facetick + player->facing, -64, +64);
-        c->target   = obj_aabb_center(player);
-        c->target.y += -46; // offset camera slightly upwards
-        c->target.x += c->facetick >> 1;
 
-        if (textbox_blocking(&g->textbox)) {
-                if (g->textbox.type == TEXTBOX_TYPE_STATIC_BOX)
-                        c->target.y += CAM_TEXTBOX_Y_OFFSET;
-        } else if (os_inp_dpad_y() == 1 && os_inp_dpad_x() == 0 &&
-                   room_area_blocked(g, obj_rec_bottom(player)) &&
-                   ABS(player->vel_q8.x) < 10) {
-                c->target.y += CAM_LOOK_DOWN_OFFSET;
+        int targetx = obj_aabb_center(player).x;
+        targetx += (c->facetick >> 1);
+        c->pos.x = c->pos.x + divr_i32(targetx - c->pos.x, 6);
+
+        /*
+        if (textbox_blocking(&g->textbox) && g->textbox.type == TEXTBOX_TYPE_STATIC_BOX) {
+                c->offsety_tick = lerp_i32(c->offsety_tick, 50, 1, 4);
+                // c->offsety_tick += 4;
+                c->offsety_tick = min_i(c->offsety_tick, 50);
+        } else if (os_inp_pressed(INP_DOWN) && room_area_blocked(g, obj_rec_bottom(player)) && player->vel_q8.x == 0) {
+                // c->offsety_tick += c->offsety_tick < 60 ? 12 : 4;
+                c->offsety_tick = lerp_i32(c->offsety_tick, 100, 1, 4);
+                c->offsety_tick = min_i(c->offsety_tick, 100);
+        } else if (c->offsety_tick > 0) {
+                c->offsety_tick = (c->offsety_tick * 210) >> 8;
         }
+        */
+
+        int player_bot = player->pos.y + player->h;
+        int py_bot     = player_bot - 40;
+        int py_top     = player_bot + 20;
+
+        c->pos.y = clamp_i(c->pos.y, py_bot, py_top);
 }
 
 void cam_update(game_s *g, cam_s *c)
 {
-        cam_player_input(g, c);
-        if (!textbox_blocking(&g->textbox)) {
-                cam_attractors(g, c);
-        }
-
-        i32    lsq  = v2_distancesq(c->pos, c->target);
         v2_i32 ppos = c->pos;
-        if (lsq < CAM_LERP_DISTANCESQ_FAST) {
-                c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN);
-        } else {
-                c->pos = v2_lerp(c->pos, c->target, 1, CAM_LERP_DEN_FAST);
+
+        switch (c->mode) {
+        case CAM_MODE_FOLLOW_HERO:
+                cam_player_input(g, c);
+                break;
+        case CAM_MODE_TARGET:
+                u32 dsq = v2_distancesq(c->target, c->pos);
+                int den = dsq < CAM_LERP_DISTANCESQ_FAST ? 2 : 4;
+
+                c->pos.x = c->pos.x + lerp_i32(c->target.x, c->pos.x, 1, den);
+                c->pos.y = c->pos.y + lerp_i32(c->target.y, c->pos.y, 1, den);
+                break;
         }
 
-        cam_constrain_to_room(g, c);
         if (c->lockedx) c->pos.x = ppos.x;
         if (c->lockedy) c->pos.y = ppos.y;
+        cam_constrain_to_room(g, c);
 }

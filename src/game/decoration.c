@@ -20,7 +20,7 @@ void decoration_setup(game_s *g)
         }
 }
 
-void room_deco_animate(game_s *g)
+void decoration_animate(game_s *g)
 {
         tileanimations_update();
         decoration_clouds(g);
