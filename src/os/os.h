@@ -302,7 +302,9 @@ void          snd_play_ext(snd_s s, float vol, float pitch);
 void          snd_play(snd_s s);
 //
 i32           os_tick();
-bool32        os_low_fps();               // if game is running slow
+bool32        os_low_fps(); // if game is running slow
+int           os_inp_raw();
+int           os_inpp_raw();
 void          os_inp_set_pressedp(int b); // deactivate just pressed for the current frame
 int           os_inp_dpad_direction();
 int           os_inp_dpad_x(); // returns -1 (left), 0 or +1 (right)

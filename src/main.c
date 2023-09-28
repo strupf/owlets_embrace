@@ -12,8 +12,8 @@
 #include "game/obj/objsign.c"
 #include "game/obj/savepoint.c"
 //
+#include "game/backforeground.c"
 #include "game/cam.c"
-#include "game/decoration.c"
 #include "game/draw.c"
 #include "game/draw_ui.c"
 #include "game/fading.c"

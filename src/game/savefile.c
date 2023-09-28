@@ -58,19 +58,14 @@ bool32 game_savefile_save(game_s *g)
         return savefile_write(g->savefile_slotID, &sf);
 }
 
-bool32 game_savefile_preview(int slotID, savefile_s *sf)
-{
-        return savefile_read(slotID, sf);
-}
-
-bool32 game_savefile_copy(int slotID_from, int slotID_to)
+bool32 savefile_copy(int slotID_from, int slotID_to)
 {
         savefile_s sf;
         savefile_read(slotID_from, &sf);
         return savefile_write(slotID_to, &sf);
 }
 
-bool32 game_savefile_delete(int slotID)
+bool32 savefile_delete(int slotID)
 {
         savefile_s sf_empty = {0};
         return savefile_write(slotID, &sf_empty);
@@ -87,7 +82,7 @@ static OS_FILE *savefile_open(int slotID, const char *mode)
         return NULL;
 }
 
-static bool32 savefile_write(int slotID, savefile_s *sf)
+bool32 savefile_write(int slotID, savefile_s *sf)
 {
         if (!(0 <= slotID && slotID < NUM_SAVEFILES)) return 0;
 
@@ -99,7 +94,7 @@ static bool32 savefile_write(int slotID, savefile_s *sf)
         return (res == 1); // successfully written?
 }
 
-static bool32 savefile_read(int slotID, savefile_s *sf)
+bool32 savefile_read(int slotID, savefile_s *sf)
 {
         if (!(0 <= slotID && slotID < NUM_SAVEFILES)) return 0;
 

@@ -9,6 +9,11 @@
 #include "fading.h"
 #include "game_def.h"
 
+typedef struct {
+        rec_i32 r;
+        int     dir; // into which direction to slide
+} transition_area_s;
+
 struct transition_s {
         bool32 inprogress;
         char   map[64]; // next map to load

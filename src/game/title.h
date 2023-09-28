@@ -7,6 +7,7 @@
 
 #include "fading.h"
 #include "game_def.h"
+#include "savefile.h"
 
 enum {
         MAINMENU_STATE_TITLE,
@@ -29,6 +30,31 @@ enum {
         MAINMENU_FADE_IN,
 };
 
+enum {
+        MAINMENU_FILESELECT_0,
+        MAINMENU_FILESELECT_1,
+        MAINMENU_FILESELECT_2,
+        MAINMENU_FILESELECT_DELETE,
+        MAINMENU_FILESELECT_COPY,
+        //
+        NUM_MAINMENU_FILESELECT_OPTIONS
+};
+
+enum {
+        MAINMENU_DELETE_NONE,
+        MAINMENU_DELETE_SELECT,
+        MAINMENU_DELETE_NO,
+        MAINMENU_DELETE_YES,
+};
+
+enum {
+        MAINMENU_COPY_NONE,
+        MAINMENU_COPY_SELECT_FROM,
+        MAINMENU_COPY_SELECT_TO,
+        MAINMENU_COPY_NO,
+        MAINMENU_COPY_YES,
+};
+
 typedef struct {
         bool32   input_blocked;
         int      curr_option;
@@ -41,6 +67,17 @@ typedef struct {
         float feather_time;
         float feather_y;
         int   press_start_ticks;
+
+        int deletestate;
+        int copystate;
+        int file_select_1;
+        int file_select_2;
+        int animticks_copy;
+        int animticks_delete;
+
+        savefile_s file0;
+        savefile_s file1;
+        savefile_s file2;
 } mainmenu_s;
 
 void update_title(game_s *g, mainmenu_s *m);

@@ -23,11 +23,10 @@ typedef struct savefile_s {
 bool32 game_savefile_new(game_s *g, int slotID);
 bool32 game_savefile_load(game_s *g, int slotID);
 bool32 game_savefile_save(game_s *g);
-bool32 game_savefile_copy(int slotID_from, int slotID_to);
-bool32 game_savefile_delete(int slotID);
 
-// tries to load a preview of the savefile if present
-// (quick glance of the progress)
-bool32 game_savefile_preview(int slotID, savefile_s *sf);
+bool32 savefile_copy(int slotID_from, int slotID_to);
+bool32 savefile_delete(int slotID);
+bool32 savefile_write(int slotID, savefile_s *sf);
+bool32 savefile_read(int slotID, savefile_s *sf);
 
 #endif

@@ -30,8 +30,11 @@ void draw_background(game_s *g, v2_i32 camp)
         gfx_tex_clr(ctx.dst);
         ctx.pat = g_gfx_patterns[GFX_PATTERN_31];
         ctx.src = tex_get(TEXID_CLOUDS);
-        for (int n = 0; n < g->nclouds; n++) {
-                cloudbg_s c   = g->clouds[n];
+
+        backforeground_s *b = &g->backforeground;
+
+        for (int n = 0; n < b->n_clouds; n++) {
+                cloudbg_s c   = b->clouds[n];
                 v2_i32    pos = v2_shr(c.p, 8);
                 pos.x         = (pos.x + 1) & ~1;
                 pos.y         = (pos.y + 1) & ~1;
@@ -58,9 +61,12 @@ void draw_foreground(game_s *g, v2_i32 camp)
         gfx_context_s ctx = gfx_context_create(tex_get(0));
         ctx.pat           = g_gfx_patterns[GFX_PATTERN_44];
         ctx.col           = 1;
-        for (int n = 0; n < g->nparticles; n++) {
-                particlebg_s p  = g->particlesbg[n];
-                v2_i32       p1 = v2_add(camp, v2_shr(p.pos[p.n], 8));
+
+        backforeground_s *b = &g->backforeground;
+
+        for (int n = 0; n < b->n_particles; n++) {
+                windparticle_s p  = b->windparticles[n];
+                v2_i32         p1 = v2_add(camp, v2_shr(p.pos[p.n], 8));
 
                 for (int i = 1; i < BG_WIND_PARTICLE_N; i++) {
                         int    k  = (p.n + i) & (BG_WIND_PARTICLE_N - 1);
@@ -125,8 +131,11 @@ void draw_particles(game_s *g, v2_i32 camp)
         gfx_context_s ctx = gfx_context_create(tex_get(0));
         ctx.src           = tex_get(TEXID_PARTICLE);
         rec_i32 rparticle = {0, 0, 4, 4};
-        for (int n = 0; n < g->n_particles; n++) {
-                particle_s *p = &g->particles[n];
+
+        backforeground_s *b = &g->backforeground;
+
+        for (int n = 0; n < b->n_particles; n++) {
+                particle_s *p = &b->particles[n];
                 gfx_sprite(ctx, v2_add(v2_shr(p->p_q8, 8), camp), rparticle, 0);
         }
 }
@@ -142,14 +151,19 @@ static void draw_gameplay(game_s *g)
                              -(g->cam.pos.y - g->cam.hh)};
         rec_i32 camr      = {-camp.x, -camp.y, g->cam.w, g->cam.h};
 
+        backforeground_s *b = &g->backforeground;
         draw_background(g, camp);
 
         merge_layer(tex_get(0), tex_get(TEXID_LAYER_1));
 
+        // parallax
+        /*
         f32 bgx = (-g->cam.pos.x * (g->parallax_x - 1.f)) +
-                  g->parallax_offx + camp.x;
+                  b->parallax_offx + camp.x;
         f32 bgy = (-g->cam.pos.y * (g->parallax_y - 1.f)) +
                   g->parallax_offy + camp.y;
+                  */
+
         ctx.src = tex_get(TEXID_TILESET);
 
         /*

@@ -116,6 +116,16 @@ bool32 os_low_fps()
         return (g_os.fps <= OS_FPS_LOW);
 }
 
+int os_inp_raw()
+{
+        return g_os.buttons;
+}
+
+int os_inpp_raw()
+{
+        return g_os.buttonsp;
+}
+
 /* NW  N  NE         Y -1
  *   \ | /           |
  * W__\|/___E   -1 --+--> X +1

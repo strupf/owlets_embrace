@@ -37,9 +37,9 @@ static void game_reset_for_load(game_s *g)
         os_memclr(g->tiles, sizeof(g->tiles));
         memheap_init(&g->heap, g->heapmem, GAME_HEAPMEM);
 
-        g->nclouds     = 0;
-        g->nparticles  = 0;
-        g->n_particles = 0;
+        g->backforeground.n_clouds        = 0;
+        g->backforeground.n_windparticles = 0;
+        g->backforeground.n_particles     = 0;
 }
 
 void game_load_map(game_s *g, const char *filename)
@@ -121,7 +121,7 @@ void game_load_map(game_s *g, const char *filename)
 
         os_strcpy(g->area_name, "Forgotten temple");
         g->area_name_ticks = AREA_NAME_DISPLAY_TICKS;
-        decoration_setup(g);
+        backforeground_setup(g, &g->backforeground);
 
         // mus_play("assets/snd/background.wav");
 

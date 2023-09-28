@@ -49,8 +49,6 @@ const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS] = {
 
 static void game_tick(game_s *g)
 {
-        game_savefile_delete(0);
-
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
                 obj_s *o = thinkers1.o[i];
@@ -104,7 +102,7 @@ static void game_tick(game_s *g)
                 o->animate_func(g, o);
         }
 
-        room_deco_animate(g);
+        backforeground_animate(g, &g->backforeground);
 }
 
 static void update_gameplay(game_s *g)
@@ -213,8 +211,9 @@ void game_obj_group_collisions(game_s *g)
 
 particle_s *particle_spawn(game_s *g)
 {
-        if (g->n_particles < NUM_PARTICLES) {
-                particle_s *p = &g->particles[g->n_particles++];
+        backforeground_s *b = &g->backforeground;
+        if (b->n_particles < NUM_PARTICLES) {
+                particle_s *p = &b->particles[b->n_particles++];
                 *p            = (const particle_s){0};
                 return p;
         }

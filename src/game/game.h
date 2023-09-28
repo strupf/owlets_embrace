@@ -5,8 +5,8 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "backforeground.h"
 #include "cam.h"
-#include "decoration.h"
 #include "draw.h"
 #include "fading.h"
 #include "game_def.h"
@@ -73,21 +73,6 @@ struct game_s {
         char       area_name[LEN_STR_AREA_NAME]; // the ingame area name to display
         char       area_filename[LEN_STR_AREA_FILENAME];
 
-        cloudbg_s    clouds[BG_NUM_CLOUDS];
-        int          nclouds;
-        particlebg_s particlesbg[BG_NUM_PARTICLES];
-        int          nparticles;
-        int          clouddirection;
-
-        // values for Tiled's layer config
-        f32 parallax_x;
-        f32 parallax_y;
-        f32 parallax_offx;
-        f32 parallax_offy;
-
-        int        n_particles;
-        particle_s particles[NUM_PARTICLES];
-
         char   hero_name[LEN_STR_HERO_NAME];
         rope_s rope;
 
@@ -99,7 +84,8 @@ struct game_s {
         int           n_objfree;                   // number of free objects on the stack
         objbucket_s   objbuckets[NUM_OBJ_BUCKETS]; // sorted buckets of objects
 
-        objset_s objsets[64];
+        transition_area_s transition_areas[16];
+        int               n_transition_areas;
 
         // room dimensions
         int tiles_x; // dimensions in tiles
@@ -115,6 +101,8 @@ struct game_s {
         textbox_s         textbox;
         world_def_s      *curr_world;
         world_area_def_s *curr_world_area;
+
+        backforeground_s backforeground;
 
         memheap_s       heap;
         ALIGNAS(4) char heapmem[GAME_HEAPMEM];

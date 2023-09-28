@@ -2,8 +2,8 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef DECORATION_H
-#define DECORATION_H
+#ifndef BACKFOREGROUND_H
+#define BACKFOREGROUND_H
 
 #include "game_def.h"
 
@@ -33,7 +33,7 @@ typedef struct {
         i32    ticks;
         i32    circticks;
         i32    circcooldown;
-} particlebg_s;
+} windparticle_s;
 
 typedef struct {
         // values for Tiled's layer config
@@ -61,18 +61,15 @@ typedef struct {
         int        n_particles;
         particle_s particles[NUM_PARTICLES];
 
-        cloudbg_s    clouds[BG_NUM_CLOUDS];
-        int          nclouds;
-        particlebg_s particlesbg[BG_NUM_PARTICLES];
-        int          nparticles;
-        int          clouddirection;
+        cloudbg_s      clouds[BG_NUM_CLOUDS];
+        int            n_clouds;
+        windparticle_s windparticles[BG_NUM_PARTICLES];
+        int            n_windparticles;
+        int            clouddirection;
 
 } backforeground_s;
 
 void backforeground_setup(game_s *g, backforeground_s *b);
 void backforeground_animate(game_s *g, backforeground_s *b);
-
-void decoration_setup(game_s *g);
-void decoration_animate(game_s *g);
 
 #endif
