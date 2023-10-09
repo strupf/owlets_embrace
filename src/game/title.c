@@ -46,8 +46,8 @@ static void cb_fade_to_select_file(void *arg)
         savefile_write(0, &f0);
         savefile_write(1, &f1);
         savefile_write(2, &f2);
-#endif
         title_load_savefiles(m);
+#endif
 }
 
 static void cb_fade_to_title(void *arg)
@@ -180,6 +180,13 @@ static void update_select_file_screen(game_s *g, mainmenu_s *m)
 
 void update_title(game_s *g, mainmenu_s *m)
 {
+
+#if 1 // skip title screen
+        game_savefile_new(g, 0);
+        g->state = GAMESTATE_GAMEPLAY;
+        return;
+#endif
+
         // update feather animation
         m->feather_time += 0.05f;
         float s1 = sin_f(m->feather_time);

@@ -16,11 +16,8 @@ void merge_layer(tex_s screen, tex_s layer)
         u32 *lp = (u32 *)layer.px;
         u32 *lm = (u32 *)layer.mk;
 
-        for (int n = 0; n < l; n += 4, sp += 4, lm += 4, lp += 4) {
-                sp[0] = (sp[0] & ~lm[0]) | (lp[0] & lm[0]);
-                sp[1] = (sp[1] & ~lm[1]) | (lp[1] & lm[1]);
-                sp[2] = (sp[2] & ~lm[2]) | (lp[2] & lm[2]);
-                sp[3] = (sp[3] & ~lm[3]) | (lp[3] & lm[3]);
+        for (int n = 0; n < l; n++, sp++, lm++, lp++) {
+                *sp = ((*sp) & ~(*lm)) | ((*lp) & (*lm));
         }
 }
 
@@ -64,7 +61,7 @@ void draw_foreground(game_s *g, v2_i32 camp)
 
         backforeground_s *b = &g->backforeground;
 
-        for (int n = 0; n < b->n_particles; n++) {
+        for (int n = 0; n < b->n_windparticles; n++) {
                 windparticle_s p  = b->windparticles[n];
                 v2_i32         p1 = v2_add(camp, v2_shr(p.pos[p.n], 8));
 
@@ -73,6 +70,20 @@ void draw_foreground(game_s *g, v2_i32 camp)
                         v2_i32 p2 = v2_add(v2_shr(p.pos[k], 8), camp);
                         gfx_line(ctx, p1, p2);
                         p1 = p2;
+                }
+        }
+        ctx.pat = g_gfx_patterns[GFX_PATTERN_100];
+        ctx.src = tex_get(TEXID_HERO);
+        for (int n = 0; n < b->n_grass; n++) {
+                grass_s *gr  = &b->grass[n];
+                v2_i32   pos = v2_add(gr->pos, camp);
+
+                for (int i = 0; i < 16; i++) {
+                        v2_i32 p = pos;
+                        p.y += i;
+                        p.x += (gr->x_q8 * (15 - i)) >> 8;
+                        rec_i32 rg = {288, 448 + i, 16, 1};
+                        gfx_sprite(ctx, p, rg, 0);
                 }
         }
 }
@@ -129,14 +140,17 @@ void draw_rope(rope_s *r, v2_i32 camp)
 void draw_particles(game_s *g, v2_i32 camp)
 {
         gfx_context_s ctx = gfx_context_create(tex_get(0));
-        ctx.src           = tex_get(TEXID_PARTICLE);
-        rec_i32 rparticle = {0, 0, 4, 4};
 
         backforeground_s *b = &g->backforeground;
 
         for (int n = 0; n < b->n_particles; n++) {
                 particle_s *p = &b->particles[n];
-                gfx_sprite(ctx, v2_add(v2_shr(p->p_q8, 8), camp), rparticle, 0);
+                ctx.col       = 1;
+                ctx.pat       = gfx_pattern_get(16 * p->ticks / p->ticks_og);
+                rec_i32 r     = {(p->p_q8.x >> 8) - p->size / 2 + camp.x,
+                                 (p->p_q8.y >> 8) - p->size / 2 + camp.y,
+                                 p->size, p->size};
+                gfx_rec_fill(ctx, r);
         }
 }
 
@@ -230,27 +244,42 @@ static void draw_gameplay(game_s *g)
                         // just got hit flashing
                         if (o->invincibleticks > 0 && (o->invincibleticks & 15) < 8)
                                 break;
+                        ctx.src   = tex_get(TEXID_HERO);
+                        int flags = o->facing == 1 ? 0 : SPRITE_FLIP_X;
 
                         if (hero_using_whip(&hero->o)) {
-                                rec_i32 whipbox = hero_whip_hitbox(&hero->o);
-                                whipbox         = translate_rec(whipbox, camp);
-                                gfx_rec_fill(ctx, whipbox);
+                                int whipframe = lerp_i32(2, 0, hero->whip_ticks, HERO_C_WHIP_TICKS);
+                                gfx_sprite(ctx, (v2_i32){pos.x - 10, pos.y - 16}, (rec_i32){192 + whipframe * 48, 256, 48, 32}, flags);
                         }
 
-                        ctx.src = tex_get(TEXID_HERO);
                         pos.x -= 28;
                         pos.y = pos.y + o->h - 64;
 
-                        int animx = o->animation;
-                        int flags = o->facing == 1 ? 0 : SPRITE_FLIP_X;
-                        gfx_sprite(ctx, pos, (rec_i32){animx * 64, 0, 64, 64}, flags);
+                        int animx = 0;
+                        int animy = 0;
+                        switch (hero->anim) {
+                        case HERO_ANIM_IDLE:
+                                animy = (hero->animstate / 30) % 2;
+                                break;
+                        case HERO_ANIM_WALKING:
+                                if (hero->animstate <= 15) {
+                                        animy = 2;
+                                        animx = min_i(hero->animstate / 5, 1);
+                                } else {
+                                        animx = (hero->animstate / 10) % 4;
+                                }
+
+                                break;
+                        }
+
+                        gfx_sprite(ctx, pos, (rec_i32){animx * 64, animy * 64, 64, 64}, flags);
                         // gfx_rec_fill(ctx, translate_rec(obj_aabb(o), camp));
                 } break;
                 case OBJ_ID_SIGN: {
                         ctx.src = tex_get(TEXID_HERO);
                         pos.x -= 10;
                         pos.y = pos.y + o->h - 32;
-                        gfx_sprite(ctx, pos, (rec_i32){64, 96, 64, 64}, 0);
+                        gfx_sprite(ctx, pos, (rec_i32){416, 0, 64, 64}, 0);
                 } break;
                 case OBJ_ID_BOAT: {
                         /*
@@ -357,7 +386,8 @@ static void draw_gameplay(game_s *g)
         gfx_rec_fill((rec_i32){pmpos.x, pmpos.y, 16, 16}, 1);
 #endif
 
-        if (!os_low_fps() || 1) { // skip foreground drawing if FPS are low
+        if (!os_low_fps()) { // skip foreground drawing if FPS are low
+
                 draw_foreground(g, camp);
         }
 
@@ -367,6 +397,10 @@ static void draw_gameplay(game_s *g)
 void game_draw(game_s *g)
 {
         gfx_tex_clr(tex_get(0));
+#if DRAW_BENCHMARK
+        draw_benchmark();
+        return;
+#endif
 
         switch (g->state) {
         case GAMESTATE_GAMEPLAY: {

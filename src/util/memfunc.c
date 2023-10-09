@@ -114,7 +114,7 @@ void *memheap_allocz(memheap_s *m, size_t s)
         if (!user) return NULL;
 
         size_t size = memalign_to_word(s);
-        os_memclr4(user, size);
+        os_memset(user, 0, size);
         return user;
 }
 
@@ -158,7 +158,7 @@ void *memheap_realloc(memheap_s *m, void *ptr, size_t s)
         void *user = memheap_alloc(m, s);
         if (!user) return NULL;
 
-        os_memcpy4(user, ptr, memalign_to_word(b->s - sizeof(mhblock_s)));
+        os_memcpy(user, ptr, memalign_to_word(b->s - sizeof(mhblock_s)));
         memheap_free(m, ptr);
         memheap_check(m);
         return user;
@@ -229,7 +229,7 @@ void *memarena_allocz(memarena_s *m, size_t s)
         int    dp   = (int)(m->pr - m->p);
         ASSERT(dp >= (int)size);
         void *mem = m->p;
-        os_memclr4(mem, size);
+        os_memset(mem, 0, size);
         m->p += size;
         return mem;
 }
@@ -238,7 +238,7 @@ void *memarena_allocz_rem(memarena_s *m, size_t *s)
         ASSERT(m && m->mem && s);
         void *mem = memarena_alloc_rem(m, s);
         ASSERT(((*s) & 3) == 0);
-        os_memclr4(mem, *s);
+        os_memset(mem, 0, *s);
         return mem;
 }
 

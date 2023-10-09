@@ -334,7 +334,7 @@ void gfx_px(gfx_context_s ctx, int x, int y)
 
 void gfx_set_inverted(bool32 inv)
 {
-#ifdef TARGET_PD
+#ifdef OS_PLAYDATE
         PD->display->setInverted(inv);
 #else
         g_os.inverted = inv;
@@ -411,9 +411,7 @@ static inline void i_spritepx(u32 *dp, u32 *dm, u32 pt, u32 pp, u32 tt, int m)
         }
 }
 
-/* fast sprite drawing routine for untransformed sprites
- * blits 32 pixelbits in one loop
- */
+// blits 32 pixelbits in one loop
 void gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
 {
         int  xx = flags & SPRITE_FLIP_X ? -1 : +1; // XY flipping factors
@@ -512,6 +510,102 @@ void gfx_sprite(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
                         if (t == 0) continue;
                         int j = b + y * ctx.dst.w_word;
                         i_spritepx(&dp[j], dm ? &dm[j] : NULL, pt, p, t, ctx.sprmode);
+                }
+        }
+}
+
+static inline void i_spritepx_to_display(u32 *dp, u32 pt, u32 pp, u32 tt, int m)
+{
+        u32 t = bswap32(tt & pt); // mask off pattern pixels
+        u32 p = bswap32(pp);
+
+        switch (m) {
+        case SPRITE_INV: p = ~p; // fallthrough
+        case SPRITE_CPY: *dp = (*dp & ~t) | (p & t); break;
+        case SPRITE_XOR: p = ~p; // fallthrough
+        case SPRITE_NXR: *dp = (*dp & ~t) | ((*dp ^ p) & t); break;
+        case SPRITE_W_T: t &= p; // fallthrough
+        case SPRITE_B_F: *dp |= t; break;
+        case SPRITE_B_T: t &= ~p; // fallthrough
+        case SPRITE_W_F: *dp &= ~t; break;
+        }
+}
+
+// blits 32 pixelbits in one loop without setting mask pixels
+void gfx_sprite_to_display(gfx_context_s ctx, v2_i32 pos, rec_i32 rs, int flags)
+{
+        int  xx = flags & SPRITE_FLIP_X ? -1 : +1; // XY flipping factors
+        int  yy = flags & SPRITE_FLIP_Y ? -1 : +1;
+        int  xa = rs.x + (flags & SPRITE_FLIP_X ? pos.x + rs.w - 1 : -pos.x);
+        int  ya = rs.y + (flags & SPRITE_FLIP_Y ? pos.y + rs.h - 1 : -pos.y);
+        int  x1 = max_i(pos.x, 0); // pixel bounds on canvas inclusive
+        int  y1 = max_i(pos.y, 0);
+        int  x2 = min_i(pos.x + rs.w, ctx.dst.w) - 1;
+        int  y2 = min_i(pos.y + rs.h, ctx.dst.h) - 1;
+        int  b1 = x1 >> 5;                      // first dst byte in x
+        int  b2 = x2 >> 5;                      // last dst byte in x
+        int  s1 = 31 & (pos.x - rs.x);          // word alignment and shift
+        int  s0 = 31 & (32 - s1);               // word alignment and shift
+        u32  ul = ((0xFFFFFFFFU >> (x1 & 31))); // boundary masks
+        u32  ur = ~(0x7FFFFFFFU >> (x2 & 31));
+        u32 *dp = (u32 *)ctx.dst.px;
+        u32 *sp = (u32 *)ctx.src.px;
+        u32 *sm = (u32 *)ctx.src.mk;
+
+        // calc pixel coord in source image from canvas pixel coord
+        // src_x = (dst_x * xx) + xa   | xx and yy are either +1 or -1
+        // dst_x = (src_x - xa) * xx | xx and yy are either +1 or -1
+
+        u32 t; // rendered pixels mask
+        u32 p; // black and white bits
+        for (int y = y1; y <= y2; y++) {
+                u32 pt = ctx.pat.p[y & 7];               // pattern mask
+                if (pt == 0) continue;                   // mask is empty
+                int ys = (y * yy + ya) * ctx.src.w_word; // source y coord cache
+
+                for (int b = b1; b <= b2; b++) {
+                        int xs0 = xa + xx * ((b << 5));
+                        int xs1 = xa + xx * ((b << 5) + 31);
+
+                        if (flags & SPRITE_FLIP_X) {
+                                // flip x - construct masks manually...
+                                // optimize at some point?
+                                // xs0 and xs1 are logically swapped
+                                xs1 = max_i(xs1, 0);
+                                xs0 = min_i(xs0, ctx.src.w - 1);
+                                t   = sm ? 0 : 0xFFFFFFFFU;
+                                p   = 0;
+
+                                for (int xs = xs1; xs <= xs0; xs++) {
+                                        int i0 = (xs >> 5) + ys;
+                                        u32 ms = 0x80000000U >> (xs & 31);
+                                        if (sm && !(bswap32(sm[i0]) & ms)) continue;
+                                        int xd = (xs - xa) * xx;
+                                        u32 md = 0x80000000U >> (xd & 31);
+                                        t |= md;
+                                        if (!(bswap32(sp[i0]) & ms)) continue;
+                                        p |= md;
+                                }
+                        } else {
+                                // a destination word overlaps two source words
+                                // unless drawing position is word aligned on x
+                                xs0    = clamp_i(xs0, 0, ctx.src.w - 1);
+                                xs1    = clamp_i(xs1, 0, ctx.src.w - 1);
+                                int i0 = (xs0 >> 5) + ys;
+                                int i1 = (xs1 >> 5) + ys;
+
+                                p = (bswap32(sp[i0]) << s0) | (bswap32(sp[i1]) >> s1);
+                                if (sm)
+                                        t = (bswap32(sm[i0]) << s0) | (bswap32(sm[i1]) >> s1);
+                                else
+                                        t = 0xFFFFFFFFU;
+                        }
+
+                        if (b == b1) t &= ul; // mask off out of bounds pixels
+                        if (b == b2) t &= ur;
+                        if (t == 0) continue;
+                        int j = b + y * ctx.dst.w_word;
+                        i_spritepx_to_display(&dp[j], pt, p, t, ctx.sprmode);
                 }
         }
 }

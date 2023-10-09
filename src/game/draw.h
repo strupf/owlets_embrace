@@ -9,6 +9,31 @@
 #include "title.h"
 
 enum {
+        ANIMATION_MODE_ONCE,
+        ANIMATION_MODE_LOOP,
+        ANIMATION_MODE_LOOP_REVERSE,
+        ANIMATION_MODE_LOOP_PINGPONG,
+        ANIMATION_MODE_ONCE_REVERSE,
+};
+
+/* animation frames ALWAYS go from left to right
+ */
+
+typedef struct {
+        int texID;
+        int mode;
+        int ticks;
+        int n_frames;
+        int state;
+        int x;
+        int y;
+        int w;
+        int h;
+} animation_s;
+
+rec_i32 animation_rec(animation_s *a);
+
+enum {
         ITEM_FRAME_SIZE = 64,
         ITEM_BARREL_R   = 16,
         ITEM_BARREL_D   = ITEM_BARREL_R * 2,

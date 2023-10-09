@@ -9,27 +9,44 @@
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* When compiled one of the following symbols is defined:
+ * OS_DESKTOP    - Desktop build raylib
+ * OS_SIMULATOR        - Playdate simulator
+ * OS_HARDWARE_DEBUG   - Playdate hardware debug
+ * OS_HARDWARE_RELEASE - Playdate hardware release
+ * OS_HARDWARE         - Playdate hardware (defined by one of the above)
+ * OS_PLAYDATE   - defined by either sim or hw
+ */
 
 // this is to enable editing Playdate specific stuff
 // and disable Visual Studio's definitions
-#if 0
-#undef TARGET_DESKTOP
+#if !defined(OS_PLAYDATE) && defined(OS_DESKTOP) && 0
+#undef OS_DESKTOP
+#define OS_PLAYDATE
 #define TARGET_PD
 #define TARGET_EXTENSION 1
 #endif
 
-#if defined(TARGET_DESKTOP)
+#if defined(OS_HARDWARE_DEBUG) || defined(OS_HARDWARE_RELEASE)
+#define OS_HARDWARE
+#endif
+
+#ifdef OS_DESKTOP
 // RAYLIB ======================================================================
 #include "include/raylib.h"
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
 #define os_time       (float)GetTime
 #define ASSERT        assert
 #define STATIC_ASSERT static_assert
 #define PRINTF        printf
-#elif defined(TARGET_PD)
+#endif
+
+#ifdef OS_PLAYDATE
 // PLAYDATE ====================================================================
 #include "pd_api.h"
 #define os_time PD_elapsedtime
@@ -47,8 +64,7 @@ extern int (*PD_fclose)(SDFile *file);
 #define ASSERT(E)
 #define STATIC_ASSERT(E, M)
 
-#if defined(TARGET_PD_HW)
-#include <arm_acle.h>  // cortex m7 simd intrinsics?
+#ifdef OS_HARDWARE
 #define PRINTF(C, ...) // disable printf calls
 #else
 #define PRINTF PD_log
@@ -86,17 +102,10 @@ typedef int8_t         bool8;
 typedef int16_t        bool16;
 typedef int32_t        bool32;
 typedef float          f32;
-
-typedef u8  flags8;
-typedef u16 flags16;
-typedef u32 flags32;
-typedef u64 flags64;
-
-// 32-bit SIMD types
-typedef i32 i16x2;
-typedef u32 u16x2;
-typedef i32 i8x4;
-typedef u32 u8x4;
+typedef u8             flags8;
+typedef u16            flags16;
+typedef u32            flags32;
+typedef u64            flags64;
 
 #define I64_MAX INT64_MAX
 #define I64_MIN INT64_MIN
@@ -177,35 +186,10 @@ static bool32 char_matches_any(const char c, const char *chars)
         return 0;
 }
 
-static bool32 streq(const char *str1, const char *str2)
-{
-        ASSERT(str1 && str2);
-        for (int i = 0; str1[i] != '\0' && str2[i] != '\0'; i++) {
-                if (str1[i] != str2[i]) return 0;
-        }
-        return 1;
-}
-
-static int os_strlen(const char *s)
-{
-        ASSERT(s);
-        int l = 0;
-        while (s[l] != '\0') {
-                l++;
-        }
-        return l;
-}
-
-// copies src to dst INCLUDING 0 character
-static char *os_strcpy(char *dst, const char *src)
-{
-        ASSERT(dst && src);
-        for (int i = 0;; i++) {
-                dst[i] = src[i];
-                if (src[i] == '\0') break;
-        }
-        return dst;
-}
+#define streq(A, B) (strcmp(A, B) == 0)
+#define os_strlen   strlen
+#define os_strcpy   strcpy // copies src to dst INCLUDING 0 character
+#define os_strcat   strcat
 
 // copies src to dst EXCLUDING 0 character
 static char *os_strncpy(char *dst, const char *src)
@@ -216,20 +200,6 @@ static char *os_strncpy(char *dst, const char *src)
                 dst[i] = src[i];
         }
         return dst;
-}
-
-static char *os_strcat(char *s1, const char *s2)
-{
-        ASSERT(s1 && s2);
-        int i = 0;
-        while (s1[i] != '\0') {
-                i++;
-        }
-        for (int k = 0;; k++) {
-                s1[i + k] = s2[k];
-                if (s2[k] == '\0') break;
-        }
-        return s1;
 }
 
 static char *os_strcat_i32(char *s1, i32 value)

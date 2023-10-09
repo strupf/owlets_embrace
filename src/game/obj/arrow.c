@@ -28,6 +28,10 @@ obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8)
         arrow->drag_q8.x    = 256;
         arrow->drag_q8.y    = 256;
         arrow->ondelete     = arrow_on_delete;
+
+        hitbox_s *hb = &arrow->hitboxes[arrow->n_hitbox++];
+        hb->r        = (rec_i32){0, 0, arrow->w, arrow->h};
+        hb->flags    = 1;
         // arrow->onsqueeze    = obj_squeeze_delete;
         return arrow;
 }

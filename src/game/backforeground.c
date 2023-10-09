@@ -10,6 +10,7 @@ static void       backforeground_tileanimations(game_s *g, backforeground_s *b);
 static cloudbg_s *backforeground_spawn_cloud(game_s *g, backforeground_s *b);
 static void       backforeground_clouds(game_s *g, backforeground_s *b);
 static void       backforeground_windparticles(game_s *g, backforeground_s *b);
+static void       backforeground_animate_grass(game_s *g, backforeground_s *b);
 
 void backforeground_setup(game_s *g, backforeground_s *b)
 {
@@ -25,6 +26,7 @@ void backforeground_animate(game_s *g, backforeground_s *b)
         backforeground_tileanimations(g, b);
         backforeground_clouds(g, b);
         backforeground_windparticles(g, b);
+        backforeground_animate_grass(g, b);
         for (int n = b->n_particles - 1; n >= 0; n--) {
                 particle_s *p = &b->particles[n];
                 if (--p->ticks == 0) {
@@ -33,6 +35,30 @@ void backforeground_animate(game_s *g, backforeground_s *b)
                 }
                 p->v_q8 = v2_add(p->v_q8, p->a_q8);
                 p->p_q8 = v2_add(p->p_q8, p->v_q8);
+        }
+}
+
+static void backforeground_animate_grass(game_s *g, backforeground_s *b)
+{
+        obj_listc_s actors = objbucket_list(g, OBJ_BUCKET_ACTOR);
+
+        for (int n = 0; n < b->n_grass; n++) {
+                grass_s *gr = &b->grass[n];
+                int      f1 = -((gr->x_q8 * 3) >> 8);
+                int      f2 = rng_fast_i16() >> 14;
+                gr->v_q8 += f1 + f2;
+
+                rec_i32 rgrass = {gr->pos.x, gr->pos.y, 16, 16};
+                for (int i = 0; i < actors.n; i++) {
+                        obj_s *o = actors.o[i];
+                        if (overlap_rec_excl(rgrass, obj_aabb(o))) {
+                                gr->v_q8 += o->vel_q8.x >> 8;
+                        }
+                }
+
+                gr->v_q8 = clamp_i(gr->v_q8, -256, +256);
+                gr->x_q8 += gr->v_q8;
+                gr->v_q8 = (gr->v_q8 * 240) >> 8;
         }
 }
 
@@ -129,5 +155,29 @@ static void backforeground_tileanimations(game_s *g, backforeground_s *b)
                 if (a->ticks == 0) continue;
                 int frame        = (tick / a->ticks) % a->frames;
                 g_tileIDs[a->ID] = a->IDs[frame];
+        }
+}
+
+void backforeground_spawn_particles(backforeground_s *b, bgpartice_desc_s d)
+{
+        for (int n = 0; n < d.n; n++) {
+                if (b->n_particles >= NUM_PARTICLES) break;
+
+                particle_s *p = &b->particles[b->n_particles++];
+                p->p_q8       = d.p_q8;
+                p->p_q8.x += rng_range(-d.p_q8_spread.x, +d.p_q8_spread.x);
+                p->p_q8.y += rng_range(-d.p_q8_spread.y, +d.p_q8_spread.y);
+
+                p->v_q8 = d.v_q8;
+                p->v_q8.x += rng_range(-d.v_q8_spread.x, +d.v_q8_spread.x);
+                p->v_q8.y += rng_range(-d.v_q8_spread.y, +d.v_q8_spread.y);
+
+                p->a_q8 = d.a_q8;
+                p->a_q8.x += rng_range(-d.a_q8_spread.x, +d.a_q8_spread.x);
+                p->a_q8.y += rng_range(-d.a_q8_spread.y, +d.a_q8_spread.y);
+
+                p->ticks    = d.tick + rng_range(-d.tick_spread, +d.tick_spread);
+                p->ticks_og = p->ticks;
+                p->size     = d.size;
         }
 }

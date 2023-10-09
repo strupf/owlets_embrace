@@ -17,26 +17,62 @@
 
 /*
 typedef struct {
-        void **data;
-        i16   *d;
-        i16   *s;
-        int    n;
-        int    c;
+        int *data;
+        i16 *d;
+        i16 *s;
+        int  n;
+        int  c;
 
         u32 *free;
         int  n_free;
 } slotmap_s;
 
+int slotmap_len(slotmap_s *sm)
+{
+        return sm->n;
+}
+
+int *slotmap_dereference(slotmap_s *sm, u32 ID)
+{
+        int i = ID;
+        int j = sm->s[i];
+        if (j == 0) return NULL;
+        return &sm->data[j];
+}
+
+bool32 slotmap_contains(slotmap_s *sm, u32 ID)
+{
+        int i = ID;
+        return (sm->s[i] != 0);
+}
+
 u32 slotmap_new(slotmap_s *sm)
 {
         if (sm->n_free > 0) {
-                u32 i = sm->free[--sm->n_free];
-                return i;
+                u32 ID      = sm->free[--sm->n_free];
+                int i       = ID;
+                int n       = ++sm->n;
+                sm->s[i]    = n;
+                sm->d[n]    = i;
+                sm->data[n] = 0;
+                return ID;
         }
+        return 0;
 }
 
-void slotmap_del(slotmap_s *sm, int i)
+bool32 slotmap_del(slotmap_s *sm, u32 ID)
 {
+        int i = ID;
+        int j = sm->s[i];
+        if (j == 0) return 0;
+        int n       = sm->n--;
+        int k       = sm->d[n];
+        sm->d[n]    = 0;
+        sm->d[j]    = k;
+        sm->s[k]    = j;
+        sm->s[i]    = 0;
+        sm->data[j] = sm->data[n];
+        return 1;
 }
 */
 

@@ -73,8 +73,10 @@ struct game_s {
         char       area_name[LEN_STR_AREA_NAME]; // the ingame area name to display
         char       area_filename[LEN_STR_AREA_FILENAME];
 
-        char   hero_name[LEN_STR_HERO_NAME];
-        rope_s rope;
+        char     hero_name[LEN_STR_HERO_NAME];
+        rope_s   rope;
+        hitbox_s hitboxes[256];
+        int      nhitboxes;
 
         // objects
         objset_s      obj_scheduled_delete;        // objects scheduled for removal
@@ -112,6 +114,8 @@ extern game_s           g_gamestate;
 extern u16              g_tileIDs[GAME_NUM_TILEIDS];
 extern tile_animation_s g_tileanimations[GAME_NUM_TILEANIMATIONS];
 extern const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS];
+
+bool32 hitbox_register(game_s *g, hitbox_s h);
 
 void        game_init(game_s *g);
 void        game_update(game_s *g);

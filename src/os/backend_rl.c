@@ -5,7 +5,7 @@
 #include "os_internal.h"
 
 #define RL_1080P 0 // used for capturing trailer footage
-#define RL_SCALE 1
+#define RL_SCALE 2
 
 int main()
 {
@@ -149,7 +149,7 @@ static void audio_callback(void *buf, uint len)
         if (os_audio_cb(NULL, audiomem_local, NULL, len)) {
                 os_memcpy(buf, audiomem_local, sizeof(i16) * len);
         } else {
-                os_memclr(buf, sizeof(i16) * len);
+                os_memset(buf, 0, sizeof(i16) * len);
         }
 }
 

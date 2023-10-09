@@ -10,7 +10,6 @@ gameplay
 * 1-way platforms
 
 title screen
-* modification of savefiles
 * preview of savefiles
 * finish savepoints
 
@@ -28,7 +27,7 @@ textbox
 * different animation marker depending if dialog end or not
 
 audio
-* music pitch
+* music fading
 
 bugs
 * rope: modification of solids or tiles have to set the "dirty" flag

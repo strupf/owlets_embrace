@@ -8,7 +8,7 @@
 #include "game_def.h"
 
 enum {
-        OBJ_ID_NULL = 100,
+        OBJ_ID_NULL,
         OBJ_ID_HERO,
         OBJ_ID_HOOK,
         OBJ_ID_SIGN,
@@ -47,6 +47,9 @@ enum {
         OBJ_BUCKET_RENDERABLE,
         OBJ_BUCKET_ANIMATE,
         OBJ_BUCKET_ENEMY,
+        OBJ_BUCKET_HITBOX,
+        OBJ_BUCKET_HITBOX_FRIENDLY,
+        OBJ_BUCKET_HITBOX_HOSTILE,
         //
         NUM_OBJ_BUCKETS
 };
@@ -74,7 +77,7 @@ enum {
 #define OBJ_FLAG_KILL_OFFSCREEN    (1ULL << 14)
 #define OBJ_FLAG_HURTS_PLAYER      (1ULL << 15)
 #define OBJ_FLAG_CAM_ATTRACTOR     (1ULL << 16)
-#define OBJ_FLAG______UNUSED2      (1ULL << 17)
+#define OBJ_FLAG_HITBOX            (1ULL << 17)
 #define OBJ_FLAG_RENDERABLE        (1ULL << 18)
 #define OBJ_FLAG_ANIMATE           (1ULL << 19)
 #define OBJ_FLAG_HURTS_ENEMIES     (1ULL << 20)
@@ -196,12 +199,16 @@ struct obj_s {
         void (*ontrigger)(game_s *g, obj_s *o, int triggerID);
         void (*ondelete)(game_s *g, obj_s *o);
         void (*renderfunc)(game_s *g, obj_s *o, v2_i32 camp);
+        void (*react_hitbox)(game_s *g, obj_s *o, hitbox_s hb);
         int animation;
         int interactable_type;
 
         bool32      attached;
         ropenode_s *ropenode;
         rope_s     *rope;
+
+        hitbox_s hitboxes[4];
+        int      n_hitbox;
 
         char filename[64];
 };
@@ -217,12 +224,6 @@ typedef struct {
         obj_s *b;
 } obj_pair_s;
 
-typedef struct {
-        rec_i32 r;
-        int     flags;
-        int     damage;
-} hitbox_s;
-
 obj_s      *obj_get_tagged(game_s *g, int tag);
 bool32      obj_tag(game_s *g, obj_s *o, int tag);
 bool32      obj_untag(game_s *g, obj_s *o, int tag);
@@ -236,7 +237,7 @@ bool32      try_obj_from_handle(objhandle_s h, obj_s **o);
 //
 obj_s      *obj_create(game_s *g);
 void        obj_delete(game_s *g, obj_s *o); // schedule for deletion; still lives until cull
-bool32      obj_contained_in_array(obj_s *o, obj_s **arr, int num);
+bool32      obj_contained_in_array(const obj_s *o, const obj_s **arr, int num);
 v2_i32      obj_aabb_center(obj_s *o);
 rec_i32     obj_aabb(obj_s *o);
 rec_i32     obj_rec_left(obj_s *o);  // these return a rectangle strip
@@ -307,6 +308,7 @@ void   obj_apply_movement(obj_s *o);
 obj_s *arrow_create(game_s *g, v2_i32 p, v2_i32 v_q8);
 obj_s *blob_create(game_s *g);
 obj_s *door_create(game_s *g);
+obj_s *door_create_new_map(game_s *g);
 obj_s *npc_create(game_s *g);
 obj_s *bomb_create(game_s *g, v2_i32 p, v2_i32 v_q8);
 obj_s *crumbleblock_create(game_s *g);

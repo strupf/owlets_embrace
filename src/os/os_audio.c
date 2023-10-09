@@ -131,35 +131,22 @@ static void music_update_chunk(music_channel_s *ch, int samples_needed)
 static void music_channel_fillbuf(music_channel_s *ch, i16 *left, int len)
 {
         i16 *chunk = &ch->chunk[ch->chunkpos];
+        i16 *buf   = left;
         ch->chunkpos += len;
 
         if (ch->vol_q8 == 256) { // no modification necessary, just memcpy
-                os_memcpy(left, chunk, sizeof(i16) * len);
-                return;
-        }
-
-        i16 *buf  = left;
-        int  n    = 0;
-        int  len4 = len - 4;
-        while (n < len4) {
-                buf[0] = (chunk[0] * ch->vol_q8) >> 8;
-                buf[1] = (chunk[1] * ch->vol_q8) >> 8;
-                buf[2] = (chunk[2] * ch->vol_q8) >> 8;
-                buf[3] = (chunk[3] * ch->vol_q8) >> 8;
-                buf += 4;
-                chunk += 4;
-                n += 4;
-        }
-        while (n < len) {
-                *buf++ = (*chunk++ * ch->vol_q8) >> 8;
-                n++;
+                os_memcpy(buf, chunk, sizeof(i16) * len);
+        } else {
+                for (int n = 0; n < len; n++) {
+                        *buf++ = (*chunk++ * ch->vol_q8) >> 8;
+                }
         }
 }
 
 static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
 {
         if (!ch->stream) {
-                os_memclr(left, sizeof(i16) * len);
+                os_memset(left, 0, sizeof(i16) * len);
                 return;
         }
 
@@ -178,7 +165,7 @@ static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
                 music_channel_fillbuf(ch, &left[l], samples_left);
                 ch->streampos = samples_left;
         } else {
-                os_memclr(&left[l], samples_left * sizeof(i16));
+                os_memset(&left[l], 0, samples_left * sizeof(i16));
                 mus_close();
         }
 }
@@ -231,18 +218,21 @@ void mus_fade_out(int ticks)
 
 void mus_play(const char *filename)
 {
+        music_channel_s *ch = &g_os.musicchannel;
+        if (ch->stream && streq(ch->filename, filename)) return;
+
         wavheader_s wheader;
         OS_FILE    *f = i_open_wav_file(filename, &wheader);
 
         u32 num_samples_i16 = wheader.subchunk2size / sizeof(i16);
 
-        music_channel_s *ch = &g_os.musicchannel;
-        ch->datapos         = os_ftell(f);
-        ch->stream          = f;
-        ch->streamlen       = num_samples_i16;
-        ch->streampos       = 0;
-        ch->vol_q8          = 256;
-        ch->looping         = 1;
+        ch->datapos   = os_ftell(f);
+        ch->stream    = f;
+        ch->streamlen = num_samples_i16;
+        ch->streampos = 0;
+        ch->vol_q8    = 256;
+        ch->looping   = 1;
+        os_strcpy(ch->filename, filename);
         music_update_chunk(ch, 0);
 }
 

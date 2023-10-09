@@ -22,6 +22,12 @@ typedef struct ropenode_s   ropenode_s;
 typedef struct rope_s       rope_s;
 typedef struct transition_s transition_s;
 typedef struct cam_s        cam_s;
+typedef struct hitbox_s     hitbox_s;
+
+struct hitbox_s {
+        rec_i32 r;
+        flags32 flags;
+};
 
 #define MAGIC_NUM_OBJ_1 0xDEADBEEFU
 #define MAGIC_NUM_OBJ_2 0xC0FFEEEEU

@@ -7,7 +7,7 @@
 
 #include "os_types.h"
 
-#if defined(TARGET_DESKTOP)
+#ifdef OS_DESKTOP
 // RAYLIB ======================================================================
 typedef FILE OS_FILE;
 #define os_fread_n  fread
@@ -18,9 +18,8 @@ typedef FILE OS_FILE;
 #define os_fseek    fseek
 #define os_ftell    ftell
 #define os_fclose   fclose
-
-//
-#elif defined(TARGET_PD)
+#endif
+#ifdef OS_PLAYDATE
 // PLAYDATE ====================================================================
 typedef SDFile OS_FILE;
 enum {

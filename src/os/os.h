@@ -5,7 +5,7 @@
 #ifndef OS_H
 #define OS_H
 
-#define OS_SHOW_FPS    0
+#define OS_SHOW_FPS    1
 #define OS_SHOW_TIMING 0
 
 enum {
@@ -43,14 +43,15 @@ enum fnt_effect {
 };
 
 enum inp_button {
-#if defined(TARGET_PD)
+#ifdef OS_PLAYDATE
         INP_LEFT  = kButtonLeft,
         INP_RIGHT = kButtonRight,
         INP_UP    = kButtonUp,
         INP_DOWN  = kButtonDown,
         INP_A     = kButtonA,
         INP_B     = kButtonB,
-#elif defined(TARGET_DESKTOP)
+#endif
+#ifdef OS_DESKTOP
         INP_LEFT  = 0x01,
         INP_RIGHT = 0x02,
         INP_UP    = 0x04,
@@ -343,80 +344,8 @@ void         *os_spmem_allocz(size_t size);      // allocate and zero memory
 void         *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 
 // MEMORY REPLACEMENTS =========================================================
-static inline void os_memset4(void *dst, int val, size_t l)
-{
-        ASSERT(((uintptr_t)dst & 3) == 0);
-        ASSERT((l & 3) == 0);
-        ASSERT(sizeof(int) == 4);
-
-        char c[4] = {val, val, val, val};
-        int  v    = *(int *)c;
-        int *d    = (int *)dst;
-        int  len  = (int)l;
-        for (int n = 0; n < len; n += 4) *d++ = v;
-}
-
-static inline void os_memclr4(void *dst, size_t l)
-{
-        ASSERT(((uintptr_t)dst & 3) == 0);
-        ASSERT((l & 3) == 0);
-        ASSERT(sizeof(int) == 4);
-
-        int *d   = (int *)dst;
-        int  len = (int)l;
-        for (int n = 0; n < len; n += 4) *d++ = 0;
-}
-
-static inline void *os_memcpy4(void *dst, const void *src, size_t l)
-{
-        if (dst == src) return dst;
-        ASSERT(((uintptr_t)dst & 3) == 0);
-        ASSERT(((uintptr_t)src & 3) == 0);
-        ASSERT((l & 3) == 0);
-        ASSERT(sizeof(int) == 4);
-
-        int       *d   = (int *)dst;
-        const int *s   = (const int *)src;
-        int        len = (int)l;
-        for (int n = 0; n < len; n += 4) *d++ = *s++;
-        return dst;
-}
-
-static inline void os_memset(void *dst, int val, size_t l)
-{
-        int   len = (int)l;
-        char *d   = (char *)dst;
-        for (int n = 0; n < len; n++) *d++ = val;
-}
-
-static inline void *os_memcpy(void *dst, const void *src, size_t l)
-{
-        if (dst == src) return dst;
-        char       *d   = (char *)dst;
-        const char *s   = (const char *)src;
-        int         len = (int)l;
-        for (int n = 0; n < len; n++) *d++ = *s++;
-        return dst;
-}
-
-static inline void *os_memmov(void *dst, const void *src, size_t l)
-{
-        if (dst == src) return dst;
-        char       *d   = (char *)dst;
-        const char *s   = (const char *)src;
-        int         len = (int)l;
-        if (d < s)
-                for (int n = 0; n < len; n++) *d++ = *s++;
-        else
-                for (int n = len - 1; n >= 0; n--) *d-- = *s--;
-        return dst;
-}
-
-static inline void os_memclr(void *dst, size_t l)
-{
-        int   len = (int)l;
-        char *d   = (char *)dst;
-        for (int n = 0; n < len; n++) *d++ = 0;
-}
+#define os_memset memset
+#define os_memcpy memcpy
+#define os_memmov memmove
 
 #endif

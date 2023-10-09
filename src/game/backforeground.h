@@ -46,13 +46,17 @@ typedef struct {
 typedef struct {
         v2_i32 pos;
         int    type;
+        int    x_q8;
+        int    v_q8;
 } grass_s;
 
 typedef struct {
         v2_i32 p_q8;
         v2_i32 v_q8;
         v2_i32 a_q8;
-        i32    ticks;
+        int    ticks;
+        int    ticks_og;
+        int    size;
 } particle_s;
 
 typedef struct {
@@ -67,9 +71,28 @@ typedef struct {
         int            n_windparticles;
         int            clouddirection;
 
+        grass_s grass[256];
+        int     n_grass;
+
 } backforeground_s;
 
 void backforeground_setup(game_s *g, backforeground_s *b);
 void backforeground_animate(game_s *g, backforeground_s *b);
+
+typedef struct {
+        v2_i32 p_q8;
+        v2_i32 p_q8_spread;
+        v2_i32 v_q8;
+        v2_i32 v_q8_spread;
+        v2_i32 a_q8;
+        v2_i32 a_q8_spread;
+        int    tick;
+        int    tick_spread;
+        int    size;
+        int    n;
+
+} bgpartice_desc_s;
+
+void backforeground_spawn_particles(backforeground_s *b, bgpartice_desc_s d);
 
 #endif

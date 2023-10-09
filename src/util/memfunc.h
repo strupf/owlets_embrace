@@ -7,6 +7,9 @@
 
 #include "os/os_types.h"
 
+#define MEGABYTE(X) ((X) << 20)
+#define KILOBYTE(X) ((X) << 10)
+
 typedef struct mhblock_s mhblock_s;
 struct mhblock_s {
         size_t     s;

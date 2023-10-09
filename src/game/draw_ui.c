@@ -24,18 +24,17 @@ void draw_UI(game_s *g, v2_i32 camp)
                         v2_i32 pp   = obj_aabb_center(interactable);
 
                         switch (type) {
+                        case INTERACTABLE_TYPE_READ:
+                        case INTERACTABLE_TYPE_SPEAK:
                         case INTERACTABLE_TYPE_DEFAULT: {
                                 pp = v2_add(pp, camp);
                                 pp.y -= 48;
                                 pp.x -= 8;
-                                ctx.src = tex_get(TEXID_INPUT_EL);
-                                int yy  = (os_tick() % 60) < 30 ? 32 : 0;
-                                gfx_sprite(ctx, pp, (rec_i32){32 * 2, yy, 32, 32}, 0);
+                                ctx.src = tex_get(TEXID_UI);
+
+                                int yy = (os_tick() / 30) % 2;
+                                gfx_sprite(ctx, pp, (rec_i32){32 * 2, yy * 32, 32, 32}, 0);
                         } break;
-                        case INTERACTABLE_TYPE_READ:
-                                break;
-                        case INTERACTABLE_TYPE_SPEAK:
-                                break;
                         }
                 }
         }

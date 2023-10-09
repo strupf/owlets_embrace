@@ -80,13 +80,13 @@ void cam_update(game_s *g, cam_s *c)
         case CAM_MODE_FOLLOW_HERO:
                 cam_player_input(g, c);
                 break;
-        case CAM_MODE_TARGET:
+        case CAM_MODE_TARGET: {
                 u32 dsq = v2_distancesq(c->target, c->pos);
                 int den = dsq < CAM_LERP_DISTANCESQ_FAST ? 2 : 4;
 
                 c->pos.x = c->pos.x + lerp_i32(c->target.x, c->pos.x, 1, den);
                 c->pos.y = c->pos.y + lerp_i32(c->target.y, c->pos.y, 1, den);
-                break;
+        } break;
         }
 
         if (c->lockedx) c->pos.x = ppos.x;

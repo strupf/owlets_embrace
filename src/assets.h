@@ -16,7 +16,7 @@ enum tex_id {
         TEXID_PARTICLE,
         TEXID_SOLID,
         TEXID_HERO,
-        TEXID_INPUT_EL,
+        TEXID_UI,
         TEXID_HOOK,
         TEXID_LAYER_1,
         TEXID_TITLESCREEN,

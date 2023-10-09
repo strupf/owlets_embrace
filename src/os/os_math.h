@@ -272,7 +272,9 @@ static inline u32 rng_u32()
 // works for signed integer inputs, too
 static inline u32 _rng_range_u32(u32 x, u32 lo, u32 hi)
 {
-        u32 r = lo + x / (U32_MAX / (hi - lo + 1) + 1);
+        u32 den = (hi - lo + 1U);
+        if (den == 1U) return lo;
+        u32 r = lo + x / (U32_MAX / den + 1);
         return r;
 }
 

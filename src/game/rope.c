@@ -27,8 +27,6 @@ void rope_init(rope_s *r)
         rt->next       = NULL;
         r->head        = rh;
         r->tail        = rt;
-        r->damping_q8  = 220;
-        r->spring_q8   = 248;
 }
 
 void rope_set_len_max(rope_s *r, i32 len_max)
@@ -561,6 +559,11 @@ static u32 rope_length_q4(game_s *g, rope_s *r)
         return len;
 }
 
+u32 rope_len_q16(game_s *g, rope_s *r)
+{
+        return (u32)rope_length_q4(g, r) << 12;
+}
+
 bool32 rope_stretched(game_s *g, rope_s *r)
 {
         u32 len_q4     = rope_length_q4(g, r);
@@ -638,12 +641,17 @@ v2_i32 rope_adjust_connected_vel(game_s *g, rope_s *r, ropenode_s *rn,
 
         // damping force
         v2_i32 vzero = {0};
+        v2_i32 fdamp = {0};
         v2_i32 vrad  = project_pnt_line(vel, vzero, dt_q4);
-        v2_i32 fdamp = v2_q_mulr(vrad, r->damping_q8, 8);
+        if (v2_dot(ropedt, vel) > 0)
+                fdamp = v2_q_mulr(vrad, 200, 8);
+        else {
+                fdamp = v2_q_mulr(vrad, 240, 8);
+        }
 
         // spring force
         u32    dt_len         = len_q4 - len_max_q4;
-        i32    fspring_scalar = q_mulr(dt_len, r->spring_q8, 8);
+        i32    fspring_scalar = q_mulr(dt_len, 220, 8);
         v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
 
         v2_i32 frope   = v2_add(fdamp, fspring);

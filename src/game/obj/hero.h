@@ -10,7 +10,13 @@ typedef struct hero_s hero_s;
 #include "game/obj.h"
 #include "game/rope.h"
 
-enum hero_item {
+enum {
+        HERO_ANIM_IDLE,
+        HERO_ANIM_WALKING,
+        HERO_ANIM_LAND,
+};
+
+enum {
         HERO_ITEM_BOW,
         HERO_ITEM_HOOK,
         HERO_ITEM_SWORD,
@@ -24,7 +30,7 @@ enum {
         HERO_HEIGHT         = 24,
         HERO_ROPE_MIN       = 50 << 16,
         HERO_ROPE_MAX       = 300 << 16,
-        HERO_ROPE_REEL_RATE = 64,
+        HERO_ROPE_REEL_RATE = 150000,
         HERO_C_JUMP_INIT    = 700,
         HERO_C_ACCX_MAX     = 135,
         HERO_C_JUMP_MAX     = 80,
@@ -32,18 +38,21 @@ enum {
         HERO_C_JUMPTICKS    = 12,
         HERO_C_EDGETICKS    = 6,
         HERO_C_GRAVITY      = 55,
-        HERO_C_WHIP_TICKS   = 40,
+        HERO_C_WHIP_TICKS   = 10,
 };
 
-enum hero_state_machine {
-        HERO_STATE_LADDER,
-        HERO_STATE_GROUND,
-        HERO_STATE_AIR,
+enum {
+        HERO_STATE_GROUND   = 0x001,
+        HERO_STATE_LADDER   = 0x002,
+        HERO_STATE_ITEM     = 0x004,
+        HERO_STATE_CARRYING = 0x008,
 };
 
 struct hero_s {
         obj_s       o;
         int         state;
+        int         anim;
+        int         animstate;
         //
         bool32      hashook;
         i32         jumpticks;
@@ -56,6 +65,8 @@ struct hero_s {
         objhandle_s hook;
         int         whip_ticks;
         i32         rope_len_q16;
+        bool32      gliding;
+        bool32      locked_facing;
 };
 
 obj_s  *hero_create(game_s *g);

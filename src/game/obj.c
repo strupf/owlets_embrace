@@ -103,9 +103,9 @@ void obj_delete(game_s *g, obj_s *o)
         objset_add(&g->obj_scheduled_delete, o);
 }
 
-bool32 obj_contained_in_array(obj_s *o, obj_s **arr, int num)
+bool32 obj_contained_in_array(const obj_s *o, const obj_s **arr, int num)
 {
-        return ptr_find(o, arr, num) >= 0;
+        return ptr_find(o, (const void **)arr, num) >= 0;
 }
 
 v2_i32 obj_aabb_center(obj_s *o)

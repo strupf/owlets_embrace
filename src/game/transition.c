@@ -25,7 +25,7 @@ static void cb_transition_load(void *arg)
         cam_constrain_to_room(g, &g->cam);
 }
 
-static void transition_start(game_s *g, char *filename, v2_i32 location, int dir_slide)
+void transition_start(game_s *g, char *filename, v2_i32 location, int dir_slide)
 {
         transition_s *t = &g->transition;
         t->inprogress   = 1;

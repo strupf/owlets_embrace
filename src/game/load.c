@@ -34,12 +34,13 @@ static void game_reset_for_load(game_s *g)
         for (int n = 0; n < NUM_OBJ_BUCKETS; n++) {
                 objset_clr(&g->objbuckets[n].set);
         }
-        os_memclr(g->tiles, sizeof(g->tiles));
+        os_memset(g->tiles, 0, sizeof(g->tiles));
         memheap_init(&g->heap, g->heapmem, GAME_HEAPMEM);
 
         g->backforeground.n_clouds        = 0;
         g->backforeground.n_windparticles = 0;
         g->backforeground.n_particles     = 0;
+        g->backforeground.n_grass         = 0;
 }
 
 void game_load_map(game_s *g, const char *filename)
@@ -55,7 +56,7 @@ void game_load_map(game_s *g, const char *filename)
         int w = jsn_intk(jroot, "width");
         int h = jsn_intk(jroot, "height");
         ASSERT(w * h <= NUM_TILES);
-        os_memset4(g->rtiles, 0xFF, sizeof(u32) * w * h);
+        os_memset(g->rtiles, 0xFF, sizeof(u32) * w * h);
 
         bool32 has_tilesets = jsn_key(jroot, "tilesets", &jtileset);
         ASSERT(has_tilesets);
@@ -123,7 +124,7 @@ void game_load_map(game_s *g, const char *filename)
         g->area_name_ticks = AREA_NAME_DISPLAY_TICKS;
         backforeground_setup(g, &g->backforeground);
 
-        // mus_play("assets/snd/background.wav");
+        mus_play("assets/snd/ambiente.wav");
 
         g->curr_world      = world_area_parent(filename);
         g->curr_world_area = world_area_by_filename(filename);
@@ -168,6 +169,14 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o        = savepoint_create(g);
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "door_new_map")) {
+                o        = door_create_new_map(g);
+                o->pos.x = jsn_intk(jobj, "x");
+                o->pos.y = jsn_intk(jobj, "y");
+        } else if (streq(buf, "grass")) {
+                grass_s *gr = &g->backforeground.grass[g->backforeground.n_grass++];
+                gr->pos.x   = jsn_intk(jobj, "x");
+                gr->pos.y   = jsn_intk(jobj, "y");
         }
 
         if (!o) return;

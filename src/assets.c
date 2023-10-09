@@ -20,7 +20,7 @@ void assets_load()
         tex_put_load(TEXID_PARTICLE, "assets/particle.json");
         tex_put_load(TEXID_SOLID, "assets/misctex.json");
         tex_put_load(TEXID_HERO, "assets/player.json");
-        tex_put_load(TEXID_INPUT_EL, "assets/buttons.json");
+        tex_put_load(TEXID_UI, "assets/ui.json");
         tex_put_load(TEXID_HOOK, "assets/hook.json");
         tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
         tex_put_load(TEXID_TITLESCREEN, "assets/titlescreen.json");

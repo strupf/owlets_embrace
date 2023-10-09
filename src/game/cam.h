@@ -15,6 +15,7 @@ enum {
 struct cam_s {
         int    mode;
         v2_i32 pos; // center pos
+        v2_i32 pos_add;
         int    w;
         int    h;
         int    wh;

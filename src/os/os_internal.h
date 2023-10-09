@@ -9,12 +9,12 @@
 
 enum {
         OS_SPMEM_STACK_HEIGHT = 4,
-        OS_SPMEM_SIZE         = 0x100000, // 1 MB
-        OS_ASSETMEM_SIZE      = 0x200000, // 2 MB
+        OS_SPMEM_SIZE         = MEGABYTE(1),
+        OS_ASSETMEM_SIZE      = MEGABYTE(2),
         //
         OS_FRAMEBUFFER_SIZE   = 52 * 240,
         OS_NUM_AUDIO_CHANNELS = 4,
-        OS_MUSICCHUNK         = 0x40000, // 256 KB
+        OS_MUSICCHUNK         = KILOBYTE(16),
         OS_MUSICCHUNK_SAMPLES = OS_MUSICCHUNK / sizeof(i16),
 };
 
@@ -50,27 +50,29 @@ typedef struct {
 } audio_channel_s;
 
 typedef struct {
+        char     filename[64];
+        //
+        OS_FILE *stream;
+        u32      datapos;
+        u32      streampos; // position in samples
+        u32      streamlen;
+        int      chunkpos; // position in samples in chunk
+        i32      vol_q8;
+        bool32   looping;
+        //
         int      vol_q8_fade_out;
         int      fade_out_ticks_og;
         int      fade_out_ticks;
         int      fade_in_ticks;
         int      fade_in_ticks_og;
-        OS_FILE *stream;
-        u32      datapos;
-        u32      streampos; // position in samples
-        u32      streamlen;
-        i32      vol_q8;
-        float    invpitch; // 1 / pitch
-        bool32   looping;
-
-        i16 chunk[OS_MUSICCHUNK_SAMPLES];
-        int chunkpos; // position in samples in chunk
+        //
+        i16      chunk[OS_MUSICCHUNK_SAMPLES];
 } music_channel_s;
 
 typedef struct {
         i32 tick;
 
-#if defined(TARGET_DESKTOP)
+#ifdef OS_DESKTOP
         u8          framebuffer[OS_FRAMEBUFFER_SIZE];
         Color       texpx[416 * 240];
         Texture2D   tex;
@@ -79,7 +81,8 @@ typedef struct {
         flags32     buttons;
         flags32     buttonsp;
         AudioStream audiostream;
-#elif defined(TARGET_PD)
+#endif
+#ifdef OS_PLAYDATE
         u8       *framebuffer;
         PDButtons buttons;
         PDButtons buttonsp;

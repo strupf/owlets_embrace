@@ -4,7 +4,8 @@
 
 #include "game.h"
 
-#ifdef TARGET_PD
+#ifdef OS_PLAYDATE
+
 static LCDBitmap *menubm;
 
 void menufunction(void *arg)
@@ -15,7 +16,7 @@ void menufunction(void *arg)
 
 void game_init(game_s *g)
 {
-#ifdef TARGET_PD
+#ifdef OS_PLAYDATE
         menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
         PD->system->addMenuItem("Option", menufunction, NULL);
         PD->system->setMenuImage(menubm, 0);
@@ -136,6 +137,12 @@ void game_init(game_s *g)
                 objbucket_s *b = &g->objbuckets[OBJ_BUCKET_HURTS_ENEMIES];
                 b->op_func[0]  = OBJFLAGS_OP_AND;
                 b->op_flag[0]  = OBJ_FLAG_HURTS_ENEMIES;
+                b->cmp_func    = OBJFLAGS_CMP_NZERO;
+        }
+        {
+                objbucket_s *b = &g->objbuckets[OBJ_BUCKET_HITBOX];
+                b->op_func[0]  = OBJFLAGS_OP_AND;
+                b->op_flag[0]  = OBJ_FLAG_HITBOX;
                 b->cmp_func    = OBJFLAGS_CMP_NZERO;
         }
 }

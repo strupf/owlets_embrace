@@ -49,6 +49,8 @@ const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS] = {
 
 static void game_tick(game_s *g)
 {
+        obj_listc_s objall = objbucket_list(g, OBJ_BUCKET_ALIVE);
+
         obj_listc_s thinkers1 = objbucket_list(g, OBJ_BUCKET_THINK_1);
         for (int i = 0; i < thinkers1.n; i++) {
                 obj_s *o = thinkers1.o[i];
@@ -82,6 +84,29 @@ static void game_tick(game_s *g)
                 obj_s *o = okilloff.o[n];
                 if (!overlap_rec_excl(roffscreen, obj_aabb(o))) {
                         obj_delete(g, o);
+                }
+        }
+
+        g->nhitboxes = 0;
+        for (int n = 0; n < objall.n; n++) {
+                obj_s *o = objall.o[n];
+                for (int i = 0; i < o->n_hitbox; i++) {
+                        hitbox_s hb = o->hitboxes[i];
+                        hb.r.x += o->pos.x;
+                        hb.r.y += o->pos.y;
+                        g->hitboxes[g->nhitboxes++] = hb;
+                }
+        }
+
+        obj_listc_s hitboxer = objbucket_list(g, OBJ_BUCKET_HITBOX);
+        for (int n = 0; n < hitboxer.n; n++) {
+                obj_s  *o    = objall.o[n];
+                rec_i32 aabb = obj_aabb(o);
+                for (int i = 0; i < g->nhitboxes; i++) {
+                        hitbox_s h = g->hitboxes[i];
+                        if (overlap_rec_excl(aabb, h.r) && o->react_hitbox) {
+                                o->react_hitbox(g, o, h);
+                        }
                 }
         }
 

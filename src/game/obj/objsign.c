@@ -19,5 +19,5 @@ obj_s *sign_create(game_s *g)
 
 static void sign_interact_read(game_s *g, obj_s *o)
 {
-        textbox_load_dialog_mode(&g->textbox, o->filename, TEXTBOX_MODE_STATIC_SIGN);
+        textbox_load_dialog_mode(&g->textbox, o->filename, TEXTBOX_MODE_SPEAK);
 }

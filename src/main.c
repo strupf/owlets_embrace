@@ -36,9 +36,10 @@
 #include "os/os_audio.c"
 #include "os/os_fileio.c"
 #include "os/os_graphics.c"
-#ifdef TARGET_PD
+#ifdef OS_PLAYDATE
 #include "os/backend_pd.c"
-#else
+#endif
+#ifdef OS_DESKTOP
 #include "os/backend_rl.c"
 #endif
 //

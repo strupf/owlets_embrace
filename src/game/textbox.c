@@ -81,7 +81,7 @@ static void dialog_parse(const char *txt, dialog_tok_s *toks)
 
                                 // newlines Raylib \n, Playdate sim \r\n
                                 if (cc == '\0' ||
-#ifdef TARGET_DESKTOP
+#ifdef OS_DESKTOP
                                     ((cc == '\n') &&
                                      (txt[i + 1] == '\0' || txt[i + 1] == '\n')
 #else
@@ -113,7 +113,7 @@ static void textbox_clr(textbox_s *tb)
                 textboxline_s *l = &tb->lines[n];
                 l->n             = 0;
                 l->n_shown       = 0;
-                os_memclr(l->trigger, sizeof(l->trigger));
+                os_memset(l->trigger, 0, sizeof(l->trigger));
                 for (int n = 0; n < TEXTBOX_CHARS_PER_LINE; n++) {
                         l->speed[n] = TEXTBOX_TICKS_PER_CHAR_Q4;
                 }
@@ -210,7 +210,7 @@ static bool32 textbox_next_page(textbox_s *tb)
                                 if (ci == '\n' || ci == '\r') {
                                         if (!textbox_new_line(tb, &line))
                                                 return 0;
-#ifdef TARGET_PD
+#ifdef OS_PLAYDATE
                                         i++; // skip two characters \r\n
 #endif
                                         continue;
