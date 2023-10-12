@@ -158,60 +158,60 @@ static inline u32 add_u32(u32 a, u32 b)
 #define shl_u32(A, S) ((u32)(A) << (S))
 #endif
 
-static inline i32 abs_i(i32 x)
+static FORCE_INLINE i32 abs_i(i32 x)
 {
         return (x > 0 ? x : -x);
 }
 
-static inline i32 sgn_i(i32 x)
+static FORCE_INLINE i32 sgn_i(i32 x)
 {
         if (x > 0) return +1;
         if (x < 0) return -1;
         return 0;
 }
 
-static inline i32 max_i(i32 a, i32 b)
+static FORCE_INLINE i32 max_i(i32 a, i32 b)
 {
         return (a > b ? a : b);
 }
 
-static inline i32 min_i(i32 a, i32 b)
+static FORCE_INLINE i32 min_i(i32 a, i32 b)
 {
         return (a < b ? a : b);
 }
 
-static inline i32 clamp_i(i32 x, i32 lo, i32 hi)
+static FORCE_INLINE i32 clamp_i(i32 x, i32 lo, i32 hi)
 {
         if (x < lo) return lo;
         if (x > hi) return hi;
         return x;
 }
 
-static inline i64 clamp_l(i64 x, i64 lo, i64 hi)
+static FORCE_INLINE i64 clamp_l(i64 x, i64 lo, i64 hi)
 {
         if (x < lo) return lo;
         if (x > hi) return hi;
         return x;
 }
 
-static inline float abs_f(float x)
+static FORCE_INLINE float abs_f(float x)
 {
         return (x > 0.f ? x : -x);
 }
 
-static inline float sgn_f(float x)
+static FORCE_INLINE float sgn_f(float x)
 {
         if (x > 0.f) return +1.f;
         if (x < 0.f) return -1.f;
         return 0.f;
 }
 
-static inline float max_f(float a, float b)
+static FORCE_INLINE float max_f(float a, float b)
 {
         return (a > b ? a : b);
 }
 
-static inline float min_f(float a, float b)
+static FORCE_INLINE float min_f(float a, float b)
 {
         return (a < b ? a : b);
 }
@@ -226,7 +226,7 @@ static inline i32 rngs_fast_u16(u32 *state)
 }
 
 // [-32768, 32767]
-static inline i32 rngs_fast_i16(u32 *state)
+static FORCE_INLINE i32 rngs_fast_i16(u32 *state)
 {
         return (i16)rngs_fast_u16(state);
 }
@@ -286,27 +286,27 @@ static inline u32 _rng_max_u32(u32 x, u32 hi)
 }
 
 // returns [0; hi]
-static u32 rngs_max_u32(u32 *state, u32 hi)
+static FORCE_INLINE u32 rngs_max_u32(u32 *state, u32 hi)
 {
         return _rng_max_u32(rngs_u32(state), hi);
 }
 
 // returns [lo; hi]
 // works for signed integer inputs, too
-static u32 rng_range_u32(u32 lo, u32 hi)
+static FORCE_INLINE u32 rng_range_u32(u32 lo, u32 hi)
 {
         return _rng_range_u32(rng_u32(), lo, hi);
 }
 
 // returns [lo; hi]
 // works for signed integer inputs, too
-static u32 rngs_range_u32(u32 *state, u32 lo, u32 hi)
+static FORCE_INLINE u32 rngs_range_u32(u32 *state, u32 lo, u32 hi)
 {
         return _rng_range_u32(rngs_u32(state), lo, hi);
 }
 
 // returns [0; hi]
-static u32 rng_max_u32(u32 hi)
+static FORCE_INLINE u32 rng_max_u32(u32 hi)
 {
         return _rng_max_u32(rng_u32(), hi);
 }
@@ -413,6 +413,10 @@ static inline u32 div_u32_do(u32 n, div_u32_s d)
         return (u32)r;
 }
 
+#ifdef OS_HARDWARE
+#define sqrt_u32(X) ((i32)sqrt_f32((float)(X)))
+#define sqrt_i32(X) ((i32)sqrt_f32((float)(X)))
+#else
 static i32 sqrt_u32(u32 x)
 {
         u32 r = x, q = 0, b = 0x40000000U;
@@ -431,6 +435,7 @@ static inline i32 sqrt_i32(i32 x)
         ASSERT(x >= 0);
         return sqrt_u32((u32)x);
 }
+#endif
 
 // from + (from - to) * num^x / den^x
 static int ease_out_q(i32 from, i32 to, i32 den, i32 num, i32 order)
@@ -618,38 +623,38 @@ static float cos_f(float x)
 // ============================================================================
 
 // returns the minimum component
-static inline v2_i32 v2_min(v2_i32 a, v2_i32 b)
+static FORCE_INLINE v2_i32 v2_min(v2_i32 a, v2_i32 b)
 {
         v2_i32 r = {min_i(a.x, b.x), min_i(a.y, b.y)};
         return r;
 }
 
 // returns the maximum component
-static inline v2_i32 v2_max(v2_i32 a, v2_i32 b)
+static FORCE_INLINE v2_i32 v2_max(v2_i32 a, v2_i32 b)
 {
         v2_i32 r = {max_i(a.x, b.x), max_i(a.y, b.y)};
         return r;
 }
 
-static inline v2_i32 v2_inv(v2_i32 a)
+static FORCE_INLINE v2_i32 v2_inv(v2_i32 a)
 {
         v2_i32 r = {-a.x, -a.y};
         return r;
 }
 
-static inline v2_i32 v2_add(v2_i32 a, v2_i32 b)
+static FORCE_INLINE v2_i32 v2_add(v2_i32 a, v2_i32 b)
 {
         v2_i32 r = {add_i32(a.x, b.x), add_i32(a.y, b.y)};
         return r;
 }
 
-static inline v2_i32 v2_sub(v2_i32 a, v2_i32 b)
+static FORCE_INLINE v2_i32 v2_sub(v2_i32 a, v2_i32 b)
 {
         v2_i32 r = {sub_i32(a.x, b.x), sub_i32(a.y, b.y)};
         return r;
 }
 
-static inline v2_i32 v2_shr(v2_i32 a, int s)
+static FORCE_INLINE v2_i32 v2_shr(v2_i32 a, int s)
 {
         v2_i32 r = {a.x >> s, a.y >> s};
         return r;
@@ -669,29 +674,29 @@ static inline v2_i32 v2_shl(v2_i32 a, int s)
         return r;
 }
 
-static inline v2_i32 v2_mul(v2_i32 a, i32 s)
+static FORCE_INLINE v2_i32 v2_mul(v2_i32 a, i32 s)
 {
         v2_i32 r = {mul_i32(a.x, s), mul_i32(a.y, s)};
         return r;
 }
 
-static inline v2_i32 v2_div(v2_i32 a, i32 s)
+static FORCE_INLINE v2_i32 v2_div(v2_i32 a, i32 s)
 {
         v2_i32 r = {a.x / s, a.y / s};
         return r;
 }
 
-static inline int v2_eq(v2_i32 a, v2_i32 b)
+static FORCE_INLINE int v2_eq(v2_i32 a, v2_i32 b)
 {
         return a.x == b.x && a.y == b.y;
 }
 
-static inline i32 v2_dot(v2_i32 a, v2_i32 b)
+static FORCE_INLINE i32 v2_dot(v2_i32 a, v2_i32 b)
 {
         return add_i32(mul_i32(a.x, b.x), mul_i32(a.y, b.y));
 }
 
-static inline i32 v2_crs(v2_i32 a, v2_i32 b)
+static FORCE_INLINE i32 v2_crs(v2_i32 a, v2_i32 b)
 {
         return sub_i32(mul_i32(a.x, b.y), mul_i32(a.y, b.x));
 }
@@ -801,6 +806,18 @@ static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
         rec_i32 rec = {rx1, ry1, rx2 - rx1, ry2 - ry1};
         *r          = rec;
         return 1;
+}
+
+static inline bool32 overlap_rec_pnt_incl(rec_i32 a, v2_i32 p)
+{
+        return (a.x <= p.x && p.x <= a.x + a.w &&
+                a.y <= p.y && p.y <= a.y + a.h);
+}
+
+static inline bool32 overlap_rec_pnt_excl(rec_i32 a, v2_i32 p)
+{
+        return (a.x < p.x && p.x < a.x + a.w &&
+                a.y < p.y && p.y < a.y + a.h);
 }
 
 // check for overlap - touching rectangles considered overlapped

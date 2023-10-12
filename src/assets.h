@@ -22,6 +22,10 @@ enum tex_id {
         TEXID_TITLESCREEN,
         TEXID_ITEM_SELECT_CACHE,
         TEXID_TITLE,
+        TEXID_PLANTS,
+        TEXID_TILEMAP_CACHE,
+        TEXID_PARALLAX_FOREST,
+        TEXID_TEST,
         //
         NUM_TEXID
 };
@@ -34,6 +38,7 @@ enum snd_id {
         SNDID_STEP,
         SNDID_HOOKATTACH,
         SNDID_BOW,
+        SNDID_SWORD,
         //
         NUM_SNDID
 };

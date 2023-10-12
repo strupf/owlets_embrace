@@ -7,11 +7,57 @@
 
 static void draw_textbox(textbox_s *tb, v2_i32 camp);
 
+static void item_selection_redraw(hero_s *h)
+{
+        // interpolator based on crank position
+        int ii = -((ITEM_SIZE * os_inp_crank()) >> 16);
+        if (os_inp_crank() >= 0x8000) {
+                ii += ITEM_SIZE;
+        }
+
+        int itemIDs[3] = {h->selected_item_prev,
+                          h->selected_item,
+                          h->selected_item_next};
+
+        tex_s         texcache = tex_get(TEXID_ITEM_SELECT_CACHE);
+        gfx_context_s ctx      = gfx_context_create(texcache);
+        ctx.src                = tex_get(TEXID_ITEMS);
+        gfx_tex_clr(texcache);
+
+        for (int y = -ITEM_BARREL_R; y <= +ITEM_BARREL_R; y++) {
+                int     a_q16   = (y << 16) / ITEM_BARREL_R;
+                int     arccos  = (acos_q16(a_q16) * ITEM_SIZE) >> (16 + 1);
+                int     loc     = arccos + ITEM_SIZE - ii;
+                int     itemi   = loc / ITEM_SIZE;
+                int     yy      = ITEM_SIZE * itemIDs[itemi] + loc % ITEM_SIZE;
+                int     uu      = ITEM_BARREL_R - y + ITEM_Y_OFFS;
+                rec_i32 itemrow = {ITEM_SIZE, yy, ITEM_SIZE, 1};
+                gfx_sprite(ctx, (v2_i32){ITEM_X_OFFS, uu}, itemrow, 0);
+        }
+
+        gfx_sprite(ctx, (v2_i32){0, 0}, (rec_i32){64, 0, 64, 64}, 0);
+}
+
 void draw_UI(game_s *g, v2_i32 camp)
 {
         gfx_context_s ctx = gfx_context_create(tex_get(0));
         ctx.col           = 1;
         hero_s *h         = (hero_s *)obj_get_tagged(g, OBJ_TAG_HERO);
+
+        if (h->aquired_items > 0) {
+                if (h->itemselection_dirty) {
+                        item_selection_redraw(h);
+                        h->itemselection_dirty = 0;
+                }
+                ctx.src = tex_get(TEXID_ITEM_SELECT_CACHE);
+                gfx_sprite(ctx,
+                           (v2_i32){400 - ITEM_FRAME_SIZE + 16,
+                                    -16},
+                           (rec_i32){0, 0,
+                                     ITEM_FRAME_SIZE,
+                                     ITEM_FRAME_SIZE},
+                           SPRITE_CPY);
+        }
 
         obj_s *ohero = (obj_s *)h;
         if (h && h->caninteract) {

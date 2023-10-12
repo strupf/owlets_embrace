@@ -72,6 +72,17 @@ void game_load_map(game_s *g, const char *filename)
                         load_rendertile_layer(g, jlayer, w, h, TILE_LAYER_BG);
                 } else if (streq(name, "obj")) {
                         load_obj_layer(g, jlayer);
+                } else if (streq(name, "parallax")) {
+                        g->backforeground.parallax.parallax_offx = jsn_intk(jlayer, "offsetx");
+                        g->backforeground.parallax.parallax_offy = jsn_intk(jlayer, "offsety");
+                        if (jsn_key(jlayer, "parallaxx", NULL))
+                                g->backforeground.parallax.parallax_x = jsn_floatk(jlayer, "parallaxx");
+                        else
+                                g->backforeground.parallax.parallax_x = 1.f;
+                        if (jsn_key(jlayer, "parallaxy", NULL))
+                                g->backforeground.parallax.parallax_y = jsn_floatk(jlayer, "parallaxy");
+                        else
+                                g->backforeground.parallax.parallax_y = 1.f;
                 }
         }
         PRINTF("\n");
@@ -130,6 +141,10 @@ void game_load_map(game_s *g, const char *filename)
         g->curr_world_area = world_area_by_filename(filename);
 
         ASSERT(g->curr_world && g->curr_world_area);
+
+        hero_aquire_item((hero_s *)ohero, HERO_ITEM_SWORD);
+        hero_aquire_item((hero_s *)ohero, HERO_ITEM_HOOK);
+        hero_aquire_item((hero_s *)ohero, HERO_ITEM_BOW);
 }
 
 static void load_obj_from_jsn(game_s *g, jsn_s jobj)
@@ -173,10 +188,6 @@ static void load_obj_from_jsn(game_s *g, jsn_s jobj)
                 o        = door_create_new_map(g);
                 o->pos.x = jsn_intk(jobj, "x");
                 o->pos.y = jsn_intk(jobj, "y");
-        } else if (streq(buf, "grass")) {
-                grass_s *gr = &g->backforeground.grass[g->backforeground.n_grass++];
-                gr->pos.x   = jsn_intk(jobj, "x");
-                gr->pos.y   = jsn_intk(jobj, "y");
         }
 
         if (!o) return;
@@ -222,6 +233,12 @@ static void load_rendertile_layer(game_s *g, jsn_s jlayer, int w, int h, int lay
                         }
                         if (tID == tileID_encode_ts(4, 1, 3)) {
                                 g->tiles[n] = TILE_SPIKES;
+                        }
+                        if (tID == tileID_encode_ts(8, 0, 1)) {
+                                grass_s *gr = &g->backforeground.grass[g->backforeground.n_grass++];
+                                gr->pos.x   = x * 16;
+                                gr->pos.y   = y * 16;
+                                gr->type    = rng_range(0, 2);
                         }
                 }
         }

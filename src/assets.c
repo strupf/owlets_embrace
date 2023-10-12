@@ -4,10 +4,10 @@
 
 #include "assets.h"
 #include "game/game.h"
-#include "os/os.h"
 
 static void load_tileanimations(const char *filename);
 static void load_tileatlas(int texID);
+static void load_prerendering();
 
 void assets_load()
 {
@@ -25,7 +25,11 @@ void assets_load()
         tex_put_load(TEXID_CLOUDS, "assets/clouds.json");
         tex_put_load(TEXID_TITLESCREEN, "assets/titlescreen.json");
         tex_put_load(TEXID_TITLE, "assets/title.json");
+        tex_put_load(TEXID_PARALLAX_FOREST, "assets/background.json");
+        tex_put_load(TEXID_TEST, "assets/autotiles_bricks.json");
+        // tex_put_load(TEXID_PLANTS, "assets/plants.json");
         tex_put(TEXID_ITEM_SELECT_CACHE, tex_create(ITEM_FRAME_SIZE, ITEM_FRAME_SIZE, 1));
+        tex_put(TEXID_TILEMAP_CACHE, tex_create(512, 256, 1));
 
         fnt_put_load(FNTID_DEFAULT, "assets/fnt/font_default.json");
         fnt_put_load(FNTID_DEBUG, "assets/fnt/font_debug.json");
@@ -37,6 +41,10 @@ void assets_load()
         snd_put_load(SNDID_STEP, "assets/snd/step.wav");
         snd_put_load(SNDID_HOOKATTACH, "assets/snd/hookattach.wav");
         snd_put_load(SNDID_BOW, "assets/snd/bow.wav");
+        snd_put_load(SNDID_SWORD, "assets/snd/sword.wav");
+
+        tex_place_outline(tex_get(TEXID_HERO), (rec_i32){0, 0, 64 * 4, 64 * 6}, 0, 1);
+        load_prerendering();
 }
 
 static void load_tileanimations(const char *filename)
@@ -111,4 +119,9 @@ static void load_tileatlas(int texID)
                 y_global += h;
                 os_spmem_pop();
         }
+}
+
+static void load_prerendering()
+{
+        // tex_s t = tex_get(TEXID_PLANTS);
 }

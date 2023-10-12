@@ -83,8 +83,7 @@ __declspec(dllexport)
 
 void os_backend_graphics_end()
 {
-        PD_markUpdatedRows(0, LCD_ROWS - 1); // mark all rows as updated
-        PD_display();                        // update all rows
+        PD_display(); // update all rows
 }
 
 void os_backend_graphics_flip()

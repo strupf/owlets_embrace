@@ -115,27 +115,24 @@ extern u16              g_tileIDs[GAME_NUM_TILEIDS];
 extern tile_animation_s g_tileanimations[GAME_NUM_TILEANIMATIONS];
 extern const tri_i32    tilecolliders[GAME_NUM_TILECOLLIDERS];
 
-bool32 hitbox_register(game_s *g, hitbox_s h);
-
-void        game_init(game_s *g);
-void        game_update(game_s *g);
-void        game_draw(game_s *g);
-void        game_close(game_s *g);
+void   game_init(game_s *g);
+void   game_update(game_s *g);
+void   game_draw(game_s *g);
+void   game_close(game_s *g);
 //
-void       *game_heapalloc(game_s *g, size_t size);
-void        game_heapfree(game_s *g, void *ptr);
+void  *game_heapalloc(game_s *g, size_t size);
+void   game_heapfree(game_s *g, void *ptr);
 //
-void        game_trigger(game_s *g, int triggerID);
-void        game_load_map(game_s *g, const char *filename);
-void        game_obj_group_collisions(game_s *g);
-void        game_cull_scheduled(game_s *g);
+void   game_trigger(game_s *g, int triggerID);
+void   game_load_map(game_s *g, const char *filename);
+void   game_obj_group_collisions(game_s *g);
+void   game_cull_scheduled(game_s *g);
 //
-bool32      room_area_blocked(game_s *g, rec_i32 r);
-bool32      room_overlaps_tileID(game_s *g, rec_i32 r, int tileID);
-bool32      room_is_ladder(game_s *g, v2_i32 p);
-void        room_tilebounds_pts(game_s *g, v2_i32 p1, v2_i32 p2, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
-void        room_tilebounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
-void        room_tilebounds_rec(game_s *g, rec_i32 r, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
-particle_s *particle_spawn(game_s *g);
+bool32 room_area_blocked(game_s *g, rec_i32 r);
+bool32 room_overlaps_tileID(game_s *g, rec_i32 r, int tileID);
+bool32 room_is_ladder(game_s *g, v2_i32 p);
+void   room_tilebounds_pts(game_s *g, v2_i32 p1, v2_i32 p2, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
+void   room_tilebounds_tri(game_s *g, tri_i32 t, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
+void   room_tilebounds_rec(game_s *g, rec_i32 r, i32 *x1, i32 *y1, i32 *x2, i32 *y2);
 
 #endif

@@ -5,7 +5,7 @@
 #include "os_internal.h"
 
 #define RL_1080P 0 // used for capturing trailer footage
-#define RL_SCALE 2
+#define RL_SCALE 3
 
 int main()
 {
@@ -70,6 +70,8 @@ void os_backend_graphics_end()
                                        0xB1, 0xAF, 0xA8, 0xFF};
 
         for (int y = 0; y < 240; y++) {
+                if (g_os.rows_update[y] == 0) continue;
+                g_os.rows_update[y] = 0;
                 for (int x = 0; x < 400; x++) {
                         int i         = (x >> 3) + y * 52;
                         int k         = x + y * 416;
@@ -78,6 +80,7 @@ void os_backend_graphics_end()
                         g_os.texpx[k] = t_rgb[g_os.inverted ? !bit : bit];
                 }
         }
+
         UpdateTexture(g_os.tex, g_os.texpx);
 }
 

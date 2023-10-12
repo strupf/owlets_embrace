@@ -7,14 +7,18 @@
 #include "game/obj.h"
 #include "game/rope.h"
 
-static const bgpartice_desc_s g_heroparticles   = {0, 0, 4 << 8, 2 << 8, // pos, spread
-                                                   0, -100, 100, 50,     // vel, spread
-                                                   0, 10, 0, 4,          // acc, spread
-                                                   30, 10, 2, 24};       // tick, spread, size, n
-static const bgpartice_desc_s g_heroparticles_1 = {0, 0, 4 << 8, 4 << 8, // pos, spread
-                                                   0, 0, 100, 100,       // vel, spread
-                                                   0, 0, 0, 0,           // acc, spread
-                                                   30, 10, 2, 4};        // tick, spread, size, n
+static const bgpartice_desc_s g_heroparticles       = {0, 0, 4 << 8, 2 << 8,  // pos, spread
+                                                       0, -100, 100, 50,      // vel, spread
+                                                       0, 10, 0, 4,           // acc, spread
+                                                       40, 10, 2, 24};        // tick, spread, size, n
+static const bgpartice_desc_s g_heroparticles_land  = {0, 0, 12 << 8, 2 << 8, // pos, spread
+                                                       0, -100, 100, 100,     // vel, spread
+                                                       0, 16, 0, 4,           // acc, spread
+                                                       15, 5, 2, 16};         // tick, spread, size, n
+static const bgpartice_desc_s g_heroparticles_trail = {0, 0, 4 << 8, 4 << 8,  // pos, spread
+                                                       0, 0, 10, 10,          // vel, spread
+                                                       0, 0, 0, 0,            // acc, spread
+                                                       50, 10, 1, 1};         // tick, spread, size, n
 
 static void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 static obj_s *hook_create(game_s *g, rope_s *rope, v2_i32 p, v2_i32 v_q8, i32 len_max);
@@ -24,6 +28,7 @@ static void   hero_jump_particles(game_s *g, obj_s *o);
 static void   hero_land_particles(game_s *g, obj_s *o);
 static void   hero_squeeze(game_s *g, obj_s *o);
 static void   hero_animate(game_s *g, obj_s *o);
+static void   hero_crank_item_selection(hero_s *h);
 
 static void hero_animate(game_s *g, obj_s *o)
 {
@@ -63,6 +68,7 @@ static void hero_use_whip(game_s *g, obj_s *o)
 {
         hero_s *h     = (hero_s *)o;
         h->whip_ticks = HERO_C_WHIP_TICKS;
+        snd_play_ext(snd_get(SNDID_SWORD), 1.2f, 0.5f);
 }
 
 static void hero_use_hook(game_s *g, obj_s *o)
@@ -143,10 +149,13 @@ static void hero_use_item(game_s *g, obj_s *o)
                              !hero_using_whip(o);
         if (!canuseitems) return;
 
-        if (h->rope_len_q16 == HERO_ROPE_MIN) {
-                hero_use_whip(g, o);
-        } else {
+        switch (h->selected_item) {
+        case HERO_ITEM_HOOK:
                 hero_use_hook(g, o);
+                break;
+        case HERO_ITEM_SWORD:
+                hero_use_whip(g, o);
+                break;
         }
 }
 
@@ -200,6 +209,14 @@ static void hero_logic(game_s *g, obj_s *o)
 
         bool32 grounded = room_area_blocked(g, obj_rec_bottom(o));
 
+        if (grounded && !h->wasgrounded && o->vel_prev_q8.y > 200) {
+                snd_play_ext(snd_get(SNDID_HERO_LAND), 0.5f, 0.5f);
+                bgpartice_desc_s desc = g_heroparticles_land;
+                desc.p_q8.x           = (o->pos.x + o->w / 2) << 8;
+                desc.p_q8.y           = (o->pos.y + o->h - 2) << 8;
+                backforeground_spawn_particles(&g->backforeground, desc);
+        }
+
         int dpad_x = os_inp_dpad_x();
 
         if (!h->locked_facing && dpad_x == -o->facing) {
@@ -245,6 +262,13 @@ static void hero_logic(game_s *g, obj_s *o)
                 int j1 = pow2_i32(jumpticks);
                 int vy = jumpmax + ((jumpmin - jumpmax) * j0) / j1;
                 o->vel_q8.y -= vy;
+
+                if ((os_tick() & 1) == 0) {
+                        bgpartice_desc_s desc = g_heroparticles_trail;
+                        desc.p_q8.x           = (o->pos.x + o->w / 2) << 8;
+                        desc.p_q8.y           = (o->pos.y + o->h / 2) << 8;
+                        backforeground_spawn_particles(&g->backforeground, desc);
+                }
         }
 
         if (grounded) {
@@ -262,8 +286,9 @@ static void hero_logic(game_s *g, obj_s *o)
 
                         bgpartice_desc_s desc = g_heroparticles;
                         desc.p_q8.x           = (o->pos.x + o->w / 2) << 8;
-                        desc.p_q8.y           = (o->pos.y + o->h - 4) << 8;
+                        desc.p_q8.y           = (o->pos.y + o->h - 2) << 8;
                         backforeground_spawn_particles(&g->backforeground, desc);
+                        snd_play_ext(snd_get(SNDID_JUMP), 0.5f, 0.5f);
                 } else if (hero_using_hook(o) && !grounded) {
                         if (room_area_blocked(g, obj_rec_right(o))) {
                                 o->vel_q8.x = -600;
@@ -355,7 +380,6 @@ static void hook_update(game_s *g, obj_s *o, obj_s *hook)
                 return;
         }
 
-        TIMING_BEGIN(TIMING_ROPE);
         if (!hook->attached) {
                 v2_i32 hookp = hook->pos;
                 obj_apply_movement(hook);
@@ -398,7 +422,6 @@ static void hook_update(game_s *g, obj_s *o, obj_s *hook)
                 hook->vel_q8 = rope_adjust_connected_vel(g, r, r->tail,
                                                          hook->subpos_q8, hook->vel_q8);
         }
-        TIMING_END();
 }
 
 static void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
@@ -563,7 +586,7 @@ static void hero_check_level_transition(game_s *g, obj_s *hero)
                 }
                 world_area_def_s *wd = world_get_area(g->curr_world, g->curr_world_area, gaabb);
                 if (wd == NULL) {
-                        ASSERT(0);
+                        BAD_PATH
                         // kill player or something?
                 }
                 gaabb.x -= wd->r.x;
@@ -641,13 +664,13 @@ void hero_update(game_s *g, obj_s *o)
         hero_s *h = (hero_s *)o;
         h->ppos   = o->pos;
 
+        hero_crank_item_selection(h);
+
         hero_logic(g, o);
 
         if (hero_using_hook(o)) {
-                TIMING_BEGIN(TIMING_HERO_HOOK);
                 obj_s *hook = obj_from_handle(h->hook);
                 hook_update(g, o, hook);
-                TIMING_END();
         } else if (hero_using_whip(o)) {
                 h->whip_ticks--;
         }
@@ -687,4 +710,63 @@ rec_i32 hero_whip_hitbox(obj_s *o)
                 whipbox.x -= whipbox.w;
         }
         return whipbox;
+}
+
+static void hero_crank_item_selection(hero_s *h)
+{
+        if (h->aquired_items == 0) return;
+
+        // crank item input
+        int crankp_q16  = os_inp_crankp();
+        int crankc_q16  = os_inp_crank();
+        int crankchange = os_inp_crank_change();
+
+        // here we check if the crank "flipped over" the 180 deg position
+        if (crankchange > 0 &&
+            (crankp_q16 < 0x8000 && crankc_q16 >= 0x8000)) {
+                hero_set_cur_item(h, h->selected_item_next);
+        } else if (crankchange < 0 &&
+                   (crankp_q16 >= 0x8000 && crankc_q16 < 0x8000)) {
+                hero_set_cur_item(h, h->selected_item_prev);
+        }
+
+        if (crankchange != 0) {
+                h->itemselection_dirty = 1;
+        }
+}
+
+bool32 hero_has_item(hero_s *h, int itemID)
+{
+        return (h->aquired_items & (1 << itemID));
+}
+
+static inline int i_hero_itemID_get(hero_s *h, int dir)
+{
+        ASSERT(h->aquired_items != 0);
+        int i = h->selected_item;
+        while (1) {
+                i = (i + dir + NUM_HERO_ITEMS) % NUM_HERO_ITEMS;
+                if (h->aquired_items & (1 << i))
+                        return i;
+        }
+        return i;
+}
+
+void hero_set_cur_item(hero_s *h, int itemID)
+{
+        if (h->aquired_items == 0) return;
+
+        ASSERT(hero_has_item(h, itemID));
+        h->selected_item      = itemID;
+        h->selected_item_prev = i_hero_itemID_get(h, -1);
+        h->selected_item_next = i_hero_itemID_get(h, +1);
+}
+
+void hero_aquire_item(hero_s *h, int itemID)
+{
+        ASSERT(!hero_has_item(h, itemID));
+
+        h->itemselection_dirty = 1;
+        h->aquired_items |= 1 << itemID;
+        hero_set_cur_item(h, itemID);
 }

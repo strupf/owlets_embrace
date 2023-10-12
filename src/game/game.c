@@ -161,6 +161,12 @@ static void update_gameplay(game_s *g)
 
 void game_update(game_s *g)
 {
+        static int once = 0;
+        if (!once) {
+                void obj_slotmap_test();
+                once = 1;
+                obj_slotmap_test();
+        }
         switch (g->state) {
         case GAMESTATE_TITLE: {
                 update_title(g, &g->mainmenu);
@@ -234,13 +240,6 @@ void game_obj_group_collisions(game_s *g)
         }
 }
 
-particle_s *particle_spawn(game_s *g)
+void hero_hitbox_damage_things(game_s *g, rec_i32 r)
 {
-        backforeground_s *b = &g->backforeground;
-        if (b->n_particles < NUM_PARTICLES) {
-                particle_s *p = &b->particles[b->n_particles++];
-                *p            = (const particle_s){0};
-                return p;
-        }
-        return NULL;
 }

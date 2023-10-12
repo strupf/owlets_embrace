@@ -82,6 +82,8 @@ int    jsn_num_children(jsn_s j);
 int    jsn_to_fchild(jsn_s *j);
 int    jsn_to_sibling(jsn_s *j);
 int    jsn_to_key(jsn_s *j, const char *key);
+f32    jsn_float(jsn_s j);
+f32    jsn_floatk(jsn_s j, const char *key);
 i32    jsn_int(jsn_s j);
 i32    jsn_intk(jsn_s j, const char *key);
 u32    jsn_uint(jsn_s j);

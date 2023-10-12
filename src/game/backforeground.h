@@ -13,9 +13,16 @@ enum {
 
 enum {
         BG_NUM_CLOUDS      = 64,
-        BG_NUM_PARTICLES   = 256,
+        BG_NUM_PARTICLES   = 512,
         BG_NUM_CLOUD_TYPES = 3,
         BG_WIND_PARTICLE_N = 8,
+};
+
+enum {
+
+        BG_PLANTS_MAX_EXCURSION_Q8 = 256,
+        BG_PLANTS_PRERENDER_SHIFT  = 4,
+        BG_PLANTS_FRAMES           = 256 >> BG_PLANTS_PRERENDER_SHIFT,
 };
 
 typedef struct {

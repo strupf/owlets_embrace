@@ -74,6 +74,8 @@ typedef struct {
 
 #ifdef OS_DESKTOP
         u8          framebuffer[OS_FRAMEBUFFER_SIZE];
+        u8          screenpx[OS_FRAMEBUFFER_SIZE];
+        u8          rows_update[240];
         Color       texpx[416 * 240];
         Texture2D   tex;
         bool32      inverted;

@@ -157,13 +157,12 @@ static void music_channel_stream(music_channel_s *ch, i16 *left, int len)
         ch->streampos += l;
         if (ch->streampos < ch->streamlen) return;
 
+        // we're at the end of the song
         int samples_left = len - l;
-        if (ch->looping) {
-                // fill remainder of buffer and restart
-                ch->streampos = 0;
+        if (ch->looping) { // fill remainder of buffer and restart
+                ch->streampos = samples_left;
                 music_update_chunk(ch, 0);
                 music_channel_fillbuf(ch, &left[l], samples_left);
-                ch->streampos = samples_left;
         } else {
                 os_memset(&left[l], 0, samples_left * sizeof(i16));
                 mus_close();

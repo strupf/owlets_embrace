@@ -537,3 +537,133 @@ void obj_apply_movement(obj_s *o)
         o->subpos_q8.x &= 255;
         o->subpos_q8.y &= 255;
 }
+
+typedef struct {
+        int   n;
+        int   cap;
+        char *o;
+        int  *d;
+        int  *s;
+} obj_slotmap_s;
+
+typedef struct {
+        const int   n;
+        const char *o;
+} obj_slotmap_listc_s;
+
+obj_slotmap_listc_s obj_slotmap_list(obj_slotmap_s *sm)
+{
+        obj_slotmap_listc_s l = {sm->n, sm->o};
+        return l;
+}
+
+void obj_slotmap_init(obj_slotmap_s *sm, int cap, void *(allocfunc)(size_t))
+{
+        sm->n        = 0;
+        sm->cap      = cap;
+        size_t sized = sizeof(int) * cap;
+        size_t sizes = sizeof(int) * cap;
+        size_t sizeo = sizeof(char) * cap;
+
+        void *mem = allocfunc(sized + sizes + sizeo);
+        sm->o     = (char *)mem;
+        sm->d     = (int *)((char *)mem + sizeo);
+        sm->s     = (int *)((char *)mem + sizeo + sized);
+}
+
+bool32 obj_slotmap_add(obj_slotmap_s *sm, int k, char o)
+{
+        if (!(0 <= k && k < sm->cap)) return 0;
+        int i = sm->s[k];
+        if (i < sm->n && sm->d[i] == k) return 0;
+        int n    = sm->n++;
+        sm->d[n] = k;
+        sm->o[n] = o;
+        sm->s[k] = n;
+}
+
+bool32 obj_slotmap_del(obj_slotmap_s *sm, int k)
+{
+        if (!(0 <= k && k < sm->cap)) return 0;
+        int i = sm->s[k];
+        if (!(i < sm->n && sm->d[i] == k)) return 0;
+
+        int n           = --sm->n;
+        sm->d[i]        = sm->d[n];
+        sm->o[i]        = sm->o[n];
+        sm->s[sm->d[n]] = i;
+        return 1;
+}
+
+bool32 obj_slotmap_contains(obj_slotmap_s *sm, int k)
+{
+        if (!(0 <= k && k < sm->cap)) return 0;
+        int i = sm->s[k];
+        return (i < sm->n && sm->d[i] == k);
+}
+
+int obj_slotmap_index_of(obj_slotmap_s *sm, int k)
+{
+        if (!(0 <= k && k < sm->cap)) return -1;
+        int i = sm->s[k];
+        if (!(i < sm->n && sm->d[i] == k)) return -1;
+        return i;
+}
+
+void obj_slotmap_print(obj_slotmap_s *sm)
+{
+        PRINTF("\n");
+        for (int i = 0; i < sm->cap; i++) {
+                bool32 contained = obj_slotmap_contains(sm, i);
+                if (!contained) PRINTF("[%i] | %c\n", i, sm->o[i]);
+                else PRINTF("[%i] %i %i | %c\n", i, sm->s[i], sm->d[i], sm->o[i]);
+        }
+}
+
+void obj_slotmap_test()
+{
+        os_spmem_push();
+
+        obj_slotmap_s sm = {0};
+        obj_slotmap_init(&sm, 16, os_spmem_alloc);
+
+        obj_slotmap_add(&sm, 3, 'a');
+        obj_slotmap_add(&sm, 8, 'b');
+        obj_slotmap_add(&sm, 13, 'c');
+        obj_slotmap_add(&sm, 1, 'd');
+
+        // obj_slotmap_del(&sm, 8);
+
+        obj_slotmap_print(&sm);
+
+        os_spmem_pop();
+}
+
+/*
+typedef struct {
+        u32 *handles;
+        int  nfree;
+        int  cap;
+} genhandles_s;
+
+void genhandles_reset(genhandles_s *h)
+{
+        for (int n = 0; n < h->cap; n++) {
+                u32 ID        = (u32)n << 3;
+                h->handles[n] = ID;
+        }
+}
+
+void genhandles_init(genhandles_s *h, int cap, void *(allocfunc)(size_t))
+{
+        size_t s   = sizeof(u32) * cap;
+        void  *mem = allocfunc(s);
+        h->handles = (u32 *)mem;
+        h->nfree   = cap;
+        h->cap     = cap;
+}
+
+u32 genhandles_new(genhandles_s *hs)
+{
+}
+*/

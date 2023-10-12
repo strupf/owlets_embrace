@@ -5,8 +5,7 @@
 #ifndef OS_H
 #define OS_H
 
-#define OS_SHOW_FPS    1
-#define OS_SHOW_TIMING 0
+#define OS_SHOW_FPS 1
 
 enum {
         OS_FPS     = 50,
@@ -107,35 +106,6 @@ enum {
         GFX_MODE_NXR, // nxor
         GFX_MODE_INV, // invert
 };
-
-enum timing_IDs {
-        TIMING_UPDATE,
-        TIMING_SOLID_UPDATE,
-        TIMING_HERO_UPDATE,
-        TIMING_HERO_MOVE,
-        TIMING_HERO_HOOK,
-        TIMING_ROPE,
-        TIMING_DRAW,
-        TIMING_DRAW_TILES,
-        //
-        NUM_TIMING
-};
-
-#if OS_SHOW_TIMING
-#define TIMING_BEGIN(ID)    i_time_begin(ID)
-#define TIMING_END          i_time_end
-#define TIMING_DRAW_DIAGRAM i_time_draw
-#define TIMING_TICK_DIAGRAM i_time_tick
-void i_time_begin(int ID);
-void i_time_end();
-void i_time_draw();
-void i_time_tick();
-#else
-#define TIMING_BEGIN(ID)
-#define TIMING_END()
-#define TIMING_DRAW_DIAGRAM()
-#define TIMING_TICK_DIAGRAM()
-#endif
 
 typedef struct {
         u8 *px;
@@ -288,6 +258,9 @@ void          gfx_line_thick(gfx_context_s ctx, v2_i32 p0, v2_i32 p1, int r);
 void          gfx_text_ascii(gfx_context_s ctx, fnt_s *font, const char *txt, v2_i32 p);
 void          gfx_text(gfx_context_s ctx, fnt_s *font, fntstr_s *str, v2_i32 p);
 void          gfx_text_glyphs(gfx_context_s ctx, fnt_s *font, fntchar_s *chars, int l, v2_i32 p);
+void          tex_px_at(tex_s t, int x, int y, int *px, int *mk);
+void          tex_px_put(tex_s t, int x, int y, int px, int mk);
+void          tex_place_outline(tex_s t, rec_i32 r, int col, bool32 diagonal);
 //
 snd_s         snd_put_load(int ID, const char *filename);
 void          mus_play(const char *filename);
@@ -304,6 +277,7 @@ void          snd_play(snd_s s);
 //
 i32           os_tick();
 bool32        os_low_fps(); // if game is running slow
+void          os_mark_display_rows(int a, int b);
 int           os_inp_raw();
 int           os_inpp_raw();
 void          os_inp_set_pressedp(int b); // deactivate just pressed for the current frame
@@ -344,8 +318,12 @@ void         *os_spmem_allocz(size_t size);      // allocate and zero memory
 void         *os_spmem_allocz_rem(size_t *size); // allocate and zero remaining memory
 
 // MEMORY REPLACEMENTS =========================================================
-#define os_memset memset
-#define os_memcpy memcpy
-#define os_memmov memmove
+#define os_memset          memset
+#define os_memcpy          memcpy
+#define os_memmov          memmove
+#define mem_set            memset
+#define mem_cpy            memcpy
+#define mem_mov            memmove
+#define mem_clr(PTR, SIZE) memset(PTR, 0, SIZE)
 
 #endif

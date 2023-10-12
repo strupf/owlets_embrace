@@ -262,7 +262,9 @@ bool32 jsn_key(jsn_s j, const char *key, jsn_s *jk)
                                 goto CONTINUELOOP;
                         }
                 }
-                *jk = jc;
+
+                if (jk)
+                        *jk = jc;
                 return 1;
         CONTINUELOOP:;
         } while (jsn_sibling(jj, &jj));
@@ -320,6 +322,40 @@ void jsn_print(jsn_s j)
                 PRINTF("%c", j.txt[n]);
         }
         PRINTF("\n");
+}
+
+f32 jsn_float(jsn_s j)
+{
+        int i0 = j.i;
+        int i1 = jsn_skip_num(j.txt, j.i);
+
+        f32 res  = 0.f;
+        f32 fact = 1.f;
+
+        if (j.txt[j.i] == '-') {
+                fact = -1.f;
+                i0++;
+        }
+
+        bool32 pt = 0;
+        for (int i = i0; i < i1; i++) {
+                char c = j.txt[i];
+                if (c == '.') {
+                        pt = 1;
+                        continue;
+                }
+
+                if (pt) fact *= .1f;
+                res = res * 10.f + (f32)char_hex_to_int(c);
+        }
+        return res * fact;
+}
+
+f32 jsn_floatk(jsn_s j, const char *key)
+{
+        jsn_s jj;
+        if (!jsn_key(j, key, &jj)) return 0.f;
+        return jsn_float(jj);
 }
 
 i32 jsn_int(jsn_s j)

@@ -29,7 +29,7 @@ enum {
         HERO_WIDTH          = 8,
         HERO_HEIGHT         = 24,
         HERO_ROPE_MIN       = 50 << 16,
-        HERO_ROPE_MAX       = 300 << 16,
+        HERO_ROPE_MAX       = 250 << 16,
         HERO_ROPE_REEL_RATE = 150000,
         HERO_C_JUMP_INIT    = 700,
         HERO_C_ACCX_MAX     = 135,
@@ -67,6 +67,12 @@ struct hero_s {
         i32         rope_len_q16;
         bool32      gliding;
         bool32      locked_facing;
+
+        flags32 aquired_items;
+        bool32  itemselection_dirty;
+        int     selected_item;
+        int     selected_item_prev;
+        int     selected_item_next;
 };
 
 obj_s  *hero_create(game_s *g);
@@ -74,5 +80,8 @@ void    hero_update(game_s *g, obj_s *o);
 bool32  hero_using_hook(obj_s *o);
 bool32  hero_using_whip(obj_s *o);
 rec_i32 hero_whip_hitbox(obj_s *o);
+bool32  hero_has_item(hero_s *h, int itemID);
+void    hero_set_cur_item(hero_s *h, int itemID);
+void    hero_aquire_item(hero_s *h, int itemID);
 
 #endif

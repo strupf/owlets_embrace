@@ -44,21 +44,23 @@ static void backforeground_animate_grass(game_s *g, backforeground_s *b)
 
         for (int n = 0; n < b->n_grass; n++) {
                 grass_s *gr = &b->grass[n];
-                int      f1 = -((gr->x_q8 * 3) >> 8);
-                int      f2 = rng_fast_i16() >> 14;
+                int      f1 = -((gr->x_q8 * 4) >> 8);
+                int      f2 = (rng_fast_i16() * 150) >> (13 + 8);
                 gr->v_q8 += f1 + f2;
 
                 rec_i32 rgrass = {gr->pos.x, gr->pos.y, 16, 16};
                 for (int i = 0; i < actors.n; i++) {
                         obj_s *o = actors.o[i];
                         if (overlap_rec_excl(rgrass, obj_aabb(o))) {
-                                gr->v_q8 += o->vel_q8.x >> 8;
+                                gr->v_q8 += o->vel_q8.x >> 6;
                         }
                 }
 
-                gr->v_q8 = clamp_i(gr->v_q8, -256, +256);
                 gr->x_q8 += gr->v_q8;
-                gr->v_q8 = (gr->v_q8 * 240) >> 8;
+                gr->x_q8 = clamp_i(gr->x_q8,
+                                   -BG_PLANTS_MAX_EXCURSION_Q8,
+                                   +BG_PLANTS_MAX_EXCURSION_Q8);
+                gr->v_q8 = (gr->v_q8 * 245) >> 8;
         }
 }
 
@@ -131,7 +133,7 @@ static void backforeground_windparticles(game_s *g, backforeground_s *b)
                 }
         }
 
-        if (b->n_windparticles < BG_NUM_PARTICLES && rng_fast_u16() <= 2000) {
+        if (b->n_windparticles < BG_NUM_PARTICLES && rng_fast_u16() <= 4000) {
                 windparticle_s *p = &b->windparticles[b->n_windparticles++];
                 p->p.x            = -(10 << 8);
                 p->p.y            = rng_range(0, g->pixel_y) << 8;

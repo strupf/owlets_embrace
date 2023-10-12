@@ -16,14 +16,14 @@ void merge_layer(tex_s screen, tex_s layer)
         u32 *lp = (u32 *)layer.px;
         u32 *lm = (u32 *)layer.mk;
 
-        for (int n = 0; n < l; n++, sp++, lm++, lp++) {
-                *sp = ((*sp) & ~(*lm)) | ((*lp) & (*lm));
+        for (int n = 0; n < l; n++) {
+                sp[n] = (sp[n] & ~lm[n]) | (lp[n] & lm[n]);
         }
 }
 
 void draw_background(game_s *g, v2_i32 camp)
 {
-        gfx_context_s ctx = gfx_context_create(tex_get(TEXID_LAYER_1));
+        gfx_context_s ctx = gfx_context_create(tex_get(0));
         gfx_tex_clr(ctx.dst);
         ctx.pat = g_gfx_patterns[GFX_PATTERN_31];
         ctx.src = tex_get(TEXID_CLOUDS);
@@ -81,16 +81,68 @@ void draw_foreground(game_s *g, v2_i32 camp)
                 for (int i = 0; i < 16; i++) {
                         v2_i32 p = pos;
                         p.y += i;
-                        p.x += (gr->x_q8 * (15 - i)) >> 8;
-                        rec_i32 rg = {288, 448 + i, 16, 1};
+
+                        p.x += divr_i32(gr->x_q8 * (15 - i), 256);
+                        rec_i32 rg = {288 + gr->type * 16, 448 + i, 16, 1};
                         gfx_sprite(ctx, p, rg, 0);
                 }
+        }
+}
+
+static void draw_tile_cache(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
+{
+        gfx_context_s ctx = gfx_context_create(tex_get(TEXID_TILEMAP_CACHE));
+        ctx.src           = tex_get(TEXID_TILESET);
+        gfx_tex_clr(tex_get(TEXID_TILEMAP_CACHE));
+
+        v2_i32 cam = {0,
+                      0};
+
+        int     tx, ty;
+        rec_i32 r = {0, 0, 16, 16};
+        foreach_tile_in_bounds(x1, y1, x2, y2, x, y)
+        {
+                v2_i32 pos = {(x - x1) << 4, (y - y1) << 4};
+                u32    rID = g->rtiles[x + y * g->tiles_x];
+                if (rID == 0xFFFFFFFFU) continue;
+                int ID0, ID1;
+                rtile_decode(rID, &ID0, &ID1);
+                if (ID0 != TILEID_NULL) {
+                        tileID_decode(ID0, &tx, &ty);
+                        r.x = tx << 4;
+                        r.y = ty << 4;
+                        gfx_sprite(ctx, pos, r, 0);
+                }
+                /*
+                if (ID1 != TILEID_NULL) {
+                        tileID_decode(ID1, &tx, &ty);
+                        r.x = tx << 4;
+                        r.y = ty << 4;
+                        gfx_sprite(ctx, pos, r, 0);
+                }
+                */
         }
 }
 
 void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
 {
         ASSERT(0 <= x1 && 0 <= y1 && x2 < g->tiles_x && y2 < g->tiles_y);
+#if 0
+        static int tx1, ty1, tx2, ty2;
+
+        if (tx1 != x1 || ty1 != y1 || tx2 != x2 || ty2 != y2) {
+                draw_tile_cache(g, x1, y1, x2, y2, camp);
+                tx1 = x1;
+                ty1 = y1;
+                tx2 = x2;
+                ty2 = y2;
+        }
+
+        gfx_context_s ctx = gfx_context_create(tex_get(0));
+        ctx.src           = tex_get(TEXID_TILEMAP_CACHE);
+        gfx_sprite(ctx, (v2_i32){camp.x % 16, camp.y % 16},
+                   (rec_i32){0, 0, 512, 256}, 0);
+#else
         gfx_context_s ctx = gfx_context_create(tex_get(0));
         ctx.src           = tex_get(TEXID_TILESET);
 
@@ -103,20 +155,22 @@ void draw_tiles(game_s *g, i32 x1, i32 y1, i32 x2, i32 y2, v2_i32 camp)
                 if (rID == 0xFFFFFFFFU) continue;
                 int ID0, ID1;
                 rtile_decode(rID, &ID0, &ID1);
+
                 if (ID0 != TILEID_NULL) {
                         tileID_decode(ID0, &tx, &ty);
                         r.x = tx << 4;
                         r.y = ty << 4;
-                        gfx_sprite_tile16(ctx, pos, r, 0);
+                        gfx_sprite(ctx, pos, r, 0);
                 }
 
                 if (ID1 != TILEID_NULL) {
                         tileID_decode(ID1, &tx, &ty);
                         r.x = tx << 4;
                         r.y = ty << 4;
-                        gfx_sprite_tile16(ctx, pos, r, 0);
+                        gfx_sprite(ctx, pos, r, 0);
                 }
         }
+#endif
 }
 
 void draw_rope(rope_s *r, v2_i32 camp)
@@ -168,25 +222,22 @@ static void draw_gameplay(game_s *g)
         backforeground_s *b = &g->backforeground;
         draw_background(g, camp);
 
-        merge_layer(tex_get(0), tex_get(TEXID_LAYER_1));
+        f32 bgx = (-g->cam.pos.x * (b->parallax.parallax_x - 1.f)) +
+                  b->parallax.parallax_offx + camp.x;
+        f32 bgy = (-g->cam.pos.y * (b->parallax.parallax_y - 1.f)) +
+                  b->parallax.parallax_offy + camp.y;
+        gfx_context_s ctx_parallax = ctx;
+        ctx_parallax.src           = tex_get(TEXID_PARALLAX_FOREST);
+        gfx_sprite(ctx_parallax, (v2_i32){(int)bgx, (int)bgy}, (rec_i32){2, 10, 500, 240}, SPRITE_FLIP_X);
+
+        // return;
+        i32 x1, y1, x2, y2;
+        room_tilebounds_rec(g, camr, &x1, &y1, &x2, &y2);
+        draw_tiles(g, x1, y1, x2, y2, camp);
 
         // parallax
-        /*
-        f32 bgx = (-g->cam.pos.x * (g->parallax_x - 1.f)) +
-                  b->parallax_offx + camp.x;
-        f32 bgy = (-g->cam.pos.y * (g->parallax_y - 1.f)) +
-                  g->parallax_offy + camp.y;
-                  */
 
         ctx.src = tex_get(TEXID_TILESET);
-
-        /*
-        ctx.pat = gfx_pattern_get(8);
-        gfx_sprite(ctx, (v2_i32){(int)bgx, (int)bgy},
-                   (rec_i32){0, 512, 512, 512}, 0);
-
-        ctx.pat = gfx_pattern_get(GFX_PATTERN_100);
-        */
 #if DRAW_WATER
         gfx_context_s ctx2 = ctx;
         ctx2.col           = 0;
@@ -205,13 +256,6 @@ static void draw_gameplay(game_s *g)
                 gfx_rec_fill(ctx2, (rec_i32){xx1, y_max, 4, 100});
         }
 #endif
-
-        i32 x1, y1, x2, y2;
-        room_tilebounds_rec(g, camr, &x1, &y1, &x2, &y2);
-
-        TIMING_BEGIN(TIMING_DRAW_TILES);
-        draw_tiles(g, x1, y1, x2, y2, camp);
-        TIMING_END();
 
         hero_s *hero = (hero_s *)obj_get_tagged(g, OBJ_TAG_HERO);
         if (hero->o.rope)
@@ -248,31 +292,45 @@ static void draw_gameplay(game_s *g)
                         int flags = o->facing == 1 ? 0 : SPRITE_FLIP_X;
 
                         if (hero_using_whip(&hero->o)) {
-                                int whipframe = lerp_i32(2, 0, hero->whip_ticks, HERO_C_WHIP_TICKS);
-                                gfx_sprite(ctx, (v2_i32){pos.x - 10, pos.y - 16}, (rec_i32){192 + whipframe * 48, 256, 48, 32}, flags);
+                                int    whipframe = lerp_i32(2, 0, hero->whip_ticks, HERO_C_WHIP_TICKS);
+                                v2_i32 whippos   = pos;
+                                whippos.y -= 16;
+                                if (o->facing == 1) {
+                                        whippos.x += 0;
+                                } else {
+                                        whippos.x -= 40;
+                                }
+                                gfx_sprite(ctx, whippos, (rec_i32){192 + whipframe * 48, 256, 48, 32}, flags);
                         }
 
                         pos.x -= 28;
-                        pos.y = pos.y + o->h - 64;
+                        pos.y = pos.y + o->h - 64 + 1;
 
                         int animx = 0;
                         int animy = 0;
-                        switch (hero->anim) {
-                        case HERO_ANIM_IDLE:
-                                animy = (hero->animstate / 30) % 2;
-                                break;
-                        case HERO_ANIM_WALKING:
-                                if (hero->animstate <= 15) {
-                                        animy = 2;
-                                        animx = min_i(hero->animstate / 5, 1);
-                                } else {
-                                        animx = (hero->animstate / 10) % 4;
-                                }
 
-                                break;
+                        if (!room_area_blocked(g, obj_rec_bottom(o))) {
+                                animy = o->vel_q8.y < 0 ? 4 : 3;
+                        } else if (hero_using_hook(o) && !room_area_blocked(g, obj_rec_bottom(o))) {
+                                animy = 5;
+                        } else {
+                                switch (hero->anim) {
+                                case HERO_ANIM_IDLE:
+                                        animy = (hero->animstate / 30) % 2;
+                                        break;
+                                case HERO_ANIM_WALKING:
+                                        if (hero->animstate <= 15) {
+                                                animy = 2;
+                                                animx = min_i(hero->animstate / 5, 1);
+                                        } else {
+                                                animx = (hero->animstate / 10) % 4;
+                                        }
+
+                                        break;
+                                }
                         }
 
-                        gfx_sprite(ctx, pos, (rec_i32){animx * 64, animy * 64, 64, 64}, flags);
+                        gfx_sprite(ctx, pos, (rec_i32){animx * 64, 1 + animy * 64, 64, 63}, flags);
                         // gfx_rec_fill(ctx, translate_rec(obj_aabb(o), camp));
                 } break;
                 case OBJ_ID_SIGN: {
@@ -397,11 +455,22 @@ static void draw_gameplay(game_s *g)
 void game_draw(game_s *g)
 {
         gfx_tex_clr(tex_get(0));
-#if DRAW_BENCHMARK
-        draw_benchmark();
-        return;
-#endif
 
+        /*
+        sprite_matrix_s m1 = sprite_matrix_offset(128.f, 128.f);
+        sprite_matrix_s m2 = sprite_matrix_rotate((float)os_tick() * 0.01f);
+        sprite_matrix_s m3 = sprite_matrix_offset(-128.f, -128.f);
+
+        sprite_matrix_s mm = sprite_matrix_identity();
+        mm                 = sprite_matrix_mul(mm, m3);
+        mm                 = sprite_matrix_mul(mm, m2);
+        mm                 = sprite_matrix_mul(mm, m1);
+
+        gfx_context_s ctx = gfx_context_create(tex_get(0));
+        ctx.src           = tex_get(TEXID_TEST);
+        ctx.sprmode       = SPRITE_CPY;
+        gfx_sprite_rotated(ctx, (rec_i32){0, 0, 256, 256}, mm);
+        */
         switch (g->state) {
         case GAMESTATE_GAMEPLAY: {
                 draw_gameplay(g);
