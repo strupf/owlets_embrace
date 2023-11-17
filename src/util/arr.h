@@ -1,91 +1,152 @@
 // =============================================================================
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
-/*
- * Macros to generate array types working with a fixed sized buffer.
- *
- * ARR_DEF_BASE - array without find/contains/delete
- * ARR_DEF_PRIMITVE - array of a primitive type comparable using "=="
- * ARR_DEF - array of any type. Have to provide an equal function:
- *           static inline bool32 NAME##_equal(const T *a, const T *b);
- */
-
-#ifndef ARRAY_H
-#define ARRAY_H
 
 #include "sys/sys_types.h"
 
-/*
+#ifndef ARR_H
+#define ARR_H
+
+#define ARR_ASSERT assert
+
+typedef int dummy;
+
 typedef struct {
-        int *data;
-        i16 *d;
-        i16 *s;
-        int  n;
-        int  c;
+    dummy *data;
+    int    n, c;
+} dummy_arr;
 
-        u32 *free;
-        int  n_free;
-} slotmap_s;
+dummy_arr *dummy_arrcreate(int cap, void *(*allocfunc)(usize size));
+void       dummy_arrpush(dummy_arr *arr, dummy v);
+void       dummy_arrinsert(dummy_arr *arr, dummy v, int i);
+void       dummy_arrinsertq(dummy_arr *arr, dummy v, int i);
+void       dummy_arrclr(dummy_arr *arr);
+void       dummy_arrdelatq(dummy_arr *arr, int i);
+void       dummy_arrdelat(dummy_arr *arr, int i);
+dummy      dummy_arrat(dummy_arr *arr, int i);
+dummy     *dummy_arratp(dummy_arr *arr, int i);
+dummy      dummy_arrpop(dummy_arr *arr);
+int        dummy_arrlen(dummy_arr *arr);
 
-int slotmap_len(slotmap_s *sm)
+#define ARR_DEFINITION(NAME, T)                                           \
+    typedef struct {                                                      \
+        T  *data;                                                         \
+        int n, c;                                                         \
+    } arr_##NAME;                                                         \
+                                                                          \
+    arr_##NAME *arrcreate_dummy(int cap, void *(*allocfunc)(usize size)); \
+    void        arrpush_dummy(arr_##NAME *arr, T v);                      \
+    void        arrinsert_dummy(arr_##NAME *arr, T v, int i);             \
+    void        arrinsertq_dummy(arr_##NAME *arr, T v, int i);            \
+    void        arrclr_dummy(arr_##NAME *arr);                            \
+    void        arrdelatq_dummy(arr_##NAME *arr, int i);                  \
+    void        arrdelat_dummy(arr_##NAME *arr, int i);                   \
+    T           arrat_dummy(arr_##NAME *arr, int i);                      \
+    T          *arratp_dummy(arr_##NAME *arr, int i);                     \
+    T           arrpop_dummy(arr_##NAME *arr);                            \
+    int         arrlen_dummy(arr_##NAME *arr);
+
+typedef struct {
+    dummy *data;
+    int    n, c;
+} dummy_arr;
+
+dummy_arr *arrcreate_dummy(int cap, void *(*allocfunc)(usize size));
+void       arrpush_dummy(dummy_arr *arr, dummy v);
+void       arrinsert_dummy(dummy_arr *arr, dummy v, int i);
+void       arrinsertq_dummy(dummy_arr *arr, dummy v, int i);
+void       arrclr_dummy(dummy_arr *arr);
+void       arrdelatq_dummy(dummy_arr *arr, int i);
+void       arrdelat_dummy(dummy_arr *arr, int i);
+dummy      arrat_dummy(dummy_arr *arr, int i);
+dummy     *arratp_dummy(dummy_arr *arr, int i);
+dummy      arrpop_dummy(dummy_arr *arr);
+int        arrlen_dummy(dummy_arr *arr);
+
+dummy_arr *dummy_arrcreate(int cap, void *(*allocfunc)(usize size))
 {
-        return sm->n;
+    usize      s   = sizeof(dummy_arr) + sizeof(dummy) * cap;
+    void      *mem = allocfunc(s);
+    dummy_arr *arr = (dummy_arr *)mem;
+    arr->data      = (dummy *)(arr + 1);
+    arr->n         = 0;
+    arr->c         = cap;
+    return arr;
 }
 
-int *slotmap_dereference(slotmap_s *sm, u32 ID)
+void dummy_arrpush(dummy_arr *arr, dummy v)
 {
-        int i = ID;
-        int j = sm->s[i];
-        if (j == 0) return NULL;
-        return &sm->data[j];
+    ARR_ASSERT(arr->n < arr->c);
+    arr->data[arr->n++] = v;
 }
 
-bool32 slotmap_contains(slotmap_s *sm, u32 ID)
+void dummy_arrinsert(dummy_arr *arr, dummy v, int i)
 {
-        int i = ID;
-        return (sm->s[i] != 0);
+    ARR_ASSERT(arr->n < arr->c && i <= arr->n);
+    for (int n = arr->n; n > i; n--)
+        arr->data[n] = arr->data[n - 1];
+    arr->data[i] = v;
+    arr->n++;
 }
 
-u32 slotmap_new(slotmap_s *sm)
+void dummy_arrinsertq(dummy_arr *arr, dummy v, int i)
 {
-        if (sm->n_free > 0) {
-                u32 ID      = sm->free[--sm->n_free];
-                int i       = ID;
-                int n       = ++sm->n;
-                sm->s[i]    = n;
-                sm->d[n]    = i;
-                sm->data[n] = 0;
-                return ID;
-        }
-        return 0;
+    ARR_ASSERT(arr->n < arr->c && i <= arr->n);
+    arr->data[arr->n++] = arr->data[i];
+    arr->data[i]        = v;
 }
 
-bool32 slotmap_del(slotmap_s *sm, u32 ID)
+void dummy_arrclr(dummy_arr *arr)
 {
-        int i = ID;
-        int j = sm->s[i];
-        if (j == 0) return 0;
-        int n       = sm->n--;
-        int k       = sm->d[n];
-        sm->d[n]    = 0;
-        sm->d[j]    = k;
-        sm->s[k]    = j;
-        sm->s[i]    = 0;
-        sm->data[j] = sm->data[n];
-        return 1;
+    arr->n = 0;
 }
-*/
+
+void dummy_arrdelatq(dummy_arr *arr, int i)
+{
+    ARR_ASSERT(0 <= i && i < arr->n);
+    arr->data[i] = arr->data[--arr->n];
+}
+
+void dummy_arrdelat(dummy_arr *arr, int i)
+{
+    ARR_ASSERT(0 <= i && i < arr->n);
+    arr->n--;
+    for (int n = i; n < arr->n; n++)
+        arr->data[n] = arr->data[n + 1];
+}
+
+dummy dummy_arrat(dummy_arr *arr, int i)
+{
+    ARR_ASSERT(0 <= i && i < arr->n);
+    return arr->data[i];
+}
+
+dummy *dummy_arratp(dummy_arr *arr, int i)
+{
+    ARR_ASSERT(0 <= i && i < arr->n);
+    return &arr->data[i];
+}
+
+dummy dummy_arrpop(dummy_arr *arr)
+{
+    ARR_ASSERT(arr->n > 0);
+    return arr->data[--arr->n];
+}
+
+int dummy_arrlen(dummy_arr *arr)
+{
+    return arr->n;
+}
 
 #define ARR_DEF_BASE(NAME, T)                                             \
     typedef struct {                                                      \
         T  *data;                                                         \
-        int n;                                                            \
-        int c;                                                            \
+        int n, c;                                                         \
     } NAME##_arr;                                                         \
                                                                           \
     static NAME##_arr *NAME##_arrcreate(int cap, void *(*allocf)(size_t)) \
     {                                                                     \
-        size_t      s   = sizeof(NAME##_arr) + sizeof(T) * cap;           \
+        usize       s   = sizeof(NAME##_arr) + sizeof(T) * cap;           \
         void       *mem = allocf(s);                                      \
         NAME##_arr *arr = (NAME##_arr *)mem;                              \
         arr->data       = (T *)(arr + 1);                                 \
@@ -199,176 +260,19 @@ bool32 slotmap_del(slotmap_s *sm, u32 ID)
     }                                               \
     _ARR_DEF_EXTENSION(NAME, T)
 
-#define ARR_DEF(NAME, T)                                       \
-    ARR_DEF_BASE(NAME, T)                                      \
-    static inline bool32 NAME##_equal(const T *a, const T *b); \
-                                                               \
-    static int NAME##_arrfind(NAME##_arr *arr, T v)            \
-    {                                                          \
-        for (int i = 0; i < arr->n; i++)                       \
-            if (NAME##_equal(&arr->data[i], &v))               \
-                return i;                                      \
-        return -1;                                             \
-    }                                                          \
+// CMP = compare if two elements are equal
+// e.g.: T: int, int intcmp(int *a, int *b); -> return true if equal
+#define ARR_DEF(NAME, T, CMP)                       \
+    ARR_DEF_BASE(NAME, T)                           \
+    static int NAME##_arrfind(NAME##_arr *arr, T v) \
+    {                                               \
+        for (int i = 0; i < arr->n; i++)            \
+            if (CMP(&arr->data[i], &v))             \
+                return i;                           \
+        return -1;                                  \
+    }                                               \
     _ARR_DEF_EXTENSION(NAME, T)
 
-typedef struct {
-    v2_i32 *data;
-    int     n;
-    int     c;
-} v2_arr;
-
-typedef struct {
-    int    i;
-    v2_i32 e;
-} v2_arr_it;
-
-static bool32 v2_arr_next(v2_arr *arr, v2_arr_it *it)
-{
-    if (it->i >= arr->n) return 0;
-    it->e = arr->data[it->i];
-    return 1;
-}
-
-#define v2_arr_foreach(ARRPTR, ITNAME) \
-    for (v2_arr_it ITNAME = {0}; v2_arr_next(ARRPTR, &ITNAME); ITNAME.i++)
-#define foreach_v2_arr(ARRPTR, ITNAME) \
-    for (v2_arr_it ITNAME = {0}; v2_arr_next(ARRPTR, &ITNAME); ITNAME.i++)
-#define v2_arr_each(ARRPTR, ITNAME) \
-    v2_arr_it ITNAME = {0};         \
-    v2_arr_next(ARRPTR, &ITNAME);   \
-    ITNAME.i++
-
-static v2_arr *v2_arrcreate(int cap, void *(*allocfunc)(size_t))
-{
-    size_t  s   = sizeof(v2_arr) + sizeof(v2_i32) * cap;
-    void   *mem = allocfunc(s);
-    v2_arr *arr = (v2_arr *)mem;
-    arr->data   = (v2_i32 *)(arr + 1);
-    arr->n      = 0;
-    arr->c      = cap;
-    return arr;
-}
-
-static void v2_arrpush(v2_arr *arr, v2_i32 v)
-{
-    assert(arr->n < arr->c);
-    arr->data[arr->n++] = v;
-}
-
-static void v2_arrput(v2_arr *arr, v2_i32 v, int i)
-{
-    assert(0 <= i && i <= arr->n);
-    if (i == arr->n) {
-        v2_arrpush(arr, v);
-    } else {
-        arr->data[i] = v;
-    }
-}
-
-static void v2_arradd(v2_arr *arr, v2_i32 v)
-{
-    v2_arrpush(arr, v);
-}
-
-static void v2_arrinsert(v2_arr *arr, v2_i32 v, int i)
-{
-    assert(arr->n < arr->c && i <= arr->n);
-    for (int n = arr->n; n > i; n--) {
-        arr->data[n] = arr->data[n - 1];
-    }
-    arr->data[i] = v;
-    arr->n++;
-}
-
-static void v2_arrinsertq(v2_arr *arr, v2_i32 v, int i)
-{
-    assert(arr->n < arr->c && i <= arr->n);
-    arr->data[arr->n++] = arr->data[i];
-    arr->data[i]        = v;
-}
-
-static int v2_arrfind(v2_arr *arr, v2_i32 v)
-{
-    for (int i = 0; i < arr->n; i++) {
-        if (arr->data[i].x == v.x && arr->data[i].y == v.y) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static bool32 v2_arrcontains(v2_arr *arr, v2_i32 v)
-{
-    return (v2_arrfind(arr, v) >= 0);
-}
-
-static void v2_arrpushunique(v2_arr *arr, v2_i32 v)
-{
-    if (!v2_arrcontains(arr, v)) {
-        v2_arrpush(arr, v);
-    }
-}
-
-static void v2_arrclr(v2_arr *arr)
-{
-    arr->n = 0;
-}
-
-static bool32 v2_arrdelatq(v2_arr *arr, int i)
-{
-    if (!(0 <= i && i < arr->n)) return 0;
-    arr->data[i] = arr->data[--arr->n];
-    return 1;
-}
-
-static bool32 v2_arrdelat(v2_arr *arr, int i)
-{
-    if (!(0 <= i && i < arr->n)) return 0;
-    arr->n--;
-    for (int n = i; n < arr->n; n++) {
-        arr->data[n] = arr->data[n + 1];
-    }
-    return 1;
-}
-
-static v2_i32 v2_arrat(v2_arr *arr, int i)
-{
-    assert(0 <= i && i < arr->n);
-    return arr->data[i];
-}
-
-static v2_i32 *v2_arratp(v2_arr *arr, int i)
-{
-    assert(0 <= i && i < arr->n);
-    return &arr->data[i];
-}
-
-static v2_i32 v2_arrpop(v2_arr *arr)
-{
-    assert(arr->n > 0);
-    return arr->data[--arr->n];
-}
-
-static bool32 v2_arrdel(v2_arr *arr, v2_i32 v)
-{
-    int i = v2_arrfind(arr, v);
-    if (i < 0) return 0;
-    v2_arrdelat(arr, i);
-    return 1;
-}
-
-static bool32 v2_arrdelq(v2_arr *arr, v2_i32 v)
-{
-    int i = v2_arrfind(arr, v);
-    if (i < 0) return 0;
-    v2_arrdelatq(arr, i);
-    return 1;
-}
-
-static int v2_arrlen(v2_arr *arr)
-{
-    return arr->n;
-}
+// =============================================================================
 
 #endif
