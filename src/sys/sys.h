@@ -71,6 +71,7 @@ enum {                     // pd_api.h:
 #define sys_file_remove backend_file_remove
 //
 sys_display_s sys_display();
+void          sys_set_menu_image(u8 *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
 sys_wavdata_s sys_load_wavdata(const char *filename, void *(*allocf)(usize s));
 void          sys_wavdata_play(sys_wavdata_s s, f32 vol, f32 pitch);

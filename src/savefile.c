@@ -10,37 +10,6 @@
 
 static void *savefile_open(int slotID, int mode);
 
-bool32 game_savefile_new(game_s *g, int slotID)
-{
-    // g->savefile_slotID = slotID;
-
-    // game_load_map(g, ASSET_PATH_MAPS "template.tmj");
-    return 1;
-}
-
-bool32 game_savefile_load(game_s *g, int slotID)
-{
-    savefile_s sf = {0};
-    if (!savefile_read(slotID, &sf)) { // error reading file
-        return 0;
-    }
-
-    game_load_map(g, sf.area_filename);
-
-    g->tick = sf.tick;
-
-    return 1;
-}
-
-bool32 game_savefile_save(game_s *g)
-{
-    savefile_s sf = {0};
-
-    sf.in_use = 1;
-    sf.tick   = g->tick;
-    return savefile_write(g->savefile_slotID, &sf);
-}
-
 bool32 savefile_copy(int slotID_from, int slotID_to)
 {
     savefile_s sf;
@@ -78,7 +47,7 @@ bool32 savefile_read(int slotID, savefile_s *sf)
     if (!(0 <= slotID && slotID <= 2)) return 0;
 
     void *file = savefile_open(slotID, SYS_FILE_R);
-    if (!file) { // file does not exist, create empty
+    if (!file) { // file does not exist
         savefile_s sf_empty = {0};
         *sf                 = sf_empty;
         return 0;
@@ -86,6 +55,7 @@ bool32 savefile_read(int slotID, savefile_s *sf)
 
     size_t res = sys_file_read(file, sf, sizeof(savefile_s));
     sys_file_close(file);
+    sys_printf("read: %i %i\n", res, sizeof(savefile_s));
     return (res == sizeof(savefile_s)); // save file corrupted?
 }
 

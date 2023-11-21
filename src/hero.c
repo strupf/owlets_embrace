@@ -9,13 +9,13 @@
 #define HERO_ROPE_LEN_MIN 500
 #define HERO_ROPE_LEN_MAX 4000
 
+static void hero_set_cur_item(hero_s *h, int item);
+
 obj_s *obj_hero_create(game_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HERO;
     obj_tag(g, o, OBJ_TAG_HERO);
-    o->pos.x = 50;
-    o->pos.y = 50;
     o->flags |= OBJ_FLAG_MOVER;
     o->flags |= OBJ_FLAG_TILE_COLLISION;
     o->flags |= OBJ_FLAG_ACTOR;
@@ -33,18 +33,25 @@ obj_s *obj_hero_create(game_s *g)
     return o;
 }
 
-bool32 hero_has_upgrade(hero_s *h, int upgradeID)
+bool32 hero_has_upgrade(hero_s *h, int upgrade)
 {
-    return (h->aquired_upgrades & (1U << upgradeID));
+    return (h->aquired_upgrades & (1U << upgrade));
 }
 
-void hero_aquire_upgrade(hero_s *h, int upgradeID)
+void hero_aquire_upgrade(hero_s *h, int upgrade)
 {
-    if (hero_has_upgrade(h, upgradeID)) {
-        sys_printf("Already has upgrade: %i\n", upgradeID);
+    if (hero_has_upgrade(h, upgrade)) {
+        sys_printf("Already has upgrade: %i\n", upgrade);
         return;
     }
-    h->aquired_upgrades |= 1U << upgradeID;
+    h->aquired_upgrades |= 1 << upgrade;
+
+    switch (upgrade) {
+    case HERO_UPGRADE_HOOK:
+        h->aquired_items |= 1 << HERO_ITEM_HOOK;
+        hero_set_cur_item(h, HERO_ITEM_HOOK);
+        break;
+    }
 }
 
 obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
@@ -59,7 +66,7 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->pos.y        = p.y - o->h / 2;
     o->drag_q8.x    = 256;
     o->drag_q8.y    = 256;
-    o->gravity_q8.y = 34;
+    o->gravity_q8.y = 70;
     o->vel_q8       = v_q8;
 
     rope_init(r);
@@ -112,11 +119,8 @@ void hook_update(game_s *g, obj_s *hook)
                 obj_s *solid = g->obj_busy[i];
                 if ((solid->flags & OBJ_FLAG_SOLID) &&
                     overlap_rec(hookrec, obj_aabb(solid))) {
-                    int kk = overlap_rec(hookrec, obj_aabb(solid));
-                    sys_printf("link me\n");
+                    int kk             = overlap_rec(hookrec, obj_aabb(solid));
                     hook->linked_solid = obj_handle_from_obj(solid);
-                    g->debugID         = 1;
-
                     break;
                 }
             }
@@ -174,6 +178,30 @@ void hero_use_hook(game_s *g, obj_s *h, hero_s *hero)
     g->ropes[0]          = rope;
 }
 
+static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
+{
+    obj_s *ohook_;
+    if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
+        hook_destroy(g, o, ohook_);
+        return;
+    }
+
+    switch (hero->selected_item) {
+    case HERO_ITEM_HOOK: {
+        sys_printf("1\n");
+        hero_use_hook(g, o, hero);
+    } break;
+    case HERO_ITEM_BOMB: {
+        sys_printf("2\n");
+        hitbox_s hitboxes[4] = {0};
+        hitboxes[0].damage   = 1;
+        hitboxes[0].r        = obj_aabb(o);
+        hitboxes[0].r        = translate_rec(hitboxes[0].r, (v2_i32){20, 0});
+        game_apply_hitboxes(g, hitboxes, 1);
+    } break;
+    }
+}
+
 void hero_update(game_s *g, obj_s *o)
 {
     hero_s *hero   = &g->herodata;
@@ -218,12 +246,7 @@ void hero_update(game_s *g, obj_s *o)
     }
 
     if (inp_just_pressed(INP_B)) {
-        obj_s *ohook_;
-        if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
-            hook_destroy(g, o, ohook_);
-        } else {
-            hero_use_hook(g, o, hero);
-        }
+        hero_use_item(g, o, hero);
     }
 
     obj_s *ohook = obj_from_obj_handle(o->obj_handles[0]);
@@ -356,18 +379,18 @@ void hero_room_transition(game_s *g, obj_s *o)
     transition_start(t, nextroom->filename);
 }
 
-void hero_set_cur_item(hero_s *h, int itemID)
+static void hero_set_cur_item(hero_s *h, int item)
 {
     if (h->aquired_items == 0) return;
-    if (!(h->aquired_items & (1 << itemID))) {
-        sys_printf("Doesn't have item %i\n", itemID);
+    if (!(h->aquired_items & (1 << item))) {
+        sys_printf("Doesn't have item %i\n", item);
         return;
     }
 
     h->itemselection_dirty = 1;
-    h->selected_item       = itemID;
-    h->selected_item_prev  = itemID;
-    h->selected_item_next  = itemID;
+    h->selected_item       = item;
+    h->selected_item_prev  = item;
+    h->selected_item_next  = item;
 
     do {
         if (--h->selected_item_prev < 0)

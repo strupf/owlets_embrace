@@ -17,6 +17,9 @@ enum {
     OBJ_ID_HOOK,
     OBJ_ID_SIGN,
     OBJ_ID_SOLID,
+    OBJ_ID_KILLABLE,
+    OBJ_ID_DOOR_SLIDE,
+    OBJ_ID_SAVEPOINT,
 };
 
 enum {
@@ -33,6 +36,7 @@ static_assert(NUM_OBJ_TAGS <= 32, "Num obj tags");
 #define OBJ_FLAG_ACTOR          ((u64)1 << 3)
 #define OBJ_FLAG_SOLID          ((u64)1 << 4)
 #define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 5)
+#define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 6)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -55,12 +59,6 @@ typedef struct {
     obj_s *o;
     int    gen;
 } obj_handle_s;
-
-typedef struct {
-    rec_i32 r;
-    int     damage;
-    int     flags;
-} hitbox_s;
 
 struct obj_s {
     GUID_s GUID;
@@ -85,6 +83,7 @@ struct obj_s {
     v2_i32  acc_q8;
     v2_i32  tomove;
 
+    int      trigger;
     int      actionID;
     int      subactionID;
     int      state;
@@ -104,6 +103,8 @@ struct obj_s {
     spriteanim_s spriteanim[4];
 
     char filename[64];
+
+    void (*on_squish)(game_s *g, obj_s *o);
 };
 
 // generic object with additional memory to be used
@@ -140,9 +141,12 @@ rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
 bool32       tiles_solid(game_s *g, rec_i32 r);
+void         actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_interact(game_s *g, obj_s *o);
+
+void squish_delete(game_s *g, obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
@@ -152,5 +156,7 @@ void obj_apply_movement(obj_s *o);
 
 obj_s *obj_hero_create(game_s *g);
 obj_s *obj_solid_create(game_s *g);
+obj_s *obj_slide_door_create(game_s *g);
+obj_s *obj_savepoint_create(game_s *g);
 
 #endif

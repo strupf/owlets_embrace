@@ -30,9 +30,11 @@ void app_init()
     asset_tex_load(TEXID_UI, "assets/ui.tex");
     asset_tex_load(TEXID_UI_ITEMS, "assets/items.tex");
     asset_tex_put(TEXID_UI_ITEM_CACHE, tex_create(128, 256, assetmem_alloc));
+    asset_tex_load(TEXID_UI_TEXTBOX, "assets/textbox.tex");
 
     asset_snd_load(SNDID_HOOK_ATTACH, "assets/snd/hookattach.wav");
     asset_fnt_load(FNTID_DEFAULT, "assets/font_default.json");
+    asset_fnt_load(FNTID_DIALOG, "assets/font_dialog.json");
 
 #ifdef SYS_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, assetmem_alloc);

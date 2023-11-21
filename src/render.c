@@ -47,19 +47,34 @@ void render(game_s *g)
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (ohero && ohero->rope) {
-        rope_s *rope = ohero->rope;
-        for (ropenode_s *r1 = rope->head; r1 && r1->next; r1 = r1->next) {
-            ropenode_s *r2 = r1->next;
-            gfx_lin_thick(ctx,
-                          v2_add(r1->p, camoffset),
-                          v2_add(r2->p, camoffset), PRIM_MODE_BLACK, 3);
-        }
+        rope_s   *rope     = ohero->rope;
+        gfx_ctx_s ctx_rope = gfx_ctx_default(asset_tex(0));
 
-        for (ropenode_s *r1 = rope->head; r1 && r1->next; r1 = r1->next) {
-            ropenode_s *r2 = r1->next;
-            gfx_lin_thick(ctx,
-                          v2_add(r1->p, camoffset),
-                          v2_add(r2->p, camoffset), PRIM_MODE_WHITE, 1);
+        int         inode       = 0;
+        int         lensofar_q4 = 0;
+        ropenode_s *r1          = rope->tail;
+        ropenode_s *r2          = r1->prev;
+
+        while (r1 && r2) {
+            v2_i32 p1        = v2_add(r1->p, camoffset);
+            v2_i32 p2        = v2_add(r2->p, camoffset);
+            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
+            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
+
+            while (inode * 80 < lenend_q4) {
+                int dst = inode * 80 - lensofar_q4;
+                inode++;
+                assert(dst >= 0);
+                v2_i32 dd = dt12_q4;
+                dd        = v2_setlen(dd, dst);
+                dd        = v2_shr(dd, 4);
+                dd        = v2_add(dd, p1);
+                gfx_cir_fill(ctx_rope, dd, 4, PRIM_MODE_BLACK);
+                gfx_cir_fill(ctx_rope, dd, 1, PRIM_MODE_WHITE);
+            }
+            lensofar_q4 = lenend_q4;
+            r1          = r2;
+            r2          = r2->prev;
         }
     }
 
@@ -76,6 +91,33 @@ void render(game_s *g)
     }
 
     render_ui(g, camoffset);
+
+#if 0 // speech bubble animation
+    rec_i32 rec = {100, 50, 50, 30};
+
+    gfx_rec_fill(ctx, translate_rec(rec, camoffset), 0);
+
+    v2_i32 cc = {
+        rec.x + rec.w / 2,
+        rec.y + rec.h / 2};
+
+    v2_i32 speaker = obj_pos_center(obj_get_tagged(g, OBJ_TAG_HERO));
+    v2_i32 dt      = v2_sub(cc, speaker);
+
+    v2_i32 dta, dtb;
+
+    float ang   = 0.3f;
+    dta.x       = cos_f(ang) * (f32)dt.x - sin_f(ang) * (f32)dt.y;
+    dta.y       = sin_f(ang) * (f32)dt.x + cos_f(ang) * (f32)dt.y;
+    ang         = -ang;
+    dtb.x       = cos_f(ang) * (f32)dt.x - sin_f(ang) * (f32)dt.y;
+    dtb.y       = sin_f(ang) * (f32)dt.x + cos_f(ang) * (f32)dt.y;
+    tri_i32 tri = {speaker,
+                   v2_add(speaker, dta),
+                   v2_add(speaker, dtb)};
+    tri         = translate_tri(tri, camoffset);
+    gfx_tri_fill(ctx, tri, 0);
+#endif
 }
 
 void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
@@ -201,5 +243,5 @@ void render_ui(game_s *g, v2_i32 camoffset)
         }
     }
 
-    textbox_draw(&g->textbox);
+    textbox_draw(&g->textbox, camoffset);
 }

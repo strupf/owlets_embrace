@@ -7,24 +7,14 @@
 
 #include "gamedef.h"
 
-enum {
-    FADE_NONE,
-    FADE_PHASE_I,
-    FADE_PHASE_W,
-    FADE_PHASE_O,
-};
-
 typedef struct {
     int tick;
     int phase;
-
-    int ticks_i;
-    int ticks_w;
-    int ticks_o;
+    int phases;
+    int phase_tick[4];
 
     void *cb_arg;
-    void (*cb_on_w)(void *arg);
-    void (*cb_on_o)(void *arg);
+    void (*callbacks[4])(void *arg);
 } fade_s;
 
 int fade_update(fade_s *fade);

@@ -55,6 +55,6 @@ typedef struct {
 
 void textbox_load_dialog(textbox_s *tb, const char *filename);
 void textbox_update(textbox_s *tb);
-void textbox_draw(textbox_s *tb);
+void textbox_draw(textbox_s *tb, v2_i32 camoffset);
 
 #endif

@@ -10,6 +10,7 @@
 #include "assets.c"
 #include "aud.c"
 #include "cam.c"
+#include "fade.c"
 #include "game.c"
 #include "gfx.c"
 #include "hero.c"

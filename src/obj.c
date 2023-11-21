@@ -98,6 +98,35 @@ void objs_cull_to_delete(game_s *g)
     g->obj_ndelete = 0;
 }
 
+void actor_try_wiggle(game_s *g, obj_s *o)
+{
+    rec_i32 r = obj_aabb(o);
+    if (game_traversable(g, r)) return;
+
+    for (int y = -1; y <= +1; y++) {
+        for (int x = -1; x <= +1; x++) {
+            rec_i32 rr = r;
+            rr.x += x;
+            rr.y += y;
+            if (game_traversable(g, rr)) {
+                o->pos.x += x;
+                o->pos.y += y;
+                return;
+            }
+        }
+    }
+
+    o->bumpflags |= OBJ_BUMPED_SQUISH;
+    if (o->on_squish) {
+        o->on_squish(g, o);
+    }
+}
+
+void squish_delete(game_s *g, obj_s *o)
+{
+    obj_delete(g, o);
+}
+
 static void actor_move_by(game_s *g, obj_s *o, v2_i32 dt)
 {
     o->pos = v2_add(o->pos, dt);
@@ -220,6 +249,9 @@ void obj_interact(game_s *g, obj_s *o)
     case OBJ_ID_SIGN: {
         textbox_load_dialog(&g->textbox, o->filename);
     } break;
+    case OBJ_ID_SAVEPOINT: {
+        game_write_savefile(g);
+    } break;
     }
 }
 
@@ -279,4 +311,20 @@ v2_i32 obj_pos_bottom_center(obj_s *o)
 {
     v2_i32 p = {o->pos.x + (o->w >> 1), o->pos.y + o->h};
     return p;
+}
+
+obj_s *obj_slide_door_create(game_s *g)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_DOOR_SLIDE;
+    o->flags |= OBJ_FLAG_SOLID;
+    return o;
+}
+
+obj_s *obj_savepoint_create(game_s *g)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_SAVEPOINT;
+    o->flags |= OBJ_FLAG_INTERACTABLE;
+    return o;
 }

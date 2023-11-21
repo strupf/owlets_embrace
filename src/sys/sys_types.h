@@ -72,7 +72,7 @@ PlaydateAPI *PD;
 extern int (*PD_format_str)(char **ret, const char *format, ...);
 extern void *(*PD_realloc)(void *ptr, size_t size);
 void sys_log(const char *str);
-/*
+
 #define sys_printf(...)                      \
     {                                        \
         char *strret;                        \
@@ -80,8 +80,6 @@ void sys_log(const char *str);
         sys_log(strret);                     \
         PD_realloc(strret, 0);               \
     }
-    */
-#define sys_printf(...)
 #endif
 
 typedef unsigned char  uchar;

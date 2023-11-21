@@ -5,10 +5,21 @@
 #include "textbox.h"
 #include "assets.h"
 
+static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
+{
+    int len = 0;
+    for (int i = 0; i < n_chars; i++) {
+        textbox_char_s ci = chars[i];
+        len += f.widths[ci.glyph];
+    }
+    return len;
+}
+
 void textbox_load_dialog(textbox_s *tb, const char *filename)
 {
     *tb       = (textbox_s){0};
     tb->state = TEXTBOX_STATE_WRITE;
+    fnt_s font;
 
     char  *txt;
     json_s jroot;
@@ -23,7 +34,6 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
         tbc.effect         = TEXTBOX_EFFECT_NONE;
         tbc.tick_q2        = TEXTBOX_SPEED_DEFAULT_Q2;
         int n_lines        = 0;
-
         for (json_each(jblock, "lines", jline)) {
             int linelength = 0;
             for (char *c = json_strp(jline, NULL); *c != '\"'; c++) {
@@ -116,20 +126,26 @@ void textbox_update(textbox_s *tb)
     }
 }
 
-void textbox_draw(textbox_s *tb)
+void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 {
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
 
-    v2_i32 pos = {0};
+    v2_i32 pos = {10, 150};
 
     textbox_block_s *b   = &tb->blocks[tb->block];
-    fnt_s            fnt = asset_fnt(FNTID_DEFAULT);
+    fnt_s            fnt = asset_fnt(FNTID_DIALOG);
     gfx_ctx_s        ctx = gfx_ctx_default(asset_tex(0));
     v2_i32           p   = pos;
     texrec_s         t   = {0};
     t.t                  = fnt.t;
     t.r.w                = fnt.grid_w;
     t.r.h                = fnt.grid_h;
+
+    texrec_s tb_frame;
+    tb_frame.t = asset_tex(TEXID_UI_TEXTBOX);
+    tb_frame.r = (rec_i32){0, 0, 400, 240};
+    gfx_spr(ctx, tb_frame, (v2_i32){0}, 0, 0);
+    // gfx_rec_fill(ctx, (rec_i32){0, 120, 400, 120}, PRIM_MODE_WHITE);
 
     for (int i = 0, len = 0, row = 0; i < tb->n; i++) {
         textbox_char_s ci = b->chars[i];
@@ -148,6 +164,7 @@ void textbox_draw(textbox_s *tb)
         }
 
         gfx_spr(ctx, t, pp, 0, 0);
+
         p.x += fnt.widths[ci.glyph];
 
         len++;

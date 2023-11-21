@@ -29,6 +29,7 @@ PlaydateAPI *PD;
 void (*PD_log)(const char *fmt, ...);
 int (*PD_format_str)(char **ret, const char *format, ...);
 void *(*PD_realloc)(void *ptr, size_t size);
+static LCDBitmap *PD_menu_bm;
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -45,6 +46,9 @@ __declspec(dllexport)
         PD->sound->addSource(sys_audio_cb, NULL, 0);
         PD->system->resetElapsedTime();
         PD->display->setRefreshRate(0.f);
+
+        PD_menu_bm = PD->graphics->newBitmap(400, 240, kColorWhite);
+        PD->system->setMenuImage(PD_menu_bm, 0);
         sys_init();
         break;
     case kEventTerminate:
@@ -136,4 +140,24 @@ int backend_file_remove(const char *path)
 int backend_debug_space()
 {
     return 0;
+}
+
+void backend_set_menu_image(u8 *px, int h, int wbyte)
+{
+    int wid, hei, byt;
+    u8 *p;
+    u8 *m;
+    PD->graphics->getBitmapData(PD_menu_bm, &wid, &hei, &byt, &m, &p);
+
+    int y2 = hei < h ? hei : h;
+    int b2 = byt < wbyte ? byt : wbyte;
+    for (int y = 0; y < y2; y++) {
+        for (int b = 0; b < b2; b++) {
+            p[b + y * byt] = px[b + y * wbyte];
+        }
+    }
+
+    if (m) {
+        memset(m, 0xFF, sizeof(u8) * hei * byt);
+    }
 }

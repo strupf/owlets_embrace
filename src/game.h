@@ -11,7 +11,6 @@
 #include "map_loader.h"
 #include "obj.h"
 #include "rope.h"
-#include "savefile.h"
 #include "textbox.h"
 #include "title.h"
 #include "transition.h"
@@ -94,6 +93,8 @@ struct game_s {
     rope_s *ropes[16];
     int     n_ropes;
     int     debugID;
+
+    char area_filename[LEN_AREA_FILENAME];
 };
 
 typedef struct {
@@ -108,6 +109,9 @@ extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
 void             game_init(game_s *g);
 void             game_tick(game_s *g);
 void             game_draw(game_s *g);
+void             game_new_savefile(game_s *g, int slotID);
+void             game_write_savefile(game_s *g);
+void             game_load_savefile(game_s *g, savefile_s sf, int slotID);
 void             game_trigger(game_s *g, int triggerID);
 bool32           tiles_solid(game_s *g, rec_i32 r);
 bool32           game_traversable(game_s *g, rec_i32 r);

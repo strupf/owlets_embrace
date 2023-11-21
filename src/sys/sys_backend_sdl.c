@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE 2
+#define SYS_SDL_SCALE 3
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");
@@ -18,6 +18,7 @@ static struct {
     int               running;
     u64               timeorigin;
     u8                framebuffer[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
+    u8                menuimg[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
     u8                update_row[SYS_DISPLAY_H];
     u32               color_pal[2];
     SDL_Window       *window;
@@ -286,4 +287,8 @@ int backend_debug_space()
     int       n_keys;
     const u8 *keys = SDL_GetKeyboardState(&n_keys);
     return (keys[SDL_SCANCODE_SPACE]);
+}
+
+void backend_set_menu_image(u8 *px, int h, int wbyte)
+{
 }

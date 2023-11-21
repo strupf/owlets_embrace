@@ -196,6 +196,11 @@ int sys_crank_docked()
     return backend_crank_docked();
 }
 
+void sys_set_menu_image(u8 *px, int h, int wbyte)
+{
+    backend_set_menu_image(px, h, wbyte);
+}
+
 // http://soundfile.sapp.org/doc/WaveFormat/
 typedef struct {
     u32 chunkID;

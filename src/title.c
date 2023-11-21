@@ -21,7 +21,7 @@ enum {
 static void mainmenu_pressed_A(game_s *g, mainmenu_s *t);
 static void mainmenu_pressed_B(mainmenu_s *t);
 static void mainmenu_navigate(mainmenu_s *t, int dx, int dy);
-static void mainmenu_op_start_file(game_s *g, int index);
+static void mainmenu_op_start_file(game_s *g, mainmenu_s *t, int index);
 static void mainmenu_play_sound(int soundID);
 static void mainmenu_update_savefiles(mainmenu_s *t);
 
@@ -29,15 +29,16 @@ void mainmenu_init(mainmenu_s *t)
 {
 #if 1
     // write some files to debug copy and delete
-    t->savefiles[0].tick = 1;
-    t->savefiles[1].tick = 5;
-    t->savefiles[2].tick = -4610;
-    savefile_write(0, &t->savefiles[0]);
-    savefile_write(1, &t->savefiles[1]);
-    savefile_write(2, &t->savefiles[2]);
-#else
-    mainmenu_update_savefiles(t);
+    t->savefiles[0].sf.tick = 1;
+    t->savefiles[1].sf.tick = 5;
+    t->savefiles[2].sf.tick = -4610;
+
+    strcpy(t->savefiles[0].sf.area_filename, "assets/map/proj/Level_1.ldtkl");
+    savefile_write(0, &t->savefiles[0].sf);
+    savefile_write(1, &t->savefiles[1].sf);
+    savefile_write(2, &t->savefiles[2].sf);
 #endif
+    mainmenu_update_savefiles(t);
 }
 
 void mainmenu_update(game_s *g, mainmenu_s *t)
@@ -76,9 +77,9 @@ void mainmenu_render(mainmenu_s *t)
     char buf0[8] = {0};
     char buf1[8] = {0};
     char buf2[8] = {0};
-    str_append_i(buf0, t->savefiles[0].tick);
-    str_append_i(buf1, t->savefiles[1].tick);
-    str_append_i(buf2, t->savefiles[2].tick);
+    str_append_i(buf0, t->savefiles[0].sf.tick);
+    str_append_i(buf1, t->savefiles[1].sf.tick);
+    str_append_i(buf2, t->savefiles[2].sf.tick);
     fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, buf0, mode);
     fnt_draw_ascii(ctx, font, (v2_i32){200, 40}, buf1, mode);
     fnt_draw_ascii(ctx, font, (v2_i32){200, 60}, buf2, mode);
@@ -146,7 +147,7 @@ static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
         case 0:
         case 1:
         case 2: // selected file to play
-            mainmenu_op_start_file(g, t->option);
+            mainmenu_op_start_file(g, t, t->option);
             break;
         case MAINMENU_OPTION_COPY: // copy file
             mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
@@ -303,9 +304,15 @@ static void mainmenu_navigate(mainmenu_s *t, int dx, int dy)
     }
 }
 
-static void mainmenu_op_start_file(game_s *g, int index)
+static void mainmenu_op_start_file(game_s *g, mainmenu_s *t, int index)
 {
     mainmenu_play_sound(MAINMENU_SOUND_START);
+    if (t->savefiles[index].exists) {
+        game_load_savefile(g, g->mainmenu.savefiles[index].sf, index);
+    } else {
+        game_new_savefile(g, index);
+    }
+
     g->state = GAMESTATE_GAMEPLAY;
     sys_printf("start file %i\n", index);
 }
@@ -316,7 +323,8 @@ static void mainmenu_play_sound(int soundID)
 
 static void mainmenu_update_savefiles(mainmenu_s *t)
 {
-    savefile_read(0, &t->savefiles[0]);
-    savefile_read(1, &t->savefiles[1]);
-    savefile_read(2, &t->savefiles[2]);
+    for (int i = 0; i < 3; i++) {
+        t->savefiles[i].exists = savefile_read(i, &t->savefiles[i].sf);
+        sys_printf("exists: %i %i\n", i, t->savefiles[i].exists);
+    }
 }

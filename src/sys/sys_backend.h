@@ -28,4 +28,5 @@ int   backend_file_write(void *f, const void *buf, usize bufsize);
 int   backend_file_tell(void *f);
 int   backend_file_seek(void *f, int pos, int origin);
 int   backend_file_remove(const char *path);
+void  backend_set_menu_image(u8 *px, int h, int wbyte);
 #endif

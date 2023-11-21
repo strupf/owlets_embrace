@@ -119,6 +119,8 @@ void game_load_map(game_s *g, const char *filename)
         g->obj_tag[n] = NULL;
     }
 
+    strcpy(g->area_filename, filename);
+
     spm_push();
     char *txt;
     txt_load(filename, spm_alloc, &txt);
@@ -298,6 +300,12 @@ static obj_s *ldtk_load_obj_from_json(game_s *g, json_s jobj)
         o->w  = 16;
         o->h  = 16;
         o->flags |= OBJ_FLAG_INTERACTABLE;
+    } else if (str_eq(oname, "Savepoint")) {
+        o        = obj_savepoint_create(g);
+        o->w     = 16;
+        o->h     = 16;
+        o->pos.x = x;
+        o->pos.y = y;
     }
 
     if (!o) return NULL;

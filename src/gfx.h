@@ -31,6 +31,7 @@ typedef struct {
 typedef struct {
     tex_s         dst;
     gfx_pattern_s pat;
+    u8           *st; // stencil
 } gfx_ctx_s;
 
 typedef struct {
@@ -82,6 +83,7 @@ tex_s         tex_framebuffer();
 tex_s         tex_create(int w, int h, void *(*allocf)(usize s));
 tex_s         tex_load(const char *path, void *(*allocf)(usize s));
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
+gfx_ctx_s     gfx_ctx_stencil(tex_s dst, tex_s stc);
 void          tex_clr(tex_s dst, int col);
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);

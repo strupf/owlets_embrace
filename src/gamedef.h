@@ -24,6 +24,7 @@
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
 
+#define LEN_AREA_FILENAME      64
 #define GAME_NUM_TILECOLLIDERS 32
 
 enum {
@@ -123,5 +124,17 @@ static bool32 GUID_same(GUID_s a, GUID_s b)
     return (a.i[0] == b.i[0] && a.i[1] == b.i[1] &&
             a.i[2] == b.i[2] && a.i[3] == b.i[3]);
 }
+
+enum {
+    HITBOX_FLAG_HURT_HERO        = 1 << 0,
+    HITBOX_FLAG_HURT_MONSTER     = 1 << 1,
+    HITBOX_FLAG_HURT_ENVIRONMENT = 1 << 2,
+};
+
+typedef struct {
+    rec_i32 r;
+    int     damage;
+    int     flags;
+} hitbox_s;
 
 #endif

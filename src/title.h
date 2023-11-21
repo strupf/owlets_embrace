@@ -50,6 +50,11 @@ enum {
 };
 
 typedef struct {
+    int        exists;
+    savefile_s sf;
+} mainmenu_savefile_s;
+
+typedef struct {
     int state;
     int option;
 
@@ -57,7 +62,7 @@ typedef struct {
     int file_to_copy_to;
     int file_to_delete;
 
-    savefile_s savefiles[3]; // savefiles for preview
+    mainmenu_savefile_s savefiles[3]; // savefiles for preview
 } mainmenu_s;
 
 void mainmenu_init(mainmenu_s *t);

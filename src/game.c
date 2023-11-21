@@ -22,15 +22,56 @@ void game_init(game_s *g)
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "assets/map/proj.ldtk");
+
+    // textbox_load_dialog(&g->textbox, "assets/dialog.json");
+}
+
+void game_new_savefile(game_s *g, int slotID)
+{
     game_load_map(g, "assets/map/proj/Level_1.ldtkl");
+    g->savefile_slotID = slotID;
+    obj_s *oh          = obj_hero_create(g);
+    oh->pos.x          = 60;
+    oh->pos.y          = 60;
+    sys_printf("start new game\n");
+}
+
+void game_write_savefile(game_s *g)
+{
+    savefile_s sf   = {0};
+    hero_s    *hero = &g->herodata;
+    strcpy(sf.area_filename, g->area_filename);
+    strcpy(sf.hero_name, hero->name);
+    sf.aquired_items    = hero->aquired_items;
+    sf.aquired_upgrades = hero->aquired_upgrades;
+    sf.in_use           = 1;
+    sf.tick             = g->tick;
+    savefile_write(g->savefile_slotID, &sf);
+    sys_printf("saved!\n");
+}
+
+void game_load_savefile(game_s *g, savefile_s sf, int slotID)
+{
+    g->savefile_slotID = slotID;
+    game_load_map(g, sf.area_filename);
+
+    obj_s *savepoint = NULL;
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if (o->ID == OBJ_ID_SAVEPOINT) {
+            savepoint = o;
+            break;
+        }
+    }
 
     obj_s *oh = obj_hero_create(g);
-    oh->pos.x = 60;
 
-    g->herodata.aquired_items |= 1 << HERO_ITEM_BOMB;
-    g->herodata.aquired_items |= 1 << HERO_ITEM_HOOK;
-    g->herodata.aquired_items |= 1 << HERO_ITEM_BOW;
-    hero_set_cur_item(&g->herodata, HERO_ITEM_BOMB);
+    if (savepoint) {
+        oh->pos.x = savepoint->pos.x;
+        oh->pos.y = savepoint->pos.y - 20;
+    }
+
+    hero_aquire_upgrade(&g->herodata, HERO_UPGRADE_HOOK);
 }
 
 void game_tick(game_s *g)
@@ -39,7 +80,9 @@ void game_tick(game_s *g)
     hero_crank_item_selection(&g->herodata);
     obj_s *ohero_ = obj_get_tagged(g, OBJ_TAG_HERO);
 
-    spriteanim_update(&ohero_->spriteanim[0]);
+    if (ohero_) {
+        spriteanim_update(&ohero_->spriteanim[0]);
+    }
 
     transition_s *t = &g->transition;
 
@@ -62,22 +105,37 @@ void game_tick(game_s *g)
         // adds tomove accumulator
         for (int i = 0; i < g->obj_nbusy; i++) {
             obj_s *o = g->obj_busy[i];
-            if (!(o->flags & OBJ_FLAG_MOVER)) continue;
-            obj_apply_movement(o);
+            if (o->flags & OBJ_FLAG_MOVER) {
+                obj_apply_movement(o);
+            }
         }
 
         // move objects by tomove
         for (int i = 0; i < g->obj_nbusy; i++) {
             obj_s *o = g->obj_busy[i];
+            if (o->flags & OBJ_FLAG_SOLID) {
+                solid_move(g, o, o->tomove);
+                o->tomove.x = 0;
+                o->tomove.y = 0;
+            }
+        }
+
+        for (int i = 0; i < g->obj_nbusy; i++) {
+            obj_s *o = g->obj_busy[i];
             if (o->flags & OBJ_FLAG_ACTOR) {
                 actor_move(g, o, o->tomove);
-            } else if (o->flags & OBJ_FLAG_SOLID) {
-                solid_move(g, o, o->tomove);
-            } else {
-                o->pos = v2_add(o->pos, o->tomove);
+                actor_try_wiggle(g, o);
+                o->tomove.x = 0;
+                o->tomove.y = 0;
             }
-            o->tomove.x = 0;
-            o->tomove.y = 0;
+        }
+
+        rec_i32 roombounds = {-256, -256, g->pixel_x + 256, g->pixel_y + 256};
+        for (int i = 0; i < g->obj_nbusy; i++) {
+            obj_s *o = g->obj_busy[i];
+            if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && !overlap_rec(obj_aabb(o), roombounds)) {
+                obj_delete(g, o);
+            }
         }
 
         objs_cull_to_delete(g);
@@ -186,6 +244,12 @@ void game_trigger(game_s *g, int triggerID)
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
         switch (o->ID) {
+        case OBJ_ID_DOOR_SLIDE:
+            if (o->state == 0 && o->trigger == triggerID) {
+                o->state = 1;
+                // open
+            }
+            break;
         default: break;
         }
     }
@@ -254,21 +318,6 @@ bool32 game_traversable(game_s *g, rec_i32 r)
     return 1;
 }
 
-static hitbox_s *hitbox_strongest(rec_i32 r, hitbox_s *boxes, int n_boxes)
-{
-    hitbox_s *strongest     = NULL;
-    int       strongest_dmg = 0;
-    for (int n = 0; n < n_boxes; n++) {
-        hitbox_s *hb = &boxes[n];
-
-        if (overlap_rec(r, hb->r) && hb->damage > strongest_dmg) {
-            strongest     = hb;
-            strongest_dmg = hb->damage;
-        }
-    }
-    return strongest;
-}
-
 void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
 {
     for (int n = 0; n < n_boxes; n++) {
@@ -276,11 +325,30 @@ void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
     }
 
     for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s    *o    = g->obj_busy[i];
-        rec_i32   aabb = obj_aabb(o);
-        hitbox_s *hb   = hitbox_strongest(aabb, boxes, n_boxes);
+        obj_s  *o    = g->obj_busy[i];
+        rec_i32 aabb = obj_aabb(o);
 
-        if (!hb) continue;
+        hitbox_s *strongest     = NULL;
+        int       strongest_dmg = 0;
+        for (int n = 0; n < n_boxes; n++) {
+            hitbox_s *hb = &boxes[n];
+
+            if (o->ID == OBJ_ID_HERO && !(hb->flags & HITBOX_FLAG_HURT_HERO))
+                continue;
+
+            if (overlap_rec(aabb, hb->r) && hb->damage > strongest_dmg) {
+                strongest     = hb;
+                strongest_dmg = hb->damage;
+            }
+        }
+
+        if (!strongest) continue;
+
+        switch (o->ID) {
+        case OBJ_ID_KILLABLE:
+            sys_printf("ATTACKED\n");
+            break;
+        }
     }
 }
 

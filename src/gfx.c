@@ -109,6 +109,16 @@ gfx_ctx_s gfx_ctx_default(tex_s dst)
     return ctx;
 }
 
+gfx_ctx_s gfx_ctx_stencil(tex_s dst, tex_s stc)
+{
+    assert(stc.wbyte == dst.wbyte && stc.h == dst.h);
+    gfx_ctx_s ctx = {0};
+    ctx.dst       = dst;
+    ctx.st        = stc.px;
+    memset(&ctx.pat, 0xFF, sizeof(gfx_pattern_s));
+    return ctx;
+}
+
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 {
     gfx_pattern_s pat;
@@ -189,8 +199,9 @@ typedef struct {
     u32           mr;   // boundary mask right
     int           mode; // drawing mode
     int           doff; // bitoffset of first dst bit
-    u32          *dp;
-    u32          *dm;
+    u32          *dp;   // pixel
+    u32          *dm;   // mask
+    u32          *ds;   // stencil
     int           y;
     gfx_pattern_s pat;
     //
@@ -216,12 +227,17 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
     info.dp          = &((u32 *)ctx.dst.px)[dsti];
     info.dm          = ctx.dst.mk ? &((u32 *)ctx.dst.mk)[dsti] : NULL;
+    info.ds          = ctx.st ? &((u32 *)ctx.st)[dsti] : NULL;
     info.pat         = ctx.pat;
     return info;
 }
 
-static void apply_spr_mode(u32 *restrict dp, u32 *restrict dm, u32 sp, u32 sm, int mode)
+static void apply_spr_mode(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds, u32 sp, u32 sm, int mode)
 {
+    if (ds) {
+        sm &= ~*ds;
+    }
+
     switch (mode) {
     case SPR_MODE_INV: sp = ~sp; // fallthrough
     case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
@@ -234,6 +250,7 @@ static void apply_spr_mode(u32 *restrict dp, u32 *restrict dm, u32 sp, u32 sm, i
     }
 
     if (dm) *dm |= sm;
+    if (ds) *ds |= sm;
 }
 
 static void spr_blit_row_rev(span_blit_s info)
@@ -241,6 +258,7 @@ static void spr_blit_row_rev(span_blit_s info)
     u32 pt                 = info.pat.p[info.y & 7];
     u32 *restrict dp       = (u32 *restrict)(info.dp);
     u32 *restrict dm       = (u32 *restrict)(info.dm);
+    u32 *restrict ds       = (u32 *restrict)(info.ds);
     const u32 *restrict sp = (u32 *restrict)(info.sp + info.smax);
     const u32 *restrict sm = (u32 *restrict)(info.sm ? info.sm + info.smax : NULL);
     int a                  = info.shift;
@@ -250,13 +268,14 @@ static void spr_blit_row_rev(span_blit_s info)
         u32 p = brev32(*sp--);
         u32 m = sm ? brev32(*sm--) & info.ml : info.ml;
         for (int i = 0; i < info.dmax; i++) {
-            apply_spr_mode(dp, dm, p, m & pt, info.mode);
+            apply_spr_mode(dp, dm, ds, p, m & pt, info.mode);
             p = brev32(*sp--);
             m = sm ? brev32(*sm--) : 0xFFFFFFFFU;
             dp++;
             if (dm) dm++;
+            if (ds) ds++;
         }
-        apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
         return;
     }
 
@@ -275,24 +294,26 @@ static void spr_blit_row_rev(span_blit_s info)
         m = sm ? bswap32(m | (brev32(bswap32(*sm)) >> b)) & info.ml : info.ml;
 
         if (info.dmax == 0) {
-            apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+            apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
             return; // only one word long
         }
 
-        apply_spr_mode(dp, dm, p, m & pt, info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & pt, info.mode);
         dp++;
         if (dm) dm++;
+        if (ds) ds++;
     }
 
     // middle words without first and last word
     for (int i = 1; i < info.dmax; i++) {
         u32 p = bswap32((brev32(bswap32(*sp)) << a) | (brev32(bswap32(*(sp - 1))) >> b));
         u32 m = sm ? bswap32((brev32(bswap32(*sm)) << a) | (brev32(bswap32(*(sm - 1))) >> b)) : 0xFFFFFFFFU;
-        apply_spr_mode(dp, dm, p, m & pt, info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & pt, info.mode);
         sp--;
         dp++;
         if (sm) sm--;
         if (dm) dm++;
+        if (ds) ds++;
     }
 
     { // last word
@@ -304,7 +325,7 @@ static void spr_blit_row_rev(span_blit_s info)
         }
         p = bswap32(p);
         m = bswap32(m);
-        apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
     }
 }
 
@@ -313,6 +334,7 @@ static void spr_blit_row(span_blit_s info)
     u32 pt                 = info.pat.p[info.y & 7];
     u32 *restrict dp       = (u32 *restrict)(info.dp);
     u32 *restrict dm       = (u32 *restrict)(info.dm);
+    u32 *restrict ds       = (u32 *restrict)(info.ds);
     const u32 *restrict sp = (u32 *restrict)(info.sp);
     const u32 *restrict sm = (u32 *restrict)(info.sm);
     int a                  = info.shift;
@@ -322,13 +344,14 @@ static void spr_blit_row(span_blit_s info)
         u32 p = *sp++;
         u32 m = sm ? *sm++ & info.ml : info.ml;
         for (int i = 0; i < info.dmax; i++) {
-            apply_spr_mode(dp, dm, p, m & pt, info.mode);
+            apply_spr_mode(dp, dm, ds, p, m & pt, info.mode);
             p = *sp++;
             m = sm ? *sm++ : 0xFFFFFFFFU;
             dp++;
             if (dm) dm++;
+            if (ds) ds++;
         }
-        apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
         return;
     }
 
@@ -346,24 +369,26 @@ static void spr_blit_row(span_blit_s info)
         p = bswap32(p | (bswap32(*sp) >> b));
         m = sm ? bswap32(m | (bswap32(*sm) >> b)) & info.ml : info.ml;
         if (info.dmax == 0) {
-            apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+            apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
             return; // only one word long
         }
 
-        apply_spr_mode(dp, dm, p, m & pt, info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & pt, info.mode);
         dp++;
         if (dm) dm++;
+        if (ds) ds++;
     }
 
     // middle words without first and last word
     for (int i = 1; i < info.dmax; i++) {
         u32 p = bswap32((bswap32(*sp) << a) | (bswap32(*(sp + 1)) >> b));
         u32 m = sm ? bswap32((bswap32(*sm) << a) | (bswap32(*(sm + 1)) >> b)) & pt : pt;
-        apply_spr_mode(dp, dm, p, m, info.mode);
+        apply_spr_mode(dp, dm, ds, p, m, info.mode);
         sp++;
         dp++;
         if (sm) sm++;
         if (dm) dm++;
+        if (ds) ds++;
     }
 
     { // last word
@@ -375,7 +400,7 @@ static void spr_blit_row(span_blit_s info)
         }
         p = bswap32(p);
         m = bswap32(m);
-        apply_spr_mode(dp, dm, p, m & (pt & info.mr), info.mode);
+        apply_spr_mode(dp, dm, ds, p, m & (pt & info.mr), info.mode);
     }
 }
 
@@ -430,11 +455,16 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode)
 
         info.dp += dtex.wword;
         if (info.dm) info.dm += dtex.wword;
+        if (info.ds) info.ds += dtex.wword;
     }
 }
 
-static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 sm, int mode, u32 pt)
+static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds, u32 sm, int mode, u32 pt)
 {
+    if (ds) {
+        sm &= ~*ds;
+    }
+
     switch (mode) {
     case PRIM_MODE_INV: sm &= pt, *dp = (*dp & ~sm) | (~*dp & sm); break;
     case PRIM_MODE_WHITE: sm &= pt, *dp |= sm; break;
@@ -444,22 +474,25 @@ static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 sm, int mode
     }
 
     if (dm) *dm |= sm;
+    if (ds) *ds |= sm;
 }
 
-static void prim_blit_row(span_blit_s info)
+static void prim_blit_span(span_blit_s info)
 {
     u32 *restrict dp = (u32 *restrict)info.dp;
     u32 *restrict dm = (u32 *restrict)info.dm;
+    u32 *restrict ds = (u32 *restrict)info.ds;
 
     u32 pt = info.pat.p[info.y & 7];
     u32 m  = info.ml;
     for (int i = 0; i < info.dmax; i++) {
-        apply_prim_mode(dp, dm, m, info.mode, pt);
+        apply_prim_mode(dp, dm, ds, m, info.mode, pt);
         m = 0xFFFFFFFFU;
         dp++;
         if (dm) dm++;
+        if (ds) ds++;
     }
-    apply_prim_mode(dp, dm, m & info.mr, info.mode, pt);
+    apply_prim_mode(dp, dm, ds, m & info.mr, info.mode, pt);
 }
 
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
@@ -473,10 +506,11 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
 
     span_blit_s info = span_blit_gen(ctx, y1, x1, x2, mode);
     for (info.y = y1; info.y <= y2; info.y++) {
-        prim_blit_row(info);
+        prim_blit_span(info);
 
         info.dp += dtex.wword;
         if (info.dm) info.dm += dtex.wword;
+        if (info.ds) info.ds += dtex.wword;
     }
 }
 
@@ -512,7 +546,37 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int 
 
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
 {
-    NOT_IMPLEMENTED
+    v2_i32 t0 = t.p[0];
+    v2_i32 t1 = t.p[1];
+    v2_i32 t2 = t.p[2];
+    if (t0.y > t1.y) SWAP(v2_i32, t0, t1);
+    if (t0.y > t2.y) SWAP(v2_i32, t0, t2);
+    if (t1.y > t2.y) SWAP(v2_i32, t1, t2);
+    int th = t2.y - t0.y;
+    if (th == 0) return;
+    int h1 = t1.y - t0.y + 1;
+    int h2 = t2.y - t1.y + 1;
+    i32 d0 = t2.x - t0.x;
+    i32 d1 = t1.x - t0.x;
+    i32 d2 = t2.x - t1.x;
+    i32 y0 = max_i(0, t0.y);
+    i32 y1 = min_i(ctx.dst.h - 1, t1.y);
+    i32 y2 = min_i(ctx.dst.h - 1, t2.y);
+    for (int y = y0; y <= y1; y++) {
+        i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
+        i32 x2 = t0.x + (d1 * (y - t0.y)) / h1;
+        if (x2 < x1) SWAP(i32, x1, x2);
+        span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
+        prim_blit_span(info);
+    }
+
+    for (int y = y1; y <= y2; y++) {
+        i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
+        i32 x2 = t1.x + (d2 * (y - t1.y)) / h2;
+        if (x2 < x1) SWAP(i32, x1, x2);
+        span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
+        prim_blit_span(info);
+    }
 }
 
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
@@ -531,7 +595,7 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
         int x2 = min_i(p.x + xx, dtex.w) - 1;
         if (x1 > x2) continue;
         span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
-        prim_blit_row(info);
+        prim_blit_span(info);
     }
 }
 
@@ -565,7 +629,9 @@ void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode)
 
 void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode)
 {
-    NOT_IMPLEMENTED
+    gfx_lin_thick(ctx, t.p[0], t.p[1], mode, 2);
+    gfx_lin_thick(ctx, t.p[0], t.p[2], mode, 2);
+    gfx_lin_thick(ctx, t.p[1], t.p[2], mode, 2);
 }
 
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode)

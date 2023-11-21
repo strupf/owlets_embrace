@@ -16,6 +16,7 @@ enum {
     TEXID_UI,
     TEXID_UI_ITEM_CACHE,
     TEXID_UI_ITEMS,
+    TEXID_UI_TEXTBOX,
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
 #endif
@@ -25,6 +26,7 @@ enum {
 
 enum {
     FNTID_DEFAULT,
+    FNTID_DIALOG,
     //
     NUM_FNTID
 };
