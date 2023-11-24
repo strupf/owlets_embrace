@@ -605,6 +605,7 @@ void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
 
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r)
 {
+#if 1
     int    dx = +abs_i(b.x - a.x);
     int    dy = -abs_i(b.y - a.y);
     int    sx = a.x < b.x ? +1 : -1;
@@ -620,6 +621,38 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r)
         if (e2 >= dy) { er += dy, pi.x += sx; }
         if (e2 <= dx) { er += dx, pi.y += sy; }
     }
+
+#else
+    line_i32 l0 = {a, b};
+
+    v2_i32 ldt = v2_sub(a, b);
+
+    if (ldt.y == 0) {
+        gfx_lin(ctx, a, b, mode);
+        return;
+    }
+
+    ldt        = v2_shl(ldt, 8);
+    v2_i32 odt = {ldt.y, -ldt.x};
+    odt        = v2_setlen(odt, r << 8);
+
+    v2_i32 c = v2_add(v2_shl(a, 8), odt);
+    v2_i32 d = v2_add(v2_shl(b, 8), odt);
+
+    v2_i32 e = v2_sub(v2_shl(a, 8), odt);
+    v2_i32 f = v2_sub(v2_shl(b, 8), odt);
+
+    c = v2_shr(c, 8);
+    d = v2_shr(d, 8);
+    e = v2_shr(e, 8);
+    f = v2_shr(f, 8);
+
+    tri_i32 t1 = {c, d, e};
+    tri_i32 t2 = {c, e, f};
+    gfx_tri_fill(ctx, t1, mode);
+    gfx_tri_fill(ctx, t2, mode);
+
+#endif
 }
 
 void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode)

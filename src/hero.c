@@ -51,6 +51,10 @@ void hero_aquire_upgrade(hero_s *h, int upgrade)
         h->aquired_items |= 1 << HERO_ITEM_HOOK;
         hero_set_cur_item(h, HERO_ITEM_HOOK);
         break;
+    case HERO_UPGRADE_WHIP:
+        h->aquired_items |= 1 << HERO_ITEM_WHIP;
+        hero_set_cur_item(h, HERO_ITEM_WHIP);
+        break;
     }
 }
 
@@ -180,6 +184,11 @@ void hero_use_hook(game_s *g, obj_s *h, hero_s *hero)
 
 static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
 {
+    if (hero->attack != HERO_ATTACK_NONE) {
+        if (hero->attack_tick > 5) return;
+        hero->attack_tick = 0; // animation cancel
+    }
+
     obj_s *ohook_;
     if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
         hook_destroy(g, o, ohook_);
@@ -192,21 +201,56 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
         hero_use_hook(g, o, hero);
     } break;
     case HERO_ITEM_BOMB: {
-        sys_printf("2\n");
-        hitbox_s hitboxes[4] = {0};
-        hitboxes[0].damage   = 1;
-        hitboxes[0].r        = obj_aabb(o);
-        hitboxes[0].r        = translate_rec(hitboxes[0].r, (v2_i32){20, 0});
-        game_apply_hitboxes(g, hitboxes, 1);
+
+    } break;
+    case HERO_ITEM_WHIP: {
+        int dx              = inp_dpad_x();
+        int dy              = inp_dpad_y();
+        hero->attack_tick   = 20;
+        hero->facing_locked = 1;
+        if (dy == -1 && dx == 0)
+            hero->attack = HERO_ATTACK_UP;
+        if (dy == +1 && dx == 0)
+            hero->attack = HERO_ATTACK_DOWN;
+        if (dy == -1 && dx != 0)
+            hero->attack = HERO_ATTACK_DIA_UP;
+        if (dy == +1 && dx != 0)
+            hero->attack = HERO_ATTACK_DIA_DOWN;
+        if (dy == 0)
+            hero->attack = HERO_ATTACK_SIDE;
     } break;
     }
 }
 
 void hero_update(game_s *g, obj_s *o)
 {
-    hero_s *hero   = &g->herodata;
-    int     dpad_x = inp_dpad_x();
+    hero_s *hero = &g->herodata;
 
+    if (hero->attack != HERO_ATTACK_NONE) {
+        hitbox_s hitboxes[4] = {0};
+        hitboxes[0].damage   = 1;
+        hitboxes[0].r        = obj_aabb(o);
+        switch (hero->attack) {
+        case HERO_ATTACK_UP:
+            break;
+        case HERO_ATTACK_DOWN:
+            break;
+        case HERO_ATTACK_DIA_UP:
+            break;
+        case HERO_ATTACK_DIA_DOWN:
+            break;
+        case HERO_ATTACK_SIDE:
+            break;
+        }
+
+        game_apply_hitboxes(g, hitboxes, 1);
+        if (--hero->attack_tick <= 0) {
+            hero->attack        = HERO_ATTACK_NONE;
+            hero->facing_locked = 0;
+        }
+    }
+
+    int    dpad_x   = inp_dpad_x();
     bool32 grounded = !game_traversable(g, obj_rec_bottom(o));
     if (grounded) {
         o->edgeticks = 6;
@@ -214,7 +258,7 @@ void hero_update(game_s *g, obj_s *o)
         o->edgeticks--;
     }
 
-    if (dpad_x != 0) {
+    if (dpad_x != 0 && !hero->facing_locked) {
         o->facing = dpad_x;
     }
 
@@ -303,7 +347,7 @@ void hero_update(game_s *g, obj_s *o)
 
     o->vel_q8.x += xacc * dpad_x;
 
-    if (inp_just_pressed(INP_DPAD_U)) {
+    if (inp_just_pressed(INP_DPAD_U) && grounded) {
         v2_i32 posc         = obj_pos_center(o);
         obj_s *interactable = obj_closest_interactable(g, posc);
 
@@ -386,37 +430,49 @@ static void hero_set_cur_item(hero_s *h, int item)
         sys_printf("Doesn't have item %i\n", item);
         return;
     }
-
-    h->itemselection_dirty = 1;
-    h->selected_item       = item;
-    h->selected_item_prev  = item;
-    h->selected_item_next  = item;
-
-    do {
-        if (--h->selected_item_prev < 0)
-            h->selected_item_prev = NUM_HERO_ITEMS - 1;
-    } while (!(h->aquired_items & (1 << h->selected_item_prev)));
-
-    do {
-        if (++h->selected_item_next >= NUM_HERO_ITEMS)
-            h->selected_item_next = 0;
-    } while (!(h->aquired_items & (1 << h->selected_item_next)));
+    h->selected_item = item;
 }
+
+#define ITEM_CRANK_THRESHOLD 8000
 
 void hero_crank_item_selection(hero_s *h)
 {
     if (h->aquired_items == 0) return;
-    int change = inp_crank_dt_q16();
-    if (change == 0) return;
+    if (h->itemselection_decoupled) return;
+    if (inp_debug_space()) return;
 
-    h->itemselection_dirty = 1;
-    int p_q16              = inp_prev_crank_q16();
-    int c_q16              = inp_crank_q16();
+    int p_q16 = inp_prev_crank_q16();
+    int c_q16 = inp_crank_q16();
+    int dt    = inp_crank_calc_dt_q16(p_q16, c_q16);
+    int dtp   = inp_crank_calc_dt_q16(p_q16, h->item_angle);
+    int dtc   = inp_crank_calc_dt_q16(h->item_angle, c_q16);
 
-    // here we check if the crank "flipped over" the 180 deg position
-    if (change > 0 && p_q16 < 0x8000 && c_q16 >= 0x8000) {
-        hero_set_cur_item(h, h->selected_item_next);
-    } else if (change < 0 && p_q16 >= 0x8000 && c_q16 < 0x8000) {
-        hero_set_cur_item(h, h->selected_item_prev);
+    // turn item barrel, snaps into crank angle for small angles
+    int angle_old = h->item_angle;
+    if ((dt > 0 && dtp >= 0 && dtc >= 0) || (dt < 0 && dtp <= 0 && dtc <= 0)) {
+        h->item_angle = c_q16;
+    } else if (abs_i(dtc) < ITEM_CRANK_THRESHOLD) {
+        int d = sgn_i(dtc) * (ITEM_CRANK_THRESHOLD - abs_i(dtc)) / 10;
+        if (sgn_i(d) == sgn_i(dtc) && abs_i(d) > abs_i(dtc)) {
+            d = dtc;
+        }
+
+        h->item_angle = (h->item_angle + d + 0x10000) & 0xFFFF;
+    }
+
+    // item selection based on new item barrel angle
+    // check if the barrel "flipped over" the 180 deg position
+    // -> select next/prev item
+    int change = inp_crank_calc_dt_q16(angle_old, h->item_angle);
+    if (change > 0 && angle_old < 0x8000 && h->item_angle >= 0x8000) {
+        do {
+            h->selected_item += 1;
+            h->selected_item %= NUM_HERO_ITEMS;
+        } while (!(h->aquired_items & (1 << h->selected_item)));
+    } else if (change < 0 && angle_old >= 0x8000 && h->item_angle < 0x8000) {
+        do {
+            h->selected_item += NUM_HERO_ITEMS - 1;
+            h->selected_item %= NUM_HERO_ITEMS;
+        } while (!(h->aquired_items & (1 << h->selected_item)));
     }
 }

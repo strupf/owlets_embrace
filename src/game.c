@@ -10,6 +10,7 @@
 u16 g_animated_tiles[65536];
 
 static void backforeground_windparticles(game_s *g);
+static void backforeground_animate_grass(game_s *g);
 
 void game_init(game_s *g)
 {
@@ -24,6 +25,9 @@ void game_init(game_s *g)
     map_world_load(&g->map_world, "assets/map/proj.ldtk");
 
     // textbox_load_dialog(&g->textbox, "assets/dialog.json");
+
+    ase_anim_s aseanim;
+    ase_anim_parse(&aseanim, "assets/whip_anim_2.json", spm_alloc);
 }
 
 void game_new_savefile(game_s *g, int slotID)
@@ -38,14 +42,15 @@ void game_new_savefile(game_s *g, int slotID)
 
 void game_write_savefile(game_s *g)
 {
-    savefile_s sf   = {0};
-    hero_s    *hero = &g->herodata;
+    savefile_s sf = {0};
+
+    hero_s *hero = &g->herodata;
     strcpy(sf.area_filename, g->area_filename);
     strcpy(sf.hero_name, hero->name);
     sf.aquired_items    = hero->aquired_items;
     sf.aquired_upgrades = hero->aquired_upgrades;
-    sf.in_use           = 1;
     sf.tick             = g->tick;
+
     savefile_write(g->savefile_slotID, &sf);
     sys_printf("saved!\n");
 }
@@ -54,24 +59,30 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 {
     g->savefile_slotID = slotID;
     game_load_map(g, sf.area_filename);
-
-    obj_s *savepoint = NULL;
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
-        if (o->ID == OBJ_ID_SAVEPOINT) {
-            savepoint = o;
-            break;
-        }
+    g->tick    = sf.tick;
+    g->n_grass = 0;
+    for (int i = 0; i < 30; i++) {
+        grass_s *gr = &g->grass[g->n_grass++];
+        *gr         = (grass_s){0};
+        gr->pos.x   = 10 + i * 16;
+        gr->pos.y   = 200;
+        gr->type    = rngr_i32(0, 2);
     }
 
     obj_s *oh = obj_hero_create(g);
 
-    if (savepoint) {
-        oh->pos.x = savepoint->pos.x;
-        oh->pos.y = savepoint->pos.y - 20;
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if (o->ID == OBJ_ID_SAVEPOINT) {
+            oh->pos.x = o->pos.x;
+            oh->pos.y = o->pos.y - 20;
+            break;
+        }
     }
 
-    hero_aquire_upgrade(&g->herodata, HERO_UPGRADE_HOOK);
+    g->herodata.aquired_items    = sf.aquired_items;
+    g->herodata.aquired_upgrades = sf.aquired_upgrades;
+    // textbox_load_dialog(&g->textbox, "assets/dialog.json");
 }
 
 void game_tick(game_s *g)
@@ -163,6 +174,7 @@ void game_tick(game_s *g)
     cam_update(g, cam);
 
     backforeground_windparticles(g);
+    backforeground_animate_grass(g);
 }
 
 void game_draw(game_s *g)
@@ -171,29 +183,52 @@ void game_draw(game_s *g)
     transition_draw(&g->transition);
 }
 
+static void backforeground_animate_grass(game_s *g)
+{
+    for (int n = 0; n < g->n_grass; n++) {
+        grass_s *gr = &g->grass[n];
+
+        rec_i32 rgrass = {gr->pos.x, gr->pos.y, 16, 16};
+
+        for (int n = 0; n < g->obj_nbusy; n++) {
+            obj_s *o = g->obj_busy[n];
+            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(rgrass, obj_aabb(o))) {
+                gr->v_q8 += o->vel_q8.x >> 6;
+            }
+        }
+
+        int f1 = -((gr->x_q8 * 4) >> 8);
+        int f2 = rngr_i32(-30000 * 150, +30000 * 150) >> (13 + 8);
+        gr->v_q8 += f1 + f2;
+        gr->x_q8 += gr->v_q8;
+        gr->x_q8 = clamp_i(gr->x_q8, -256 * 4, +256 * 4);
+        gr->v_q8 = (gr->v_q8 * 245) >> 8;
+    }
+}
+
 static void backforeground_windparticles(game_s *g)
 {
     // traverse backwards to avoid weird removal while iterating
     for (int n = g->n_windparticles - 1; n >= 0; n--) {
         windparticle_s *p = &g->windparticles[n];
-        if ((p->p_q8.x >> 8) < -200 || (p->p_q8.x >> 8) > g->pixel_x + 200) {
+        if ((p->p_q8.x >> 8) < -256 || (p->p_q8.x >> 8) > g->pixel_x + 256) {
             g->windparticles[n] = g->windparticles[--g->n_windparticles];
             continue;
         }
 
         p->circcooldown--;
-        if (p->circcooldown <= 0 && rngr_u32(0, 65535) < 600) { // enter wind circle animation
-            p->ticks        = 0;                                // rng_range_u32(15, 20);
+        if (p->circcooldown <= 0 && rng_u32() < 0x1000000U) { // enter wind circle animation
+            p->ticks        = rngr_u32(15, 20);
             p->circticks    = p->ticks;
             p->circc.x      = p->p_q8.x;
             p->circc.y      = p->p_q8.y - BACKGROUND_WIND_CIRCLE_R;
-            p->circcooldown = p->circticks + 70;
+            p->circcooldown = 60;
         }
 
         if (p->circticks > 0) { // run through circle but keep slowly moving forward
             i32 a     = (Q16_ANGLE_TURN * (p->ticks - p->circticks)) / p->ticks;
-            int xx    = sin_q16_fast(a) * BACKGROUND_WIND_CIRCLE_R;
-            int yy    = cos_q16_fast(a) * BACKGROUND_WIND_CIRCLE_R;
+            int xx    = sin_q16(a) * BACKGROUND_WIND_CIRCLE_R;
+            int yy    = cos_q16(a) * BACKGROUND_WIND_CIRCLE_R;
             p->p_q8.x = p->circc.x + (xx >> 16);
             p->p_q8.y = p->circc.y + (yy >> 16);
             p->circc.x += 200;

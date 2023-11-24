@@ -41,6 +41,43 @@ struct spriteanim_s {
     void (*cb_framechanged)(spriteanim_s *a, void *cb_arg);
 };
 
+typedef struct {
+    struct {
+        u16 x, y, w, h;
+    } frame;
+    struct {
+        u16 x, y, w, h;
+    } spritesourcesize;
+    struct {
+        u16 w, h;
+    } sourcesize;
+    u16 duration;
+    u8  trimmed;
+    u8  rotated;
+} ase_frame_s;
+
+typedef struct {
+    char         tag[16];
+    ase_frame_s *frames;
+    int          n_frames;
+} ase_tagged_anim_s;
+
+typedef struct {
+    ase_frame_s       *frames;
+    ase_tagged_anim_s *tagged_anim;
+    int                n_tagged_anim;
+    int                n_frames;
+} ase_anim_s;
+
+enum {
+    ASE_SUCCESS,
+    ASE_ERR_FILE,
+    ASE_ERR_JSON,
+    ASE_ERR_ALLOC,
+};
+
+int      ase_anim_parse(ase_anim_s *a, const char *file, void *(*allocf)(usize s));
+bool32   ase_anim_get_tag(ase_anim_s a, const char *tag, ase_tagged_anim_s *t);
 void     spriteanim_update(spriteanim_s *a);
 texrec_s spriteanim_frame(spriteanim_s *a);
 

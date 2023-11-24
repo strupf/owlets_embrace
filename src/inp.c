@@ -77,6 +77,24 @@ int inp_dpad_y()
     return 0;
 }
 
+int inp_dpad_dir()
+{
+    int x = inp_dpad_x();
+    int y = inp_dpad_y();
+    int d = ((y + 1) << 2) | (x + 1);
+    switch (d) {
+    case 1: return INP_DPAD_DIR_N;
+    case 9: return INP_DPAD_DIR_S;
+    case 6: return INP_DPAD_DIR_E;
+    case 4: return INP_DPAD_DIR_W;
+    case 10: return INP_DPAD_DIR_SE;
+    case 8: return INP_DPAD_DIR_SW;
+    case 0: return INP_DPAD_DIR_NW;
+    case 2: return INP_DPAD_DIR_NE;
+    }
+    return INP_DPAD_DIR_NONE;
+}
+
 int inp_crank_q16()
 {
     return INP.curr.crank_q16;
@@ -89,7 +107,12 @@ int inp_prev_crank_q16()
 
 int inp_crank_dt_q16()
 {
-    i32 dt = INP.curr.crank_q16 - INP.prev.crank_q16;
+    return inp_crank_calc_dt_q16(INP.prev.crank_q16, INP.curr.crank_q16);
+}
+
+int inp_crank_calc_dt_q16(int ang_from, int ang_to)
+{
+    int dt = ang_to - ang_from;
     if (dt <= -32768) return (dt + 65536);
     if (dt >= +32768) return (dt - 65536);
     return dt;

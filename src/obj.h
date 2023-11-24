@@ -28,7 +28,6 @@ enum {
     //
     NUM_OBJ_TAGS
 };
-static_assert(NUM_OBJ_TAGS <= 32, "Num obj tags");
 
 #define OBJ_FLAG_MOVER          ((u64)1 << 0)
 #define OBJ_FLAG_TILE_COLLISION ((u64)1 << 1)
@@ -37,6 +36,7 @@ static_assert(NUM_OBJ_TAGS <= 32, "Num obj tags");
 #define OBJ_FLAG_SOLID          ((u64)1 << 4)
 #define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 5)
 #define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 6)
+#define OBJ_FLAG_HOOKABLE       ((u64)1 << 7)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -61,9 +61,9 @@ typedef struct {
 } obj_handle_s;
 
 struct obj_s {
-    GUID_s GUID;
     int    index;
     int    gen;
+    GUID_s GUID;
     int    facing; // -1 left, +1 right
 
     int     ID;

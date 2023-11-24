@@ -73,14 +73,16 @@ void transition_draw(transition_s *t)
 
     switch (t->phase) {
     case TRANSITION_PHASE_OUT:
-        pat = gfx_pattern_interpolate(t->tick, TRANSITION_TICKS_OUT);
+        pat = gfx_pattern_interpolate(POW2(t->tick), POW2(TRANSITION_TICKS_OUT));
         break;
     case TRANSITION_PHASE_BLACK:
         pat = gfx_pattern_interpolate(1, 1);
         break;
-    case TRANSITION_PHASE_IN:
-        pat = gfx_pattern_interpolate(TRANSITION_TICKS_IN - t->tick, TRANSITION_TICKS_IN);
-        break;
+    case TRANSITION_PHASE_IN: {
+        int t2 = POW2(TRANSITION_TICKS_IN);
+        int t1 = t2 - POW2(t->tick);
+        pat    = gfx_pattern_interpolate(t1, t2);
+    } break;
     }
 
     tex_s display = asset_tex(0);

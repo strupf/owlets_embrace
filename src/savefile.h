@@ -8,9 +8,7 @@
 #include "game.h"
 
 typedef struct savefile_s {
-    bool32 in_use;
-    i32    tick;
-
+    i32     tick;
     flags32 aquired_upgrades;
     flags32 aquired_items;
     char    area_filename[LEN_AREA_FILENAME];

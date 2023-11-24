@@ -118,6 +118,8 @@ void game_load_map(game_s *g, const char *filename)
     for (int n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
+    g->n_grass = 0;
+    g->n_ropes = 0;
 
     strcpy(g->area_filename, filename);
 

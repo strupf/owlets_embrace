@@ -28,19 +28,47 @@ void render(game_s *g)
 
         switch (o->ID) {
         case OBJ_ID_HERO: {
-            trec.t = asset_tex(TEXID_HERO);
-
+            trec.t         = asset_tex(TEXID_HERO);
+            hero_s  *hero  = &g->herodata;
             texrec_s trec1 = spriteanim_frame(&o->spriteanim[0]);
 
-            int animID  = 0;
-            trec.r      = (rec_i32){0, animID * 64, 64, 64};
-            v2_i32 rpos = v2_add(obj_pos_bottom_center(o), camoffset);
+            int animID   = 0;
+            trec.r       = (rec_i32){0, animID * 64, 64, 64};
+            v2_i32 rpos  = v2_add(obj_pos_bottom_center(o), camoffset);
+            v2_i32 pwhip = rpos;
             rpos.y -= trec1.r.h;
             rpos.x -= trec1.r.w / 2;
 
             int flip = o->facing == -1 ? SPR_FLIP_X : 0;
 
             gfx_spr(ctx, trec1, rpos, flip, 0);
+
+            if (hero->attack != HERO_ATTACK_NONE) {
+                int times[] = {2,
+                               4,
+                               6,
+                               8,
+                               16,
+                               17,
+                               18,
+                               20};
+
+                int fr = 0;
+                while (hero->attack_tick < times[7 - fr]) {
+                    fr++;
+                }
+                fr = clamp_i(fr, 0, 7);
+                texrec_s trwhip;
+                trwhip.t   = asset_tex(TEXID_HERO_WHIP);
+                trwhip.r.x = fr * 256;
+                trwhip.r.y = (hero->attack - 1) * 256;
+                trwhip.r.w = 256;
+                trwhip.r.h = 256;
+
+                pwhip.x -= 128 - o->facing * 10;
+                pwhip.y -= 128;
+                gfx_spr(ctx, trwhip, pwhip, flip, 0);
+            }
         } break;
         }
     }
@@ -70,11 +98,29 @@ void render(game_s *g)
                 dd        = v2_shr(dd, 4);
                 dd        = v2_add(dd, p1);
                 gfx_cir_fill(ctx_rope, dd, 4, PRIM_MODE_BLACK);
-                gfx_cir_fill(ctx_rope, dd, 1, PRIM_MODE_WHITE);
+                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
             }
             lensofar_q4 = lenend_q4;
             r1          = r2;
             r2          = r2->prev;
+        }
+    }
+
+    texrec_s trgrass;
+    trgrass.t = asset_tex(TEXID_PLANTS);
+    for (int n = 0; n < g->n_grass; n++) {
+        grass_s *gr  = &g->grass[n];
+        v2_i32   pos = v2_add(gr->pos, camoffset);
+
+        for (int i = 0; i < 16; i++) {
+            v2_i32 p = pos;
+            p.y += i;
+
+            p.x += (gr->x_q8 * (15 - i)) >> 8;
+            rec_i32 rg = {8, i + gr->type * 16, 16, 1};
+            trgrass.r  = rg;
+            // gfx_sprite(ctx, p, rg, 0);
+            gfx_spr(ctx, trgrass, p, 0, 0);
         }
     }
 
@@ -167,47 +213,80 @@ void render_parallax(game_s *g, v2_i32 camoffset)
     int bgy = (int)(cam->pos.y * (1.f - par.y)) + par.offy + camoffset.y;
 }
 
-enum {
-    ITEM_FRAME_SIZE = 64,
-    ITEM_BARREL_R   = 16,
-    ITEM_BARREL_D   = ITEM_BARREL_R * 2,
-    ITEM_SIZE       = 32,
-    ITEM_X_OFFS     = 16,
-    ITEM_Y_OFFS     = 16,
-};
+#define ITEM_FRAME_SIZE 64
+#define ITEM_BARREL_R   16
+#define ITEM_SIZE       32
+#define ITEM_X_OFFS     16
+#define ITEM_Y_OFFS     16
 
-static void item_selection_redraw(hero_s *h)
+static void render_item_selection(hero_s *h)
 {
-    // interpolator based on crank position
-    h->itemselection_dirty = 0;
-    int ii                 = -((ITEM_SIZE * inp_crank_q16()) >> 16);
-    if (inp_crank_q16() >= 0x8000) {
-        ii += ITEM_SIZE;
-    }
-
-    int itemIDs[3] = {h->selected_item_prev,
-                      h->selected_item,
-                      h->selected_item_next};
-
     tex_s     texcache = asset_tex(TEXID_UI_ITEM_CACHE);
     gfx_ctx_s ctx      = gfx_ctx_default(texcache);
-    texrec_s  tr;
-    tr.t = asset_tex(TEXID_UI_ITEMS);
+    texrec_s  tr       = {0};
+    tr.t               = asset_tex(TEXID_UI_ITEMS);
     tex_clr(texcache, TEX_CLR_TRANSPARENT);
 
-    for (int y = -ITEM_BARREL_R; y <= +ITEM_BARREL_R; y++) {
-        int     a_q16   = (y << 16) / ITEM_BARREL_R;
-        int     arccos  = (acos_q16(a_q16) * ITEM_SIZE) >> (16 + 1);
-        int     loc     = arccos + ITEM_SIZE - ii;
-        int     itemi   = loc / ITEM_SIZE;
-        int     yy      = ITEM_SIZE * itemIDs[itemi] + loc % ITEM_SIZE;
-        int     uu      = ITEM_BARREL_R - y + ITEM_Y_OFFS;
-        rec_i32 itemrow = {ITEM_SIZE, yy, ITEM_SIZE, 1};
-        tr.r            = itemrow;
-        gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS, uu}, 0, 0);
-    }
-    tr.r = (rec_i32){64, 0, 64, 64};
+    // barrel background
+    tr.r = (rec_i32){144, 0, 64, 64};
     gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
+
+    int discoffset = 10;
+    if (!h->itemselection_decoupled) {
+        int dtang  = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
+        discoffset = min_i(pow2_i32(dtang) / 5000000, discoffset);
+    }
+
+#define ITEM_OVAL_X 2
+#define ITEM_OVAL_Y 12
+
+    int turn1 = (inp_crank_q16() + 0x4000) << 2;
+    int turn2 = (h->item_angle + 0x4000) << 2;
+    int sx1   = (cos_q16(turn1) * ITEM_OVAL_X) >> 16;
+    int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
+    int sx2   = (cos_q16(turn2) * ITEM_OVAL_X) >> 16;
+    int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
+
+    // bolt
+    tr.r = (rec_i32){208, 80, 16, 16};
+    gfx_spr(ctx, tr, (v2_i32){33 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
+
+    tr.r = (rec_i32){208, 96, 16, 16};
+    gfx_spr(ctx, tr, (v2_i32){39 - sx2, 32 - 8 - sy2}, 0, 0);
+
+    // wraps the item image around a rotating barrel
+    // map coordinate to angle to image coordinate
+    //   |
+    //   v_________
+    //   /  \      \
+    //  /    \      \
+    //  |     \     |
+    tr.r.x = 32;
+    tr.r.w = ITEM_SIZE;
+    tr.r.h = 1;
+    for (int y = 0; y < 2 * ITEM_BARREL_R; y++) {
+        int yy   = y - ITEM_BARREL_R;
+        int abar = asin_q16((yy << 16) / ITEM_BARREL_R) >> 2; // asin returns TURN in Q18, one turn = 0x40000, shr by 2 for Q16
+        int aimg = (abar + h->item_angle + 0x4000) & 0xFFFF;
+        int offx = (cos_q16((yy << 16) / ITEM_BARREL_R) * 4) >> 16;
+        offx     = clamp_i(offx, 0, 3);
+        if (0 <= aimg && aimg < 0x8000) { // maps to [0, 180) deg (visible barrel)
+            tr.r.y = h->selected_item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
+            gfx_spr(ctx, tr, (v2_i32){6 - offx, ITEM_Y_OFFS + y}, 0, 0);
+        } else {
+            gfx_rec_fill(ctx, (rec_i32){6 - offx, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
+        }
+    }
+
+    // black barrel frame
+    tr.r = (rec_i32){144, 64, 64, 64};
+    gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
+
+    // crank disc
+    tr.r = (rec_i32){208, 0, 32, 64};
+    gfx_spr(ctx, tr, (v2_i32){41 + discoffset, 0}, 0, 0);
+    tr.r = (rec_i32){208, 112, 16, 16};
+    gfx_spr(ctx, tr, (v2_i32){45 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
 }
 
 void render_ui(game_s *g, v2_i32 camoffset)
@@ -215,14 +294,11 @@ void render_ui(game_s *g, v2_i32 camoffset)
     gfx_ctx_s ctx_ui = gfx_ctx_default(asset_tex(0));
 
     if (g->herodata.aquired_items) {
-        if (g->herodata.itemselection_dirty) {
-            item_selection_redraw(&g->herodata);
-        }
-
+        render_item_selection(&g->herodata);
         texrec_s tr_items;
         tr_items.t = asset_tex(TEXID_UI_ITEM_CACHE);
         tr_items.r = (rec_i32){0, 0, ITEM_FRAME_SIZE, ITEM_FRAME_SIZE};
-        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 64 + 16, 240 - 64 + 16}, 0, 0);
+        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 64, 240 - 64 + 16}, 0, 0);
     }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -233,12 +309,12 @@ void render_ui(game_s *g, v2_i32 camoffset)
         if (interactable) {
             v2_i32 posi = obj_pos_center(interactable);
             posi        = v2_add(posi, camoffset);
-            posi.y -= 48;
-            posi.x -= 16;
-            int      btn_frame = tick_to_index_freq(g->tick, 4, 50);
+            posi.y -= 64;
+            posi.x -= 32;
+            int      btn_frame = tick_to_index_freq(g->tick, 2, 50);
             texrec_s tui;
             tui.t = asset_tex(TEXID_UI);
-            tui.r = (rec_i32){btn_frame * 32 + 64, 32, 32, 32};
+            tui.r = (rec_i32){64 + btn_frame * 64, 0, 64, 64};
             gfx_spr(ctx_ui, tui, posi, 0, 0);
         }
     }

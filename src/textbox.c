@@ -17,8 +17,9 @@ static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
 
 void textbox_load_dialog(textbox_s *tb, const char *filename)
 {
-    *tb       = (textbox_s){0};
-    tb->state = TEXTBOX_STATE_WRITE;
+    *tb          = (textbox_s){0};
+    tb->state    = TEXTBOX_STATE_FADE_IN;
+    tb->fadetick = TEXTBOX_FADE_TICKS;
     fnt_s font;
 
     char  *txt;
@@ -96,7 +97,8 @@ void textbox_update(textbox_s *tb)
                 tb->tick    = 0;
                 tb->state   = TEXTBOX_STATE_WRITE;
             } else {
-                tb->state = TEXTBOX_STATE_INACTIVE;
+                tb->state    = TEXTBOX_STATE_FADE_OUT;
+                tb->fadetick = TEXTBOX_FADE_TICKS;
             }
         }
     } break;
@@ -123,6 +125,18 @@ void textbox_update(textbox_s *tb)
             break;
         }
     } break;
+    case TEXTBOX_STATE_FADE_IN:
+        tb->fadetick--;
+        if (tb->fadetick <= 0) {
+            tb->state = TEXTBOX_STATE_WRITE;
+        }
+        break;
+    case TEXTBOX_STATE_FADE_OUT:
+        tb->fadetick--;
+        if (tb->fadetick <= 0) {
+            tb->state = TEXTBOX_STATE_INACTIVE;
+        }
+        break;
     }
 }
 
@@ -133,13 +147,22 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
     v2_i32 pos = {10, 150};
 
     textbox_block_s *b   = &tb->blocks[tb->block];
-    fnt_s            fnt = asset_fnt(FNTID_DIALOG);
+    fnt_s            fnt = asset_fnt(FNTID_DEFAULT);
     gfx_ctx_s        ctx = gfx_ctx_default(asset_tex(0));
-    v2_i32           p   = pos;
-    texrec_s         t   = {0};
-    t.t                  = fnt.t;
-    t.r.w                = fnt.grid_w;
-    t.r.h                = fnt.grid_h;
+    switch (tb->state) {
+    case TEXTBOX_STATE_FADE_IN:
+        ctx.pat = gfx_pattern_interpolate(TEXTBOX_FADE_TICKS - tb->fadetick, TEXTBOX_FADE_TICKS);
+        break;
+    case TEXTBOX_STATE_FADE_OUT:
+        ctx.pat = gfx_pattern_interpolate(tb->fadetick, TEXTBOX_FADE_TICKS);
+        break;
+    }
+
+    v2_i32   p = pos;
+    texrec_s t = {0};
+    t.t        = fnt.t;
+    t.r.w      = fnt.grid_w;
+    t.r.h      = fnt.grid_h;
 
     texrec_s tb_frame;
     tb_frame.t = asset_tex(TEXID_UI_TEXTBOX);

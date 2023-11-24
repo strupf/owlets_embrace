@@ -12,6 +12,8 @@ enum {
     TEXTBOX_STATE_WAIT,
     TEXTBOX_STATE_WAIT_CHOICE,
     TEXTBOX_STATE_WRITE,
+    TEXTBOX_STATE_FADE_IN,
+    TEXTBOX_STATE_FADE_OUT,
 };
 
 enum {
@@ -24,6 +26,7 @@ enum {
 #define TEXTBOX_NUM_LINES        4
 #define TEXTBOX_NUM_BLOCKS       64
 #define TEXTBOX_SPEED_DEFAULT_Q2 4
+#define TEXTBOX_FADE_TICKS       15
 
 typedef struct {
     u8 glyph;
@@ -44,6 +47,7 @@ typedef struct {
 } textbox_block_s;
 
 typedef struct {
+    int             fadetick;
     int             tick; // animation tick
     int             state;
     int             block;

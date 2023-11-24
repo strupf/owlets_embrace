@@ -20,7 +20,7 @@ static struct {
     u8                framebuffer[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
     u8                menuimg[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
     u8                update_row[SYS_DISPLAY_H];
-    u32               color_pal[2];
+    Uint32            color_pal[2];
     SDL_Window       *window;
     SDL_Renderer     *renderer;
     SDL_Texture      *texture;
@@ -199,8 +199,8 @@ void backend_modify_audio()
 
 int backend_inp()
 {
-    int       b    = 0;
-    const u8 *keys = SDL_GetKeyboardState(NULL);
+    int          b    = 0;
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
     if (keys[SDL_SCANCODE_W]) b |= SYS_INP_DPAD_U;
     if (keys[SDL_SCANCODE_S]) b |= SYS_INP_DPAD_D;
     if (keys[SDL_SCANCODE_A]) b |= SYS_INP_DPAD_L;
@@ -212,10 +212,9 @@ int backend_inp()
 
 float backend_crank()
 {
-    int       n_keys;
-    const u8 *keys = SDL_GetKeyboardState(&n_keys);
-    if (keys[SDL_SCANCODE_UP]) OS_SDL.crank -= 0.01f;
-    if (keys[SDL_SCANCODE_DOWN]) OS_SDL.crank += 0.01f;
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    if (keys[SDL_SCANCODE_UP]) OS_SDL.crank += 0.01f;
+    if (keys[SDL_SCANCODE_DOWN]) OS_SDL.crank -= 0.01f;
     if (OS_SDL.crank < 0.f) OS_SDL.crank += 1.f;
     if (OS_SDL.crank > 1.f) OS_SDL.crank -= 1.f;
 

@@ -12,11 +12,13 @@
 enum {
     TEXID_DISPLAY,
     TEXID_HERO,
+    TEXID_HERO_WHIP,
     TEXID_TILESET,
     TEXID_UI,
     TEXID_UI_ITEM_CACHE,
     TEXID_UI_ITEMS,
     TEXID_UI_TEXTBOX,
+    TEXID_PLANTS,
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
 #endif
@@ -57,6 +59,7 @@ typedef struct {
 extern ASSETS_s ASSETS;
 
 void             assets_init();
+usize            assets_mem_left();
 //
 void            *assetmem_alloc(usize s);
 tex_s            asset_tex(int ID);

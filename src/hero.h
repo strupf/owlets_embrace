@@ -12,16 +12,29 @@
 
 enum {
     HERO_UPGRADE_HOOK,
+    HERO_UPGRADE_WHIP,
     HERO_UPGRADE_HIGH_JUMP,
     HERO_UPGRADE_BOW,
+
 };
 
 enum { // aquired automatically by setting upgrades
     HERO_ITEM_HOOK,
+    HERO_ITEM_WHIP,
     HERO_ITEM_BOMB,
     HERO_ITEM_BOW,
+
     //
     NUM_HERO_ITEMS
+};
+
+enum {
+    HERO_ATTACK_NONE,
+    HERO_ATTACK_SIDE,
+    HERO_ATTACK_UP,
+    HERO_ATTACK_DIA_UP,
+    HERO_ATTACK_DIA_DOWN,
+    HERO_ATTACK_DOWN,
 };
 
 typedef struct {
@@ -30,11 +43,12 @@ typedef struct {
     flags32 aquired_items;
     i32     ropelen;
     rope_s  rope;
-
-    int    selected_item_prev;
-    int    selected_item;
-    int    selected_item_next;
-    bool32 itemselection_dirty;
+    int     attack;
+    int     attack_tick;
+    bool32  facing_locked;
+    int     selected_item;
+    bool32  itemselection_decoupled;
+    int     item_angle;
 } hero_s;
 
 bool32 hero_has_upgrade(hero_s *h, int upgrade);

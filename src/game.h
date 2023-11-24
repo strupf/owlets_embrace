@@ -31,6 +31,13 @@ enum {
 };
 
 typedef struct {
+    v2_i32 pos;
+    int    type;
+    int    x_q8;
+    int    v_q8;
+} grass_s;
+
+typedef struct {
     int    n;
     v2_i32 p_q8; // q8
     v2_i32 v_q8;
@@ -92,9 +99,11 @@ struct game_s {
 
     rope_s *ropes[16];
     int     n_ropes;
-    int     debugID;
 
     char area_filename[LEN_AREA_FILENAME];
+
+    grass_s grass[256];
+    int     n_grass;
 };
 
 typedef struct {

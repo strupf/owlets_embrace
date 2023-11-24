@@ -31,6 +31,8 @@ void app_init()
     asset_tex_load(TEXID_UI_ITEMS, "assets/items.tex");
     asset_tex_put(TEXID_UI_ITEM_CACHE, tex_create(128, 256, assetmem_alloc));
     asset_tex_load(TEXID_UI_TEXTBOX, "assets/textbox.tex");
+    asset_tex_load(TEXID_HERO_WHIP, "assets/whip_anim-Sheet.tex");
+    asset_tex_load(TEXID_PLANTS, "assets/plants.tex");
 
     asset_snd_load(SNDID_HOOK_ATTACH, "assets/snd/hookattach.wav");
     asset_fnt_load(FNTID_DEFAULT, "assets/font_default.json");
@@ -72,6 +74,8 @@ void app_init()
 
     mainmenu_init(&GAME.mainmenu);
     game_init(&GAME);
+
+    sys_printf("Asset mem left: %u kb\n", (u32)assets_mem_left() / 1024);
 }
 
 void app_tick()

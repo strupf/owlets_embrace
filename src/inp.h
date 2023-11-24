@@ -14,7 +14,18 @@ enum {
     INP_DPAD_D = SYS_INP_DPAD_D,
     INP_DPAD_L = SYS_INP_DPAD_L,
     INP_DPAD_R = SYS_INP_DPAD_R,
+};
 
+enum {
+    INP_DPAD_DIR_NONE,
+    INP_DPAD_DIR_N,
+    INP_DPAD_DIR_S,
+    INP_DPAD_DIR_E,
+    INP_DPAD_DIR_W,
+    INP_DPAD_DIR_NE,
+    INP_DPAD_DIR_NW,
+    INP_DPAD_DIR_SE,
+    INP_DPAD_DIR_SW,
 };
 
 void   inp_update();
@@ -28,9 +39,11 @@ bool32 inp_just_pressed(int b);
 bool32 inp_just_released(int b);
 int    inp_dpad_x();
 int    inp_dpad_y();
+int    inp_dpad_dir();
 int    inp_crank_q16();
 int    inp_prev_crank_q16();
 int    inp_crank_dt_q16();
+int    inp_crank_calc_dt_q16(int ang_from, int ang_to);
 int    inp_crank_docked();
 int    inp_crank_was_docked();
 int    inp_crank_just_docked();

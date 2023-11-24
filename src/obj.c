@@ -8,9 +8,9 @@
 
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
-    obj_handle_s h = {0};
+    obj_handle_s h;
+    h.o = o;
     if (o) {
-        h.o   = o;
         h.gen = o->gen;
     }
     return h;

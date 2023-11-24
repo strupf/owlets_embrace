@@ -12,6 +12,11 @@ void assets_init()
     marena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
 }
 
+usize assets_mem_left()
+{
+    return marena_size_rem(&ASSETS.marena);
+}
+
 void *assetmem_alloc(usize s)
 {
     void *mem = marena_alloc(&ASSETS.marena, s);
