@@ -14,6 +14,13 @@ static int str_eq(const char *a, const char *b)
     return 1;
 }
 
+static int str_contains(const char *str, const char *sequence)
+{
+    for (const char *x = str; *x != '\0'; x++)
+        if (str_eq(x, sequence)) return 1;
+    return 0;
+}
+
 // number of characters excluding null-char
 static int str_len(const char *a)
 {

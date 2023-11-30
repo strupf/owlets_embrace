@@ -19,9 +19,9 @@ typedef struct {
     map_room_s  rooms[64];
 } map_world_s;
 
-void        game_load_map(game_s *g, const char *filename);
-void        map_world_load(map_world_s *world, const char *filename);
+void        game_load_map(game_s *g, const char *worldfile);
+void        map_world_load(map_world_s *world, const char *mapfile);
 map_room_s *map_world_overlapped_room(map_world_s *world, rec_i32 r);
-map_room_s *map_world_find_room(map_world_s *world, const char *filename);
+map_room_s *map_world_find_room(map_world_s *world, const char *mapfile);
 
 #endif

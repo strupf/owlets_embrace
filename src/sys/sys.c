@@ -280,14 +280,14 @@ void sys_wavdata_play(sys_wavdata_s s, f32 vol, f32 pitch)
     }
 }
 
-void sys_mus_play(const char *filename)
+int sys_mus_play(const char *filename)
 {
     sys_muschannel_s *ch = &SYS.muschannel;
     sys_mus_stop();
 
     wavheader_s wheader;
     void       *f = wavfile_open(filename, &wheader);
-    if (!f) return;
+    if (!f) return 1;
     strcpy(ch->filename, filename);
 
     ch->stream    = f;
@@ -297,6 +297,7 @@ void sys_mus_play(const char *filename)
     ch->vol_q8    = 256;
     ch->looping   = 1;
     muschannel_update_chunk(ch, 0);
+    return 0;
 }
 
 void sys_mus_stop()
@@ -309,11 +310,27 @@ void sys_mus_stop()
     }
 }
 
+void sys_set_mus_vol(int vol_q8)
+{
+    SYS.muschannel.vol_q8 = vol_q8;
+}
+
+int sys_mus_vol()
+{
+    return SYS.muschannel.vol_q8;
+}
+
+bool32 sys_mus_playing()
+{
+    return (SYS.muschannel.stream != NULL);
+}
+
 static void *wavfile_open(const char *filename, wavheader_s *wh)
 {
     assert(filename);
+    if (!filename) return NULL;
     void *f = backend_file_open(filename, SYS_FILE_R);
-    assert(f);
+    if (!f) return NULL;
     backend_file_read(f, wh, sizeof(wavheader_s));
     assert(wh->bitspersample == 16);
     backend_file_seek(f, sizeof(wavheader_s), SYS_FILE_SEEK_SET);
@@ -392,16 +409,12 @@ static void muschannel_fillbuf(sys_muschannel_s *ch, i16 *buf, int len)
     i16 *c = &ch->chunk[ch->chunkpos];
 
     ch->chunkpos += len;
-    int n = 0;
-    while (n < len - 3) {
-        *b++ = (*c++ * ch->vol_q8) >> 8;
-        *b++ = (*c++ * ch->vol_q8) >> 8;
-        *b++ = (*c++ * ch->vol_q8) >> 8;
-        *b++ = (*c++ * ch->vol_q8) >> 8;
-        n += 4;
-    }
-    while (n++ < len) {
-        *b++ = (*c++ * ch->vol_q8) >> 8;
+    if (ch->vol_q8 == 256) {
+        memcpy(b, c, sizeof(i16) * len);
+    } else {
+        for (int n = 0; n < len; n++) {
+            *b++ = (*c++ * ch->vol_q8) >> 8;
+        }
     }
 }
 

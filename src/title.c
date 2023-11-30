@@ -3,9 +3,7 @@
 // =============================================================================
 
 #include "title.h"
-#include "assets.h"
 #include "game.h"
-#include "gfx.h"
 #include "sys/sys.h"
 
 enum {
@@ -32,8 +30,12 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.tick = 1;
     t->savefiles[1].sf.tick = 5;
     t->savefiles[2].sf.tick = -4610;
+    t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_HOOK;
+    t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_WHIP;
+    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
+    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
 
-    strcpy(t->savefiles[0].sf.area_filename, "assets/map/proj/Level_1.ldtkl");
+    strcpy(t->savefiles[0].sf.area_filename, "map_01.tmj");
     savefile_write(0, &t->savefiles[0].sf);
     savefile_write(1, &t->savefiles[1].sf);
     savefile_write(2, &t->savefiles[2].sf);
@@ -314,7 +316,6 @@ static void mainmenu_op_start_file(game_s *g, mainmenu_s *t, int index)
     }
 
     g->state = GAMESTATE_GAMEPLAY;
-    sys_printf("start file %i\n", index);
 }
 
 static void mainmenu_play_sound(int soundID)
@@ -325,6 +326,5 @@ static void mainmenu_update_savefiles(mainmenu_s *t)
 {
     for (int i = 0; i < 3; i++) {
         t->savefiles[i].exists = savefile_read(i, &t->savefiles[i].sf);
-        sys_printf("exists: %i %i\n", i, t->savefiles[i].exists);
     }
 }

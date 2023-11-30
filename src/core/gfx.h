@@ -100,6 +100,7 @@ void          gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r);
 void          gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
 void          gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
 void          gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
+void          gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode);
 //
 void          fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
 

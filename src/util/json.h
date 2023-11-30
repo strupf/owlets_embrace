@@ -75,11 +75,8 @@ static json_s json_for_init(json_s tok, const char *key)
 static int json_for_valid(json_s *it, json_s *jit)
 {
     if (it->c0 == NULL) return 0;
-
-    if (json_type(*it) == JSON_TYPE_ARR &&
-        json_fchild(*it, it) != JSON_SUCCESS)
+    if (json_type(*it) == JSON_TYPE_ARR && json_fchild(*it, it) != JSON_SUCCESS)
         return 0; // no first child
-
     json_sibling(*it, jit);
     return 1;
 }

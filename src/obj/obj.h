@@ -53,6 +53,12 @@ enum {
     OBJ_MOVER_GLUE_GROUND = 1 << 1,
 };
 
+enum {
+    DOOR_STATE_CLOSED,
+    DOOR_STATE_MOVING,
+    DOOR_STATE_OPEN,
+};
+
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
 
 typedef struct {
@@ -92,6 +98,11 @@ struct obj_s {
     hitbox_s hitboxes[4];
     int      n_hurtboxes;
     hitbox_s hurtboxes[4];
+
+    int    doorticksmax;
+    int    doorticks;
+    v2_i32 doortarget;
+    v2_i32 doorog;
 
     i32          jumpticks;
     i32          edgeticks;

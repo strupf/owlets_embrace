@@ -37,7 +37,7 @@ bool32 savefile_write(int slotID, savefile_s *sf)
     void *file = savefile_open(slotID, SYS_FILE_W);
     if (!file) return 0; // cant access file
 
-    size_t res = sys_file_write(file, sf, sizeof(savefile_s));
+    usize res = sys_file_write(file, sf, sizeof(savefile_s));
     sys_file_close(file);
     return (res == 1); // successfully written?
 }
@@ -53,9 +53,8 @@ bool32 savefile_read(int slotID, savefile_s *sf)
         return 0;
     }
 
-    size_t res = sys_file_read(file, sf, sizeof(savefile_s));
+    usize res = sys_file_read(file, sf, sizeof(savefile_s));
     sys_file_close(file);
-    sys_printf("read: %i %i\n", res, sizeof(savefile_s));
     return (res == sizeof(savefile_s)); // save file corrupted?
 }
 

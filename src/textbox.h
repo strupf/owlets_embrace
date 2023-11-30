@@ -10,7 +10,6 @@
 enum {
     TEXTBOX_STATE_INACTIVE,
     TEXTBOX_STATE_WAIT,
-    TEXTBOX_STATE_WAIT_CHOICE,
     TEXTBOX_STATE_WRITE,
     TEXTBOX_STATE_FADE_IN,
     TEXTBOX_STATE_FADE_OUT,
@@ -20,6 +19,13 @@ enum {
     TEXTBOX_EFFECT_NONE,
     TEXTBOX_EFFECT_WAVE,
     TEXTBOX_EFFECT_SHAKE,
+};
+
+enum {
+    TEXTBOX_CHOICE_NULL,
+    TEXTBOX_CHOICE_EXIT,
+    TEXTBOX_CHOICE_GOTO,
+    TEXTBOX_CHOICE_OPEN_SHOP,
 };
 
 #define TEXTBOX_MAX_CHARS        256
@@ -35,10 +41,17 @@ typedef struct {
 } textbox_char_s;
 
 typedef struct {
-    int n;
+    int type;
+    int n_chars;
+    int gototag;
+    u8  chars[32];
+
+    int x;
+
 } textbox_choice_s;
 
 typedef struct {
+    int              tag;
     int              n_chars;
     int              n_choices;
     int              line_length[TEXTBOX_NUM_LINES];
@@ -51,14 +64,15 @@ typedef struct {
     int             tick; // animation tick
     int             state;
     int             block;
-    int             n;       // currently visible characters
+    int             n; // currently visible characters
+    int             curchoice;
     int             tick_q2; // tick accumulator for writing
     int             n_blocks;
     textbox_block_s blocks[TEXTBOX_NUM_BLOCKS]; // the whole dialog tree
 } textbox_s;
 
 void textbox_load_dialog(textbox_s *tb, const char *filename);
-void textbox_update(textbox_s *tb);
+void textbox_update(game_s *g, textbox_s *tb);
 void textbox_draw(textbox_s *tb, v2_i32 camoffset);
 
 #endif

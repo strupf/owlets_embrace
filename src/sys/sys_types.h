@@ -151,14 +151,18 @@ typedef i32            i8x4;
 #define FILE_AND_LINE ""
 #endif
 
-#define NOT_IMPLEMENTED                    \
-    sys_printf("+++ NOT IMPLEMENTED +++"); \
-    sys_printf(FILE_AND_LINE);             \
-    assert(0);
-#define BAD_PATH                    \
-    sys_printf("+++ BAD PATH +++"); \
-    sys_printf(FILE_AND_LINE);      \
-    assert(0);
+#define NOT_IMPLEMENTED                        \
+    do {                                       \
+        sys_printf("+++ NOT IMPLEMENTED +++"); \
+        sys_printf(FILE_AND_LINE);             \
+        assert(0);                             \
+    } while (0);
+#define BAD_PATH                        \
+    do {                                \
+        sys_printf("+++ BAD PATH +++"); \
+        sys_printf(FILE_AND_LINE);      \
+        assert(0);                      \
+    } while (0);
 
 typedef struct {
     i32 x, y, w, h;

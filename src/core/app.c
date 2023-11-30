@@ -19,10 +19,14 @@ void app_init()
     sys_printf("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
     sys_printf("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
     sys_printf("size GAM: %u kb\n", (uint)sizeof(GAME_s) / 1024);
-    sys_printf("  = %u kb\n", (uint)(sizeof(ASSETS_s) +
-                                     sizeof(SPM_s) +
-                                     sizeof(GAME_s)) /
-                                  1024);
+    sys_printf("  = %u kb\n\n", (uint)(sizeof(ASSETS_s) +
+                                       sizeof(SPM_s) +
+                                       sizeof(GAME_s) +
+                                       sizeof(AUD_s) +
+                                       sizeof(g_animated_tiles) +
+                                       sizeof(g_pxmask_tab) +
+                                       sizeof(tilecolliders)) /
+                                    1024);
 
     asset_tex_put(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_load(TEXID_TILESET, "assets/tileset.tex");
@@ -33,8 +37,9 @@ void app_init()
     asset_tex_load(TEXID_UI_TEXTBOX, "assets/textbox.tex");
     asset_tex_load(TEXID_HERO_WHIP, "assets/whip_anim-Sheet.tex");
     asset_tex_load(TEXID_PLANTS, "assets/plants.tex");
+    asset_tex_load(TEXID_CLOUDS, "assets/clouds.tex");
 
-    asset_snd_load(SNDID_HOOK_ATTACH, "assets/snd/hookattach.wav");
+    asset_snd_load(SNDID_HOOK_ATTACH, "hookattach.wav");
     asset_fnt_load(FNTID_DEFAULT, "assets/font_default.json");
     asset_fnt_load(FNTID_DIALOG, "assets/font_dialog.json");
 
@@ -75,7 +80,7 @@ void app_init()
     mainmenu_init(&GAME.mainmenu);
     game_init(&GAME);
 
-    sys_printf("Asset mem left: %u kb\n", (u32)assets_mem_left() / 1024);
+    sys_printf("\nAsset mem left: %u kb\n", (u32)assets_mem_left() / 1024);
 }
 
 void app_tick()
@@ -90,6 +95,7 @@ void app_tick()
         game_tick(g);
         break;
     }
+    aud_update();
 }
 
 void app_draw()

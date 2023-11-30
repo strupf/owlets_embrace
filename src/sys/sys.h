@@ -75,11 +75,11 @@ void          sys_set_menu_image(u8 *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
 sys_wavdata_s sys_load_wavdata(const char *filename, void *(*allocf)(usize s));
 void          sys_wavdata_play(sys_wavdata_s s, f32 vol, f32 pitch);
-void          sys_mus_play(const char *filename);
+int           sys_mus_play(const char *filename);
 void          sys_mus_stop();
-void          sys_mus_fade(f32 vol_target, f32 seconds);
-f32           sys_mus_volume();
-int           sys_mus_playing();
+void          sys_set_mus_vol(int vol_q8);
+int           sys_mus_vol();
+bool32        sys_mus_playing();
 void          sys_log(const char *str);
 int           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]

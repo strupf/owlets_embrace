@@ -3,7 +3,6 @@
 // =============================================================================
 
 #include "game.h"
-#include "assets.h"
 #include "render.h"
 #include "rope.h"
 
@@ -22,17 +21,128 @@ void game_init(game_s *g)
     g->cam.h    = 240;
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
-    map_world_load(&g->map_world, "assets/map/proj.ldtk");
+    map_world_load(&g->map_world, "world.world");
+}
 
-    // textbox_load_dialog(&g->textbox, "assets/dialog.json");
+static void gameplay_tick(game_s *g)
+{
+    if (inp_debug_space()) {
+        // game_trigger(g, 4);
+        mus_fade_to(NULL, 20, 20);
+    }
 
-    ase_anim_s aseanim;
-    ase_anim_parse(&aseanim, "assets/whip_anim_2.json", spm_alloc);
+    hero_crank_item_selection(&g->herodata);
+    obj_s *ohero_ = obj_get_tagged(g, OBJ_TAG_HERO);
+
+    if (ohero_) {
+        spriteanim_update(&ohero_->spriteanim[0]);
+    }
+
+    transition_s *t = &g->transition;
+
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        switch (o->ID) {
+        case OBJ_ID_SOLID: {
+            int px      = 200 + ((sin_q16(g->tick * 300) * 100) >> 16);
+            o->tomove.x = px - o->pos.x;
+        } break;
+        case OBJ_ID_HERO: {
+            hero_update(g, o);
+        } break;
+        case OBJ_ID_DOOR_SLIDE: {
+            if (o->state != DOOR_STATE_MOVING) break;
+            o->doorticks--;
+            int    a  = o->doorticksmax - o->doorticks;
+            int    b  = o->doorticksmax;
+            v2_i32 pp = v2_lerp(o->doorog, o->doortarget, a, b);
+            o->tomove = v2_sub(pp, o->pos);
+            if (o->doorticks <= 0) {
+                o->state = DOOR_STATE_OPEN;
+            }
+        } break;
+        }
+    }
+
+    // integrate acceleration, velocity and drag
+    // adds tomove accumulator
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if (o->flags & OBJ_FLAG_MOVER) {
+            obj_apply_movement(o);
+        }
+    }
+
+    // move objects by tomove
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if (o->flags & OBJ_FLAG_SOLID) {
+            solid_move(g, o, o->tomove);
+            o->tomove.x = 0;
+            o->tomove.y = 0;
+        }
+    }
+
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if (o->flags & OBJ_FLAG_ACTOR) {
+            actor_move(g, o, o->tomove);
+            actor_try_wiggle(g, o);
+            o->tomove.x = 0;
+            o->tomove.y = 0;
+        }
+    }
+
+    rec_i32 roombounds = {-256, -256, g->pixel_x + 256, g->pixel_y + 256};
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && !overlap_rec(obj_aabb(o), roombounds)) {
+            obj_delete(g, o);
+        }
+    }
+
+    objs_cull_to_delete(g);
+
+#ifdef SYS_DEBUG
+    for (int n = 0; n < NUM_OBJ; n++)
+        assert(g->obj_raw[n].magic == OBJ_GENERIC_MAGIC);
+#endif
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero) {
+        hero_room_transition(g, ohero);
+    }
+
+    ocean_update(&g->ocean);
+}
+
+void game_tick(game_s *g)
+{
+    g->tick++;
+    if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
+        textbox_update(g, &g->textbox);
+    } else if (!transition_finished(&g->transition)) {
+        transition_update(g, &g->transition);
+    } else {
+        gameplay_tick(g);
+    }
+
+    cam_s *cam = &g->cam;
+    cam_update(g, cam);
+    g->area_name_ticks--;
+    backforeground_windparticles(g);
+    backforeground_animate_grass(g);
+}
+
+void game_draw(game_s *g)
+{
+    render(g);
+    transition_draw(&g->transition);
 }
 
 void game_new_savefile(game_s *g, int slotID)
 {
-    game_load_map(g, "assets/map/proj/Level_1.ldtkl");
+    game_load_map(g, "map_01.tmj");
     g->savefile_slotID = slotID;
     obj_s *oh          = obj_hero_create(g);
     oh->pos.x          = 60;
@@ -70,6 +180,8 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     }
 
     obj_s *oh = obj_hero_create(g);
+    oh->pos.x = 50;
+    oh->pos.y = 10;
 
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
@@ -80,107 +192,18 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
         }
     }
 
+    obj_s *door = obj_slide_door_create(g);
+    door->pos.x = 200;
+    door->pos.y = 150;
+
     g->herodata.aquired_items    = sf.aquired_items;
     g->herodata.aquired_upgrades = sf.aquired_upgrades;
     // textbox_load_dialog(&g->textbox, "assets/dialog.json");
 }
 
-void game_tick(game_s *g)
+int tick_now(game_s *g)
 {
-    g->tick++;
-    hero_crank_item_selection(&g->herodata);
-    obj_s *ohero_ = obj_get_tagged(g, OBJ_TAG_HERO);
-
-    if (ohero_) {
-        spriteanim_update(&ohero_->spriteanim[0]);
-    }
-
-    transition_s *t = &g->transition;
-
-    if (g->textbox.state == TEXTBOX_STATE_INACTIVE &&
-        transition_finished(t)) {
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
-            switch (o->ID) {
-            case OBJ_ID_SOLID: {
-                int px      = 200 + ((sin_q16(g->tick * 300) * 100) >> 16);
-                o->tomove.x = px - o->pos.x;
-            } break;
-            case OBJ_ID_HERO: {
-                hero_update(g, o);
-            } break;
-            }
-        }
-
-        // integrate acceleration, velocity and drag
-        // adds tomove accumulator
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
-            if (o->flags & OBJ_FLAG_MOVER) {
-                obj_apply_movement(o);
-            }
-        }
-
-        // move objects by tomove
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
-            if (o->flags & OBJ_FLAG_SOLID) {
-                solid_move(g, o, o->tomove);
-                o->tomove.x = 0;
-                o->tomove.y = 0;
-            }
-        }
-
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
-            if (o->flags & OBJ_FLAG_ACTOR) {
-                actor_move(g, o, o->tomove);
-                actor_try_wiggle(g, o);
-                o->tomove.x = 0;
-                o->tomove.y = 0;
-            }
-        }
-
-        rec_i32 roombounds = {-256, -256, g->pixel_x + 256, g->pixel_y + 256};
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
-            if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && !overlap_rec(obj_aabb(o), roombounds)) {
-                obj_delete(g, o);
-            }
-        }
-
-        objs_cull_to_delete(g);
-
-#ifdef SYS_DEBUG
-        for (int n = 0; n < NUM_OBJ; n++)
-            assert(g->obj_raw[n].magic == OBJ_GENERIC_MAGIC);
-#endif
-
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-        if (ohero) {
-            hero_room_transition(g, ohero);
-        }
-    }
-
-    if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
-        textbox_update(&g->textbox);
-    }
-
-    if (!transition_finished(t)) {
-        transition_update(g, t);
-    }
-
-    cam_s *cam = &g->cam;
-    cam_update(g, cam);
-
-    backforeground_windparticles(g);
-    backforeground_animate_grass(g);
-}
-
-void game_draw(game_s *g)
-{
-    render(g);
-    transition_draw(&g->transition);
+    return g->tick;
 }
 
 static void backforeground_animate_grass(game_s *g)
@@ -201,7 +224,7 @@ static void backforeground_animate_grass(game_s *g)
         int f2 = rngr_i32(-30000 * 150, +30000 * 150) >> (13 + 8);
         gr->v_q8 += f1 + f2;
         gr->x_q8 += gr->v_q8;
-        gr->x_q8 = clamp_i(gr->x_q8, -256 * 4, +256 * 4);
+        gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
         gr->v_q8 = (gr->v_q8 * 245) >> 8;
     }
 }
@@ -278,10 +301,16 @@ void game_trigger(game_s *g, int triggerID)
 {
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
+        if (o->trigger != triggerID) continue;
+
         switch (o->ID) {
         case OBJ_ID_DOOR_SLIDE:
-            if (o->state == 0 && o->trigger == triggerID) {
-                o->state = 1;
+            if (o->state == DOOR_STATE_CLOSED) {
+                o->state        = DOOR_STATE_MOVING;
+                o->doorog       = o->pos;
+                o->doorticksmax = 100;
+                o->doorticks    = o->doorticksmax;
+                o->doortarget   = v2_add(o->pos, (v2_i32){0, -128});
                 // open
             }
             break;

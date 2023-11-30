@@ -7,17 +7,19 @@
 
 #include "cam.h"
 #include "gamedef.h"
-#include "hero.h"
 #include "map_loader.h"
-#include "obj.h"
+#include "obj/hero.h"
+#include "obj/obj.h"
 #include "rope.h"
 #include "textbox.h"
 #include "title.h"
 #include "transition.h"
+#include "water.h"
 
-#define NUM_TILES         POW2(512)
+#define NUM_TILES         POW2(256)
 #define NUM_OBJ           256
 #define INTERACTABLE_DIST 32
+#define AREA_NAME_TICKS   300
 
 enum {
     BACKGROUND_WIND_CIRCLE_R = 1900,
@@ -101,9 +103,16 @@ struct game_s {
     int     n_ropes;
 
     char area_filename[LEN_AREA_FILENAME];
+    char area_name[64];
+    int  area_name_ticks;
 
     grass_s grass[256];
     int     n_grass;
+
+    ocean_s ocean;
+
+    marena_s arena;
+    alignas(4) char mem[MKILOBYTE(1024)];
 };
 
 typedef struct {
@@ -118,6 +127,7 @@ extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
 void             game_init(game_s *g);
 void             game_tick(game_s *g);
 void             game_draw(game_s *g);
+int              tick_now(game_s *g);
 void             game_new_savefile(game_s *g, int slotID);
 void             game_write_savefile(game_s *g);
 void             game_load_savefile(game_s *g, savefile_s sf, int slotID);

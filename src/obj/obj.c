@@ -318,6 +318,9 @@ obj_s *obj_slide_door_create(game_s *g)
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_DOOR_SLIDE;
     o->flags |= OBJ_FLAG_SOLID;
+    o->w       = 16;
+    o->h       = 64;
+    o->trigger = 4;
     return o;
 }
 

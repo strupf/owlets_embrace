@@ -92,3 +92,14 @@ void asset_anim_put(int ID, spriteanimdata_s a)
     assert(0 <= ID && ID < NUM_ANIMID);
     ASSETS.anim[ID] = a;
 }
+
+texrec_s asset_texrec(int ID, int x, int y, int w, int h)
+{
+    texrec_s tr = {0};
+    tr.t        = asset_tex(ID);
+    tr.r.x      = x;
+    tr.r.y      = y;
+    tr.r.w      = w;
+    tr.r.h      = h;
+    return tr;
+}

@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE 3
+#define SYS_SDL_SCALE 1
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");

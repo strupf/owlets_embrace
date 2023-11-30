@@ -5,10 +5,11 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
-#include "aud.h"
-#include "gfx.h"
-#include "inp.h"
-#include "spm.h"
+#include "core/assets.h"
+#include "core/aud.h"
+#include "core/gfx.h"
+#include "core/inp.h"
+#include "core/spm.h"
 #include "sys/sys.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
@@ -16,10 +17,12 @@
 #include "util/rng.h"
 #include "util/str.h"
 
-#define FILEPATH_MAP "assets/maps/"
-#define FILEPATH_SND "assets/snd/"
-#define FILEPATH_MUS "assets/snd/"
-#define FILEPATH_GFX "assets/gfx/"
+#define FILEPATH_WORLD  "assets/tiled/"
+#define FILEPATH_MAP    "assets/tiled/map/"
+#define FILEPATH_SND    "assets/snd/"
+#define FILEPATH_MUS    "assets/mus/"
+#define FILEPATH_GFX    "assets/gfx/"
+#define FILEPATH_DIALOG "assets/"
 
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
@@ -76,6 +79,26 @@ enum {
     TILE_LADDER = NUM_TILE_BLOCKS,
     TILE_SPIKES,
 };
+
+static int ticks_from_seconds(f32 s)
+{
+    return (int)(s * (f32)SYS_UPS + .5f);
+}
+
+static f32 seconds_from_ticks(int ticks)
+{
+    return ((f32)ticks / (f32)SYS_UPS);
+}
+
+static int ticks_from_ms(int ms)
+{
+    return (ms * SYS_UPS + 500) / 1000;
+}
+
+static int ms_from_ticks(int ticks)
+{
+    return (ticks * 1000) / SYS_UPS;
+}
 
 static v2_i32 direction_v2(int dir)
 {

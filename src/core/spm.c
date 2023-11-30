@@ -9,6 +9,9 @@ SPM_s SPM;
 void spm_init()
 {
     marena_init(&SPM.m, SPM.mem, sizeof(SPM.mem));
+#ifdef SYS_DEBUG
+    SPM.lowestleft = sizeof(SPM.mem);
+#endif
 }
 
 void spm_push()
@@ -24,7 +27,15 @@ void spm_pop()
 
 void *spm_alloc(usize s)
 {
-    return marena_alloc(&SPM.m, s);
+    void *mem = marena_alloc(&SPM.m, s);
+#ifdef SYS_DEBUG
+    usize rem = marena_size_rem(&SPM.m);
+    if (rem < SPM.lowestleft) {
+        SPM.lowestleft = rem;
+        sys_printf("= lowest SPM left: %u kb\n", (u32)(rem / 1024));
+    }
+#endif
+    return mem;
 }
 
 void *spm_alloc_rem(usize *s)

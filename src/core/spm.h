@@ -11,9 +11,12 @@
 typedef struct {
     void *stack[16];
     int   n_stack;
+#ifdef SYS_DEBUG
+    usize lowestleft;
+#endif
 
     marena_s m;
-    alignas(4) char mem[MKILOBYTE(1024)];
+    alignas(4) char mem[MKILOBYTE(2048)];
 } SPM_s;
 
 extern SPM_s SPM;

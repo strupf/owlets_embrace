@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "textbox.h"
-#include "assets.h"
+#include "game.h"
 
 static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
 {
@@ -20,22 +20,26 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
     *tb          = (textbox_s){0};
     tb->state    = TEXTBOX_STATE_FADE_IN;
     tb->fadetick = TEXTBOX_FADE_TICKS;
-    fnt_s font;
 
     char  *txt;
     json_s jroot;
     spm_push();
-    txt_load(filename, spm_alloc, &txt);
-    json_root(txt, &jroot);
 
-    for (json_each(jroot, "blocks", jblock)) {
+    char filepath[64];
+    str_cpy(filepath, FILEPATH_DIALOG);
+    str_append(filepath, filename);
+
+    txt_load(filepath, spm_alloc, &txt);
+    json_root(txt, &jroot);
+    for (json_each (jroot, "blocks", jblock)) {
         textbox_block_s *block = &tb->blocks[tb->n_blocks++];
+        block->tag             = jsonk_u32(jblock, "tag");
 
         textbox_char_s tbc = {0};
         tbc.effect         = TEXTBOX_EFFECT_NONE;
         tbc.tick_q2        = TEXTBOX_SPEED_DEFAULT_Q2;
         int n_lines        = 0;
-        for (json_each(jblock, "lines", jline)) {
+        for (json_each (jblock, "lines", jline)) {
             int linelength = 0;
             for (char *c = json_strp(jline, NULL); *c != '\"'; c++) {
                 if (*c == '{') { // parse inline command eg {> 4}
@@ -77,34 +81,88 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
 
             block->line_length[n_lines++] = linelength;
         }
+
+        for (json_each (jblock, "choices", jchoice)) {
+            textbox_choice_s *choice = &block->choices[block->n_choices++];
+            for (char *c = jsonk_strp(jchoice, "text", NULL); *c != '\"'; c++) {
+                choice->chars[choice->n_chars++] = *c;
+            }
+
+            char action[16] = {0};
+            jsonk_strs(jchoice, "action", action);
+            if (0) {
+            } else if (str_eq(action, "goto")) {
+                choice->type    = TEXTBOX_CHOICE_GOTO;
+                choice->gototag = jsonk_u32(jchoice, "tag");
+            } else if (str_eq(action, "exit")) {
+                choice->type = TEXTBOX_CHOICE_EXIT;
+            }
+        }
     }
 
     spm_pop();
 }
 
-void textbox_update(textbox_s *tb)
+static void select_tbblock(textbox_s *tb)
+{
+    if (tb->block < tb->n_blocks) {
+        tb->n       = 0;
+        tb->tick_q2 = 0;
+        tb->tick    = 0;
+        tb->state   = TEXTBOX_STATE_WRITE;
+    } else {
+        tb->state    = TEXTBOX_STATE_FADE_OUT;
+        tb->fadetick = TEXTBOX_FADE_TICKS;
+    }
+}
+
+void textbox_update(game_s *g, textbox_s *tb)
 {
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
     tb->tick++;
 
     switch (tb->state) {
     case TEXTBOX_STATE_WAIT: {
+        textbox_block_s *b = &tb->blocks[tb->block];
         if (inp_just_pressed(INP_A)) {
-            tb->block++;
-            if (tb->block < tb->n_blocks) {
-                tb->n       = 0;
-                tb->tick_q2 = 0;
-                tb->tick    = 0;
-                tb->state   = TEXTBOX_STATE_WRITE;
-            } else {
+            if (b->n_choices <= 0) {
+                tb->block++;
+                select_tbblock(tb);
+                break;
+            }
+
+            textbox_choice_s *choice = &b->choices[tb->curchoice];
+
+            switch (choice->type) {
+            case TEXTBOX_CHOICE_GOTO: {
+                int found = 0;
+                for (int i = 0; i < tb->n_blocks; i++) {
+                    if (tb->blocks[i].tag == choice->gototag) {
+                        found     = 1;
+                        tb->block = i;
+                        select_tbblock(tb);
+                        break;
+                    }
+                }
+                if (!found) {
+                    BAD_PATH
+                }
+
+            } break;
+            case TEXTBOX_CHOICE_EXIT: {
                 tb->state    = TEXTBOX_STATE_FADE_OUT;
                 tb->fadetick = TEXTBOX_FADE_TICKS;
+            } break;
             }
+            break;
         }
-    } break;
-    case TEXTBOX_STATE_WAIT_CHOICE: {
-        if (inp_just_pressed(INP_A)) {
-        }
+
+        if (b->n_choices <= 0) break;
+
+        if (inp_just_pressed(INP_DPAD_D))
+            tb->curchoice = min_i(tb->curchoice + 1, b->n_choices - 1);
+        if (inp_just_pressed(INP_DPAD_U))
+            tb->curchoice = max_i(tb->curchoice - 1, 0);
     } break;
     case TEXTBOX_STATE_WRITE: {
         textbox_block_s *b = &tb->blocks[tb->block];
@@ -117,10 +175,8 @@ void textbox_update(textbox_s *tb)
             tb->n++;
             if (tb->n < b->n_chars) continue;
 
-            if (b->n_choices > 0)
-                tb->state = TEXTBOX_STATE_WAIT_CHOICE;
-            else
-                tb->state = TEXTBOX_STATE_WAIT;
+            tb->state     = TEXTBOX_STATE_WAIT;
+            tb->curchoice = 0;
 
             break;
         }
@@ -166,8 +222,8 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
     texrec_s tb_frame;
     tb_frame.t = asset_tex(TEXID_UI_TEXTBOX);
-    tb_frame.r = (rec_i32){0, 0, 400, 240};
-    gfx_spr(ctx, tb_frame, (v2_i32){0}, 0, 0);
+    tb_frame.r = (rec_i32){0, 144, 400, 96};
+    gfx_spr(ctx, tb_frame, (v2_i32){0, 240 - tb_frame.r.h}, 0, 0);
     // gfx_rec_fill(ctx, (rec_i32){0, 120, 400, 120}, PRIM_MODE_WHITE);
 
     for (int i = 0, len = 0, row = 0; i < tb->n; i++) {
@@ -201,10 +257,21 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
     switch (tb->state) {
     case TEXTBOX_STATE_WAIT: {
+        if (b->n_choices <= 0) break;
 
-    } break;
-    case TEXTBOX_STATE_WAIT_CHOICE: {
+        for (int n = 0; n < b->n_choices; n++) {
+            textbox_choice_s *choice = &b->choices[n];
+            v2_i32            pp     = {250, 80 + n * 20};
+            for (int i = 0; i < choice->n_chars; i++) {
+                int ci = choice->chars[i];
+                t.r.x  = fnt.grid_w * (ci & 31);
+                t.r.y  = fnt.grid_h * (ci >> 5);
+                gfx_spr(ctx, t, pp, 0, 0);
+                pp.x += fnt.widths[ci];
+            }
+        }
 
+        gfx_rec_fill(ctx, (rec_i32){220, 80 + tb->curchoice * 20, 8, 8}, PRIM_MODE_BLACK);
     } break;
     case TEXTBOX_STATE_WRITE: {
 

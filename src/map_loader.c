@@ -9,54 +9,116 @@
 // set tiles automatically - www.cr31.co.uk/stagecast/wang/blob.html
 
 typedef struct {
-    u16 pxx; // position on map in pixels
-    u16 pxy;
-    u16 srcx; // position in tileset in pixels
-    u16 srcy;
-    u16 f; // f=1 (X flip only), f=2 (Y flip only), f=3 (both flips)
-} ldtk_tile_s;
+    int  fgid;
+    char source[64];
+} tm_tileset_s;
 
 typedef struct {
-    u8 type;
-    u8 shape;
-} autotile_s;
+    u16 ID;
+    u8  flip;
+    u8  tileset;
+} tm_tile_s;
 
 typedef struct {
-    autotile_s *tiles;
-    int         w;
-    int         h;
-} autotiling_s;
+    tm_tileset_s sets[8];
+    int          n_sets;
+    tm_tile_s   *t;
+    int          w;
+    int          h;
+} tm_tilelayer_s;
 
 enum {
     AUTOTILE_TYPE_NONE,
     AUTOTILE_TYPE_BRICK,
+    AUTOTILE_TYPE_BRICK_SMALL,
+    AUTOTILE_TYPE_DIRT,
+    AUTOTILE_TYPE_STONE,
 };
 
-static const u8    g_autotilemarch[256];
-static void        autotile(game_s *g, autotiling_s tiling);
-static ldtk_tile_s ldtk_tile_from_json(json_s jtile);
-static obj_s      *ldtk_load_obj_from_json(game_s *g, json_s jobj);
+enum {
+    TILE_FLIP_DIA = 1 << 0,
+    TILE_FLIP_Y   = 1 << 1,
+    TILE_FLIP_X   = 1 << 2,
+};
 
-void map_world_load(map_world_s *world, const char *filename)
+static const u8 g_autotilemarch[256];
+
+static void load_obj(game_s *g, json_s jobj);
+static void load_autotiles(game_s *g, tm_tilelayer_s tl);
+
+static bool32 tmj_property(json_s j, const char *prop, json_s *jout)
 {
-    if (!world) return;
+    for (json_each (j, "properties", it)) {
+        char       *s = jsonk_strp(it, "name", NULL);
+        const char *c = prop;
+        while (1) {
+            if (*c == '\0') {
+                return (json_key(it, "value", jout) == JSON_SUCCESS ? 1 : 0);
+            }
+            if (*c != *s) break;
+            s++;
+            c++;
+        }
+    }
+    return 0;
+}
+
+static i32 tmj_property_i32(json_s j, const char *prop)
+{
+    json_s p;
+    return (tmj_property(j, prop, &p) ? json_i32(p) : 0);
+}
+
+static char *tmj_property_str(json_s j, const char *prop, char *buf, usize bufsize)
+{
+    json_s p;
+    return (tmj_property(j, prop, &p) ? json_str(p, buf, bufsize) : NULL);
+}
+
+#define tmj_property_strs(J, PROP, BUF) tmj_property_str(J, PROP, BUF, sizeof(BUF))
+
+void map_world_load(map_world_s *world, const char *worldfile)
+{
+    if (!world || !worldfile || worldfile[0] == '\0') return;
 
     spm_push();
-    char *txt;
-    txt_load(filename, spm_alloc, &txt);
-    assert(txt);
-    json_s jroot;
-    json_root(txt, &jroot);
 
-    for (json_each(jroot, "levels", jlevel)) {
+    char filepath[64];
+    str_cpy(filepath, FILEPATH_WORLD);
+    str_append(filepath, worldfile);
+
+    char *txt;
+    if (txt_load(filepath, spm_alloc, &txt) != TXT_SUCCESS) {
+        sys_printf("couldn't load txt %s\n", worldfile);
+        spm_pop();
+        BAD_PATH
+        return;
+    }
+
+    json_s jroot;
+    if (json_root(txt, &jroot) != JSON_SUCCESS) {
+        sys_printf("couldn't find json root %s\n", worldfile);
+        spm_pop();
+        BAD_PATH
+        return;
+    }
+
+    for (json_each (jroot, "maps", jmap)) {
         map_room_s *r = &world->rooms[world->n_rooms++];
-        jsonk_str(jlevel, "identifier", r->filename, sizeof(r->filename));
-        r->GUID = GUID_parse_str(jsonk_strp(jlevel, "iid", NULL));
-        sys_printf("%s\n", r->filename);
-        r->r.x = jsonk_i32(jlevel, "worldX");
-        r->r.y = jsonk_i32(jlevel, "worldY");
-        r->r.w = jsonk_i32(jlevel, "pxWid");
-        r->r.h = jsonk_i32(jlevel, "pxHei");
+        char        buf[64];
+        jsonk_strs(jmap, "fileName", buf);
+
+        int i = str_len(buf) - 1; // split off subfolder folder/map_01 -> map_01
+        for (; i >= 0; i--) {
+            if (buf[i] == '/')
+                break;
+        }
+
+        str_cpy(r->filename, &buf[i + 1]);
+        r->r.x = jsonk_i32(jmap, "x");
+        r->r.y = jsonk_i32(jmap, "y");
+        r->r.w = jsonk_u32(jmap, "width");
+        r->r.h = jsonk_u32(jmap, "height");
     }
 
     spm_pop();
@@ -73,34 +135,17 @@ map_room_s *map_world_overlapped_room(map_world_s *world, rec_i32 r)
     return NULL;
 }
 
-map_room_s *map_world_find_room(map_world_s *world, const char *filename)
+map_room_s *map_world_find_room(map_world_s *world, const char *mapfile)
 {
-
-    int         len = str_len(filename);
-    const char *c   = &filename[len];
-    for (int i = len; i >= 0; i--) {
-        if (*c == '/') {
-            c++;
-            break;
-        }
-        c--;
-    }
-
-    char  fname[64] = {0};
-    char *fn        = fname;
-    do {
-        *fn++ = *c++;
-    } while (*c != '.');
-
     for (int i = 0; i < world->n_rooms; i++) {
         map_room_s *room = &world->rooms[i];
-        if (str_eq(room->filename, fname))
+        if (str_eq(room->filename, mapfile))
             return room;
     }
     return NULL;
 }
 
-void game_load_map(game_s *g, const char *filename)
+void game_load_map(game_s *g, const char *mapfile)
 {
     g->obj_ndelete = 0;
     g->obj_nbusy   = 0;
@@ -120,215 +165,134 @@ void game_load_map(game_s *g, const char *filename)
     }
     g->n_grass = 0;
     g->n_ropes = 0;
+    marena_init(&g->arena, g->mem, sizeof(g->mem));
 
-    strcpy(g->area_filename, filename);
+    g->ocean.ocean.particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * 1024);
+    g->ocean.ocean.nparticles     = 1024;
+    g->ocean.ocean.dampening_q12  = 4070;
+    g->ocean.ocean.fneighbour_q16 = 8000;
+    g->ocean.ocean.fzero_q16      = 20;
+    g->ocean.ocean.loops          = 1;
+    g->ocean.y                    = 300;
+
+    g->ocean.water.particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * 4096);
+    g->ocean.water.nparticles     = 4096;
+    g->ocean.water.dampening_q12  = 4060;
+    g->ocean.water.fneighbour_q16 = 2000;
+    g->ocean.water.fzero_q16      = 100;
+    g->ocean.water.loops          = 3;
+    g->ocean.water.p              = (v2_i32){0};
+
+    strcpy(g->area_filename, mapfile);
 
     spm_push();
+
+    char filepath[64];
+    str_cpy(filepath, FILEPATH_MAP);
+    str_append(filepath, mapfile);
+
     char *txt;
-    txt_load(filename, spm_alloc, &txt);
-    assert(txt);
+    if (txt_load(filepath, spm_alloc, &txt) != TXT_SUCCESS) {
+        sys_printf("+++ couldn't load txt %s\n", mapfile);
+        BAD_PATH
+        spm_pop();
+        return;
+    }
+
     json_s jroot;
-    json_root(txt, &jroot);
+    if (json_root(txt, &jroot) != JSON_SUCCESS) {
+        sys_printf("+++ couldn't find json root %s\n", mapfile);
+        BAD_PATH
+        spm_pop();
+        return;
+    }
 
-    g->map_world.roomcur = map_world_find_room(&g->map_world, filename);
+    g->map_world.roomcur = map_world_find_room(&g->map_world, mapfile);
 
-    g->pixel_x    = jsonk_u32(jroot, "pxWid");
-    g->pixel_y    = jsonk_u32(jroot, "pxHei");
-    g->tiles_x    = g->pixel_x >> 4;
-    g->tiles_y    = g->pixel_y >> 4;
-    int num_tiles = g->tiles_x * g->tiles_y;
+    int w         = jsonk_u32(jroot, "width");
+    int h         = jsonk_u32(jroot, "height");
+    int num_tiles = w * h;
     assert(num_tiles <= NUM_TILES);
 
     memset(g->tiles, 0, sizeof(g->tiles));
     memset(g->rtiles, 0, sizeof(g->rtiles));
 
-    for (json_each(jroot, "layerInstances", jlayer)) {
-        char name[64];
-        jsonk_strs(jlayer, "__identifier", name);
+    g->area_name_ticks = AREA_NAME_TICKS;
+    g->tiles_x         = w;
+    g->tiles_y         = h;
+    g->pixel_x         = w << 4;
+    g->pixel_y         = h << 4;
 
-        char *layertype = jsonk_strp(jlayer, "__type", NULL);
+    tmj_property_strs(jroot, "name", g->area_name);
+
+    char musicfile[64];
+    tmj_property_strs(jroot, "music", musicfile);
+    mus_fade_to(musicfile, 60, 60);
+
+    tm_tilelayer_s tl = {0};
+    tl.w              = w;
+    tl.h              = h;
+
+    for (json_each (jroot, "tilesets", jtileset)) {
+        tm_tileset_s *ts = &tl.sets[tl.n_sets++];
+        ts->fgid         = jsonk_u32(jtileset, "firstgid");
+        jsonk_strs(jtileset, "source", ts->source);
+    }
+
+    for (json_each (jroot, "layers", jlayer)) {
         spm_push();
 
-        switch (*layertype) {
-        case 'I': { // "IntGrid"
-            int i = 0;
-            for (json_each(jlayer, "intGridCsv", jtile)) {
-                int t = json_u32(jtile);
-                i++;
-            }
-            assert(i == num_tiles);
+        char name[16] = {0};
+        jsonk_strs(jlayer, "name", name);
+        char *type = jsonk_strp(jlayer, "type", NULL);
+
+        switch (*type) {
+        case 'i': {
+
         } break;
-        case 'T': { // "Tiles"
+        case 't': {
+            tl.t = (tm_tile_s *)spm_alloc(sizeof(tm_tile_s) * num_tiles);
 
-            if (0) {
-            } else if (str_eq(name, "AUTOTILES")) {
+            int i = 0;
+            for (json_each (jlayer, "data", jtile)) {
+                tm_tile_s tile   = {0};
+                u32       tileID = json_u32(jtile);
 
-                autotiling_s tiling;
-                tiling.w     = g->tiles_x;
-                tiling.h     = g->tiles_y;
-                tiling.tiles = (autotile_s *)spm_alloc(sizeof(autotile_s) * num_tiles);
-                for (json_each(jlayer, "gridTiles", jtile)) {
-                    ldtk_tile_s tile = ldtk_tile_from_json(jtile);
-                    int         tx   = tile.pxx >> 4;
-                    int         ty   = tile.pxy >> 4;
-                    int         sx   = tile.srcx >> 4;
-                    int         sy   = tile.srcy >> 4;
-
-                    int atype  = sy;
-                    int ashape = 0;
-                    switch (sx) {
-                    case 0: // block
-                        ashape = TILE_BLOCK;
-                        break;
-                    case 1: // slope 45
-                        switch (tile.f) {
-                        case 0: ashape = TILE_SLOPE_45_0; break;
-                        case 1: ashape = TILE_SLOPE_45_2; break; // flipx
-                        case 2: ashape = TILE_SLOPE_45_1; break; // flipy
-                        case 3: ashape = TILE_SLOPE_45_3; break; // flipxy
+                if (tileID != 0) {
+                    u32 ID      = tileID & 0xFFFFFFFU;
+                    int tileset = -1;
+                    for (int n = tl.n_sets - 1; n >= 0; n--) {
+                        tm_tileset_s *ts = &tl.sets[n];
+                        if (ts->fgid <= ID) {
+                            tileset = n;
+                            ID -= ts->fgid;
+                            break;
                         }
-                        break;
-                    case 2: // slope lo
-                        switch (tile.f) {
-                        case 0: ashape = TILE_SLOPE_LO_0; break;
-                        case 1: ashape = TILE_SLOPE_LO_1; break;
-                        case 2: ashape = TILE_SLOPE_LO_2; break;
-                        case 3: ashape = TILE_SLOPE_LO_3; break;
-                        }
-                        break;
-                    case 4: // slope lo
-                        switch (tile.f) {
-                        case 0: ashape = TILE_SLOPE_LO_4; break;
-                        case 1: ashape = TILE_SLOPE_LO_5; break;
-                        case 2: ashape = TILE_SLOPE_LO_6; break;
-                        case 3: ashape = TILE_SLOPE_LO_7; break;
-                        }
-                        break;
-                    case 3: // slope hi
-                        switch (tile.f) {
-                        case 0: ashape = TILE_SLOPE_HI_0; break;
-                        case 1: ashape = TILE_SLOPE_HI_1; break;
-                        case 2: ashape = TILE_SLOPE_HI_2; break;
-                        case 3: ashape = TILE_SLOPE_HI_3; break;
-                        }
-                        break;
-                    case 5: // slope hi
-                        switch (tile.f) {
-                        case 0: ashape = TILE_SLOPE_HI_4; break;
-                        case 1: ashape = TILE_SLOPE_HI_5; break;
-                        case 2: ashape = TILE_SLOPE_HI_6; break;
-                        case 3: ashape = TILE_SLOPE_HI_7; break;
-                        }
-                        break;
                     }
 
-                    autotile_s at                      = {atype, ashape};
-                    tiling.tiles[tx + ty * g->tiles_x] = at;
+                    tile.ID      = ID;
+                    tile.flip    = tileID >> 29;
+                    tile.tileset = tileset;
                 }
-                autotile(g, tiling);
 
-            } else if (str_eq(name, "AUTO")) {
-                u32 *tiles = (u32 *)spm_alloc(sizeof(u32) * num_tiles);
+                tl.t[i++] = tile;
             }
+
+            if (str_eq(name, "tile_0")) {
+                load_autotiles(g, tl);
+            }
+
         } break;
-        case 'E': { // "Entities"
-#if 1
-            for (json_each(jlayer, "entityInstances", jobj)) {
-                ldtk_load_obj_from_json(g, jobj);
+        case 'o': {
+            for (json_each (jlayer, "objects", jobj)) {
+                load_obj(g, jobj);
             }
-#endif
         } break;
         }
 
         spm_pop();
     }
-
     spm_pop();
-}
-
-// {
-// "px":  [16,32],
-// "src": [16,16],
-// "f":   0,
-// "t":   257,
-// "d":   [33],
-// "a":   1
-// }
-static ldtk_tile_s ldtk_tile_from_json(json_s jtile)
-{
-    ldtk_tile_s tile = {0};
-    json_s      j;
-    json_key(jtile, "px", &j);
-    json_fchild(j, &j);
-    tile.pxx = json_u32(j);
-    json_next(j, &j);
-    tile.pxy = json_u32(j);
-    json_key(jtile, "src", &j);
-    json_fchild(j, &j);
-    tile.srcx = json_u32(j);
-    json_next(j, &j);
-    tile.srcy = json_u32(j);
-    tile.f    = jsonk_u32(jtile, "f");
-    return tile;
-}
-
-static obj_s *ldtk_load_obj_from_json(game_s *g, json_s jobj)
-{
-    obj_s *o = NULL;
-
-    char oname[64] = {0};
-    jsonk_strs(jobj, "__identifier", oname);
-
-    json_s jpx;
-    json_key(jobj, "px", &jpx);
-    json_fchild(jpx, &jpx);
-    int x = json_i32(jpx);
-    json_next(jpx, &jpx);
-    int y = json_i32(jpx);
-    int w = jsonk_u32(jobj, "width");
-    int h = jsonk_u32(jobj, "height");
-
-    // type
-    if (0) {
-    } else if (str_eq(oname, "Solid")) {
-        o        = obj_solid_create(g);
-        o->pos.x = x;
-        o->pos.y = y;
-        o->w     = w;
-        o->h     = h;
-    } else if (str_eq(oname, "Sign")) {
-        o     = obj_create(g);
-        o->ID = OBJ_ID_SIGN;
-        o->w  = 16;
-        o->h  = 16;
-        o->flags |= OBJ_FLAG_INTERACTABLE;
-    } else if (str_eq(oname, "Savepoint")) {
-        o        = obj_savepoint_create(g);
-        o->w     = 16;
-        o->h     = 16;
-        o->pos.x = x;
-        o->pos.y = y;
-    }
-
-    if (!o) return NULL;
-
-    o->GUID  = GUID_parse_str(jsonk_strp(jobj, "iid", NULL));
-    o->pos.x = x;
-    o->pos.y = y;
-
-    // properties
-    for (json_each(jobj, "fieldInstances", jfield)) {
-        char fieldname[64] = {0};
-        jsonk_strs(jfield, "__identifier", fieldname);
-        sys_printf("id: %s\n", fieldname);
-
-        if (0) {
-        } else if (str_eq(fieldname, "filename")) {
-            jsonk_strs(jfield, "__value", o->filename);
-            sys_printf("value: %s\n", o->filename);
-        }
-    }
-    return o;
 }
 
 // bits for marching squares (neighbours)
@@ -346,21 +310,71 @@ enum {
     AT_NW = B8(10000000),
 };
 
+static int type_from_tiled(tm_tile_s b)
+{
+    return b.ID / 8;
+}
+
+static int shape_from_tiled(tm_tile_s b)
+{
+    switch (b.ID % 8) {
+    case 0: return TILE_BLOCK; // block
+    case 1:                    // slope 45
+        switch (b.flip) {
+        case 0:
+        case 1: return TILE_SLOPE_45_0;
+        case 2:
+        case 3: return TILE_SLOPE_45_1;
+        case 4:
+        case 5: return TILE_SLOPE_45_2;
+        case 6:
+        case 7: return TILE_SLOPE_45_3;
+        }
+        return 0;
+    case 2: // slope lo
+        switch (b.flip) {
+        case 0: return TILE_SLOPE_LO_0;
+        case 1: return TILE_SLOPE_LO_1;
+        case 2: return TILE_SLOPE_LO_2;
+        case 3: return TILE_SLOPE_LO_3;
+        case 4: return TILE_SLOPE_LO_4;
+        case 5: return TILE_SLOPE_LO_5;
+        case 6: return TILE_SLOPE_LO_6;
+        case 7: return TILE_SLOPE_LO_7;
+        }
+        return 0;
+    case 3: // slope hi
+        switch (b.flip) {
+        case 0: return TILE_SLOPE_HI_0;
+        case 1: return TILE_SLOPE_HI_1;
+        case 2: return TILE_SLOPE_HI_2;
+        case 3: return TILE_SLOPE_HI_3;
+        case 4: return TILE_SLOPE_HI_4;
+        case 5: return TILE_SLOPE_HI_5;
+        case 6: return TILE_SLOPE_HI_6;
+        case 7: return TILE_SLOPE_HI_7;
+        }
+        return 0;
+    }
+    return 0;
+}
+
 // returns true if tile looked at from x/y in direction sx/sy is "solid"
 // x/y: tile currently looked at
 // sx/sy direction we are looking in
 // ai: current tile ID
 // af: current tile flipping
-static int autotile_is(autotiling_s t, int x, int y, int sx, int sy, autotile_s a)
+static int autotile_is(tm_tilelayer_s t, int x, int y, int sx, int sy, tm_tile_s a)
 {
     int u = x + sx;
     int v = y + sy;
     if (u < 0 || t.w <= u || v < 0 || t.h <= v) return 1;
 
-    autotile_s b = t.tiles[u + v * t.w];
-    if (b.type == AUTOTILE_TYPE_NONE) return 0;
+    tm_tile_s b     = t.t[u + v * t.w];
+    int       btype = type_from_tiled(b);
+    if (btype == AUTOTILE_TYPE_NONE) return 0;
 
-    switch (b.shape) {
+    switch (shape_from_tiled(b)) {
     case TILE_BLOCK: return 1;
     case TILE_SLOPE_45_0: return (sy == -1 || sx == -1);
     case TILE_SLOPE_45_1: return (sy == +1 || sx == -1);
@@ -386,7 +400,7 @@ static int autotile_is(autotiling_s t, int x, int y, int sx, int sy, autotile_s 
     return 0;
 }
 
-static flags32 autotile_march(autotiling_s t, int x, int y, autotile_s a)
+static flags32 autotile_march(tm_tilelayer_s t, int x, int y, tm_tile_s a)
 {
     flags32 m = 0;
     if (autotile_is(t, x, y, +0, -1, a)) m |= AT_N;
@@ -400,26 +414,75 @@ static flags32 autotile_march(autotiling_s t, int x, int y, autotile_s a)
     return m;
 }
 
-static void autotile(game_s *g, autotiling_s tiling)
+static void load_obj(game_s *g, json_s jobj)
 {
-    for (int y = 0; y < tiling.h; y++) {
-        for (int x = 0; x < tiling.w; x++) {
-            int        n = x + y * tiling.w;
-            autotile_s t = tiling.tiles[n];
-            if (t.type == AUTOTILE_TYPE_NONE) {
+    obj_s *o = NULL;
+    char   name[64];
+    jsonk_strs(jobj, "name", name);
+
+    if (0) {
+    } else if (str_eq(name, "Sign")) {
+        o        = obj_create(g);
+        o->ID    = OBJ_ID_SIGN;
+        o->pos.x = jsonk_i32(jobj, "x");
+        o->pos.y = jsonk_i32(jobj, "y");
+        o->w     = jsonk_u32(jobj, "width");
+        o->h     = jsonk_u32(jobj, "height");
+        o->flags |= OBJ_FLAG_INTERACTABLE;
+        tmj_property_strs(jobj, "dialog", o->filename);
+    }
+}
+
+static void load_autotiles(game_s *g, tm_tilelayer_s tl)
+{
+    u32 rngseed = 213;
+
+    for (int y = 0; y < tl.h; y++) {
+        for (int x = 0; x < tl.w; x++) {
+            int       n     = x + y * tl.w;
+            tm_tile_s t     = tl.t[n];
+            int       ttype = type_from_tiled(t);
+
+            if (ttype == AUTOTILE_TYPE_NONE) {
                 g->tiles[n].collision = TILE_EMPTY;
                 continue;
             }
 
-            flags32 m      = autotile_march(tiling, x, y, t);
-            int     xcoord = 0;
-            int     ycoord = 0;
+            int tshape = shape_from_tiled(t);
 
-            switch (t.shape) {
+            flags32 m      = autotile_march(tl, x, y, t);
+            int     xcoord = 0;
+            int     ycoord = (ttype - 1) * 8;
+            int     coords = g_autotilemarch[m];
+
+            switch (tshape) {
             case TILE_BLOCK: {
-                int coords            = g_autotilemarch[m];
-                xcoord                = coords & 15;
-                ycoord                = coords >> 4;
+                switch (m) {
+                case 17: { // vertical
+                    int k = rngs_u32(&rngseed) % 4;
+                } break;
+                case 31: { // left border
+
+                } break;
+                case 199: { // bot border
+
+                } break;
+                case 241: { // right border
+
+                } break;
+                case 68: { // horizontal
+
+                } break;
+                case 124: { // top border
+
+                } break;
+                case 255: { // mid
+
+                } break;
+                }
+
+                xcoord = coords & 15;
+                ycoord += coords >> 4;
                 g->tiles[n].collision = TILE_BLOCK;
             } break;
             case TILE_SLOPE_45_0:
@@ -431,14 +494,14 @@ static void autotile(game_s *g, autotiling_s tiling)
                                                   AT_W, AT_S, AT_SW,
                                                   AT_W, AT_N, AT_NW};
 
-                int *nm = &nmasks[(t.shape - TILE_SLOPE_45) * 3];
+                int *nm = &nmasks[(tshape - TILE_SLOPE_45) * 3];
                 int  xn = (m & nm[0]) != 0;                          // x neighbour
                 int  yn = (m & nm[1]) != 0;                          // y neighbour
                 int  cn = (m & nm[2]) != 0;                          // diagonal neighbour
                 xcoord  = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
-                ycoord  = (t.type - 1) * 8 + (t.shape - TILE_SLOPE_45);
+                ycoord += (tshape - TILE_SLOPE_45);
 
-                g->tiles[n].collision = t.shape;
+                g->tiles[n].collision = tshape;
             } break;
             }
 
@@ -450,35 +513,259 @@ static void autotile(game_s *g, autotiling_s tiling)
 // exported from autotiles_marching.xlsx
 // maps marchID -> x + y * 16
 static const u8 g_autotilemarch[256] = {
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x10, 0x37, 0x10, 0x37, 0x11, 0x20, 0x11, 0x60,
-    0x10, 0x37, 0x10, 0x37, 0x55, 0x30, 0x55, 0x35,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x10, 0x37, 0x10, 0x37, 0x11, 0x20, 0x11, 0x60,
-    0x10, 0x37, 0x10, 0x37, 0x55, 0x30, 0x55, 0x35,
-    0x07, 0x77, 0x07, 0x77, 0x73, 0x75, 0x73, 0x45,
-    0x07, 0x77, 0x07, 0x77, 0x73, 0x75, 0x73, 0x45,
-    0x27, 0x57, 0x27, 0x57, 0x02, 0x12, 0x02, 0x65,
-    0x27, 0x57, 0x27, 0x57, 0x03, 0x21, 0x03, 0x13,
-    0x07, 0x77, 0x07, 0x77, 0x73, 0x75, 0x73, 0x45,
-    0x07, 0x77, 0x07, 0x77, 0x73, 0x75, 0x73, 0x45,
-    0x34, 0x54, 0x34, 0x54, 0x06, 0x56, 0x06, 0x23,
-    0x34, 0x54, 0x34, 0x54, 0x04, 0x22, 0x04, 0x31,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x10, 0x37, 0x10, 0x37, 0x11, 0x20, 0x11, 0x60,
-    0x10, 0x37, 0x10, 0x37, 0x55, 0x30, 0x55, 0x35,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x00, 0x70, 0x00, 0x70, 0x01, 0x72, 0x01, 0x43,
-    0x10, 0x37, 0x10, 0x37, 0x11, 0x20, 0x11, 0x60,
-    0x10, 0x37, 0x10, 0x37, 0x55, 0x30, 0x55, 0x35,
-    0x07, 0x66, 0x07, 0x66, 0x73, 0x64, 0x73, 0x24,
-    0x07, 0x66, 0x07, 0x66, 0x73, 0x64, 0x73, 0x24,
-    0x27, 0x46, 0x27, 0x46, 0x02, 0x44, 0x02, 0x62,
-    0x27, 0x46, 0x27, 0x46, 0x03, 0x33, 0x03, 0x25,
-    0x07, 0x66, 0x07, 0x66, 0x73, 0x64, 0x73, 0x24,
-    0x07, 0x66, 0x07, 0x66, 0x73, 0x64, 0x73, 0x24,
-    0x34, 0x16, 0x34, 0x16, 0x06, 0x26, 0x06, 0x32,
-    0x34, 0x16, 0x34, 0x16, 0x04, 0x52, 0x04, 0x14};
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x11,
+    0x20,
+    0x11,
+    0x60,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x55,
+    0x30,
+    0x55,
+    0x35,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x11,
+    0x20,
+    0x11,
+    0x60,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x55,
+    0x30,
+    0x55,
+    0x35,
+    0x07,
+    0x77,
+    0x07,
+    0x77,
+    0x73,
+    0x75,
+    0x73,
+    0x45,
+    0x07,
+    0x77,
+    0x07,
+    0x77,
+    0x73,
+    0x75,
+    0x73,
+    0x45,
+    0x27,
+    0x57,
+    0x27,
+    0x57,
+    0x02,
+    0x12,
+    0x02,
+    0x65,
+    0x27,
+    0x57,
+    0x27,
+    0x57,
+    0x03,
+    0x21,
+    0x03,
+    0x13,
+    0x07,
+    0x77,
+    0x07,
+    0x77,
+    0x73,
+    0x75,
+    0x73,
+    0x45,
+    0x07,
+    0x77,
+    0x07,
+    0x77,
+    0x73,
+    0x75,
+    0x73,
+    0x45,
+    0x34,
+    0x54,
+    0x34,
+    0x54,
+    0x06,
+    0x56,
+    0x06,
+    0x23,
+    0x34,
+    0x54,
+    0x34,
+    0x54,
+    0x04,
+    0x22,
+    0x04,
+    0x31,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x11,
+    0x20,
+    0x11,
+    0x60,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x55,
+    0x30,
+    0x55,
+    0x35,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x17,
+    0x70,
+    0x17,
+    0x70,
+    0x01,
+    0x72,
+    0x01,
+    0x43,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x11,
+    0x20,
+    0x11,
+    0x60,
+    0x10,
+    0x37,
+    0x10,
+    0x37,
+    0x55,
+    0x30,
+    0x55,
+    0x35,
+    0x07,
+    0x66,
+    0x07,
+    0x66,
+    0x73,
+    0x64,
+    0x73,
+    0x24,
+    0x07,
+    0x66,
+    0x07,
+    0x66,
+    0x73,
+    0x64,
+    0x73,
+    0x24,
+    0x27,
+    0x46,
+    0x27,
+    0x46,
+    0x02,
+    0x44,
+    0x02,
+    0x62,
+    0x27,
+    0x46,
+    0x27,
+    0x46,
+    0x03,
+    0x33,
+    0x03,
+    0x25,
+    0x07,
+    0x66,
+    0x07,
+    0x66,
+    0x73,
+    0x64,
+    0x73,
+    0x24,
+    0x07,
+    0x66,
+    0x07,
+    0x66,
+    0x73,
+    0x64,
+    0x73,
+    0x24,
+    0x34,
+    0x16,
+    0x34,
+    0x16,
+    0x06,
+    0x26,
+    0x06,
+    0x32,
+    0x34,
+    0x16,
+    0x34,
+    0x16,
+    0x04,
+    0x52,
+    0x04,
+    0x14};

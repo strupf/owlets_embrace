@@ -54,6 +54,12 @@ static u32 rngr_u32(u32 lo, u32 hi)
 }
 
 // [lo, hi]
+static u32 rngsr_u32(u32 *seed, u32 lo, u32 hi)
+{
+    return lo + (rngs_u32(seed) % (hi - lo + 1));
+}
+
+// [lo, hi]
 static i32 rngr_i32(i32 lo, i32 hi)
 {
     return lo + (rng_u32() % (hi - lo + 1));

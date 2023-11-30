@@ -3,13 +3,16 @@
 // =============================================================================
 
 #include "hero.h"
-#include "assets.h"
 #include "game.h"
 
 #define HERO_ROPE_LEN_MIN 500
 #define HERO_ROPE_LEN_MAX 4000
 
 static void hero_set_cur_item(hero_s *h, int item);
+
+void hero_cb_frame_changed(spriteanim_s *a, void *arg)
+{
+}
 
 obj_s *obj_hero_create(game_s *g)
 {
@@ -22,14 +25,15 @@ obj_s *obj_hero_create(game_s *g)
     o->flags |= OBJ_FLAG_CLAMP_TO_ROOM;
     o->moverflags |= OBJ_MOVER_SLOPES;
     o->moverflags |= OBJ_MOVER_GLUE_GROUND;
-    o->drag_q8.x          = 256;
-    o->drag_q8.y          = 256;
-    o->gravity_q8.y       = 60;
-    o->w                  = 10;
-    o->h                  = 20;
-    o->spriteanim[0].data = asset_anim(ANIMID_HERO);
-    o->spriteanim[0].mode = SPRITEANIM_MODE_LOOP;
-    o->facing             = 1;
+    o->drag_q8.x                     = 256;
+    o->drag_q8.y                     = 256;
+    o->gravity_q8.y                  = 60;
+    o->w                             = 10;
+    o->h                             = 20;
+    o->spriteanim[0].data            = asset_anim(ANIMID_HERO);
+    o->spriteanim[0].mode            = SPRITEANIM_MODE_LOOP;
+    o->spriteanim[0].cb_framechanged = hero_cb_frame_changed;
+    o->facing                        = 1;
     return o;
 }
 

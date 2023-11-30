@@ -19,6 +19,8 @@ enum {
     TEXID_UI_ITEMS,
     TEXID_UI_TEXTBOX,
     TEXID_PLANTS,
+    TEXID_CLOUDS,
+//
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
 #endif
@@ -72,5 +74,6 @@ fnt_s            asset_fnt_load(int ID, const char *filename);
 spriteanimdata_s asset_anim_load(int ID, const char *filename);
 void             asset_tex_put(int ID, tex_s t);
 void             asset_anim_put(int ID, spriteanimdata_s a);
+texrec_s         asset_texrec(int ID, int x, int y, int w, int h);
 
 #endif

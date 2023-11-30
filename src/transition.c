@@ -3,7 +3,6 @@
 // =============================================================================
 
 #include "transition.h"
-#include "assets.h"
 #include "game.h"
 
 enum {
@@ -21,9 +20,7 @@ void transition_start(transition_s *t, const char *file)
 {
     t->tick  = 0;
     t->phase = TRANSITION_PHASE_OUT;
-    str_cpy(t->to_load, "assets/map/proj/");
-    str_append(t->to_load, file);
-    str_append(t->to_load, ".ldtkl");
+    str_cpy(t->to_load, file);
 }
 
 void transition_update(game_s *g, transition_s *t)

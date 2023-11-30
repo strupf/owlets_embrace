@@ -36,8 +36,13 @@ int txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
     sys_file_seek(f, 0, SYS_FILE_SEEK_END);
     int size = sys_file_tell(f);
     sys_file_seek(f, 0, SYS_FILE_SEEK_SET);
-    char *buf  = (char *)allocfunc((usize)size + 1);
-    int   read = sys_file_read(f, buf, size);
+    char *buf = (char *)allocfunc((usize)size + 1);
+    if (!buf) {
+        sys_file_close(f);
+        sys_printf("+++ err loading %s\n", filename);
+        return TXT_ERR;
+    }
+    int read = sys_file_read(f, buf, size);
     sys_file_close(f);
     buf[read] = '\0';
     *txt_out  = (char *)buf;
@@ -175,8 +180,8 @@ int json_next(json_s tok, json_s *tok_out)
                             *tok_out = j;
                         return JSON_SUCCESS;
                     }
-                    e = 0;
-                    break;
+                    // fallthrough
+                default: e = 0; break;
                 }
             }
             break;
@@ -236,7 +241,12 @@ int json_key(json_s tok, const char *key, json_s *tok_out)
     if (json_type(tok) != JSON_TYPE_OBJ) return JSON_ERR;
 
     json_s a;
-    if (json_fchild(tok, &a) != JSON_SUCCESS) return JSON_ERR;
+    if (json_fchild(tok, &a) != JSON_SUCCESS) {
+        if (tok_out)
+            *tok_out = (json_s){0};
+        return JSON_ERR;
+    }
+
     do {
         if (*a.c0 != '\"') continue;
         json_s b;
@@ -254,6 +264,9 @@ int json_key(json_s tok, const char *key, json_s *tok_out)
             if (*ca++ != *cb++) break;
         }
     } while (json_sibling(a, &a) == JSON_SUCCESS);
+
+    if (tok_out)
+        *tok_out = (json_s){0};
     return JSON_ERR;
 }
 

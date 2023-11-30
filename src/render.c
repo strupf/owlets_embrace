@@ -3,9 +3,7 @@
 // =============================================================================
 
 #include "render.h"
-#include "assets.h"
 #include "game.h"
-#include "gfx.h"
 
 void render(game_s *g)
 {
@@ -14,8 +12,45 @@ void render(game_s *g)
     rec_i32 camrec    = cam_rec_px(&g->cam);
     v2_i32  camoffset = {-camrec.x, -camrec.y};
 
+    gfx_ctx_s ctx_clouds = gfx_ctx_default(asset_tex(0));
+    texrec_s  trcloud    = asset_texrec(TEXID_CLOUDS, 0, 0, 256, 256);
+    gfx_spr(ctx_clouds, trcloud, (v2_i32){0, 0}, 0, 0);
+
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     render_tilemap(g, tilebounds, camoffset);
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero && ohero->rope) {
+        rope_s   *rope     = ohero->rope;
+        gfx_ctx_s ctx_rope = gfx_ctx_default(asset_tex(0));
+
+        int         inode       = 0;
+        int         lensofar_q4 = 0;
+        ropenode_s *r1          = rope->tail;
+        ropenode_s *r2          = r1->prev;
+
+        while (r1 && r2) {
+            v2_i32 p1        = v2_add(r1->p, camoffset);
+            v2_i32 p2        = v2_add(r2->p, camoffset);
+            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
+            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
+
+            while (inode * 80 < lenend_q4) {
+                int dst = inode * 80 - lensofar_q4;
+                inode++;
+                assert(dst >= 0);
+                v2_i32 dd = dt12_q4;
+                dd        = v2_setlen(dd, dst);
+                dd        = v2_shr(dd, 4);
+                dd        = v2_add(dd, p1);
+                gfx_cir_fill(ctx_rope, dd, 4, PRIM_MODE_BLACK);
+                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
+            }
+            lensofar_q4 = lenend_q4;
+            r1          = r2;
+            r2          = r2->prev;
+        }
+    }
 
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s   *o    = g->obj_busy[i];
@@ -73,39 +108,6 @@ void render(game_s *g)
         }
     }
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && ohero->rope) {
-        rope_s   *rope     = ohero->rope;
-        gfx_ctx_s ctx_rope = gfx_ctx_default(asset_tex(0));
-
-        int         inode       = 0;
-        int         lensofar_q4 = 0;
-        ropenode_s *r1          = rope->tail;
-        ropenode_s *r2          = r1->prev;
-
-        while (r1 && r2) {
-            v2_i32 p1        = v2_add(r1->p, camoffset);
-            v2_i32 p2        = v2_add(r2->p, camoffset);
-            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
-            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
-
-            while (inode * 80 < lenend_q4) {
-                int dst = inode * 80 - lensofar_q4;
-                inode++;
-                assert(dst >= 0);
-                v2_i32 dd = dt12_q4;
-                dd        = v2_setlen(dd, dst);
-                dd        = v2_shr(dd, 4);
-                dd        = v2_add(dd, p1);
-                gfx_cir_fill(ctx_rope, dd, 4, PRIM_MODE_BLACK);
-                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
-            }
-            lensofar_q4 = lenend_q4;
-            r1          = r2;
-            r2          = r2->prev;
-        }
-    }
-
     texrec_s trgrass;
     trgrass.t = asset_tex(TEXID_PLANTS);
     for (int n = 0; n < g->n_grass; n++) {
@@ -135,6 +137,34 @@ void render(game_s *g)
             p1 = p2;
         }
     }
+
+#define HORIZONT_X     600                 // distance horizont from screen plane
+#define HORIZONT_X_EYE 300                 // distance eye from screen plane
+#define HORIZONT_Y_EYE (SYS_DISPLAY_H / 2) // height eye on screen plane (center)
+
+    // calc height of horizont based on thales theorem
+    int Y_HORIZONT = ((g->ocean.y + camoffset.y - HORIZONT_Y_EYE) * HORIZONT_X) /
+                     (HORIZONT_X + HORIZONT_X_EYE);
+
+#if 0
+    for (int i = 1; i < g->ocean.water.nparticles; i++) {
+        int       h1        = ocean_amplitude(&g->ocean, i - 1) + camoffset.y;
+        int       h2        = ocean_amplitude(&g->ocean, i + 0) + camoffset.y;
+        gfx_ctx_s ctx_ocean = gfx_ctx_default(asset_tex(0));
+
+        v2_i32 p1 = {(i - 1) * 4, h1};
+        v2_i32 p2 = {(i + 0) * 4, h2};
+
+        gfx_lin_thick(ctx_ocean, p1, p2, PRIM_MODE_BLACK, 2);
+        if (Y_HORIZONT <= 0) continue;
+
+        v2_i32 p3 = p1;
+        v2_i32 p4 = p2;
+        p3.y -= Y_HORIZONT;
+        p4.y -= Y_HORIZONT;
+        gfx_lin_thick(ctx_ocean, p3, p4, PRIM_MODE_BLACK, 2);
+    }
+#endif
 
     render_ui(g, camoffset);
 
@@ -170,6 +200,9 @@ void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
 {
     gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
 
+    texrec_s tr;
+    tr.t = asset_tex(TEXID_TILESET);
+
     for (int y = bounds.y1; y <= bounds.y2; y++) {
         for (int x = bounds.x1; x <= bounds.x2; x++) {
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
@@ -180,9 +213,8 @@ void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
                 if (t == 0) continue;
                 int tx, ty;
                 rtile_unpack(t, &tx, &ty);
-                rec_i32  r = {tx << 4, ty << 4, 16, 16};
-                texrec_s tr;
-                tr.t = asset_tex(TEXID_TILESET);
+                rec_i32 r = {tx << 4, ty << 4, 16, 16};
+
                 tr.r = r;
                 gfx_spr(ctx, tr, p, 0, 0);
             }
@@ -293,11 +325,29 @@ void render_ui(game_s *g, v2_i32 camoffset)
 {
     gfx_ctx_s ctx_ui = gfx_ctx_default(asset_tex(0));
 
+    if (g->area_name_ticks > 0) {
+        fnt_s     areafont     = asset_fnt(FNTID_DIALOG);
+        gfx_ctx_s ctx_areafont = ctx_ui;
+
+        int t1 = (AREA_NAME_TICKS * 1) / 8; // fade out
+        int t2 = (AREA_NAME_TICKS * 7) / 8; // fade in
+        if (g->area_name_ticks < t1) {
+            int a            = g->area_name_ticks;
+            int b            = t1;
+            ctx_areafont.pat = gfx_pattern_interpolate(a, b);
+        } else if (g->area_name_ticks > t2) {
+            int a            = AREA_NAME_TICKS - g->area_name_ticks;
+            int b            = AREA_NAME_TICKS - t2;
+            ctx_areafont.pat = gfx_pattern_interpolate(a, b);
+        }
+
+        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){10, 10}, g->area_name, 0);
+    }
+
     if (g->herodata.aquired_items) {
         render_item_selection(&g->herodata);
-        texrec_s tr_items;
-        tr_items.t = asset_tex(TEXID_UI_ITEM_CACHE);
-        tr_items.r = (rec_i32){0, 0, ITEM_FRAME_SIZE, ITEM_FRAME_SIZE};
+        texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
+                                         0, 0, ITEM_FRAME_SIZE, ITEM_FRAME_SIZE);
         gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 64, 240 - 64 + 16}, 0, 0);
     }
 
@@ -312,9 +362,7 @@ void render_ui(game_s *g, v2_i32 camoffset)
             posi.y -= 64;
             posi.x -= 32;
             int      btn_frame = tick_to_index_freq(g->tick, 2, 50);
-            texrec_s tui;
-            tui.t = asset_tex(TEXID_UI);
-            tui.r = (rec_i32){64 + btn_frame * 64, 0, 64, 64};
+            texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
             gfx_spr(ctx_ui, tui, posi, 0, 0);
         }
     }
