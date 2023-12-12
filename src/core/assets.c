@@ -10,6 +10,7 @@ ASSETS_s ASSETS;
 void assets_init()
 {
     marena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
+    ASSETS.next_texID = NUM_TEXID;
 }
 
 usize assets_mem_left()
@@ -29,68 +30,113 @@ void *assetmem_alloc(usize s)
 
 tex_s asset_tex(int ID)
 {
-    assert(0 <= ID && ID < NUM_TEXID);
-    return ASSETS.tex[ID];
+    assert(0 <= ID && ID < NUM_TEXID_MAX);
+    return ASSETS.tex[ID].tex;
 }
 
 snd_s asset_snd(int ID)
 {
     assert(0 <= ID && ID < NUM_SNDID);
-    return ASSETS.snd[ID];
+    return ASSETS.snd[ID].snd;
 }
 
 fnt_s asset_fnt(int ID)
 {
     assert(0 <= ID && ID < NUM_FNTID);
-    return ASSETS.fnt[ID];
+    return ASSETS.fnt[ID].fnt;
 }
 
-spriteanimdata_s asset_anim(int ID)
+int asset_tex_load(const char *filename, tex_s *tex)
 {
-    assert(0 <= ID && ID < NUM_ANIMID);
-    return ASSETS.anim[ID];
+    for (int i = 0; i < ASSETS.next_texID; i++) {
+        asset_tex_s *at = &ASSETS.tex[i];
+        if (str_eq(at->file, filename)) {
+            if (tex) *tex = at->tex;
+            return i;
+        }
+    }
+
+    FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
+    sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
+
+    tex_s t = tex_load(pathname, assetmem_alloc);
+    if (t.px != NULL) {
+        int ID = ASSETS.next_texID++;
+        str_cpy(ASSETS.tex[ID].file, filename);
+        ASSETS.tex[ID].tex = t;
+        if (tex) *tex = t;
+        return ID;
+    }
+    sys_printf("Loading Tex FAILED\n");
+    return -1;
 }
 
-tex_s asset_tex_load(int ID, const char *filename)
+int asset_tex_loadID(int ID, const char *filename, tex_s *tex)
 {
-    assert(0 <= ID && ID < NUM_TEXID);
-    tex_s t        = tex_load(filename, assetmem_alloc);
-    ASSETS.tex[ID] = t;
-    return t;
+    assert(0 <= ID && ID < NUM_TEXID_MAX);
+    FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
+
+    sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
+
+    tex_s t = tex_load(pathname, assetmem_alloc);
+    str_cpy(ASSETS.tex[ID].file, filename);
+    ASSETS.tex[ID].tex = t;
+    if (t.px) {
+        if (tex) *tex = t;
+        return ID;
+    }
+    return -1;
 }
 
-snd_s asset_snd_load(int ID, const char *filename)
+int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
 {
     assert(0 <= ID && ID < NUM_SNDID);
-    snd_s s        = snd_load(filename, assetmem_alloc);
-    ASSETS.snd[ID] = s;
-    return s;
+    FILEPATH_GEN(pathname, FILEPATH_SND, filename);
+
+    sys_printf("LOAD SND: %s (%s)\n", filename, pathname);
+
+    str_cpy(ASSETS.snd[ID].file, filename);
+    snd_s s            = snd_load(pathname, assetmem_alloc);
+    ASSETS.snd[ID].snd = s;
+    if (s.wav.buf) {
+        if (snd) *snd = s;
+        return ID;
+    }
+    return -1;
 }
 
-fnt_s asset_fnt_load(int ID, const char *filename)
+int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
 {
+
     assert(0 <= ID && ID < NUM_FNTID);
-    fnt_s f        = fnt_load(filename, assetmem_alloc);
-    ASSETS.fnt[ID] = f;
-    return f;
+
+    FILEPATH_GEN(pathname, FILEPATH_FNT, filename);
+
+    sys_printf("LOAD FNT: %s (%s)\n", filename, pathname);
+
+    asset_fnt_s af = {0};
+    str_cpy(af.file, filename);
+    af.fnt         = fnt_load(pathname, assetmem_alloc);
+    ASSETS.fnt[ID] = af;
+    if (af.fnt.widths) {
+        if (fnt) *fnt = af.fnt;
+        return ID;
+    }
+    return -1;
 }
 
-spriteanimdata_s asset_anim_load(int ID, const char *filename)
+int asset_tex_put(tex_s t)
 {
-    spriteanimdata_s a = {0};
-    return a;
+    int ID = ASSETS.next_texID++;
+    asset_tex_putID(ID, t);
+    return ID;
 }
 
-void asset_tex_put(int ID, tex_s t)
+tex_s asset_tex_putID(int ID, tex_s t)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    ASSETS.tex[ID] = t;
-}
-
-void asset_anim_put(int ID, spriteanimdata_s a)
-{
-    assert(0 <= ID && ID < NUM_ANIMID);
-    ASSETS.anim[ID] = a;
+    ASSETS.tex[ID].tex = t;
+    return t;
 }
 
 texrec_s asset_texrec(int ID, int x, int y, int w, int h)

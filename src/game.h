@@ -6,20 +6,19 @@
 #define GAME_H
 
 #include "cam.h"
+#include "fade.h"
 #include "gamedef.h"
+#include "mainmenu.h"
 #include "map_loader.h"
 #include "obj/hero.h"
 #include "obj/obj.h"
 #include "rope.h"
 #include "textbox.h"
-#include "title.h"
 #include "transition.h"
 #include "water.h"
 
-#define NUM_TILES         POW2(256)
-#define NUM_OBJ           256
+#define NUM_TILES         0x40000
 #define INTERACTABLE_DIST 32
-#define AREA_NAME_TICKS   300
 
 enum {
     BACKGROUND_WIND_CIRCLE_R = 1900,
@@ -30,6 +29,7 @@ enum {
     BG_NUM_PARTICLES   = 512,
     BG_NUM_CLOUD_TYPES = 3,
     BG_WIND_PARTICLE_N = 8,
+    BG_SIZE            = 512,
 };
 
 typedef struct {
@@ -50,12 +50,21 @@ typedef struct {
     i32    circcooldown;
 } windparticle_s;
 
+enum {
+    BG_IMG_POS_TILED,
+    BG_IMG_POS_FIT_ROOM,
+};
+
 typedef struct {
     // values for Tiled's layer config
-    f32 x;
-    f32 y;
-    f32 offx;
-    f32 offy;
+    int      img_pos;
+    f32      x;
+    f32      y;
+    f32      offx;
+    f32      offy;
+    texrec_s tr;
+    bool32   loopx;
+    bool32   loopy;
 } parallax_img_s;
 
 typedef struct {
@@ -67,29 +76,39 @@ typedef struct {
     u8 collision;
 } tile_s;
 
+typedef struct {
+    tex_s tex;
+    int   x;
+    int   y;
+    int   w;
+    int   h;
+    int   sx;
+    int   sy;
+} decal_s;
+
 struct game_s {
-    int           tick;
-    mainmenu_s    mainmenu;
-    int           state;
-    map_world_s   map_world; // layout of all map files globally
+    int          tick;
+    mainmenu_s   mainmenu;
+    int          state;
+    map_world_s  map_world; // layout of all map files globally
     //
-    int           savefile_slotID;
-    transition_s  transition;
-    cam_s         cam;
-    tile_s        tiles[NUM_TILES];
-    rtile_s       rtiles[NUM_TILES];
-    int           tiles_x;
-    int           tiles_y;
-    int           pixel_x;
-    int           pixel_y;
-    int           obj_nfree;
-    int           obj_nbusy;
-    int           obj_ndelete;
-    obj_s        *obj_tag[NUM_OBJ_TAGS];
-    obj_s        *obj_free_stack[NUM_OBJ];
-    obj_s        *obj_busy[NUM_OBJ];
-    obj_s        *obj_to_delete[NUM_OBJ];
-    obj_generic_s obj_raw[NUM_OBJ];
+    int          savefile_slotID;
+    transition_s transition;
+    cam_s        cam;
+    tile_s       tiles[NUM_TILES];
+    rtile_s      rtiles[NUM_TILES];
+    int          tiles_x;
+    int          tiles_y;
+    int          pixel_x;
+    int          pixel_y;
+    int          obj_nfree;
+    int          obj_nbusy;
+    int          obj_ndelete;
+    obj_s       *obj_tag[NUM_OBJ_TAGS];
+    obj_s       *obj_free_stack[NUM_OBJ];
+    obj_s       *obj_busy[NUM_OBJ];
+    obj_s       *obj_to_delete[NUM_OBJ];
+    obj_s        obj_raw[NUM_OBJ];
 
     hero_s         herodata;
     parallax_img_s parallax;
@@ -99,20 +118,26 @@ struct game_s {
     windparticle_s windparticles[BG_NUM_PARTICLES];
     int            n_windparticles;
 
-    rope_s *ropes[16];
+    rope_s *ropes[4];
     int     n_ropes;
 
-    char area_filename[LEN_AREA_FILENAME];
-    char area_name[64];
-    int  area_name_ticks;
+    struct {
+        char   filename[LEN_AREA_FILENAME];
+        char   label[64];
+        fade_s fade;
+    } areaname;
 
-    grass_s grass[256];
+    int     n_decal_fg;
+    int     n_decal_bg;
     int     n_grass;
+    decal_s decal_fg[256];
+    decal_s decal_bg[256];
+    grass_s grass[256];
 
     ocean_s ocean;
 
     marena_s arena;
-    alignas(4) char mem[MKILOBYTE(1024)];
+    alignas(4) char mem[MKILOBYTE(256)];
 };
 
 typedef struct {
@@ -131,13 +156,14 @@ int              tick_now(game_s *g);
 void             game_new_savefile(game_s *g, int slotID);
 void             game_write_savefile(game_s *g);
 void             game_load_savefile(game_s *g, savefile_s sf, int slotID);
-void             game_trigger(game_s *g, int triggerID);
+void             game_on_trigger(game_s *g, int trigger);
 bool32           tiles_solid(game_s *g, rec_i32 r);
 bool32           game_traversable(game_s *g, rec_i32 r);
 solid_rec_list_s game_solid_recs(game_s *g);
 int              rtile_pack(int tx, int ty);
 void             rtile_unpack(int ID, int *tx, int *ty);
 void             game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
+void             game_put_grass(game_s *g, int tx, int ty);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

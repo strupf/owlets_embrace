@@ -36,14 +36,18 @@ void aud_update()
     }
 }
 
-snd_s snd_load(const char *filename, void *(*allocf)(usize s))
+snd_s snd_load(const char *pathname, void *(*allocf)(usize s))
 {
     snd_s s = {0};
-    char  filepath[64];
-    str_cpy(filepath, FILEPATH_SND);
-    str_append(filepath, filename);
-    s.wav = sys_load_wavdata(filepath, allocf);
+    s.wav   = sys_load_wavdata(pathname, allocf);
     return s;
+}
+
+mus_s mus_load(const char *pathname)
+{
+    mus_s m = {0};
+    str_cpy(m.path, pathname);
+    return m;
 }
 
 void snd_play(snd_s s)
@@ -56,7 +60,7 @@ void snd_play_ext(snd_s s, float vol, float pitch)
     sys_wavdata_play(s.wav, vol, pitch);
 }
 
-void mus_fade_to(const char *filename, int ticks_out, int ticks_in)
+void mus_fade_to(mus_s m, int ticks_out, int ticks_in)
 {
     AUD.mus_fade_in = ticks_in;
     AUD.mus_fade    = MUS_FADE_OUT;
@@ -66,13 +70,7 @@ void mus_fade_to(const char *filename, int ticks_out, int ticks_in)
         AUD.mus_fade_ticks_max = 1;
     }
     AUD.mus_fade_ticks = AUD.mus_fade_ticks_max;
-
-    if (filename) {
-        str_cpy(AUD.mus_new, FILEPATH_MUS);
-        str_append(AUD.mus_new, filename);
-    } else {
-        AUD.mus_new[0] = '\0';
-    }
+    str_cpy(AUD.mus_new, m.path);
 }
 
 void mus_stop()

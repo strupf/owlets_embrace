@@ -38,6 +38,4 @@ void   rope_update(game_s *g, rope_s *r);
 bool32 rope_intact(game_s *g, rope_s *r);
 bool32 rope_stretched(game_s *g, rope_s *r);
 void   rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt);
-v2_i32 rope_adjust_connected_vel(game_s *g, rope_s *r, ropenode_s *rn,
-                                 v2_i32 subpos, v2_i32 vel);
 #endif

@@ -7,17 +7,38 @@
 
 #include "sys/sys_types.h"
 
+#define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
+    char NAME[64];                             \
+    str_cpy(NAME, PATHNAME);                   \
+    str_append(NAME, FILENAME)
+
+static int char_is_any(char c, const char *chars)
+{
+    if (!chars) return 0;
+    for (const char *a = chars; *a != '\0'; a++) {
+        if (c == *a) return 1;
+    }
+    return 0;
+}
+
 static int str_eq(const char *a, const char *b)
 {
-    for (const char *x = a, *y = b; *x != '\0' && *y != '\0'; x++, y++)
+    for (const char *x = a, *y = b;; x++, y++) {
         if (*x != *y) return 0;
+        if (*x == '\0') break;
+    }
     return 1;
 }
 
 static int str_contains(const char *str, const char *sequence)
 {
-    for (const char *x = str; *x != '\0'; x++)
-        if (str_eq(x, sequence)) return 1;
+    for (const char *x = str; *x != '\0'; x++) {
+        for (const char *a = x, *b = sequence;; a++, b++) {
+            if (*a == '\0' && *b != '\0') break;
+            if (*b == '\0') return 1;
+            if (*a != *b) break;
+        }
+    }
     return 0;
 }
 
@@ -36,6 +57,33 @@ static void str_cpy(char *dst, const char *src)
     while (*s != '\0')
         *d++ = *s++;
     *d = '\0';
+}
+
+static void str_cpys(char *dst, usize dstsize, const char *src)
+{
+    char       *d = dst;
+    const char *s = src;
+    while (*s != '\0' && (d + 1) < (dst + dstsize))
+        *d++ = *s++;
+    *d = '\0';
+}
+
+#define str_cpysb(DST, SRC) str_cpys(DST, (usize)sizeof(DST), SRC)
+
+// assets/tex/file.png -> file.png
+static void str_extract_filename(const char *src, char *buf, usize bufsize)
+{
+    const char *s = src;
+    while (*s != '\0' && *s != '.')
+        s++;
+    while (src < s) {
+        s--;
+        if (*s == '/') {
+            s++;
+            break;
+        }
+    }
+    str_cpys(buf, bufsize, s);
 }
 
 // appends string b -> overwrites null-char and places a new null-char
@@ -73,7 +121,7 @@ static void str_append_i(char *dst, int i)
 static char *str_find_char(const char *str, char c)
 {
     for (const char *it = str; *it != '\0'; it++) {
-        if (*it == c) return it;
+        if (*it == c) return (char *)it;
     }
     return NULL;
 }
@@ -144,7 +192,7 @@ static int char_is_ws(int c)
 
 f32 f32_from_str(const char *str)
 {
-    char *c = str;
+    const char *c = str;
     while (char_is_ws(*c))
         c++;
 
@@ -200,5 +248,38 @@ u32 u32_from_str(const char *str)
     }
     return res;
 }
+
+// string float to fixed point integer parsing
+static int QX_gen(const char *str, int q)
+{
+    int         neg = 0;
+    const char *c   = str;
+    if (*c == '-') {
+        neg = 1;
+        c++;
+    }
+
+    int n = 0;
+    while (*c != '.' && *c != '\0') {
+        n = n * 10 + ((*c++ - '0') << q);
+    }
+
+    if (*c == '.') {
+        c++;
+        uint f   = 0;
+        uint div = 1;
+        while (*c != '\0') {
+            f = f * 10 + ((*c++ - '0') << q);
+            div *= 10;
+        }
+        n += (int)(f / div);
+    }
+
+    return (neg ? -n : +n);
+}
+
+#define Q_4(NUM)  (int)((NUM)*16.f)
+#define Q_8(NUM)  (int)((NUM)*256.f)
+#define Q_16(NUM) (int)((NUM)*65536.f)
 
 #endif

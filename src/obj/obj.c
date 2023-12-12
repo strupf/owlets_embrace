@@ -8,11 +8,10 @@
 
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
-    obj_handle_s h;
-    h.o = o;
-    if (o) {
-        h.gen = o->gen;
-    }
+    obj_handle_s h = {0};
+    h.o            = o;
+    if (o)
+        h.UID = o->UID;
     return h;
 }
 
@@ -30,7 +29,7 @@ bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
 
 bool32 obj_handle_valid(obj_handle_s h)
 {
-    return (h.o && h.o->gen == h.gen);
+    return (h.o && h.o->UID.u == h.UID.u);
 }
 
 obj_s *obj_create(game_s *g)
@@ -41,15 +40,10 @@ obj_s *obj_create(game_s *g)
         BAD_PATH
         return NULL;
     }
-    obj_generic_s *t     = (obj_generic_s *)o;
-    int            index = o->index;
-    int            gen   = o->gen;
-    *t                   = (obj_generic_s){0};
-    o->index             = index;
-    o->gen               = gen;
-#ifdef SYS_DEBUG
-    t->magic = OBJ_GENERIC_MAGIC;
-#endif
+
+    obj_UID_s UID               = o->UID;
+    *o                          = (obj_s){0};
+    o->UID                      = UID;
     g->obj_busy[g->obj_nbusy++] = o;
     return o;
 }
@@ -59,7 +53,7 @@ void obj_delete(game_s *g, obj_s *o)
     assert(ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0);
     assert(ptr_index_in_arr(g->obj_busy, o, g->obj_nbusy) >= 0);
     g->obj_to_delete[g->obj_ndelete++] = o;
-    o->gen++; // increase gen to devalidate existing handles
+    o->UID.gen++; // increase gen to devalidate existing handles
 }
 
 bool32 obj_tag(game_s *g, obj_s *o, int tag)
@@ -89,9 +83,9 @@ void objs_cull_to_delete(game_s *g)
         obj_s *o = g->obj_to_delete[n];
         int    i = ptr_index_in_arr(g->obj_busy, o, g->obj_nbusy);
         assert(i >= 0);
-        for (int i = 0; i < NUM_OBJ_TAGS; i++) {
-            if (g->obj_tag[i] == o)
-                g->obj_tag[i] = NULL;
+        for (int k = 0; k < NUM_OBJ_TAGS; k++) {
+            if (g->obj_tag[k] == o)
+                g->obj_tag[k] = NULL;
         }
         g->obj_busy[i] = g->obj_busy[--g->obj_nbusy];
     }
@@ -117,8 +111,15 @@ void actor_try_wiggle(game_s *g, obj_s *o)
     }
 
     o->bumpflags |= OBJ_BUMPED_SQUISH;
-    if (o->on_squish) {
-        o->on_squish(g, o);
+    obj_on_squish(g, o);
+}
+
+void obj_on_squish(game_s *g, obj_s *o)
+{
+    switch (o->ID) {
+    case OBJ_ID_HERO:
+        hero_on_squish(g, o);
+        break;
     }
 }
 
@@ -189,13 +190,35 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         rec_i32 aabb = obj_aabb(o);
         v2_i32  dtm  = {0, sy};
         aabb.y += sy;
-        if (!game_traversable(g, aabb) ||
-            ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
-             (aabb.y + aabb.h > g->pixel_y || aabb.y < 0))) {
+
+        if ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
+            (aabb.y + aabb.h > g->pixel_y || aabb.y < 0)) {
             DO_BUMP_Y;
         }
 
-        actor_move_by(g, o, dtm);
+        if (game_traversable(g, aabb)) {
+            actor_move_by(g, o, dtm);
+        } else if ((o->moverflags & OBJ_MOVER_AVOID_HEADBUMP) && sy < 0) {
+            // jump corner correction
+            // https://twitter.com/MaddyThorson/status/1238338578310000642
+            for (int k = 1; k <= 4; k++) {
+                rec_i32 recr = {aabb.x + k, aabb.y, aabb.w, aabb.h};
+                rec_i32 recl = {aabb.x - k, aabb.y, aabb.w, aabb.h};
+                if (game_traversable(g, recr)) {
+                    actor_move_by(g, o, (v2_i32){+k, dtm.y});
+                    goto CONTINUE_Y;
+                }
+                if (game_traversable(g, recl)) {
+                    actor_move_by(g, o, (v2_i32){-k, dtm.y});
+                    goto CONTINUE_Y;
+                }
+            }
+
+            DO_BUMP_Y;
+        } else {
+            DO_BUMP_Y;
+        }
+    CONTINUE_Y:;
     }
 }
 
@@ -263,10 +286,15 @@ void obj_apply_movement(obj_s *o)
 {
     o->vel_prev_q8 = o->vel_q8;
     o->vel_q8      = v2_add(o->vel_q8, o->gravity_q8);
-    o->vel_q8.x    = (o->vel_q8.x * o->drag_q8.x) >> 8;
-    o->vel_q8.y    = (o->vel_q8.y * o->drag_q8.y) >> 8;
-    o->subpos_q8   = v2_add(o->subpos_q8, o->vel_q8);
-    o->tomove      = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
+    if (o->vel_cap_q8.x != 0)
+        o->vel_q8.x = clamp_i(o->vel_q8.x, -o->vel_cap_q8.x, +o->vel_cap_q8.x);
+    if (o->vel_cap_q8.y != 0)
+        o->vel_q8.y = clamp_i(o->vel_q8.y, -o->vel_cap_q8.y, +o->vel_cap_q8.y);
+    o->vel_q8.x = (o->vel_q8.x * o->drag_q8.x) >> 8;
+    o->vel_q8.y = (o->vel_q8.y * o->drag_q8.y) >> 8;
+
+    o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
+    o->tomove    = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));
     o->subpos_q8.x &= 255;
     o->subpos_q8.y &= 255;
 }
@@ -330,4 +358,39 @@ obj_s *obj_savepoint_create(game_s *g)
     o->ID    = OBJ_ID_SAVEPOINT;
     o->flags |= OBJ_FLAG_INTERACTABLE;
     return o;
+}
+
+v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
+{
+    if (!o->rope || !o->ropenode) return;
+
+    rope_s     *r          = o->rope;
+    ropenode_s *rn         = o->ropenode;
+    u32         len_q4     = rope_length_q4(g, r);
+    u32         len_max_q4 = r->len_max << 4;
+    if (len_q4 <= len_max_q4) return o->vel_q8; // rope is not stretched
+
+    ropenode_s *rprev = rn->next ? rn->next : rn->prev;
+    assert(rprev);
+
+    v2_i32 ropedt    = v2_sub(rn->p, rprev->p);
+    v2_i32 subpos_q4 = v2_shr(o->subpos_q8, 4);
+    v2_i32 dt_q4     = v2_add(v2_shl(ropedt, 4), subpos_q4);
+
+    // damping force
+    v2_i32 fdamp = {0};
+    v2_i32 vrad  = project_pnt_line(o->vel_q8, (v2_i32){0}, dt_q4);
+    if (v2_dot(ropedt, o->vel_q8) > 0) {
+        fdamp = v2_shr(v2_mul(vrad, 250), 8);
+    }
+
+    // spring force
+    u32    dt_len         = len_q4 - len_max_q4;
+    i32    fspring_scalar = (dt_len * 220) >> 8;
+    // i32    fspring_scalar = pow2_i32(dt_len / 12);
+    v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
+
+    v2_i32 frope   = v2_add(fdamp, fspring);
+    v2_i32 vel_new = v2_sub(o->vel_q8, frope);
+    return vel_new;
 }

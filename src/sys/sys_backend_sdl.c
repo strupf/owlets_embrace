@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE 1
+#define SYS_SDL_SCALE 2
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");
@@ -108,6 +108,19 @@ int main(int argc, char **argv)
                 if (e.window.event == SDL_WINDOWEVENT_RESIZED ||
                     e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
                     e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+                    int w, h;
+                    SDL_GetWindowSize(OS_SDL.window, &w, &h);
+                    f32 sx = (f32)w / (f32)OS_SDL.r_src.w;
+                    f32 sy = (f32)h / (f32)OS_SDL.r_src.h;
+                    if (sx < sy) {
+                        OS_SDL.r_dst.w = w;
+                        OS_SDL.r_dst.h = (int)(sx * (f32)OS_SDL.r_src.h + .5f);
+                    } else {
+                        OS_SDL.r_dst.h = h;
+                        OS_SDL.r_dst.w = (int)(sy * (f32)OS_SDL.r_src.w + .5f);
+                    }
+                    OS_SDL.r_dst.x = (w - OS_SDL.r_dst.w) / 2;
+                    OS_SDL.r_dst.y = (h - OS_SDL.r_dst.h) / 2;
                 }
                 break;
             }
@@ -134,7 +147,8 @@ int main(int argc, char **argv)
             }
             SDL_UnlockTexture(OS_SDL.texture);
         }
-        SDL_SetRenderDrawColor(OS_SDL.renderer, 0, 0, 0, 255);
+
+        SDL_SetRenderDrawColor(OS_SDL.renderer, 0x31, 0x2F, 0x28, 255);
         SDL_RenderClear(OS_SDL.renderer);
         SDL_RenderCopy(OS_SDL.renderer, OS_SDL.texture, &OS_SDL.r_src, &OS_SDL.r_dst);
         SDL_RenderPresent(OS_SDL.renderer);

@@ -26,7 +26,7 @@ int ase_anim_parse(ase_anim_s *a, const char *file, void *(*allocf)(usize s))
 
     int n_frames = json_num_children(jframes);
     int n_tags   = json_num_children(jarrtags);
-    for (json_each(jmeta, "frameTags", jtag)) {
+    for (json_each (jmeta, "frameTags", jtag)) {
         char tagname[16];
         jsonk_str(jtag, "name", tagname, sizeof(tagname));
     }
@@ -52,7 +52,7 @@ int ase_anim_parse(ase_anim_s *a, const char *file, void *(*allocf)(usize s))
     a->n_frames      = n_frames;
     a->n_tagged_anim = n_tags;
 
-    for (json_each(jroot, "frames", jframe)) {
+    for (json_each (jroot, "frames", jframe)) {
         json_s ja, jb, jc;
         json_key(jframe, "sourceSize", &ja);
         json_key(jframe, "spriteSourceSize", &jb);
@@ -91,7 +91,7 @@ int ase_anim_parse(ase_anim_s *a, const char *file, void *(*allocf)(usize s))
         anim->n_frames = u32_from_str(fn) + 1;
         frame++;
     }
-    spm_pop;
+    spm_pop();
     return ASE_SUCCESS;
 }
 
@@ -114,8 +114,8 @@ void spriteanim_update(spriteanim_s *a)
     a->tick++;
     if (a->tick < d->frames[a->frame].ticks) return;
 
-    int f   = a->frame;
-    a->tick = 0;
+    const int f = a->frame;
+    a->tick     = 0;
     switch (a->mode) {
     case SPRITEANIM_MODE_LOOP:
         a->frame = (f + 1) % d->n_frames;

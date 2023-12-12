@@ -53,6 +53,12 @@ enum {
     SYS_FILE_SEEK_END, // SEEK_END
 };
 
+enum {
+    SYS_SEEK_SET = SYS_FILE_SEEK_SET,
+    SYS_SEEK_CUR = SYS_FILE_SEEK_CUR,
+    SYS_SEEK_END = SYS_FILE_SEEK_END,
+};
+
 enum {                     // pd_api.h:
     SYS_INP_DPAD_L = 0x01, // kButtonLeft
     SYS_INP_DPAD_R = 0x02, // kButtonRight
@@ -85,5 +91,13 @@ int           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]
 int           sys_crank_docked();
 f32           sys_seconds();
+
+typedef void *sys_file_s;
+sys_file_s   *sys_fopen(const char *path, const char *mode);
+int           sys_fclose(sys_file_s *f);
+size_t        sys_fread(void *buf, size_t size, size_t count, sys_file_s *f);
+size_t        sys_fwrite(const void *buf, size_t size, size_t count, sys_file_s *f);
+int           sys_ftell(sys_file_s *f);
+int           sys_fseek(sys_file_s *f, int pos, int origin);
 
 #endif

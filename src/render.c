@@ -7,14 +7,15 @@
 
 void render(game_s *g)
 {
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-
     rec_i32 camrec    = cam_rec_px(&g->cam);
     v2_i32  camoffset = {-camrec.x, -camrec.y};
 
+    gfx_ctx_s ctx        = gfx_ctx_default(asset_tex(0));
     gfx_ctx_s ctx_clouds = gfx_ctx_default(asset_tex(0));
     texrec_s  trcloud    = asset_texrec(TEXID_CLOUDS, 0, 0, 256, 256);
-    gfx_spr(ctx_clouds, trcloud, (v2_i32){0, 0}, 0, 0);
+    // gfx_spr(ctx_clouds, trcloud, (v2_i32){0, 0}, 0, 0);
+
+    render_parallax(g, camoffset);
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     render_tilemap(g, tilebounds, camoffset);
@@ -57,55 +58,53 @@ void render(game_s *g)
         texrec_s trec = {0};
         v2_i32   ppos = v2_add(o->pos, camoffset);
         rec_i32  aabb = {ppos.x, ppos.y, o->w, o->h};
-#if 1
+#if 0
         gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
 #endif
 
+        if (o->flags & OBJ_FLAG_SPRITE) {
+            for (int n = 0; n < o->n_sprites; n++) {
+                sprite_simple_s sprite = o->sprites[n];
+                if (sprite.trec.t.px == NULL) continue;
+                v2_i32 sprpos = v2_add(ppos, sprite.offs);
+                gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, sprite.mode);
+            }
+        }
+
         switch (o->ID) {
         case OBJ_ID_HERO: {
-            trec.t         = asset_tex(TEXID_HERO);
-            hero_s  *hero  = &g->herodata;
-            texrec_s trec1 = spriteanim_frame(&o->spriteanim[0]);
+#if 0 // air jump indicators
+            hero_s *hero  = &g->herodata;
+            bool32  inair = game_traversable(g, obj_rec_bottom(o));
+            if (hero->n_airjumps > 0 && inair) {
+                gfx_ctx_s ctx_airjump = gfx_ctx_default(asset_tex(0));
 
-            int animID   = 0;
-            trec.r       = (rec_i32){0, animID * 64, 64, 64};
-            v2_i32 rpos  = v2_add(obj_pos_bottom_center(o), camoffset);
-            v2_i32 pwhip = rpos;
-            rpos.y -= trec1.r.h;
-            rpos.x -= trec1.r.w / 2;
+                for (int k = 0; k < hero->n_airjumps; k++) {
+                    v2_i32 ajpos = ppos;
+                    ajpos.x += -5 + k * 10;
+                    ajpos.y -= 20;
 
-            int flip = o->facing == -1 ? SPR_FLIP_X : 0;
-
-            gfx_spr(ctx, trec1, rpos, flip, 0);
-
-            if (hero->attack != HERO_ATTACK_NONE) {
-                int times[] = {2,
-                               4,
-                               6,
-                               8,
-                               16,
-                               17,
-                               18,
-                               20};
-
-                int fr = 0;
-                while (hero->attack_tick < times[7 - fr]) {
-                    fr++;
+                    gfx_cir_fill(ctx_airjump, ajpos, 6, PRIM_MODE_BLACK);
+                    gfx_cir_fill(ctx_airjump, ajpos, 5, PRIM_MODE_WHITE);
+                    if (o->n_airjumps > k) {
+                        gfx_cir_fill(ctx_airjump, ajpos, 4, PRIM_MODE_BLACK);
+                    }
                 }
-                fr = clamp_i(fr, 0, 7);
-                texrec_s trwhip;
-                trwhip.t   = asset_tex(TEXID_HERO_WHIP);
-                trwhip.r.x = fr * 256;
-                trwhip.r.y = (hero->attack - 1) * 256;
-                trwhip.r.w = 256;
-                trwhip.r.h = 256;
-
-                pwhip.x -= 128 - o->facing * 10;
-                pwhip.y -= 128;
-                gfx_spr(ctx, trwhip, pwhip, flip, 0);
             }
+#endif
         } break;
         }
+    }
+
+    for (int n = 0; n < g->n_decal_fg; n++) {
+        gfx_ctx_s ctx_decal = gfx_ctx_default(asset_tex(0));
+        decal_s   decal     = g->decal_fg[n];
+        texrec_s  decalrec;
+        decalrec.t      = decal.tex;
+        decalrec.r      = (rec_i32){0, 0, decal.tex.w, decal.tex.h};
+        v2_i32 decalpos = {decal.x, decal.y};
+        decalpos        = v2_add(decalpos, camoffset);
+        gfx_spr(ctx_decal, decalrec, decalpos, 0, 0);
     }
 
     texrec_s trgrass;
@@ -127,19 +126,25 @@ void render(game_s *g)
     }
 
     for (int n = 0; n < g->n_windparticles; n++) {
-        windparticle_s p  = g->windparticles[n];
-        v2_i32         p1 = v2_add(camoffset, v2_shr(p.pos_q8[p.n], 8));
+        windparticle_s p = g->windparticles[n];
+
+        v2_i32    p1 = v2_shr(p.pos_q8[p.n], 8);
+        const int y1 = p1.y;
+        const int h1 = ((y1 + camoffset.y) % BG_SIZE + BG_SIZE) % BG_SIZE;
+        p1.y         = h1;
 
         for (int i = 1; i < BG_WIND_PARTICLE_N; i++) {
             int    k  = (p.n + i) & (BG_WIND_PARTICLE_N - 1);
-            v2_i32 p2 = v2_add(v2_shr(p.pos_q8[k], 8), camoffset);
+            v2_i32 p2 = v2_shr(p.pos_q8[k], 8);
+            p2.y      = h1 + (p2.y - y1);
+
             gfx_lin_thick(ctx, p1, p2, PRIM_MODE_BLACK, 1);
             p1 = p2;
         }
     }
 
-#define HORIZONT_X     600                 // distance horizont from screen plane
-#define HORIZONT_X_EYE 300                 // distance eye from screen plane
+#define HORIZONT_X     2000                // distance horizont from screen plane
+#define HORIZONT_X_EYE 600                 // distance eye from screen plane
 #define HORIZONT_Y_EYE (SYS_DISPLAY_H / 2) // height eye on screen plane (center)
 
     // calc height of horizont based on thales theorem
@@ -158,11 +163,13 @@ void render(game_s *g)
         gfx_lin_thick(ctx_ocean, p1, p2, PRIM_MODE_BLACK, 2);
         if (Y_HORIZONT <= 0) continue;
 
-        v2_i32 p3 = p1;
-        v2_i32 p4 = p2;
-        p3.y -= Y_HORIZONT;
-        p4.y -= Y_HORIZONT;
-        gfx_lin_thick(ctx_ocean, p3, p4, PRIM_MODE_BLACK, 2);
+        for (int k = 1; k < 10; k++) {
+            v2_i32 p3 = p1;
+            v2_i32 p4 = p2;
+            p3.y -= (Y_HORIZONT * k) / 9;
+            p4.y -= (Y_HORIZONT * k) / 9;
+            gfx_lin_thick(ctx_ocean, p3, p4, PRIM_MODE_BLACK, 2);
+        }
     }
 #endif
 
@@ -208,7 +215,7 @@ void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
 
 #if 1
-            for (int i = 0; i < 2; i++) {
+            for (int i = 1; i < 2; i++) {
                 int t = g_animated_tiles[g->rtiles[x + y * g->tiles_x].layer[i]];
                 if (t == 0) continue;
                 int tx, ty;
@@ -221,7 +228,7 @@ void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
 #endif
 #if defined(SYS_DEBUG) && 0
             {
-                int t = g->tiles[x + y * g->tiles_x];
+                int t = g->tiles[x + y * g->tiles_x].collision;
                 if (!(0 < t && t < NUM_TILE_BLOCKS)) continue;
                 texrec_s tr;
                 tr.t   = asset_tex(TEXID_COLLISION_TILES);
@@ -239,10 +246,47 @@ void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
 void render_parallax(game_s *g, v2_i32 camoffset)
 {
     parallax_img_s par = g->parallax;
-    cam_s         *cam = &g->cam;
+    par.tr             = asset_texrec(TEXID_BACKGROUND, 0, 0, 618, 320);
+    par.loopx          = 1;
+    par.img_pos        = BG_IMG_POS_FIT_ROOM;
 
-    int bgx = (int)(cam->pos.x * (1.f - par.x)) + par.offx + camoffset.x;
-    int bgy = (int)(cam->pos.y * (1.f - par.y)) + par.offy + camoffset.y;
+    if (!par.tr.t.px) return;
+    cam_s *cam = &g->cam;
+
+    int bgx = 0;
+    int bgy = 0;
+
+    switch (par.img_pos) {
+    case BG_IMG_POS_TILED:
+        bgx = (int)(cam->pos.x * (1.f - par.x) + par.offx) + camoffset.x;
+        bgy = (int)(cam->pos.y * (1.f - par.y) + par.offy) + camoffset.y;
+        break;
+    case BG_IMG_POS_FIT_ROOM:
+        bgx = -((par.tr.r.w - SYS_DISPLAY_W) * -camoffset.x) / (g->pixel_x - SYS_DISPLAY_W);
+        bgy = -((par.tr.r.h - SYS_DISPLAY_H) * -camoffset.y) / (g->pixel_y - SYS_DISPLAY_H);
+        break;
+    }
+
+    int nx = 1;
+    int ny = 1;
+
+    if (par.loopx) {
+        nx  = (SYS_DISPLAY_W) / par.tr.r.w + 1;
+        bgx = bgx % par.tr.r.w;
+    }
+    if (par.loopy) {
+        ny  = (SYS_DISPLAY_H) / par.tr.r.h + 1;
+        bgy = bgy % par.tr.r.h;
+    }
+
+    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            v2_i32 pos = {bgx + x * par.tr.r.w, bgy + y * par.tr.r.h};
+            gfx_spr(ctx, par.tr, pos, 0, 0);
+        }
+    }
 }
 
 #define ITEM_FRAME_SIZE 64
@@ -266,7 +310,7 @@ static void render_item_selection(hero_s *h)
     int discoffset = 10;
     if (!h->itemselection_decoupled) {
         int dtang  = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
-        discoffset = min_i(pow2_i32(dtang) / 5000000, discoffset);
+        discoffset = min_i(pow2_i32(dtang) / 2000000, discoffset);
     }
 
 #define ITEM_OVAL_X 2
@@ -283,8 +327,9 @@ static void render_item_selection(hero_s *h)
     tr.r = (rec_i32){208, 80, 16, 16};
     gfx_spr(ctx, tr, (v2_i32){33 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
 
+    // hole on barrel
     tr.r = (rec_i32){208, 96, 16, 16};
-    gfx_spr(ctx, tr, (v2_i32){39 - sx2, 32 - 8 - sy2}, 0, 0);
+    gfx_spr(ctx, tr, (v2_i32){37 - sx2, 32 - 8 - sy2}, 0, 0);
 
     // wraps the item image around a rotating barrel
     // map coordinate to angle to image coordinate
@@ -317,6 +362,8 @@ static void render_item_selection(hero_s *h)
     // crank disc
     tr.r = (rec_i32){208, 0, 32, 64};
     gfx_spr(ctx, tr, (v2_i32){41 + discoffset, 0}, 0, 0);
+
+    // crank disk bolt attachment
     tr.r = (rec_i32){208, 112, 16, 16};
     gfx_spr(ctx, tr, (v2_i32){45 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
 }
@@ -325,23 +372,16 @@ void render_ui(game_s *g, v2_i32 camoffset)
 {
     gfx_ctx_s ctx_ui = gfx_ctx_default(asset_tex(0));
 
-    if (g->area_name_ticks > 0) {
-        fnt_s     areafont     = asset_fnt(FNTID_DIALOG);
+    fade_s *areaname = &g->areaname.fade;
+    if (fade_phase(areaname) != 0) {
+        int       fade_i       = fade_interpolate(areaname, 0, 100);
+        fnt_s     areafont     = asset_fnt(FNTID_LARGE);
         gfx_ctx_s ctx_areafont = ctx_ui;
+        rec_i32   arearec      = {0, 0, 120, 40};
+        gfx_rec_fill(ctx_areafont, arearec, PRIM_MODE_WHITE);
+        ctx_areafont.pat = gfx_pattern_interpolate(fade_i, 100);
 
-        int t1 = (AREA_NAME_TICKS * 1) / 8; // fade out
-        int t2 = (AREA_NAME_TICKS * 7) / 8; // fade in
-        if (g->area_name_ticks < t1) {
-            int a            = g->area_name_ticks;
-            int b            = t1;
-            ctx_areafont.pat = gfx_pattern_interpolate(a, b);
-        } else if (g->area_name_ticks > t2) {
-            int a            = AREA_NAME_TICKS - g->area_name_ticks;
-            int b            = AREA_NAME_TICKS - t2;
-            ctx_areafont.pat = gfx_pattern_interpolate(a, b);
-        }
-
-        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){10, 10}, g->area_name, 0);
+        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){10, 10}, g->areaname.label, 0);
     }
 
     if (g->herodata.aquired_items) {

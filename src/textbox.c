@@ -25,9 +25,7 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
     json_s jroot;
     spm_push();
 
-    char filepath[64];
-    str_cpy(filepath, FILEPATH_DIALOG);
-    str_append(filepath, filename);
+    FILEPATH_GEN(filepath, FILEPATH_DIALOG, filename);
 
     txt_load(filepath, spm_alloc, &txt);
     json_root(txt, &jroot);
@@ -35,13 +33,16 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
         textbox_block_s *block = &tb->blocks[tb->n_blocks++];
         block->tag             = jsonk_u32(jblock, "tag");
 
-        textbox_char_s tbc = {0};
-        tbc.effect         = TEXTBOX_EFFECT_NONE;
-        tbc.tick_q2        = TEXTBOX_SPEED_DEFAULT_Q2;
-        int n_lines        = 0;
+        int effect  = TEXTBOX_EFFECT_NONE;
+        int tick_q2 = TEXTBOX_SPEED_DEFAULT_Q2;
+        int n_lines = 0;
+
         for (json_each (jblock, "lines", jline)) {
             int linelength = 0;
+
             for (char *c = json_strp(jline, NULL); *c != '\"'; c++) {
+
+                // INLINE COMMMANDS
                 if (*c == '{') { // parse inline command eg {> 4}
                     c++;
 
@@ -49,31 +50,31 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
                     case '/': // ====== END EFFECT
                         c++;
                         switch (*c) {
-                        case '>':
-                            tbc.tick_q2 = TEXTBOX_SPEED_DEFAULT_Q2;
-                            break;
+                        case '>': tick_q2 = TEXTBOX_SPEED_DEFAULT_Q2; break;
                         case '~':
-                        case '*':
-                            break;
+                        case '*': effect = TEXTBOX_EFFECT_NONE; break;
                         default: BAD_PATH
                         }
                         break;
-                    case '>': // ====== APPLY NEW EFFECT
-                        tbc.tick_q2 = u32_from_str(c + 2);
-                        break;
-                    case '~':
-                        tbc.effect = TEXTBOX_EFFECT_WAVE;
-                        break;
-                    case '*':
-                        tbc.effect = TEXTBOX_EFFECT_SHAKE;
-                        break;
+                    case '>': tick_q2 = u32_from_str(c + 2); break;
+                    case '~': effect = TEXTBOX_EFFECT_WAVE; break;
+                    case '*': effect = TEXTBOX_EFFECT_SHAKE; break;
                     default: BAD_PATH
                     }
 
                     while (*c != '}')
                         c++;
                 } else {
-                    tbc.glyph                      = *c;
+                    // TEXT CHARACTER
+                    textbox_char_s tbc = {0};
+                    tbc.effect         = effect;
+                    tbc.tick_q2        = tick_q2;
+                    tbc.glyph          = *c;
+
+                    if (char_is_any(*c, ".!?")) {
+                        tbc.tick_q2 *= 2;
+                    }
+
                     block->chars[block->n_chars++] = tbc;
                     linelength++;
                 }
@@ -82,6 +83,7 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
             block->line_length[n_lines++] = linelength;
         }
 
+        // CHOICES
         for (json_each (jblock, "choices", jchoice)) {
             textbox_choice_s *choice = &block->choices[block->n_choices++];
             for (char *c = jsonk_strp(jchoice, "text", NULL); *c != '\"'; c++) {
@@ -173,12 +175,18 @@ void textbox_update(game_s *g, textbox_s *tb)
         while (tb->tick_q2 >= tick) {
             tb->tick_q2 -= tick;
             tb->n++;
-            if (tb->n < b->n_chars) continue;
 
-            tb->state     = TEXTBOX_STATE_WAIT;
-            tb->curchoice = 0;
+            if (tb->n >= b->n_chars) {
+                tb->state     = TEXTBOX_STATE_WAIT;
+                tb->curchoice = 0;
+                break;
+            }
 
-            break;
+            int glyph = b->chars[tb->n].glyph;
+
+            if (glyph != ' ') {
+                snd_play_ext(asset_snd(SNDID_SPEAK), 0.2f, rngr_f32(.5f, .7f));
+            }
         }
     } break;
     case TEXTBOX_STATE_FADE_IN:
@@ -200,11 +208,17 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 {
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
 
-    v2_i32 pos = {10, 150};
+    textbox_block_s *b = &tb->blocks[tb->block];
 
-    textbox_block_s *b   = &tb->blocks[tb->block];
-    fnt_s            fnt = asset_fnt(FNTID_DEFAULT);
-    gfx_ctx_s        ctx = gfx_ctx_default(asset_tex(0));
+    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+
+    gfx_ctx_s ctx_bg = ctx;
+    gfx_rec_fill(ctx_bg, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
+
+    v2_i32 pos = {10, 160};
+    fnt_s  fnt = asset_fnt(FNTID_LARGE);
+#define TB_LINE_SPACING 26
+
     switch (tb->state) {
     case TEXTBOX_STATE_FADE_IN:
         ctx.pat = gfx_pattern_interpolate(TEXTBOX_FADE_TICKS - tb->fadetick, TEXTBOX_FADE_TICKS);
@@ -219,12 +233,6 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
     t.t        = fnt.t;
     t.r.w      = fnt.grid_w;
     t.r.h      = fnt.grid_h;
-
-    texrec_s tb_frame;
-    tb_frame.t = asset_tex(TEXID_UI_TEXTBOX);
-    tb_frame.r = (rec_i32){0, 144, 400, 96};
-    gfx_spr(ctx, tb_frame, (v2_i32){0, 240 - tb_frame.r.h}, 0, 0);
-    // gfx_rec_fill(ctx, (rec_i32){0, 120, 400, 120}, PRIM_MODE_WHITE);
 
     for (int i = 0, len = 0, row = 0; i < tb->n; i++) {
         textbox_char_s ci = b->chars[i];
@@ -242,7 +250,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
             break;
         }
 
-        gfx_spr(ctx, t, pp, 0, 0);
+        gfx_spr(ctx, t, pp, 0, SPR_MODE_WHITE);
 
         p.x += fnt.widths[ci.glyph];
 
@@ -251,7 +259,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
             len = 0;
             row++;
             p.x = pos.x;
-            p.y += 30;
+            p.y += TB_LINE_SPACING;
         }
     }
 

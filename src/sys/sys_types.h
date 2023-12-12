@@ -56,7 +56,6 @@
         printf("%s", strret);                              \
     }
 #else
-
 #ifdef SYS_PD
 #ifndef TARGET_EXTENSION
 #define TARGET_EXTENSION 1
@@ -207,6 +206,10 @@ typedef struct { // ---A-----B--- line
     v2_i32 a;    // inf
     v2_i32 b;    // inf
 } line_i32;
+
+typedef struct {
+    f32 m[9];
+} m33_f32;
 
 typedef v2_i32   v2i;
 typedef v2_f32   v2f;

@@ -9,7 +9,7 @@
 #include "rope.h"
 #include "spriteanim.h"
 
-#define OBJ_GENERIC_MAGIC 0xDEADBEEFU // used during debug to detect buffer overflows
+#define NUM_OBJ 256
 
 enum {
     OBJ_ID_NULL,
@@ -20,6 +20,8 @@ enum {
     OBJ_ID_KILLABLE,
     OBJ_ID_DOOR_SLIDE,
     OBJ_ID_SAVEPOINT,
+    OBJ_ID_CRUMBLEBLOCK,
+    OBJ_ID_BLOB,
 };
 
 enum {
@@ -37,6 +39,8 @@ enum {
 #define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 5)
 #define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 6)
 #define OBJ_FLAG_HOOKABLE       ((u64)1 << 7)
+#define OBJ_FLAG_SPRITE         ((u64)1 << 8)
+#define OBJ_FLAG_ENEMY          ((u64)1 << 9)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -49,61 +53,86 @@ enum {
 };
 
 enum {
-    OBJ_MOVER_SLOPES      = 1 << 0,
-    OBJ_MOVER_GLUE_GROUND = 1 << 1,
+    OBJ_MOVER_SLOPES         = 1 << 0,
+    OBJ_MOVER_GLUE_GROUND    = 1 << 1,
+    OBJ_MOVER_AVOID_HEADBUMP = 1 << 2,
 };
 
 enum {
-    DOOR_STATE_CLOSED,
-    DOOR_STATE_MOVING,
-    DOOR_STATE_OPEN,
+    FACING_LEFT,
+    FACING_RIGHT,
+};
+
+enum {
+    GENERIC_STATE_ON,
+    GENERIC_STATE_OFF,
+    GENERIC_STATE_TURNING_ON,
+    GENERIC_STATE_TURNING_OFF,
 };
 
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
 
+typedef union {
+    struct {
+        u16 index;
+        u16 gen;
+    };
+    u32 u;
+} obj_UID_s;
+
 typedef struct {
-    obj_s *o;
-    int    gen;
+    obj_s    *o;
+    obj_UID_s UID;
 } obj_handle_s;
 
-struct obj_s {
-    int    index;
-    int    gen;
-    GUID_s GUID;
-    int    facing; // -1 left, +1 right
+typedef struct {
+    texrec_s trec;
+    v2_i32   offs;
+    int      flip;
+    int      mode;
+} sprite_simple_s;
 
-    int     ID;
-    flags64 flags;
-    flags32 tags;
+struct obj_s {
+    obj_UID_s UID;
+    int       ID;
+    flags64   flags;
+    flags32   tags;
 
     flags32 bumpflags; // has to be cleared manually
     flags32 moverflags;
     int     w;
     int     h;
+    v2_i32  posprev;
     v2_i32  pos; // position in pixels
     v2_i32  subpos_q8;
     v2_i32  vel_q8;
     v2_i32  vel_prev_q8;
+    v2_i32  vel_cap_q8;
     v2_i32  drag_q8;
     v2_i32  gravity_q8;
     v2_i32  acc_q8;
     v2_i32  tomove;
 
-    int      trigger;
-    int      actionID;
-    int      subactionID;
-    int      state;
-    int      animation;
+    int trigger;
+    int facing; // -1 left, +1 right
+
+    // some generic behaviour fields
+    fade_s fade;
+    int    action;
+    int    subaction;
+    int    state;
+    int    animation;
+    int    timer;
+
+    int      frametick;
+    int      frame;
     int      n_hitboxes;
     hitbox_s hitboxes[4];
     int      n_hurtboxes;
     hitbox_s hurtboxes[4];
 
-    int    doorticksmax;
-    int    doorticks;
-    v2_i32 doortarget;
-    v2_i32 doorog;
-
+    int          jump_btn_buffer;
+    int          n_airjumps;
     i32          jumpticks;
     i32          edgeticks;
     ropenode_s  *ropenode;
@@ -113,25 +142,16 @@ struct obj_s {
     obj_handle_s obj_handles[16];
     spriteanim_s spriteanim[4];
 
+    int    attack;
+    int    attack_tick;
+    bool32 facing_locked;
+    int    ropelen;
+
+    int             n_sprites;
+    sprite_simple_s sprites[4];
+
     char filename[64];
-
-    void (*on_squish)(game_s *g, obj_s *o);
 };
-
-// generic object with additional memory to be used
-// for inheritance
-// struct obj_extended {
-//         obj_s o;
-//         ...
-// };
-
-typedef struct obj_generic_s {
-    obj_s o;
-    char  mem[1024];
-#ifdef SYS_DEBUG
-    u32 magic; // check memory overwrites
-#endif
-} obj_generic_s;
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);
@@ -151,23 +171,23 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
-bool32       tiles_solid(game_s *g, rec_i32 r);
 void         actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_interact(game_s *g, obj_s *o);
+void         obj_on_squish(game_s *g, obj_s *o);
 
-void squish_delete(game_s *g, obj_s *o);
+void   squish_delete(game_s *g, obj_s *o);
+v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
 // the goal is to move a whole pixel left or right
 void obj_apply_movement(obj_s *o);
+//
 
-obj_s *obj_hero_create(game_s *g);
-obj_s *obj_solid_create(game_s *g);
-obj_s *obj_slide_door_create(game_s *g);
-obj_s *obj_savepoint_create(game_s *g);
+obj_s *crumbleblock_create(game_s *g);
+void   crumbleblock_update(game_s *g, obj_s *o);
 
 #endif

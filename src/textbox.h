@@ -5,6 +5,7 @@
 #ifndef TEXTBOX_H
 #define TEXTBOX_H
 
+#include "fade.h"
 #include "gamedef.h"
 
 enum {
@@ -29,10 +30,10 @@ enum {
 };
 
 #define TEXTBOX_MAX_CHARS        256
-#define TEXTBOX_NUM_LINES        4
+#define TEXTBOX_NUM_LINES        3
 #define TEXTBOX_NUM_BLOCKS       64
 #define TEXTBOX_SPEED_DEFAULT_Q2 4
-#define TEXTBOX_FADE_TICKS       15
+#define TEXTBOX_FADE_TICKS       10
 
 typedef struct {
     u8 glyph;

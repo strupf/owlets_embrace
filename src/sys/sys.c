@@ -7,6 +7,7 @@
 #include "sys_types.h"
 
 #define SYS_SHOW_CONSOLE       0 // enable or display hardware console
+#define SYS_SHOW_FPS           1 // enable fps/ups counter
 //
 #define SYS_UPS_DT             (1.f / (f32)SYS_UPS)
 #define SYS_DT_ACCUMULATOR_CAP (SYS_UPS_DT * 5.f)
@@ -15,13 +16,15 @@
 #define SYS_MUSCHUNK_SAMPLES   (SYS_MUSCHUNK_MEM / sizeof(i16))
 #define SYS_MUS_LEN_FILENAME   64
 
+#if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
+static const u32 sys_consolefont[512];
+#endif
 #if SYS_SHOW_CONSOLE
 #define SYS_CONSOLE_LINE_CHARS 50
 #define SYS_CONSOLE_LINES      30
 #define SYS_CONSOLE_TICKS      (SYS_UPS * 6)
 
-static const u32 sys_consolefont[512];
-static void      sys_draw_console();
+static void sys_draw_console();
 #endif
 
 enum {
@@ -115,6 +118,21 @@ int sys_tick(void *arg)
         app_draw();
 #if SYS_SHOW_CONSOLE
         sys_draw_console();
+#endif
+#if SYS_SHOW_FPS
+        char fps[8] = {0};
+        fps[0] = '0' + (SYS.fps / 10), fps[1] = '0' + (SYS.fps % 10);
+        fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
+
+        u8 *fb = backend_framebuffer();
+        for (int k = 0; k <= 4; k++) {
+            if (k == 2) continue; // printable
+            int c  = (int)fps[k];
+            int cx = c & 31;
+            int cy = c >> 5;
+            for (int n = 0; n < 8; n++)
+                fb[k + n * 52] = ((u8 *)sys_consolefont)[cx + (((cy << 3) + n) << 5)];
+        }
 #endif
     }
 
@@ -423,6 +441,42 @@ f32 sys_seconds()
     return backend_seconds();
 }
 
+sys_file_s *sys_fopen(const char *path, const char *mode)
+{
+    switch (mode[0]) {
+    case 'r': return (sys_file_s *)backend_file_open(path, SYS_FILE_R);
+    case 'w': return (sys_file_s *)backend_file_open(path, SYS_FILE_W);
+    }
+    return NULL;
+}
+
+int sys_fclose(sys_file_s *f)
+{
+    return backend_file_close(f);
+}
+
+size_t sys_fread(void *buf, size_t size, size_t count, sys_file_s *f)
+{
+    int i = backend_file_read(f, buf, size * count);
+    return (i * count);
+}
+
+size_t sys_fwrite(const void *buf, size_t size, size_t count, sys_file_s *f)
+{
+    int i = backend_file_write(f, buf, size * count);
+    return (i * count);
+}
+
+int sys_ftell(sys_file_s *f)
+{
+    return backend_file_tell(f);
+}
+
+int sys_fseek(sys_file_s *f, int pos, int origin)
+{
+    return backend_file_seek(f, pos, origin);
+}
+
 #if SYS_CONFIG_ONLY_BACKEND
 void app_init()
 {}
@@ -478,6 +532,8 @@ static void sys_draw_console()
     sys_display_update_rows(0, 239);
 }
 
+#endif
+#if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
 // bitmap data of IBM EGA 8x8
 static const u32 sys_consolefont[512] = {
     0x6C7E7E00U, 0x00103810U, 0x0FFF00FFU, 0x997F3F3CU, 0x66180280U, 0x18003E7FU, 0x00001818U, 0x00000000U,

@@ -415,6 +415,14 @@ static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
     return r;
 }
 
+static inline v2_i32 v2_truncate(v2_i32 a, int l)
+{
+    int ls = v2_lensq(a);
+    if (ls < l * l) return a;
+    sys_printf("truncate");
+    return v2_setlen(a, l);
+}
+
 static inline v2_f32 v2f_sub(v2_f32 a, v2_f32 b)
 {
     v2_f32 r = {a.x - b.x, a.y - b.y};
@@ -858,6 +866,77 @@ static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
     bool32 separated = (a0 | a1 | a2 | a3) >= 0 ||
                        (a0 <= 0 && a1 <= 0 && a2 <= 0 && a3 <= 0);
     return !separated;
+}
+
+static m33_f32 m33_identity()
+{
+    m33_f32 m = {1.f, 0.f, 0.f,
+                 0.f, 1.f, 0.f,
+                 0.f, 0.f, 1.f};
+    return m;
+}
+
+static m33_f32 m33_add(m33_f32 a, m33_f32 b)
+{
+    m33_f32 m;
+    for (int n = 0; n < 9; n++)
+        m.m[n] = a.m[n] + b.m[n];
+    return m;
+}
+
+static m33_f32 m33_sub(m33_f32 a, m33_f32 b)
+{
+    m33_f32 m;
+    for (int n = 0; n < 9; n++)
+        m.m[n] = a.m[n] - b.m[n];
+    return m;
+}
+
+m33_f32 m33_mul(m33_f32 a, m33_f32 b)
+{
+    m33_f32 m;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            m.m[i + j * 3] = a.m[i + 0 * 3] * b.m[0 + j * 3] +
+                             a.m[i + 1 * 3] * b.m[1 + j * 3] +
+                             a.m[i + 2 * 3] * b.m[2 + j * 3];
+        }
+    }
+    return m;
+}
+
+m33_f32 m33_rotate(float angle)
+{
+    float   si = sin_f(angle);
+    float   co = cos_f(angle);
+    m33_f32 m  = {+co, -si, 0.f,
+                  +si, +co, 0.f,
+                  0.f, 0.f, 1.f};
+    return m;
+}
+
+m33_f32 m33_scale(float scx, float scy)
+{
+    m33_f32 m = {scx, 0.f, 0.f,
+                 0.f, scy, 0.f,
+                 0.f, 0.f, 1.f};
+    return m;
+}
+
+m33_f32 m33_shear(float shx, float shy)
+{
+    m33_f32 m = {1.f, shx, 0.f,
+                 shy, 1.f, 0.f,
+                 0.f, 0.f, 1.f};
+    return m;
+}
+
+m33_f32 m33_offset(float x, float y)
+{
+    m33_f32 m = {1.f, 0.f, x,
+                 0.f, 1.f, y,
+                 0.f, 0.f, 1.f};
+    return m;
 }
 
 #endif

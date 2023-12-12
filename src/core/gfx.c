@@ -10,7 +10,7 @@
 #include "util/mem.h"
 #include "util/str.h"
 
-fnt_s fnt_load(const char *filename, void *(*allocf)(usize s))
+fnt_s fnt_load(const char *filename, void *(allocf)(usize s))
 {
     spm_push();
 
@@ -31,15 +31,14 @@ fnt_s fnt_load(const char *filename, void *(*allocf)(usize s))
     json_s j;
     json_root(txt, &j);
 
-    // create filename of the texture
-    // font_example.json     <- name of font config
-    // font_example_tex.json <- name of the texture
+    // replace .json with .tex
     char filename_tex[64];
     str_cpy(filename_tex, filename);
     char *fp = &filename_tex[str_len(filename_tex) - 5];
-    assert(*fp == '.');
+    assert(str_eq(fp, ".json"));
     str_cpy(fp, ".tex");
 
+    sys_printf("  loading fnt tex: %s\n", filename_tex);
     f.t      = tex_load(filename_tex, allocf);
     f.grid_w = jsonk_u32(j, "gridwidth");
     f.grid_h = jsonk_u32(j, "gridheight");
@@ -101,6 +100,75 @@ tex_s tex_load(const char *path, void *(*allocf)(usize s))
     return t;
 }
 
+int tex_px_at(tex_s tex, int x, int y)
+{
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
+    return ((tex.px[y * tex.wbyte + (x >> 3)] & (0x80 >> (x & 7))) > 0);
+}
+
+int tex_mk_at(tex_s tex, int x, int y)
+{
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
+    return ((tex.mk[y * tex.wbyte + (x >> 3)] & (0x80 >> (x & 7))) > 0);
+}
+
+void tex_px(tex_s tex, int x, int y, int col)
+{
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return;
+    int b     = 0x80 >> (x & 7);
+    int n     = y * tex.wbyte + (x >> 3);
+    tex.px[n] = (col == 0 ? tex.px[n] & ~b : tex.px[n] | b);
+}
+
+void tex_mk(tex_s tex, int x, int y, int col)
+{
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y || !tex.mk) return;
+    int b     = 0x80 >> (x & 7);
+    int n     = y * tex.wbyte + (x >> 3);
+    tex.mk[n] = (col == 0 ? tex.mk[n] & ~b : tex.mk[n] | b);
+}
+
+void tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia)
+{
+    spm_push();
+    usize size = tex.wbyte * tex.h;
+
+    tex_s src = tex; // need to work off of a copy
+    src.px    = NULL;
+    src.mk    = (u8 *)spm_alloc(size);
+    memcpy(src.mk, tex.mk, size);
+
+    int x2 = x + w;
+    int y2 = y + h;
+
+    for (int yy = y; yy < y2; yy++) {
+        for (int xx = x; xx < x2; xx++) {
+
+            if (tex_mk_at(src, xx, yy) == 1) continue;
+
+            for (int u = -1; u <= +1; u++) {
+                for (int v = -1; v <= +1; v++) {
+                    if (u == 0 && v == 0) continue;
+                    if (!dia && v != 0 && u != 0) continue;
+
+                    int t = xx + u;
+                    int s = yy + v;
+                    if (!(x <= t && t < x2)) continue;
+                    if (!(y <= s && s < y2)) continue;
+
+                    if (tex_mk_at(src, t, s)) {
+                        tex_mk(tex, xx, yy, 1);
+                        tex_px(tex, xx, yy, col);
+                        goto BREAK_LOOP;
+                    }
+                }
+            }
+        BREAK_LOOP:;
+        }
+    }
+    spm_pop();
+}
+
 gfx_ctx_s gfx_ctx_default(tex_s dst)
 {
     gfx_ctx_s ctx = {0};
@@ -144,11 +212,6 @@ gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3,
     return pat;
 }
 
-gfx_pattern_s gfx_pattern_interpolate(int num, int den)
-{
-    return gfx_pattern_bayer_4x4((num * 16 + (den / 2)) / den);
-}
-
 gfx_pattern_s gfx_pattern_bayer_4x4(int i)
 {
     static const u32 ditherpat[17 * 4] = {
@@ -170,9 +233,38 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i)
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0x77777777U,
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 
-    u32          *p   = &ditherpat[clamp_i(i, 0, 16) << 2];
+    const u32    *p   = &ditherpat[clamp_i(i, 0, 16) << 2];
     gfx_pattern_s pat = {p[0], p[1], p[2], p[3], p[0], p[1], p[2], p[3]};
     return pat;
+}
+
+gfx_pattern_s gfx_pattern_hor_stripes_4x4(int i)
+{
+    static const u32 ditherpat[5 * 8] = {
+        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
+        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
+        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
+        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
+        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
+        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
+        0xFFFFFFFFU, 0x00000000U, 0xFFFFFFFFU, 0x00000000U,
+        0xFFFFFFFFU, 0x00000000U, 0xFFFFFFFFU, 0x00000000U,
+        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
+        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
+
+    const u32    *p   = &ditherpat[clamp_i(i, 0, 4) << 3];
+    gfx_pattern_s pat = {p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]};
+    return pat;
+}
+
+gfx_pattern_s gfx_pattern_interpolate(int num, int den)
+{
+    return gfx_pattern_bayer_4x4((num * 16 + (den / 2)) / den);
+}
+
+gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den)
+{
+    return gfx_pattern_hor_stripes_4x4((num * 5 + (den / 2)) / den);
 }
 
 void tex_clr(tex_s dst, int col)
@@ -459,6 +551,63 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode)
     }
 }
 
+void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle)
+{
+    tex_s dst = ctx.dst;
+    origin.x += src.r.x;
+    origin.y += src.r.y;
+    m33_f32 m1 = m33_offset(+(f32)origin.x, +(f32)origin.y);
+    m33_f32 m3 = m33_offset(-(f32)pos.x - (f32)origin.x, -(f32)pos.y - (f32)origin.y);
+    m33_f32 m4 = m33_rotate(angle);
+
+    m33_f32 m = m33_identity();
+    m         = m33_mul(m, m3);
+    m         = m33_mul(m, m4);
+    m         = m33_mul(m, m1);
+
+    int x1 = 0;
+    int y1 = 0;
+    int x2 = ctx.dst.w - 1;
+    int y2 = ctx.dst.h - 1;
+    int w1 = x1 >> 5;
+    int w2 = x2 >> 5;
+
+    f32 u1 = (f32)(src.r.x);
+    f32 v1 = (f32)(src.r.y);
+    f32 u2 = (f32)(src.r.x + src.r.w);
+    f32 v2 = (f32)(src.r.y + src.r.h);
+
+    for (int y = y1; y <= y2; y++) {
+        u32 pat = ctx.pat.p[y & 7];
+        for (int wi = w1; wi <= w2; wi++) {
+
+            int p1 = wi == w1 ? x1 & 31 : 0;
+            int p2 = wi == w2 ? x2 & 31 : 31;
+            u32 sp = 0;
+            u32 sm = 0;
+
+            for (int p = p1; p <= p2; p++) {
+                int x = wi * 32 + p;
+
+                f32 t = (f32)(x + src.r.x);
+                f32 s = (f32)(y + src.r.y);
+                int u = (int)(t * m.m[0] + s * m.m[1] + m.m[2] + .5f);
+                int v = (int)(t * m.m[3] + s * m.m[4] + m.m[5] + .5f);
+                if (!(u1 <= u && u < u2)) continue;
+                if (!(v1 <= v && v < v2)) continue;
+                if (tex_px_at(src.t, u, v) != 0) sp |= 0x80000000U >> p;
+                if (tex_mk_at(src.t, u, v) != 0) sm |= 0x80000000U >> p;
+            }
+
+            u32 *dp = &((u32 *)dst.px)[y * dst.wword + wi];
+            u32 *dm = dst.mk ? &((u32 *)dst.mk)[y * dst.wword + wi] : NULL;
+            u32 *ds = NULL;
+
+            apply_spr_mode(dp, dm, ds, bswap32(sp), bswap32(sm) & pat, 0);
+        }
+    }
+}
+
 static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds, u32 sm, int mode, u32 pt)
 {
     if (ds) {
@@ -532,16 +681,15 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, int mode)
 
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode)
 {
-    spm_push();
-    fntstr_s str = {0};
-    str.buf      = (u8 *)spm_alloc(sizeof(u8) * 1024);
-    str.cap      = 1024;
+    fntstr_s str      = {0};
+    u8       buf[256] = {0};
+    str.buf           = buf;
+    str.cap           = ARRLEN(buf);
     for (const char *c = text; *c != '\0'; c++) {
         if (str.n == str.cap) break;
         str.buf[str.n++] = (u8)*c;
     }
     fnt_draw_str(ctx, fnt, pos, str, mode);
-    spm_pop();
 }
 
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
@@ -601,6 +749,7 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
 
 void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
 {
+    gfx_lin_thick(ctx, a, b, mode, 1);
 }
 
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r)
@@ -672,79 +821,6 @@ void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
     NOT_IMPLEMENTED
 }
 
-#if 0
-
-// 2 bits of subpixel precision
-// 0 ... 4
-// V     V
-// -------
-// |     |
-// |     |
-// -------
-// to texture map the whole area
-// from 0 incl to 7 incl (width of 8)
-//
-// 0               (7+1)<<2 -> right border of the pixel
-// V               V
-// |0|1|2|3|4|5|6|7|8|...
-void gfx_sprite_tri_affine(tex_s src, v2_i32 tri[3], v2_i32 tex[3])
-{
-        v2_i32 t12 = v2_sub(tri[2], tri[1]);
-        v2_i32 t20 = v2_sub(tri[0], tri[2]);
-        v2_i32 t01 = v2_sub(tri[1], tri[0]);
-        i32    den = v2_crs(t01, t20);
-        if (den == 0) return;
-        if (den < 0) {
-                den = -den;
-                t12 = v2_inv(t12);
-                t20 = v2_inv(t20);
-                t01 = v2_inv(t01);
-        }
-
-        tex_s     dst  = g_os.dst;
-        // min and max bounds on screen
-        v2_i32    pmin = v2_shr(v2_min(tri[0], v2_min(tri[1], tri[2])), 2);
-        v2_i32    pmax = v2_shr(v2_max(tri[0], v2_max(tri[1], tri[2])), 2);
-        // screen bounds
-        v2_i32    scr1 = v2_max(pmin, (v2_i32){0, 0});
-        v2_i32    scr2 = v2_min(pmax, (v2_i32){dst.w - 1, dst.h - 1});
-        // pixel midpoint for subpixel sampling
-        v2_i32    xya  = v2_add(v2_shl(scr1, 2), (v2_i32){2, 2});
-        // interpolators
-        i32       u0   = v2_crs(v2_sub(xya, tri[1]), t12);
-        i32       v0   = v2_crs(v2_sub(xya, tri[2]), t20);
-        i32       w0   = v2_crs(v2_sub(xya, tri[0]), t01);
-        i32       ux = t12.y << 2, uy = -t12.x << 2;
-        i32       vx = t20.y << 2, vy = -t20.x << 2;
-        i32       wx = t01.y << 2, wy = -t01.x << 2;
-        // quick divider
-        u32       dv  = 1u + ((u32)den << 2); // +1 -> prevent overflow of texcoord
-        div_u32_s div = div_u32_create(dv);
-
-        for (int y = scr1.y; y <= scr2.y; y++) {
-                i32 u = u0, v = v0, w = w0;
-                for (int x = scr1.x; x <= scr2.x; x++) {
-                        if ((u | v | w) >= 0) {
-                                u32 tu = mul_u32(u, tex[0].x) +
-                                         mul_u32(v, tex[1].x) +
-                                         mul_u32(w, tex[2].x);
-                                u32 tv = mul_u32(u, tex[0].y) +
-                                         mul_u32(v, tex[1].y) +
-                                         mul_u32(w, tex[2].y);
-                                // only works if numerator is positiv!
-                                int tx = div_u32_do(tu, div);
-                                int ty = div_u32_do(tv, div);
-                                int px, mk;
-                                i_gfx_peek(src, tx, ty, &px, &mk);
-                                i_gfx_put_px(dst, x, y, px, 0);
-                        }
-                        u += ux, v += vx, w += wx;
-                }
-                u0 += uy, v0 += vy, w0 += wy;
-        }
-}
-#endif
-
 void gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode)
 {
     tex_s  dst = ctx.dst;
@@ -768,6 +844,8 @@ void gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode)
     int    y1  = max_i(p0.y, 0);
     int    x2  = min_i(p1.x, dst.w - 1);
     int    y2  = min_i(p1.y, dst.h - 1);
+    int    w1  = x1 >> 5;
+    int    w2  = x2 >> 5;
     v2_i32 xya = {(x1), (y1)};
 
     i32 u0 = v2_crs(v2_sub(xya, tri.p[1]), t12);
@@ -786,31 +864,38 @@ void gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode)
 
     for (int y = y1; y <= y2; y++) {
         i32 u = u0, v = v0, w = w0;
+        u32 pat = ctx.pat.p[y & 7];
 
-        for (int x = x1; x <= x2; x++) {
-            if ((u | v | w) >= 0) {
-                u32 tu = (u * tex.p[0].x) +
-                         (v * tex.p[1].x) +
-                         (w * tex.p[2].x);
-                u32 tv = (u * tex.p[0].y) +
-                         (v * tex.p[1].y) +
-                         (w * tex.p[2].y);
+        for (int wi = w1; wi <= w2; wi++) {
 
-                int tx = tu / dv;
-                int ty = tv / dv;
+            int p1 = wi == w1 ? x1 & 31 : 0;
+            int p2 = wi == w2 ? x2 & 31 : 31;
+            u32 sp = 0;
+            u32 sm = 0;
 
-                int px = sp[ty * src.wbyte + (tx >> 3)] & (0x80 >> (tx & 7));
-                int mk = sm[ty * src.wbyte + (tx >> 3)] & (0x80 >> (tx & 7));
-                if (mk != 0) {
-                    if (px == 0) {
-                        dp[y * dst.wbyte + (x >> 3)] &= ~(0x80 >> (x & 7));
-                    } else {
-                        dp[y * dst.wbyte + (x >> 3)] |= (0x80 >> (x & 7));
-                    }
+            for (int p = p1; p <= p2; p++) {
+                if ((u | v | w) >= 0) {
+                    u32 tu = (u * tex.p[0].x) +
+                             (v * tex.p[1].x) +
+                             (w * tex.p[2].x);
+                    u32 tv = (u * tex.p[0].y) +
+                             (v * tex.p[1].y) +
+                             (w * tex.p[2].y);
+                    int tx = tu / dv;
+                    int ty = tv / dv;
+                    if (tex_px_at(src, tx, ty) != 0) sp |= 0x80000000U >> p;
+                    if (tex_mk_at(src, tx, ty) != 0) sm |= 0x80000000U >> p;
                 }
+                u += ux, v += vx, w += wx;
             }
-            u += ux, v += vx, w += wx;
+
+            u32 *dp = &((u32 *)dst.px)[y * dst.wword + wi];
+            u32 *dm = dst.mk ? &((u32 *)dst.mk)[y * dst.wword + wi] : NULL;
+            u32 *ds = NULL;
+
+            apply_spr_mode(dp, dm, ds, bswap32(sp), bswap32(sm) & pat, 0);
         }
+
         u0 += uy, v0 += vy, w0 += wy;
     }
 }

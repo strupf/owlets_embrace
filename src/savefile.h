@@ -5,12 +5,13 @@
 #ifndef SAVEFILE_H
 #define SAVEFILE_H
 
-#include "game.h"
+#include "gamedef.h"
 
 typedef struct savefile_s {
     i32     tick;
     flags32 aquired_upgrades;
     flags32 aquired_items;
+    int     n_airjumps;
     char    area_filename[LEN_AREA_FILENAME];
     char    hero_name[LEN_HERO_NAME];
 } savefile_s;

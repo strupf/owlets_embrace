@@ -67,7 +67,7 @@ static i32 rngr_i32(i32 lo, i32 hi)
 
 static f32 rngr_f32(f32 lo, f32 hi)
 {
-    return rng_f32();
+    return lo + fmodf(rng_f32(), hi - lo);
 }
 
 #endif

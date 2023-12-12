@@ -5,20 +5,30 @@
 #ifndef TRANSITION_H
 #define TRANSITION_H
 
+#include "fade.h"
 #include "gamedef.h"
 
-typedef struct {
-    char    to_load[64];
-    int     phase;
-    int     tick;
-    int     hero_dir;
-    int     hero_face;
-    v2_i32  hero_v;
-    rec_i32 heroaabb;
-} transition_s;
+typedef struct transition_s transition_s;
 
-void   transition_start(transition_s *t, const char *file);
-void   transition_update(game_s *g, transition_s *t);
+typedef struct {
+    transition_s *t;
+    game_s       *g;
+} transition_fade_arg_s;
+
+struct transition_s {
+    transition_fade_arg_s fade_arg;
+    fade_s                fade;
+
+    int    type;
+    int    hero_face;
+    v2_i32 hero_v;
+    v2_i32 hero_feet;
+    char   to_load[64];
+};
+
+void   transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32 hero_feet);
+void   transition_check_hero_slide(transition_s *t, game_s *g);
+void   transition_update(transition_s *t);
 bool32 transition_finished(transition_s *t);
 void   transition_draw(transition_s *t);
 

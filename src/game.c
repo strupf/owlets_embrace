@@ -17,8 +17,8 @@ void game_init(game_s *g)
         g_animated_tiles[i] = i;
     }
 
-    g->cam.w    = 400;
-    g->cam.h    = 240;
+    g->cam.w    = SYS_DISPLAY_W;
+    g->cam.h    = SYS_DISPLAY_H;
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
@@ -26,41 +26,25 @@ void game_init(game_s *g)
 
 static void gameplay_tick(game_s *g)
 {
+    g->herodata.itemselection_decoupled = 0;
     if (inp_debug_space()) {
         // game_trigger(g, 4);
-        mus_fade_to(NULL, 20, 20);
+        // mus_fade_to(NULL, 20, 20);
+
+        // g->herodata.itemselection_decoupled = 1;
     }
 
     hero_crank_item_selection(&g->herodata);
-    obj_s *ohero_ = obj_get_tagged(g, OBJ_TAG_HERO);
-
-    if (ohero_) {
-        spriteanim_update(&ohero_->spriteanim[0]);
-    }
 
     transition_s *t = &g->transition;
 
     for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+        obj_s *o   = g->obj_busy[i];
+        o->posprev = o->pos;
+
         switch (o->ID) {
-        case OBJ_ID_SOLID: {
-            int px      = 200 + ((sin_q16(g->tick * 300) * 100) >> 16);
-            o->tomove.x = px - o->pos.x;
-        } break;
-        case OBJ_ID_HERO: {
-            hero_update(g, o);
-        } break;
-        case OBJ_ID_DOOR_SLIDE: {
-            if (o->state != DOOR_STATE_MOVING) break;
-            o->doorticks--;
-            int    a  = o->doorticksmax - o->doorticks;
-            int    b  = o->doorticksmax;
-            v2_i32 pp = v2_lerp(o->doorog, o->doortarget, a, b);
-            o->tomove = v2_sub(pp, o->pos);
-            if (o->doorticks <= 0) {
-                o->state = DOOR_STATE_OPEN;
-            }
-        } break;
+        case OBJ_ID_HERO: hero_on_update(g, o); break;
+        case OBJ_ID_CRUMBLEBLOCK: crumbleblock_update(g, o); break;
         }
     }
 
@@ -68,6 +52,7 @@ static void gameplay_tick(game_s *g)
     // adds tomove accumulator
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
+
         if (o->flags & OBJ_FLAG_MOVER) {
             obj_apply_movement(o);
         }
@@ -103,15 +88,16 @@ static void gameplay_tick(game_s *g)
 
     objs_cull_to_delete(g);
 
-#ifdef SYS_DEBUG
-    for (int n = 0; n < NUM_OBJ; n++)
-        assert(g->obj_raw[n].magic == OBJ_GENERIC_MAGIC);
-#endif
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero) {
-        hero_room_transition(g, ohero);
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        switch (o->ID) {
+        case OBJ_ID_HERO: {
+            hero_on_animate(g, o);
+        } break;
+        }
     }
+
+    transition_check_hero_slide(&g->transition, g);
 
     ocean_update(&g->ocean);
 }
@@ -119,19 +105,28 @@ static void gameplay_tick(game_s *g)
 void game_tick(game_s *g)
 {
     g->tick++;
+
     if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
         textbox_update(g, &g->textbox);
     } else if (!transition_finished(&g->transition)) {
-        transition_update(g, &g->transition);
+        transition_update(&g->transition);
     } else {
         gameplay_tick(g);
     }
 
-    cam_s *cam = &g->cam;
-    cam_update(g, cam);
-    g->area_name_ticks--;
+    cam_update(g, &g->cam);
+    fade_update(&g->areaname.fade);
+
     backforeground_windparticles(g);
     backforeground_animate_grass(g);
+
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+
+        switch (o->ID) {
+        case OBJ_ID_HERO: hero_on_animate(g, o); break;
+        }
+    }
 }
 
 void game_draw(game_s *g)
@@ -142,12 +137,11 @@ void game_draw(game_s *g)
 
 void game_new_savefile(game_s *g, int slotID)
 {
-    game_load_map(g, "map_01.tmj");
+    game_load_map(g, "map_01");
     g->savefile_slotID = slotID;
-    obj_s *oh          = obj_hero_create(g);
+    obj_s *oh          = hero_create(g);
     oh->pos.x          = 60;
     oh->pos.y          = 60;
-    sys_printf("start new game\n");
 }
 
 void game_write_savefile(game_s *g)
@@ -155,12 +149,12 @@ void game_write_savefile(game_s *g)
     savefile_s sf = {0};
 
     hero_s *hero = &g->herodata;
-    strcpy(sf.area_filename, g->area_filename);
+    strcpy(sf.area_filename, g->areaname.filename);
     strcpy(sf.hero_name, hero->name);
     sf.aquired_items    = hero->aquired_items;
     sf.aquired_upgrades = hero->aquired_upgrades;
     sf.tick             = g->tick;
-
+    sf.n_airjumps       = hero->n_airjumps;
     savefile_write(g->savefile_slotID, &sf);
     sys_printf("saved!\n");
 }
@@ -169,17 +163,9 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 {
     g->savefile_slotID = slotID;
     game_load_map(g, sf.area_filename);
-    g->tick    = sf.tick;
-    g->n_grass = 0;
-    for (int i = 0; i < 30; i++) {
-        grass_s *gr = &g->grass[g->n_grass++];
-        *gr         = (grass_s){0};
-        gr->pos.x   = 10 + i * 16;
-        gr->pos.y   = 200;
-        gr->type    = rngr_i32(0, 2);
-    }
+    g->tick = sf.tick;
 
-    obj_s *oh = obj_hero_create(g);
+    obj_s *oh = hero_create(g);
     oh->pos.x = 50;
     oh->pos.y = 10;
 
@@ -192,13 +178,15 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
         }
     }
 
-    obj_s *door = obj_slide_door_create(g);
-    door->pos.x = 200;
-    door->pos.y = 150;
+    // obj_s *door = obj_slide_door_create(g);
+    // door->pos.x = 200;
+    // door->pos.y = 150;
 
     g->herodata.aquired_items    = sf.aquired_items;
     g->herodata.aquired_upgrades = sf.aquired_upgrades;
-    // textbox_load_dialog(&g->textbox, "assets/dialog.json");
+    g->herodata.n_airjumps       = sf.n_airjumps;
+
+    hero_aquire_upgrade(&g->herodata, HERO_UPGRADE_AIR_JUMP_3);
 }
 
 int tick_now(game_s *g)
@@ -234,7 +222,7 @@ static void backforeground_windparticles(game_s *g)
     // traverse backwards to avoid weird removal while iterating
     for (int n = g->n_windparticles - 1; n >= 0; n--) {
         windparticle_s *p = &g->windparticles[n];
-        if ((p->p_q8.x >> 8) < -256 || (p->p_q8.x >> 8) > g->pixel_x + 256) {
+        if (p->p_q8.x < 0 || BG_SIZE < (p->p_q8.x >> 8)) {
             g->windparticles[n] = g->windparticles[--g->n_windparticles];
             continue;
         }
@@ -268,8 +256,8 @@ static void backforeground_windparticles(game_s *g)
 
     if (g->n_windparticles < BG_NUM_PARTICLES && rngr_u32(0, 65535) <= 4000) {
         windparticle_s *p = &g->windparticles[g->n_windparticles++];
-        p->p_q8.x         = -(10 << 8);
-        p->p_q8.y         = rngr_i32(0, g->pixel_y) << 8;
+        p->p_q8.x         = 0;
+        p->p_q8.y         = rngr_i32(0, BG_SIZE) << 8;
         p->v_q8.x         = rngr_i32(2000, 4000);
         p->v_q8.y         = 0;
         p->circcooldown   = 10;
@@ -297,24 +285,14 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
     return interactable;
 }
 
-void game_trigger(game_s *g, int triggerID)
+void game_on_trigger(game_s *g, int trigger)
 {
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
-        if (o->trigger != triggerID) continue;
+        if (o->trigger != trigger) continue;
 
         switch (o->ID) {
-        case OBJ_ID_DOOR_SLIDE:
-            if (o->state == DOOR_STATE_CLOSED) {
-                o->state        = DOOR_STATE_MOVING;
-                o->doorog       = o->pos;
-                o->doorticksmax = 100;
-                o->doorticks    = o->doorticksmax;
-                o->doortarget   = v2_add(o->pos, (v2_i32){0, -128});
-                // open
-            }
-            break;
-        default: break;
+        case -1: break;
         }
     }
 }
@@ -334,6 +312,16 @@ solid_rec_list_s game_solid_recs(game_s *g)
         }
     }
     return l;
+}
+
+void game_put_grass(game_s *g, int tx, int ty)
+{
+    if (g->n_grass >= ARRLEN(g->grass)) return;
+    grass_s *gr = &g->grass[g->n_grass++];
+    *gr         = (grass_s){0};
+    gr->pos.x   = tx * 16;
+    gr->pos.y   = ty * 16;
+    gr->type    = rngr_i32(0, 2);
 }
 
 bool32 tiles_solid(game_s *g, rec_i32 r)

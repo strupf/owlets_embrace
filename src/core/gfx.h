@@ -77,20 +77,26 @@ enum {
     TEX_CLR_TRANSPARENT,
 };
 
-fnt_s         fnt_load(const char *filename, void *(*allocf)(usize s));
-//
+fnt_s         fnt_load(const char *filename, void *(allocf)(usize s));
 tex_s         tex_framebuffer();
 tex_s         tex_create(int w, int h, void *(*allocf)(usize s));
 tex_s         tex_load(const char *path, void *(*allocf)(usize s));
+int           tex_px_at(tex_s tex, int x, int y);
+int           tex_mk_at(tex_s tex, int x, int y);
+void          tex_px(tex_s tex, int x, int y, int col);
+void          tex_mk(tex_s tex, int x, int y, int col);
+void          tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_stencil(tex_s dst, tex_s stc);
 void          tex_clr(tex_s dst, int col);
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
-gfx_pattern_s gfx_pattern_interpolate(int num, int den);
 gfx_pattern_s gfx_pattern_bayer_4x4(int i);
+gfx_pattern_s gfx_pattern_interpolate(int num, int den);
+gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den);
 //
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
+void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 //
 void          gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
 void          gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode);

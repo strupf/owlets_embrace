@@ -11,24 +11,26 @@
 #include "core/gfx.c"
 #include "core/inp.c"
 #include "core/spm.c"
+
 //
 #include "util/json.c"
 #include "util/mem.c"
 //
-#include "obj/door.c"
+#include "obj/crumbleblock.c"
 #include "obj/hero.c"
 #include "obj/obj.c"
 //
 #include "cam.c"
 #include "fade.c"
 #include "game.c"
+#include "inventory.c"
+#include "mainmenu.c"
 #include "map_loader.c"
 #include "render.c"
 #include "rope.c"
 #include "savefile.c"
 #include "spriteanim.c"
 #include "textbox.c"
-#include "title.c"
 #include "transition.c"
 #include "water.c"
 #endif

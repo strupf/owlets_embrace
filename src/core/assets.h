@@ -20,17 +20,23 @@ enum {
     TEXID_UI_TEXTBOX,
     TEXID_PLANTS,
     TEXID_CLOUDS,
+    TEXID_TITLE,
+    TEXID_BACKGROUND,
+    TEXID_PROPS,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
 #endif
     //
-    NUM_TEXID
+    NUM_TEXID,
+    //
+    NUM_TEXID_MAX = 256
 };
 
 enum {
-    FNTID_DEFAULT,
-    FNTID_DIALOG,
+    FNTID_SMALL,
+    FNTID_MEDIUM,
+    FNTID_LARGE,
     //
     NUM_FNTID
 };
@@ -38,21 +44,32 @@ enum {
 enum {
     SNDID_DEFAULT,
     SNDID_HOOK_ATTACH,
+    SNDID_SPEAK,
     //
     NUM_SNDID
 };
 
-enum {
-    ANIMID_HERO,
-    //
-    NUM_ANIMID
-};
+typedef struct {
+    tex_s tex;
+    char  file[32];
+} asset_tex_s;
 
 typedef struct {
-    tex_s            tex[NUM_TEXID];
-    snd_s            snd[NUM_SNDID];
-    fnt_s            fnt[NUM_FNTID];
-    spriteanimdata_s anim[NUM_ANIMID];
+    snd_s snd;
+    char  file[32];
+} asset_snd_s;
+
+typedef struct {
+    fnt_s fnt;
+    char  file[32];
+} asset_fnt_s;
+
+typedef struct {
+    asset_tex_s tex[NUM_TEXID_MAX];
+    asset_snd_s snd[NUM_SNDID];
+    asset_fnt_s fnt[NUM_FNTID];
+
+    int next_texID;
 
     marena_s marena;
     alignas(4) char mem[MKILOBYTE(6144)];
@@ -60,20 +77,20 @@ typedef struct {
 
 extern ASSETS_s ASSETS;
 
-void             assets_init();
-usize            assets_mem_left();
+void  assets_init();
+usize assets_mem_left();
 //
-void            *assetmem_alloc(usize s);
-tex_s            asset_tex(int ID);
-snd_s            asset_snd(int ID);
-fnt_s            asset_fnt(int ID);
-spriteanimdata_s asset_anim(int ID);
-tex_s            asset_tex_load(int ID, const char *filename);
-snd_s            asset_snd_load(int ID, const char *filename);
-fnt_s            asset_fnt_load(int ID, const char *filename);
-spriteanimdata_s asset_anim_load(int ID, const char *filename);
-void             asset_tex_put(int ID, tex_s t);
-void             asset_anim_put(int ID, spriteanimdata_s a);
-texrec_s         asset_texrec(int ID, int x, int y, int w, int h);
+void *assetmem_alloc(usize s);
+tex_s asset_tex(int ID);
+snd_s asset_snd(int ID);
+fnt_s asset_fnt(int ID);
+int   asset_tex_load(const char *filename, tex_s *tex);
+int   asset_tex_loadID(int ID, const char *filename, tex_s *tex);
+int   asset_snd_loadID(int ID, const char *filename, snd_s *snd);
+int   asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt);
+int   asset_tex_put(tex_s t);
+tex_s asset_tex_putID(int ID, tex_s t);
+
+texrec_s asset_texrec(int ID, int x, int y, int w, int h);
 
 #endif

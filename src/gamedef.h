@@ -11,22 +11,24 @@
 #include "core/inp.h"
 #include "core/spm.h"
 #include "sys/sys.h"
+#include "util/easing.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
 #include "util/mem.h"
 #include "util/rng.h"
 #include "util/str.h"
 
-#define FILEPATH_WORLD  "assets/tiled/"
-#define FILEPATH_MAP    "assets/tiled/map/"
+#define FILEPATH_MAP    "assets/map/"
 #define FILEPATH_SND    "assets/snd/"
 #define FILEPATH_MUS    "assets/mus/"
-#define FILEPATH_GFX    "assets/gfx/"
-#define FILEPATH_DIALOG "assets/"
+#define FILEPATH_TEX    "assets/tex/"
+#define FILEPATH_FNT    "assets/fnt/"
+#define FILEPATH_DIALOG "assets/dialog/"
 
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
 
+#define LEN_HERO_NAME          16
 #define LEN_AREA_FILENAME      64
 #define GAME_NUM_TILECOLLIDERS 32
 

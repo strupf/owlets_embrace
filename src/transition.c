@@ -5,82 +5,124 @@
 #include "transition.h"
 #include "game.h"
 
-enum {
-    TRANSITION_PHASE_NONE,
-    TRANSITION_PHASE_OUT,
-    TRANSITION_PHASE_BLACK,
-    TRANSITION_PHASE_IN,
-};
-
-#define TRANSITION_TICKS_OUT   20
-#define TRANSITION_TICKS_BLACK 10
-#define TRANSITION_TICKS_IN    20
-
-void transition_start(transition_s *t, const char *file)
+void cb_transition_load(void *arg)
 {
-    t->tick  = 0;
-    t->phase = TRANSITION_PHASE_OUT;
-    str_cpy(t->to_load, file);
+    transition_fade_arg_s *fa = (transition_fade_arg_s *)arg;
+    transition_s          *t  = fa->t;
+    game_s                *g  = fa->g;
+
+    game_load_map(g, t->to_load);
+    obj_s *hero  = hero_create(g);
+    hero->pos.x  = t->hero_feet.x - hero->w / 2;
+    hero->pos.y  = t->hero_feet.y - hero->h;
+    hero->facing = t->hero_face;
+    hero->vel_q8 = t->hero_v;
+    cam_s *cam   = &g->cam;
+    v2_i32 hpos  = obj_pos_center(hero);
+    cam_set_pos_px(cam, hpos.x, hpos.y);
+    cam_constrain_to_room(g, cam);
 }
 
-void transition_update(game_s *g, transition_s *t)
+static void transition_start(transition_s *t, game_s *g, const char *file,
+                             int type, v2_i32 hero_feet, v2_i32 hero_v, int facing)
 {
-    t->tick++;
-    switch (t->phase) {
-    case TRANSITION_PHASE_OUT: {
-        if (t->tick < TRANSITION_TICKS_OUT) break;
-        t->tick = 0;
-        t->phase++;
-    } break;
-    case TRANSITION_PHASE_BLACK: {
-        if (t->tick < TRANSITION_TICKS_BLACK) break;
-        t->tick = 0;
-        t->phase++;
+    t->fade_arg.t = t;
+    t->fade_arg.g = g;
 
-        game_load_map(g, t->to_load);
+    t->type      = type;
+    t->hero_feet = hero_feet;
+    t->hero_v    = hero_v;
+    t->hero_face = facing;
 
-        obj_s *hero  = obj_hero_create(g);
-        hero->pos.x  = t->heroaabb.x;
-        hero->pos.y  = t->heroaabb.y;
-        hero->facing = t->hero_face;
-        hero->vel_q8 = t->hero_v;
-        cam_s *cam   = &g->cam;
-        v2_i32 hpos  = obj_pos_center(hero);
-        cam_set_pos_px(cam, hpos.x, hpos.y);
-        cam_constrain_to_room(g, cam);
-    } break;
-    case TRANSITION_PHASE_IN: {
-        if (t->tick < TRANSITION_TICKS_IN) break;
-        t->tick  = 0;
-        t->phase = 0;
-    } break;
+    str_cpy(t->to_load, file);
+    fade_start(&t->fade,
+               20, // ticks fading out
+               10, // ticks black
+               20, // ticks fading in
+               cb_transition_load, NULL, &t->fade_arg);
+}
+
+void transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32 hero_feet)
+{
+    transition_start(t, g, mapfile, 0, hero_feet, (v2_i32){0}, 1);
+}
+
+void transition_check_hero_slide(transition_s *t, game_s *g)
+{
+    obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (!o) return;
+
+    int touchedbounds = 0;
+    if (o->pos.x < 1)
+        touchedbounds = DIRECTION_W;
+    if (o->pos.x + o->w + 1 > g->pixel_x)
+        touchedbounds = DIRECTION_E;
+    if (o->pos.y < 1)
+        touchedbounds = DIRECTION_N;
+    if (o->pos.y + o->h + 1 > g->pixel_y)
+        touchedbounds = DIRECTION_S;
+
+    if (touchedbounds == 0) return;
+
+    rec_i32 aabb    = obj_aabb(o);
+    rec_i32 trgaabb = aabb;
+    v2_i32  vdir    = direction_v2(touchedbounds);
+    aabb.x += vdir.x;
+    aabb.y += vdir.y;
+
+    if (!g->map_world.roomcur) {
+        BAD_PATH
+        return;
     }
+    aabb.x += g->map_world.roomcur->x;
+    aabb.y += g->map_world.roomcur->y;
+
+    map_worldroom_s *nextroom = map_world_overlapped_room(&g->map_world, aabb);
+
+    if (!nextroom) {
+        sys_printf("no room\n");
+        return;
+    }
+
+    rec_i32 nr = (rec_i32){nextroom->x, nextroom->y, nextroom->w, nextroom->h};
+    trgaabb.x += g->map_world.roomcur->x - nr.x;
+    trgaabb.y += g->map_world.roomcur->y - nr.y;
+
+    switch (touchedbounds) {
+    case DIRECTION_E:
+        trgaabb.x = 8;
+        break;
+    case DIRECTION_W:
+        trgaabb.x = nr.w - trgaabb.w - 8;
+        break;
+    case DIRECTION_N:
+        trgaabb.y = nr.h - trgaabb.h - 8;
+        break;
+    case DIRECTION_S:
+        trgaabb.y = 8;
+        break;
+    }
+
+    v2_i32 feet = {trgaabb.x + trgaabb.w / 2, trgaabb.y + trgaabb.h};
+    transition_start(t, g, nextroom->filename, 0, feet, o->vel_q8, o->facing);
+}
+
+void transition_update(transition_s *t)
+{
+    fade_update(&t->fade);
 }
 
 bool32 transition_finished(transition_s *t)
 {
-    return (t->phase == TRANSITION_PHASE_NONE);
+    return (fade_phase(&t->fade) == FADE_PHASE_NONE);
 }
 
 void transition_draw(transition_s *t)
 {
     if (transition_finished(t)) return;
 
-    gfx_pattern_s pat = {0};
-
-    switch (t->phase) {
-    case TRANSITION_PHASE_OUT:
-        pat = gfx_pattern_interpolate(POW2(t->tick), POW2(TRANSITION_TICKS_OUT));
-        break;
-    case TRANSITION_PHASE_BLACK:
-        pat = gfx_pattern_interpolate(1, 1);
-        break;
-    case TRANSITION_PHASE_IN: {
-        int t2 = POW2(TRANSITION_TICKS_IN);
-        int t1 = t2 - POW2(t->tick);
-        pat    = gfx_pattern_interpolate(t1, t2);
-    } break;
-    }
+    int           fade_i = fade_interpolate(&t->fade, 0, 100);
+    gfx_pattern_s pat    = gfx_pattern_interpolate(fade_i, 100);
 
     tex_s display = asset_tex(0);
     u32  *px      = (u32 *)display.px;

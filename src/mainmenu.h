@@ -2,18 +2,13 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef TITLE_H
-#define TITLE_H
+#ifndef MAINMENU_H
+#define MAINMENU_H
 
+#include "fade.h"
 #include "gamedef.h"
 #include "savefile.h"
 #include "sys/sys_types.h"
-
-enum {
-    MAINMENU_STATE_TITLE,
-    MAINMENU_STATE_SELECT_FILE,
-};
-
 enum {
     MAINMENU_FADE_NONE,
     MAINMENU_FADE_INTERNAL, // only fade text
@@ -49,12 +44,16 @@ enum {
     MAINMENU_OPTION_YES    = 1,
 };
 
+#define TITLE_FADE 30
+
 typedef struct {
     int        exists;
     savefile_s sf;
 } mainmenu_savefile_s;
 
 typedef struct {
+    fade_s fade;
+
     int state;
     int option;
 
@@ -63,6 +62,11 @@ typedef struct {
     int file_to_delete;
 
     mainmenu_savefile_s savefiles[3]; // savefiles for preview
+
+    int title_blink;
+    int title_fade;
+    f32 feather_time;
+    f32 feather_y;
 } mainmenu_s;
 
 void mainmenu_init(mainmenu_s *t);

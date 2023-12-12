@@ -7,7 +7,7 @@
 
 v2_i32 cam_pos_px(cam_s *c)
 {
-    v2_i32 r = {(f32)(c->pos.x + 0.5f), (f32)(c->pos.y + 0.5f)};
+    v2_i32 r = {(int)(c->pos.x + 0.5f), (int)(c->pos.y + 0.5f)};
     return r;
 }
 
