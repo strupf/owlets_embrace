@@ -35,33 +35,46 @@ typedef struct {
 } map_terraintile_s;
 
 typedef struct {
+    int             n;
+    map_property_s *props;
+} map_properties_s;
+
+typedef struct {
     char name[64];
     char image[64];
     int  id;
-    int  x;
-    int  y;
-    int  w;
-    int  h;
-    int  n_polygon;
-    int  n_polyline;
-    int  n_properties;
+    i16  x;
+    i16  y;
+    i16  w;
+    i16  h;
+    i16  n_polygon;
+    i16  n_polyline;
+    i16  n_prop;
 } map_obj_s;
 
 typedef struct {
     char name[64];
     char image[64];
     int  id;
-    int  x;
-    int  y;
-    int  w;
-    int  h;
-    int  n_polygon;
-    int  n_polyline;
-    int  n_properties;
+    i16  x;
+    i16  y;
+    i16  w;
+    i16  h;
+    i16  n_polygon;
+    i16  n_polyline;
+    i16  n_prop;
 
-    v2_i32         *poly;
-    map_property_s *properties;
+    v2_i16          *poly;
+    map_properties_s props;
 } map_object_s;
+
+typedef struct {
+    char image[64];
+    i16  x;
+    i16  y;
+    u16  w;
+    u16  h;
+} map_proptile_s;
 
 typedef struct {
     u8 *tiles;
@@ -74,6 +87,11 @@ typedef struct {
     int                w;
     int                h;
 } tilelayer_terrain_s;
+
+#define RESERVED_TERRAIN_POS_Y 224 // in tiles
+#define RESERVED_TERRAIN_X     32
+#define RESERVED_TERRAIN_Y     32
+#define NUM_RESERVED_TERRAIN   (RESERVED_TERRAIN_X * RESERVED_TERRAIN_Y)
 
 enum {
     AUTOTILE_TYPE_NONE,
@@ -93,8 +111,12 @@ static const u8 g_autotilemarch[256];
 
 static map_object_s map_read_object(void *f, void *(*allocf)(usize s));
 static void         map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int y);
-static void         map_autotile_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y);
-static bool32       map_property_get(map_property_s *props, int n_props, const char *name, map_property_s *prop);
+static void         map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tiles, int x, int y);
+static bool32       map_prop_get(map_properties_s props, const char *name, map_property_s *prop);
+static int          map_prop_i(map_properties_s props, const char *name);
+static bool32       map_prop_b(map_properties_s props, const char *name);
+static int          map_prop_o(map_properties_s props, const char *name);
+static void         map_prop_s(map_properties_s props, const char *name, char *buf, usize bufsize);
 
 void map_world_load(map_world_s *world, const char *worldfile)
 {
@@ -181,9 +203,8 @@ void game_load_map(game_s *g, const char *mapfile)
     map_meta_s meta;
     sys_file_read(mapf, &meta, sizeof(meta));
 
-    int w = meta.w;
-    int h = meta.h;
-    fade_start(&g->areaname.fade, 30, 300, 30, NULL, NULL, NULL);
+    int w      = meta.w;
+    int h      = meta.h;
     g->tiles_x = w;
     g->tiles_y = h;
     g->pixel_x = w << 4;
@@ -191,18 +212,21 @@ void game_load_map(game_s *g, const char *mapfile)
 
     // PROPERTIES ==============================================================================
     spm_push();
-    usize           propsize = (usize)(sizeof(map_property_s) * meta.n_properties);
-    map_property_s *props    = (map_property_s *)spm_alloc(propsize);
-    sys_file_read(mapf, props, propsize);
+    usize            propsize = (usize)(sizeof(map_property_s) * meta.n_properties);
+    map_properties_s props    = {0};
+    props.props               = (map_property_s *)spm_alloc(propsize);
+    props.n                   = meta.n_properties;
+
+    sys_file_read(mapf, props.props, propsize);
     // do stuff
 
     map_property_s prop;
-    if (map_property_get(props, meta.n_properties, "music", &prop)) {
+    if (map_prop_get(props, "music", &prop)) {
         mus_fade_to(mus_load(prop.v.s), 60, 60);
     }
-    if (map_property_get(props, meta.n_properties, "name", &prop)) {
-        mus_fade_to(mus_load(prop.v.s), 60, 60);
+    if (map_prop_get(props, "name", &prop)) {
         str_cpy(g->areaname.label, prop.v.s);
+        fade_start(&g->areaname.fade, 30, 300, 30, NULL, NULL, NULL);
     }
 
     spm_pop();
@@ -215,18 +239,17 @@ void game_load_map(game_s *g, const char *mapfile)
     layer_terrain.w                   = w;
     layer_terrain.h                   = h;
     sys_file_read(mapf, layer_terrain.tiles, terrainsize);
-    // do stuff
 
+    int n_ext = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            map_autotile_terrain(g, layer_terrain, x, y);
+            map_autotile_terrain(g, &n_ext, layer_terrain, x, y);
         }
     }
 
     spm_pop();
 
     // BACKGROUND ==============================================================================
-
     spm_push();
     tilelayer_bg_s layer_bg = {0};
     usize          bgsize   = (usize)(sizeof(u8) * meta.w * meta.h);
@@ -234,7 +257,6 @@ void game_load_map(game_s *g, const char *mapfile)
     layer_bg.w              = w;
     layer_bg.h              = h;
     sys_file_read(mapf, layer_bg.tiles, bgsize);
-    // do stuff
 
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
@@ -248,6 +270,41 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int n = 0; n < meta.n_obj; n++) {
         spm_push();
         map_object_s obj = map_read_object(mapf, spm_alloc);
+        sys_printf("img: %s\n", obj.image);
+        if (0) {
+        } else if (str_contains(obj.name, "Sign")) {
+            obj_s *o = obj_create(g);
+            o->ID    = OBJ_ID_SIGN;
+            o->flags |= OBJ_FLAG_INTERACTABLE;
+            o->pos.x = obj.x;
+            o->pos.y = obj.y;
+            map_prop_s(obj.props, "dialog", o->filename, sizeof(o->filename));
+        } else if (str_contains(obj.image, "switch")) {
+            sys_printf("LOAD SWITCH\n");
+            obj_s *o       = switch_create(g);
+            o->pos.x       = obj.x + obj.w / 2;
+            o->pos.y       = obj.y + obj.h;
+            o->trigger_off = map_prop_i(obj.props, "trigger_0");
+            o->trigger_on  = map_prop_i(obj.props, "trigger_1");
+            o->state       = map_prop_i(obj.props, "state");
+        } else if (str_contains(obj.image, "obj_toggleblock_off")) {
+            sys_printf("LOAD 1\n");
+            obj_s *o       = toggleblock_create(g);
+            o->pos.x       = obj.x;
+            o->pos.y       = obj.y;
+            o->trigger_off = map_prop_i(obj.props, "trigger_hide");
+            o->trigger_on  = map_prop_i(obj.props, "trigger_show");
+            o->trigger     = o->trigger_on;
+        } else if (str_contains(obj.image, "obj_toggleblock_on")) {
+            sys_printf("LOAD 2\n");
+            obj_s *o       = toggleblock_create(g);
+            o->state       = 1;
+            o->pos.x       = obj.x;
+            o->pos.y       = obj.y;
+            o->trigger_off = map_prop_i(obj.props, "trigger_hide");
+            o->trigger_on  = map_prop_i(obj.props, "trigger_show");
+            o->trigger     = o->trigger_off;
+        }
 
         spm_pop();
     }
@@ -255,22 +312,48 @@ void game_load_map(game_s *g, const char *mapfile)
     // PROPS BG ====================================================================================
     for (int n = 0; n < meta.n_props_bg; n++) {
         spm_push();
-        map_object_s obj = map_read_object(mapf, spm_alloc);
+        map_proptile_s propt;
+        sys_file_read(mapf, &propt, sizeof(map_proptile_s));
+        if (str_len(propt.image) == 0) {
+            spm_pop();
+            continue;
+        }
+        int tx = propt.x >> 4;
+        int ty = propt.y >> 4;
+
+        tex_s tex;
+        if (g->n_decal_bg < NUM_DECALS &&
+            0 <= asset_tex_load(propt.image, &tex)) {
+            decal_s *decal = &g->decal_bg[g->n_decal_bg++];
+            decal->tex     = tex;
+            decal->x       = propt.x;
+            decal->y       = propt.y;
+        }
         spm_pop();
     }
 
     // PROPS FG ====================================================================================
     for (int n = 0; n < meta.n_props_fg; n++) {
         spm_push();
-        map_object_s obj = map_read_object(mapf, spm_alloc);
+        map_proptile_s propt;
+        sys_file_read(mapf, &propt, sizeof(map_proptile_s));
+        if (str_len(propt.image) == 0) {
+            spm_pop();
+            continue;
+        }
+        int tx = propt.x >> 4;
+        int ty = propt.y >> 4;
 
-        if (str_len(obj.image) > 0) {
+        if (str_contains(propt.image, "grass_lo")) {
+            game_put_grass(g, tx, ty + 1);
+        } else {
             tex_s tex;
-            if (0 <= asset_tex_load(obj.image, &tex)) {
+            if (g->n_decal_fg < NUM_DECALS &&
+                0 <= asset_tex_load(propt.image, &tex)) {
                 decal_s *decal = &g->decal_fg[g->n_decal_fg++];
                 decal->tex     = tex;
-                decal->x       = obj.x;
-                decal->y       = obj.y - tex.h;
+                decal->x       = propt.x;
+                decal->y       = propt.y;
             }
         }
 
@@ -355,20 +438,94 @@ static void map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int 
     if (autotile_bg_is(tiles, x, y, -1, +1)) march |= AT_SW;
     if (autotile_bg_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
-    int xcoord = 0;
-    int ycoord = (tile - 1) * 8;
-    int coords = g_autotilemarch[march];
-
-    xcoord = coords & 15;
-    ycoord += coords >> 4;
-    g->rtiles[index].layer[0] = rtile_pack(xcoord, ycoord);
+    int      coords = g_autotilemarch[march];
+    rtile_s *rtile  = &g->rtiles[TILELAYER_BG][index];
+    rtile->tx       = coords & 15;
+    rtile->ty       = ((tile - 1) * 8) + (coords >> 4);
 }
 
-static void map_autotile_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
+int terrain_mapper_entry(tilelayer_terrain_s tiles, int x, int y)
+{
+    if (!(0 <= x && x < tiles.w && 0 <= y && y < tiles.h)) return 0;
+    map_terraintile_s tile = tiles.tiles[x + y * tiles.w];
+    if (tile.shape != TILE_BLOCK) return 0;
+    return tile.type;
+}
+
+static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tiles, int x, int y)
 {
     int               index = x + y * tiles.w;
     map_terraintile_s tile  = tiles.tiles[index];
-    if (tile.type == 0) return;
+    rtile_s          *rtile = &g->rtiles[TILELAYER_TERRAIN][index];
+
+    if (tile.type == 0 && *n_ext < NUM_RESERVED_TERRAIN) {
+        return; // disabled
+        int ntiles[8] = {0};
+        ntiles[0]     = terrain_mapper_entry(tiles, x - 1, y + 0);
+        ntiles[1]     = terrain_mapper_entry(tiles, x + 1, y + 0);
+        ntiles[2]     = terrain_mapper_entry(tiles, x + 0, y - 1);
+        ntiles[3]     = terrain_mapper_entry(tiles, x + 0, y + 1);
+        ntiles[4]     = terrain_mapper_entry(tiles, x - 1, y - 1);
+        ntiles[5]     = terrain_mapper_entry(tiles, x - 1, y + 1);
+        ntiles[6]     = terrain_mapper_entry(tiles, x + 1, y - 1);
+        ntiles[7]     = terrain_mapper_entry(tiles, x + 1, y + 1);
+
+        // check if any is nonzero
+        int ntilescomb = 0;
+        for (int n = 0; n < 8; n++)
+            ntilescomb |= ntiles[n];
+        if (ntilescomb == 0) return;
+
+        int tID         = *n_ext;
+        *n_ext          = *n_ext + 1;
+        int       tposx = (tID % RESERVED_TERRAIN_X);
+        int       tposy = (tID / RESERVED_TERRAIN_X) + RESERVED_TERRAIN_POS_Y;
+        v2_i32    tpos  = {tposx << 4, tposy << 4};
+        gfx_ctx_s ctx   = gfx_ctx_default(asset_tex(TEXID_TILESET_TERRAIN));
+        texrec_s  trs   = {0};
+        trs.t           = ctx.dst;
+        trs.r.w         = 8;
+        trs.r.h         = 8;
+        for (int n = 0; n < 4; n++) {
+            if (ntiles[n] == 0) continue;
+            trs.r.x      = 416;
+            trs.r.y      = (ntiles[n] - 1) * 128;
+            v2_i32 ttpos = tpos;
+
+            switch (n) {
+            case 0:
+                trs.r.w = 8;
+                trs.r.h = 16;
+                trs.r.y += 16;
+                break;
+            case 1:
+                trs.r.w = 8;
+                trs.r.h = 16;
+                trs.r.y += 16;
+                trs.r.x += 8;
+                ttpos.x += 8;
+                break;
+            case 2:
+                trs.r.w = 16;
+                trs.r.h = 8;
+                trs.r.y += 16;
+                trs.r.x += 16;
+                break;
+            case 3:
+                ttpos.y += 8;
+                trs.r.w = 16;
+                trs.r.h = 8;
+                trs.r.y += 16 + 8;
+                trs.r.x += 16;
+                break;
+            }
+
+            gfx_spr(ctx, trs, ttpos, 0, 0);
+        }
+        rtile->tx = tposx;
+        rtile->ty = tposy;
+        return;
+    }
 
     flags32 march = 0;
     if (autotile_terrain_is(tiles, x, y, +0, -1)) march |= AT_N;
@@ -432,19 +589,52 @@ static void map_autotile_terrain(game_s *g, tilelayer_terrain_s tiles, int x, in
         g->tiles[index].collision = tile.shape;
     } break;
     }
-    g->rtiles[index].layer[1] = rtile_pack(xcoord, ycoord);
+
+    rtile->tx = xcoord;
+    rtile->ty = ycoord;
 }
 
-static bool32 map_property_get(map_property_s *props, int n_props, const char *name, map_property_s *prop)
+static bool32 map_prop_get(map_properties_s props, const char *name, map_property_s *prop)
 {
-    for (int n = 0; n < n_props; n++) {
-        map_property_s p = props[n];
+    for (int n = 0; n < props.n; n++) {
+        map_property_s p = props.props[n];
         if (str_eq(p.name, name)) {
             *prop = p;
             return 1;
         }
     }
     return 0;
+}
+
+static int map_prop_i(map_properties_s props, const char *name)
+{
+    map_property_s p;
+    if (map_prop_get(props, name, &p))
+        return p.v.i;
+    return 0;
+}
+
+static bool32 map_prop_b(map_properties_s props, const char *name)
+{
+    map_property_s p;
+    if (map_prop_get(props, name, &p))
+        return p.v.b;
+    return 0;
+}
+
+static int map_prop_o(map_properties_s props, const char *name)
+{
+    map_property_s p;
+    if (map_prop_get(props, name, &p))
+        return p.v.o;
+    return 0;
+}
+
+static void map_prop_s(map_properties_s props, const char *name, char *buf, usize bufsize)
+{
+    map_property_s p;
+    if (map_prop_get(props, name, &p))
+        str_cpys(buf, bufsize, p.v.s);
 }
 
 static map_object_s map_read_object(void *f, void *(*allocf)(usize s))
@@ -454,14 +644,15 @@ static map_object_s map_read_object(void *f, void *(*allocf)(usize s))
 
     int n_poly = max_i(obj.n_polygon, obj.n_polyline);
     if (n_poly > 0) {
-        usize polysize = sizeof(v2_i32) * n_poly;
-        obj.poly       = (v2_i32 *)allocf(polysize);
+        usize polysize = sizeof(v2_i16) * n_poly;
+        obj.poly       = (v2_i16 *)allocf(polysize);
         sys_file_read(f, obj.poly, polysize);
     }
-    if (obj.n_properties > 0) {
-        usize propsize = sizeof(map_property_s) * obj.n_properties;
-        obj.properties = (map_property_s *)allocf(propsize);
-        sys_file_read(f, obj.properties, propsize);
+    if (obj.n_prop > 0) {
+        usize propsize  = sizeof(map_property_s) * obj.n_prop;
+        obj.props.props = (map_property_s *)allocf(propsize);
+        obj.props.n     = obj.n_prop;
+        sys_file_read(f, obj.props.props, propsize);
     }
     return obj;
 }

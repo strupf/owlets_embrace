@@ -6,10 +6,12 @@
 #define GAME_H
 
 #include "cam.h"
+#include "enveffect.h"
 #include "fade.h"
 #include "gamedef.h"
 #include "mainmenu.h"
 #include "map_loader.h"
+#include "obj/behaviour.h"
 #include "obj/hero.h"
 #include "obj/obj.h"
 #include "rope.h"
@@ -17,20 +19,16 @@
 #include "transition.h"
 #include "water.h"
 
+//  25 x 15
+//  50 x 30
+//  75 x 45
+// 100 x 60
+//
+
 #define NUM_TILES         0x40000
+#define NUM_PARTICLES     256
 #define INTERACTABLE_DIST 32
-
-enum {
-    BACKGROUND_WIND_CIRCLE_R = 1900,
-};
-
-enum {
-    BG_NUM_CLOUDS      = 64,
-    BG_NUM_PARTICLES   = 512,
-    BG_NUM_CLOUD_TYPES = 3,
-    BG_WIND_PARTICLE_N = 8,
-    BG_SIZE            = 512,
-};
+#define NUM_DECALS        256
 
 typedef struct {
     v2_i32 pos;
@@ -39,16 +37,34 @@ typedef struct {
     int    v_q8;
 } grass_s;
 
+enum {
+    PARTICLE_GFX_REC,
+    PARTICLE_GFX_CIR,
+    PARTICLE_GFX_SPR
+};
+
 typedef struct {
-    int    n;
-    v2_i32 p_q8; // q8
-    v2_i32 v_q8;
-    v2_i32 pos_q8[BG_WIND_PARTICLE_N];
-    v2_i32 circc;
-    i32    ticks;
-    i32    circticks;
-    i32    circcooldown;
-} windparticle_s;
+    v2_i32   p_q8;
+    v2_i32   v_q8;
+    v2_i32   a_q8;
+    i32      ticks;
+    i32      ticks_max;
+    i32      size;
+    i32      gfx;
+    texrec_s texrec;
+} particle_s;
+
+typedef struct {
+    particle_s p;
+
+    v2_i32 pr_q8;
+    v2_i32 vr_q8;
+    v2_i32 ar_q8;
+    int    ticksr;
+    int    sizer;
+} particle_desc_s;
+
+void particles_spawn(game_s *g, particle_desc_s desc, int n);
 
 enum {
     BG_IMG_POS_TILED,
@@ -68,13 +84,17 @@ typedef struct {
 } parallax_img_s;
 
 typedef struct {
-    u16 layer[2];
-} rtile_s;
-
-typedef struct {
     u8 type;
     u8 collision;
 } tile_s;
+
+typedef union {
+    struct {
+        u8 tx;
+        u8 ty;
+    };
+    u16 u;
+} rtile_s;
 
 typedef struct {
     tex_s tex;
@@ -96,7 +116,7 @@ struct game_s {
     transition_s transition;
     cam_s        cam;
     tile_s       tiles[NUM_TILES];
-    rtile_s      rtiles[NUM_TILES];
+    rtile_s      rtiles[NUM_TILELAYER][NUM_TILES];
     int          tiles_x;
     int          tiles_y;
     int          pixel_x;
@@ -115,8 +135,8 @@ struct game_s {
     rope_s         rope; // hero rope, singleton
     textbox_s      textbox;
 
-    windparticle_s windparticles[BG_NUM_PARTICLES];
-    int            n_windparticles;
+    enveffect_wind_s env_wind;
+    enveffect_heat_s env_heat;
 
     rope_s *ropes[4];
     int     n_ropes;
@@ -127,12 +147,14 @@ struct game_s {
         fade_s fade;
     } areaname;
 
-    int     n_decal_fg;
-    int     n_decal_bg;
-    int     n_grass;
-    decal_s decal_fg[256];
-    decal_s decal_bg[256];
-    grass_s grass[256];
+    int        n_decal_fg;
+    int        n_decal_bg;
+    int        n_grass;
+    int        n_particle;
+    decal_s    decal_fg[NUM_DECALS];
+    decal_s    decal_bg[NUM_DECALS];
+    grass_s    grass[256];
+    particle_s particles[NUM_PARTICLES];
 
     ocean_s ocean;
 
@@ -152,14 +174,17 @@ extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
 void             game_init(game_s *g);
 void             game_tick(game_s *g);
 void             game_draw(game_s *g);
+void             game_paused(game_s *g);
 int              tick_now(game_s *g);
 void             game_new_savefile(game_s *g, int slotID);
 void             game_write_savefile(game_s *g);
 void             game_load_savefile(game_s *g, savefile_s sf, int slotID);
 void             game_on_trigger(game_s *g, int trigger);
 bool32           tiles_solid(game_s *g, rec_i32 r);
+bool32           tile_one_way(game_s *g, rec_i32 r);
 bool32           game_traversable(game_s *g, rec_i32 r);
 solid_rec_list_s game_solid_recs(game_s *g);
+void             game_on_solid_appear(game_s *g);
 int              rtile_pack(int tx, int ty);
 void             rtile_unpack(int ID, int *tx, int *ty);
 void             game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);

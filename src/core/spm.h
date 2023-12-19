@@ -16,7 +16,7 @@ typedef struct {
 #endif
 
     marena_s m;
-    alignas(4) char mem[MKILOBYTE(2048)];
+    alignas(4) char mem[MKILOBYTE(1024)];
 } SPM_s;
 
 extern SPM_s SPM;

@@ -34,6 +34,7 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_WHIP;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
+    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
 
     strcpy(t->savefiles[0].sf.area_filename, "map_01");
     savefile_write(0, &t->savefiles[0].sf);
@@ -45,7 +46,7 @@ void mainmenu_init(mainmenu_s *t)
 
 void mainmenu_update(game_s *g, mainmenu_s *t)
 {
-#if 1
+#if MAINMENU_SKIP_TO_GAME
     mainmenu_op_start_file(g, t, 0);
     return;
 #endif

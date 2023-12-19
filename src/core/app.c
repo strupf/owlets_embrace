@@ -32,9 +32,10 @@ void app_init()
                                     1024);
 
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
-    asset_tex_loadID(TEXID_TILESET, "tileset.tex", NULL);
+    asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
+    asset_tex_loadID(TEXID_TILESET_BG, "tileset_bg.tex", NULL);
     tex_s texhero;
-    if (asset_tex_loadID(TEXID_HERO, "player.tex", &texhero) >= 0) {
+    if (0 <= asset_tex_loadID(TEXID_HERO, "player.tex", &texhero)) {
         for (int y = 0; y < 6; y++) {
             for (int x = 0; x < 4; x++) {
                 tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
@@ -44,21 +45,20 @@ void app_init()
 
     asset_tex_loadID(TEXID_UI, "ui.tex", NULL);
     asset_tex_loadID(TEXID_UI_ITEMS, "items.tex", NULL);
+    tex_s texswitch;
+    if (0 <= asset_tex_loadID(TEXID_SWITCH, "switch.tex", &texswitch)) {
+        for (int x = 0; x < 4; x++) {
+            tex_outline(texswitch, x * 64, 0, 64, 64, 1, 1);
+        }
+    }
     asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, assetmem_alloc));
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox.tex", NULL);
-    asset_tex_loadID(TEXID_HERO_WHIP, "whip_anim-Sheet.tex", NULL);
+    asset_tex_loadID(TEXID_HERO_WHIP, "attackanim-sheet.tex", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants.tex", NULL);
     asset_tex_loadID(TEXID_CLOUDS, "clouds.tex", NULL);
     asset_tex_loadID(TEXID_TITLE, "title.tex", NULL);
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
-
-    asset_fnt_loadID(FNTID_SMALL, "font_small.json", NULL);
-    asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
-    asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
-
-    asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach.wav", NULL);
-    asset_snd_loadID(SNDID_SPEAK, "speak.wav", NULL);
 
 #ifdef SYS_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, assetmem_alloc);
@@ -78,24 +78,16 @@ void app_init()
     }
 #endif
 
-    spriteanimdata_s hd = {0};
-    hd.frames           = assetmem_alloc(sizeof(spriteanimframe_s) * 4);
-    hd.frames[0].ticks  = 10;
-    hd.frames[1].x      = 64;
-    hd.frames[1].ticks  = 10;
-    hd.frames[2].x      = 128;
-    hd.frames[2].ticks  = 10;
-    hd.frames[3].x      = 64 + 128;
-    hd.frames[3].ticks  = 10;
-    hd.w                = 64;
-    hd.h                = 64;
-    hd.tex              = asset_tex(TEXID_HERO);
-    hd.n_frames         = 4;
+    asset_fnt_loadID(FNTID_SMALL, "font_small.json", NULL);
+    asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
+    asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
+
+    asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach.wav", NULL);
+    asset_snd_loadID(SNDID_SPEAK, "speak.wav", NULL);
+    asset_snd_loadID(SNDID_STEP, "step.wav", NULL);
 
     mainmenu_init(&GAME.mainmenu);
     game_init(&GAME);
-
-    sys_printf("\nAsset mem left: %u kb\n", (u32)assets_mem_left() / 1024);
 }
 
 void app_tick()
@@ -167,4 +159,5 @@ void app_resume()
 
 void app_pause()
 {
+    game_paused(&GAME);
 }

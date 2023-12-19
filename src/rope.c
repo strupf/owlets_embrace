@@ -56,16 +56,9 @@ void rope_init(rope_s *r)
     r->tail        = rt;
 }
 
-void rope_set_len_max(rope_s *r, i32 len_max)
-{
-    r->len_max    = len_max;
-    r->len_max_q4 = len_max << 4;
-}
-
 void rope_set_len_max_q4(rope_s *r, i32 len_max_q4)
 {
     r->len_max_q4 = len_max_q4;
-    r->len_max    = len_max_q4 >> 4;
 }
 
 ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
@@ -578,7 +571,7 @@ u32 rope_length_q4(game_s *g, rope_s *r)
 bool32 rope_stretched(game_s *g, rope_s *r)
 {
     u32 len_q4     = rope_length_q4(g, r);
-    u32 len_max_q4 = r->len_max << 4;
+    u32 len_max_q4 = r->len_max_q4;
     return (len_q4 >= len_max_q4);
 }
 
@@ -594,6 +587,8 @@ bool32 rope_intact(game_s *g, rope_s *r)
                 return 0;
         }
 #endif
+
+    rope_update(g, r);
 
     for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
          r1 = r2, r2 = r2->next) {

@@ -13,7 +13,8 @@ enum {
     TEXID_DISPLAY,
     TEXID_HERO,
     TEXID_HERO_WHIP,
-    TEXID_TILESET,
+    TEXID_TILESET_TERRAIN,
+    TEXID_TILESET_BG,
     TEXID_UI,
     TEXID_UI_ITEM_CACHE,
     TEXID_UI_ITEMS,
@@ -23,6 +24,7 @@ enum {
     TEXID_TITLE,
     TEXID_BACKGROUND,
     TEXID_PROPS,
+    TEXID_SWITCH,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -45,6 +47,7 @@ enum {
     SNDID_DEFAULT,
     SNDID_HOOK_ATTACH,
     SNDID_SPEAK,
+    SNDID_STEP,
     //
     NUM_SNDID
 };
@@ -78,7 +81,6 @@ typedef struct {
 extern ASSETS_s ASSETS;
 
 void  assets_init();
-usize assets_mem_left();
 //
 void *assetmem_alloc(usize s);
 tex_s asset_tex(int ID);

@@ -22,7 +22,6 @@ struct rope_s {
     ropenode_s *tail;
     v2_i32      pmin;
     v2_i32      pmax;
-    u32         len_max;
     u32         len_max_q4;
     bool32      dirty;
     ropenode_s *pool;
@@ -30,7 +29,6 @@ struct rope_s {
 };
 
 void   rope_init(rope_s *r);
-void   rope_set_len_max(rope_s *r, i32 len_max);
 void   rope_set_len_max_q4(rope_s *r, i32 len_max_q4);
 u32    rope_length_q4(game_s *g, rope_s *r);
 void   ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt);

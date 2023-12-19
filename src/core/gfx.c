@@ -108,7 +108,7 @@ int tex_px_at(tex_s tex, int x, int y)
 
 int tex_mk_at(tex_s tex, int x, int y)
 {
-    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
+    if (!tex.mk || x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
     return ((tex.mk[y * tex.wbyte + (x >> 3)] & (0x80 >> (x & 7))) > 0);
 }
 
@@ -122,7 +122,7 @@ void tex_px(tex_s tex, int x, int y, int col)
 
 void tex_mk(tex_s tex, int x, int y, int col)
 {
-    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y || !tex.mk) return;
+    if (!tex.mk || x < 0 || tex.w <= x || y < 0 || tex.h <= y || !tex.mk) return;
     int b     = 0x80 >> (x & 7);
     int n     = y * tex.wbyte + (x >> 3);
     tex.mk[n] = (col == 0 ? tex.mk[n] & ~b : tex.mk[n] | b);
@@ -551,6 +551,124 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode)
     }
 }
 
+static inline void apply_spr_mode_cpy(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds, u32 sp, u32 sm)
+{
+    if (ds) {
+        sm &= ~*ds;
+    }
+    *dp = (*dp & ~sm) | (sp & sm);
+    if (dm) *dm |= sm;
+    if (ds) *ds |= sm;
+}
+
+static void spr_blit_row_cpy(span_blit_s info)
+{
+    u32 pt                 = info.pat.p[info.y & 7];
+    u32 *restrict dp       = (u32 *restrict)(info.dp);
+    u32 *restrict dm       = (u32 *restrict)(info.dm);
+    u32 *restrict ds       = (u32 *restrict)(info.ds);
+    const u32 *restrict sp = (u32 *restrict)(info.sp);
+    const u32 *restrict sm = (u32 *restrict)(info.sm);
+    int a                  = info.shift;
+    int b                  = 32 - a;
+
+    if (a == 0) { // same alignment, fast path
+        u32 p = *sp++;
+        u32 m = sm ? *sm++ & info.ml : info.ml;
+        for (int i = 0; i < info.dmax; i++) {
+            apply_spr_mode_cpy(dp, dm, ds, p, m & pt);
+            p = *sp++;
+            m = sm ? *sm++ : 0xFFFFFFFFU;
+            dp++;
+            if (dm) dm++;
+            if (ds) ds++;
+        }
+        apply_spr_mode_cpy(dp, dm, ds, p, m & (pt & info.mr));
+        return;
+    }
+
+    { // first word
+        u32 p = 0, m = 0;
+        if (info.soff > info.doff) {
+            p = bswap32(*sp) << a;
+            m = sm ? bswap32(*sm) << a : 0xFFFFFFFFU;
+            if (info.smax > 0) {
+                sp++;
+                if (sm) sm++;
+            }
+        }
+
+        p = bswap32(p | (bswap32(*sp) >> b));
+        m = sm ? bswap32(m | (bswap32(*sm) >> b)) & info.ml : info.ml;
+        if (info.dmax == 0) {
+            apply_spr_mode_cpy(dp, dm, ds, p, m & (pt & info.mr));
+            return; // only one word long
+        }
+
+        apply_spr_mode_cpy(dp, dm, ds, p, m & pt);
+        dp++;
+        if (dm) dm++;
+        if (ds) ds++;
+    }
+
+    // middle words without first and last word
+    for (int i = 1; i < info.dmax; i++) {
+        u32 p = bswap32((bswap32(*sp) << a) | (bswap32(*(sp + 1)) >> b));
+        u32 m = sm ? bswap32((bswap32(*sm) << a) | (bswap32(*(sm + 1)) >> b)) & pt : pt;
+        apply_spr_mode_cpy(dp, dm, ds, p, m);
+        sp++;
+        dp++;
+        if (sm) sm++;
+        if (dm) dm++;
+        if (ds) ds++;
+    }
+
+    { // last word
+        u32 p = bswap32(*sp) << a;
+        u32 m = sm ? bswap32(*sm) << a : 0xFFFFFFFFU;
+        if (sp < info.sp + info.smax) { // this is different for reversed blitting!
+            p |= bswap32(*++sp) >> b;
+            if (sm) m |= bswap32(*++sm) >> b;
+        }
+        p = bswap32(p);
+        m = bswap32(m);
+        apply_spr_mode_cpy(dp, dm, ds, p, m & (pt & info.mr));
+    }
+}
+
+void gfx_spr_cpy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
+{
+    tex_s stex = src.t;
+    tex_s dtex = ctx.dst;                            // area bounds on canvas [x1/y1, x2/y2)
+    int   x1   = max_i(pos.x, 0);                    // inclusive
+    int   y1   = max_i(pos.y, 0);                    // inclusive
+    int   x2   = min_i(pos.x + src.r.w, dtex.w) - 1; // inclusive
+    int   y2   = min_i(pos.y + src.r.h, dtex.h) - 1; // inclusive
+    if (x1 > x2) return;
+    span_blit_s info = span_blit_gen(ctx, y1, x1, x2, SPR_MODE_COPY);
+
+    int nbit  = (x2 + 1) - x1;                                   // number of bits in a row to blit
+    int u1    = src.r.x - pos.x + x1;                            // first bit index in src row
+    int srci  = (u1 >> 5) + stex.wword * (src.r.y - pos.y + y1); // first word index in src
+    info.soff = u1 & 31;
+
+    info.sp    = &((u32 *restrict)stex.px)[srci];                  // src black/white
+    info.sm    = stex.mk ? &((u32 *restrict)stex.mk)[srci] : NULL; // src opaque/transparent
+    info.shift = (info.soff - info.doff) & 31;                     // word shift amount
+    info.smax  = (info.soff + nbit - 1) >> 5;                      // number of touched src words -1
+
+    for (info.y = y1; info.y <= y2; info.y++) {
+        spr_blit_row_cpy(info);
+
+        info.sp += stex.wword;
+        if (info.sm) info.sm += stex.wword;
+
+        info.dp += dtex.wword;
+        if (info.dm) info.dm += dtex.wword;
+        if (info.ds) info.ds += dtex.wword;
+    }
+}
+
 void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle)
 {
     tex_s dst = ctx.dst;
@@ -727,21 +845,17 @@ void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
     }
 }
 
-void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
+void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
 {
-    tex_s dtex = ctx.dst;
-    int   y1   = max_i(p.y - r, 0);          // inclusive
-    int   y2   = min_i(p.y + r, dtex.h) - 1; // inclusive
-    for (int y = y1; y <= y2; y++) {
-        int xx = r;
-        int yy = y - p.y;
-        while (xx >= 0) {
-            if ((xx * xx + yy * yy) - (r * r) <= 0) break;
-            xx--;
-        }
+    int y1 = max_i(p.y - (d >> 1), 0);
+    int y2 = min_i(y1 + d + 1, ctx.dst.h);
+    int r2 = d * d + 1; // radius doubled^2
+    for (int y = y1; y < y2; y++) {
+        int yy = (y - p.y) << 1;
+        int xx = sqrt_i32(r2 - yy * yy) >> 1;
         int x1 = max_i(p.x - xx, 0);
-        int x2 = min_i(p.x + xx, dtex.w) - 1;
-        if (x1 > x2) continue;
+        int x2 = min_i(p.x + xx, ctx.dst.w - 1);
+        if (x2 < x1) continue;
         span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
         prim_blit_span(info);
     }

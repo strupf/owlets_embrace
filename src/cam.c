@@ -21,10 +21,6 @@ rec_i32 cam_rec_px(cam_s *c)
     return r;
 }
 
-void cam_set_trg_px(cam_s *c, int x, int y)
-{
-}
-
 void cam_set_pos_px(cam_s *c, int x, int y)
 {
     c->pos.x = (f32)x;
@@ -38,19 +34,21 @@ void cam_update(game_s *g, cam_s *c)
         v2_i32 herop = obj_pos_bottom_center(hero);
         v2_f32 trg   = {(f32)herop.x, (f32)herop.y - 20.f};
 
-        v2_f32 dt     = v2f_sub(trg, c->pos);
-        f32    distsq = v2f_lensq(dt);
-        f32    toadd  = distsq * 0.0005f;
-
-        if (toadd >= 1.f) {
-            dt     = v2f_setlen(dt, toadd);
-            c->pos = v2f_add(c->pos, dt);
-        }
+        i32 dtx = trg.x - c->pos.x;
+        c->pos.x += (f32)dtx * 0.05f;
 
         int py_bot = herop.y - 50;
-        int py_top = herop.y + 40;
+        int py_top = herop.y + 10;
 
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
+
+        if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
+            c->addticks = min_i(c->addticks + 1, 60);
+        } else if (c->addticks > 0) {
+            c->addticks--;
+        }
+
+        c->pos.y += (f32)c->addticks * 0.05f;
     }
 
     cam_constrain_to_room(g, c);

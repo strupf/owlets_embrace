@@ -26,10 +26,12 @@ static_assert(SYS_INP_DPAD_U == kButtonUp, "input button mask Dpad");
 static_assert(SYS_INP_DPAD_D == kButtonDown, "input button mask Dpad");
 
 PlaydateAPI *PD;
-void (*PD_log)(const char *fmt, ...);
 int (*PD_format_str)(char **ret, const char *format, ...);
 void *(*PD_realloc)(void *ptr, size_t size);
 static LCDBitmap *PD_menu_bm;
+#ifndef SYS_PD_HW
+void (*PD_log)(const char *fmt, ...);
+#endif
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -38,17 +40,17 @@ __declspec(dllexport)
 {
     switch (event) {
     case kEventInit:
-        PD            = pd;
-        PD_log        = PD->system->logToConsole;
+        PD = pd;
+#ifndef SYS_PD_HW
+        PD_log = PD->system->logToConsole;
+#endif
         PD_format_str = PD->system->formatString;
         PD_realloc    = PD->system->realloc;
         PD->system->setUpdateCallback(sys_tick, PD);
         PD->sound->addSource(sys_audio_cb, NULL, 0);
         PD->system->resetElapsedTime();
         PD->display->setRefreshRate(0.f);
-
         PD_menu_bm = PD->graphics->newBitmap(400, 240, kColorWhite);
-        PD->system->setMenuImage(PD_menu_bm, 0);
         sys_init();
         break;
     case kEventTerminate:
@@ -146,18 +148,12 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
 {
     int wid, hei, byt;
     u8 *p;
-    u8 *m;
-    PD->graphics->getBitmapData(PD_menu_bm, &wid, &hei, &byt, &m, &p);
-
+    PD->graphics->getBitmapData(PD_menu_bm, &wid, &hei, &byt, NULL, &p);
     int y2 = hei < h ? hei : h;
     int b2 = byt < wbyte ? byt : wbyte;
     for (int y = 0; y < y2; y++) {
-        for (int b = 0; b < b2; b++) {
+        for (int b = 0; b < b2; b++)
             p[b + y * byt] = px[b + y * wbyte];
-        }
     }
-
-    if (m) {
-        memset(m, 0xFF, sizeof(u8) * hei * byt);
-    }
+    PD->system->setMenuImage(PD_menu_bm, 0);
 }

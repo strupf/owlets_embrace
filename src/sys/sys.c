@@ -7,7 +7,7 @@
 #include "sys_types.h"
 
 #define SYS_SHOW_CONSOLE       0 // enable or display hardware console
-#define SYS_SHOW_FPS           1 // enable fps/ups counter
+#define SYS_SHOW_FPS           0 // enable fps/ups counter
 //
 #define SYS_UPS_DT             (1.f / (f32)SYS_UPS)
 #define SYS_DT_ACCUMULATOR_CAP (SYS_UPS_DT * 5.f)
@@ -64,13 +64,15 @@ typedef struct {
 } sys_sndchannel_s;
 
 static struct {
-    f32              lasttime;
-    int              fps; // updates per second
-    int              ups; // frames per second
-    f32              fps_timeacc;
-    f32              ups_timeacc;
-    int              fps_counter;
-    int              ups_counter;
+    f32 lasttime;
+    f32 ups_timeacc;
+#if SYS_SHOW_FPS
+    f32 fps_timeacc;
+    int ups_counter;
+    int fps_counter;
+    int ups; // frames per second
+    int fps; // updates per second
+#endif
     int              inp;
     f32              crank;
     int              crank_docked;
@@ -85,9 +87,11 @@ static struct {
 
 void sys_init()
 {
+#if SYS_SHOW_FPS
+    SYS.fps = SYS_UPS;
+    SYS.ups = SYS_UPS;
+#endif
     SYS.lasttime = backend_seconds();
-    SYS.fps      = SYS_UPS;
-    SYS.ups      = SYS_UPS;
     app_init();
 }
 
@@ -96,7 +100,6 @@ int sys_tick(void *arg)
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
     SYS.lasttime = time;
-    SYS.fps_timeacc += timedt;
     SYS.ups_timeacc += timedt;
     if (SYS.ups_timeacc > SYS_DT_ACCUMULATOR_CAP) {
         SYS.ups_timeacc = SYS_DT_ACCUMULATOR_CAP;
@@ -106,36 +109,39 @@ int sys_tick(void *arg)
     while (SYS.ups_timeacc >= SYS_UPS_DT) {
         rendered = 1;
         SYS.ups_timeacc -= SYS_UPS_DT;
-        SYS.ups_counter++;
         SYS.inp          = backend_inp();
         SYS.crank        = backend_crank();
         SYS.crank_docked = backend_crank_docked();
         app_tick();
+#if SYS_SHOW_FPS
+        SYS.ups_counter++;
+#endif
     }
 
     if (rendered) {
-        SYS.fps_counter++;
         app_draw();
 #if SYS_SHOW_CONSOLE
         sys_draw_console();
 #endif
 #if SYS_SHOW_FPS
-        char fps[8] = {0};
+        char fps[8];
         fps[0] = '0' + (SYS.fps / 10), fps[1] = '0' + (SYS.fps % 10);
+        fps[2] = '|';
         fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
 
         u8 *fb = backend_framebuffer();
         for (int k = 0; k <= 4; k++) {
-            if (k == 2) continue; // printable
-            int c  = (int)fps[k];
-            int cx = c & 31;
-            int cy = c >> 5;
+            int cx = ((int)fps[k] & 31);
+            int cy = ((int)fps[k] >> 5) * 8;
             for (int n = 0; n < 8; n++)
-                fb[k + n * 52] = ((u8 *)sys_consolefont)[cx + (((cy << 3) + n) << 5)];
+                fb[k + n * 52] = ((u8 *)sys_consolefont)[cx + ((cy + n) * 32)];
         }
+        SYS.fps_counter++;
 #endif
     }
 
+#if SYS_SHOW_FPS
+    SYS.fps_timeacc += timedt;
     if (SYS.fps_timeacc >= 1.f) {
         SYS.fps_timeacc -= 1.f;
         SYS.fps         = SYS.fps_counter;
@@ -143,8 +149,8 @@ int sys_tick(void *arg)
         SYS.ups_counter = 0;
         SYS.fps_counter = 0;
     }
-
-    return rendered;
+#endif
+    return (rendered);
 }
 
 void sys_close()

@@ -41,9 +41,12 @@ obj_s *obj_create(game_s *g)
         return NULL;
     }
 
-    obj_UID_s UID               = o->UID;
-    *o                          = (obj_s){0};
-    o->UID                      = UID;
+    obj_UID_s UID = o->UID;
+    *o            = (obj_s){0};
+    o->UID        = UID;
+#ifdef SYS_DEBUG
+    o->magic = OBJ_MAGIC;
+#endif
     g->obj_busy[g->obj_nbusy++] = o;
     return o;
 }
@@ -92,10 +95,10 @@ void objs_cull_to_delete(game_s *g)
     g->obj_ndelete = 0;
 }
 
-void actor_try_wiggle(game_s *g, obj_s *o)
+int actor_try_wiggle(game_s *g, obj_s *o)
 {
     rec_i32 r = obj_aabb(o);
-    if (game_traversable(g, r)) return;
+    if (game_traversable(g, r)) return 1;
 
     for (int y = -1; y <= +1; y++) {
         for (int x = -1; x <= +1; x++) {
@@ -105,13 +108,14 @@ void actor_try_wiggle(game_s *g, obj_s *o)
             if (game_traversable(g, rr)) {
                 o->pos.x += x;
                 o->pos.y += y;
-                return;
+                return 1;
             }
         }
     }
 
     o->bumpflags |= OBJ_BUMPED_SQUISH;
     obj_on_squish(g, o);
+    return 0;
 }
 
 void obj_on_squish(game_s *g, obj_s *o)
@@ -156,7 +160,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         }
 
         if (game_traversable(g, aabb)) {
-            if (o->moverflags & OBJ_MOVER_GLUE_GROUND) {
+            if ((o->moverflags & OBJ_MOVER_GLUE_GROUND) && 0 <= o->vel_q8.y) {
                 rec_i32 a1 = aabb;
                 a1.h += 1;
 
@@ -186,7 +190,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
 
         actor_move_by(g, o, dtm);
     }
-    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); m; m--) {
+    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
         rec_i32 aabb = obj_aabb(o);
         v2_i32  dtm  = {0, sy};
         aabb.y += sy;
@@ -196,7 +200,14 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
             DO_BUMP_Y;
         }
 
-        if (game_traversable(g, aabb)) {
+        rec_i32 orec = sy > 0 ? obj_rec_bottom(o) : obj_rec_top(o);
+
+        int collide_plat = (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) &&
+                           sy > 0 &&
+                           (orec.y & 15) == 0 &&
+                           tile_one_way(g, orec);
+
+        if (!collide_plat && game_traversable(g, orec)) {
             actor_move_by(g, o, dtm);
         } else if ((o->moverflags & OBJ_MOVER_AVOID_HEADBUMP) && sy < 0) {
             // jump corner correction
@@ -213,7 +224,6 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
                     goto CONTINUE_Y;
                 }
             }
-
             DO_BUMP_Y;
         } else {
             DO_BUMP_Y;
@@ -274,6 +284,9 @@ void obj_interact(game_s *g, obj_s *o)
     } break;
     case OBJ_ID_SAVEPOINT: {
         game_write_savefile(g);
+    } break;
+    case OBJ_ID_SWITCH: {
+        switch_on_interact(g, o);
     } break;
     }
 }
@@ -341,6 +354,16 @@ v2_i32 obj_pos_bottom_center(obj_s *o)
     return p;
 }
 
+bool32 obj_grounded(game_s *g, obj_s *o)
+{
+    rec_i32 rbot = obj_rec_bottom(o);
+    if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
+        if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
+            return 1;
+    }
+    return (!game_traversable(g, rbot));
+}
+
 obj_s *obj_slide_door_create(game_s *g)
 {
     obj_s *o = obj_create(g);
@@ -367,7 +390,7 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
     rope_s     *r          = o->rope;
     ropenode_s *rn         = o->ropenode;
     u32         len_q4     = rope_length_q4(g, r);
-    u32         len_max_q4 = r->len_max << 4;
+    u32         len_max_q4 = r->len_max_q4;
     if (len_q4 <= len_max_q4) return o->vel_q8; // rope is not stretched
 
     ropenode_s *rprev = rn->next ? rn->next : rn->prev;

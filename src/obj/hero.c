@@ -5,10 +5,12 @@
 #include "hero.h"
 #include "game.h"
 
-#define HERO_ROPE_LEN_MIN 500
-#define HERO_ROPE_LEN_MAX 4000
+#define HERO_ROPE_LEN_MIN   500
+#define HERO_ROPE_LEN_SHORT 2000
+#define HERO_ROPE_LEN_LONG  4000
 
 static void hero_set_cur_item(hero_s *h, int item);
+static int  hero_max_rope_len_q4(hero_s *h);
 
 obj_s *hero_create(game_s *g)
 {
@@ -23,12 +25,14 @@ obj_s *hero_create(game_s *g)
     o->moverflags |= OBJ_MOVER_SLOPES;
     o->moverflags |= OBJ_MOVER_GLUE_GROUND;
     o->moverflags |= OBJ_MOVER_AVOID_HEADBUMP;
+    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+
     o->n_sprites    = 2;
     o->drag_q8.x    = 256;
     o->drag_q8.y    = 256;
     o->gravity_q8.y = 60;
-    o->vel_cap_q8.x = 5000;
-    o->vel_cap_q8.y = 5000;
+    o->vel_cap_q8.x = 3000;
+    o->vel_cap_q8.y = 3000;
     o->w            = 10;
     o->h            = 20;
     o->facing       = 1;
@@ -78,8 +82,9 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->gravity_q8.y = 70;
     o->vel_q8       = v_q8;
 
+    hero_s *hero = &g->herodata;
     rope_init(r);
-    rope_set_len_max_q4(r, HERO_ROPE_LEN_MAX);
+    rope_set_len_max_q4(r, hero_max_rope_len_q4(hero));
     r->tail->p  = p;
     r->head->p  = p;
     o->rope     = r;
@@ -95,6 +100,18 @@ void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
     ohook->rope     = NULL;
     ohook->ropenode = NULL;
     g->n_ropes      = 0;
+}
+
+void hero_check_rope_intact(game_s *g, obj_s *o)
+{
+    if (!o->rope || !o->ropenode) return;
+    obj_s *ohook = obj_from_obj_handle(o->obj_handles[0]);
+    if (!ohook) return;
+
+    rope_s *r = o->rope;
+    if (!rope_intact(g, r)) {
+        hook_destroy(g, o, ohook);
+    }
 }
 
 void hook_update(game_s *g, obj_s *hook)
@@ -117,9 +134,9 @@ void hook_update(game_s *g, obj_s *hook)
         hook->tomove.y  = 0;
         rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
         if (!game_traversable(g, hookrec)) {
-            g->herodata.ropelen = rope_length_q4(g, r);
+            int newlen_q4 = clamp_i(rope_length_q4(g, r), HERO_ROPE_LEN_MIN, hero_max_rope_len_q4(&g->herodata));
+            rope_set_len_max_q4(r, newlen_q4);
             snd_play_ext(asset_snd(SNDID_HOOK_ATTACH), 1.f, 1.f);
-            rope_set_len_max_q4(r, g->herodata.ropelen);
             hook->attached   = 1;
             hook->gravity_q8 = (v2_i32){0};
             hook->vel_q8     = (v2_i32){0};
@@ -190,10 +207,8 @@ void hero_use_hook(game_s *g, obj_s *h, hero_s *hero)
 
 static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
 {
-    if (o->attack != HERO_ATTACK_NONE) {
-        if (o->attack_tick > 5) return;
-        o->attack_tick = 0; // animation cancel
-    }
+    if (o->attack != HERO_ATTACK_NONE && o->attack_tick > 5)
+        return;
 
     obj_s *ohook_;
     if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
@@ -208,20 +223,23 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
     case HERO_ITEM_BOMB: {
     } break;
     case HERO_ITEM_WHIP: {
-        int dx           = inp_dpad_x();
-        int dy           = inp_dpad_y();
-        o->attack_tick   = 20;
+        o->attack_tick   = 18;
         o->facing_locked = 1;
-        if (dy == -1 && dx == 0)
-            o->attack = HERO_ATTACK_UP;
-        if (dy == +1 && dx == 0)
-            o->attack = HERO_ATTACK_DOWN;
-        if (dy == -1 && dx != 0)
-            o->attack = HERO_ATTACK_DIA_UP;
-        if (dy == +1 && dx != 0)
-            o->attack = HERO_ATTACK_DIA_DOWN;
-        if (dy == 0)
+        o->subattack     = 1 - o->subattack; // alternate
+
+        switch (inp_dpad_dir()) {
+        case INP_DPAD_DIR_NONE:
+        case INP_DPAD_DIR_E:
+        case INP_DPAD_DIR_W:
             o->attack = HERO_ATTACK_SIDE;
+            break;
+        case INP_DPAD_DIR_N:
+            o->attack = HERO_ATTACK_UP;
+            break;
+        case INP_DPAD_DIR_S:
+            o->attack = HERO_ATTACK_DOWN;
+            break;
+        }
     } break;
     }
 }
@@ -233,7 +251,7 @@ void hero_on_update(game_s *g, obj_s *o)
     if (o->attack != HERO_ATTACK_NONE) {
         hitbox_s hitboxes[4] = {0};
         hitboxes[0].damage   = 1;
-        hitboxes[0].r        = obj_aabb(o);
+        v2_i32 hbp           = obj_pos_bottom_center(o);
         switch (o->attack) {
         case HERO_ATTACK_UP:
             break;
@@ -244,18 +262,56 @@ void hero_on_update(game_s *g, obj_s *o)
         case HERO_ATTACK_DIA_DOWN:
             break;
         case HERO_ATTACK_SIDE:
+            hitbox_s *hbr = &hitboxes[0];
+            hbr->r.x      = hbp.x + 40;
+            hbr->r.y      = hbp.y - 30;
+            hbr->r.w      = 60;
+            hbr->r.h      = 30;
             break;
         }
 
+        memcpy(hero->hitbox_def, hitboxes, sizeof(hitboxes));
+        hero->n_hitbox = 1;
+
         game_apply_hitboxes(g, hitboxes, 1);
+
+        if (o->attack_tick == 16) {
+            particle_desc_s prt = {0};
+            prt.p.p_q8.x        = (hbp.x + o->facing * 60) << 8;
+            prt.p.p_q8.y        = (hbp.y - 30) << 8;
+            prt.p.v_q8.x        = o->facing * 700;
+            prt.p.v_q8.y        = -250;
+            prt.p.a_q8.y        = 30;
+            prt.p.size          = 1;
+            prt.p.ticks_max     = 20;
+            prt.ticksr          = 10;
+            prt.pr_q8.x         = 2000;
+            prt.pr_q8.y         = 4000;
+            prt.vr_q8.x         = 300;
+            prt.vr_q8.y         = 200;
+            prt.ar_q8.y         = 4;
+            prt.sizer           = 1;
+            prt.p.gfx           = PARTICLE_GFX_CIR;
+            particles_spawn(g, prt, 20);
+        }
+
         if (--o->attack_tick <= 0) {
             o->attack        = HERO_ATTACK_NONE;
             o->facing_locked = 0;
         }
+    } else {
+        hero->n_hitbox = 0;
     }
 
     int    dpad_x   = inp_dpad_x();
-    bool32 grounded = !game_traversable(g, obj_rec_bottom(o));
+    int    dpad_y   = inp_dpad_y();
+    bool32 grounded = obj_grounded(g, o);
+    bool32 usehook  = o->ropenode != NULL;
+    // sys_printf("%i\n", o->vel_q8.y);
+
+    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+    if (0 < dpad_y)
+        o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
 
     if (dpad_x != 0 && !o->facing_locked) {
         o->facing = dpad_x;
@@ -268,21 +324,6 @@ void hero_on_update(game_s *g, obj_s *o)
         o->vel_q8.x = 0;
     }
     o->bumpflags = 0;
-
-    bool32 usehook = o->ropenode != NULL;
-
-    struct jumpvar_s {
-        int v_init; // initial velocity of the jump, absolute
-        int ticks;  // ticks of variable jump (decreases faster if jump button is not held)
-        int vi;     // "jetpack" velocity, goes to 0 over ticks or less
-    };
-
-    static const struct jumpvar_s jump_tab[4] = {
-        {800, 20, 60},
-        {0, 22, 140},
-        {0, 18, 135},
-        {0, 15, 130},
-    };
 
     // jump buffering
     // https://twitter.com/MaddyThorson/status/1238338575545978880
@@ -305,12 +346,24 @@ void hero_on_update(game_s *g, obj_s *o)
         o->edgeticks--;
     }
 
+    struct jumpvar_s {
+        int v_init; // initial velocity of the jump, absolute
+        int ticks;  // ticks of variable jump (decreases faster if jump button is not held)
+        int vi;     // "jetpack" velocity, goes to 0 over ticks or less
+    };
+
+    static const struct jumpvar_s jump_tab[4] = {
+        {800, 20, 60},
+        {0, 22, 140},
+        {0, 18, 135},
+        {0, 15, 130},
+    };
+
     if (0 < o->jumpticks) {
-        if (inp_pressed(INP_A)) {
+        if (inp_pressed(INP_A))
             o->jumpticks--;
-        } else {
+        else
             o->jumpticks >>= 1; // decrease jump ticks faster
-        }
 
         struct jumpvar_s jv = jump_tab[0];
         if (o->n_airjumps != hero->n_airjumps) { // air jump
@@ -327,17 +380,20 @@ void hero_on_update(game_s *g, obj_s *o)
                                  0 < o->n_airjumps && // air jumps left?
                                  o->jumpticks < -10;  // wait some ticks after last jump
 
-        if ((0 < o->jump_btn_buffer && 0 < o->edgeticks) ||
-            (0 < o->jump_btn_buffer && can_jump_midair)) { // no jumps in midair while hooked
+        if (0 < o->jump_btn_buffer && (0 < o->edgeticks || can_jump_midair)) {
             struct jumpvar_s jv = jump_tab[0];
-            if (o->edgeticks == 0) { // air jump
-                jv = jump_tab[hero->n_airjumps - (--o->n_airjumps)];
+            if (o->edgeticks == 0) // air jump
+                jv = jump_tab[hero->n_airjumps - --o->n_airjumps];
+            int vy = jv.v_init;
+            hero->aquired_upgrades |= (1 << HERO_UPGRADE_HIGH_JUMP);
+            if (!hero_has_upgrade(hero, HERO_UPGRADE_HIGH_JUMP)) {
+                vy = (vy * 3) / 4;
             }
 
             o->jump_btn_buffer = 0;
             o->edgeticks       = 0;
             o->jumpticks       = jv.ticks;
-            o->vel_q8.y        = -jv.v_init;
+            o->vel_q8.y        = -vy;
         }
     }
 
@@ -347,9 +403,10 @@ void hero_on_update(game_s *g, obj_s *o)
 
     obj_s *ohook = obj_from_obj_handle(o->obj_handles[0]);
     if (ohook && ohook->attached) {
-        hero->ropelen += inp_dpad_y() * 30;
-        hero->ropelen = clamp_i(hero->ropelen, HERO_ROPE_LEN_MIN, HERO_ROPE_LEN_MAX);
-        rope_set_len_max_q4(o->rope, hero->ropelen);
+        int rl_q4 = o->rope->len_max_q4;
+        rl_q4 += inp_dpad_y() * 30;
+        rl_q4 = clamp_i(rl_q4, HERO_ROPE_LEN_MIN, hero_max_rope_len_q4(hero));
+        rope_set_len_max_q4(o->rope, rl_q4);
     }
 
     int velsgn = sgn_i(o->vel_q8.x);
@@ -426,6 +483,13 @@ static void hero_set_cur_item(hero_s *h, int item)
     h->selected_item = item;
 }
 
+static int hero_max_rope_len_q4(hero_s *h)
+{
+    if (hero_has_upgrade(h, HERO_UPGRADE_LONG_HOOK))
+        return HERO_ROPE_LEN_LONG;
+    return HERO_ROPE_LEN_SHORT;
+}
+
 #define ITEM_CRANK_THRESHOLD 8000
 
 void hero_crank_item_selection(hero_s *h)
@@ -483,19 +547,23 @@ void hero_on_animate(game_s *g, obj_s *o)
 
     int    animID   = 0;
     int    frameID  = 0;
-    bool32 grounded = !game_traversable(g, obj_rec_bottom(o));
+    bool32 grounded = obj_grounded(g, o);
     if (grounded) {
         if (o->vel_q8.x != 0) {
-            animID = 0; // walking
+            animID           = 0; // walking
+            int frameID_prev = (o->animation / 4000) % 4;
             o->animation += abs_i(o->vel_q8.x);
-            frameID = (o->animation / 8000) % 4;
+            frameID = (o->animation / 4000) % 4;
+            if (frameID_prev != frameID && (frameID % 2) == 0) {
+                snd_play_ext(asset_snd(SNDID_STEP), 0.5f, 1.f);
+            }
         } else {
             animID = 1; // idle
             if (o->vel_prev_q8.x != 0) {
                 o->animation = 0; // just got idle
             } else {
                 o->animation += 100;
-                frameID = (o->animation / 100) % 2;
+                frameID = (o->animation / 4000) % 2;
             }
         }
     } else { // midair
@@ -517,28 +585,25 @@ void hero_on_animate(game_s *g, obj_s *o)
         o->n_sprites             = 2;
         sprite_simple_s *spritew = &o->sprites[1];
 
-        int times[] = {2,
-                       4,
-                       6,
-                       8,
-                       16,
-                       17,
-                       18,
-                       20};
+        int times[] = {3,
+                       7,
+                       10,
+                       15,
+                       18};
 
         int fr = 0;
-        while (o->attack_tick < times[7 - fr])
+        while (o->attack_tick <= times[4 - fr])
             fr++;
 
-        fr = clamp_i(fr, 0, 7);
+        fr = clamp_i(fr, 0, 4);
 
         spritew->trec.t   = asset_tex(TEXID_HERO_WHIP);
         spritew->trec.r.x = fr * 256;
-        spritew->trec.r.y = (o->attack - 1) * 256;
+        spritew->trec.r.y = o->subattack * 128;
         spritew->trec.r.w = 256;
-        spritew->trec.r.h = 256;
+        spritew->trec.r.h = 128;
         spritew->flip     = flip;
-        spritew->offs.x   = o->h - 128;
-        spritew->offs.y   = o->w / 2 - 128;
+        spritew->offs.x   = o->w / 2 - 128 + o->facing * 32;
+        spritew->offs.y   = o->h / 2 - 128 + 24;
     }
 }

@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE 2
+#define SYS_SDL_SCALE 1
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");
@@ -32,9 +32,15 @@ static struct {
     int               inv;
     f32               vol;
     f32               crank;
+    int               pausebtn;
+    int               pausebtnp;
+    int               paused;
+    int               spacepressed;
 } OS_SDL;
 
-static void backend_SDL_audio(void *unused, u8 *stream, int len);
+static void                backend_SDL_audio(void *unused, u8 *stream, int len);
+static SDL_GameController *backend_SDL_gamecontroller();
+static bool32              backend_SDL_hit_pause();
 
 int main(int argc, char **argv)
 {
@@ -43,7 +49,8 @@ int main(int argc, char **argv)
     SDL_Init(SDL_INIT_EVENTS |
              SDL_INIT_TIMER |
              SDL_INIT_VIDEO |
-             SDL_INIT_AUDIO);
+             SDL_INIT_AUDIO |
+             SDL_INIT_GAMECONTROLLER);
 
     OS_SDL.window   = SDL_CreateWindow("SDL2 Window",
                                        SDL_WINDOWPOS_CENTERED,
@@ -126,7 +133,23 @@ int main(int argc, char **argv)
             }
         }
 
-        int i = sys_tick(NULL);
+        OS_SDL.pausebtnp = OS_SDL.pausebtn;
+        OS_SDL.pausebtn  = backend_SDL_hit_pause();
+
+        if (!OS_SDL.pausebtnp && OS_SDL.pausebtn) {
+            if (OS_SDL.paused) {
+                OS_SDL.paused = 0;
+                sys_resume();
+            } else {
+                OS_SDL.paused = 1;
+                sys_pause();
+            }
+        }
+
+        int i = 1;
+        if (!OS_SDL.paused) {
+            i = sys_tick(NULL);
+        }
 
         if (i != 0) {
             int   pitch;
@@ -143,6 +166,12 @@ int main(int argc, char **argv)
                     int byt   = OS_SDL.framebuffer[i];
                     int bit   = (byt & (0x80 >> (x & 7))) > 0;
                     pixels[k] = OS_SDL.color_pal[OS_SDL.inv ? !bit : bit];
+                }
+
+                if (OS_SDL.paused) {
+                    for (int x = 200; x < SYS_DISPLAY_W; x++) {
+                        pixels[x + y * SYS_DISPLAY_W] = OS_SDL.color_pal[0];
+                    }
                 }
             }
             SDL_UnlockTexture(OS_SDL.texture);
@@ -211,10 +240,40 @@ void backend_modify_audio()
     SDL_UnlockAudioDevice(OS_SDL.audiodevID);
 }
 
+static SDL_GameController *backend_SDL_gamecontroller()
+{
+    for (int i = 0; i < SDL_NumJoysticks(); i++) {
+        if (SDL_IsGameController(i))
+            return SDL_GameControllerOpen(i);
+    }
+    return NULL;
+}
+
+static bool32 backend_SDL_hit_pause()
+{
+    SDL_GameController *c    = backend_SDL_gamecontroller();
+    const Uint8        *keys = SDL_GetKeyboardState(NULL);
+
+    return (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START) ||
+            keys[SDL_SCANCODE_RETURN]);
+}
+
 int backend_inp()
 {
-    int          b    = 0;
-    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    int b = 0;
+
+    SDL_GameController *c    = backend_SDL_gamecontroller();
+    const Uint8        *keys = SDL_GetKeyboardState(NULL);
+
+    int ax = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX);
+    int ay = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY);
+    if (ay > +1000) b |= SYS_INP_DPAD_D;
+    if (ay < -1000) b |= SYS_INP_DPAD_U;
+    if (ax > +1000) b |= SYS_INP_DPAD_R;
+    if (ax < -1000) b |= SYS_INP_DPAD_L;
+    if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_B)) b |= SYS_INP_A;
+    if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_A)) b |= SYS_INP_B;
+
     if (keys[SDL_SCANCODE_W]) b |= SYS_INP_DPAD_U;
     if (keys[SDL_SCANCODE_S]) b |= SYS_INP_DPAD_D;
     if (keys[SDL_SCANCODE_A]) b |= SYS_INP_DPAD_L;
@@ -304,4 +363,14 @@ int backend_debug_space()
 
 void backend_set_menu_image(u8 *px, int h, int wbyte)
 {
+    int y2 = SYS_DISPLAY_H < h ? SYS_DISPLAY_H : h;
+    int b2 = SYS_DISPLAY_WBYTES < wbyte ? SYS_DISPLAY_WBYTES : wbyte;
+    for (int y = 0; y < y2; y++) {
+        for (int b = 0; b < b2; b++) {
+            u8 p                                           = px[b + y * wbyte];
+            OS_SDL.menuimg[b + y * SYS_DISPLAY_WBYTES]     = px[b + y * wbyte];
+            OS_SDL.framebuffer[b + y * SYS_DISPLAY_WBYTES] = p;
+        }
+    }
+    sys_display_update_rows(0, SYS_DISPLAY_H - 1);
 }

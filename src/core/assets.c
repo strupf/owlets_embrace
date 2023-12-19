@@ -13,11 +13,6 @@ void assets_init()
     ASSETS.next_texID = NUM_TEXID;
 }
 
-usize assets_mem_left()
-{
-    return marena_size_rem(&ASSETS.marena);
-}
-
 void *assetmem_alloc(usize s)
 {
     void *mem = marena_alloc(&ASSETS.marena, s);
@@ -25,6 +20,7 @@ void *assetmem_alloc(usize s)
         sys_printf("+++ ran out of asset mem!\n");
         BAD_PATH
     }
+    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
     return mem;
 }
 

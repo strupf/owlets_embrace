@@ -22,6 +22,10 @@ enum {
     OBJ_ID_SAVEPOINT,
     OBJ_ID_CRUMBLEBLOCK,
     OBJ_ID_BLOB,
+    OBJ_ID_SWITCH,
+    OBJ_ID_TOGGLEBLOCK,
+    OBJ_ID_CLOCKPULSE,
+    OBJ_ID_FALLINGBLOCK,
 };
 
 enum {
@@ -56,6 +60,7 @@ enum {
     OBJ_MOVER_SLOPES         = 1 << 0,
     OBJ_MOVER_GLUE_GROUND    = 1 << 1,
     OBJ_MOVER_AVOID_HEADBUMP = 1 << 2,
+    OBJ_MOVER_ONE_WAY_PLAT   = 1 << 3,
 };
 
 enum {
@@ -92,6 +97,7 @@ typedef struct {
     int      mode;
 } sprite_simple_s;
 
+#define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
     obj_UID_s UID;
     int       ID;
@@ -116,6 +122,10 @@ struct obj_s {
     int trigger;
     int facing; // -1 left, +1 right
 
+    int trigger_on; // used by switch and toggleblock
+    int trigger_off;
+    int switch_oneway;
+
     // some generic behaviour fields
     fade_s fade;
     int    action;
@@ -123,7 +133,9 @@ struct obj_s {
     int    state;
     int    animation;
     int    timer;
+    int    subtimer;
 
+    int      attackbuffer;
     int      frametick;
     int      frame;
     int      n_hitboxes;
@@ -142,15 +154,17 @@ struct obj_s {
     obj_handle_s obj_handles[16];
     spriteanim_s spriteanim[4];
 
-    int    attack;
-    int    attack_tick;
-    bool32 facing_locked;
-    int    ropelen;
-
+    int             subattack;
+    int             attack;
+    int             attack_tick;
+    bool32          facing_locked;
+    int             ropelen;
     int             n_sprites;
     sprite_simple_s sprites[4];
-
-    char filename[64];
+    char            filename[64];
+    //
+    char            mem[256];
+    u32             magic;
 };
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
@@ -171,23 +185,18 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
-void         actor_try_wiggle(game_s *g, obj_s *o);
+int          actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_interact(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);
-
-void   squish_delete(game_s *g, obj_s *o);
-v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o);
+bool32       obj_grounded(game_s *g, obj_s *o);
+void         squish_delete(game_s *g, obj_s *o);
+v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
 // the goal is to move a whole pixel left or right
 void obj_apply_movement(obj_s *o);
-//
-
-obj_s *crumbleblock_create(game_s *g);
-void   crumbleblock_update(game_s *g, obj_s *o);
-
 #endif

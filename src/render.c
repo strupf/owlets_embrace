@@ -10,20 +10,27 @@ void render(game_s *g)
     rec_i32 camrec    = cam_rec_px(&g->cam);
     v2_i32  camoffset = {-camrec.x, -camrec.y};
 
-    gfx_ctx_s ctx        = gfx_ctx_default(asset_tex(0));
-    gfx_ctx_s ctx_clouds = gfx_ctx_default(asset_tex(0));
-    texrec_s  trcloud    = asset_texrec(TEXID_CLOUDS, 0, 0, 256, 256);
-    // gfx_spr(ctx_clouds, trcloud, (v2_i32){0, 0}, 0, 0);
-
-    render_parallax(g, camoffset);
+    const gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+    // render_parallax(g, camoffset);
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
-    render_tilemap(g, tilebounds, camoffset);
+    // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
+
+    for (int n = 0; n < g->n_decal_bg; n++) {
+        gfx_ctx_s ctx_decal = ctx;
+        decal_s   decal     = g->decal_bg[n];
+        texrec_s  decalrec  = {decal.tex,
+                               {0, 0, decal.tex.w, decal.tex.h}};
+        v2_i32    decalpos  = {decal.x, decal.y};
+        gfx_spr(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
+    }
+
+    render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (ohero && ohero->rope) {
         rope_s   *rope     = ohero->rope;
-        gfx_ctx_s ctx_rope = gfx_ctx_default(asset_tex(0));
+        gfx_ctx_s ctx_rope = ctx;
 
         int         inode       = 0;
         int         lensofar_q4 = 0;
@@ -44,7 +51,7 @@ void render(game_s *g)
                 dd        = v2_setlen(dd, dst);
                 dd        = v2_shr(dd, 4);
                 dd        = v2_add(dd, p1);
-                gfx_cir_fill(ctx_rope, dd, 4, PRIM_MODE_BLACK);
+                gfx_cir_fill(ctx_rope, dd, 6, PRIM_MODE_BLACK);
                 gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
             }
             lensofar_q4 = lenend_q4;
@@ -72,7 +79,22 @@ void render(game_s *g)
         }
 
         switch (o->ID) {
+        case OBJ_ID_TOGGLEBLOCK:
+            toggleblock_on_draw(g, o, camoffset);
+            break;
         case OBJ_ID_HERO: {
+            hero_s *hero = &g->herodata;
+#if 0 // render hitboxes
+            gfx_ctx_s ctxhb = ctx;
+            for (int i = 0; i < hero->n_hitbox; i++) {
+                hitbox_s hb = hero->hitbox_def[i];
+                hb.r.x += camoffset.x;
+                hb.r.y += camoffset.y;
+                ctxhb.pat = gfx_pattern_interpolate(1, 2);
+                // gfx_rec_fill(ctxhb, hb.r, PRIM_MODE_BLACK_WHITE);
+            }
+#endif
+
 #if 0 // air jump indicators
             hero_s *hero  = &g->herodata;
             bool32  inair = game_traversable(g, obj_rec_bottom(o));
@@ -96,15 +118,33 @@ void render(game_s *g)
         }
     }
 
+    for (int i = 0; i < g->n_particle; i++) {
+        particle_s *p           = &g->particles[i];
+        v2_i32      ppos        = v2_add(v2_shr(p->p_q8, 8), camoffset);
+        gfx_ctx_s   ctxparticle = ctx;
+        ctxparticle.pat         = gfx_pattern_interpolate(p->ticks, p->ticks_max);
+
+        switch (p->gfx) {
+        case PARTICLE_GFX_CIR: {
+            gfx_cir_fill(ctxparticle, ppos, p->size, PRIM_MODE_BLACK);
+        } break;
+        case PARTICLE_GFX_REC: {
+            rec_i32 rr = {ppos.x, ppos.y, p->size, p->size};
+            gfx_rec_fill(ctxparticle, rr, PRIM_MODE_BLACK);
+        } break;
+        case PARTICLE_GFX_SPR: {
+            gfx_spr(ctxparticle, p->texrec, ppos, 0, 0);
+        } break;
+        }
+    }
+
     for (int n = 0; n < g->n_decal_fg; n++) {
-        gfx_ctx_s ctx_decal = gfx_ctx_default(asset_tex(0));
+        gfx_ctx_s ctx_decal = ctx;
         decal_s   decal     = g->decal_fg[n];
-        texrec_s  decalrec;
-        decalrec.t      = decal.tex;
-        decalrec.r      = (rec_i32){0, 0, decal.tex.w, decal.tex.h};
-        v2_i32 decalpos = {decal.x, decal.y};
-        decalpos        = v2_add(decalpos, camoffset);
-        gfx_spr(ctx_decal, decalrec, decalpos, 0, 0);
+        texrec_s  decalrec  = {decal.tex,
+                               {0, 0, decal.tex.w, decal.tex.h}};
+        v2_i32    decalpos  = {decal.x, decal.y};
+        gfx_spr(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
     }
 
     texrec_s trgrass;
@@ -125,23 +165,8 @@ void render(game_s *g)
         }
     }
 
-    for (int n = 0; n < g->n_windparticles; n++) {
-        windparticle_s p = g->windparticles[n];
-
-        v2_i32    p1 = v2_shr(p.pos_q8[p.n], 8);
-        const int y1 = p1.y;
-        const int h1 = ((y1 + camoffset.y) % BG_SIZE + BG_SIZE) % BG_SIZE;
-        p1.y         = h1;
-
-        for (int i = 1; i < BG_WIND_PARTICLE_N; i++) {
-            int    k  = (p.n + i) & (BG_WIND_PARTICLE_N - 1);
-            v2_i32 p2 = v2_shr(p.pos_q8[k], 8);
-            p2.y      = h1 + (p2.y - y1);
-
-            gfx_lin_thick(ctx, p1, p2, PRIM_MODE_BLACK, 1);
-            p1 = p2;
-        }
-    }
+    enveffect_wind_draw(ctx, &g->env_wind, camoffset);
+    // enveffect_heat_draw(ctx, &g->env_heat, camoffset);
 
 #define HORIZONT_X     2000                // distance horizont from screen plane
 #define HORIZONT_X_EYE 600                 // distance eye from screen plane
@@ -203,28 +228,40 @@ void render(game_s *g)
 #endif
 }
 
-void render_tilemap(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
+void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
 {
+    texrec_s tr = {0};
+    switch (layer) {
+    case TILELAYER_TERRAIN:
+        tr.t = asset_tex(TEXID_TILESET_TERRAIN);
+        break;
+    case TILELAYER_BG:
+        tr.t = asset_tex(TEXID_TILESET_BG);
+        break;
+    default: return;
+    }
     gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-
-    texrec_s tr;
-    tr.t = asset_tex(TEXID_TILESET);
+    tr.r.w        = 16;
+    tr.r.h        = 16;
 
     for (int y = bounds.y1; y <= bounds.y2; y++) {
         for (int x = bounds.x1; x <= bounds.x2; x++) {
-            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
-
 #if 1
-            for (int i = 1; i < 2; i++) {
-                int t = g_animated_tiles[g->rtiles[x + y * g->tiles_x].layer[i]];
-                if (t == 0) continue;
-                int tx, ty;
-                rtile_unpack(t, &tx, &ty);
-                rec_i32 r = {tx << 4, ty << 4, 16, 16};
-
-                tr.r = r;
-                gfx_spr(ctx, tr, p, 0, 0);
+            if (g->tiles[x + y * g->tiles_x].collision == TILE_ONE_WAY) {
+                rec_i32 rr = {x << 4, y << 4, 16, 4};
+                rr         = translate_rec(rr, camoffset);
+                gfx_rec_fill(ctx, rr, PRIM_MODE_BLACK);
             }
+
+            rtile_s rt = g->rtiles[layer][x + y * g->tiles_x];
+            // rt.u = g_animated_tiles[tiles[x + y * g->tiles_x].u];
+            if (rt.u == 0) continue;
+
+            tr.r.x   = rt.tx << 4;
+            tr.r.y   = rt.ty << 4;
+            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
+            gfx_spr(ctx, tr, p, 0, 0);
+
 #endif
 #if defined(SYS_DEBUG) && 0
             {
@@ -304,32 +341,21 @@ static void render_item_selection(hero_s *h)
     tex_clr(texcache, TEX_CLR_TRANSPARENT);
 
     // barrel background
-    tr.r = (rec_i32){144, 0, 64, 64};
-    gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
 
-    int discoffset = 10;
+    int offs = 15;
     if (!h->itemselection_decoupled) {
-        int dtang  = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
-        discoffset = min_i(pow2_i32(dtang) / 2000000, discoffset);
+        int dtang = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
+        offs      = min_i(pow2_i32(dtang) / 4000000, offs);
     }
 
-#define ITEM_OVAL_X 2
 #define ITEM_OVAL_Y 12
 
     int turn1 = (inp_crank_q16() + 0x4000) << 2;
     int turn2 = (h->item_angle + 0x4000) << 2;
-    int sx1   = (cos_q16(turn1) * ITEM_OVAL_X) >> 16;
     int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
-    int sx2   = (cos_q16(turn2) * ITEM_OVAL_X) >> 16;
     int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
-
-    // bolt
-    tr.r = (rec_i32){208, 80, 16, 16};
-    gfx_spr(ctx, tr, (v2_i32){33 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
-
-    // hole on barrel
-    tr.r = (rec_i32){208, 96, 16, 16};
-    gfx_spr(ctx, tr, (v2_i32){37 - sx2, 32 - 8 - sy2}, 0, 0);
+    int sx1   = (cos_q16(turn1));
+    int sx2   = (cos_q16(turn2));
 
     // wraps the item image around a rotating barrel
     // map coordinate to angle to image coordinate
@@ -345,27 +371,22 @@ static void render_item_selection(hero_s *h)
         int yy   = y - ITEM_BARREL_R;
         int abar = asin_q16((yy << 16) / ITEM_BARREL_R) >> 2; // asin returns TURN in Q18, one turn = 0x40000, shr by 2 for Q16
         int aimg = (abar + h->item_angle + 0x4000) & 0xFFFF;
-        int offx = (cos_q16((yy << 16) / ITEM_BARREL_R) * 4) >> 16;
-        offx     = clamp_i(offx, 0, 3);
         if (0 <= aimg && aimg < 0x8000) { // maps to [0, 180) deg (visible barrel)
             tr.r.y = h->selected_item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
-            gfx_spr(ctx, tr, (v2_i32){6 - offx, ITEM_Y_OFFS + y}, 0, 0);
+            gfx_spr(ctx, tr, (v2_i32){16, ITEM_Y_OFFS + y}, 0, 0);
         } else {
-            gfx_rec_fill(ctx, (rec_i32){6 - offx, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
+            gfx_rec_fill(ctx, (rec_i32){16, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
         }
     }
 
-    // black barrel frame
-    tr.r = (rec_i32){144, 64, 64, 64};
+    tr.r = (rec_i32){64, 0, 64, 64}; // frame
     gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
-
-    // crank disc
-    tr.r = (rec_i32){208, 0, 32, 64};
-    gfx_spr(ctx, tr, (v2_i32){41 + discoffset, 0}, 0, 0);
-
-    // crank disk bolt attachment
-    tr.r = (rec_i32){208, 112, 16, 16};
-    gfx_spr(ctx, tr, (v2_i32){45 - sx1 + discoffset, 32 - 8 - sy1}, 0, 0);
+    tr.r = (rec_i32){144, 0, 32, 64}; // disc
+    gfx_spr(ctx, tr, (v2_i32){48 + 17 + offs, 0}, 0, 0);
+    tr.r = (rec_i32){112, 64, 16, 16}; // hole
+    gfx_spr(ctx, tr, (v2_i32){48, 32 - 8 - sy2}, 0, 0);
+    tr.r = (rec_i32){112, 80, 16, 16}; // bolt
+    gfx_spr(ctx, tr, (v2_i32){49 + offs, 32 - 8 - sy1}, 0, 0);
 }
 
 void render_ui(game_s *g, v2_i32 camoffset)
@@ -377,18 +398,25 @@ void render_ui(game_s *g, v2_i32 camoffset)
         int       fade_i       = fade_interpolate(areaname, 0, 100);
         fnt_s     areafont     = asset_fnt(FNTID_LARGE);
         gfx_ctx_s ctx_areafont = ctx_ui;
-        rec_i32   arearec      = {0, 0, 120, 40};
-        gfx_rec_fill(ctx_areafont, arearec, PRIM_MODE_WHITE);
-        ctx_areafont.pat = gfx_pattern_interpolate(fade_i, 100);
+        ctx_areafont.pat       = gfx_pattern_interpolate(fade_i, 100);
 
-        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){10, 10}, g->areaname.label, 0);
+        int areax = 10;
+        int areay = 10;
+
+        for (int yy = -2; yy <= +2; yy++) {
+            for (int xx = -2; xx <= +2; xx++) {
+                fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax + xx, areay + yy},
+                               g->areaname.label, SPR_MODE_WHITE);
+            }
+        }
+        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax, areay}, g->areaname.label, SPR_MODE_BLACK);
     }
 
     if (g->herodata.aquired_items) {
         render_item_selection(&g->herodata);
         texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
-                                         0, 0, ITEM_FRAME_SIZE, ITEM_FRAME_SIZE);
-        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 64, 240 - 64 + 16}, 0, 0);
+                                         0, 0, 128, ITEM_FRAME_SIZE);
+        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 92, 240 - 64 + 16}, 0, 0);
     }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -399,7 +427,7 @@ void render_ui(game_s *g, v2_i32 camoffset)
         if (interactable) {
             v2_i32 posi = obj_pos_center(interactable);
             posi        = v2_add(posi, camoffset);
-            posi.y -= 64;
+            posi.y -= 64 + 16;
             posi.x -= 32;
             int      btn_frame = tick_to_index_freq(g->tick, 2, 50);
             texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
@@ -408,4 +436,18 @@ void render_ui(game_s *g, v2_i32 camoffset)
     }
 
     textbox_draw(&g->textbox, camoffset);
+}
+
+void render_pause(game_s *g)
+{
+    spm_push();
+    tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_alloc);
+    gfx_ctx_s ctx = gfx_ctx_default(tex);
+
+    for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WBYTES; i++) {
+        tex.px[i] = rngr_i32(0, 255);
+    }
+
+    sys_set_menu_image(tex.px, tex.h, tex.wbyte);
+    spm_pop();
 }

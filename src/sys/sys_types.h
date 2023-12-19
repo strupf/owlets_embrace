@@ -72,6 +72,7 @@ extern int (*PD_format_str)(char **ret, const char *format, ...);
 extern void *(*PD_realloc)(void *ptr, size_t size);
 void sys_log(const char *str);
 
+#ifdef SYS_PD_HW
 #define sys_printf(...)                      \
     {                                        \
         char *strret;                        \
@@ -79,6 +80,17 @@ void sys_log(const char *str);
         sys_log(strret);                     \
         PD_realloc(strret, 0);               \
     }
+#else
+extern void (*PD_log)(const char *format, ...);
+#define sys_printf(...)                      \
+    {                                        \
+        char *strret;                        \
+        PD_format_str(&strret, __VA_ARGS__); \
+        sys_log(strret);                     \
+        PD_log(__VA_ARGS__);                 \
+        PD_realloc(strret, 0);               \
+    }
+#endif
 #endif
 
 typedef unsigned char  uchar;

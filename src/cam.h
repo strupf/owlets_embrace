@@ -18,11 +18,13 @@ typedef struct {
     int    w;
     int    h;
     int    mode;
+
+    f32 addy;
+    int addticks;
 } cam_s;
 
 v2_i32  cam_pos_px(cam_s *c);
 rec_i32 cam_rec_px(cam_s *c);
-void    cam_set_trg_px(cam_s *c, int x, int y);
 void    cam_set_pos_px(cam_s *c, int x, int y);
 void    cam_update(game_s *g, cam_s *c);
 void    cam_constrain_to_room(game_s *g, cam_s *c);

@@ -12,6 +12,8 @@
 enum {
     HERO_UPGRADE_HOOK,
     HERO_UPGRADE_WHIP,
+    HERO_UPGRADE_HIGH_JUMP,
+    HERO_UPGRADE_LONG_HOOK,
     HERO_UPGRADE_AIR_JUMP_1,
     HERO_UPGRADE_AIR_JUMP_2,
     HERO_UPGRADE_AIR_JUMP_3,
@@ -40,7 +42,6 @@ typedef struct {
     char    name[LEN_HERO_NAME];
     flags32 aquired_upgrades;
     flags32 aquired_items;
-    i32     ropelen;
     rope_s  rope;
 
     int         n_airjumps;
@@ -48,6 +49,9 @@ typedef struct {
     bool32      itemselection_decoupled;
     int         item_angle;
     inventory_s inventory;
+
+    int      n_hitbox; // only for debugging
+    hitbox_s hitbox_def[4];
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -58,5 +62,6 @@ bool32 hero_has_upgrade(hero_s *h, int upgrade);
 void   hero_aquire_upgrade(hero_s *h, int upgrade);
 void   hook_update(game_s *g, obj_s *hook);
 void   hero_crank_item_selection(hero_s *h);
+void   hero_check_rope_intact(game_s *g, obj_s *o);
 
 #endif

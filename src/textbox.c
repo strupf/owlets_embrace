@@ -208,15 +208,9 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 {
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
 
-    textbox_block_s *b = &tb->blocks[tb->block];
+    textbox_block_s *b   = &tb->blocks[tb->block];
+    gfx_ctx_s        ctx = gfx_ctx_default(asset_tex(0));
 
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-
-    gfx_ctx_s ctx_bg = ctx;
-    gfx_rec_fill(ctx_bg, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
-
-    v2_i32 pos = {10, 160};
-    fnt_s  fnt = asset_fnt(FNTID_LARGE);
 #define TB_LINE_SPACING 26
 
     switch (tb->state) {
@@ -228,11 +222,16 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
         break;
     }
 
-    v2_i32   p = pos;
-    texrec_s t = {0};
-    t.t        = fnt.t;
-    t.r.w      = fnt.grid_w;
-    t.r.h      = fnt.grid_h;
+    gfx_ctx_s ctx_bg = ctx;
+    gfx_rec_fill(ctx_bg, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
+
+    v2_i32   pos = {10, 160};
+    fnt_s    fnt = asset_fnt(FNTID_LARGE);
+    v2_i32   p   = pos;
+    texrec_s t   = {0};
+    t.t          = fnt.t;
+    t.r.w        = fnt.grid_w;
+    t.r.h        = fnt.grid_h;
 
     for (int i = 0, len = 0, row = 0; i < tb->n; i++) {
         textbox_char_s ci = b->chars[i];

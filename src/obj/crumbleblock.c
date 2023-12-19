@@ -21,7 +21,7 @@ obj_s *crumbleblock_create(game_s *g)
     o->flags |= OBJ_FLAG_SOLID;
     o->flags |= OBJ_FLAG_SPRITE;
 
-    o->sprites[0].trec = asset_texrec(TEXID_TILESET,
+    o->sprites[0].trec = asset_texrec(TEXID_TILESET_TERRAIN,
                                       16, 0, 16, 16);
     o->n_sprites       = 1;
     o->w               = 16;
@@ -65,16 +65,7 @@ void crumbleblock_update(game_s *g, obj_s *o)
         o->sprites[0].offs.x = 0;
         o->sprites[0].offs.y = 0;
 
-        rec_i32 aabb = obj_aabb(o);
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *obj = g->obj_busy[i];
-            if (obj == o) continue;
-            if (!(obj->flags & OBJ_FLAG_ACTOR)) continue;
-
-            if (overlap_rec(aabb, obj_aabb(obj))) {
-                actor_try_wiggle(g, obj);
-            }
-        }
+        game_on_solid_appear(g);
     } break;
     }
 }

@@ -11,16 +11,21 @@
 #include "core/gfx.c"
 #include "core/inp.c"
 #include "core/spm.c"
-
 //
 #include "util/json.c"
 #include "util/mem.c"
 //
+#include "obj/blob.c"
+#include "obj/clockpulse.c"
 #include "obj/crumbleblock.c"
+#include "obj/fallingblock.c"
 #include "obj/hero.c"
 #include "obj/obj.c"
+#include "obj/switch.c"
+#include "obj/toggleblock.c"
 //
 #include "cam.c"
+#include "enveffect.c"
 #include "fade.c"
 #include "game.c"
 #include "inventory.c"

@@ -41,6 +41,13 @@ enum {
 };
 
 enum {
+    TILELAYER_BG,
+    TILELAYER_TERRAIN,
+    //
+    NUM_TILELAYER = 4
+};
+
+enum {
     GAMESTATE_MAINMENU,
     GAMESTATE_GAMEPLAY,
 };
@@ -79,6 +86,7 @@ enum {
     NUM_TILE_BLOCKS,
     //
     TILE_LADDER = NUM_TILE_BLOCKS,
+    TILE_ONE_WAY,
     TILE_SPIKES,
 };
 

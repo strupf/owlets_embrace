@@ -9,6 +9,9 @@
 #include "gamedef.h"
 #include "savefile.h"
 #include "sys/sys_types.h"
+
+#define MAINMENU_SKIP_TO_GAME 1
+
 enum {
     MAINMENU_FADE_NONE,
     MAINMENU_FADE_INTERNAL, // only fade text
