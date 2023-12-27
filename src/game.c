@@ -193,13 +193,14 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
         g->tiles[n + 3 + 9 * g->tiles_x].collision = TILE_ONE_WAY;
     }
 
+    obj_s *cs = shroomy_create(g);
+    cs->pos.y = 80;
+    cs->pos.x = 100;
+    /*
     obj_s *cb = blob_create(g);
     cb->pos.x = 100;
     cb->pos.y = 100;
-
-    obj_s *cs = shroomy_create(g);
-    cs->pos.x = 100;
-    cs->pos.y = 100;
+    */
 }
 
 static void backforeground_animate_grass(game_s *g)

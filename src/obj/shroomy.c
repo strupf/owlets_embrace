@@ -12,8 +12,8 @@ enum {
 };
 
 #define SHROOMY_TICKS_APPEAR 10
-#define SHROOMY_TICKS_HIDE   10
-#define SHROOMY_TICKS_HIDDEN 100
+#define SHROOMY_TICKS_HIDE   30
+#define SHROOMY_TICKS_HIDDEN 50
 
 obj_s *shroomy_create(game_s *g)
 {
@@ -26,6 +26,7 @@ obj_s *shroomy_create(game_s *g)
     o->facing       = 1;
     o->gravity_q8.y = 30;
     o->drag_q8.y    = 255;
+    o->drag_q8.x    = 256;
     o->w            = 16;
     o->h            = 16;
     o->moverflags |= OBJ_MOVER_SLOPES;
@@ -35,8 +36,8 @@ obj_s *shroomy_create(game_s *g)
     sprite_simple_s *spr = &o->sprites[0];
 
     spr->trec   = asset_texrec(TEXID_SHROOMY, 0, 0, 64, 48);
-    spr->offs.x = -32;
-    spr->offs.y = -48;
+    spr->offs.x = -(spr->trec.r.w - o->w) / 2;
+    spr->offs.y = -(spr->trec.r.h - o->h);
     return o;
 }
 
@@ -71,16 +72,16 @@ void shroomy_on_update(game_s *g, obj_s *o)
         }
         break;
         //
-    case SHROOMY_HIDDEN: {
-        if (SHROOMY_TICKS_HIDDEN <= ++o->timer) {
+    case SHROOMY_HIDDEN:
+        if (++o->timer < SHROOMY_TICKS_HIDDEN) {
             break;
         }
-        o->timer = 0;
 
         if (inp_debug_space()) { // no danger in sight
             o->state = SHROOMY_APPEAR;
+            o->timer = 0;
         }
-    } break;
+        break;
         //
     case SHROOMY_APPEAR:
         if (SHROOMY_TICKS_APPEAR <= ++o->timer)
@@ -102,7 +103,7 @@ void shroomy_on_animate(game_s *g, obj_s *o)
     case SHROOMY_WALK: {
         o->animation += o->vel_q8.x;
         spr->trec.r.y = 0;
-        spr->trec.r.x = W * ((o->animation >> 8) & 3);
+        spr->trec.r.x = W * ((o->animation >> 9) & 3);
     } break;
         //
     case SHROOMY_HIDE: {
@@ -115,14 +116,15 @@ void shroomy_on_animate(game_s *g, obj_s *o)
         //
     case SHROOMY_HIDDEN: {
         spr->trec.r.y = 2 * H;
-        spr->trec.r.x = 1 * W;
+        spr->trec.r.x = (o->timer >= SHROOMY_TICKS_HIDDEN) * W;
     } break;
         //
     case SHROOMY_APPEAR: {
         spr->trec.r.y = 3 * H;
-        spr->trec.r.x = lerp_i32(0, 7,
+        spr->trec.r.x = lerp_i32(0, 3,
                                  o->timer,
                                  SHROOMY_TICKS_APPEAR) *
                         W;
     } break;
     }
+}

@@ -8,7 +8,7 @@
 
 enum {
     SWITCH_ST_OFF = 0,
-    SWITCH_ST_ON  = 1
+    SWITCH_ST_ON  = 1,
 };
 
 static void switch_set_sprite(obj_s *o)
