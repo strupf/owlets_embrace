@@ -356,7 +356,15 @@ v2_i32 obj_pos_bottom_center(obj_s *o)
 
 bool32 obj_grounded(game_s *g, obj_s *o)
 {
+    v2_i32 offs = {0};
+    return obj_grounded_at_offs(g, o, offs);
+}
+
+bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
+{
     rec_i32 rbot = obj_rec_bottom(o);
+    rbot.x += offs.x;
+    rbot.y += offs.y;
     if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
             return 1;
@@ -385,7 +393,7 @@ obj_s *obj_savepoint_create(game_s *g)
 
 v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
 {
-    if (!o->rope || !o->ropenode) return;
+    if (!o->rope || !o->ropenode) return o->vel_q8;
 
     rope_s     *r          = o->rope;
     ropenode_s *rn         = o->ropenode;
@@ -416,4 +424,10 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
     v2_i32 frope   = v2_add(fdamp, fspring);
     v2_i32 vel_new = v2_sub(o->vel_q8, frope);
     return vel_new;
+}
+
+int obj_health_change(obj_s *o, int dt)
+{
+    o->health = clamp_i(o->health + dt, 0, o->health_max);
+    return o->health;
 }

@@ -18,6 +18,7 @@ void  backend_display_row_updated(int a, int b);
 f32   backend_seconds();
 u8   *backend_framebuffer();
 int   backend_inp();
+int   backend_key(int key);
 int   backend_debug_space();
 f32   backend_crank();
 int   backend_crank_docked();

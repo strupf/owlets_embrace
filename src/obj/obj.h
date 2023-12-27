@@ -26,6 +26,7 @@ enum {
     OBJ_ID_TOGGLEBLOCK,
     OBJ_ID_CLOCKPULSE,
     OBJ_ID_FALLINGBLOCK,
+    OBJ_ID_SHROOMY,
 };
 
 enum {
@@ -122,8 +123,8 @@ struct obj_s {
     int trigger;
     int facing; // -1 left, +1 right
 
-    int trigger_on; // used by switch and toggleblock
-    int trigger_off;
+    int trigger_on_0;
+    int trigger_on_1; // used by switch and toggleblock
     int switch_oneway;
 
     // some generic behaviour fields
@@ -135,6 +136,8 @@ struct obj_s {
     int    timer;
     int    subtimer;
 
+    int      health;
+    int      health_max;
     int      attackbuffer;
     int      frametick;
     int      frame;
@@ -191,8 +194,11 @@ void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_interact(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);
 bool32       obj_grounded(game_s *g, obj_s *o);
+bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
+//
+int          obj_health_change(obj_s *o, int dt); // returns health left
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

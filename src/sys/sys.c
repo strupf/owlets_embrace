@@ -210,6 +210,11 @@ int sys_inp()
     return backend_inp();
 }
 
+int sys_key(int k)
+{
+    return backend_key(k);
+}
+
 f32 sys_crank()
 {
     return backend_crank();
@@ -253,7 +258,10 @@ static void  muschannel_stream(sys_muschannel_s *ch, i16 *buf, int len);
 int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
 {
     sys_muschannel_s *mch = &SYS.muschannel;
-    muschannel_stream(mch, lbuf, len);
+    // muschannel_stream(mch, lbuf, len);
+
+    SYS_AUDIO_CB(lbuf, len);
+    return 1;
 
     for (int i = 0; i < SYS_NUM_SNDCHANNEL; i++) {
         sys_sndchannel_s *sch = &SYS.sndchannel[i];
@@ -266,7 +274,7 @@ int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
     return 1;
 }
 
-sys_wavdata_s sys_load_wavdata(const char *filename, void *(*allocf)(usize s))
+sys_wavdata_s sys_load_wavdata(const char *filename, alloc_s ma)
 {
     sys_wavdata_s wav = {0};
     wavheader_s   wheader;
@@ -276,7 +284,7 @@ sys_wavdata_s sys_load_wavdata(const char *filename, void *(*allocf)(usize s))
         return wav;
     }
 
-    wav.buf = allocf(wheader.subchunk2size);
+    wav.buf = ma.allocf(ma.ctx, wheader.subchunk2size);
     if (wav.buf == NULL) {
         sys_printf("+++ Can't alloc mem wav: %s\n", filename);
         sys_file_close(f);

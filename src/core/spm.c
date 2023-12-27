@@ -6,6 +6,14 @@
 
 SPM_s SPM;
 
+static void  *spm_alloc_ctx(void *ctx, usize s);
+const alloc_s spm_allocator = {spm_alloc_ctx, NULL};
+
+static void *spm_alloc_ctx(void *ctx, usize s)
+{
+    return spm_alloc(s);
+}
+
 void spm_init()
 {
     marena_init(&SPM.m, SPM.mem, sizeof(SPM.mem));

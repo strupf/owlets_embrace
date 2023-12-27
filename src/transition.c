@@ -20,7 +20,6 @@ void cb_transition_load(void *arg)
     cam_s *cam   = &g->cam;
     v2_i32 hpos  = obj_pos_center(hero);
     cam_set_pos_px(cam, hpos.x, hpos.y);
-    cam_constrain_to_room(g, cam);
 }
 
 static void transition_start(transition_s *t, game_s *g, const char *file,

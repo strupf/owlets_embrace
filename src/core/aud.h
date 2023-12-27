@@ -7,19 +7,46 @@
 
 #include "sys/sys.h"
 
-typedef struct {
-    sys_wavdata_s wav;
-} snd_s;
+typedef sys_wavdata_s aud_snd_s;
 
-typedef struct {
-    char path[64];
-} mus_s;
+#define AUD_WAVES 4
 
 enum {
-    MUS_FADE_NONE,
-    MUS_FADE_OUT,
-    MUS_FADE_IN,
+    WAVE_TYPE_SQUARE,
+    WAVE_TYPE_SINE,
+    WAVE_TYPE_TRIANGLE,
+    WAVE_TYPE_SAW,
 };
+
+enum {
+    ADSR_NONE,
+    ADSR_ATTACK,
+    ADSR_DECAY,
+    ADSR_SUSTAIN,
+    ADSR_RELEASE,
+};
+
+typedef struct {
+    int adsr;
+    int t;
+
+    i32 vol_sustain;
+    i32 vol_peak;
+    int attack; // ticks, 44100 = 1s
+    int decay;
+    int sustain;
+    int release;
+} envelope_s;
+
+typedef struct {
+    int type;
+
+    u32 t; // 0 to 0xFFFFFFFF equals one period
+    u32 incr;
+    i32 vol;
+
+    envelope_s env;
+} wave_s;
 
 typedef struct {
     int  mus_fade_ticks;
@@ -27,17 +54,19 @@ typedef struct {
     int  mus_fade_in;
     int  mus_fade;
     char mus_new[64];
+
+    wave_s waves[AUD_WAVES];
 } AUD_s;
 
 extern AUD_s AUD;
 
-void   aud_update();
-void   snd_play(snd_s s);
-snd_s  snd_load(const char *pathname, void *(*allocf)(usize s));
-mus_s  mus_load(const char *pathname);
-void   snd_play_ext(snd_s s, float vol, float pitch);
-void   mus_fade_to(mus_s m, int ticks_out, int ticks_in);
-void   mus_stop();
-bool32 mus_playing();
+void      aud_update();
+//
+aud_snd_s aud_snd_load(const char *pathname, alloc_s ma);
+void      aud_snd_play(aud_snd_s s, f32 vol, f32 pitch);
+//
+void      aud_mus_fade_to(const char *pathname, int ticks_out, int ticks_in);
+void      aud_mus_stop();
+bool32    aud_mus_playing();
 
 #endif

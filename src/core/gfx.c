@@ -10,7 +10,7 @@
 #include "util/mem.h"
 #include "util/str.h"
 
-fnt_s fnt_load(const char *filename, void *(allocf)(usize s))
+fnt_s fnt_load(const char *filename, alloc_s ma)
 {
     spm_push();
 
@@ -21,7 +21,7 @@ fnt_s fnt_load(const char *filename, void *(allocf)(usize s))
         return f;
     }
 
-    f.widths = (u8 *)allocf(sizeof(u8) * 256);
+    f.widths = (u8 *)ma.allocf(ma.ctx, sizeof(u8) * 256);
     if (!f.widths) {
         sys_printf("+++ allocating font memory\n");
         spm_pop();
@@ -39,7 +39,7 @@ fnt_s fnt_load(const char *filename, void *(allocf)(usize s))
     str_cpy(fp, ".tex");
 
     sys_printf("  loading fnt tex: %s\n", filename_tex);
-    f.t      = tex_load(filename_tex, allocf);
+    f.t      = tex_load(filename_tex, ma);
     f.grid_w = jsonk_u32(j, "gridwidth");
     f.grid_h = jsonk_u32(j, "gridheight");
 
@@ -66,14 +66,14 @@ tex_s tex_framebuffer()
     return t;
 }
 
-tex_s tex_create(int w, int h, void *(*allocf)(usize s))
+tex_s tex_create(int w, int h, alloc_s ma)
 {
     tex_s t        = {0};
     int   waligned = (w + 31) & ~31;
     int   wword    = waligned / 32;
     int   wbyte    = waligned / 8;
     usize size     = sizeof(u8) * wbyte * h;
-    void *mem      = allocf(size * 2); // * 2 bc of mask pixels
+    void *mem      = ma.allocf(ma.ctx, size * 2); // * 2 bc of mask pixels
     if (!mem) return t;
     t.px    = (u8 *)mem;
     t.mk    = (u8 *)mem + size;
@@ -84,17 +84,17 @@ tex_s tex_create(int w, int h, void *(*allocf)(usize s))
     return t;
 }
 
-tex_s tex_load(const char *path, void *(*allocf)(usize s))
+tex_s tex_load(const char *path, alloc_s ma)
 {
     void *f = sys_file_open(path, SYS_FILE_R);
 
-    int w;
-    int h;
-    sys_file_read(f, &w, sizeof(int));
-    sys_file_read(f, &h, sizeof(int));
+    uint w;
+    uint h;
+    sys_file_read(f, &w, sizeof(uint));
+    sys_file_read(f, &h, sizeof(uint));
 
     usize s = ((w * h) * 2) / 8;
-    tex_s t = tex_create(w, h, allocf);
+    tex_s t = tex_create(w, h, ma);
     sys_file_read(f, t.px, s);
     sys_file_close(f);
     return t;
@@ -177,6 +177,11 @@ gfx_ctx_s gfx_ctx_default(tex_s dst)
     return ctx;
 }
 
+gfx_ctx_s gfx_ctx_display()
+{
+    return gfx_ctx_default(tex_framebuffer());
+}
+
 gfx_ctx_s gfx_ctx_stencil(tex_s dst, tex_s stc)
 {
     assert(stc.wbyte == dst.wbyte && stc.h == dst.h);
@@ -189,13 +194,13 @@ gfx_ctx_s gfx_ctx_stencil(tex_s dst, tex_s stc)
 
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 {
-    gfx_pattern_s pat;
+    gfx_pattern_s pat  = {0};
     int           p[4] = {p0, p1, p2, p3};
     for (int i = 0; i < 4; i++) {
-        u32 pp       = ((u32)p[i] << 4) | ((u32)p[i]);
-        pp           = (pp << 24) | (pp << 16) | (pp << 8) | (pp);
-        pat.p[i + 0] = pp;
-        pat.p[i + 4] = pp;
+        u32 pa       = ((u32)p[i] << 4) | ((u32)p[i]);
+        u32 pb       = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
+        pat.p[i + 0] = pb;
+        pat.p[i + 4] = pb;
     }
     return pat;
 }
@@ -203,7 +208,7 @@ gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3,
                               int p4, int p5, int p6, int p7)
 {
-    gfx_pattern_s pat;
+    gfx_pattern_s pat  = {0};
     int           p[8] = {p0, p1, p2, p3, p4, p5, p6, p7};
     for (int i = 0; i < 8; i++) {
         u32 pp   = (u32)p[i];

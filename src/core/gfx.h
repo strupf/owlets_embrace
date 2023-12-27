@@ -77,16 +77,17 @@ enum {
     TEX_CLR_TRANSPARENT,
 };
 
-fnt_s         fnt_load(const char *filename, void *(allocf)(usize s));
+fnt_s         fnt_load(const char *filename, alloc_s ma);
 tex_s         tex_framebuffer();
-tex_s         tex_create(int w, int h, void *(*allocf)(usize s));
-tex_s         tex_load(const char *path, void *(*allocf)(usize s));
+tex_s         tex_create(int w, int h, alloc_s ma);
+tex_s         tex_load(const char *path, alloc_s ma);
 int           tex_px_at(tex_s tex, int x, int y);
 int           tex_mk_at(tex_s tex, int x, int y);
 void          tex_px(tex_s tex, int x, int y, int col);
 void          tex_mk(tex_s tex, int x, int y, int col);
 void          tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
+gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_stencil(tex_s dst, tex_s stc);
 void          tex_clr(tex_s dst, int col);
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);

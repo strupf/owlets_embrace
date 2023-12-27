@@ -162,6 +162,7 @@ enum {
     HITBOX_FLAG_HURT_HERO        = 1 << 0,
     HITBOX_FLAG_HURT_MONSTER     = 1 << 1,
     HITBOX_FLAG_HURT_ENVIRONMENT = 1 << 2,
+    HITBOX_FLAG_HERO             = 1 << 3,
 };
 
 typedef struct {

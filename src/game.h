@@ -14,6 +14,7 @@
 #include "obj/behaviour.h"
 #include "obj/hero.h"
 #include "obj/obj.h"
+#include "particle.h"
 #include "rope.h"
 #include "textbox.h"
 #include "transition.h"
@@ -26,7 +27,6 @@
 //
 
 #define NUM_TILES         0x40000
-#define NUM_PARTICLES     256
 #define INTERACTABLE_DIST 32
 #define NUM_DECALS        256
 
@@ -36,35 +36,6 @@ typedef struct {
     int    x_q8;
     int    v_q8;
 } grass_s;
-
-enum {
-    PARTICLE_GFX_REC,
-    PARTICLE_GFX_CIR,
-    PARTICLE_GFX_SPR
-};
-
-typedef struct {
-    v2_i32   p_q8;
-    v2_i32   v_q8;
-    v2_i32   a_q8;
-    i32      ticks;
-    i32      ticks_max;
-    i32      size;
-    i32      gfx;
-    texrec_s texrec;
-} particle_s;
-
-typedef struct {
-    particle_s p;
-
-    v2_i32 pr_q8;
-    v2_i32 vr_q8;
-    v2_i32 ar_q8;
-    int    ticksr;
-    int    sizer;
-} particle_desc_s;
-
-void particles_spawn(game_s *g, particle_desc_s desc, int n);
 
 enum {
     BG_IMG_POS_TILED,
@@ -147,16 +118,14 @@ struct game_s {
         fade_s fade;
     } areaname;
 
-    int        n_decal_fg;
-    int        n_decal_bg;
-    int        n_grass;
-    int        n_particle;
-    decal_s    decal_fg[NUM_DECALS];
-    decal_s    decal_bg[NUM_DECALS];
-    grass_s    grass[256];
-    particle_s particles[NUM_PARTICLES];
-
-    ocean_s ocean;
+    int         n_decal_fg;
+    int         n_decal_bg;
+    int         n_grass;
+    decal_s     decal_fg[NUM_DECALS];
+    decal_s     decal_bg[NUM_DECALS];
+    grass_s     grass[256];
+    ocean_s     ocean;
+    particles_s particles;
 
     marena_s arena;
     alignas(4) char mem[MKILOBYTE(256)];
@@ -171,24 +140,27 @@ extern u16           g_animated_tiles[65536];
 extern const int     g_pxmask_tab[32 * 16];
 extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
 
-void             game_init(game_s *g);
-void             game_tick(game_s *g);
-void             game_draw(game_s *g);
-void             game_paused(game_s *g);
+void game_init(game_s *g);
+void game_tick(game_s *g);
+void game_draw(game_s *g);
+void game_paused(game_s *g);
+
 int              tick_now(game_s *g);
 void             game_new_savefile(game_s *g, int slotID);
 void             game_write_savefile(game_s *g);
 void             game_load_savefile(game_s *g, savefile_s sf, int slotID);
 void             game_on_trigger(game_s *g, int trigger);
 bool32           tiles_solid(game_s *g, rec_i32 r);
+bool32           tiles_solid_pt(game_s *g, int x, int y);
 bool32           tile_one_way(game_s *g, rec_i32 r);
 bool32           game_traversable(game_s *g, rec_i32 r);
+bool32           game_traversable_pt(game_s *g, int x, int y);
 solid_rec_list_s game_solid_recs(game_s *g);
 void             game_on_solid_appear(game_s *g);
-int              rtile_pack(int tx, int ty);
-void             rtile_unpack(int ID, int *tx, int *ty);
 void             game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
 void             game_put_grass(game_s *g, int tx, int ty);
+//
+alloc_s          game_allocator(game_s *g);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

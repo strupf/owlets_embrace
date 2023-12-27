@@ -18,9 +18,8 @@ static int ease_in_sine(int a, int b, int num, int den)
 
 static int ease_out_sine(int a, int b, int num, int den)
 {
-    int x  = (num * (Q16_ANGLE_TURN >> 2)) / den;
-    int ab = b - a;
-    return a + ((ab * sin_q16(x)) >> 16);
+    int x = (num * (Q16_ANGLE_TURN >> 2)) / den;
+    return a + (((b - a) * sin_q16(x)) >> 16);
 }
 
 static int ease_in_out_sine(int a, int b, int num, int den)
@@ -32,8 +31,7 @@ static int ease_in_out_sine(int a, int b, int num, int den)
 
 static int ease_in_quad(int a, int b, int num, int den)
 {
-    int ab = b - a;
-    return a + (ab * num * num) / (den * den);
+    return a + ((b - a) * num * num) / (den * den);
 }
 
 static int ease_out_quad(int a, int b, int num, int den)
@@ -45,13 +43,12 @@ static int ease_out_quad(int a, int b, int num, int den)
 
 static int ease_in_out_quad(int a, int b, int num, int den)
 {
-    int ab = b - a;
-
     if (num < den / 2) {
-        return a + (2 * ab * num * num) / (den * den);
+        int n = num;
+        return a + (2 * (b - a) * n * n) / (den * den);
     } else {
         int n = den - num;
-        return b - (2 * ab * n * n) / (den * den);
+        return b - (2 * (b - a) * n * n) / (den * den);
     }
 }
 #endif

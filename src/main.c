@@ -21,8 +21,10 @@
 #include "obj/fallingblock.c"
 #include "obj/hero.c"
 #include "obj/obj.c"
+#include "obj/shroomy.c"
 #include "obj/switch.c"
 #include "obj/toggleblock.c"
+#include "obj/walker.c"
 //
 #include "cam.c"
 #include "enveffect.c"
@@ -31,6 +33,7 @@
 #include "inventory.c"
 #include "mainmenu.c"
 #include "map_loader.c"
+#include "particle.c"
 #include "render.c"
 #include "rope.c"
 #include "savefile.c"

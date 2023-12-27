@@ -489,16 +489,9 @@ static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
     return 1;
 }
 
-static inline bool32 overlap_rec_pnt_incl(rec_i32 a, v2_i32 p)
+static inline bool32 overlap_rec_pnt(rec_i32 a, v2_i32 p)
 {
-    return (a.x <= p.x && p.x <= a.x + a.w &&
-            a.y <= p.y && p.y <= a.y + a.h);
-}
-
-static inline bool32 overlap_rec_pnt_excl(rec_i32 a, v2_i32 p)
-{
-    return (a.x < p.x && p.x < a.x + a.w &&
-            a.y < p.y && p.y < a.y + a.h);
+    return (a.x <= p.x && p.x < a.x + a.w && a.y <= p.y && p.y < a.y + a.h);
 }
 
 // check for overlap - touching rectangles considered overlapped

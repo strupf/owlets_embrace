@@ -165,12 +165,14 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
-    g->n_grass    = 0;
-    g->n_ropes    = 0;
-    g->n_decal_fg = 0;
-    g->n_decal_bg = 0;
+    g->n_grass     = 0;
+    g->n_ropes     = 0;
+    g->n_decal_fg  = 0;
+    g->n_decal_bg  = 0;
+    g->particles.n = 0;
     marena_init(&g->arena, g->mem, sizeof(g->mem));
 
+    /*
     g->ocean.ocean.particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * 1024);
     g->ocean.ocean.nparticles     = 1024;
     g->ocean.ocean.dampening_q12  = 4070;
@@ -186,6 +188,7 @@ void game_load_map(game_s *g, const char *mapfile)
     g->ocean.water.fzero_q16      = 100;
     g->ocean.water.loops          = 3;
     g->ocean.water.p              = (v2_i32){0};
+    */
 
     strcpy(g->areaname.filename, mapfile);
     g->map_world.roomcur = map_world_find_room(&g->map_world, mapfile);
@@ -222,7 +225,7 @@ void game_load_map(game_s *g, const char *mapfile)
 
     map_property_s prop;
     if (map_prop_get(props, "music", &prop)) {
-        mus_fade_to(mus_load(prop.v.s), 60, 60);
+        mus_fade_to(prop.v.s, 60, 60);
     }
     if (map_prop_get(props, "name", &prop)) {
         str_cpy(g->areaname.label, prop.v.s);
@@ -270,7 +273,9 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int n = 0; n < meta.n_obj; n++) {
         spm_push();
         map_object_s obj = map_read_object(mapf, spm_alloc);
-        sys_printf("img: %s\n", obj.image);
+        int          tx  = obj.x >> 4;
+        int          ty  = obj.y >> 4;
+
         if (0) {
         } else if (str_contains(obj.name, "Sign")) {
             obj_s *o = obj_create(g);
@@ -279,31 +284,29 @@ void game_load_map(game_s *g, const char *mapfile)
             o->pos.x = obj.x;
             o->pos.y = obj.y;
             map_prop_s(obj.props, "dialog", o->filename, sizeof(o->filename));
+            //
         } else if (str_contains(obj.image, "switch")) {
-            sys_printf("LOAD SWITCH\n");
-            obj_s *o       = switch_create(g);
-            o->pos.x       = obj.x + obj.w / 2;
-            o->pos.y       = obj.y + obj.h;
-            o->trigger_off = map_prop_i(obj.props, "trigger_0");
-            o->trigger_on  = map_prop_i(obj.props, "trigger_1");
-            o->state       = map_prop_i(obj.props, "state");
-        } else if (str_contains(obj.image, "obj_toggleblock_off")) {
-            sys_printf("LOAD 1\n");
-            obj_s *o       = toggleblock_create(g);
-            o->pos.x       = obj.x;
-            o->pos.y       = obj.y;
-            o->trigger_off = map_prop_i(obj.props, "trigger_hide");
-            o->trigger_on  = map_prop_i(obj.props, "trigger_show");
-            o->trigger     = o->trigger_on;
-        } else if (str_contains(obj.image, "obj_toggleblock_on")) {
-            sys_printf("LOAD 2\n");
-            obj_s *o       = toggleblock_create(g);
-            o->state       = 1;
-            o->pos.x       = obj.x;
-            o->pos.y       = obj.y;
-            o->trigger_off = map_prop_i(obj.props, "trigger_hide");
-            o->trigger_on  = map_prop_i(obj.props, "trigger_show");
-            o->trigger     = o->trigger_off;
+            obj_s *o        = switch_create(g);
+            o->pos.x        = obj.x + obj.w / 2;
+            o->pos.y        = obj.y + obj.h;
+            o->trigger_on_0 = map_prop_i(obj.props, "trigger_0");
+            o->trigger_on_1 = map_prop_i(obj.props, "trigger_1");
+            o->state        = map_prop_i(obj.props, "state");
+            //
+        } else if (str_contains(obj.image, "obj_toggleblock")) {
+            obj_s *o        = toggleblock_create(g);
+            o->pos.x        = obj.x;
+            o->pos.y        = obj.y;
+            o->trigger_on_0 = map_prop_i(obj.props, "trigger_hide");
+            o->trigger_on_1 = map_prop_i(obj.props, "trigger_show");
+            if (str_contains(obj.image, "obj_toggleblock_on")) {
+                int i                 = tx + ty * g->tiles_x;
+                o->state              = 1;
+                g->tiles[i].collision = TILE_BLOCK;
+                o->trigger            = o->trigger_on_1;
+            } else {
+                o->trigger = o->trigger_on_0;
+            }
         }
 
         spm_pop();

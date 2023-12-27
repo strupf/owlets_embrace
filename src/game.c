@@ -38,28 +38,30 @@ static void gameplay_tick(game_s *g)
     }
 
     for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o   = g->obj_busy[i];
-        o->posprev = o->pos;
+        obj_s       *o       = g->obj_busy[i];
+        const v2_i32 posprev = o->pos;
 
         switch (o->ID) {
+        case OBJ_ID_BLOB: blob_on_update(g, o); break;
         case OBJ_ID_HERO: hero_on_update(g, o); break;
         case OBJ_ID_CRUMBLEBLOCK: crumbleblock_update(g, o); break;
         case OBJ_ID_CLOCKPULSE: clockpulse_update(g, o); break;
+        case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
         }
+        o->posprev = posprev;
+#ifdef SYS_DEBUG
+        assert(o->magic == OBJ_MAGIC);
+#endif
     }
 
-    // integrate acceleration, velocity and drag
-    // adds tomove accumulator
-    for (int i = 0; i < g->obj_nbusy; i++) {
+    for (int i = 0; i < g->obj_nbusy; i++) { // integrate acc, vel and drag: adds tomove accumulator
         obj_s *o = g->obj_busy[i];
-
         if (o->flags & OBJ_FLAG_MOVER) {
             obj_apply_movement(o);
         }
     }
 
-    // move objects by tomove
-    for (int i = 0; i < g->obj_nbusy; i++) {
+    for (int i = 0; i < g->obj_nbusy; i++) { // move objects by tomove
         obj_s *o = g->obj_busy[i];
         if (o->flags & OBJ_FLAG_SOLID) {
             solid_move(g, o, o->tomove);
@@ -100,47 +102,7 @@ static void gameplay_tick(game_s *g)
 
     transition_check_hero_slide(&g->transition, g);
     ocean_update(&g->ocean);
-
-    for (int i = g->n_particle - 1; i >= 0; i--) {
-        particle_s *p  = &g->particles[i];
-        v2_i32      p0 = v2_shr(p->p_q8, 8);
-        rec_i32     rp = {p0.x, p0.y, 1, 1};
-        if (--p->ticks <= 0 || !game_traversable(g, rp)) {
-            *p = g->particles[--g->n_particle];
-            continue;
-        }
-
-        p->v_q8   = v2_add(p->v_q8, p->a_q8);
-        v2_i32 pp = v2_add(p->p_q8, p->v_q8);
-        v2_i32 p1 = v2_shr(pp, 8);
-        v2_i32 pd = v2_sub(p1, p0);
-        v2_i32 pz = p0;
-
-        for (int mx = abs_i(pd.x), sx = sgn_i(pd.x); 0 < mx; mx--) {
-            rec_i32 rr = {pz.x + sx, pz.y, 1, 1};
-            if (!game_traversable(g, rr)) break;
-            pz.x += sx;
-        }
-        for (int my = abs_i(pd.y), sy = sgn_i(pd.y); 0 < my; my--) {
-            rec_i32 rr = {pz.x, pz.y + sy, 1, 1};
-            if (!game_traversable(g, rr)) break;
-            pz.y += sy;
-        }
-
-        if (pz.x == p1.x) {
-            p->p_q8.x = pp.x;
-        } else {
-            p->v_q8.x = -((p->v_q8.x * 128) >> 8);
-            p->p_q8.x = pz.x << 8;
-        }
-
-        if (pz.y == p1.y) {
-            p->p_q8.y = pp.y;
-        } else {
-            p->v_q8.y = -((p->v_q8.y * 128) >> 8);
-            p->p_q8.y = pz.y << 8;
-        }
-    }
+    particles_update(g, &g->particles);
 }
 
 void game_tick(game_s *g)
@@ -168,14 +130,9 @@ void game_tick(game_s *g)
         case OBJ_ID_HERO: hero_on_animate(g, o); break;
         case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+        case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
         }
     }
-}
-
-void game_draw(game_s *g)
-{
-    render(g);
-    transition_draw(&g->transition);
 }
 
 void game_paused(game_s *g)
@@ -204,7 +161,6 @@ void game_write_savefile(game_s *g)
     sf.tick             = g->tick;
     sf.n_airjumps       = hero->n_airjumps;
     savefile_write(g->savefile_slotID, &sf);
-    sys_printf("saved!\n");
 }
 
 void game_load_savefile(game_s *g, savefile_s sf, int slotID)
@@ -230,36 +186,38 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     g->herodata.aquired_upgrades = sf.aquired_upgrades;
     g->herodata.n_airjumps       = sf.n_airjumps;
 
-    obj_s *cp      = clockpulse_create(g);
-    cp->subtimer   = 100;
-    cp->trigger_on = 4;
-    sys_printf("LOAD\n");
+    obj_s *cp        = clockpulse_create(g);
+    cp->subtimer     = 100;
+    cp->trigger_on_1 = 4;
     for (int n = 0; n < 10; n++) {
         g->tiles[n + 3 + 9 * g->tiles_x].collision = TILE_ONE_WAY;
     }
-}
 
-int tick_now(game_s *g)
-{
-    return g->tick;
+    obj_s *cb = blob_create(g);
+    cb->pos.x = 100;
+    cb->pos.y = 100;
+
+    obj_s *cs = shroomy_create(g);
+    cs->pos.x = 100;
+    cs->pos.y = 100;
 }
 
 static void backforeground_animate_grass(game_s *g)
 {
     for (int n = 0; n < g->n_grass; n++) {
         grass_s *gr = &g->grass[n];
-
-        rec_i32 rgrass = {gr->pos.x, gr->pos.y, 16, 16};
+        rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
 
         for (int n = 0; n < g->obj_nbusy; n++) {
             obj_s *o = g->obj_busy[n];
-            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(rgrass, obj_aabb(o))) {
+            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
                 gr->v_q8 += o->vel_q8.x >> 6;
             }
         }
 
+#define GRASS_F (30000 * 150)
         int f1 = -((gr->x_q8 * 4) >> 8);
-        int f2 = rngr_i32(-30000 * 150, +30000 * 150) >> (13 + 8);
+        int f2 = rngr_i32(-GRASS_F, +GRASS_F) >> (13 + 8);
         gr->v_q8 += f1 + f2;
         gr->x_q8 += gr->v_q8;
         gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
@@ -286,6 +244,7 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 
 void game_on_trigger(game_s *g, int trigger)
 {
+    sys_printf("trigger: %i\n", trigger);
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *o = g->obj_busy[i];
         if (o->trigger != trigger) continue;
@@ -293,29 +252,6 @@ void game_on_trigger(game_s *g, int trigger)
         switch (o->ID) {
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o); break;
         }
-    }
-}
-
-void particles_spawn(game_s *g, particle_desc_s desc, int n)
-{
-    int i2 = min_i(NUM_PARTICLES - g->n_particle, n);
-    for (int i = 0; i < i2; i++) {
-        v2_i32 pos = desc.p.p_q8;
-        pos.x += rngr_i32(-desc.pr_q8.x, +desc.pr_q8.x);
-        pos.y += rngr_i32(-desc.pr_q8.y, +desc.pr_q8.y);
-        rec_i32 r = {pos.x >> 8, pos.y >> 8, 1, 1};
-        if (!game_traversable(g, r)) continue;
-
-        particle_s *p = &g->particles[g->n_particle++];
-        *p            = desc.p;
-        p->p_q8       = pos;
-        p->v_q8.x += rngr_i32(-desc.vr_q8.x, +desc.vr_q8.x);
-        p->v_q8.y += rngr_i32(-desc.vr_q8.y, +desc.vr_q8.y);
-        p->a_q8.x += rngr_i32(-desc.ar_q8.x, +desc.ar_q8.x);
-        p->a_q8.y += rngr_i32(-desc.ar_q8.y, +desc.ar_q8.y);
-        p->size += rngr_i32(0, desc.sizer);
-        p->ticks_max += rngr_i32(0, desc.ticksr);
-        p->ticks = p->ticks_max;
     }
 }
 
@@ -379,20 +315,25 @@ bool32 tiles_solid(game_s *g, rec_i32 r)
     return 0;
 }
 
+bool32 tiles_solid_pt(game_s *g, int x, int y)
+{
+    if (!(0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y)) return 0;
+
+    int ID = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x].collision;
+    if (ID == TILE_EMPTY || NUM_TILE_BLOCKS <= ID) return 0;
+    return (g_pxmask_tab[(ID << 4) + (y & 15)] & (0x8000 >> (x & 15)));
+}
+
 bool32 tile_one_way(game_s *g, rec_i32 r)
 {
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
     rec_i32 riarea;
     if (!intersect_rec(r, rgrid, &riarea)) return 0;
 
-    int px0 = riarea.x;
-    int py0 = riarea.y;
-    int px1 = riarea.x + riarea.w - 1;
-    int py1 = riarea.y + riarea.h - 1;
-    int tx0 = px0 >> 4;
-    int ty0 = py0 >> 4;
-    int tx1 = px1 >> 4;
-    int ty1 = py1 >> 4;
+    int tx0 = (riarea.x) >> 4;
+    int ty0 = (riarea.y) >> 4;
+    int tx1 = (riarea.x + riarea.w - 1) >> 4;
+    int ty1 = (riarea.y + riarea.h - 1) >> 4;
 
     for (int ty = ty0; ty <= ty1; ty++) {
         for (int tx = tx0; tx <= tx1; tx++) {
@@ -409,44 +350,52 @@ bool32 game_traversable(game_s *g, rec_i32 r)
 
     for (int n = 0; n < g->obj_nbusy; n++) {
         obj_s *o = g->obj_busy[n];
-        if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(o))) {
+        if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(o)))
             return 0;
-        }
     }
     return 1;
 }
 
-void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
+bool32 game_traversable_pt(game_s *g, int x, int y)
 {
-    for (int n = 0; n < n_boxes; n++) {
-        hitbox_s hb = boxes[n];
+    if (tiles_solid_pt(g, x, y)) return 0;
+
+    v2_i32 p = {x, y};
+    for (int n = 0; n < g->obj_nbusy; n++) {
+        obj_s *o = g->obj_busy[n];
+        if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec_pnt(obj_aabb(o), p))
+            return 0;
+    }
+    return 1;
+}
+
+static void obj_apply_hitboxes(game_s *g, obj_s *o, hitbox_s *boxes, int nb)
+{
+    rec_i32 aabb = obj_aabb(o);
+    if (aabb.w * aabb.h == 0) { // point object
+        aabb.w = 1;
+        aabb.h = 1;
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s  *o    = g->obj_busy[i];
-        rec_i32 aabb = obj_aabb(o);
+    for (int n = 0; n < nb; n++) {
+        hitbox_s h = boxes[n];
 
-        hitbox_s *strongest     = NULL;
-        int       strongest_dmg = 0;
-        for (int n = 0; n < n_boxes; n++) {
-            hitbox_s *hb = &boxes[n];
-
-            if (o->ID == OBJ_ID_HERO && !(hb->flags & HITBOX_FLAG_HURT_HERO))
-                continue;
-
-            if (overlap_rec(aabb, hb->r) && hb->damage > strongest_dmg) {
-                strongest     = hb;
-                strongest_dmg = hb->damage;
-            }
-        }
-
-        if (!strongest) continue;
+        if (!overlap_rec(h.r, aabb)) continue;
 
         switch (o->ID) {
-        case OBJ_ID_KILLABLE:
-            sys_printf("ATTACKED\n");
-            break;
+        case OBJ_ID_SWITCH:
+            if (!(h.flags & HITBOX_FLAG_HERO)) break;
+            switch_on_interact(g, o);
+            return;
         }
+    }
+}
+
+void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
+{
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *o = g->obj_busy[i];
+        obj_apply_hitboxes(g, o, boxes, n_boxes);
     }
 }
 
@@ -459,11 +408,12 @@ bounds_2D_s game_tilebounds_rec(game_s *g, rec_i32 r)
 
 bounds_2D_s game_tilebounds_pts(game_s *g, v2_i32 p0, v2_i32 p1)
 {
-    bounds_2D_s b;
-    b.x1 = max_i(p0.x, 0) >> 4; // div 16
-    b.y1 = max_i(p0.y, 0) >> 4;
-    b.x2 = min_i(p1.x, g->pixel_x - 1) >> 4;
-    b.y2 = min_i(p1.y, g->pixel_y - 1) >> 4;
+    bounds_2D_s b = {
+        max_i(p0.x, 0) >> 4, // div 16
+        max_i(p0.y, 0) >> 4,
+        min_i(p1.x, g->pixel_x - 1) >> 4,
+        min_i(p1.y, g->pixel_y - 1) >> 4,
+    };
     return b;
 }
 
@@ -474,15 +424,9 @@ bounds_2D_s game_tilebounds_tri(game_s *g, tri_i32 t)
     return game_tilebounds_pts(g, pmin, pmax);
 }
 
-int rtile_pack(int tx, int ty)
+int tick_now(game_s *g)
 {
-    return ((tx << 8) | (ty));
-}
-
-void rtile_unpack(int ID, int *tx, int *ty)
-{
-    *tx = (ID >> 8);
-    *ty = (ID & 0xFF);
+    return g->tick;
 }
 
 int tick_to_index_freq(int tick, int n_frames, int freqticks)
@@ -516,6 +460,19 @@ void game_on_solid_appear(game_s *g)
             actor_try_wiggle(g, o);
         }
     }
+}
+
+static void *game_alloc_ctx(void *ctx, usize s)
+{
+    NOT_IMPLEMENTED
+    game_s *g = (game_s *)ctx;
+    return NULL;
+}
+
+alloc_s game_allocator(game_s *g)
+{
+    alloc_s a = {game_alloc_ctx, (void *)g};
+    return a;
 }
 
 // operate on 16x16 tiles

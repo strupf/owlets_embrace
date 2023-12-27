@@ -5,12 +5,12 @@
 #include "render.h"
 #include "game.h"
 
-void render(game_s *g)
+void game_draw(game_s *g)
 {
-    rec_i32 camrec    = cam_rec_px(&g->cam);
+    rec_i32 camrec    = cam_rec_px(g, &g->cam);
     v2_i32  camoffset = {-camrec.x, -camrec.y};
 
-    const gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+    const gfx_ctx_s ctx = gfx_ctx_display();
     // render_parallax(g, camoffset);
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
@@ -79,19 +79,22 @@ void render(game_s *g)
         }
 
         switch (o->ID) {
+        case OBJ_ID_BLOB:
+            blob_on_draw(g, o, camoffset);
+            break;
         case OBJ_ID_TOGGLEBLOCK:
             toggleblock_on_draw(g, o, camoffset);
             break;
         case OBJ_ID_HERO: {
             hero_s *hero = &g->herodata;
-#if 0 // render hitboxes
+#if 1 // render hitboxes
             gfx_ctx_s ctxhb = ctx;
             for (int i = 0; i < hero->n_hitbox; i++) {
                 hitbox_s hb = hero->hitbox_def[i];
                 hb.r.x += camoffset.x;
                 hb.r.y += camoffset.y;
                 ctxhb.pat = gfx_pattern_interpolate(1, 2);
-                // gfx_rec_fill(ctxhb, hb.r, PRIM_MODE_BLACK_WHITE);
+                gfx_rec_fill(ctxhb, hb.r, PRIM_MODE_BLACK_WHITE);
             }
 #endif
 
@@ -118,8 +121,8 @@ void render(game_s *g)
         }
     }
 
-    for (int i = 0; i < g->n_particle; i++) {
-        particle_s *p           = &g->particles[i];
+    for (int i = 0; i < g->particles.n; i++) {
+        particle_s *p           = &g->particles.particles[i];
         v2_i32      ppos        = v2_add(v2_shr(p->p_q8, 8), camoffset);
         gfx_ctx_s   ctxparticle = ctx;
         ctxparticle.pat         = gfx_pattern_interpolate(p->ticks, p->ticks_max);
@@ -199,6 +202,7 @@ void render(game_s *g)
 #endif
 
     render_ui(g, camoffset);
+    transition_draw(&g->transition);
 
 #if 0 // speech bubble animation
     rec_i32 rec = {100, 50, 50, 30};
@@ -240,7 +244,7 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
         break;
     default: return;
     }
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+    gfx_ctx_s ctx = gfx_ctx_display();
     tr.r.w        = 16;
     tr.r.h        = 16;
 
@@ -316,7 +320,7 @@ void render_parallax(game_s *g, v2_i32 camoffset)
         bgy = bgy % par.tr.r.h;
     }
 
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+    gfx_ctx_s ctx = gfx_ctx_display();
 
     for (int y = 0; y < ny; y++) {
         for (int x = 0; x < nx; x++) {
@@ -391,7 +395,7 @@ static void render_item_selection(hero_s *h)
 
 void render_ui(game_s *g, v2_i32 camoffset)
 {
-    gfx_ctx_s ctx_ui = gfx_ctx_default(asset_tex(0));
+    gfx_ctx_s ctx_ui = gfx_ctx_display();
 
     fade_s *areaname = &g->areaname.fade;
     if (fade_phase(areaname) != 0) {
@@ -441,7 +445,7 @@ void render_ui(game_s *g, v2_i32 camoffset)
 void render_pause(game_s *g)
 {
     spm_push();
-    tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_alloc);
+    tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
     gfx_ctx_s ctx = gfx_ctx_default(tex);
 
     for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WBYTES; i++) {

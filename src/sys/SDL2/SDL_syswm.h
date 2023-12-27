@@ -28,10 +28,10 @@
 #ifndef SDL_syswm_h_
 #define SDL_syswm_h_
 
-#include "SDL_stdinc.h"
 #include "SDL_error.h"
-#include "SDL_video.h"
+#include "SDL_stdinc.h"
 #include "SDL_version.h"
+#include "SDL_video.h"
 
 /**
  *  \brief SDL_syswm.h
@@ -49,7 +49,7 @@ struct SDL_SysWMinfo;
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#ifndef NOMINMAX   /* don't define min() and max(). */
+#ifndef NOMINMAX /* don't define min() and max(). */
 #define NOMINMAX
 #endif
 #include <windows.h>
@@ -66,8 +66,8 @@ struct SDL_SysWMinfo;
 #define Cursor X11Cursor
 #endif
 
-#include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/Xlib.h>
 
 #if defined(__APPLE__) && defined(__MACH__)
 /* matches the re-define above */
@@ -84,7 +84,7 @@ struct SDL_SysWMinfo;
 #ifdef __OBJC__
 @class NSWindow;
 #else
-typedef struct _NSWindow NSWindow;
+typedef struct _NSWindow         NSWindow;
 #endif
 #endif
 
@@ -92,7 +92,7 @@ typedef struct _NSWindow NSWindow;
 #ifdef __OBJC__
 #include <UIKit/UIKit.h>
 #else
-typedef struct _UIWindow UIWindow;
+typedef struct _UIWindow         UIWindow;
 typedef struct _UIViewController UIViewController;
 #endif
 typedef Uint32 GLuint;
@@ -104,7 +104,7 @@ typedef Uint32 GLuint;
 
 #if defined(SDL_VIDEO_DRIVER_ANDROID)
 typedef struct ANativeWindow ANativeWindow;
-typedef void *EGLSurface;
+typedef void                *EGLSurface;
 #endif
 
 #if defined(SDL_VIDEO_DRIVER_VIVANTE)
@@ -121,7 +121,6 @@ typedef void *EGLSurface;
 struct gbm_device;
 #endif
 
-
 #include "begin_code.h"
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
@@ -132,8 +131,7 @@ extern "C" {
 /**
  *  These are the various supported windowing subsystems
  */
-typedef enum
-{
+typedef enum {
     SDL_SYSWM_UNKNOWN,
     SDL_SYSWM_WINDOWS,
     SDL_SYSWM_X11,
@@ -141,7 +139,7 @@ typedef enum
     SDL_SYSWM_COCOA,
     SDL_SYSWM_UIKIT,
     SDL_SYSWM_WAYLAND,
-    SDL_SYSWM_MIR,  /* no longer available, left for API/ABI compatibility. Remove in 2.1! */
+    SDL_SYSWM_MIR, /* no longer available, left for API/ABI compatibility. Remove in 2.1! */
     SDL_SYSWM_WINRT,
     SDL_SYSWM_ANDROID,
     SDL_SYSWM_VIVANTE,
@@ -154,18 +152,16 @@ typedef enum
 /**
  *  The custom event structure.
  */
-struct SDL_SysWMmsg
-{
-    SDL_version version;
+struct SDL_SysWMmsg {
+    SDL_version    version;
     SDL_SYSWM_TYPE subsystem;
-    union
-    {
+    union {
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
         struct {
-            HWND hwnd;                  /**< The window for the message */
-            UINT msg;                   /**< The type of message */
-            WPARAM wParam;              /**< WORD message parameter */
-            LPARAM lParam;              /**< LONG message parameter */
+            HWND   hwnd;   /**< The window for the message */
+            UINT   msg;    /**< The type of message */
+            WPARAM wParam; /**< WORD message parameter */
+            LPARAM lParam; /**< LONG message parameter */
         } win;
 #endif
 #if defined(SDL_VIDEO_DRIVER_X11)
@@ -205,11 +201,11 @@ struct SDL_SysWMmsg
 #if defined(SDL_VIDEO_DRIVER_OS2)
         struct
         {
-            BOOL fFrame;                /**< TRUE if hwnd is a frame window */
-            HWND hwnd;                  /**< The window receiving the message */
-            ULONG msg;                  /**< The message identifier */
-            MPARAM mp1;                 /**< The first first message parameter */
-            MPARAM mp2;                 /**< The second first message parameter */
+            BOOL   fFrame; /**< TRUE if hwnd is a frame window */
+            HWND   hwnd;   /**< The window receiving the message */
+            ULONG  msg;    /**< The message identifier */
+            MPARAM mp1;    /**< The first first message parameter */
+            MPARAM mp2;    /**< The second first message parameter */
         } os2;
 #endif
         /* Can't have an empty union */
@@ -223,52 +219,50 @@ struct SDL_SysWMmsg
  *  When this structure is returned, it holds information about which
  *  low level system it is using, and will be one of SDL_SYSWM_TYPE.
  */
-struct SDL_SysWMinfo
-{
-    SDL_version version;
+struct SDL_SysWMinfo {
+    SDL_version    version;
     SDL_SYSWM_TYPE subsystem;
-    union
-    {
+    union {
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
         struct
         {
-            HWND window;                /**< The window handle */
-            HDC hdc;                    /**< The window device context */
-            HINSTANCE hinstance;        /**< The instance handle */
+            HWND      window;    /**< The window handle */
+            HDC       hdc;       /**< The window device context */
+            HINSTANCE hinstance; /**< The instance handle */
         } win;
 #endif
 #if defined(SDL_VIDEO_DRIVER_WINRT)
         struct
         {
-            IInspectable * window;      /**< The WinRT CoreWindow */
+            IInspectable *window; /**< The WinRT CoreWindow */
         } winrt;
 #endif
 #if defined(SDL_VIDEO_DRIVER_X11)
         struct
         {
-            Display *display;           /**< The X11 display */
-            Window window;              /**< The X11 window */
+            Display *display; /**< The X11 display */
+            Window   window;  /**< The X11 window */
         } x11;
 #endif
 #if defined(SDL_VIDEO_DRIVER_DIRECTFB)
         struct
         {
-            IDirectFB *dfb;             /**< The directfb main interface */
-            IDirectFBWindow *window;    /**< The directfb window handle */
-            IDirectFBSurface *surface;  /**< The directfb client surface */
+            IDirectFB        *dfb;     /**< The directfb main interface */
+            IDirectFBWindow  *window;  /**< The directfb window handle */
+            IDirectFBSurface *surface; /**< The directfb client surface */
         } dfb;
 #endif
 #if defined(SDL_VIDEO_DRIVER_COCOA)
         struct
         {
 #if defined(__OBJC__) && defined(__has_feature)
-        #if __has_feature(objc_arc)
+#if __has_feature(objc_arc)
             NSWindow __unsafe_unretained *window; /**< The Cocoa window */
-        #else
-            NSWindow *window;                     /**< The Cocoa window */
-        #endif
 #else
-            NSWindow *window;                     /**< The Cocoa window */
+            NSWindow *window; /**< The Cocoa window */
+#endif
+#else
+            NSWindow *window; /**< The Cocoa window */
 #endif
         } cocoa;
 #endif
@@ -276,37 +270,37 @@ struct SDL_SysWMinfo
         struct
         {
 #if defined(__OBJC__) && defined(__has_feature)
-        #if __has_feature(objc_arc)
+#if __has_feature(objc_arc)
             UIWindow __unsafe_unretained *window; /**< The UIKit window */
-        #else
-            UIWindow *window;                     /**< The UIKit window */
-        #endif
 #else
-            UIWindow *window;                     /**< The UIKit window */
+            UIWindow *window; /**< The UIKit window */
 #endif
-            GLuint framebuffer; /**< The GL view's Framebuffer Object. It must be bound when rendering to the screen using GL. */
-            GLuint colorbuffer; /**< The GL view's color Renderbuffer Object. It must be bound when SDL_GL_SwapWindow is called. */
+#else
+            UIWindow *window; /**< The UIKit window */
+#endif
+            GLuint framebuffer;        /**< The GL view's Framebuffer Object. It must be bound when rendering to the screen using GL. */
+            GLuint colorbuffer;        /**< The GL view's color Renderbuffer Object. It must be bound when SDL_GL_SwapWindow is called. */
             GLuint resolveFramebuffer; /**< The Framebuffer Object which holds the resolve color Renderbuffer, when MSAA is used. */
         } uikit;
 #endif
 #if defined(SDL_VIDEO_DRIVER_WAYLAND)
         struct
         {
-            struct wl_display *display;             /**< Wayland display */
-            struct wl_surface *surface;             /**< Wayland surface */
-            void *shell_surface;                    /**< DEPRECATED Wayland shell_surface (window manager handle) */
-            struct wl_egl_window *egl_window;       /**< Wayland EGL window (native window) */
-            struct xdg_surface *xdg_surface;        /**< Wayland xdg surface (window manager handle) */
-            struct xdg_toplevel *xdg_toplevel;      /**< Wayland xdg toplevel role */
-            struct xdg_popup *xdg_popup;            /**< Wayland xdg popup role */
-            struct xdg_positioner *xdg_positioner;  /**< Wayland xdg positioner, for popup */
+            struct wl_display     *display;        /**< Wayland display */
+            struct wl_surface     *surface;        /**< Wayland surface */
+            void                  *shell_surface;  /**< DEPRECATED Wayland shell_surface (window manager handle) */
+            struct wl_egl_window  *egl_window;     /**< Wayland EGL window (native window) */
+            struct xdg_surface    *xdg_surface;    /**< Wayland xdg surface (window manager handle) */
+            struct xdg_toplevel   *xdg_toplevel;   /**< Wayland xdg toplevel role */
+            struct xdg_popup      *xdg_popup;      /**< Wayland xdg popup role */
+            struct xdg_positioner *xdg_positioner; /**< Wayland xdg positioner, for popup */
         } wl;
 #endif
-#if defined(SDL_VIDEO_DRIVER_MIR)  /* no longer available, left for API/ABI compatibility. Remove in 2.1! */
+#if defined(SDL_VIDEO_DRIVER_MIR) /* no longer available, left for API/ABI compatibility. Remove in 2.1! */
         struct
         {
-            void *connection;  /**< Mir display server connection */
-            void *surface;  /**< Mir surface */
+            void *connection; /**< Mir display server connection */
+            void *surface;    /**< Mir surface */
         } mir;
 #endif
 
@@ -314,15 +308,15 @@ struct SDL_SysWMinfo
         struct
         {
             ANativeWindow *window;
-            EGLSurface surface;
+            EGLSurface     surface;
         } android;
 #endif
 
 #if defined(SDL_VIDEO_DRIVER_OS2)
         struct
         {
-            HWND hwnd;                  /**< The window handle */
-            HWND hwndFrame;             /**< The frame window handle */
+            HWND hwnd;      /**< The window handle */
+            HWND hwndFrame; /**< The frame window handle */
         } os2;
 #endif
 
@@ -330,16 +324,16 @@ struct SDL_SysWMinfo
         struct
         {
             EGLNativeDisplayType display;
-            EGLNativeWindowType window;
+            EGLNativeWindowType  window;
         } vivante;
 #endif
 
 #if defined(SDL_VIDEO_DRIVER_KMSDRM)
         struct
         {
-            int dev_index;               /**< Device index (ex: the X in /dev/dri/cardX) */
-            int drm_fd;                  /**< DRM FD (unavailable on Vulkan windows) */
-            struct gbm_device *gbm_dev;  /**< GBM device (unavailable on Vulkan windows) */
+            int                dev_index; /**< Device index (ex: the X in /dev/dri/cardX) */
+            int                drm_fd;    /**< DRM FD (unavailable on Vulkan windows) */
+            struct gbm_device *gbm_dev;   /**< GBM device (unavailable on Vulkan windows) */
         } kmsdrm;
 #endif
 
@@ -352,7 +346,6 @@ struct SDL_SysWMinfo
 #endif /* SDL_PROTOTYPES_ONLY */
 
 typedef struct SDL_SysWMinfo SDL_SysWMinfo;
-
 
 /**
  * Get driver-specific information about a window.
@@ -371,9 +364,8 @@ typedef struct SDL_SysWMinfo SDL_SysWMinfo;
  *
  * \since This function is available since SDL 2.0.0.
  */
-extern DECLSPEC SDL_bool SDLCALL SDL_GetWindowWMInfo(SDL_Window * window,
-                                                     SDL_SysWMinfo * info);
-
+extern DECLSPEC SDL_bool SDLCALL SDL_GetWindowWMInfo(SDL_Window    *window,
+                                                     SDL_SysWMinfo *info);
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

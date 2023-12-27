@@ -185,7 +185,7 @@ void textbox_update(game_s *g, textbox_s *tb)
             int glyph = b->chars[tb->n].glyph;
 
             if (glyph != ' ') {
-                snd_play_ext(asset_snd(SNDID_SPEAK), 0.2f, rngr_f32(.5f, .7f));
+                snd_play_ext(SNDID_SPEAK, 0.2f, rngr_f32(.5f, .7f));
             }
         }
     } break;
@@ -209,7 +209,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
 
     textbox_block_s *b   = &tb->blocks[tb->block];
-    gfx_ctx_s        ctx = gfx_ctx_default(asset_tex(0));
+    gfx_ctx_s        ctx = gfx_ctx_display();
 
 #define TB_LINE_SPACING 26
 

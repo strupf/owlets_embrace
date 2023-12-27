@@ -51,7 +51,7 @@ void app_init()
             tex_outline(texswitch, x * 64, 0, 64, 64, 1, 1);
         }
     }
-    asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, assetmem_alloc));
+    asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox.tex", NULL);
     asset_tex_loadID(TEXID_HERO_WHIP, "attackanim-sheet.tex", NULL);
@@ -59,9 +59,11 @@ void app_init()
     asset_tex_loadID(TEXID_CLOUDS, "clouds.tex", NULL);
     asset_tex_loadID(TEXID_TITLE, "title.tex", NULL);
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
+    asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
+    asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
 
 #ifdef SYS_DEBUG
-    tex_s tcoll = tex_create(16, 16 * 32, assetmem_alloc);
+    tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
     asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
     {
         gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
@@ -85,6 +87,8 @@ void app_init()
     asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach.wav", NULL);
     asset_snd_loadID(SNDID_SPEAK, "speak.wav", NULL);
     asset_snd_loadID(SNDID_STEP, "step.wav", NULL);
+    asset_snd_loadID(SNDID_SWITCH, "switch.wav", NULL);
+    asset_snd_loadID(SNDID_WHIP, "whip.wav", NULL);
 
     mainmenu_init(&GAME.mainmenu);
     game_init(&GAME);

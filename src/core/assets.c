@@ -7,10 +7,18 @@
 
 ASSETS_s ASSETS;
 
+static void  *assetmem_alloc_ctx(void *arg, usize s);
+const alloc_s asset_allocator = {assetmem_alloc_ctx, NULL};
+
 void assets_init()
 {
     marena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
     ASSETS.next_texID = NUM_TEXID;
+}
+
+static void *assetmem_alloc_ctx(void *arg, usize s)
+{
+    return assetmem_alloc(s);
 }
 
 void *assetmem_alloc(usize s)
@@ -55,7 +63,7 @@ int asset_tex_load(const char *filename, tex_s *tex)
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
     sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
 
-    tex_s t = tex_load(pathname, assetmem_alloc);
+    tex_s t = tex_load(pathname, asset_allocator);
     if (t.px != NULL) {
         int ID = ASSETS.next_texID++;
         str_cpy(ASSETS.tex[ID].file, filename);
@@ -74,7 +82,7 @@ int asset_tex_loadID(int ID, const char *filename, tex_s *tex)
 
     sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
 
-    tex_s t = tex_load(pathname, assetmem_alloc);
+    tex_s t = tex_load(pathname, asset_allocator);
     str_cpy(ASSETS.tex[ID].file, filename);
     ASSETS.tex[ID].tex = t;
     if (t.px) {
@@ -92,9 +100,9 @@ int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
     sys_printf("LOAD SND: %s (%s)\n", filename, pathname);
 
     str_cpy(ASSETS.snd[ID].file, filename);
-    snd_s s            = snd_load(pathname, assetmem_alloc);
+    snd_s s            = aud_snd_load(pathname, asset_allocator);
     ASSETS.snd[ID].snd = s;
-    if (s.wav.buf) {
+    if (s.buf) {
         if (snd) *snd = s;
         return ID;
     }
@@ -103,7 +111,6 @@ int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
 
 int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
 {
-
     assert(0 <= ID && ID < NUM_FNTID);
 
     FILEPATH_GEN(pathname, FILEPATH_FNT, filename);
@@ -112,7 +119,7 @@ int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
 
     asset_fnt_s af = {0};
     str_cpy(af.file, filename);
-    af.fnt         = fnt_load(pathname, assetmem_alloc);
+    af.fnt         = fnt_load(pathname, asset_allocator);
     ASSETS.fnt[ID] = af;
     if (af.fnt.widths) {
         if (fnt) *fnt = af.fnt;
@@ -144,4 +151,25 @@ texrec_s asset_texrec(int ID, int x, int y, int w, int h)
     tr.r.w      = w;
     tr.r.h      = h;
     return tr;
+}
+
+void snd_play_ext(int ID, f32 vol, f32 pitch)
+{
+    aud_snd_play(asset_snd(ID), vol, pitch);
+}
+
+void mus_fade_to(const char *filename, int ticks_out, int ticks_in)
+{
+    FILEPATH_GEN(path, FILEPATH_MUS, filename);
+    aud_mus_fade_to(path, ticks_out, ticks_in);
+}
+
+void mus_stop()
+{
+    aud_mus_stop();
+}
+
+bool32 mus_playing()
+{
+    return aud_mus_playing();
 }

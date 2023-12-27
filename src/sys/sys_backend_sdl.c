@@ -83,15 +83,10 @@ int main(int argc, char **argv)
     frmt.format        = AUDIO_S16;
     frmt.samples       = 256;
     frmt.callback      = backend_SDL_audio;
-    int n_devices      = SDL_GetNumAudioDevices(0);
-    for (int n = 0; n < n_devices; n++) {
-        const char *devicename = SDL_GetAudioDeviceName(n, 0);
-        OS_SDL.audiodevID      = SDL_OpenAudioDevice(devicename, 0, &frmt,
-                                                     &OS_SDL.audiospec, 0);
-        if (OS_SDL.audiodevID > 0) {
-            SDL_PauseAudioDevice(OS_SDL.audiodevID, 0);
-            break;
-        }
+
+    OS_SDL.audiodevID = SDL_OpenAudioDevice(NULL, 0, &frmt, &OS_SDL.audiospec, 0);
+    if (0 < OS_SDL.audiodevID) {
+        SDL_PauseAudioDevice(OS_SDL.audiodevID, 0);
     }
 
     OS_SDL.running    = 1;
@@ -217,13 +212,17 @@ static void backend_SDL_audio(void *unused, u8 *stream, int len)
         return;
     }
 
-    i16 *s = (i16 *)stream;
-    i16 *l = lbuf;
+    i16 *s         = (i16 *)stream;
+    i16 *l         = lbuf;
+    OS_SDL.is_mono = 1;
+
     if (OS_SDL.is_mono) {
         for (int n = 0; n < samples; n++) {
-            i16 v = (i16)((f32)*l++ * OS_SDL.vol);
-            *s++  = v;
-            *s++  = v;
+            int v = (int)((f32)*l++ * OS_SDL.vol);
+            if (v < I16_MIN) v = I16_MIN;
+            if (v > I16_MAX) v = I16_MAX;
+            *s++ = v;
+            *s++ = v;
         }
     } else {
         i16 *r = (i16 *)rbuf;
@@ -281,6 +280,12 @@ int backend_inp()
     if (keys[SDL_SCANCODE_PERIOD]) b |= SYS_INP_A;
     if (keys[SDL_SCANCODE_COMMA]) b |= SYS_INP_B;
     return b;
+}
+
+int backend_key(int key)
+{
+    const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    return keys[key];
 }
 
 float backend_crank()

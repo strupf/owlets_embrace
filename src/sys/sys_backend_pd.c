@@ -79,6 +79,11 @@ int backend_inp()
     return (int)b;
 }
 
+int backend_key(int key)
+{
+    return 0;
+}
+
 f32 backend_crank()
 {
     return (PD->system->getCrankAngle() * 0.002777778f); // 1 / 360

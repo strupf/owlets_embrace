@@ -17,14 +17,11 @@ enum {
     HERO_UPGRADE_AIR_JUMP_1,
     HERO_UPGRADE_AIR_JUMP_2,
     HERO_UPGRADE_AIR_JUMP_3,
-    HERO_UPGRADE_BOW,
 };
 
 enum { // aquired automatically by setting upgrades
     HERO_ITEM_HOOK,
     HERO_ITEM_WHIP,
-    HERO_ITEM_BOMB,
-    HERO_ITEM_BOW,
     //
     NUM_HERO_ITEMS
 };

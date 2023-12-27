@@ -121,6 +121,13 @@ typedef i32            i16x2;
 typedef u32            u8x4;
 typedef i32            i8x4;
 
+// used for user defined allocations
+// alloc(ctx, size) -> ctx: pointer to some memory manager
+typedef struct {
+    void *(*allocf)(void *ctx, usize s);
+    void *ctx;
+} alloc_s;
+
 #define I64_MAX INT64_MAX
 #define I64_MIN INT64_MIN
 #define U64_MAX UINT64_MAX

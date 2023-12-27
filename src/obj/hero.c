@@ -81,6 +81,8 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->drag_q8.y    = 256;
     o->gravity_q8.y = 70;
     o->vel_q8       = v_q8;
+    o->vel_cap_q8.x = 2500;
+    o->vel_cap_q8.y = 2500;
 
     hero_s *hero = &g->herodata;
     rope_init(r);
@@ -136,7 +138,7 @@ void hook_update(game_s *g, obj_s *hook)
         if (!game_traversable(g, hookrec)) {
             int newlen_q4 = clamp_i(rope_length_q4(g, r), HERO_ROPE_LEN_MIN, hero_max_rope_len_q4(&g->herodata));
             rope_set_len_max_q4(r, newlen_q4);
-            snd_play_ext(asset_snd(SNDID_HOOK_ATTACH), 1.f, 1.f);
+            snd_play_ext(SNDID_HOOK_ATTACH, 1.f, 1.f);
             hook->attached   = 1;
             hook->gravity_q8 = (v2_i32){0};
             hook->vel_q8     = (v2_i32){0};
@@ -220,10 +222,9 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
     case HERO_ITEM_HOOK: {
         hero_use_hook(g, o, hero);
     } break;
-    case HERO_ITEM_BOMB: {
-    } break;
     case HERO_ITEM_WHIP: {
-        o->attack_tick   = 18;
+
+        o->attack_tick   = 15;
         o->facing_locked = 1;
         o->subattack     = 1 - o->subattack; // alternate
 
@@ -246,68 +247,56 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
 
 void hero_on_update(game_s *g, obj_s *o)
 {
-    hero_s *hero = &g->herodata;
+    hero_s *hero   = &g->herodata;
+    hero->n_hitbox = 0;
 
     if (o->attack != HERO_ATTACK_NONE) {
-        hitbox_s hitboxes[4] = {0};
-        hitboxes[0].damage   = 1;
-        v2_i32 hbp           = obj_pos_bottom_center(o);
-        switch (o->attack) {
-        case HERO_ATTACK_UP:
-            break;
-        case HERO_ATTACK_DOWN:
-            break;
-        case HERO_ATTACK_DIA_UP:
-            break;
-        case HERO_ATTACK_DIA_DOWN:
-            break;
-        case HERO_ATTACK_SIDE:
-            hitbox_s *hbr = &hitboxes[0];
-            hbr->r.x      = hbp.x + 40;
-            hbr->r.y      = hbp.y - 30;
-            hbr->r.w      = 60;
-            hbr->r.h      = 30;
-            break;
+        if (o->attack_tick == 13) {
+            snd_play_ext(SNDID_WHIP, 0.4f, rngr_f32(1.2f, 1.5f));
         }
 
-        memcpy(hero->hitbox_def, hitboxes, sizeof(hitboxes));
-        hero->n_hitbox = 1;
+        if (o->attack_tick == 12) {
+            hitbox_s hitboxes[4] = {0};
+            v2_i32   hbp         = obj_pos_bottom_center(o);
+            switch (o->attack) {
+            case HERO_ATTACK_UP:
+                break;
+            case HERO_ATTACK_DOWN:
+                break;
+            case HERO_ATTACK_DIA_UP:
+                break;
+            case HERO_ATTACK_DIA_DOWN:
+                break;
+            case HERO_ATTACK_SIDE: {
+                hitbox_s *hbr = &hitboxes[0];
+                hbr->flags |= HITBOX_FLAG_HERO;
+                hbr->damage = 1;
+                hbr->r.w    = 60;
+                hbr->r.h    = 40;
+                hbr->r.x    = hbp.x + o->facing * 40 - hbr->r.w / 2;
+                hbr->r.y    = hbp.y - 30;
 
-        game_apply_hitboxes(g, hitboxes, 1);
+            }
 
-        if (o->attack_tick == 16) {
-            particle_desc_s prt = {0};
-            prt.p.p_q8.x        = (hbp.x + o->facing * 60) << 8;
-            prt.p.p_q8.y        = (hbp.y - 30) << 8;
-            prt.p.v_q8.x        = o->facing * 700;
-            prt.p.v_q8.y        = -250;
-            prt.p.a_q8.y        = 30;
-            prt.p.size          = 1;
-            prt.p.ticks_max     = 20;
-            prt.ticksr          = 10;
-            prt.pr_q8.x         = 2000;
-            prt.pr_q8.y         = 4000;
-            prt.vr_q8.x         = 300;
-            prt.vr_q8.y         = 200;
-            prt.ar_q8.y         = 4;
-            prt.sizer           = 1;
-            prt.p.gfx           = PARTICLE_GFX_CIR;
-            particles_spawn(g, prt, 20);
+            break;
+            }
+
+            memcpy(hero->hitbox_def, hitboxes, sizeof(hitboxes));
+            hero->n_hitbox = 1;
+
+            game_apply_hitboxes(g, hitboxes, 1);
         }
 
         if (--o->attack_tick <= 0) {
             o->attack        = HERO_ATTACK_NONE;
             o->facing_locked = 0;
         }
-    } else {
-        hero->n_hitbox = 0;
     }
 
     int    dpad_x   = inp_dpad_x();
     int    dpad_y   = inp_dpad_y();
     bool32 grounded = obj_grounded(g, o);
     bool32 usehook  = o->ropenode != NULL;
-    // sys_printf("%i\n", o->vel_q8.y);
 
     o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
     if (0 < dpad_y)
@@ -541,13 +530,14 @@ void hero_on_squish(game_s *g, obj_s *o)
 void hero_on_animate(game_s *g, obj_s *o)
 {
     sprite_simple_s *sprite = &o->sprites[0];
-    sprite->trec.t          = asset_tex(TEXID_HERO);
-    hero_s *hero            = &g->herodata;
-    int     flip            = o->facing == -1 ? SPR_FLIP_X : 0;
 
-    int    animID   = 0;
-    int    frameID  = 0;
-    bool32 grounded = obj_grounded(g, o);
+    sprite->trec.t   = asset_tex(TEXID_HERO);
+    hero_s *hero     = &g->herodata;
+    int     flip     = o->facing == -1 ? SPR_FLIP_X : 0;
+    int     animID   = 0;
+    int     frameID  = 0;
+    bool32  grounded = obj_grounded(g, o);
+
     if (grounded) {
         if (o->vel_q8.x != 0) {
             animID           = 0; // walking
@@ -555,7 +545,7 @@ void hero_on_animate(game_s *g, obj_s *o)
             o->animation += abs_i(o->vel_q8.x);
             frameID = (o->animation / 4000) % 4;
             if (frameID_prev != frameID && (frameID % 2) == 0) {
-                snd_play_ext(asset_snd(SNDID_STEP), 0.5f, 1.f);
+                snd_play_ext(SNDID_STEP, 0.5f, 1.f);
             }
         } else {
             animID = 1; // idle
@@ -585,11 +575,11 @@ void hero_on_animate(game_s *g, obj_s *o)
         o->n_sprites             = 2;
         sprite_simple_s *spritew = &o->sprites[1];
 
-        int times[] = {3,
-                       7,
-                       10,
-                       15,
-                       18};
+        static const int times[] = {3,
+                                    5,
+                                    9,
+                                    12,
+                                    15};
 
         int fr = 0;
         while (o->attack_tick <= times[4 - fr])
@@ -604,6 +594,26 @@ void hero_on_animate(game_s *g, obj_s *o)
         spritew->trec.r.h = 128;
         spritew->flip     = flip;
         spritew->offs.x   = o->w / 2 - 128 + o->facing * 32;
-        spritew->offs.y   = o->h / 2 - 128 + 24;
+        spritew->offs.y   = o->h / 2 - 128 + 28;
+
+        if (o->attack_tick == 10) {
+            particle_desc_s prt = {0};
+            prt.p.p_q8.x        = (o->pos.x + o->w / 2 + o->facing * 60) << 8;
+            prt.p.p_q8.y        = (o->pos.y - 20) << 8;
+            prt.p.v_q8.x        = o->facing * 700;
+            prt.p.v_q8.y        = -250;
+            prt.p.a_q8.y        = 30;
+            prt.p.size          = 1;
+            prt.p.ticks_max     = 60;
+            prt.ticksr          = 10;
+            prt.pr_q8.x         = 2000;
+            prt.pr_q8.y         = 4000;
+            prt.vr_q8.x         = 300;
+            prt.vr_q8.y         = 200;
+            prt.ar_q8.y         = 4;
+            prt.sizer           = 1;
+            prt.p.gfx           = PARTICLE_GFX_CIR;
+            particles_spawn(g, &g->particles, prt, 20);
+        }
     }
 }

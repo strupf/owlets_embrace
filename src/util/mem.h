@@ -50,10 +50,6 @@ typedef struct {
     mhblock_s *busy;
 } mheap_s;
 
-typedef void *(*memalloc_f)(usize s);
-typedef void (*memfree_f)(void *p);
-typedef void *(*memrealloc_f)(void *p, usize s);
-
 // returns a pointer aligned to the next word address
 void   *alignup_ptr(void *p);
 // returns a pointer aligned to the prev word address

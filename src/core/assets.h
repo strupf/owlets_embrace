@@ -25,6 +25,8 @@ enum {
     TEXID_BACKGROUND,
     TEXID_PROPS,
     TEXID_SWITCH,
+    TEXID_TOGGLEBLOCK,
+    TEXID_SHROOMY,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -48,9 +50,13 @@ enum {
     SNDID_HOOK_ATTACH,
     SNDID_SPEAK,
     SNDID_STEP,
+    SNDID_SWITCH,
+    SNDID_WHIP,
     //
     NUM_SNDID
 };
+
+typedef aud_snd_s snd_s;
 
 typedef struct {
     tex_s tex;
@@ -78,7 +84,8 @@ typedef struct {
     alignas(4) char mem[MKILOBYTE(6144)];
 } ASSETS_s;
 
-extern ASSETS_s ASSETS;
+extern ASSETS_s      ASSETS;
+extern const alloc_s asset_allocator;
 
 void  assets_init();
 //
@@ -94,5 +101,11 @@ int   asset_tex_put(tex_s t);
 tex_s asset_tex_putID(int ID, tex_s t);
 
 texrec_s asset_texrec(int ID, int x, int y, int w, int h);
+
+#define snd_play(ID) snd_play_ext(ID, 1.f, 1.f)
+void   snd_play_ext(int ID, f32 vol, f32 pitch);
+void   mus_fade_to(const char *filename, int ticks_out, int ticks_in);
+void   mus_stop();
+bool32 mus_playing();
 
 #endif

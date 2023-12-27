@@ -19,7 +19,8 @@ typedef struct {
     alignas(4) char mem[MKILOBYTE(1024)];
 } SPM_s;
 
-extern SPM_s SPM;
+extern SPM_s         SPM;
+extern const alloc_s spm_allocator;
 
 void  spm_init();
 void  spm_push();
