@@ -47,6 +47,7 @@ static void gameplay_tick(game_s *g)
         case OBJ_ID_CRUMBLEBLOCK: crumbleblock_update(g, o); break;
         case OBJ_ID_CLOCKPULSE: clockpulse_update(g, o); break;
         case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
+        case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         }
         o->posprev = posprev;
 #ifdef SYS_DEBUG
@@ -189,18 +190,22 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     obj_s *cp        = clockpulse_create(g);
     cp->subtimer     = 100;
     cp->trigger_on_1 = 4;
-    for (int n = 0; n < 10; n++) {
-        g->tiles[n + 3 + 9 * g->tiles_x].collision = TILE_ONE_WAY;
-    }
 
+    /*
     obj_s *cs = shroomy_create(g);
     cs->pos.y = 80;
     cs->pos.x = 100;
+    */
+
     /*
     obj_s *cb = blob_create(g);
     cb->pos.x = 100;
     cb->pos.y = 100;
     */
+
+    obj_s *cc = crawler_create(g);
+    cc->pos.y = 80;
+    cc->pos.x = 100;
 }
 
 static void backforeground_animate_grass(game_s *g)

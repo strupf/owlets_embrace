@@ -65,7 +65,7 @@ void game_draw(game_s *g)
         texrec_s trec = {0};
         v2_i32   ppos = v2_add(o->pos, camoffset);
         rec_i32  aabb = {ppos.x, ppos.y, o->w, o->h};
-#if 0
+#if 1
         gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
 #endif
 

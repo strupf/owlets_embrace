@@ -6,6 +6,7 @@
 
 obj_s *fallingblock_create(game_s *g)
 {
+    NOT_IMPLEMENTED
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_FALLINGBLOCK;
     o->flags |= OBJ_FLAG_SOLID;
@@ -16,8 +17,10 @@ obj_s *fallingblock_create(game_s *g)
 
 void fallingblock_on_update(game_s *g, obj_s *o)
 {
+    NOT_IMPLEMENTED
 }
 
 void fallingblock_on_animate(game_s *g, obj_s *o)
 {
+    NOT_IMPLEMENTED
 }

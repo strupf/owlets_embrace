@@ -136,6 +136,7 @@ struct obj_s {
     int    animation;
     int    timer;
     int    subtimer;
+    int    substate;
 
     int      health;
     int      health_max;
