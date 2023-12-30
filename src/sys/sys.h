@@ -14,11 +14,21 @@
 #define SYS_DISPLAY_WBYTES 52
 #define SYS_DISPLAY_WWORDS 13
 
-#if 0
+#if SYS_CONFIG_ONLY_BACKEND || 0
 #define SYS_AUDIO_CB(BUF, LEN)
 #else
 #define SYS_AUDIO_CB(BUF, LEN) aud_audio_cb(BUF, LEN)
 #endif
+
+enum {
+    SYS_WAV_8  = 1, // size in bytes
+    SYS_WAV_16 = 2,
+
+    SYS_WAV_I8_44100,
+    SYS_WAV_I8_22050,
+    SYS_WAV_I16_44100,
+    SYS_WAV_I16_22050,
+};
 
 typedef struct {
     i16 *data;
@@ -36,9 +46,11 @@ typedef struct {
 } sys_display_s;
 
 typedef struct {
-    i16 *buf;
-    int  len;
-} sys_wavdata_s;
+    void *buf;
+    int   len; // number of samples
+    int   bits;
+    int   rate;
+} sys_wav_s;
 
 // implemented by user
 void app_init();
@@ -85,8 +97,8 @@ enum {                     // pd_api.h:
 sys_display_s sys_display();
 void          sys_set_menu_image(u8 *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
-sys_wavdata_s sys_load_wavdata(const char *filename, alloc_s ma);
-void          sys_wavdata_play(sys_wavdata_s s, f32 vol, f32 pitch);
+sys_wav_s     sys_load_wav(const char *filename, alloc_s ma);
+void          sys_wavdata_play(sys_wav_s s, f32 vol, f32 pitch);
 int           sys_mus_play(const char *filename);
 void          sys_mus_stop();
 void          sys_set_mus_vol(int vol_q8);
@@ -175,15 +187,6 @@ enum {
     SYS_KEY_F10            = 67,
     SYS_KEY_F11            = 68,
     SYS_KEY_F12            = 69,
-    SYS_KEY_PRINTSCREEN    = 70,
-    SYS_KEY_SCROLLLOCK     = 71,
-    SYS_KEY_PAUSE          = 72,
-    SYS_KEY_INSERT         = 73,
-    SYS_KEY_HOME           = 74,
-    SYS_KEY_PAGEUP         = 75,
-    SYS_KEY_DELETE         = 76,
-    SYS_KEY_END            = 77,
-    SYS_KEY_PAGEDOWN       = 78,
     SYS_KEY_RIGHT          = 79,
     SYS_KEY_LEFT           = 80,
     SYS_KEY_DOWN           = 81,
@@ -206,8 +209,6 @@ enum {
     SYS_KEY_KP_0           = 98,
     SYS_KEY_KP_PERIOD      = 99,
     SYS_KEY_NONUSBACKSLASH = 100,
-    SYS_KEY_APPLICATION    = 101,
-    SYS_KEY_POWER          = 102,
     SYS_KEY_KP_EQUALS      = 103,
     SYS_KEY_KP_COMMA       = 133,
     SYS_KEY_KP_EQUALSAS400 = 134,

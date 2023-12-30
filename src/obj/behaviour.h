@@ -34,5 +34,9 @@ void   fallingblock_on_animate(game_s *g, obj_s *o);
 obj_s *shroomy_create(game_s *g);
 void   shroomy_on_update(game_s *g, obj_s *o);
 void   shroomy_on_animate(game_s *g, obj_s *o);
+//
+obj_s *crawler_create(game_s *g);
+void   crawler_on_update(game_s *g, obj_s *o);
+void   crawler_on_animate(game_s *g, obj_s *o);
 
 #endif

@@ -153,14 +153,14 @@ static inline i32 sqrt_i32(i32 x)
 // output: [-65536, 65536] = [-1; +1]
 static i32 cos_q16(i32 p)
 {
-    u32 i   = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    u32 i = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    if ((i & 0xFFFF) == 0) return 0;
     int neg = (0x10000 <= i && i < 0x30000);
     switch (i >> 16) {
     case 1: i = 0x20000 - i; break; // [65536, 131071]
     case 2: i = i - 0x20000; break; // [131072, 196607]
     case 3: i = 0x40000 - i; break; // [196608, 262143]
     }
-    if (i == 0x10000) return 0;
     i = (i * i + 0x8000) >> 16;
     u32 r;
     r = 0x00002;                   // Constants multiplied by scaling:
@@ -176,14 +176,14 @@ static i32 cos_q16(i32 p)
 // output: [-65536, 65536] = [-1; +1]
 static i32 cos_q16_fast(i32 p)
 {
-    u32 i   = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    u32 i = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    if ((i & 0xFFFF) == 0) return 0;
     int neg = (0x10000 <= i && i < 0x30000);
     switch (i >> 16) {
     case 1: i = 0x20000 - i; break; // [65536, 131071]
     case 2: i = i - 0x20000; break; // [131072, 196607]
     case 3: i = 0x40000 - i; break; // [196608, 262143]
     }
-    if (i == 0x10000) return 0;
     i = (i * i) >> 16;
     u32 r;                         // 2 less terms than the other cos
     r = 0x0051F;                   // Constants multiplied by scaling:

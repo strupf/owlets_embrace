@@ -1,5 +1,5 @@
 /*
-readme.md
 !.gitignore
 !/src
-!todo.txt
+readme.md
+src/z_build.c

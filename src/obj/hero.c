@@ -241,6 +241,7 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
             o->attack = HERO_ATTACK_DOWN;
             break;
         }
+        snd_play_ext(SNDID_SWOOSH, 0.7f, rngr_f32(1.2f, 1.5f));
     } break;
     }
 }
@@ -251,9 +252,6 @@ void hero_on_update(game_s *g, obj_s *o)
     hero->n_hitbox = 0;
 
     if (o->attack != HERO_ATTACK_NONE) {
-        if (o->attack_tick == 13) {
-            snd_play_ext(SNDID_WHIP, 0.4f, rngr_f32(1.2f, 1.5f));
-        }
 
         if (o->attack_tick == 12) {
             hitbox_s hitboxes[4] = {0};

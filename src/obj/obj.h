@@ -27,6 +27,7 @@ enum {
     OBJ_ID_CLOCKPULSE,
     OBJ_ID_FALLINGBLOCK,
     OBJ_ID_SHROOMY,
+    OBJ_ID_CRAWLER,
 };
 
 enum {

@@ -176,4 +176,34 @@ bounds_2D_s game_tilebounds_rec(game_s *g, rec_i32 r);
 bounds_2D_s game_tilebounds_pts(game_s *g, v2_i32 p0, v2_i32 p1);
 bounds_2D_s game_tilebounds_tri(game_s *g, tri_i32 t);
 
+#define NUM_FRAME_TICKS 64
+
+typedef struct {
+    u8 ticks[NUM_FRAME_TICKS];
+} frame_ticks_s;
+
+static int anim_frame_from_ticks(int ticks, frame_ticks_s *f)
+{
+    int a = 0;
+    for (int i = 0; i < NUM_FRAME_TICKS; i++) {
+        int t = f->ticks[i];
+        if (t == 0) return (i - 1);
+        a += t;
+        if (ticks <= a) return i;
+    }
+    return 0;
+}
+
+static int anim_total_ticks(frame_ticks_s *f)
+{
+    int time = 0;
+    for (int i = 0; i < NUM_FRAME_TICKS; i++) {
+        int t = f->ticks[i];
+        if (t == 0) break;
+        time += t;
+    }
+    return time;
+    ;
+}
+
 #endif

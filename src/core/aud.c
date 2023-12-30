@@ -14,6 +14,22 @@ enum {
 
 AUD_s AUD;
 
+typedef struct {
+    i16 *buf;
+    int  len;
+} wav_i16;
+
+typedef struct {
+    void *buf;
+    int   fmt;
+    int   len; // samples
+} wav_s;
+
+static wav_s wav_conv_to_i8_22050(wav_s src, alloc_s ma);
+static wav_s wav_conv_to_i8_44100(wav_s src, alloc_s ma);
+static wav_s wav_conv_to_i16_22050(wav_s src, alloc_s ma);
+static wav_s wav_conv_to_i16_44100(wav_s src, alloc_s ma);
+
 void aud_update()
 {
     switch (AUD.mus_fade) {
@@ -44,7 +60,7 @@ void aud_update()
 
 aud_snd_s aud_snd_load(const char *pathname, alloc_s ma)
 {
-    return sys_load_wavdata(pathname, ma);
+    return sys_load_wav(pathname, ma);
 }
 
 void aud_snd_play(aud_snd_s s, f32 vol, f32 pitch)
@@ -125,6 +141,27 @@ static void aud_set_midi(wave_s *w, int midi)
     w->incr = incr_midi[midi];
 }
 
+// maps u32 to sine, returns [-65536, +65536]
+static inline int synth_wave_sine(u32 x)
+{
+    u32 i = ((x - 0x40000000U) >> 14);
+    if ((i & 0xFFFF) == 0) return 0;
+    int neg = 0;
+    switch (i >> 16) {
+    case 1: i = 0x20000 - i, neg = 1; break; // [65536, 131071]
+    case 2: i = i - 0x20000, neg = 1; break; // [131072, 196607]
+    case 3: i = 0x40000 - i; break;          // [196608, 262143]
+    }
+
+    i = (i * i) >> 16;
+    u32 r;                         // 2 less terms than the other cos
+    r = 0x0051F;                   // Constants multiplied by scaling:
+    r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
+    r = 0x13BD3 - ((i * r) >> 16); // (PI/2)^4 / 24
+    r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
+    return neg ? -(i32)r : (i32)r;
+}
+
 static void aud_wave_channel(wave_s *w, i16 *buf, int len)
 {
     // ENVELOPE SWEEPS
@@ -159,7 +196,7 @@ static void aud_wave_channel(wave_s *w, i16 *buf, int len)
                 w->vol  = e->vol_sustain;
                 break;
             }
-            e->t -= e->sustain; // fallthrough<
+            e->t -= e->sustain; // fallthrough
         case ADSR_RELEASE:
             if (e->t < e->release) {
                 e->adsr = ADSR_RELEASE;
@@ -169,11 +206,11 @@ static void aud_wave_channel(wave_s *w, i16 *buf, int len)
             e->t    = 0;
             e->adsr = ADSR_NONE;
             w->incr = 0;
-            return; // RET
+            return; // finished
         }
     }
 
-#if 1
+    // SYNTH
     i16 *bn = buf;
     switch (w->type) {
     case WAVE_TYPE_SQUARE:
@@ -182,12 +219,14 @@ static void aud_wave_channel(wave_s *w, i16 *buf, int len)
             *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
         }
         break;
+        //
     case WAVE_TYPE_SINE:
         for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
-            i32 b = (sin_q16_fast(w->t >> 14) * w->vol) >> 16;
+            i32 b = (synth_wave_sine(w->t) * w->vol) >> 16;
             *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
         }
         break;
+        //
     case WAVE_TYPE_TRIANGLE:
         for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
             i32 t = w->t >> 16, b;
@@ -200,6 +239,7 @@ static void aud_wave_channel(wave_s *w, i16 *buf, int len)
             *bn = clamp_i(*bn + b, I16_MIN, I16_MAX);
         }
         break;
+        //
     case WAVE_TYPE_SAW:
         for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
             i32 t = w->t >> 16, b;
@@ -210,41 +250,23 @@ static void aud_wave_channel(wave_s *w, i16 *buf, int len)
             *bn = clamp_i(*bn + b, I16_MIN, I16_MAX);
         }
         break;
-    }
-#else
-    // SYNTH
-    for (int n = 0; n < len; n++) {
-        w->t += w->incr;
-        i32 b = 0;
-        switch (w->type) {
-        case WAVE_TYPE_SQUARE:
-            b = (0x80000000U <= w->t ? w->vol : -w->vol);
-            break;
-        case WAVE_TYPE_SINE:
-            b = (sin_q16_fast(w->t >> 14) * w->vol) >> 16;
-            break;
-        case WAVE_TYPE_TRIANGLE: {
-            i32 t = (i32)(w->t >> 16);
-            if (t <= 0x4000) { // 0 - 0.25
-                b = (t * w->vol) >> 14;
-            } else if (t <= 0xC000) { // 0.25 - 0.75
-                b = w->vol - (((t - 0x4000) * w->vol) >> 14);
-            } else { // 0.75 - 1
-                b = (((t - 0xC000) * w->vol) >> 14) - w->vol;
-            }
-        } break;
-        case WAVE_TYPE_SAW: {
-            i32 t = (i32)(w->t >> 16);
-            if (t <= 0x8000) { // 0 - 0.5
-                b = (t * w->vol) >> 15;
-            } else { // 0.5 - 1
-                b = (((t - 0x8000) * w->vol) >> 15) - w->vol;
-            }
-        } break;
+        //
+    case WAVE_TYPE_NOISE:
+        for (int n = 0; n < len; n++, bn++) {
+            i32 b = rngr_i32(-w->vol, +w->vol);
+            *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
         }
-        buf[n] = clamp_i(buf[n] + b, I16_MIN, I16_MAX);
+        break;
+        //
+    case WAVE_TYPE_SAMPLE:
+        for (int n = 0; n < len; n += 2, bn += 2, w->t += w->incr) {
+            int i = ((u32)(w->t >> 16) * w->sample->len) >> 16;
+            i32 b = (w->sample->buf[i] * w->vol) >> 7;    // S8 -> S16
+            bn[0] = clamp_i(bn[0] + b, I16_MIN, I16_MAX); // 22050 -> 44100
+            bn[1] = clamp_i(bn[1] + b, I16_MIN, I16_MAX);
+        }
+        break;
     }
-#endif
 }
 
 static void wave_envelope(wave_s *w, i32 vol_peak, i32 vol_sustain,
@@ -266,12 +288,12 @@ void aud_audio_cb(i16 *buf, int len)
     memset(buf, 0, sizeof(i16) * len);
 
     wave_s *wave = &AUD.waves[0];
-    wave->vol    = 0;
-    wave->type   = WAVE_TYPE_TRIANGLE;
+    wave->vol    = 10000;
+    wave->type   = WAVE_TYPE_SINE;
 
     if (inp_debug_space()) {
         if (wave->incr == 0) {
-            wave_envelope(wave, 10000, 5000, 50, 100, 100);
+            // wave_envelope(wave, 10000, 5000, 50, 100, 100);
             aud_set_freq(wave, 200);
         }
     }
@@ -281,4 +303,140 @@ void aud_audio_cb(i16 *buf, int len)
         if (w->incr == 0) continue;
         aud_wave_channel(w, buf, len);
     }
+}
+
+static wav_s wav_conv_to_i8_22050(wav_s src, alloc_s ma)
+{
+    wav_s r = {0};
+    r.fmt   = WAV_FMT_22050_I8;
+
+    switch (src.fmt) {
+    case WAV_FMT_22050_I8:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i];
+        break;
+    case WAV_FMT_44100_I8:
+        r.len = src.len / 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i << 1];
+        break;
+    case WAV_FMT_22050_I16:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i] >> 8;
+        break;
+    case WAV_FMT_44100_I16:
+        r.len = src.len / 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i << 1] >> 8;
+        break;
+    }
+    return r;
+}
+
+static wav_s wav_conv_to_i8_44100(wav_s src, alloc_s ma)
+{
+    wav_s r = {0};
+    r.fmt   = WAV_FMT_44100_I8;
+
+    switch (src.fmt) {
+    case WAV_FMT_22050_I8:
+        r.len = src.len * 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i >> 1];
+        break;
+    case WAV_FMT_44100_I8:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i];
+        break;
+    case WAV_FMT_22050_I16:
+        r.len = src.len * 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i >> 1] >> 8;
+        break;
+    case WAV_FMT_44100_I16:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
+        for (int i = 0; i < r.len; i++)
+            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i] >> 8;
+        break;
+    }
+    return r;
+}
+
+static wav_s wav_conv_to_i16_22050(wav_s src, alloc_s ma)
+{
+    wav_s r = {0};
+    r.fmt   = WAV_FMT_22050_I16;
+
+    switch (src.fmt) {
+    case WAV_FMT_22050_I8:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i] << 8;
+        break;
+    case WAV_FMT_44100_I8:
+        r.len = src.len / 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i << 1];
+        break;
+    case WAV_FMT_22050_I16:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i];
+        break;
+    case WAV_FMT_44100_I16:
+        r.len = src.len / 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i << 1];
+        break;
+    }
+    return r;
+}
+
+static wav_s wav_conv_to_i16_44100(wav_s src, alloc_s ma)
+{
+    wav_s r = {0};
+    r.fmt   = WAV_FMT_44100_I16;
+
+    switch (src.fmt) {
+    case WAV_FMT_22050_I8:
+        r.len = src.len * 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i >> 1] << 8;
+        break;
+    case WAV_FMT_44100_I8:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i] << 8;
+        break;
+    case WAV_FMT_22050_I16:
+        r.len = src.len * 2;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i >> 1];
+        break;
+    case WAV_FMT_44100_I16:
+        r.len = src.len;
+        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
+        for (int i = 0; i < r.len; i++)
+            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i];
+        break;
+    }
+    return r;
 }

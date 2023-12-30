@@ -243,8 +243,8 @@ typedef struct {
     u32 byterate;
     u16 blockalign;
     u16 bitspersample;
-    u32 subchunk2ID;
-    u32 subchunk2size;
+    u32 subchunk2ID;   // "data"
+    u32 subchunk2size; // file size
 } wavheader_s;
 
 static_assert(sizeof(wavheader_s) == 44, "wav header size");
@@ -261,7 +261,6 @@ int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
     // muschannel_stream(mch, lbuf, len);
 
     SYS_AUDIO_CB(lbuf, len);
-    return 1;
 
     for (int i = 0; i < SYS_NUM_SNDCHANNEL; i++) {
         sys_sndchannel_s *sch = &SYS.sndchannel[i];
@@ -274,29 +273,47 @@ int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
     return 1;
 }
 
-sys_wavdata_s sys_load_wavdata(const char *filename, alloc_s ma)
+sys_wav_s sys_load_wav(const char *filename, alloc_s ma)
 {
-    sys_wavdata_s wav = {0};
-    wavheader_s   wheader;
-    void         *f = wavfile_open(filename, &wheader);
+    sys_wav_s   wav = {0};
+    wavheader_s wheader;
+    void       *f = wavfile_open(filename, &wheader);
     if (!f) {
-        sys_printf("+++ Can't load wav: %s\n", filename);
+        sys_printf("+++ wav file err: %s\n", filename);
         return wav;
+    }
+
+    if (wheader.numchannels != 1) {
+        sys_printf("+++ wav not mono: %u, %s\n", wheader.numchannels, filename);
+        goto WAVERR;
+    }
+
+    if (wheader.bitspersample != 8 && wheader.bitspersample != 16) {
+        sys_printf("+++ wav neither S8 nor S16: %u, %s\n", wheader.bitspersample, filename);
+        goto WAVERR;
+    }
+
+    if (wheader.samplerate != 44100 && wheader.samplerate != 22050) {
+        sys_printf("+++ wav unsupported samplerate: %u, %s\n", wheader.samplerate, filename);
+        goto WAVERR;
     }
 
     wav.buf = ma.allocf(ma.ctx, wheader.subchunk2size);
     if (wav.buf == NULL) {
-        sys_printf("+++ Can't alloc mem wav: %s\n", filename);
-        sys_file_close(f);
-        return wav;
+        sys_printf("+++ wav mem error: %s\n", filename);
+        goto WAVERR;
     }
-    wav.len = wheader.subchunk2size / sizeof(i16);
+
+    wav.len  = wheader.subchunk2size / wheader.blockalign;
+    wav.bits = wheader.bitspersample;
+    wav.rate = wheader.samplerate;
     sys_file_read(f, wav.buf, wheader.subchunk2size); // we don't check for errors here...
+WAVERR:
     sys_file_close(f);
     return wav;
 }
 
-void sys_wavdata_play(sys_wavdata_s s, f32 vol, f32 pitch)
+void sys_wavdata_play(sys_wav_s s, f32 vol, f32 pitch)
 {
     for (int i = 0; i < SYS_NUM_SNDCHANNEL; i++) {
         sys_sndchannel_s *ch = &SYS.sndchannel[i];
@@ -364,7 +381,7 @@ static void *wavfile_open(const char *filename, wavheader_s *wh)
     void *f = backend_file_open(filename, SYS_FILE_R);
     if (!f) return NULL;
     backend_file_read(f, wh, sizeof(wavheader_s));
-    assert(wh->bitspersample == 16);
+    // assert(wh->bitspersample == 16);
     backend_file_seek(f, sizeof(wavheader_s), SYS_FILE_SEEK_SET);
     assert(wh->subchunk2ID == *((u32 *)"data"));
     return f;

@@ -11,8 +11,9 @@ enum {
     SHROOMY_APPEAR,
 };
 
+static const frame_ticks_s g_shroomyhide = {30, 7, 3, 2, 2, 2, 2, 2};
+
 #define SHROOMY_TICKS_APPEAR 10
-#define SHROOMY_TICKS_HIDE   30
 #define SHROOMY_TICKS_HIDDEN 50
 
 obj_s *shroomy_create(game_s *g)
@@ -49,7 +50,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
 
     v2_i32 off = {o->facing, 0};
     if ((o->bumpflags & OBJ_BUMPED_X) ||
-        !obj_grounded_at_offs(g, o, off)) {
+        (obj_grounded(g, o) && !obj_grounded_at_offs(g, o, off))) {
         o->facing = -o->facing;
     }
 
@@ -66,7 +67,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
     } break;
         //
     case SHROOMY_HIDE:
-        if (SHROOMY_TICKS_HIDE <= ++o->timer) {
+        if (anim_total_ticks(&g_shroomyhide) <= ++o->timer) {
             o->state = SHROOMY_HIDDEN;
             o->timer = 0;
         }
@@ -103,15 +104,16 @@ void shroomy_on_animate(game_s *g, obj_s *o)
     case SHROOMY_WALK: {
         o->animation += o->vel_q8.x;
         spr->trec.r.y = 0;
-        spr->trec.r.x = W * ((o->animation >> 9) & 3);
+        if (obj_grounded(g, o))
+            spr->trec.r.x = W * ((o->animation >> 9) & 3);
+        else
+            spr->trec.r.x = 0;
     } break;
         //
     case SHROOMY_HIDE: {
+
         spr->trec.r.y = 1 * H;
-        spr->trec.r.x = lerp_i32(0, 7,
-                                 o->timer,
-                                 SHROOMY_TICKS_HIDE) *
-                        W;
+        spr->trec.r.x = W * anim_frame_from_ticks(o->timer, &g_shroomyhide);
     } break;
         //
     case SHROOMY_HIDDEN: {

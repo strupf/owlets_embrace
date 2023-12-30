@@ -4,11 +4,18 @@
 
 #include "game.h"
 
-static void walker_find_new_edge(game_s *g, obj_s *o)
+obj_s *crawler_create(game_s *g)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_CRAWLER;
+    return o;
+}
+
+static void crawler_find_new_edge(game_s *g, obj_s *o)
 {
 }
 
-void walker_on_update(game_s *g, obj_s *o)
+void crawler_on_update(game_s *g, obj_s *o)
 {
     const rec_i32 aabb = obj_aabb(o);
 
@@ -22,4 +29,8 @@ void walker_on_update(game_s *g, obj_s *o)
     case 3: // glued to left
         break;
     }
+}
+
+void crawler_on_animate(game_s *g, obj_s *o)
+{
 }

@@ -52,6 +52,7 @@ enum {
     SNDID_STEP,
     SNDID_SWITCH,
     SNDID_WHIP,
+    SNDID_SWOOSH,
     //
     NUM_SNDID
 };
