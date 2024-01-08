@@ -7,14 +7,19 @@
 
 void game_draw(game_s *g)
 {
-    rec_i32 camrec    = cam_rec_px(g, &g->cam);
-    v2_i32  camoffset = {-camrec.x, -camrec.y};
+    rec_i32 camrec = cam_rec_px(g, &g->cam);
+    camrec.x &= ~1; // snap to multiples of 2 to avoid dither flickering
+    camrec.y &= ~1;
 
-    const gfx_ctx_s ctx = gfx_ctx_display();
+    const v2_i32    camoffset = {-camrec.x, -camrec.y};
+    const gfx_ctx_s ctx       = gfx_ctx_display();
     // render_parallax(g, camoffset);
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
+
+    texrec_s tbackground = asset_texrec(TEXID_CLOUDS, 0, 0, 400, 256);
+    gfx_spr(ctx, tbackground, (v2_i32){0, -16}, 0, 0);
 
     for (int n = 0; n < g->n_decal_bg; n++) {
         gfx_ctx_s ctx_decal = ctx;
@@ -65,7 +70,7 @@ void game_draw(game_s *g)
         texrec_s trec = {0};
         v2_i32   ppos = v2_add(o->pos, camoffset);
         rec_i32  aabb = {ppos.x, ppos.y, o->w, o->h};
-#if 1
+#if 0
         gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
 #endif
 
@@ -85,9 +90,12 @@ void game_draw(game_s *g)
         case OBJ_ID_TOGGLEBLOCK:
             toggleblock_on_draw(g, o, camoffset);
             break;
+        case OBJ_ID_CRAWLER:
+            crawler_on_draw(g, o, camoffset);
+            break;
         case OBJ_ID_HERO: {
             hero_s *hero = &g->herodata;
-#if 1 // render hitboxes
+#if 0 // render hitboxes
             gfx_ctx_s ctxhb = ctx;
             for (int i = 0; i < hero->n_hitbox; i++) {
                 hitbox_s hb = hero->hitbox_def[i];

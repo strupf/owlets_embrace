@@ -224,9 +224,8 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
     } break;
     case HERO_ITEM_WHIP: {
 
-        o->attack_tick   = 15;
-        o->facing_locked = 1;
-        o->subattack     = 1 - o->subattack; // alternate
+        o->attack_tick = 15;
+        o->subattack   = 1 - o->subattack; // alternate
 
         switch (inp_dpad_dir()) {
         case INP_DPAD_DIR_NONE:
@@ -268,26 +267,27 @@ void hero_on_update(game_s *g, obj_s *o)
             case HERO_ATTACK_SIDE: {
                 hitbox_s *hbr = &hitboxes[0];
                 hbr->flags |= HITBOX_FLAG_HERO;
-                hbr->damage = 1;
-                hbr->r.w    = 60;
-                hbr->r.h    = 40;
-                hbr->r.x    = hbp.x + o->facing * 40 - hbr->r.w / 2;
-                hbr->r.y    = hbp.y - 30;
+                hbr->damage     = 1;
+                hbr->r.w        = 60;
+                hbr->r.h        = 40;
+                hbr->r.x        = hbp.x + o->facing * 40 - hbr->r.w / 2;
+                hbr->r.y        = hbp.y - 30;
+                hbr->force_q8.x = o->facing << 8;
+                hbr->force_q8.y = -256;
 
+            } break;
             }
 
-            break;
-            }
-
+#ifdef SYS_DEBUG
             memcpy(hero->hitbox_def, hitboxes, sizeof(hitboxes));
             hero->n_hitbox = 1;
+#endif
 
             game_apply_hitboxes(g, hitboxes, 1);
         }
 
         if (--o->attack_tick <= 0) {
-            o->attack        = HERO_ATTACK_NONE;
-            o->facing_locked = 0;
+            o->attack = HERO_ATTACK_NONE;
         }
     }
 
@@ -300,11 +300,18 @@ void hero_on_update(game_s *g, obj_s *o)
     if (0 < dpad_y)
         o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
 
+    o->facing_locked = 0;
+    if (o->attack != HERO_ATTACK_NONE) {
+        o->facing_locked = 1;
+    }
+
     if (dpad_x != 0 && !o->facing_locked) {
         o->facing = dpad_x;
     }
 
     if (o->bumpflags & OBJ_BUMPED_Y) {
+        f32 vol = (.5f * (f32)o->vel_q8.y) / 2000.f;
+        snd_play_ext(SNDID_STEP, clamp_f(vol, 0.f, 0.5f), 1.f);
         o->vel_q8.y = 0;
     }
     if (o->bumpflags & OBJ_BUMPED_X) {

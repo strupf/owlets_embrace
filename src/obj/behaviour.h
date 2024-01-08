@@ -6,6 +6,7 @@
 #define BEHAVIOUR_H
 
 #include "gamedef.h"
+#include "map_loader.h"
 
 obj_s *blob_create(game_s *g);
 void   blob_on_update(game_s *g, obj_s *o);
@@ -19,13 +20,14 @@ obj_s *crumbleblock_create(game_s *g);
 void   crumbleblock_update(game_s *g, obj_s *o);
 //
 obj_s *switch_create(game_s *g);
+obj_s *switch_load(game_s *g, map_obj_s *mo);
 void   switch_on_animate(game_s *g, obj_s *o);
 void   switch_on_interact(game_s *g, obj_s *o);
 //
 obj_s *toggleblock_create(game_s *g);
 void   toggleblock_on_animate(game_s *g, obj_s *o);
 void   toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-void   toggleblock_on_trigger(game_s *g, obj_s *o);
+void   toggleblock_on_trigger(game_s *g, obj_s *o, int trigger);
 //
 obj_s *fallingblock_create(game_s *g);
 void   fallingblock_on_update(game_s *g, obj_s *o);
@@ -38,5 +40,10 @@ void   shroomy_on_animate(game_s *g, obj_s *o);
 obj_s *crawler_create(game_s *g);
 void   crawler_on_update(game_s *g, obj_s *o);
 void   crawler_on_animate(game_s *g, obj_s *o);
+void   crawler_on_weapon_hit(obj_s *o, hitbox_s hb);
+void   crawler_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+//
+obj_s *carrier_create(game_s *g);
+void   carrier_on_update(game_s *g, obj_s *o);
 
 #endif

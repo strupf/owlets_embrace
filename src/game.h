@@ -26,9 +26,10 @@
 // 100 x 60
 //
 
-#define NUM_TILES         0x40000
-#define INTERACTABLE_DIST 32
-#define NUM_DECALS        256
+#define NUM_TILES               0x40000
+#define INTERACTABLE_DIST       32
+#define NUM_DECALS              256
+#define WEAPON_HIT_FREEZE_TICKS 8
 
 typedef struct {
     v2_i32 pos;
@@ -77,34 +78,43 @@ typedef struct {
     int   sy;
 } decal_s;
 
+enum {
+    EVENT_HIT_ENEMY     = 1 << 0,
+    EVENT_PLAYER_DAMAGE = 1 << 1,
+};
+
 struct game_s {
-    int          tick;
-    mainmenu_s   mainmenu;
-    int          state;
-    map_world_s  map_world; // layout of all map files globally
+    int              tick;
+    mainmenu_s       mainmenu;
+    int              state;
+    map_world_s      map_world; // layout of all map files globally
+    map_worldroom_s *map_worldroom;
     //
-    int          savefile_slotID;
-    transition_s transition;
-    cam_s        cam;
-    tile_s       tiles[NUM_TILES];
-    rtile_s      rtiles[NUM_TILELAYER][NUM_TILES];
-    int          tiles_x;
-    int          tiles_y;
-    int          pixel_x;
-    int          pixel_y;
-    int          obj_nfree;
-    int          obj_nbusy;
-    int          obj_ndelete;
-    obj_s       *obj_tag[NUM_OBJ_TAGS];
-    obj_s       *obj_free_stack[NUM_OBJ];
-    obj_s       *obj_busy[NUM_OBJ];
-    obj_s       *obj_to_delete[NUM_OBJ];
-    obj_s        obj_raw[NUM_OBJ];
+    int              savefile_slotID;
+    transition_s     transition;
+    cam_s            cam;
+    flags32          events_frame;
+    //
+    tile_s           tiles[NUM_TILES];
+    rtile_s          rtiles[NUM_TILELAYER][NUM_TILES];
+    int              tiles_x;
+    int              tiles_y;
+    int              pixel_x;
+    int              pixel_y;
+    int              obj_nfree;
+    int              obj_nbusy;
+    int              obj_ndelete;
+    obj_s           *obj_tag[NUM_OBJ_TAGS];
+    obj_s           *obj_free_stack[NUM_OBJ];
+    obj_s           *obj_busy[NUM_OBJ];
+    obj_s           *obj_to_delete[NUM_OBJ];
+    obj_s            obj_raw[NUM_OBJ];
 
     hero_s         herodata;
     parallax_img_s parallax;
     rope_s         rope; // hero rope, singleton
     textbox_s      textbox;
+    int            freeze_tick;
 
     enveffect_wind_s env_wind;
     enveffect_heat_s env_heat;
@@ -143,6 +153,7 @@ extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
 void game_init(game_s *g);
 void game_tick(game_s *g);
 void game_draw(game_s *g);
+void game_resume(game_s *g);
 void game_paused(game_s *g);
 
 int              tick_now(game_s *g);

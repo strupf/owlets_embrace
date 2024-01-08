@@ -107,22 +107,30 @@ int main(int argc, char **argv)
             switch (e.type) {
             case SDL_QUIT: OS_SDL.running = 0; break;
             case SDL_WINDOWEVENT:
-                if (e.window.event == SDL_WINDOWEVENT_RESIZED ||
-                    e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
-                    e.window.event == SDL_WINDOWEVENT_MAXIMIZED) {
+                switch (e.window.event) {
+                case SDL_WINDOWEVENT_RESIZED:
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                case SDL_WINDOWEVENT_MAXIMIZED: {
                     int w, h;
                     SDL_GetWindowSize(OS_SDL.window, &w, &h);
                     f32 sx = (f32)w / (f32)OS_SDL.r_src.w;
                     f32 sy = (f32)h / (f32)OS_SDL.r_src.h;
+#if 1 // integer scaling (bc dither patterns look terrible stretched
+                    int si         = (int)(sx <= sy ? sx : sy);
+                    OS_SDL.r_dst.w = OS_SDL.r_src.w * si;
+                    OS_SDL.r_dst.h = OS_SDL.r_src.h * si;
+#else
                     if (sx < sy) {
                         OS_SDL.r_dst.w = w;
                         OS_SDL.r_dst.h = (int)(sx * (f32)OS_SDL.r_src.h + .5f);
                     } else {
-                        OS_SDL.r_dst.h = h;
                         OS_SDL.r_dst.w = (int)(sy * (f32)OS_SDL.r_src.w + .5f);
+                        OS_SDL.r_dst.h = h;
                     }
+#endif
                     OS_SDL.r_dst.x = (w - OS_SDL.r_dst.w) / 2;
                     OS_SDL.r_dst.y = (h - OS_SDL.r_dst.h) / 2;
+                } break;
                 }
                 break;
             }

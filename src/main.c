@@ -61,6 +61,7 @@ void app_init()
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
     asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
     asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
+    asset_tex_loadID(TEXID_CRAWLER, "crawler.tex", NULL);
 
 #ifdef SYS_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -162,6 +163,7 @@ void app_close()
 
 void app_resume()
 {
+    game_resume(&GAME);
 }
 
 void app_pause()

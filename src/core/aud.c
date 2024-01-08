@@ -291,7 +291,7 @@ void aud_audio_cb(i16 *buf, int len)
     wave->vol    = 10000;
     wave->type   = WAVE_TYPE_SINE;
 
-    if (inp_debug_space()) {
+    if (inp_debug_space() && 0) {
         if (wave->incr == 0) {
             // wave_envelope(wave, 10000, 5000, 50, 100, 100);
             aud_set_freq(wave, 200);

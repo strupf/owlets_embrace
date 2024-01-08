@@ -99,6 +99,8 @@ gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den);
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
 void          gfx_spr_cpy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
+void          gfx_spr_affine(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
+                             f32 sclx, f32 scly);
 //
 void          gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
 void          gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode);

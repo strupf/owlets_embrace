@@ -28,6 +28,8 @@ enum {
     OBJ_ID_FALLINGBLOCK,
     OBJ_ID_SHROOMY,
     OBJ_ID_CRAWLER,
+    OBJ_ID_CRAWLER_SNAIL,
+    OBJ_ID_CARRIER,
 };
 
 enum {
@@ -42,11 +44,13 @@ enum {
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
 #define OBJ_FLAG_ACTOR          ((u64)1 << 3)
 #define OBJ_FLAG_SOLID          ((u64)1 << 4)
-#define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 5)
-#define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 6)
-#define OBJ_FLAG_HOOKABLE       ((u64)1 << 7)
-#define OBJ_FLAG_SPRITE         ((u64)1 << 8)
-#define OBJ_FLAG_ENEMY          ((u64)1 << 9)
+#define OBJ_FLAG_PLATFORM       ((u64)1 << 5)
+#define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 6)
+#define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 7)
+#define OBJ_FLAG_HOOKABLE       ((u64)1 << 8)
+#define OBJ_FLAG_SPRITE         ((u64)1 << 9)
+#define OBJ_FLAG_ENEMY          ((u64)1 << 10)
+#define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -59,10 +63,12 @@ enum {
 };
 
 enum {
-    OBJ_MOVER_SLOPES         = 1 << 0,
-    OBJ_MOVER_GLUE_GROUND    = 1 << 1,
-    OBJ_MOVER_AVOID_HEADBUMP = 1 << 2,
-    OBJ_MOVER_ONE_WAY_PLAT   = 1 << 3,
+    OBJ_MOVER_SLOPES           = 1 << 0,
+    OBJ_MOVER_GLUE_GROUND      = 1 << 1,
+    OBJ_MOVER_AVOID_HEADBUMP   = 1 << 2,
+    OBJ_MOVER_ONE_WAY_PLAT     = 1 << 3,
+    OBJ_MOVER_CAN_BE_JUMPED_ON = 1 << 4,
+    OBJ_MOVER_CAN_JUMP_ON      = 1 << 5,
 };
 
 enum {
@@ -75,6 +81,10 @@ enum {
     GENERIC_STATE_OFF,
     GENERIC_STATE_TURNING_ON,
     GENERIC_STATE_TURNING_OFF,
+};
+
+enum {
+    COLLECTIBLE_TYPE_COIN,
 };
 
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
@@ -138,6 +148,8 @@ struct obj_s {
     int    subtimer;
     int    substate;
 
+    int      collectible_type;
+    int      collectible_amount;
     int      health;
     int      health_max;
     int      attackbuffer;
@@ -183,6 +195,7 @@ bool32       obj_tag(game_s *g, obj_s *o, int tag);
 bool32       obj_untag(game_s *g, obj_s *o, int tag);
 obj_s       *obj_get_tagged(game_s *g, int tag);
 void         objs_cull_to_delete(game_s *g);
+bool32       overlap_obj(obj_s *a, obj_s *b);
 rec_i32      obj_aabb(obj_s *o);
 rec_i32      obj_rec_left(obj_s *o);
 rec_i32      obj_rec_right(obj_s *o);
@@ -192,6 +205,7 @@ v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
 int          actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
+void         platform_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_interact(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);

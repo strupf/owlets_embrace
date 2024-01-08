@@ -36,7 +36,7 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
 
-    strcpy(t->savefiles[0].sf.area_filename, "map_01");
+    strcpy(t->savefiles[0].sf.area_filename, "Level_0");
     savefile_write(0, &t->savefiles[0].sf);
     savefile_write(1, &t->savefiles[1].sf);
     savefile_write(2, &t->savefiles[2].sf);

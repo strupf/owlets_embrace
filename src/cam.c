@@ -50,8 +50,8 @@ void cam_update(game_s *g, cam_s *c)
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
         v2_i32 herop  = obj_pos_bottom_center(hero);
         v2_f32 trg    = {(f32)herop.x, (f32)herop.y - 20.f};
-        int    py_bot = herop.y - 50;
-        int    py_top = herop.y + 10;
+        int    py_bot = herop.y - 80;
+        int    py_top = herop.y - 30;
 
         c->pos.x += (f32)(trg.x - c->pos.x) * 0.05f;
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);

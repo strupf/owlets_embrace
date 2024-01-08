@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-#if 0
+#if 1
 enum {
     DOOR_STATE_CLOSED,
     DOOR_STATE_OPEN,
@@ -21,8 +21,6 @@ enum {
     DOOR_ACTIVATE_KEY,
     DOOR_ACTIVATE_INTERACT,
 };
-
-
 
 typedef struct {
     obj_s o;

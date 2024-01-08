@@ -129,35 +129,6 @@ static int ptr_index_in_arr(void *arr, void *p, int len)
     return -1;
 }
 
-typedef union {
-    u32 i[4];
-    u8  b[16];
-} GUID_s;
-
-// AAAAAAAA BBBB BBBB CCCC CCCCDDDDDDDD
-// cb422400-6280-11ee-b652-81974dacc861
-static GUID_s GUID_parse_str(const char *str)
-{
-    GUID_s      g = {0};
-    int         b = 0;
-    const char *s = str;
-    while (b < 16) {
-        if (!char_is_xdigit(*s)) {
-            s++;
-            continue;
-        }
-        g.b[b++] = (char_int_from_hex(s[0])) | (char_int_from_hex(s[1])) << 4;
-        s += 2;
-    }
-    return g;
-}
-
-static bool32 GUID_same(GUID_s a, GUID_s b)
-{
-    return (a.i[0] == b.i[0] && a.i[1] == b.i[1] &&
-            a.i[2] == b.i[2] && a.i[3] == b.i[3]);
-}
-
 enum {
     HITBOX_FLAG_HURT_HERO        = 1 << 0,
     HITBOX_FLAG_HURT_MONSTER     = 1 << 1,
@@ -169,6 +140,7 @@ typedef struct {
     rec_i32 r;
     int     damage;
     int     flags;
+    v2_i16  force_q8;
 } hitbox_s;
 
 #endif

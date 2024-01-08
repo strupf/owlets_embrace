@@ -200,12 +200,24 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
             DO_BUMP_Y;
         }
 
-        rec_i32 orec = sy > 0 ? obj_rec_bottom(o) : obj_rec_top(o);
+        rec_i32 orec = 0 < sy ? obj_rec_bottom(o) : obj_rec_top(o);
 
-        int collide_plat = (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) &&
-                           sy > 0 &&
-                           (orec.y & 15) == 0 &&
-                           tile_one_way(g, orec);
+        int collide_plat = 0;
+
+        if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
+            collide_plat = (orec.y & 15) == 0 && tile_one_way(g, orec);
+            if (!collide_plat) {
+                for (int i = 0; i < g->obj_nbusy; i++) {
+                    obj_s *k = g->obj_busy[i];
+                    if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
+                    rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
+                    if (overlap_rec(orec, rplat)) {
+                        collide_plat = 1;
+                        break;
+                    }
+                }
+            }
+        }
 
         if (!collide_plat && game_traversable(g, orec)) {
             actor_move_by(g, o, dtm);
@@ -232,9 +244,43 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
     }
 }
 
+static void platform_movestep(game_s *g, obj_s *o, v2_i32 dt)
+{
+    assert(v2_lensq(dt) == 1);
+
+    rec_i32 aabbog = obj_aabb(o);
+    o->pos         = v2_add(o->pos, dt);
+
+    for (int i = 0; i < g->obj_nbusy; i++) {
+        obj_s *a = g->obj_busy[i];
+        if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
+        if (!(a->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) continue;
+        rec_i32 feet = obj_rec_bottom(a);
+
+        if (overlap_rec(feet, aabbog) ||
+            obj_from_obj_handle(a->linked_solid) == o) {
+            actor_move(g, a, dt);
+        }
+    }
+}
+
+void platform_move(game_s *g, obj_s *o, v2_i32 dt)
+{
+    assert(o->flags & OBJ_FLAG_PLATFORM);
+
+    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); m; m--) {
+        v2_i32 dtx = {sx, 0};
+        platform_movestep(g, o, dtx);
+    }
+
+    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); m; m--) {
+        v2_i32 dty = {0, sy};
+        platform_movestep(g, o, dty);
+    }
+}
+
 static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
 {
-    assert(o->flags & OBJ_FLAG_SOLID);
     assert(v2_lensq(dt) == 1);
 
     o->flags &= ~OBJ_FLAG_SOLID;
@@ -249,14 +295,18 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
 
     for (int i = 0; i < g->obj_nbusy; i++) {
         obj_s *a = g->obj_busy[i];
-        if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
+        if (!(a->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM))) continue;
         rec_i32 body = obj_aabb(a);
         rec_i32 feet = obj_rec_bottom(a);
 
         if (overlap_rec(body, aabb) ||
             overlap_rec(feet, aabbog) ||
             obj_from_obj_handle(a->linked_solid) == o) {
-            actor_move(g, a, dt);
+
+            if (a->flags & OBJ_FLAG_ACTOR)
+                actor_move(g, a, dt);
+            else
+                platform_move(g, a, dt);
         }
     }
 }
@@ -312,6 +362,11 @@ void obj_apply_movement(obj_s *o)
     o->subpos_q8.y &= 255;
 }
 
+bool32 overlap_obj(obj_s *a, obj_s *b)
+{
+    return (overlap_rec(obj_aabb(a), obj_aabb(b)));
+}
+
 rec_i32 obj_aabb(obj_s *o)
 {
     rec_i32 r = {o->pos.x, o->pos.y, o->w, o->h};
@@ -365,9 +420,17 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rec_i32 rbot = obj_rec_bottom(o);
     rbot.x += offs.x;
     rbot.y += offs.y;
-    if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
+    if ((o->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)) &&
+        (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
             return 1;
+        for (int i = 0; i < g->obj_nbusy; i++) {
+            obj_s *k = g->obj_busy[i];
+            if (!(k->flags & OBJ_FLAG_PLATFORM) || k == o) continue;
+            rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
+            if (overlap_rec(rbot, rplat))
+                return 1;
+        }
     }
     return (!game_traversable(g, rbot));
 }

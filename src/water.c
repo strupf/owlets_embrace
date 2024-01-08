@@ -56,7 +56,7 @@ void water_impact_v(watersurface_s *ws, int x, int r, int peak)
 
     for (int i = i1; i < i2; i++) {
         int a = (i * Q16_ANGLE_TURN) / (r << 1);
-        int v = (((cos_q16_fast(a) * peak) >> 16) + peak) >> 1;
+        int v = (((cos_q16(a) * peak) >> 16) + peak) >> 1;
 
         ws->particles[x + i].v_q12 += v;
     }
@@ -112,7 +112,7 @@ void water_impact(watersurface_s *ws, int x, int r, int peak)
 
     for (int i = i1; i < i2; i++) {
         int a = (i * Q16_ANGLE_TURN) / (r << 1);
-        int v = (((cos_q16_fast(a) * peak) >> 16) + peak) >> 1;
+        int v = (((cos_q16(a) * peak) >> 16) + peak) >> 1;
 
         ws->particles[x + i].y_q12 = v;
     }

@@ -24,6 +24,7 @@ struct transition_s {
     v2_i32 hero_v;
     v2_i32 hero_feet;
     char   to_load[64];
+    int    dir;
 };
 
 void   transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32 hero_feet);

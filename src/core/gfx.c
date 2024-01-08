@@ -674,6 +674,66 @@ void gfx_spr_cpy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
     }
 }
 
+void gfx_spr_affine(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
+                    f32 sclx, f32 scly)
+{
+    tex_s dst = ctx.dst;
+    origin.x += src.r.x;
+    origin.y += src.r.y;
+    m33_f32 m1 = m33_offset(+(f32)origin.x, +(f32)origin.y);
+    m33_f32 m3 = m33_offset(-(f32)pos.x - (f32)origin.x, -(f32)pos.y - (f32)origin.y);
+    m33_f32 m4 = m33_rotate(angle);
+    m33_f32 m5 = m33_scale(sclx, scly);
+
+    m33_f32 m = m33_identity();
+    m         = m33_mul(m, m3);
+    m         = m33_mul(m, m5);
+    m         = m33_mul(m, m4);
+    m         = m33_mul(m, m1);
+
+    int x1 = 0;
+    int y1 = 0;
+    int x2 = ctx.dst.w - 1;
+    int y2 = ctx.dst.h - 1;
+    int w1 = x1 >> 5;
+    int w2 = x2 >> 5;
+
+    f32 u1 = (f32)(src.r.x);
+    f32 v1 = (f32)(src.r.y);
+    f32 u2 = (f32)(src.r.x + src.r.w);
+    f32 v2 = (f32)(src.r.y + src.r.h);
+
+    for (int y = y1; y <= y2; y++) {
+        u32 pat = ctx.pat.p[y & 7];
+        for (int wi = w1; wi <= w2; wi++) {
+
+            int p1 = wi == w1 ? x1 & 31 : 0;
+            int p2 = wi == w2 ? x2 & 31 : 31;
+            u32 sp = 0;
+            u32 sm = 0;
+
+            for (int p = p1; p <= p2; p++) {
+                int x = wi * 32 + p;
+
+                f32 t = (f32)(x + src.r.x);
+                f32 s = (f32)(y + src.r.y);
+                int u = (int)(t * m.m[0] + s * m.m[1] + m.m[2] + .5f);
+                int v = (int)(t * m.m[3] + s * m.m[4] + m.m[5] + .5f);
+                if (!(u1 <= u && u < u2)) continue;
+                if (!(v1 <= v && v < v2)) continue;
+                if (tex_px_at(src.t, u, v) != 0) sp |= 0x80000000U >> p;
+                if (tex_mk_at(src.t, u, v) != 0) sm |= 0x80000000U >> p;
+            }
+
+            u32 *dp = &((u32 *)dst.px)[y * dst.wword + wi];
+            u32 *dm = dst.mk ? &((u32 *)dst.mk)[y * dst.wword + wi] : NULL;
+            u32 *ds = NULL;
+
+            apply_spr_mode(dp, dm, ds, bswap32(sp), bswap32(sm) & pat, 0);
+        }
+    }
+}
+
 void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle)
 {
     tex_s dst = ctx.dst;
@@ -684,9 +744,10 @@ void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32
     m33_f32 m4 = m33_rotate(angle);
 
     m33_f32 m = m33_identity();
-    m         = m33_mul(m, m3);
-    m         = m33_mul(m, m4);
-    m         = m33_mul(m, m1);
+
+    m = m33_mul(m, m3);
+    m = m33_mul(m, m4);
+    m = m33_mul(m, m1);
 
     int x1 = 0;
     int y1 = 0;

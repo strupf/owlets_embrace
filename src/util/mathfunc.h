@@ -149,62 +149,39 @@ static inline i32 sqrt_i32(i32 x)
 
 #define Q16_ANGLE_TURN 0x40000
 
-// p: angle, where 2 PI = 262144 = 0x40000
-// output: [-65536, 65536] = [-1; +1]
-static i32 cos_q16(i32 p)
+static i32 turn_q18_calc(i32 num, i32 den)
 {
-    u32 i = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
-    if ((i & 0xFFFF) == 0) return 0;
-    int neg = (0x10000 <= i && i < 0x30000);
-    switch (i >> 16) {
-    case 1: i = 0x20000 - i; break; // [65536, 131071]
-    case 2: i = i - 0x20000; break; // [131072, 196607]
-    case 3: i = 0x40000 - i; break; // [196608, 262143]
-    }
-    i = (i * i + 0x8000) >> 16;
-    u32 r;
-    r = 0x00002;                   // Constants multiplied by scaling:
-    r = 0x0003C - ((i * r) >> 16); // (PI/2)^10 / 3628800
-    r = 0x00557 - ((i * r) >> 16); // (PI/2)^8 / 40320
-    r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
-    r = 0x13BD4 - ((i * r) >> 16); // (PI/2)^4 / 24
-    r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
-    return neg ? -(i32)r : (i32)r;
+    return (0x40000 * num) / den;
 }
 
-// p: angle, where 2 PI = 262144 = 0x40000
+// p: angle/turn, where 2 PI or 1 turn = 262144 (0x40000)
 // output: [-65536, 65536] = [-1; +1]
-static i32 cos_q16_fast(i32 p)
+static i32 cos_q16(i32 turn_q18)
 {
-    u32 i = (u32)p & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
-    if ((i & 0xFFFF) == 0) return 0;
-    int neg = (0x10000 <= i && i < 0x30000);
-    switch (i >> 16) {
-    case 1: i = 0x20000 - i; break; // [65536, 131071]
-    case 2: i = i - 0x20000; break; // [131072, 196607]
-    case 3: i = 0x40000 - i; break; // [196608, 262143]
+    //  maps the angle to the first part of cos -> taylor series
+    u32 i   = (u32)turn_q18 & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    int neg = 0;
+    switch (i & 0x30000) {                         // [0, 65535]
+    case 0x10000: i = 0x20000 - i, neg = 1; break; // [65536, 131071]
+    case 0x20000: i = i - 0x20000, neg = 1; break; // [131072, 196607]
+    case 0x30000: i = 0x40000 - i; break;          // [196608, 262143]
     }
-    i = (i * i) >> 16;
-    u32 r;                         // 2 less terms than the other cos
-    r = 0x0051F;                   // Constants multiplied by scaling:
-    r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
-    r = 0x13BD3 - ((i * r) >> 16); // (PI/2)^4 / 24
-    r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
+    if (i == 0x10000) return 0;
+    i     = (i * i + 0x8000) >> 16;
+    u32 r = 0x00002;                   // Constants multiplied by scaling:
+    r     = 0x0003C - ((i * r) >> 16); // (PI/2)^10 / 3628800
+    r     = 0x00557 - ((i * r) >> 16); // (PI/2)^8 / 40320
+    r     = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
+    r     = 0x13BD4 - ((i * r) >> 16); // (PI/2)^4 / 24
+    r     = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
     return neg ? -(i32)r : (i32)r;
 }
 
 // p: angle, where 262144 = 0x40000 = 2 PI
 // output: [-65536, 65536] = [-1; +1]
-static inline i32 sin_q16(i32 p)
+static inline i32 sin_q16(i32 turn_q18)
 {
-    return cos_q16(p - 0x10000);
-}
-
-// p: angle, where 262144 = 0x40000 = 2 PI
-// output: [-65536, 65536] = [-1; +1]
-static inline i32 sin_q16_fast(i32 p)
-{
-    return cos_q16_fast(p - 0x10000);
+    return cos_q16(turn_q18 - 0x10000);
 }
 
 // input: [0,65536] = [0,1]
@@ -266,16 +243,21 @@ static i32 acos_q16(i32 x)
     return 0x10000 - asin_q16(x);
 }
 
-static float sin_f(float x)
+static f32 sin_f(f32 x)
 {
-    float i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
-    return ((float)sin_q16((i32)(i * (float)Q16_ANGLE_TURN)) / 65536.f);
+    f32 i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
+    return ((f32)sin_q16((i32)(i * (f32)Q16_ANGLE_TURN)) / 65536.f);
 }
 
-static float cos_f(float x)
+static f32 cos_f(f32 x)
 {
-    float i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
-    return ((float)cos_q16((i32)(i * (float)Q16_ANGLE_TURN)) / 65536.f);
+    f32 i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
+    return ((f32)cos_q16((i32)(i * (f32)Q16_ANGLE_TURN)) / 65536.f);
+}
+
+static f32 atan2_f(f32 y, f32 x)
+{
+    return atan2f(y, x);
 }
 
 // ============================================================================
@@ -900,8 +882,8 @@ m33_f32 m33_mul(m33_f32 a, m33_f32 b)
 
 m33_f32 m33_rotate(float angle)
 {
-    float   si = sin_f(angle);
-    float   co = cos_f(angle);
+    float   si = sinf(angle);
+    float   co = cosf(angle);
     m33_f32 m  = {+co, -si, 0.f,
                   +si, +co, 0.f,
                   0.f, 0.f, 1.f};

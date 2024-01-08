@@ -11,6 +11,11 @@ enum {
     SWITCH_ST_ON  = 1,
 };
 
+typedef struct {
+    int trigger_on_enable;
+    int trigger_on_disable;
+} obj_switch_s;
+
 static void switch_set_sprite(obj_s *o)
 {
     o->sprites[0].trec.r.x = (o->timer > 0 ? 64 : 128 * o->state);
@@ -30,6 +35,18 @@ obj_s *switch_create(game_s *g)
     return o;
 }
 
+obj_s *switch_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = switch_create(g);
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+
+    obj_switch_s *os       = (obj_switch_s *)o->mem;
+    os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");
+    os->trigger_on_disable = map_obj_i32(mo, "Trigger_disable");
+    return o;
+}
+
 void switch_on_animate(game_s *g, obj_s *o)
 {
     if (o->timer > 0)
@@ -45,9 +62,15 @@ void switch_on_interact(game_s *g, obj_s *o)
         o->flags &= ~OBJ_FLAG_INTERACTABLE;
     }
 
+    obj_switch_s *os = (obj_switch_s *)o->mem;
+
     switch (o->state) {
-    case SWITCH_ST_OFF: game_on_trigger(g, o->trigger_on_1); break;
-    case SWITCH_ST_ON: game_on_trigger(g, o->trigger_on_0); break;
+    case SWITCH_ST_OFF:
+        game_on_trigger(g, os->trigger_on_enable);
+        break;
+    case SWITCH_ST_ON:
+        game_on_trigger(g, os->trigger_on_disable);
+        break;
     }
 
     o->state = 1 - o->state;

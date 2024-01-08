@@ -9,14 +9,29 @@ enum {
     TOGGLEBLOCK_ON,
 };
 
+typedef struct {
+    int trigger_to_enable;
+    int trigger_to_disable;
+} obj_toggleblock_s;
+
 obj_s *toggleblock_create(game_s *g)
 {
-    obj_s *o   = obj_create(g);
-    o->ID      = OBJ_ID_TOGGLEBLOCK;
-    o->w       = 16;
-    o->h       = 16;
-    o->state   = TOGGLEBLOCK_OFF;
-    o->trigger = o->trigger_on_0;
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_TOGGLEBLOCK;
+    o->w     = 16;
+    o->h     = 16;
+    o->state = TOGGLEBLOCK_OFF;
+    return o;
+}
+
+obj_s *toggleblock_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = toggleblock_create(g);
+
+    obj_toggleblock_s *ot  = (obj_toggleblock_s *)o->mem;
+    ot->trigger_to_enable  = map_obj_i32(mo, "Trigger_enable");
+    ot->trigger_to_disable = map_obj_i32(mo, "Trigger_disable");
+
     return o;
 }
 
@@ -50,22 +65,25 @@ void toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     gfx_spr(ctxb, tr0, pos, 0, 0);
 }
 
-void toggleblock_on_trigger(game_s *g, obj_s *o)
+void toggleblock_on_trigger(game_s *g, obj_s *o, int trigger)
 {
-    o->timer = 0;
-    int tx   = o->pos.x >> 4;
-    int ty   = o->pos.y >> 4;
+    int tx = o->pos.x >> 4;
+    int ty = o->pos.y >> 4;
+
+    obj_toggleblock_s *ot = (obj_toggleblock_s *)o->mem;
 
     switch (o->state) {
     case TOGGLEBLOCK_OFF:
-        o->trigger                               = o->trigger_on_1;
+        if (trigger != ot->trigger_to_enable) return;
         g->tiles[tx + ty * g->tiles_x].collision = TILE_BLOCK;
         game_on_solid_appear(g);
         break;
     case TOGGLEBLOCK_ON:
-        o->trigger                               = o->trigger_on_0;
+        if (trigger != ot->trigger_to_disable) return;
         g->tiles[tx + ty * g->tiles_x].collision = TILE_EMPTY;
         break;
     }
+
     o->state = 1 - o->state;
+    o->timer = 0;
 }

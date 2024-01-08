@@ -40,7 +40,7 @@ void *spm_alloc(usize s)
     usize rem = marena_size_rem(&SPM.m);
     if (rem < SPM.lowestleft) {
         SPM.lowestleft = rem;
-        sys_printf("= lowest SPM left: %u kb\n", (u32)(rem / 1024));
+        sys_printf("+++ lowest SPM left: %u kb\n", (u32)(rem / 1024));
     }
 #endif
     return mem;
