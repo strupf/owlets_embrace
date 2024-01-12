@@ -9,23 +9,23 @@
 #define HERO_ROPE_LEN_SHORT 2000
 #define HERO_ROPE_LEN_LONG  4000
 
-static void hero_set_cur_item(hero_s *h, int item);
-static int  hero_max_rope_len_q4(hero_s *h);
+static void herodata_set_cur_item(herodata_s *h, int item);
+static int  hero_max_rope_len_q4(herodata_s *h);
 
 obj_s *hero_create(game_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HERO;
     obj_tag(g, o, OBJ_TAG_HERO);
-    o->flags |= OBJ_FLAG_MOVER;
-    o->flags |= OBJ_FLAG_TILE_COLLISION;
-    o->flags |= OBJ_FLAG_ACTOR;
-    o->flags |= OBJ_FLAG_CLAMP_TO_ROOM;
-    o->flags |= OBJ_FLAG_SPRITE;
-    o->moverflags |= OBJ_MOVER_SLOPES;
-    o->moverflags |= OBJ_MOVER_GLUE_GROUND;
-    o->moverflags |= OBJ_MOVER_AVOID_HEADBUMP;
-    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+    o->flags = OBJ_FLAG_MOVER |
+               OBJ_FLAG_TILE_COLLISION |
+               OBJ_FLAG_ACTOR |
+               OBJ_FLAG_CLAMP_TO_ROOM |
+               OBJ_FLAG_SPRITE;
+    o->moverflags = OBJ_MOVER_SLOPES |
+                    OBJ_MOVER_GLUE_GROUND |
+                    OBJ_MOVER_AVOID_HEADBUMP |
+                    OBJ_MOVER_ONE_WAY_PLAT;
 
     o->n_sprites    = 2;
     o->drag_q8.x    = 256;
@@ -39,27 +39,28 @@ obj_s *hero_create(game_s *g)
     return o;
 }
 
-bool32 hero_has_upgrade(hero_s *h, int upgrade)
+bool32 hero_has_upgrade(herodata_s *h, int upgrade)
 {
     return (h->aquired_upgrades & (1U << upgrade));
 }
 
-void hero_aquire_upgrade(hero_s *h, int upgrade)
+void hero_aquire_upgrade(herodata_s *h, int upgrade)
 {
     if (hero_has_upgrade(h, upgrade)) {
         sys_printf("Already has upgrade: %i\n", upgrade);
         return;
     }
+    sys_printf("Collected upgrade %i\n", upgrade);
     h->aquired_upgrades |= 1 << upgrade;
 
     switch (upgrade) {
     case HERO_UPGRADE_HOOK:
         h->aquired_items |= 1 << HERO_ITEM_HOOK;
-        hero_set_cur_item(h, HERO_ITEM_HOOK);
+        herodata_set_cur_item(h, HERO_ITEM_HOOK);
         break;
     case HERO_UPGRADE_WHIP:
         h->aquired_items |= 1 << HERO_ITEM_WHIP;
-        hero_set_cur_item(h, HERO_ITEM_WHIP);
+        herodata_set_cur_item(h, HERO_ITEM_WHIP);
         break;
     case HERO_UPGRADE_AIR_JUMP_1: h->n_airjumps = 1; break;
     case HERO_UPGRADE_AIR_JUMP_2: h->n_airjumps = 2; break;
@@ -84,7 +85,7 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->vel_cap_q8.x = 2500;
     o->vel_cap_q8.y = 2500;
 
-    hero_s *hero = &g->herodata;
+    herodata_s *hero = &g->herodata;
     rope_init(r);
     rope_set_len_max_q4(r, hero_max_rope_len_q4(hero));
     r->tail->p  = p;
@@ -178,7 +179,7 @@ void hook_update(game_s *g, obj_s *hook)
     }
 }
 
-void hero_use_hook(game_s *g, obj_s *h, hero_s *hero)
+void hero_use_hook(game_s *g, obj_s *h, herodata_s *hero)
 {
     // throw new hook
     int dirx = inp_dpad_x();
@@ -207,7 +208,7 @@ void hero_use_hook(game_s *g, obj_s *h, hero_s *hero)
     g->ropes[0]          = rope;
 }
 
-static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
+static void hero_use_item(game_s *g, obj_s *o, herodata_s *hero)
 {
     if (o->attack != HERO_ATTACK_NONE && o->attack_tick > 5)
         return;
@@ -247,11 +248,11 @@ static void hero_use_item(game_s *g, obj_s *o, hero_s *hero)
 
 void hero_on_update(game_s *g, obj_s *o)
 {
-    hero_s *hero   = &g->herodata;
-    hero->n_hitbox = 0;
+    herodata_s *herodata = &g->herodata;
+    herodata->n_hitbox   = 0;
+    hero_s *hero         = (hero_s *)o->mem;
 
     if (o->attack != HERO_ATTACK_NONE) {
-
         if (o->attack_tick == 12) {
             hitbox_s hitboxes[4] = {0};
             v2_i32   hbp         = obj_pos_bottom_center(o);
@@ -279,8 +280,8 @@ void hero_on_update(game_s *g, obj_s *o)
             }
 
 #ifdef SYS_DEBUG
-            memcpy(hero->hitbox_def, hitboxes, sizeof(hitboxes));
-            hero->n_hitbox = 1;
+            memcpy(herodata->hitbox_def, hitboxes, sizeof(hitboxes));
+            herodata->n_hitbox = 1;
 #endif
 
             game_apply_hitboxes(g, hitboxes, 1);
@@ -297,10 +298,15 @@ void hero_on_update(game_s *g, obj_s *o)
     bool32 usehook  = o->ropenode != NULL;
 
     o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+    o->facing_locked = 0;
+    o->drag_q8.y     = 256;
+
+    if (0 < o->invincible_tick)
+        o->invincible_tick--;
+
     if (0 < dpad_y)
         o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
 
-    o->facing_locked = 0;
     if (o->attack != HERO_ATTACK_NONE) {
         o->facing_locked = 1;
     }
@@ -319,87 +325,105 @@ void hero_on_update(game_s *g, obj_s *o)
     }
     o->bumpflags = 0;
 
+    int    water_depth = water_depth_rec(g, obj_aabb(o));
+    bool32 swimming    = 0 < water_depth && !grounded;
+
+    if (water_depth) { // upwards swimming force
+        o->drag_q8.y = 240;
+        o->vel_q8.y -= 25;
+        hero->swimticks--; // swim ticks are reset when grounded later on
+        if (0 < hero->swimticks) {
+            int j0 = min_i(water_depth, 60);
+            int j1 = 60;
+            o->vel_q8.y -= (j0 * 80) / j1;
+        } else {
+            sys_printf("no swim ticks left\n");
+            o->vel_q8.y -= water_depth;
+        }
+    }
+
     // jump buffering
     // https://twitter.com/MaddyThorson/status/1238338575545978880
-    if (inp_pressed(INP_A)) {
-        if (inp_just_pressed(INP_A)) {
-            o->jump_btn_buffer = 8;
-        } else {
-            o->jump_btn_buffer--;
-        }
-    } else {
-        o->jump_btn_buffer = 0;
-    }
+    if (0 < hero->jump_btn_buffer)
+        hero->jump_btn_buffer--;
+    if (inp_pressed(INP_A))
+        hero->jump_btn_buffer = 8;
 
     // coyote time -> edgeticks
     // https://twitter.com/MaddyThorson/status/1238338574220546049
     if (grounded) {
-        o->edgeticks  = 6;
-        o->n_airjumps = hero->n_airjumps;
-    } else if (0 < o->edgeticks) {
-        o->edgeticks--;
+        bool32 can_swim     = hero_has_upgrade(herodata, HERO_UPGRADE_SWIM);
+        hero->edgeticks     = 6;
+        hero->swimticks     = can_swim ? 2000 : 10000;
+        hero->airjumps_left = herodata->n_airjumps;
+    } else if (0 < hero->edgeticks) {
+        hero->edgeticks--;
     }
 
     struct jumpvar_s {
-        int v_init; // initial velocity of the jump, absolute
-        int ticks;  // ticks of variable jump (decreases faster if jump button is not held)
-        int vi;     // "jetpack" velocity, goes to 0 over ticks or less
+        int ticks; // ticks of variable jump (decreases faster if jump button is not held)
+        int vi;    // "jetpack" velocity, goes to 0 over ticks or less
     };
 
     static const struct jumpvar_s jump_tab[4] = {
-        {800, 20, 60},
-        {0, 22, 140},
-        {0, 18, 135},
-        {0, 15, 130},
+        {20, 60},
+        {20, 250},
+        {18, 135},
+        {15, 130},
     };
 
-    if (0 < o->jumpticks) {
+#define JUMP_INIT_VY -800 // absolute initial velocity of ground jump
+
+    if (0 < hero->jumpticks) {
         if (inp_pressed(INP_A))
-            o->jumpticks--;
+            hero->jumpticks--;
         else
-            o->jumpticks >>= 1; // decrease jump ticks faster
+            hero->jumpticks >>= 1; // decrease jump ticks faster
 
         struct jumpvar_s jv = jump_tab[0];
-        if (o->n_airjumps != hero->n_airjumps) { // air jump
-            jv = jump_tab[hero->n_airjumps - o->n_airjumps];
+        if (hero->airjumps_left != herodata->n_airjumps) { // air jump
+            jv = jump_tab[herodata->n_airjumps - hero->airjumps_left];
         }
 
-        int j0 = pow2_i32(jv.ticks - o->jumpticks);
-        int j1 = pow2_i32(jv.ticks);
-        o->vel_q8.y -= lerp_i32(jv.vi, 0, j0, j1);
+        int j0 = pow_i32(jv.ticks - hero->jumpticks, 1);
+        int j1 = pow_i32(jv.ticks, 1);
+        int fy = jv.vi - (jv.vi * j0) / j1;
+        o->vel_q8.y -= jv.vi - (jv.vi * j0) / j1;
     } else {
-        o->jumpticks--;
-        bool32 can_jump_midair = !usehook &&          // not hooked
-                                 o->edgeticks == 0 && // jump in air?
-                                 0 < o->n_airjumps && // air jumps left?
-                                 o->jumpticks < -10;  // wait some ticks after last jump
+        hero->jumpticks--;
+        bool32 can_jump_ground = 0 < hero->edgeticks;
+        bool32 can_jump_midair = !usehook &&                // not hooked
+                                 !swimming &&               // not swimming
+                                 hero->edgeticks == 0 &&    // jump in air?
+                                 0 < hero->airjumps_left && // air jumps left?
+                                 hero->jumpticks < -15;     // wait some ticks after last jump
 
-        if (0 < o->jump_btn_buffer && (0 < o->edgeticks || can_jump_midair)) {
-            struct jumpvar_s jv = jump_tab[0];
-            if (o->edgeticks == 0) // air jump
-                jv = jump_tab[hero->n_airjumps - --o->n_airjumps];
-            int vy = jv.v_init;
-            hero->aquired_upgrades |= (1 << HERO_UPGRADE_HIGH_JUMP);
-            if (!hero_has_upgrade(hero, HERO_UPGRADE_HIGH_JUMP)) {
-                vy = (vy * 3) / 4;
+        if (0 < hero->jump_btn_buffer && (can_jump_ground || can_jump_midair)) {
+            if (can_jump_ground) { // ground jump
+                bool32 hjump = hero_has_upgrade(herodata, HERO_UPGRADE_HIGH_JUMP);
+                o->vel_q8.y  = hjump ? JUMP_INIT_VY : (JUMP_INIT_VY * 3) / 4;
+            } else { // jump midair
+                o->vel_q8.y >>= 1;
             }
 
-            o->jump_btn_buffer = 0;
-            o->edgeticks       = 0;
-            o->jumpticks       = jv.ticks;
-            o->vel_q8.y        = -vy;
+            struct jumpvar_s jv = jump_tab[0];
+            if (!can_jump_ground) // air jump
+                jv = jump_tab[herodata->n_airjumps - --hero->airjumps_left];
+            hero->jumpticks       = jv.ticks;
+            hero->jump_btn_buffer = 0;
+            hero->edgeticks       = 0;
         }
     }
 
-    if (inp_just_pressed(INP_B)) {
-        hero_use_item(g, o, hero);
+    if (inp_just_pressed(INP_B) && !swimming) {
+        hero_use_item(g, o, herodata);
     }
 
     obj_s *ohook = obj_from_obj_handle(o->obj_handles[0]);
     if (ohook && ohook->attached) {
         int rl_q4 = o->rope->len_max_q4;
         rl_q4 += inp_dpad_y() * 30;
-        rl_q4 = clamp_i(rl_q4, HERO_ROPE_LEN_MIN, hero_max_rope_len_q4(hero));
+        rl_q4 = clamp_i(rl_q4, HERO_ROPE_LEN_MIN, hero_max_rope_len_q4(herodata));
         rope_set_len_max_q4(o->rope, rl_q4);
     }
 
@@ -467,7 +491,7 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 }
 
-static void hero_set_cur_item(hero_s *h, int item)
+static void herodata_set_cur_item(herodata_s *h, int item)
 {
     if (h->aquired_items == 0) return;
     if (!(h->aquired_items & (1 << item))) {
@@ -477,7 +501,7 @@ static void hero_set_cur_item(hero_s *h, int item)
     h->selected_item = item;
 }
 
-static int hero_max_rope_len_q4(hero_s *h)
+static int hero_max_rope_len_q4(herodata_s *h)
 {
     if (hero_has_upgrade(h, HERO_UPGRADE_LONG_HOOK))
         return HERO_ROPE_LEN_LONG;
@@ -486,7 +510,7 @@ static int hero_max_rope_len_q4(hero_s *h)
 
 #define ITEM_CRANK_THRESHOLD 8000
 
-void hero_crank_item_selection(hero_s *h)
+void hero_crank_item_selection(herodata_s *h)
 {
     if (h->aquired_items == 0) return;
     if (h->itemselection_decoupled) return;
@@ -536,12 +560,12 @@ void hero_on_animate(game_s *g, obj_s *o)
 {
     sprite_simple_s *sprite = &o->sprites[0];
 
-    sprite->trec.t   = asset_tex(TEXID_HERO);
-    hero_s *hero     = &g->herodata;
-    int     flip     = o->facing == -1 ? SPR_FLIP_X : 0;
-    int     animID   = 0;
-    int     frameID  = 0;
-    bool32  grounded = obj_grounded(g, o);
+    sprite->trec.t       = asset_tex(TEXID_HERO);
+    herodata_s *hero     = &g->herodata;
+    int         flip     = o->facing == -1 ? SPR_FLIP_X : 0;
+    int         animID   = 0;
+    int         frameID  = 0;
+    bool32      grounded = obj_grounded(g, o);
 
     if (grounded) {
         if (o->vel_q8.x != 0) {
@@ -620,5 +644,17 @@ void hero_on_animate(game_s *g, obj_s *o)
             prt.p.gfx           = PARTICLE_GFX_CIR;
             particles_spawn(g, &g->particles, prt, 20);
         }
+    }
+}
+
+void hero_hurt(game_s *g, obj_s *o, hero_s *h, int damage)
+{
+    if (0 < o->invincible_tick) return;
+
+    int health = obj_health_change(o, -damage);
+    if (0 < health) {
+        o->invincible_tick = 30;
+    } else {
+        // kill
     }
 }

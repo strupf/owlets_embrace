@@ -34,6 +34,7 @@ void app_init()
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_BG, "tileset_bg.tex", NULL);
+    asset_tex_loadID(TEXID_BG_ART, "bg_art.tex", NULL);
     tex_s texhero;
     if (0 <= asset_tex_loadID(TEXID_HERO, "player.tex", &texhero)) {
         for (int y = 0; y < 6; y++) {
@@ -52,6 +53,7 @@ void app_init()
         }
     }
     asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
+    asset_tex_putID(TEXID_OCEAN, tex_create(400, 240, asset_allocator));
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox.tex", NULL);
     asset_tex_loadID(TEXID_HERO_WHIP, "attackanim-sheet.tex", NULL);
@@ -61,7 +63,23 @@ void app_init()
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
     asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
     asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
+
     asset_tex_loadID(TEXID_CRAWLER, "crawler.tex", NULL);
+
+    // prerender 8 rotations
+    texrec_s  trcrawler   = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
+    gfx_ctx_s ctx_crawler = gfx_ctx_default(trcrawler.t);
+    for (int k = 0; k < 4; k++) {
+        trcrawler.r.x = k * 64;
+        for (int i = 1; i < 8; i++) {
+            v2_i32 pp     = {k * 64, i * 64};
+            v2_i32 origin = {32, 48 - 10};
+
+            f32 ang = (PI_FLOAT * (f32)i * 0.25f);
+            gfx_spr_rotscl(ctx_crawler, trcrawler, pp, origin, ang, 1.f, 1.f);
+            tex_outline(trcrawler.t, pp.x, pp.y, trcrawler.r.w, trcrawler.r.h, 1, 1);
+        }
+    }
 
 #ifdef SYS_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -102,6 +120,7 @@ void app_tick()
 {
     inp_update();
     game_s *g = &GAME;
+
     switch (g->state) {
     case GAMESTATE_MAINMENU:
         mainmenu_update(g, &g->mainmenu);
@@ -117,7 +136,6 @@ void app_draw()
 {
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
     tex_clr(asset_tex(0), TEX_CLR_WHITE);
-
 #if 1
     game_s *g = &GAME;
     switch (g->state) {

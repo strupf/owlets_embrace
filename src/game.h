@@ -29,7 +29,34 @@
 #define NUM_TILES               0x40000
 #define INTERACTABLE_DIST       32
 #define NUM_DECALS              256
-#define WEAPON_HIT_FREEZE_TICKS 8
+#define WEAPON_HIT_FREEZE_TICKS 2
+#define NUM_WATER               16
+
+typedef struct {
+    watersurface_s surf;
+    rec_i32        area;
+} water_s;
+
+#define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
+#define OCEAN_W_PX      SYS_DISPLAY_W
+#define OCEAN_H_PX      SYS_DISPLAY_H
+#define OCEAN_NUM_SPANS 512
+
+typedef struct {
+    i16 y;
+    i16 w;
+} ocean_span_s;
+
+typedef struct {
+    bool32         active;
+    watersurface_s surf;
+    int            y;
+
+    i32          y_min; // boundaries of affected wave area
+    i32          y_max;
+    int          n_spans;
+    ocean_span_s spans[OCEAN_NUM_SPANS];
+} ocean_s;
 
 typedef struct {
     v2_i32 pos;
@@ -110,7 +137,7 @@ struct game_s {
     obj_s           *obj_to_delete[NUM_OBJ];
     obj_s            obj_raw[NUM_OBJ];
 
-    hero_s         herodata;
+    herodata_s         herodata;
     parallax_img_s parallax;
     rope_s         rope; // hero rope, singleton
     textbox_s      textbox;
@@ -134,8 +161,11 @@ struct game_s {
     decal_s     decal_fg[NUM_DECALS];
     decal_s     decal_bg[NUM_DECALS];
     grass_s     grass[256];
-    ocean_s     ocean;
     particles_s particles;
+
+    ocean_s ocean;
+    int     n_water;
+    water_s water[NUM_WATER];
 
     marena_s arena;
     alignas(4) char mem[MKILOBYTE(256)];
@@ -146,9 +176,9 @@ typedef struct {
     int      n;
 } solid_rec_list_s;
 
-extern u16           g_animated_tiles[65536];
-extern const int     g_pxmask_tab[32 * 16];
-extern const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS];
+extern u16       g_animated_tiles[65536];
+extern const int g_pxmask_tab[32 * 16];
+extern const i32 tilecolliders[GAME_NUM_TILECOLLIDERS * 6]; // triangles
 
 void game_init(game_s *g);
 void game_tick(game_s *g);
@@ -170,6 +200,9 @@ solid_rec_list_s game_solid_recs(game_s *g);
 void             game_on_solid_appear(game_s *g);
 void             game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
 void             game_put_grass(game_s *g, int tx, int ty);
+//
+int              ocean_height(game_s *g, int pixel_x);
+int              water_depth_rec(game_s *g, rec_i32 r);
 //
 alloc_s          game_allocator(game_s *g);
 
@@ -214,7 +247,6 @@ static int anim_total_ticks(frame_ticks_s *f)
         time += t;
     }
     return time;
-    ;
 }
 
 #endif

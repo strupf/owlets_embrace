@@ -6,8 +6,7 @@
 #include "game.h"
 
 const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS] =
-    {
-        {0}};
+    {0};
 
 static int inventory_find(inventory_s *i, int ID)
 {

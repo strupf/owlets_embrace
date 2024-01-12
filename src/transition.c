@@ -46,7 +46,7 @@ void transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32
     transition_start(t, g, mapfile, 0, hero_feet, (v2_i32){0}, 1);
 }
 
-void transition_check_hero_slide(transition_s *t, game_s *g)
+void transition_check_herodata_slide(transition_s *t, game_s *g)
 {
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!o) return;

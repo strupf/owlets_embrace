@@ -12,6 +12,7 @@ typedef struct savefile_s {
     flags32 aquired_upgrades;
     flags32 aquired_items;
     int     n_airjumps;
+    int     health;
     char    area_filename[LEN_AREA_FILENAME];
     char    hero_name[LEN_HERO_NAME];
 } savefile_s;

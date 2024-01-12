@@ -30,6 +30,8 @@ enum {
     OBJ_ID_CRAWLER,
     OBJ_ID_CRAWLER_SNAIL,
     OBJ_ID_CARRIER,
+    OBJ_ID_HEROUPGRADE,
+    OBJ_ID_MOVINGPLATFORM,
 };
 
 enum {
@@ -51,6 +53,8 @@ enum {
 #define OBJ_FLAG_SPRITE         ((u64)1 << 9)
 #define OBJ_FLAG_ENEMY          ((u64)1 << 10)
 #define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
+//
+#define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -152,7 +156,7 @@ struct obj_s {
     int      collectible_amount;
     int      health;
     int      health_max;
-    int      attackbuffer;
+    int      invincible_tick;
     int      frametick;
     int      frame;
     int      n_hitboxes;
@@ -160,10 +164,6 @@ struct obj_s {
     int      n_hurtboxes;
     hitbox_s hurtboxes[4];
 
-    int          jump_btn_buffer;
-    int          n_airjumps;
-    i32          jumpticks;
-    i32          edgeticks;
     ropenode_s  *ropenode;
     rope_s      *rope;
     int          attached;
@@ -175,7 +175,6 @@ struct obj_s {
     int             attack;
     int             attack_tick;
     bool32          facing_locked;
-    int             ropelen;
     int             n_sprites;
     sprite_simple_s sprites[4];
     char            filename[64];

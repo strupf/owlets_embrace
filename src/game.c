@@ -3,8 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "render.h"
-#include "rope.h"
+#include "render/render.h"
 
 u16 g_animated_tiles[65536];
 
@@ -21,6 +20,23 @@ void game_init(game_s *g)
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
+    /*
+    for (int i = 0; i < 65536; i += 4) {
+        if ((i & 31) == 0) sys_printf("\n");
+        sys_printf("%i, ", cos_q16(i));
+    }
+
+    sys_printf("%i\n", cos_q16(65536));
+    sys_printf("%i\n", cos_q16(65536 * 2));
+    sys_printf("%i\n", cos_q16(65536 * 3));
+    sys_printf("%i\n", cos_q16(65536 * 4));
+    */
+#if 0
+    for (int i = 0; i < 256; i++) {
+        if ((i & 7) == 0) sys_printf("\n");
+        sys_printf("0x%05X, ", (int)(65536.5f * cosf(M_PI * 0.5f * (f32)i / 256.f)));
+    }
+#endif
 }
 
 static void gameplay_tick(game_s *g)
@@ -30,13 +46,7 @@ static void gameplay_tick(game_s *g)
 
     hero_crank_item_selection(&g->herodata);
     if (inp_debug_space()) {
-        g->herodata.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
-        g->herodata.aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;
         g->herodata.itemselection_decoupled = 1;
-
-    } else {
-        g->herodata.aquired_upgrades &= ~(1 << HERO_UPGRADE_HIGH_JUMP);
-        g->herodata.aquired_upgrades &= ~(1 << HERO_UPGRADE_LONG_HOOK);
     }
 
     for (int i = 0; i < g->obj_nbusy; i++) {
@@ -53,6 +63,7 @@ static void gameplay_tick(game_s *g)
         case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
         case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         case OBJ_ID_CARRIER: carrier_on_update(g, o); break;
+        case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
         }
         o->posprev = posprev;
 #ifdef SYS_DEBUG
@@ -103,18 +114,20 @@ static void gameplay_tick(game_s *g)
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (ohero) {
         hero_check_rope_intact(g, ohero);
+        const rec_i32 heroaabb = obj_aabb(ohero);
 
         // COLLECTIBLES
         for (int i = 0; i < g->obj_nbusy; i++) {
             obj_s *o = g->obj_busy[i];
             if (!(o->flags & OBJ_FLAG_COLLECTIBLE)) continue;
-            const rec_i32 heroaabb = obj_aabb(ohero);
             if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
 
-            switch (o->collectible_type) {
-            case COLLECTIBLE_TYPE_COIN:
+            switch (o->ID) {
+            case OBJ_ID_HEROUPGRADE:
+                heroupgrade_on_collect(g, o, &g->herodata);
                 break;
             }
+            sys_printf("has %i\n", hero_has_upgrade(&g->herodata, HERO_UPGRADE_HIGH_JUMP));
 
             obj_delete(g, o);
         }
@@ -128,13 +141,15 @@ static void gameplay_tick(game_s *g)
     }
 #endif
 
-    transition_check_hero_slide(&g->transition, g);
-    ocean_update(&g->ocean);
+    transition_check_herodata_slide(&g->transition, g);
     particles_update(g, &g->particles);
+    if (g->ocean.active)
+        water_update(&g->ocean.surf);
+    for (int n = 0; n < g->n_water; n++)
+        water_update(&g->water[n].surf);
 
     if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = WEAPON_HIT_FREEZE_TICKS;
-        sys_printf("free");
     }
 }
 
@@ -195,13 +210,14 @@ void game_write_savefile(game_s *g)
 {
     savefile_s sf = {0};
 
-    hero_s *hero = &g->herodata;
+    herodata_s *hero = &g->herodata;
     strcpy(sf.area_filename, g->areaname.filename);
     strcpy(sf.hero_name, hero->name);
     sf.aquired_items    = hero->aquired_items;
     sf.aquired_upgrades = hero->aquired_upgrades;
     sf.tick             = g->tick;
     sf.n_airjumps       = hero->n_airjumps;
+    sf.health           = hero->health;
     savefile_write(g->savefile_slotID, &sf);
 }
 
@@ -224,13 +240,24 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
         }
     }
 
-    g->herodata.aquired_items    = sf.aquired_items;
-    g->herodata.aquired_upgrades = sf.aquired_upgrades;
-    g->herodata.n_airjumps       = sf.n_airjumps;
+    herodata_s *hero       = &g->herodata;
+    hero->aquired_items    = sf.aquired_items;
+    hero->aquired_upgrades = sf.aquired_upgrades;
+    hero->n_airjumps       = sf.n_airjumps;
+    hero->health           = sf.health;
+
+    sys_printf("has %i\n", hero_has_upgrade(&g->herodata, HERO_UPGRADE_HIGH_JUMP));
 
     obj_s *oc = crawler_create(g);
     oc->pos.x = 100;
     oc->pos.y = 80;
+
+    obj_s *pu = heroupgrade_create(g);
+    pu->state = HERO_UPGRADE_HIGH_JUMP;
+    pu->pos.x = 180;
+    pu->pos.y = 160;
+
+    obj_s *pm = movingplatform_create(g);
 }
 
 static void backforeground_animate_grass(game_s *g)
@@ -309,6 +336,35 @@ void game_put_grass(game_s *g, int tx, int ty)
     gr->pos.x   = tx * 16;
     gr->pos.y   = ty * 16;
     gr->type    = rngr_i32(0, 2);
+}
+
+int ocean_height(game_s *g, int pixel_x)
+{
+    f32 p = (f32)pixel_x;
+    f32 t = (f32)g->tick;
+    i32 h = (i32)(sin_f(p * 0.0025f + t * 0.01f) * 15.f +
+                  sin_f(p * 0.0050f + t * 0.02f + 1.f) * 10.f +
+                  sin_f(p * 0.0100f + t * 0.08f + 1.f) * 6.f +
+                  sin_f(p * 0.0250f + t * 0.20f + 2.f) * 2.f);
+    return h + g->ocean.y;
+}
+
+int water_depth_rec(game_s *g, rec_i32 r)
+{
+    int f        = 0;
+    int y_bottom = r.y + r.h;
+    if (g->ocean.active) {
+        int h1 = max_i(0, y_bottom - ocean_height(g, r.x));
+        int h2 = max_i(0, y_bottom - ocean_height(g, r.x + r.w));
+        f      = (h1 + h2) >> 1;
+    }
+
+    for (int i = 0; i < g->n_water; i++) {
+        water_s *wa = &g->water[i];
+        if (!overlap_rec(wa->area, r)) continue;
+        f = max_i(f, y_bottom - wa->area.y);
+    }
+    return f;
 }
 
 bool32 tiles_solid(game_s *g, rec_i32 r)
@@ -528,7 +584,7 @@ const int g_pxmask_tab[32 * 16] = {
 
 // triangle coordinates
 // x0 y0 x1 y1 x2 y2
-const tri_i32 tilecolliders[GAME_NUM_TILECOLLIDERS] = {
+const i32 tilecolliders[GAME_NUM_TILECOLLIDERS * 6] = {
     // dummy triangles
     0, 0, 0, 0, 0, 0, // empty
     0, 0, 0, 0, 0, 0, // solid

@@ -13,13 +13,12 @@ void game_draw(game_s *g)
 
     const v2_i32    camoffset = {-camrec.x, -camrec.y};
     const gfx_ctx_s ctx       = gfx_ctx_display();
-    // render_parallax(g, camoffset);
+
+    ocean_s *ocean = &g->ocean;
+    render_bg(g, camrec);
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
-
-    texrec_s tbackground = asset_texrec(TEXID_CLOUDS, 0, 0, 400, 256);
-    gfx_spr(ctx, tbackground, (v2_i32){0, -16}, 0, 0);
 
     for (int n = 0; n < g->n_decal_bg; n++) {
         gfx_ctx_s ctx_decal = ctx;
@@ -66,12 +65,13 @@ void game_draw(game_s *g)
     }
 
     for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s   *o    = g->obj_busy[i];
-        texrec_s trec = {0};
-        v2_i32   ppos = v2_add(o->pos, camoffset);
-        rec_i32  aabb = {ppos.x, ppos.y, o->w, o->h};
-#if 0
-        gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
+        obj_s  *o    = g->obj_busy[i];
+        v2_i32  ppos = v2_add(o->pos, camoffset);
+        rec_i32 aabb = {ppos.x, ppos.y, o->w, o->h};
+
+#if 1
+        if (o->flags & OBJ_FLAG_RENDER_AABB)
+            gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
 #endif
 
         if (o->flags & OBJ_FLAG_SPRITE) {
@@ -90,11 +90,11 @@ void game_draw(game_s *g)
         case OBJ_ID_TOGGLEBLOCK:
             toggleblock_on_draw(g, o, camoffset);
             break;
-        case OBJ_ID_CRAWLER:
-            crawler_on_draw(g, o, camoffset);
+        case OBJ_ID_HEROUPGRADE:
+            heroupgrade_on_draw(g, o, camoffset);
             break;
         case OBJ_ID_HERO: {
-            hero_s *hero = &g->herodata;
+            herodata_s *hero = &g->herodata;
 #if 0 // render hitboxes
             gfx_ctx_s ctxhb = ctx;
             for (int i = 0; i < hero->n_hitbox; i++) {
@@ -107,7 +107,7 @@ void game_draw(game_s *g)
 #endif
 
 #if 0 // air jump indicators
-            hero_s *hero  = &g->herodata;
+            herodata_s *hero  = &g->herodata;
             bool32  inair = game_traversable(g, obj_rec_bottom(o));
             if (hero->n_airjumps > 0 && inair) {
                 gfx_ctx_s ctx_airjump = gfx_ctx_default(asset_tex(0));
@@ -179,36 +179,7 @@ void game_draw(game_s *g)
     enveffect_wind_draw(ctx, &g->env_wind, camoffset);
     // enveffect_heat_draw(ctx, &g->env_heat, camoffset);
 
-#define HORIZONT_X     2000                // distance horizont from screen plane
-#define HORIZONT_X_EYE 600                 // distance eye from screen plane
-#define HORIZONT_Y_EYE (SYS_DISPLAY_H / 2) // height eye on screen plane (center)
-
-    // calc height of horizont based on thales theorem
-    int Y_HORIZONT = ((g->ocean.y + camoffset.y - HORIZONT_Y_EYE) * HORIZONT_X) /
-                     (HORIZONT_X + HORIZONT_X_EYE);
-
-#if 0
-    for (int i = 1; i < g->ocean.water.nparticles; i++) {
-        int       h1        = ocean_amplitude(&g->ocean, i - 1) + camoffset.y;
-        int       h2        = ocean_amplitude(&g->ocean, i + 0) + camoffset.y;
-        gfx_ctx_s ctx_ocean = gfx_ctx_default(asset_tex(0));
-
-        v2_i32 p1 = {(i - 1) * 4, h1};
-        v2_i32 p2 = {(i + 0) * 4, h2};
-
-        gfx_lin_thick(ctx_ocean, p1, p2, PRIM_MODE_BLACK, 2);
-        if (Y_HORIZONT <= 0) continue;
-
-        for (int k = 1; k < 10; k++) {
-            v2_i32 p3 = p1;
-            v2_i32 p4 = p2;
-            p3.y -= (Y_HORIZONT * k) / 9;
-            p4.y -= (Y_HORIZONT * k) / 9;
-            gfx_lin_thick(ctx_ocean, p3, p4, PRIM_MODE_BLACK, 2);
-        }
-    }
-#endif
-
+    ocean_draw(g, asset_tex(0));
     render_ui(g, camoffset);
     transition_draw(&g->transition);
 
@@ -338,128 +309,122 @@ void render_parallax(game_s *g, v2_i32 camoffset)
     }
 }
 
-#define ITEM_FRAME_SIZE 64
-#define ITEM_BARREL_R   16
-#define ITEM_SIZE       32
-#define ITEM_X_OFFS     16
-#define ITEM_Y_OFFS     16
-
-static void render_item_selection(hero_s *h)
+static int ocean_render_amplitude_at(game_s *g, i32 px_x)
 {
-    tex_s     texcache = asset_tex(TEXID_UI_ITEM_CACHE);
-    gfx_ctx_s ctx      = gfx_ctx_default(texcache);
-    texrec_s  tr       = {0};
-    tr.t               = asset_tex(TEXID_UI_ITEMS);
-    tex_clr(texcache, TEX_CLR_TRANSPARENT);
-
-    // barrel background
-
-    int offs = 15;
-    if (!h->itemselection_decoupled) {
-        int dtang = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
-        offs      = min_i(pow2_i32(dtang) / 4000000, offs);
-    }
-
-#define ITEM_OVAL_Y 12
-
-    int turn1 = (inp_crank_q16() + 0x4000) << 2;
-    int turn2 = (h->item_angle + 0x4000) << 2;
-    int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
-    int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
-    int sx1   = (cos_q16(turn1));
-    int sx2   = (cos_q16(turn2));
-
-    // wraps the item image around a rotating barrel
-    // map coordinate to angle to image coordinate
-    //   |
-    //   v_________
-    //   /  \      \
-    //  /    \      \
-    //  |     \     |
-    tr.r.x = 32;
-    tr.r.w = ITEM_SIZE;
-    tr.r.h = 1;
-    for (int y = 0; y < 2 * ITEM_BARREL_R; y++) {
-        int yy   = y - ITEM_BARREL_R;
-        int abar = asin_q16((yy << 16) / ITEM_BARREL_R) >> 2; // asin returns TURN in Q18, one turn = 0x40000, shr by 2 for Q16
-        int aimg = (abar + h->item_angle + 0x4000) & 0xFFFF;
-        if (0 <= aimg && aimg < 0x8000) { // maps to [0, 180) deg (visible barrel)
-            tr.r.y = h->selected_item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
-            gfx_spr(ctx, tr, (v2_i32){16, ITEM_Y_OFFS + y}, 0, 0);
-        } else {
-            gfx_rec_fill(ctx, (rec_i32){16, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
-        }
-    }
-
-    tr.r = (rec_i32){64, 0, 64, 64}; // frame
-    gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
-    tr.r = (rec_i32){144, 0, 32, 64}; // disc
-    gfx_spr(ctx, tr, (v2_i32){48 + 17 + offs, 0}, 0, 0);
-    tr.r = (rec_i32){112, 64, 16, 16}; // hole
-    gfx_spr(ctx, tr, (v2_i32){48, 32 - 8 - sy2}, 0, 0);
-    tr.r = (rec_i32){112, 80, 16, 16}; // bolt
-    gfx_spr(ctx, tr, (v2_i32){49 + offs, 32 - 8 - sy1}, 0, 0);
+    assert(0 <= px_x && (px_x >> 3) < g->ocean.surf.nparticles);
+    int i1 = (px_x) >> 3;
+    int i2 = (px_x + 7) >> 3;
+    int h1 = water_amplitude(&g->ocean.surf, i1);
+    int h2 = water_amplitude(&g->ocean.surf, i2);
+    int u1 = px_x & 7;
+    int u2 = 8 - u1;
+    int oh = ocean_height(g, px_x);
+    oh     = g->ocean.y;
+    return oh + ((h1 * u2 + h2 * u1) >> 3);
 }
 
-void render_ui(game_s *g, v2_i32 camoffset)
+void ocean_calc_spans(game_s *g, rec_i32 camr)
 {
-    gfx_ctx_s ctx_ui = gfx_ctx_display();
+    ocean_s *oc = &g->ocean;
+    if (!oc->active) return;
 
-    fade_s *areaname = &g->areaname.fade;
-    if (fade_phase(areaname) != 0) {
-        int       fade_i       = fade_interpolate(areaname, 0, 100);
-        fnt_s     areafont     = asset_fnt(FNTID_LARGE);
-        gfx_ctx_s ctx_areafont = ctx_ui;
-        ctx_areafont.pat       = gfx_pattern_interpolate(fade_i, 100);
+    if (inp_debug_space()) {
+        water_impact(&oc->surf, 30, 6, 30000);
+    }
 
-        int areax = 10;
-        int areay = 10;
+    oc->y_min          = I32_MAX;
+    oc->y_max          = I32_MIN;
+    oc->n_spans        = 1;
+    ocean_span_s *span = &oc->spans[0];
+    span->y            = ocean_render_amplitude_at(g, 0 + camr.x) - camr.y;
+    span->w            = 1;
 
-        for (int yy = -2; yy <= +2; yy++) {
-            for (int xx = -2; xx <= +2; xx++) {
-                fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax + xx, areay + yy},
-                               g->areaname.label, SPR_MODE_WHITE);
-            }
+    for (int x = 1; x < camr.w; x++) {
+        i32 h     = ocean_render_amplitude_at(g, x + camr.x) - camr.y;
+        oc->y_min = min_i32(oc->y_min, h);
+        oc->y_max = max_i32(oc->y_max, h);
+        if (h != span->y) {
+            span    = &oc->spans[oc->n_spans++];
+            span->y = h;
+            span->w = 0;
         }
-        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax, areay}, g->areaname.label, SPR_MODE_BLACK);
+        span->w++;
     }
-
-    if (g->herodata.aquired_items) {
-        render_item_selection(&g->herodata);
-        texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
-                                         0, 0, 128, ITEM_FRAME_SIZE);
-        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 92, 240 - 64 + 16}, 0, 0);
-    }
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && g->textbox.state == TEXTBOX_STATE_INACTIVE) {
-        v2_i32 posc         = obj_pos_center(ohero);
-        obj_s *interactable = obj_closest_interactable(g, posc);
-
-        if (interactable) {
-            v2_i32 posi = obj_pos_center(interactable);
-            posi        = v2_add(posi, camoffset);
-            posi.y -= 64 + 16;
-            posi.x -= 32;
-            int      btn_frame = tick_to_index_freq(g->tick, 2, 50);
-            texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
-            gfx_spr(ctx_ui, tui, posi, 0, 0);
-        }
-    }
-
-    textbox_draw(&g->textbox, camoffset);
 }
 
-void render_pause(game_s *g)
+void ocean_draw_bg(game_s *g, tex_s t, v2_i32 camoff)
 {
-    spm_push();
-    tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
-    gfx_ctx_s ctx = gfx_ctx_default(tex);
+    ocean_s *oc = &g->ocean;
+    if (!oc->active) return;
 
-    for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WBYTES; i++) {
-        tex.px[i] = rngr_i32(0, 255);
+    gfx_ctx_s ctx = gfx_ctx_default(t);
+
+#define HORIZONT_X     2000                // distance horizont from screen plane
+#define HORIZONT_X_EYE 600                 // distance eye from screen plane
+#define HORIZONT_Y_EYE (SYS_DISPLAY_H / 2) // height eye on screen plane (center)
+
+    int y_max = clamp_i(oc->y_max, 0, t.h);
+
+    for (int k = 0, x = 0; k < oc->n_spans; k++) {
+        ocean_span_s sp = oc->spans[k];
+        rec_i32      rf = {x, sp.y, sp.w, y_max - sp.y};
+
+        gfx_rec_fill_display(ctx, rf, PRIM_MODE_BLACK);
+
+        // calc height of horizont based on thales theorem
+        int y_horizont = ((sp.y - HORIZONT_Y_EYE) * HORIZONT_X) /
+                         (HORIZONT_X + HORIZONT_X_EYE);
+        for (int i = 1; i <= 8; i++) {
+            int       yy   = sp.y - ((y_horizont * i) >> 3);
+            rec_i32   rl   = {x, yy, sp.w, 1};
+            gfx_ctx_s ctxl = ctx;
+            ctxl.pat       = gfx_pattern_interpolate(8 - i, 8);
+            gfx_rec_fill_display(ctxl, rl, PRIM_MODE_BLACK);
+        }
+        x += sp.w;
     }
 
-    sys_set_menu_image(tex.px, tex.h, tex.wbyte);
-    spm_pop();
+    { // fill "static" bottom section
+        u32 *px = &((u32 *)t.px)[y_max * t.wword];
+        int  N  = t.wword * (t.h - y_max);
+        for (int n = 0; n < N; n++) {
+            *px++ = 0;
+        }
+    }
+}
+
+void ocean_draw(game_s *g, tex_s t)
+{
+    ocean_s *oc = &g->ocean;
+    if (!oc->active) return;
+    const gfx_ctx_s ctx  = gfx_ctx_default(t);
+    gfx_ctx_s       ctxf = ctx;
+    ctxf.pat             = gfx_pattern_4x4(B4(0101),
+                                           B4(1010),
+                                           B4(0101),
+                                           B4(1010));
+    gfx_ctx_s ctxl       = ctx;
+    ctxl.pat             = gfx_pattern_interpolate(1, 6);
+    int y_max            = clamp_i(oc->y_max, 0, t.h - 1);
+
+    { // fill "static" bottom section
+        u32 *px = &((u32 *)t.px)[y_max * t.wword];
+        for (int y = y_max; y < t.h; y++) {
+            u32 pt = ~ctxf.pat.p[y & 1];
+            for (int x = 0; x < t.wword; x++)
+                *px++ &= pt;
+        }
+    }
+
+    // dynamic sin section
+    for (int k = 0, x = 0; k < oc->n_spans; k++) {
+        ocean_span_s sp  = oc->spans[k];
+        rec_i32      rl1 = {x, sp.y + 2, sp.w, 2};
+        rec_i32      rl2 = {x, sp.y + 4, sp.w, 2};
+        rec_i32      rfb = {x, sp.y, sp.w, y_max - sp.y};
+        gfx_rec_fill_display(ctxf, rfb, PRIM_MODE_BLACK);
+        gfx_rec_fill_display(ctxf, rl1, PRIM_MODE_WHITE);
+        gfx_rec_fill_display(ctxl, rl2, PRIM_MODE_WHITE);
+        x += sp.w;
+    }
 }

@@ -156,10 +156,10 @@ static i32 turn_q18_calc(i32 num, i32 den)
 
 // p: angle/turn, where 2 PI or 1 turn = 262144 (0x40000)
 // output: [-65536, 65536] = [-1; +1]
+//  maps the angle to the first part of cos -> lookup table + lerp
 static i32 cos_q16(i32 turn_q18)
 {
-    //  maps the angle to the first part of cos -> taylor series
-    u32 i   = (u32)turn_q18 & 0x3FFFF; // (p >= 0 ? (u32)p : (u32)(-p)) & 0x3FFFF;
+    u32 i   = (u32)turn_q18 & 0x3FFFF;
     int neg = 0;
     switch (i & 0x30000) {                         // [0, 65535]
     case 0x10000: i = 0x20000 - i, neg = 1; break; // [65536, 131071]
@@ -167,6 +167,45 @@ static i32 cos_q16(i32 turn_q18)
     case 0x30000: i = 0x40000 - i; break;          // [196608, 262143]
     }
     if (i == 0x10000) return 0;
+#if 1
+    static const i32 cos_table[256] = {
+        0x10000, 0x0FFFF, 0x0FFFB, 0x0FFF5, 0x0FFEC, 0x0FFE1, 0x0FFD4, 0x0FFC4,
+        0x0FFB1, 0x0FF9C, 0x0FF85, 0x0FF6B, 0x0FF4E, 0x0FF30, 0x0FF0E, 0x0FEEB,
+        0x0FEC4, 0x0FE9C, 0x0FE71, 0x0FE43, 0x0FE13, 0x0FDE1, 0x0FDAC, 0x0FD74,
+        0x0FD3B, 0x0FCFE, 0x0FCC0, 0x0FC7F, 0x0FC3B, 0x0FBF5, 0x0FBAD, 0x0FB62,
+        0x0FB15, 0x0FAC5, 0x0FA73, 0x0FA1F, 0x0F9C8, 0x0F96E, 0x0F913, 0x0F8B4,
+        0x0F854, 0x0F7F1, 0x0F78C, 0x0F724, 0x0F6BA, 0x0F64E, 0x0F5DF, 0x0F56E,
+        0x0F4FA, 0x0F484, 0x0F40C, 0x0F391, 0x0F314, 0x0F295, 0x0F213, 0x0F18F,
+        0x0F109, 0x0F080, 0x0EFF5, 0x0EF68, 0x0EED9, 0x0EE47, 0x0EDB3, 0x0ED1C,
+        0x0EC83, 0x0EBE8, 0x0EB4B, 0x0EAAB, 0x0EA0A, 0x0E966, 0x0E8BF, 0x0E817,
+        0x0E76C, 0x0E6BF, 0x0E60F, 0x0E55E, 0x0E4AA, 0x0E3F4, 0x0E33C, 0x0E282,
+        0x0E1C6, 0x0E107, 0x0E046, 0x0DF83, 0x0DEBE, 0x0DDF7, 0x0DD2D, 0x0DC62,
+        0x0DB94, 0x0DAC4, 0x0D9F2, 0x0D91E, 0x0D848, 0x0D770, 0x0D696, 0x0D5B9,
+        0x0D4DB, 0x0D3FB, 0x0D318, 0x0D234, 0x0D14D, 0x0D065, 0x0CF7A, 0x0CE8D,
+        0x0CD9F, 0x0CCAE, 0x0CBBC, 0x0CAC7, 0x0C9D1, 0x0C8D9, 0x0C7DE, 0x0C6E2,
+        0x0C5E4, 0x0C4E4, 0x0C3E2, 0x0C2DE, 0x0C1D8, 0x0C0D1, 0x0BFC7, 0x0BEBC,
+        0x0BDAF, 0x0BCA0, 0x0BB8F, 0x0BA7D, 0x0B968, 0x0B852, 0x0B73A, 0x0B620,
+        0x0B505, 0x0B3E8, 0x0B2C9, 0x0B1A8, 0x0B086, 0x0AF61, 0x0AE3C, 0x0AD14,
+        0x0ABEB, 0x0AAC0, 0x0A994, 0x0A866, 0x0A736, 0x0A605, 0x0A4D2, 0x0A39D,
+        0x0A267, 0x0A130, 0x09FF7, 0x09EBC, 0x09D80, 0x09C42, 0x09B03, 0x099C2,
+        0x09880, 0x0973C, 0x095F7, 0x094B0, 0x09368, 0x0921E, 0x090D4, 0x08F87,
+        0x08E3A, 0x08CEB, 0x08B9A, 0x08A48, 0x088F5, 0x087A1, 0x0864B, 0x084F4,
+        0x0839C, 0x08242, 0x080E8, 0x07F8C, 0x07E2E, 0x07CD0, 0x07B70, 0x07A0F,
+        0x078AD, 0x0774A, 0x075E6, 0x07480, 0x07319, 0x071B2, 0x07049, 0x06EDF,
+        0x06D74, 0x06C08, 0x06A9B, 0x0692D, 0x067BE, 0x0664D, 0x064DC, 0x0636A,
+        0x061F7, 0x06083, 0x05F0E, 0x05D98, 0x05C22, 0x05AAA, 0x05932, 0x057B8,
+        0x0563E, 0x054C3, 0x05347, 0x051CB, 0x0504D, 0x04ECF, 0x04D50, 0x04BD0,
+        0x04A50, 0x048CF, 0x0474D, 0x045CA, 0x04447, 0x042C3, 0x0413F, 0x03FB9,
+        0x03E34, 0x03CAD, 0x03B26, 0x0399F, 0x03817, 0x0368E, 0x03505, 0x0337B,
+        0x031F1, 0x03066, 0x02EDB, 0x02D50, 0x02BC4, 0x02A37, 0x028AB, 0x0271D,
+        0x02590, 0x02402, 0x02273, 0x020E5, 0x01F56, 0x01DC7, 0x01C37, 0x01AA7,
+        0x01917, 0x01787, 0x015F6, 0x01466, 0x012D5, 0x01144, 0x00FB2, 0x00E21,
+        0x00C8F, 0x00AFE, 0x0096C, 0x007DA, 0x00648, 0x004B6, 0x00324, 0x00192};
+
+    i32 a = cos_table[i >> 8];
+    i32 b = 0x0FF00 < i ? 0 : cos_table[(i + 0xFF) >> 8];
+    i32 r = a - (((a - b) * (i & 255)) >> 8);
+#else
     i     = (i * i + 0x8000) >> 16;
     u32 r = 0x00002;                   // Constants multiplied by scaling:
     r     = 0x0003C - ((i * r) >> 16); // (PI/2)^10 / 3628800
@@ -174,6 +213,7 @@ static i32 cos_q16(i32 turn_q18)
     r     = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
     r     = 0x13BD4 - ((i * r) >> 16); // (PI/2)^4 / 24
     r     = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
+#endif
     return neg ? -(i32)r : (i32)r;
 }
 
@@ -512,19 +552,19 @@ static rec_i32 translate_rec(rec_i32 r, v2_i32 p)
 
 static tri_i32 translate_tri(tri_i32 t, v2_i32 p)
 {
-    tri_i32 tt = {v2_add(t.p[0], p), v2_add(t.p[1], p), v2_add(t.p[2], p)};
+    tri_i32 tt = {{v2_add(t.p[0], p), v2_add(t.p[1], p), v2_add(t.p[2], p)}};
     return tt;
 }
 
 // turns an AABB into two triangles
 static void tris_from_rec(rec_i32 r, tri_i32 tris[2])
 {
-    tri_i32 t1 = {r.x, r.y,
-                  r.x + r.w, r.y,
-                  r.x + r.w, r.y + r.h};
-    tri_i32 t2 = {r.x, r.y,
-                  r.x + r.w, r.y + r.h,
-                  r.x, r.y + r.h};
+    tri_i32 t1 = {{{r.x, r.y},
+                   {r.x + r.w, r.y},
+                   {r.x + r.w, r.y + r.h}}};
+    tri_i32 t2 = {{{r.x, r.y},
+                   {r.x + r.w, r.y + r.h},
+                   {r.x, r.y + r.h}}};
     tris[0]    = t1;
     tris[1]    = t2;
 }
@@ -845,9 +885,9 @@ static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
 
 static m33_f32 m33_identity()
 {
-    m33_f32 m = {1.f, 0.f, 0.f,
-                 0.f, 1.f, 0.f,
-                 0.f, 0.f, 1.f};
+    m33_f32 m = {{1.f, 0.f, 0.f,
+                  0.f, 1.f, 0.f,
+                  0.f, 0.f, 1.f}};
     return m;
 }
 
@@ -884,33 +924,33 @@ m33_f32 m33_rotate(float angle)
 {
     float   si = sinf(angle);
     float   co = cosf(angle);
-    m33_f32 m  = {+co, -si, 0.f,
-                  +si, +co, 0.f,
-                  0.f, 0.f, 1.f};
+    m33_f32 m  = {{+co, -si, 0.f,
+                   +si, +co, 0.f,
+                   0.f, 0.f, 1.f}};
     return m;
 }
 
 m33_f32 m33_scale(float scx, float scy)
 {
-    m33_f32 m = {scx, 0.f, 0.f,
-                 0.f, scy, 0.f,
-                 0.f, 0.f, 1.f};
+    m33_f32 m = {{scx, 0.f, 0.f,
+                  0.f, scy, 0.f,
+                  0.f, 0.f, 1.f}};
     return m;
 }
 
 m33_f32 m33_shear(float shx, float shy)
 {
-    m33_f32 m = {1.f, shx, 0.f,
-                 shy, 1.f, 0.f,
-                 0.f, 0.f, 1.f};
+    m33_f32 m = {{1.f, shx, 0.f,
+                  shy, 1.f, 0.f,
+                  0.f, 0.f, 1.f}};
     return m;
 }
 
 m33_f32 m33_offset(float x, float y)
 {
-    m33_f32 m = {1.f, 0.f, x,
-                 0.f, 1.f, y,
-                 0.f, 0.f, 1.f};
+    m33_f32 m = {{1.f, 0.f, x,
+                  0.f, 1.f, y,
+                  0.f, 0.f, 1.f}};
     return m;
 }
 

@@ -9,9 +9,9 @@ obj_s *fallingblock_create(game_s *g)
     NOT_IMPLEMENTED
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_FALLINGBLOCK;
-    o->flags |= OBJ_FLAG_SOLID;
-    o->w = 16;
-    o->h = 16;
+    o->flags = OBJ_FLAG_SOLID;
+    o->w     = 16;
+    o->h     = 16;
     return o;
 }
 

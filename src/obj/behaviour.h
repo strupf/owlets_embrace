@@ -6,6 +6,7 @@
 #define BEHAVIOUR_H
 
 #include "gamedef.h"
+#include "hero.h"
 #include "map_loader.h"
 
 obj_s *blob_create(game_s *g);
@@ -41,9 +42,15 @@ obj_s *crawler_create(game_s *g);
 void   crawler_on_update(game_s *g, obj_s *o);
 void   crawler_on_animate(game_s *g, obj_s *o);
 void   crawler_on_weapon_hit(obj_s *o, hitbox_s hb);
-void   crawler_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 obj_s *carrier_create(game_s *g);
 void   carrier_on_update(game_s *g, obj_s *o);
+//
+obj_s *heroupgrade_create(game_s *g);
+void   heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h);
+void   heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+//
+obj_s *movingplatform_create(game_s *g);
+void   movingplatform_on_update(game_s *g, obj_s *o);
 
 #endif

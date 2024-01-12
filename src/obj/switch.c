@@ -25,8 +25,8 @@ obj_s *switch_create(game_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_SWITCH;
-    o->flags |= OBJ_FLAG_INTERACTABLE;
-    o->flags |= OBJ_FLAG_SPRITE;
+    o->flags = OBJ_FLAG_INTERACTABLE |
+               OBJ_FLAG_SPRITE;
     o->n_sprites         = 1;
     o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);
     o->sprites[0].offs.x = -32;

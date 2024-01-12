@@ -116,30 +116,13 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
-    g->n_grass     = 0;
-    g->n_ropes     = 0;
-    g->n_decal_fg  = 0;
-    g->n_decal_bg  = 0;
-    g->particles.n = 0;
+    g->n_grass      = 0;
+    g->n_ropes      = 0;
+    g->n_decal_fg   = 0;
+    g->n_decal_bg   = 0;
+    g->particles.n  = 0;
+    g->ocean.active = 0;
     marena_init(&g->arena, g->mem, sizeof(g->mem));
-
-    /*
-    g->ocean.ocean.particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * 1024);
-    g->ocean.ocean.nparticles     = 1024;
-    g->ocean.ocean.dampening_q12  = 4070;
-    g->ocean.ocean.fneighbour_q16 = 8000;
-    g->ocean.ocean.fzero_q16      = 20;
-    g->ocean.ocean.loops          = 1;
-    g->ocean.y                    = 300;
-
-    g->ocean.water.particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * 4096);
-    g->ocean.water.nparticles     = 4096;
-    g->ocean.water.dampening_q12  = 4060;
-    g->ocean.water.fneighbour_q16 = 2000;
-    g->ocean.water.fzero_q16      = 100;
-    g->ocean.water.loops          = 3;
-    g->ocean.water.p              = (v2_i32){0};
-    */
 
     strcpy(g->areaname.filename, mapfile);
     g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
@@ -219,6 +202,18 @@ void game_load_map(game_s *g, const char *mapfile)
         if (0) {
         } else if (str_eq(o->name, "Switch")) {
             switch_load(g, o);
+        } else if (str_eq(o->name, "Ocean")) {
+            int n_waterp = g->tiles_x * 2 + 1;
+
+            watersurface_s *oceanwater = &g->ocean.surf;
+            g->ocean.active            = 1;
+            g->ocean.y                 = o->y + 16;
+            oceanwater->particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * n_waterp);
+            oceanwater->nparticles     = n_waterp;
+            oceanwater->dampening_q12  = 4092;
+            oceanwater->fneighbour_q16 = 2000;
+            oceanwater->fzero_q16      = 100;
+            oceanwater->loops          = 2;
         }
     }
     spm_pop();

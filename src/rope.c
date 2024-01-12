@@ -181,7 +181,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
                 continue;
             }
             if (t < TILE_SLOPE_HI) {
-                tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                 v2_i32 *p  = tr.p;
 
                 convex_vertex_s v0 = {p[0], p[1], p[2]};
@@ -263,7 +263,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
     pts->pt[1]     = p2;
 
     // add points inside the arc
-    tri_i32 tri = {p0, p1, p2};
+    tri_i32 tri = {{p0, p1, p2}};
     rope_points_in_tris(g, tri, subtri, pts);
     if (pts->n == 2) { // encountered to obstacles
         spm_pop();
@@ -293,11 +293,11 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
     rn->p        = p_new;
 
     if (rn->next) {
-        tri_i32 tri = {p_old, p_new, rn->next->p};
+        tri_i32 tri = {{p_old, p_new, rn->next->p}};
         ropenode_on_moved(g, r, rn, p_old, p_new, rn->next, tri);
     }
     if (rn->prev) {
-        tri_i32 tri = {p_old, p_new, rn->prev->p};
+        tri_i32 tri = {{p_old, p_new, rn->prev->p}};
         ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
     }
     // assert(rope_intact(g, r));
@@ -324,11 +324,11 @@ static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
         v2_i32 rnold = r1->p;
         r1->p        = p_end;
         if (r1->prev) {
-            tri_i32 tri = {r1->prev->p, rnold, p_end};
+            tri_i32 tri = {{r1->prev->p, rnold, p_end}};
             ropenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
         }
         if (r1->next) {
-            tri_i32 tri = {r1->next->p, rnold, p_end};
+            tri_i32 tri = {{r1->next->p, rnold, p_end}};
             ropenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
         }
     }
@@ -358,7 +358,7 @@ static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
         ropenode_s *ri  = ropenode_insert(r, r1, r2, p_end);
         // only consider points which are on the
         // "side of penetration"
-        tri_i32     tri = {r1->p, r2->p, p_end};
+        tri_i32     tri = {{r1->p, r2->p, p_end}};
         ropenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
         ropenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
     }
@@ -455,7 +455,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
     const v2_i32      ctop    = v2_sub(pprev, pcurr); // from curr to prev
     const v2_i32      cton    = v2_sub(pnext, pcurr); // from curr to next
     const i32         z       = v2_crs(ctop, cton);   // benddirection
-    const tri_i32     trispan = {pprev, pcurr, pnext};
+    const tri_i32     trispan = {{pprev, pcurr, pnext}};
     const bounds_2D_s bounds  = game_tilebounds_tri(g, trispan);
 
     for (int y = bounds.y1; y <= bounds.y2; y++) {
@@ -475,7 +475,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                 continue;
             }
             if (t < TILE_SLOPE_HI) {
-                tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                 v2_i32 *p  = tr.p;
                 if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
                     rope_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
@@ -507,7 +507,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
     pts->n            = 0;
     pts->pt[pts->n++] = pprev;
     pts->pt[pts->n++] = pnext;
-    tri_i32 tri       = {pprev, pcurr, pnext};
+    tri_i32 tri       = {{pprev, pcurr, pnext}};
     rope_points_in_tris(g, tri, tri, pts);
     ropepts_remove(pts, pcurr); // ignore vertex at p1
     if (pts->n == 2) {
@@ -608,7 +608,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
                         return 0;
                     }
                 } else if (t < TILE_SLOPE_HI) {
-                    tri_i32 tr = translate_tri(tilecolliders[t], pos);
+                    tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                     if (overlap_tri_lineseg_excl(tr, ls)) {
                         return 0;
                     }

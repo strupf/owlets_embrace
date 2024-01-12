@@ -11,7 +11,7 @@ enum {
     SHROOMY_APPEAR,
 };
 
-static const frame_ticks_s g_shroomyhide = {30, 7, 3, 2, 2, 2, 2, 2};
+static const frame_ticks_s g_shroomyhide = {{30, 7, 3, 2, 2, 2, 2, 2}};
 
 #define SHROOMY_TICKS_APPEAR 10
 #define SHROOMY_TICKS_HIDDEN 50
@@ -20,18 +20,19 @@ obj_s *shroomy_create(game_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_SHROOMY;
-    o->flags |= OBJ_FLAG_ACTOR;
-    o->flags |= OBJ_FLAG_MOVER;
-    o->flags |= OBJ_FLAG_KILL_OFFSCREEN;
-    o->flags |= OBJ_FLAG_SPRITE;
+    o->flags = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_MOVER |
+               OBJ_FLAG_KILL_OFFSCREEN |
+               OBJ_FLAG_SPRITE;
     o->facing       = 1;
     o->gravity_q8.y = 30;
     o->drag_q8.y    = 255;
     o->drag_q8.x    = 256;
     o->w            = 16;
     o->h            = 16;
-    o->moverflags |= OBJ_MOVER_SLOPES;
-    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+    o->moverflags =
+        OBJ_MOVER_SLOPES |
+        OBJ_MOVER_ONE_WAY_PLAT;
 
     o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
@@ -67,7 +68,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
     } break;
         //
     case SHROOMY_HIDE:
-        if (anim_total_ticks(&g_shroomyhide) <= ++o->timer) {
+        if (anim_total_ticks((frame_ticks_s *)&g_shroomyhide) <= ++o->timer) {
             o->state = SHROOMY_HIDDEN;
             o->timer = 0;
         }
@@ -113,7 +114,8 @@ void shroomy_on_animate(game_s *g, obj_s *o)
     case SHROOMY_HIDE: {
 
         spr->trec.r.y = 1 * H;
-        spr->trec.r.x = W * anim_frame_from_ticks(o->timer, &g_shroomyhide);
+        spr->trec.r.x = W * anim_frame_from_ticks(o->timer,
+                                                  (frame_ticks_s *)&g_shroomyhide);
     } break;
         //
     case SHROOMY_HIDDEN: {

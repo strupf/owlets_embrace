@@ -32,6 +32,10 @@ typedef struct {
     tex_s         dst;
     gfx_pattern_s pat;
     u8           *st; // stencil
+    i32           clip_x1;
+    i32           clip_x2;
+    i32           clip_y1;
+    i32           clip_y2;
 } gfx_ctx_s;
 
 typedef struct {
@@ -46,6 +50,10 @@ typedef struct {
     int n;
     int cap;
 } fntstr_s;
+
+typedef struct {
+    i32 m[6]; // Q8
+} gfx_affine_s;
 
 enum {
     SPR_FLIP_X = 1, // kBitmapFlippedX
@@ -97,12 +105,14 @@ gfx_pattern_s gfx_pattern_interpolate(int num, int den);
 gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den);
 //
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
-void          gfx_spr_cpy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
-void          gfx_spr_affine(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
+void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                              f32 sclx, f32 scly);
+void          gfx_spr_affine(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, gfx_affine_s m);
+void          gfx_affine_gen_rot(i32 a, rec_i32 r, v2_i32 pos, v2_i32 origin, gfx_affine_s *m, v2_i32 *p);
 //
 void          gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
+void          gfx_rec_fill_display(gfx_ctx_s ctx, rec_i32 rec, int mode); // without mask and stencil buffer
 void          gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode);
 void          gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode);
 void          gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode);

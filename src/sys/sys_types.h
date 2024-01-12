@@ -198,6 +198,12 @@ typedef struct {
     i32 x, y;
 } v2_i32;
 
+static inline v2_i32 v2_i32_from_i16(v2_i16 a)
+{
+    v2_i32 r = {a.x, a.y};
+    return r;
+}
+
 typedef struct {
     f32 x, y;
 } v2_f32;

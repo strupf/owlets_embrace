@@ -34,11 +34,21 @@ typedef struct obj_s  obj_s;
 
 enum {
     DIRECTION_NONE,
-    DIRECTION_W = 1 << 0,
-    DIRECTION_N = 1 << 1,
-    DIRECTION_E = 1 << 2,
-    DIRECTION_S = 1 << 3,
+    DIRECTION_N,
+    DIRECTION_NE,
+    DIRECTION_E,
+    DIRECTION_SE,
+    DIRECTION_S,
+    DIRECTION_SW,
+    DIRECTION_W,
+    DIRECTION_NW,
 };
+
+static int direction_nearest(int dir, bool32 cw)
+{
+    if (dir == DIRECTION_NONE) return 0;
+    return ((dir + (cw ? 0 : 6)) & 7) + 1;
+}
 
 enum {
     TILELAYER_BG,
@@ -113,10 +123,16 @@ static int ms_from_ticks(int ticks)
 static v2_i32 direction_v2(int dir)
 {
     v2_i32 v = {0};
-    if (dir & DIRECTION_E) v.x = +1;
-    if (dir & DIRECTION_W) v.x = -1;
-    if (dir & DIRECTION_S) v.y = +1;
-    if (dir & DIRECTION_N) v.y = -1;
+    switch (dir) {
+    case DIRECTION_N: v.y = -1; break;
+    case DIRECTION_S: v.y = +1; break;
+    case DIRECTION_E: v.x = +1; break;
+    case DIRECTION_W: v.x = -1; break;
+    case DIRECTION_NE: v.y = -1, v.x = +1; break;
+    case DIRECTION_SE: v.y = +1, v.x = +1; break;
+    case DIRECTION_NW: v.y = -1, v.x = -1; break;
+    case DIRECTION_SW: v.y = +1, v.x = -1; break;
+    }
     return v;
 }
 
