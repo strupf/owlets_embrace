@@ -7,7 +7,7 @@
 #include "sys_types.h"
 
 #define SYS_SHOW_CONSOLE       0 // enable or display hardware console
-#define SYS_SHOW_FPS           0 // enable fps/ups counter
+#define SYS_SHOW_FPS           1 // enable fps/ups counter
 //
 #define SYS_UPS_DT             (1.f / (f32)SYS_UPS)
 #define SYS_DT_ACCUMULATOR_CAP (SYS_UPS_DT * 5.f)

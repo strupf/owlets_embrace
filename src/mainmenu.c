@@ -34,8 +34,8 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_WHIP;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
-    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
-    // t->savefiles[0].sf.n_airjumps = 1;
+    // t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
+    t->savefiles[0].sf.n_airjumps = 1;
 
     strcpy(t->savefiles[0].sf.area_filename, "Level_0");
     savefile_write(0, &t->savefiles[0].sf);
@@ -99,12 +99,23 @@ static void cb_mainmenu_to_press_start(void *arg)
     t->title_blink = 0;
 }
 
+static void cb_load_game_debug(void *arg)
+{
+    game_s     *g = (game_s *)arg;
+    mainmenu_s *t = &g->mainmenu;
+    mainmenu_op_start_file(g, t, 0);
+}
+
 static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
 {
     switch (t->state) {
     case MAINMENU_ST_PRESS_START:
         mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
+#if 1
+        fade_start(&t->fade, 30, 0, 15, cb_load_game_debug, NULL, g);
+#else
         fade_start(&t->fade, 30, 0, 15, cb_mainmenu_to_fileselect, NULL, t);
+#endif
         break;
         //
     case MAINMENU_ST_FILESELECT:
@@ -325,6 +336,8 @@ void mainmenu_render(mainmenu_s *t)
 
     gfx_rec_fill(ctx, (rec_i32){5, t->option * 20 + 25, 10, 10}, PRIM_MODE_BLACK);
 
+    texrec_s tbutton = asset_texrec(TEXID_MAINMENU, 0, 0, 64, 64);
+
     int mode = SPR_MODE_BLACK;
 
     if (t->state != MAINMENU_ST_PRESS_START) {
@@ -357,8 +370,9 @@ void mainmenu_render(mainmenu_s *t)
         fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
         fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "File 1", mode);
         fnt_draw_ascii(ctx, font, (v2_i32){40, 60}, "File 2", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 80}, "Copy", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 100}, "Delete", mode);
+        //
+        fnt_draw_ascii(ctx, font, (v2_i32){40, 100}, "Copy", mode);
+        fnt_draw_ascii(ctx, font, (v2_i32){200, 100}, "Delete", mode);
         break;
     case MAINMENU_ST_COPY_SELECT_FROM:
         fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
@@ -383,13 +397,13 @@ void mainmenu_render(mainmenu_s *t)
         break;
     case MAINMENU_ST_COPY_NO_OR_YES:
         fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "No", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "Yes", mode);
+        fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, "Yes", mode);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "COPY?", mode);
         break;
     case MAINMENU_ST_DELETE_NO_OR_YES:
         fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "No", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "Yes", mode);
+        fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, "Yes", mode);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "DELETE?", mode);
         break;

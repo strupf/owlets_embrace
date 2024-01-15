@@ -193,6 +193,64 @@ gfx_ctx_s gfx_ctx_stencil(tex_s dst, tex_s stc)
     return ctx;
 }
 
+gfx_ctx_s gfx_ctx_unclip(gfx_ctx_s ctx)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_x1   = 0;
+    c.clip_y1   = 0;
+    ctx.clip_x2 = ctx.dst.w - 1;
+    ctx.clip_y2 = ctx.dst.h - 1;
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clip(gfx_ctx_s ctx, i32 x1, i32 y1, i32 x2, i32 y2)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_x1   = max_i(x1, 0);
+    c.clip_y1   = max_i(y1, 0);
+    c.clip_x2   = min_i(x2, ctx.dst.w - 1);
+    c.clip_y2   = min_i(y2, ctx.dst.h - 1);
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clip_top(gfx_ctx_s ctx, i32 y1)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_y1   = max_i(y1, 0);
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clip_bot(gfx_ctx_s ctx, i32 y2)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_y2   = min_i(y2, ctx.dst.h - 1);
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clip_left(gfx_ctx_s ctx, i32 x1)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_x1   = max_i(x1, 0);
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2)
+{
+    gfx_ctx_s c = ctx;
+    c.clip_x2   = min_i(x2, ctx.dst.w - 1);
+    return c;
+}
+
+gfx_ctx_s gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r)
+{
+    return gfx_ctx_clip(ctx, r.x, r.y, r.x + r.w - 1, r.x + r.h - 1);
+}
+
+gfx_ctx_s gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h)
+{
+    return gfx_ctx_clip(ctx, x, y, x + w - 1, x + h - 1);
+}
+
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 {
     gfx_pattern_s pat  = {0};
@@ -670,6 +728,15 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int 
         str.buf[str.n++] = (u8)*c;
     }
     fnt_draw_str(ctx, fnt, pos, str, mode);
+}
+
+int fnt_length_px(fnt_s fnt, const char *txt)
+{
+    int l = 0;
+    for (const char *c = txt; *c != '\0'; c++) {
+        l += fnt.widths[(uint)*c];
+    }
+    return l;
 }
 
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)

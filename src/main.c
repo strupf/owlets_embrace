@@ -34,24 +34,26 @@ void app_init()
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_BG, "tileset_bg.tex", NULL);
+    asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg.tex", NULL);
+    asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg.tex", NULL);
+    asset_tex_loadID(TEXID_MAINMENU, "mainmenu.tex", NULL);
     asset_tex_loadID(TEXID_BG_ART, "bg_art.tex", NULL);
     tex_s texhero;
-    if (0 <= asset_tex_loadID(TEXID_HERO, "player.tex", &texhero)) {
-        for (int y = 0; y < 6; y++) {
-            for (int x = 0; x < 4; x++) {
-                tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
-            }
+    asset_tex_loadID(TEXID_HERO, "player.tex", &texhero);
+    for (int y = 0; y < 6; y++) {
+        for (int x = 0; x < 4; x++) {
+            tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
 
     asset_tex_loadID(TEXID_UI, "ui.tex", NULL);
     asset_tex_loadID(TEXID_UI_ITEMS, "items.tex", NULL);
     tex_s texswitch;
-    if (0 <= asset_tex_loadID(TEXID_SWITCH, "switch.tex", &texswitch)) {
-        for (int x = 0; x < 4; x++) {
-            tex_outline(texswitch, x * 64, 0, 64, 64, 1, 1);
-        }
+    asset_tex_loadID(TEXID_SWITCH, "switch.tex", &texswitch);
+    for (int x = 0; x < 4; x++) {
+        tex_outline(texswitch, x * 64, 0, 64, 64, 1, 1);
     }
+
     asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
     asset_tex_putID(TEXID_OCEAN, tex_create(400, 240, asset_allocator));
 
@@ -63,21 +65,37 @@ void app_init()
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
     asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
     asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
-
-    asset_tex_loadID(TEXID_CRAWLER, "crawler.tex", NULL);
+    asset_tex_loadID(TEXID_MISCOBJ, "miscobj.tex", NULL);
 
     // prerender 8 rotations
-    texrec_s  trcrawler   = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
-    gfx_ctx_s ctx_crawler = gfx_ctx_default(trcrawler.t);
-    for (int k = 0; k < 4; k++) {
-        trcrawler.r.x = k * 64;
-        for (int i = 1; i < 8; i++) {
-            v2_i32 pp     = {k * 64, i * 64};
+    asset_tex_loadID(TEXID_CRAWLER, "crawler.tex", NULL);
+    {
+        texrec_s  trcrawler   = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
+        gfx_ctx_s ctx_crawler = gfx_ctx_default(trcrawler.t);
+        for (int k = 0; k < 4; k++) {
             v2_i32 origin = {32, 48 - 10};
+            trcrawler.r.x = k * 64;
+            for (int i = 1; i < 8; i++) {
+                v2_i32 pp  = {k * 64, i * 64};
+                f32    ang = (PI_FLOAT * (f32)i * 0.25f);
+                gfx_spr_rotscl(ctx_crawler, trcrawler, pp, origin, -ang, 1.f, 1.f);
+                tex_outline(trcrawler.t, pp.x, pp.y, trcrawler.r.w, trcrawler.r.h, 1, 1);
+            }
+        }
+    }
 
-            f32 ang = (PI_FLOAT * (f32)i * 0.25f);
-            gfx_spr_rotscl(ctx_crawler, trcrawler, pp, origin, ang, 1.f, 1.f);
-            tex_outline(trcrawler.t, pp.x, pp.y, trcrawler.r.w, trcrawler.r.h, 1, 1);
+    // prerender 16 rotations
+    asset_tex_loadID(TEXID_HOOK, "hook.tex", NULL);
+    {
+        texrec_s  thook    = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
+        gfx_ctx_s ctx_hook = gfx_ctx_default(thook.t);
+
+        for (int i = 1; i < 16; i++) {
+            v2_i32 origin = {16, 16};
+            v2_i32 pp     = {0, i * 32};
+            f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
+            gfx_spr_rotscl(ctx_hook, thook, pp, origin, -ang, 1.f, 1.f);
+            tex_outline(thook.t, pp.x, pp.y, thook.r.w, thook.r.h, 1, 1);
         }
     }
 
@@ -110,8 +128,7 @@ void app_init()
     asset_snd_loadID(SNDID_WHIP, "whip.wav", NULL);
     asset_snd_loadID(SNDID_SWOOSH, "swoosh_0.wav", NULL);
 
-    //    sys_load_wavdata("assets/snd/hookattach_lo.wav", spm_allocator);
-
+    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
     mainmenu_init(&GAME.mainmenu);
     game_init(&GAME);
 }
@@ -135,11 +152,11 @@ void app_tick()
 void app_draw()
 {
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
-    tex_clr(asset_tex(0), TEX_CLR_WHITE);
 #if 1
     game_s *g = &GAME;
     switch (g->state) {
     case GAMESTATE_MAINMENU:
+        tex_clr(asset_tex(0), TEX_CLR_WHITE);
         mainmenu_render(&g->mainmenu);
         break;
     case GAMESTATE_GAMEPLAY:

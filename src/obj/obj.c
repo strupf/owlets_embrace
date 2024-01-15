@@ -34,12 +34,14 @@ bool32 obj_handle_valid(obj_handle_s h)
 
 obj_s *obj_create(game_s *g)
 {
-    assert(0 < g->obj_nfree && g->obj_nfree <= NUM_OBJ);
-    obj_s *o = g->obj_free_stack[--g->obj_nfree];
+    assert(g->obj_head_free);
+    obj_s *o = g->obj_head_free;
+
     if (!o) {
         BAD_PATH
         return NULL;
     }
+    g->obj_head_free = o->next;
 
     obj_UID_s UID = o->UID;
     *o            = (obj_s){0};
@@ -47,16 +49,20 @@ obj_s *obj_create(game_s *g)
 #ifdef SYS_DEBUG
     o->magic = OBJ_MAGIC;
 #endif
-    g->obj_busy[g->obj_nbusy++] = o;
+    o->next          = g->obj_head_busy;
+    g->obj_head_busy = o;
     return o;
 }
 
 void obj_delete(game_s *g, obj_s *o)
 {
-    assert(ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0);
-    assert(ptr_index_in_arr(g->obj_busy, o, g->obj_nbusy) >= 0);
-    g->obj_to_delete[g->obj_ndelete++] = o;
-    o->UID.gen++; // increase gen to devalidate existing handles
+    if (!o) return;
+    if (ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0) {
+        g->obj_to_delete[g->obj_ndelete++] = o;
+        o->UID.gen++; // increase gen to devalidate existing handles
+    } else {
+        sys_printf("already deleted\n");
+    }
 }
 
 bool32 obj_tag(game_s *g, obj_s *o, int tag)
@@ -84,27 +90,40 @@ void objs_cull_to_delete(game_s *g)
 {
     for (int n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
-        int    i = ptr_index_in_arr(g->obj_busy, o, g->obj_nbusy);
-        assert(i >= 0);
+
         for (int k = 0; k < NUM_OBJ_TAGS; k++) {
             if (g->obj_tag[k] == o)
                 g->obj_tag[k] = NULL;
         }
-        g->obj_busy[i] = g->obj_busy[--g->obj_nbusy];
+
+        if (g->obj_head_busy == o) {
+            g->obj_head_busy = o->next;
+        } else {
+            for (obj_each(g, ot)) {
+                if (ot->next == o) {
+                    ot->next = o->next;
+                    break;
+                }
+            }
+        }
+
+        o->next          = g->obj_head_free;
+        g->obj_head_free = o;
     }
+
     g->obj_ndelete = 0;
 }
 
-int actor_try_wiggle(game_s *g, obj_s *o)
+bool32 actor_try_wiggle(game_s *g, obj_s *o)
 {
     rec_i32 r = obj_aabb(o);
     if (game_traversable(g, r)) return 1;
 
-    for (int y = -1; y <= +1; y++) {
-        for (int x = -1; x <= +1; x++) {
-            rec_i32 rr = r;
-            rr.x += x;
-            rr.y += y;
+#define WIGGLE_AMOUNT 2
+
+    for (int y = -WIGGLE_AMOUNT; y <= +WIGGLE_AMOUNT; y++) {
+        for (int x = -WIGGLE_AMOUNT; x <= +WIGGLE_AMOUNT; x++) {
+            rec_i32 rr = {r.x + x, r.y + y, r.w, r.h};
             if (game_traversable(g, rr)) {
                 o->pos.x += x;
                 o->pos.y += y;
@@ -121,6 +140,7 @@ int actor_try_wiggle(game_s *g, obj_s *o)
 void obj_on_squish(game_s *g, obj_s *o)
 {
     switch (o->ID) {
+    default: obj_delete(g, o); break;
     case OBJ_ID_HERO:
         hero_on_squish(g, o);
         break;
@@ -207,8 +227,8 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
             collide_plat = (orec.y & 15) == 0 && tile_one_way(g, orec);
             if (!collide_plat) {
-                for (int i = 0; i < g->obj_nbusy; i++) {
-                    obj_s *k = g->obj_busy[i];
+
+                for (obj_s *k = g->obj_head_busy; k; k = k->next) {
                     if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
                     rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
                     if (overlap_rec(orec, rplat)) {
@@ -251,8 +271,7 @@ static void platform_movestep(game_s *g, obj_s *o, v2_i32 dt)
     rec_i32 aabbog = obj_aabb(o);
     o->pos         = v2_add(o->pos, dt);
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *a = g->obj_busy[i];
+    for (obj_each(g, a)) {
         if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
         if (!(a->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) continue;
         rec_i32 feet = obj_rec_bottom(a);
@@ -293,16 +312,25 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
     o->pos         = v2_add(o->pos, dt);
     rec_i32 aabb   = obj_aabb(o);
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *a = g->obj_busy[i];
+    for (obj_each(g, a)) {
         if (!(a->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM))) continue;
-        rec_i32 body = obj_aabb(a);
-        rec_i32 feet = obj_rec_bottom(a);
+        rec_i32 body   = obj_aabb(a);
+        bool32  linked = (obj_from_obj_handle(a->linked_solid) == o);
 
-        if (overlap_rec(body, aabb) ||
-            overlap_rec(feet, aabbog) ||
-            obj_from_obj_handle(a->linked_solid) == o) {
+        switch (a->ID) {
+        case OBJ_ID_CRAWLER:
+        case OBJ_ID_CRAWLER_SNAIL:
+            if (overlap_rec_touch(body, aabbog))
+                linked = 1;
+            break;
+        default: {
+            rec_i32 feet = obj_rec_bottom(a);
+            if (overlap_rec(feet, aabbog))
+                linked = 1;
+        } break;
+        }
 
+        if (overlap_rec(body, aabb) || linked) {
             if (a->flags & OBJ_FLAG_ACTOR)
                 actor_move(g, a, dt);
             else
@@ -329,15 +357,10 @@ void solid_move(game_s *g, obj_s *o, v2_i32 dt)
 void obj_interact(game_s *g, obj_s *o)
 {
     switch (o->ID) {
-    case OBJ_ID_SIGN: {
-        textbox_load_dialog(&g->textbox, o->filename);
-    } break;
-    case OBJ_ID_SAVEPOINT: {
-        game_write_savefile(g);
-    } break;
-    case OBJ_ID_SWITCH: {
-        switch_on_interact(g, o);
-    } break;
+    case OBJ_ID_SIGN: textbox_load_dialog(&g->textbox, o->filename); break;
+    case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
+    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
+    case OBJ_ID_NPC: npc_on_interact(g, o); break;
     }
 }
 
@@ -424,8 +447,7 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
         (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
             return 1;
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *k = g->obj_busy[i];
+        for (obj_each(g, k)) {
             if (!(k->flags & OBJ_FLAG_PLATFORM) || k == o) continue;
             rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
             if (overlap_rec(rbot, rplat))

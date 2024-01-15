@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE 1
+#define SYS_SDL_SCALE 2
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");
@@ -58,9 +58,7 @@ int main(int argc, char **argv)
                                        SYS_DISPLAY_W * SYS_SDL_SCALE,
                                        SYS_DISPLAY_H * SYS_SDL_SCALE,
                                        SDL_WINDOW_RESIZABLE);
-    OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window,
-                                         -1,
-                                         SDL_RENDERER_SOFTWARE);
+    OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window, -1, 0);
     SDL_SetRenderDrawColor(OS_SDL.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RendererInfo info;
     SDL_GetRendererInfo(OS_SDL.renderer, &info);
@@ -298,9 +296,14 @@ int backend_key(int key)
 
 float backend_crank()
 {
-    const Uint8 *keys = SDL_GetKeyboardState(NULL);
-    if (keys[SDL_SCANCODE_UP]) OS_SDL.crank += 0.01f;
-    if (keys[SDL_SCANCODE_DOWN]) OS_SDL.crank -= 0.01f;
+    SDL_GameController *c    = backend_SDL_gamecontroller();
+    const Uint8        *keys = SDL_GetKeyboardState(NULL);
+    if (keys[SDL_SCANCODE_UP] ||
+        SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
+        OS_SDL.crank += 0.02f;
+    if (keys[SDL_SCANCODE_DOWN] ||
+        SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+        OS_SDL.crank -= 0.02f;
     if (OS_SDL.crank < 0.f) OS_SDL.crank += 1.f;
     if (OS_SDL.crank > 1.f) OS_SDL.crank -= 1.f;
 
@@ -314,7 +317,7 @@ int backend_crank_docked()
 
 f32 backend_seconds()
 {
-    u64 dt_counter = SDL_GetPerformanceCounter() - OS_SDL.timeorigin;
+    Uint64 dt_counter = SDL_GetPerformanceCounter() - OS_SDL.timeorigin;
     return (f32)dt_counter / (f32)SDL_GetPerformanceFrequency();
 }
 
@@ -340,25 +343,25 @@ int backend_file_close(void *f)
 
 int backend_file_read(void *f, void *buf, usize bufsize)
 {
-    usize s = SDL_RWread((SDL_RWops *)f, buf, 1, bufsize);
+    size_t s = SDL_RWread((SDL_RWops *)f, buf, 1, bufsize);
     return (int)s;
 }
 
 int backend_file_write(void *f, const void *buf, usize bufsize)
 {
-    usize s = SDL_RWwrite((SDL_RWops *)f, buf, 1, bufsize);
+    size_t s = SDL_RWwrite((SDL_RWops *)f, buf, 1, bufsize);
     return (int)s;
 }
 
 int backend_file_tell(void *f)
 {
-    i64 i = SDL_RWtell((SDL_RWops *)f);
+    Sint64 i = SDL_RWtell((SDL_RWops *)f);
     return (int)i;
 }
 
 int backend_file_seek(void *f, int pos, int origin)
 {
-    i64 i = SDL_RWseek((SDL_RWops *)f, (i64)pos, origin);
+    Sint64 i = SDL_RWseek((SDL_RWops *)f, (i64)pos, origin);
     return (int)i;
 }
 

@@ -10,17 +10,17 @@ void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
     int i2 = min_i(NUM_PARTICLES - pr->n, n);
     for (int i = 0; i < i2; i++) {
         v2_i32 pos = desc.p.p_q8;
-        pos.x += rngr_i32(-desc.pr_q8.x, +desc.pr_q8.x);
-        pos.y += rngr_i32(-desc.pr_q8.y, +desc.pr_q8.y);
+        pos.x += rngr_sym_i32(desc.pr_q8.x);
+        pos.y += rngr_sym_i32(desc.pr_q8.y);
         if (!game_traversable_pt(g, pos.x >> 8, pos.y >> 8)) continue;
 
         particle_s *p = &pr->particles[pr->n++];
         *p            = desc.p;
         p->p_q8       = pos;
-        p->v_q8.x += rngr_i32(-desc.vr_q8.x, +desc.vr_q8.x);
-        p->v_q8.y += rngr_i32(-desc.vr_q8.y, +desc.vr_q8.y);
-        p->a_q8.x += rngr_i32(-desc.ar_q8.x, +desc.ar_q8.x);
-        p->a_q8.y += rngr_i32(-desc.ar_q8.y, +desc.ar_q8.y);
+        p->v_q8.x += rngr_sym_i32(desc.vr_q8.x);
+        p->v_q8.y += rngr_sym_i32(desc.vr_q8.y);
+        p->a_q8.x += rngr_sym_i32(desc.ar_q8.x);
+        p->a_q8.y += rngr_sym_i32(desc.ar_q8.y);
         p->size += rngr_i32(0, desc.sizer);
         p->ticks_max += rngr_i32(0, desc.ticksr);
         p->ticks = p->ticks_max;

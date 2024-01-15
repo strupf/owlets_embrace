@@ -15,25 +15,48 @@ static void render_item_selection(herodata_s *h);
 
 void render_ui(game_s *g, v2_i32 camoff)
 {
-    gfx_ctx_s ctx_ui = gfx_ctx_display();
+    const gfx_ctx_s ctx_ui = gfx_ctx_display();
 
-    fade_s *areaname = &g->areaname.fade;
-    if (fade_phase(areaname) != 0) {
-        int       fade_i       = fade_interpolate(areaname, 0, 100);
-        fnt_s     areafont     = asset_fnt(FNTID_LARGE);
-        gfx_ctx_s ctx_areafont = ctx_ui;
-        ctx_areafont.pat       = gfx_pattern_interpolate(fade_i, 100);
+    fnt_s font_1 = asset_fnt(FNTID_LARGE);
 
-        int areax = 10;
-        int areay = 10;
+    fade_s *areaname    = &g->areaname.fade;
+    fade_s *fadeupgrade = &g->fade_upgrade;
+    if (fade_phase(areaname)) {
+        gfx_ctx_s ctx_af = ctx_ui;
+        int       fade_i = fade_interpolate(areaname, 0, 100);
+        ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
+        char  *label     = g->areaname.label;
+        int    strl      = fnt_length_px(font_1, label);
+        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
 
         for (int yy = -2; yy <= +2; yy++) {
             for (int xx = -2; xx <= +2; xx++) {
-                fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax + xx, areay + yy},
-                               g->areaname.label, SPR_MODE_WHITE);
+                v2_i32 locbg = loc;
+                locbg.x += xx;
+                locbg.y += yy;
+                fnt_draw_ascii(ctx_af, font_1, locbg, label, SPR_MODE_WHITE);
             }
         }
-        fnt_draw_ascii(ctx_areafont, areafont, (v2_i32){areax, areay}, g->areaname.label, SPR_MODE_BLACK);
+        fnt_draw_ascii(ctx_af, font_1, loc, label, SPR_MODE_BLACK);
+    }
+
+    if (fade_phase(fadeupgrade)) {
+        gfx_ctx_s ctx_af = ctx_ui;
+        int       fade_i = fade_interpolate(fadeupgrade, 0, 100);
+        ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
+        char  *label     = "Aquired upgrade";
+        int    strl      = fnt_length_px(font_1, label);
+        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
+
+        for (int yy = -2; yy <= +2; yy++) {
+            for (int xx = -2; xx <= +2; xx++) {
+                v2_i32 locbg = loc;
+                locbg.x += xx;
+                locbg.y += yy;
+                fnt_draw_ascii(ctx_af, font_1, locbg, label, SPR_MODE_WHITE);
+            }
+        }
+        fnt_draw_ascii(ctx_af, font_1, loc, label, SPR_MODE_BLACK);
     }
 
     if (g->herodata.aquired_items) {
@@ -61,10 +84,15 @@ void render_ui(game_s *g, v2_i32 camoff)
 
     textbox_draw(&g->textbox, camoff);
 
-    texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
-    for (int i = 0; i < 10; i++) {
-        v2_i32 barpos = {i * 6, 0};
-        gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
+    if (ohero) {
+        texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
+        gfx_rec_fill(ctx_ui, (rec_i32){0, 0, ohero->health_max * 6 + 2, 16},
+                     PRIM_MODE_BLACK);
+        int bars = ohero->health;
+        for (int i = 0; i < bars; i++) {
+            v2_i32 barpos = {i * 6, 0};
+            gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
+        }
     }
 }
 
@@ -100,12 +128,12 @@ static void render_item_selection(herodata_s *h)
 
 #define ITEM_OVAL_Y 12
 
-    int turn1 = (inp_crank_q16() + 0x4000) << 2;
-    int turn2 = (h->item_angle + 0x4000) << 2;
-    int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
-    int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
-    int sx1   = (cos_q16(turn1));
-    int sx2   = (cos_q16(turn2));
+    int turn1 = (inp_crank_q16() >> 6) + 0x400;
+    int turn2 = (h->item_angle >> 6) + 0x400;
+    int sy1   = (sin_q16_fast(turn1) * ITEM_OVAL_Y) >> 16;
+    int sy2   = (sin_q16_fast(turn2) * ITEM_OVAL_Y) >> 16;
+    int sx1   = (cos_q16_fast(turn1));
+    int sx2   = (cos_q16_fast(turn2));
 
     // wraps the item image around a rotating barrel
     // map coordinate to angle to image coordinate

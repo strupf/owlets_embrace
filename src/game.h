@@ -26,11 +26,12 @@
 // 100 x 60
 //
 
-#define NUM_TILES               0x40000
-#define INTERACTABLE_DIST       32
-#define NUM_DECALS              256
-#define WEAPON_HIT_FREEZE_TICKS 2
-#define NUM_WATER               16
+#define NUM_TILES                0x40000
+#define INTERACTABLE_DIST        32
+#define NUM_DECALS               256
+#define WEAPON_HIT_FREEZE_TICKS  2
+#define HERO_DAMAGE_FREEZE_TICKS 8
+#define NUM_WATER                16
 
 typedef struct {
     watersurface_s surf;
@@ -71,18 +72,6 @@ enum {
 };
 
 typedef struct {
-    // values for Tiled's layer config
-    int      img_pos;
-    f32      x;
-    f32      y;
-    f32      offx;
-    f32      offy;
-    texrec_s tr;
-    bool32   loopx;
-    bool32   loopy;
-} parallax_img_s;
-
-typedef struct {
     u8 type;
     u8 collision;
 } tile_s;
@@ -106,14 +95,24 @@ typedef struct {
 } decal_s;
 
 enum {
-    EVENT_HIT_ENEMY     = 1 << 0,
-    EVENT_PLAYER_DAMAGE = 1 << 1,
+    EVENT_HIT_ENEMY   = 1 << 0,
+    EVENT_HERO_DAMAGE = 1 << 1,
 };
 
+#define obj_each(G, IT)           \
+    obj_s *IT = G->obj_head_busy; \
+    IT;                           \
+    IT = IT->next
+
 struct game_s {
-    int              tick;
-    mainmenu_s       mainmenu;
-    int              state;
+    int        tick;
+    mainmenu_s mainmenu;
+    int        state;
+
+    int              gameover_ticks;
+    fade_s           fade_gameover;
+    fade_s           fade_upgrade;
+    savefile_s       savefile;
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
     //
@@ -128,25 +127,24 @@ struct game_s {
     int              tiles_y;
     int              pixel_x;
     int              pixel_y;
-    int              obj_nfree;
-    int              obj_nbusy;
     int              obj_ndelete;
+    obj_s           *obj_head_busy; // linked list
+    obj_s           *obj_head_free; // linked list
     obj_s           *obj_tag[NUM_OBJ_TAGS];
-    obj_s           *obj_free_stack[NUM_OBJ];
-    obj_s           *obj_busy[NUM_OBJ];
     obj_s           *obj_to_delete[NUM_OBJ];
     obj_s            obj_raw[NUM_OBJ];
 
-    herodata_s         herodata;
-    parallax_img_s parallax;
-    rope_s         rope; // hero rope, singleton
-    textbox_s      textbox;
-    int            freeze_tick;
+    herodata_s herodata;
+    rope_s     rope; // hero rope, singleton
+    textbox_s  textbox;
+    int        freeze_tick;
 
+    bool32           avoid_flickering;
+    flags32          env_effects;
     enveffect_wind_s env_wind;
     enveffect_heat_s env_heat;
 
-    rope_s *ropes[4];
+    rope_s *ropes[2];
     int     n_ropes;
 
     struct {

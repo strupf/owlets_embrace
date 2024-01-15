@@ -20,6 +20,7 @@ void game_init(game_s *g)
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
+
     /*
     for (int i = 0; i < 65536; i += 4) {
         if ((i & 31) == 0) sys_printf("\n");
@@ -45,12 +46,8 @@ static void gameplay_tick(game_s *g)
     g->herodata.itemselection_decoupled = 0;
 
     hero_crank_item_selection(&g->herodata);
-    if (inp_debug_space()) {
-        g->herodata.itemselection_decoupled = 1;
-    }
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s       *o       = g->obj_busy[i];
+    for (obj_each(g, o)) {
         const v2_i32 posprev = o->pos;
 
         // implement as function pointers?
@@ -64,6 +61,8 @@ static void gameplay_tick(game_s *g)
         case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         case OBJ_ID_CARRIER: carrier_on_update(g, o); break;
         case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
+        case OBJ_ID_DOOR: door_on_update(g, o); break;
+        case OBJ_ID_CHARGER: charger_on_update(g, o); break;
         }
         o->posprev = posprev;
 #ifdef SYS_DEBUG
@@ -71,29 +70,19 @@ static void gameplay_tick(game_s *g)
 #endif
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) { // integrate acc, vel and drag: adds tomove accumulator
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
         if (o->flags & OBJ_FLAG_MOVER) {
             obj_apply_movement(o);
         }
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) { // move objects by tomove
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) { // move objects by tomove
         if (!(o->flags & OBJ_FLAG_SOLID)) continue;
         solid_move(g, o, o->tomove);
         o->tomove.x = 0, o->tomove.y = 0;
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) { // move objects by tomove
-        obj_s *o = g->obj_busy[i];
-        if (!(o->flags & OBJ_FLAG_PLATFORM)) continue;
-        platform_move(g, o, o->tomove);
-        o->tomove.x = 0, o->tomove.y = 0;
-    }
-
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if (!(o->flags & OBJ_FLAG_ACTOR)) continue;
         if (actor_try_wiggle(g, o))
             actor_move(g, o, o->tomove);
@@ -101,8 +90,7 @@ static void gameplay_tick(game_s *g)
     }
 
     const rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) &&
             !overlap_rec(obj_aabb(o), roombounds)) {
             obj_delete(g, o);
@@ -111,14 +99,33 @@ static void gameplay_tick(game_s *g)
 
     objs_cull_to_delete(g);
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s        *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
+    const rec_i32 heroaabb = obj_aabb(ohero);
+
+    if (ohero && ohero->invincible_tick <= 0) {
+
+        // touched hurting things?
+        for (obj_each(g, o)) {
+            if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
+            if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+
+            v2_i32 dt       = v2_sub(obj_pos_center(ohero), obj_pos_center(o));
+            ohero->vel_q8.x = sgn_i(dt.x) * 700;
+            ohero->vel_q8.y = -700;
+            hero_hurt(g, ohero, &g->herodata, 1);
+            g->events_frame |= EVENT_HERO_DAMAGE;
+            break;
+        }
+    }
+
+    objs_cull_to_delete(g);
+    ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+
     if (ohero) {
         hero_check_rope_intact(g, ohero);
-        const rec_i32 heroaabb = obj_aabb(ohero);
 
-        // COLLECTIBLES
-        for (int i = 0; i < g->obj_nbusy; i++) {
-            obj_s *o = g->obj_busy[i];
+        // collectibles
+        for (obj_each(g, o)) {
             if (!(o->flags & OBJ_FLAG_COLLECTIBLE)) continue;
             if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
 
@@ -136,8 +143,8 @@ static void gameplay_tick(game_s *g)
     objs_cull_to_delete(g);
 
 #ifdef SYS_DEBUG
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        assert(g->obj_busy[i]->magic == OBJ_MAGIC);
+    for (obj_each(g, o)) {
+        assert(o->magic == OBJ_MAGIC);
     }
 #endif
 
@@ -151,37 +158,54 @@ static void gameplay_tick(game_s *g)
     if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = WEAPON_HIT_FREEZE_TICKS;
     }
+    if (g->events_frame & EVENT_HERO_DAMAGE) {
+        g->freeze_tick = HERO_DAMAGE_FREEZE_TICKS;
+    }
 }
 
 void game_tick(game_s *g)
 {
+    if (0 < g->freeze_tick) {
+        g->freeze_tick--;
+        return;
+    }
+
     g->tick++;
+
+    bool32 update_gameplay   = 1;
+    bool32 update_animations = 1;
 
     if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
         textbox_update(g, &g->textbox);
+        update_gameplay = 0;
     } else if (!transition_finished(&g->transition)) {
         transition_update(&g->transition);
-    } else if (0 < g->freeze_tick) {
-        g->freeze_tick--;
-    } else {
+        update_gameplay = 0;
+    }
+
+    if (update_gameplay) {
         gameplay_tick(g);
     }
 
-    cam_update(g, &g->cam);
-    fade_update(&g->areaname.fade);
-    enveffect_wind_update(&g->env_wind);
-    enveffect_heat_update(&g->env_heat);
-    backforeground_animate_grass(g);
+    if (update_animations) {
+        cam_update(g, &g->cam);
+        fade_update(&g->fade_upgrade);
+        fade_update(&g->areaname.fade);
+        enveffect_wind_update(&g->env_wind);
+        enveffect_heat_update(&g->env_heat);
+        backforeground_animate_grass(g);
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+        for (obj_each(g, o)) {
 
-        switch (o->ID) {
-        case OBJ_ID_HERO: hero_on_animate(g, o); break;
-        case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
-        case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
-        case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
-        case OBJ_ID_CRAWLER: crawler_on_animate(g, o);
+            switch (o->ID) {
+            case OBJ_ID_HERO: hero_on_animate(g, o); break;
+            case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
+            case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+            case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
+            case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
+            case OBJ_ID_HOOK: hook_on_animate(g, o); break;
+            case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
+            }
         }
     }
 }
@@ -208,8 +232,8 @@ void game_new_savefile(game_s *g, int slotID)
 
 void game_write_savefile(game_s *g)
 {
-    savefile_s sf = {0};
-
+    savefile_s  sf   = {0};
+    //
     herodata_s *hero = &g->herodata;
     strcpy(sf.area_filename, g->areaname.filename);
     strcpy(sf.hero_name, hero->name);
@@ -218,27 +242,31 @@ void game_write_savefile(game_s *g)
     sf.tick             = g->tick;
     sf.n_airjumps       = hero->n_airjumps;
     sf.health           = hero->health;
+    //
+    g->savefile         = sf;
     savefile_write(g->savefile_slotID, &sf);
 }
 
 void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 {
     g->savefile_slotID = slotID;
+    g->savefile        = sf;
     game_load_map(g, sf.area_filename);
     g->tick = sf.tick;
 
+#if 1
     obj_s *oh = hero_create(g);
     oh->pos.x = 50;
     oh->pos.y = 10;
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if (o->ID == OBJ_ID_SAVEPOINT) {
             oh->pos.x = o->pos.x;
             oh->pos.y = o->pos.y - 20;
             break;
         }
     }
+#endif
 
     herodata_s *hero       = &g->herodata;
     hero->aquired_items    = sf.aquired_items;
@@ -246,18 +274,7 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     hero->n_airjumps       = sf.n_airjumps;
     hero->health           = sf.health;
 
-    sys_printf("has %i\n", hero_has_upgrade(&g->herodata, HERO_UPGRADE_HIGH_JUMP));
-
-    obj_s *oc = crawler_create(g);
-    oc->pos.x = 100;
-    oc->pos.y = 80;
-
-    obj_s *pu = heroupgrade_create(g);
-    pu->state = HERO_UPGRADE_HIGH_JUMP;
-    pu->pos.x = 180;
-    pu->pos.y = 160;
-
-    obj_s *pm = movingplatform_create(g);
+    g->env_effects |= ENVEFFECT_WIND;
 }
 
 static void backforeground_animate_grass(game_s *g)
@@ -266,16 +283,13 @@ static void backforeground_animate_grass(game_s *g)
         grass_s *gr = &g->grass[n];
         rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
 
-        for (int n = 0; n < g->obj_nbusy; n++) {
-            obj_s *o = g->obj_busy[n];
+        for (obj_each(g, o)) {
             if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
                 gr->v_q8 += o->vel_q8.x >> 6;
             }
         }
 
-#define GRASS_F (30000 * 150)
-        int f2 = rngr_i32(-GRASS_F, +GRASS_F) >> (13 + 8);
-#undef GRASS_F
+        int f2 = rngr_sym_i32(30000 * 150) >> (13 + 8);
         int f1 = -((gr->x_q8 * 4) >> 8);
         gr->v_q8 += f1 + f2;
         gr->x_q8 += gr->v_q8;
@@ -288,8 +302,7 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 {
     u32    interactable_dt = pow2_i32(INTERACTABLE_DIST); // max distance
     obj_s *interactable    = NULL;
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if (!(o->flags & OBJ_FLAG_INTERACTABLE)) continue;
         u32 d = v2_distancesq(pos, o->pos);
         if (d < interactable_dt) {
@@ -302,9 +315,7 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 
 void game_on_trigger(game_s *g, int trigger)
 {
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
-
+    for (obj_each(g, o)) {
         switch (o->ID) {
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o, trigger); break;
         }
@@ -318,8 +329,7 @@ solid_rec_list_s game_solid_recs(game_s *g)
     solid_rec_list_s l = {0};
     l.recs             = solidrecs;
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if (o->flags & OBJ_FLAG_SOLID) {
             rec_i32 r     = obj_aabb(o);
             l.recs[l.n++] = r;
@@ -342,10 +352,10 @@ int ocean_height(game_s *g, int pixel_x)
 {
     f32 p = (f32)pixel_x;
     f32 t = (f32)g->tick;
-    i32 h = (i32)(sin_f(p * 0.0025f + t * 0.01f) * 15.f +
-                  sin_f(p * 0.0050f + t * 0.02f + 1.f) * 10.f +
-                  sin_f(p * 0.0100f + t * 0.08f + 1.f) * 6.f +
-                  sin_f(p * 0.0250f + t * 0.20f + 2.f) * 2.f);
+    i32 h = (i32)(sin_f_fast(p * 0.0025f + t * 0.01f) * 15.f +
+                  sin_f_fast(p * 0.0050f + t * 0.02f + 1.f) * 10.f +
+                  sin_f_fast(p * 0.0100f + t * 0.08f + 1.f) * 6.f +
+                  sin_f_fast(p * 0.0250f + t * 0.20f + 2.f) * 2.f);
     return h + g->ocean.y;
 }
 
@@ -433,8 +443,7 @@ bool32 game_traversable(game_s *g, rec_i32 r)
 {
     if (tiles_solid(g, r)) return 0;
 
-    for (int n = 0; n < g->obj_nbusy; n++) {
-        obj_s *o = g->obj_busy[n];
+    for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(o)))
             return 0;
     }
@@ -446,8 +455,7 @@ bool32 game_traversable_pt(game_s *g, int x, int y)
     if (tiles_solid_pt(g, x, y)) return 0;
 
     v2_i32 p = {x, y};
-    for (int n = 0; n < g->obj_nbusy; n++) {
-        obj_s *o = g->obj_busy[n];
+    for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec_pnt(obj_aabb(o), p))
             return 0;
     }
@@ -474,7 +482,7 @@ static void obj_apply_hitboxes(game_s *g, obj_s *o, hitbox_s *boxes, int nb)
         case OBJ_ID_CRAWLER:
             if (!(h.flags & HITBOX_FLAG_HERO)) break;
 
-            crawler_on_weapon_hit(o, h);
+            crawler_on_weapon_hit(g, o, h);
             g->events_frame |= EVENT_HIT_ENEMY;
             return;
         }
@@ -483,8 +491,7 @@ static void obj_apply_hitboxes(game_s *g, obj_s *o, hitbox_s *boxes, int nb)
 
 void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
 {
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         obj_apply_hitboxes(g, o, boxes, n_boxes);
     }
 }
@@ -533,8 +540,7 @@ void game_on_solid_appear(game_s *g)
         hero_check_rope_intact(g, ohero);
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s *o = g->obj_busy[i];
+    for (obj_each(g, o)) {
         if (o->flags & OBJ_FLAG_ACTOR) {
             actor_try_wiggle(g, o);
         }

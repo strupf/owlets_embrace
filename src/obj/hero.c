@@ -9,6 +9,12 @@
 #define HERO_ROPE_LEN_SHORT 2000
 #define HERO_ROPE_LEN_LONG  4000
 
+#define HEROHOOK_N_HIST 4
+typedef struct {
+    int    n_ang;
+    v2_f32 anghist[HEROHOOK_N_HIST];
+} herohook_s;
+
 static void herodata_set_cur_item(herodata_s *h, int item);
 static int  hero_max_rope_len_q4(herodata_s *h);
 
@@ -27,6 +33,8 @@ obj_s *hero_create(game_s *g)
                     OBJ_MOVER_AVOID_HEADBUMP |
                     OBJ_MOVER_ONE_WAY_PLAT;
 
+    o->health_max   = 3;
+    o->health       = o->health_max;
     o->n_sprites    = 2;
     o->drag_q8.x    = 256;
     o->drag_q8.y    = 256;
@@ -73,7 +81,14 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HOOK;
     obj_tag(g, o, OBJ_TAG_HOOK);
-    o->flags |= OBJ_FLAG_ACTOR;
+    o->flags = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_SPRITE;
+    o->n_sprites         = 1;
+    sprite_simple_s *spr = &o->sprites[0];
+    spr->trec            = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
+    spr->offs.x          = -16 + 4;
+    spr->offs.y          = -16 + 4;
+
     o->w            = 8;
     o->h            = 8;
     o->pos.x        = p.x - o->w / 2;
@@ -92,7 +107,35 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     r->head->p  = p;
     o->rope     = r;
     o->ropenode = o->rope->tail;
+
+    herohook_s *h = (herohook_s *)o->mem;
+
+    for (int i = 0; i < HEROHOOK_N_HIST; i++) {
+        h->anghist[i] = (v2_f32){(f32)v_q8.x, (f32)v_q8.y};
+    }
     return o;
+}
+
+void hook_on_animate(game_s *g, obj_s *o)
+{
+    if (o->attached) return;
+
+    herohook_s *h    = (herohook_s *)o->mem;
+    ropenode_s *rn   = o->ropenode->prev ? o->ropenode->prev : o->ropenode->next;
+    v2_i32      rndt = v2_sub(o->ropenode->p, rn->p);
+
+    v2_f32 v               = {(f32)rndt.x, (f32)rndt.y};
+    h->anghist[h->n_ang++] = v;
+    h->n_ang %= HEROHOOK_N_HIST;
+
+    for (int i = 0; i < HEROHOOK_N_HIST; i++) {
+        v = v2f_add(v, h->anghist[i]);
+    }
+
+    f32 ang  = (atan2f(v.y, v.x) * 16.f) / PI2_FLOAT;
+    int imgy = (int)(ang + 16.f + 4.f) & 15;
+
+    o->sprites[0].trec.r.y = imgy * 32;
 }
 
 void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
@@ -144,8 +187,7 @@ void hook_update(game_s *g, obj_s *hook)
             hook->gravity_q8 = (v2_i32){0};
             hook->vel_q8     = (v2_i32){0};
 
-            for (int i = 0; i < g->obj_nbusy; i++) {
-                obj_s *solid = g->obj_busy[i];
+            for (obj_each(g, solid)) {
                 if ((solid->flags & OBJ_FLAG_SOLID) &&
                     overlap_rec(hookrec, obj_aabb(solid))) {
                     int kk             = overlap_rec(hookrec, obj_aabb(solid));
@@ -316,8 +358,12 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        f32 vol = (.5f * (f32)o->vel_q8.y) / 2000.f;
-        snd_play_ext(SNDID_STEP, clamp_f(vol, 0.f, 0.5f), 1.f);
+
+        if (1000.f <= o->vel_q8.y) {
+            f32 vol = (.5f * (f32)o->vel_q8.y) / 2000.f;
+            snd_play_ext(SNDID_STEP, min_f(vol, 0.5f), 1.f);
+        }
+
         o->vel_q8.y = 0;
     }
     if (o->bumpflags & OBJ_BUMPED_X) {
@@ -346,7 +392,7 @@ void hero_on_update(game_s *g, obj_s *o)
     // https://twitter.com/MaddyThorson/status/1238338575545978880
     if (0 < hero->jump_btn_buffer)
         hero->jump_btn_buffer--;
-    if (inp_pressed(INP_A))
+    if (inp_just_pressed(INP_A))
         hero->jump_btn_buffer = 8;
 
     // coyote time -> edgeticks
@@ -361,55 +407,93 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 
     struct jumpvar_s {
+        int vy;
         int ticks; // ticks of variable jump (decreases faster if jump button is not held)
         int vi;    // "jetpack" velocity, goes to 0 over ticks or less
     };
 
-    static const struct jumpvar_s jump_tab[4] = {
-        {20, 60},
-        {20, 250},
-        {18, 135},
-        {15, 130},
+    static const struct jumpvar_s jump_tab[5] = {
+        {700, 20, 90}, // lo ground
+        {900, 25, 90}, // hi ground
+        {0, 20, 250},  // airj 1
+        {0, 18, 135},  // airj 2
+        {0, 15, 130},  // airj 3
     };
 
-#define JUMP_INIT_VY -800 // absolute initial velocity of ground jump
+#define EDIT_JUMP 0
 
+#if EDIT_JUMP
+    static int vy1     = 700;
+    static int vticks1 = 20;
+    static int vi1     = 90;
+
+    int vvv1 = vy1;
+    int vvv2 = vticks1;
+    int vvv3 = vi1;
+
+    if (sys_key(SYS_KEY_I)) vy1 += 5;
+    if (sys_key(SYS_KEY_K)) vy1 -= 5;
+    if (sys_key(SYS_KEY_O)) vi1++;
+    if (sys_key(SYS_KEY_L)) vi1--;
+    if (sys_key(SYS_KEY_U)) vticks1++;
+    if (sys_key(SYS_KEY_J)) vticks1--;
+
+    if (vvv1 != vy1 || vvv2 != vticks1 || vvv3 != vi1) {
+        sys_printf("init: %i\n", vy1);
+        sys_printf("vtic: %i\n", vi1);
+        sys_printf("tick: %i\n\n", vticks1);
+    }
+#endif
+
+    hero->jumpticks--;
     if (0 < hero->jumpticks) {
-        if (inp_pressed(INP_A))
-            hero->jumpticks--;
-        else
-            hero->jumpticks >>= 1; // decrease jump ticks faster
+        if (inp_pressed(INP_A)) {
+#if EDIT_JUMP
+            int vticks = max_i(vticks1, 1);
+            int vi     = vi1;
+#else
+            struct jumpvar_s jv     = jump_tab[hero->jump_index];
+            int              vticks = jv.ticks;
+            int              vi     = jv.vi;
+#endif
 
-        struct jumpvar_s jv = jump_tab[0];
-        if (hero->airjumps_left != herodata->n_airjumps) { // air jump
-            jv = jump_tab[herodata->n_airjumps - hero->airjumps_left];
+            int j0 = vticks - hero->jumpticks;
+            int j1 = vticks;
+            o->vel_q8.y -= vi - (vi * j0) / j1;
+        } else {
+            hero->jumpticks = 0;
         }
-
-        int j0 = pow_i32(jv.ticks - hero->jumpticks, 1);
-        int j1 = pow_i32(jv.ticks, 1);
-        int fy = jv.vi - (jv.vi * j0) / j1;
-        o->vel_q8.y -= jv.vi - (jv.vi * j0) / j1;
     } else {
-        hero->jumpticks--;
-        bool32 can_jump_ground = 0 < hero->edgeticks;
-        bool32 can_jump_midair = !usehook &&                // not hooked
-                                 !swimming &&               // not swimming
-                                 hero->edgeticks == 0 &&    // jump in air?
-                                 0 < hero->airjumps_left && // air jumps left?
-                                 hero->jumpticks < -15;     // wait some ticks after last jump
+        bool32 jump_ground = 0 < hero->jump_btn_buffer && 0 < hero->edgeticks;
+        bool32 jump_midair = !usehook &&                // not hooked
+                             !swimming &&               // not swimming
+                             hero->edgeticks == 0 &&    // jump in air?
+                             0 < hero->airjumps_left && // air jumps left?
+                             hero->jumpticks < -15 &&   // wait some ticks after last jump
+                             inp_pressed(INP_A);
 
-        if (0 < hero->jump_btn_buffer && (can_jump_ground || can_jump_midair)) {
-            if (can_jump_ground) { // ground jump
+        if ((jump_ground || jump_midair)) {
+            int jumpindex = 0;
+            if (jump_ground) {
+                o->vel_q8.y  = 0;
                 bool32 hjump = hero_has_upgrade(herodata, HERO_UPGRADE_HIGH_JUMP);
-                o->vel_q8.y  = hjump ? JUMP_INIT_VY : (JUMP_INIT_VY * 3) / 4;
-            } else { // jump midair
+                jumpindex    = hjump ? 1 : 0;
+            } else {
                 o->vel_q8.y >>= 1;
+                jumpindex = 2 + herodata->n_airjumps - hero->airjumps_left;
+                hero->airjumps_left--;
             }
 
-            struct jumpvar_s jv = jump_tab[0];
-            if (!can_jump_ground) // air jump
-                jv = jump_tab[herodata->n_airjumps - --hero->airjumps_left];
-            hero->jumpticks       = jv.ticks;
+#if EDIT_JUMP
+            o->vel_q8.y -= vy1;
+            int vticks = max_i(vticks1, 1);
+#else
+            struct jumpvar_s jv     = jump_tab[jumpindex];
+            hero->jump_index        = jumpindex;
+            o->vel_q8.y -= jv.vy;
+            int vticks = jv.ticks;
+#endif
+            hero->jumpticks       = vticks;
             hero->jump_btn_buffer = 0;
             hero->edgeticks       = 0;
         }
@@ -598,6 +682,10 @@ void hero_on_animate(game_s *g, obj_s *o)
     sprite->flip   = flip;
     sprite->offs.x = o->w / 2 - 32;
     sprite->offs.y = o->h - 64;
+    sprite->mode   = 0;
+    if (0 < o->invincible_tick && tick_to_index_freq(g->tick, 2, 8)) {
+        sprite->mode = SPR_MODE_INV;
+    }
 
     o->n_sprites = 1;
     if (o->attack != HERO_ATTACK_NONE) {
@@ -647,13 +735,13 @@ void hero_on_animate(game_s *g, obj_s *o)
     }
 }
 
-void hero_hurt(game_s *g, obj_s *o, hero_s *h, int damage)
+void hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage)
 {
     if (0 < o->invincible_tick) return;
 
     int health = obj_health_change(o, -damage);
     if (0 < health) {
-        o->invincible_tick = 30;
+        o->invincible_tick = ticks_from_ms(1000);
     } else {
         // kill
     }

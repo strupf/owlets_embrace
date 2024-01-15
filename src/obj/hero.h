@@ -58,6 +58,7 @@ typedef struct {
     int attackbuffer;
     int jump_btn_buffer;
     int airjumps_left;
+    int jump_index; // index into jump parameter table
     i32 jumpticks;
     i32 edgeticks;
     i32 swimticks;
@@ -67,11 +68,12 @@ obj_s *hero_create(game_s *g);
 void   hero_on_update(game_s *g, obj_s *o);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_on_animate(game_s *g, obj_s *o);
+void   hook_on_animate(game_s *g, obj_s *o);
 bool32 hero_has_upgrade(herodata_s *h, int upgrade);
 void   hero_aquire_upgrade(herodata_s *h, int upgrade);
 void   hook_update(game_s *g, obj_s *hook);
 void   hero_crank_item_selection(herodata_s *h);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
-void   hero_hurt(game_s *g, obj_s *o, hero_s *h, int damage);
+void   hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage);
 
 #endif

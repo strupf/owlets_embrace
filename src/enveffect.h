@@ -13,6 +13,11 @@
 #define BG_WIND_PARTICLE_N 8
 #define BG_SIZE            512
 
+enum {
+    ENVEFFECT_WIND = 1 << 0,
+    ENVEFFECT_HEAT = 1 << 1,
+};
+
 typedef struct {
     i32    i;
     i32    ticks;

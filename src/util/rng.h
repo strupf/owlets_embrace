@@ -65,6 +65,12 @@ static i32 rngr_i32(i32 lo, i32 hi)
     return lo + (rng_u32() % (hi - lo + 1));
 }
 
+// [lo, hi]
+static i32 rngr_sym_i32(i32 hi)
+{
+    return rngr_i32(-hi, +hi);
+}
+
 static f32 rngr_f32(f32 lo, f32 hi)
 {
     return lo + rng_f32() * (hi - lo);

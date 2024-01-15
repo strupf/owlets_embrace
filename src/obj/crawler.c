@@ -23,20 +23,12 @@ enum {
     CRAWLER_SUBSTATE_CURLED,
 };
 
-typedef struct {
-    int crawl_cur;
-    f32 bounce_rotation;
-    f32 bounce_angle;
-    int n_crawl;
-    u8  crawl_history[CRAWLER_ACTION_HISTORY];
-} obj_crawler_s;
+static int crawler_find_crawl_direction(game_s *g, obj_s *o, int dir);
 
-// Look for new surface to crawl along
-// 1) Don't go right back to where it came from
-// 2) Need enough space in new direction
-// 3) Need a surface on the side to walk along
-// Returns NSWE or none. Pass None to allow going right back.
-static int crawler_find_new_dir(game_s *g, obj_s *o, int dir_prev);
+typedef struct {
+    i32 bounce_rotation_q12; // in turns
+    i32 bounce_angle_q12;    // in turns
+} obj_crawler_s;
 
 obj_s *crawler_create(game_s *g)
 {
@@ -45,7 +37,8 @@ obj_s *crawler_create(game_s *g)
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_SPRITE;
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_HURT_ON_TOUCH;
     o->gravity_q8.y      = 30;
     o->drag_q8.y         = 255;
     o->drag_q8.x         = 255;
@@ -56,8 +49,24 @@ obj_s *crawler_create(game_s *g)
     spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
     spr->offs.x          = o->w / 2 - 32;
     spr->offs.y          = o->h / 2 - 48 + 10;
+    return o;
+}
 
-    sys_printf("REMINDER: Fix crawler sprite rotation\n");
+obj_s *crawler_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = crawler_create(g);
+
+    // difference between tilesize and object dimension
+    for (int y = 0; y <= 2; y += 2) {
+        for (int x = 0; x <= 2; x += 2) {
+            o->pos.x = mo->x + x;
+            o->pos.y = mo->y + y;
+            if (crawler_find_crawl_direction(g, o, 0)) {
+                goto BREAKLOOP;
+            }
+        }
+    }
+BREAKLOOP:
     return o;
 }
 
@@ -65,30 +74,26 @@ static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
 {
     v2_i32  cp = direction_v2(dir);
     rec_i32 rr = translate_rec(aabb, cp);
-    if (!game_traversable(g, rr)) return 0; // direction blocked
-    // check if we also have a solid surface on the side
-    rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h};
+    if (!game_traversable(g, rr)) return 0;        // direction blocked
+    rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h}; // check if there is a solid surface on the side
     rec_i32 r2 = {rr.x, rr.y - 1, rr.w, rr.h + 2};
-    return (!game_traversable(g, r1) || !game_traversable(g, r2));
+    return !(game_traversable(g, r1) && game_traversable(g, r2));
 }
 
 static int crawler_find_crawl_direction(game_s *g, obj_s *o, int dir)
 {
-    // check if any surface nearby
     const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
-    if (game_traversable(g, rbounds))
+    if (game_traversable(g, rbounds)) // check if any surface nearby
         return 0;
 
-    // choose a random preferred direction if not currently crawling
-    int           d    = dir == 0 ? rngr_i32(1, 8) : dir;
+    int           dr   = rngr_i32(1, 8);
+    int           d    = dir == 0 ? dr : dir; // choose a random preferred direction if not currently crawling
     const rec_i32 aabb = obj_aabb(o);
 
-    // try crawling in the same direction
-    if (crawler_can_crawl(g, o, aabb, d))
+    if (crawler_can_crawl(g, o, aabb, d)) // try crawling in the same direction
         return d;
 
-    // otherwise: try crawling in the next nearest directions
-    int dir_a = d;
+    int dir_a = d; // otherwise: try crawling in the next nearest directions
     int dir_b = d;
     for (int k = 0; k < 4; k++) {
         dir_a = direction_nearest(dir_a, 0);
@@ -107,7 +112,7 @@ static void crawler_do_normal(game_s *g, obj_s *o)
 
     o->subtimer++;
     o->timer++;
-    int domove = 1;
+    bool32 domove = 1;
     switch (o->ID) { // movement speed
     case OBJ_ID_CRAWLER:
         if (o->timer & 1) domove = 0;
@@ -122,23 +127,14 @@ static void crawler_do_normal(game_s *g, obj_s *o)
     int dir_to_crawl = crawler_find_crawl_direction(g, o, o->action);
     o->action        = dir_to_crawl;
 
-    if (!dir_to_crawl) {
-        // free fall
-        o->state    = CRAWLER_STATE_FALLING;
-        o->substate = CRAWLER_SUBSTATE_CURLED;
-        o->flags |= OBJ_FLAG_MOVER; // enable gravity and physics
-        crawler->crawl_cur = 0;
-        memset(crawler->crawl_history, 0, sizeof(crawler->crawl_history));
-        return;
-    }
-
-    // glued to wall
-    o->state = CRAWLER_STATE_CRAWLING;
-    o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero) {
-        u32 distsq = v2_distancesq(obj_pos_center(o), obj_pos_center(ohero));
+    if (dir_to_crawl) { // glued to wall
+        o->state = CRAWLER_STATE_CRAWLING;
+        o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
+        obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
+        u32    distsq = U32_MAX;
+        if (ohero) {
+            distsq = v2_distancesq(obj_pos_center(o), obj_pos_center(ohero));
+        }
 
         switch (o->substate) {
         case CRAWLER_SUBSTATE_NORMAL: {
@@ -154,21 +150,19 @@ static void crawler_do_normal(game_s *g, obj_s *o)
             }
         } break;
         }
-    }
 
-    // if curled: don't move
-    if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
-        domove = 0;
-    }
+        // if curled: don't move
+        if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
+            domove = 0;
+        }
 
-    if (domove && dir_to_crawl) {
-        v2_i32 v = direction_v2(dir_to_crawl);
-        o->pos   = v2_add(o->pos, v);
-
-        // crawl history -> average rotation angle
-        crawler->crawl_cur                         = o->action;
-        crawler->crawl_history[crawler->n_crawl++] = o->action;
-        crawler->n_crawl %= CRAWLER_ACTION_HISTORY;
+        if (domove && dir_to_crawl) {
+            o->pos = v2_add(o->pos, direction_v2(dir_to_crawl));
+        }
+    } else { // free fall
+        o->state    = CRAWLER_STATE_FALLING;
+        o->substate = CRAWLER_SUBSTATE_CURLED;
+        o->flags |= OBJ_FLAG_MOVER; // enable gravity and physics
     }
 }
 
@@ -189,21 +183,19 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
     if (o->bumpflags & OBJ_BUMPED_Y) {
         o->vel_q8.y = -(o->vel_q8.y * my) >> 8;
     }
-
     if (o->bumpflags & (OBJ_BUMPED_X | OBJ_BUMPED_Y)) {
-        crawler->bounce_rotation = rngr_f32(-1.f, +1.f);
+        crawler->bounce_rotation_q12 = rngr_i32(-2000, +2000);
     }
-
     o->bumpflags = 0;
 
-    if (0 < o->timer) return;
-
     // try to return to crawling if not bouncing too much
-    if (abs_i(o->vel_q8.x) < 30 && abs_i(o->vel_q8.y) < 5) {
-        o->timer    = 0;
-        o->state    = CRAWLER_STATE_FALLING;
-        o->substate = CRAWLER_SUBSTATE_NORMAL;
-        o->action   = DIRECTION_NONE;
+    if (o->timer < 0 && abs_i(o->vel_q8.x) < 100 && abs_i(o->vel_q8.y) < 5) {
+        o->timer                     = 0;
+        o->state                     = CRAWLER_STATE_FALLING;
+        o->substate                  = CRAWLER_SUBSTATE_CURLED;
+        o->action                    = DIRECTION_NONE;
+        crawler->bounce_rotation_q12 = 0;
+        crawler->bounce_angle_q12    = 0;
     }
 }
 
@@ -226,17 +218,77 @@ void crawler_on_animate(game_s *g, obj_s *o)
 {
     sprite_simple_s *spr     = &o->sprites[0];
     obj_crawler_s   *crawler = (obj_crawler_s *)o->mem;
+    spr->flip                = 0;
+    int imgy                 = 0;
 
-    int is_flipped = 0;
-    int imgy       = 0;
     if (o->state == CRAWLER_STATE_CRAWLING) {
-        // calculate rotation angle based on crawl history
-        // have to average unit vector to get a correct result
-
-    } else if (o->state == CRAWLER_STATE_BOUNCING) {
-        crawler->bounce_angle += crawler->bounce_rotation;
-        f32 ang = crawler->bounce_angle;
-        imgy    = (int)((ang * 8.f) / PI2_FLOAT);
+        switch (o->action) {
+        case DIRECTION_S: {
+            imgy = 2;
+            if (!game_traversable(g, obj_rec_right(o)))
+                spr->flip = SPR_FLIP_X;
+        } break;
+        case DIRECTION_N: {
+            imgy = 6;
+            if (!game_traversable(g, obj_rec_left(o)))
+                spr->flip = SPR_FLIP_X;
+        } break;
+        case DIRECTION_E: {
+            if (!game_traversable(g, obj_rec_top(o))) {
+                imgy      = 4;
+                spr->flip = SPR_FLIP_X;
+            } else {
+                imgy = 0;
+            }
+        } break;
+        case DIRECTION_W: {
+            if (!game_traversable(g, obj_rec_bottom(o))) {
+                imgy      = 0;
+                spr->flip = SPR_FLIP_X;
+            } else {
+                imgy = 4;
+            }
+        } break;
+        case DIRECTION_SE: {
+            rec_i32 rr = {o->pos.x - 1, o->pos.y, o->w + 1, o->h + 1};
+            if (!game_traversable(g, rr)) {
+                imgy = 1;
+            } else {
+                imgy      = 3;
+                spr->flip = SPR_FLIP_X;
+            }
+        } break;
+        case DIRECTION_SW: {
+            rec_i32 rr = {o->pos.x - 1, o->pos.y - 1, o->w + 1, o->h + 1};
+            if (!game_traversable(g, rr)) {
+                imgy = 3;
+            } else {
+                imgy      = 1;
+                spr->flip = SPR_FLIP_X;
+            }
+        } break;
+        case DIRECTION_NE: {
+            rec_i32 rr = {o->pos.x, o->pos.y, o->w + 1, o->h + 1};
+            if (!game_traversable(g, rr)) {
+                imgy = 7;
+            } else {
+                imgy      = 5;
+                spr->flip = SPR_FLIP_X;
+            }
+        } break;
+        case DIRECTION_NW: {
+            rec_i32 rr = {o->pos.x, o->pos.y - 1, o->w + 1, o->h + 1};
+            if (!game_traversable(g, rr)) {
+                imgy = 5;
+            } else {
+                imgy      = 7;
+                spr->flip = SPR_FLIP_X;
+            }
+        } break;
+        }
+    } else {
+        crawler->bounce_angle_q12 += crawler->bounce_rotation_q12;
+        imgy = (crawler->bounce_angle_q12 >> 9) & 7;
     }
 
     spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
@@ -248,16 +300,10 @@ void crawler_on_animate(game_s *g, obj_s *o)
         }
     }
 
-    spr->flip = 0;
-
-    if (is_flipped) {
-        spr->flip = SPR_FLIP_X;
-        imgy += 4; // choose 180 deg rotated frame
-    }
-    spr->trec.r.y = (imgy & 7) * 64;
+    spr->trec.r.y = imgy * 64;
 }
 
-void crawler_on_weapon_hit(obj_s *o, hitbox_s hb)
+void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)
 {
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
 
@@ -265,51 +311,17 @@ void crawler_on_weapon_hit(obj_s *o, hitbox_s hb)
                            CRAWLER_TICKS_TO_CURL <= o->subtimer);
 
     if (can_be_hurt) {
-        // kill
-    } else {
-        o->state    = CRAWLER_STATE_BOUNCING;
-        o->substate = CRAWLER_SUBSTATE_CURLED;
-        o->timer    = CRAWLER_TICKS_BOUNCING;
-        o->flags |= OBJ_FLAG_MOVER;
-        o->vel_q8.y              = (hb.force_q8.y * 800) >> 8;
-        o->vel_q8.x              = (hb.force_q8.x * 1000) >> 8;
-        o->drag_q8.y             = 255;
-        o->drag_q8.x             = 255;
-        crawler->bounce_rotation = rngr_f32(-1.f, +1.f);
-    }
-}
-
-static int crawler_find_new_dir(game_s *g, obj_s *o, int dir_prev)
-{
-    const rec_i32 r = obj_aabb(o);
-    if (dir_prev != DIRECTION_S) {
-        rec_i32 rr      = {o->pos.x, o->pos.y - 1, o->w, o->h};
-        rec_i32 rr_side = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h};
-        if (game_traversable(g, rr) && !game_traversable(g, rr_side)) {
-            return DIRECTION_N;
-        }
-    }
-    if (dir_prev != DIRECTION_N) {
-        rec_i32 rr      = {o->pos.x, o->pos.y + 1, o->w, o->h};
-        rec_i32 rr_side = {o->pos.x - 1, o->pos.y + 1, o->w + 2, o->h};
-        if (game_traversable(g, rr) && !game_traversable(g, rr_side)) {
-            return DIRECTION_S;
-        }
-    }
-    if (dir_prev != DIRECTION_W) {
-        rec_i32 rr      = {o->pos.x + 1, o->pos.y, o->w, o->h};
-        rec_i32 rr_side = {o->pos.x + 1, o->pos.y - 1, o->w, o->h + 2};
-        if (game_traversable(g, rr) && !game_traversable(g, rr_side)) {
-            return DIRECTION_E;
-        }
-    }
-    if (dir_prev != DIRECTION_E) {
-        rec_i32 rr      = {o->pos.x - 1, o->pos.y, o->w, o->h};
-        rec_i32 rr_side = {o->pos.x - 1, o->pos.y - 1, o->w, o->h + 2};
-        if (game_traversable(g, rr) && !game_traversable(g, rr_side)) {
-            return DIRECTION_W;
-        }
+        obj_delete(g, o);
+        return;
     }
 
-    return DIRECTION_NONE;
+    o->flags |= OBJ_FLAG_MOVER;
+    o->state                     = CRAWLER_STATE_BOUNCING;
+    o->substate                  = CRAWLER_SUBSTATE_CURLED;
+    o->timer                     = CRAWLER_TICKS_BOUNCING;
+    o->vel_q8.y                  = (hb.force_q8.y * 800) >> 8;
+    o->vel_q8.x                  = (hb.force_q8.x * 1000) >> 8;
+    o->drag_q8.y                 = 255;
+    o->drag_q8.x                 = 255;
+    crawler->bounce_rotation_q12 = rngr_i32(-2000, +2000);
 }

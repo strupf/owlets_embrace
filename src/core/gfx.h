@@ -97,6 +97,14 @@ void          tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_stencil(tex_s dst, tex_s stc);
+gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);
+gfx_ctx_s     gfx_ctx_clip(gfx_ctx_s ctx, i32 x1, i32 y1, i32 x2, i32 y2);
+gfx_ctx_s     gfx_ctx_clip_top(gfx_ctx_s ctx, i32 y1);
+gfx_ctx_s     gfx_ctx_clip_bot(gfx_ctx_s ctx, i32 y2);
+gfx_ctx_s     gfx_ctx_clip_left(gfx_ctx_s ctx, i32 x1);
+gfx_ctx_s     gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2);
+gfx_ctx_s     gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r);
+gfx_ctx_s     gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h);
 void          tex_clr(tex_s dst, int col);
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
@@ -123,5 +131,6 @@ void          gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
 void          gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode);
 //
 void          fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
+int           fnt_length_px(fnt_s fnt, const char *txt);
 
 #endif

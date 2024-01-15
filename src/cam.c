@@ -49,9 +49,9 @@ void cam_update(game_s *g, cam_s *c)
 
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
         v2_i32 herop  = obj_pos_bottom_center(hero);
-        v2_f32 trg    = {(f32)herop.x, (f32)herop.y - 20.f};
-        int    py_bot = herop.y - 80;
-        int    py_top = herop.y - 30;
+        v2_f32 trg    = {(f32)herop.x, (f32)herop.y - 0.f};
+        int    py_bot = herop.y - 55;
+        int    py_top = herop.y + 20;
 
         c->pos.x += (f32)(trg.x - c->pos.x) * 0.05f;
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
@@ -62,16 +62,14 @@ void cam_update(game_s *g, cam_s *c)
     else if (0 < c->addticks)
         c->addticks--;
 
-    c->offs_textbox.y = (f32)ease_in_out_quad(CAM_TB_Y, 0,
-                                              c->addticks, CAM_TB_TICKS);
-
-    c->offs_shake.x = 0.f;
-    c->offs_shake.y = 0.f;
+    c->offs_textbox.y = (f32)ease_in_out_quad(0, CAM_TB_Y, c->addticks, CAM_TB_TICKS);
+    c->offs_shake.x   = 0.f;
+    c->offs_shake.y   = 0.f;
     if (0 < c->shake_ticks) {
         int s = (c->shake_str * c->shake_ticks--) / c->shake_ticks_max;
 
-        c->offs_shake.x = (f32)rngr_i32(-s, +s);
-        c->offs_shake.y = (f32)rngr_i32(-s, +s);
+        c->offs_shake.x = (f32)rngr_sym_i32(s);
+        c->offs_shake.y = (f32)rngr_sym_i32(s);
     }
 }
 

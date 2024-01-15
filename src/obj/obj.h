@@ -32,6 +32,9 @@ enum {
     OBJ_ID_CARRIER,
     OBJ_ID_HEROUPGRADE,
     OBJ_ID_MOVINGPLATFORM,
+    OBJ_ID_DOOR,
+    OBJ_ID_NPC,
+    OBJ_ID_CHARGER,
 };
 
 enum {
@@ -53,6 +56,7 @@ enum {
 #define OBJ_FLAG_SPRITE         ((u64)1 << 9)
 #define OBJ_FLAG_ENEMY          ((u64)1 << 10)
 #define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
+#define OBJ_FLAG_HURT_ON_TOUCH  ((u64)1 << 12)
 //
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
@@ -115,6 +119,8 @@ typedef struct {
 
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
+    obj_s    *next; // linked list
+    //
     obj_UID_s UID;
     int       ID;
     flags64   flags;
@@ -202,7 +208,7 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
-int          actor_try_wiggle(game_s *g, obj_s *o);
+bool32       actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
 void         platform_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);

@@ -17,18 +17,24 @@ static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
 
 void textbox_load_dialog(textbox_s *tb, const char *filename)
 {
-    *tb          = (textbox_s){0};
+    *tb = (textbox_s){0};
+    FILEPATH_GEN(filepath, FILEPATH_DIALOG, filename);
+
+    spm_push();
+    char  *txt;
+    json_s jroot;
+    if (txt_load(filepath, spm_alloc, &txt) != TXT_SUCCESS) {
+        sys_printf("could not load dialog: %s\n", filepath);
+        goto DIALOG_ERR;
+    }
+
+    if (json_root(txt, &jroot) != JSON_SUCCESS) {
+        sys_printf("could not find dialog json root: %s\n", filepath);
+        goto DIALOG_ERR;
+    }
     tb->state    = TEXTBOX_STATE_FADE_IN;
     tb->fadetick = TEXTBOX_FADE_TICKS;
 
-    char  *txt;
-    json_s jroot;
-    spm_push();
-
-    FILEPATH_GEN(filepath, FILEPATH_DIALOG, filename);
-
-    txt_load(filepath, spm_alloc, &txt);
-    json_root(txt, &jroot);
     for (json_each (jroot, "blocks", jblock)) {
         textbox_block_s *block = &tb->blocks[tb->n_blocks++];
         block->tag             = jsonk_u32(jblock, "tag");
@@ -101,7 +107,7 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
             }
         }
     }
-
+DIALOG_ERR:
     spm_pop();
 }
 

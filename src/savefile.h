@@ -15,6 +15,8 @@ typedef struct savefile_s {
     int     health;
     char    area_filename[LEN_AREA_FILENAME];
     char    hero_name[LEN_HERO_NAME];
+    //
+    u8      saved_events[256];
 } savefile_s;
 
 bool32 savefile_copy(int slotID_from, int slotID_to);

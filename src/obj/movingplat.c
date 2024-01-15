@@ -34,13 +34,13 @@ obj_s *movingplatform_create(game_s *g)
     o->h = 16;
 
     movingplatform_s *plat     = (movingplatform_s *)o->mem;
-    plat->v_q4                 = 20;
+    plat->v_q4                 = 60;
     plat->i0                   = 0;
-    plat->i1                   = 2;
-    plat->path[plat->n_path++] = (v2_i16){200, 30};
+    plat->i1                   = 1;
+    plat->path[plat->n_path++] = (v2_i16){300, 100};
     plat->path[plat->n_path++] = (v2_i16){50, 200};
-    plat->path[plat->n_path++] = (v2_i16){300, 130};
-    o->substate                = MOVPL_STOP_AT_EACH;
+    plat->path[plat->n_path++] = (v2_i16){200, 50};
+    // o->substate                = MOVPL_STOP_AT_EACH;
     o->state                   = MOVPL_TYPE_CIRCLE;
     o->pos                     = v2_i32_from_i16(plat->path[plat->i0]);
     return o;

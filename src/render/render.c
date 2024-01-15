@@ -7,15 +7,24 @@
 
 void game_draw(game_s *g)
 {
-    rec_i32 camrec = cam_rec_px(g, &g->cam);
-    camrec.x &= ~1; // snap to multiples of 2 to avoid dither flickering
-    camrec.y &= ~1;
+    rec_i32 camrec      = cam_rec_px(g, &g->cam);
+    g->avoid_flickering = 1;
+
+    // avoid dither flickering? -> snap camera pos
+    if (g->avoid_flickering
+#if 1
+        && ((camrec.x ^ camrec.y) & 1) != 0
+#endif
+    ) {
+        camrec.x &= ~1;
+        camrec.y &= ~1;
+    }
 
     const v2_i32    camoffset = {-camrec.x, -camrec.y};
     const gfx_ctx_s ctx       = gfx_ctx_display();
 
-    ocean_s *ocean = &g->ocean;
     render_bg(g, camrec);
+    ocean_s *ocean = &g->ocean;
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
@@ -49,8 +58,9 @@ void game_draw(game_s *g)
 
             while (inode * 80 < lenend_q4) {
                 int dst = inode * 80 - lensofar_q4;
+                assert(0 <= dst);
                 inode++;
-                assert(dst >= 0);
+
                 v2_i32 dd = dt12_q4;
                 dd        = v2_setlen(dd, dst);
                 dd        = v2_shr(dd, 4);
@@ -64,14 +74,14 @@ void game_draw(game_s *g)
         }
     }
 
-    for (int i = 0; i < g->obj_nbusy; i++) {
-        obj_s  *o    = g->obj_busy[i];
+    for (obj_each(g, o)) {
         v2_i32  ppos = v2_add(o->pos, camoffset);
         rec_i32 aabb = {ppos.x, ppos.y, o->w, o->h};
 
-#if 1
-        if (o->flags & OBJ_FLAG_RENDER_AABB)
+#ifdef SYS_DEBUG
+        if (o->flags & OBJ_FLAG_RENDER_AABB) {
             gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
+        }
 #endif
 
         if (o->flags & OBJ_FLAG_SPRITE) {
@@ -127,6 +137,14 @@ void game_draw(game_s *g)
 #endif
         } break;
         }
+
+#ifdef SYS_DEBUG
+        if (o->flags & OBJ_FLAG_RENDER_AABB) {
+            gfx_ctx_s ctx_aabb = ctx;
+            ctx_aabb.pat       = gfx_pattern_interpolate(1, 3);
+            gfx_rec_fill(ctx_aabb, aabb, PRIM_MODE_BLACK);
+        }
+#endif
     }
 
     for (int i = 0; i < g->particles.n; i++) {
@@ -164,22 +182,24 @@ void game_draw(game_s *g)
         grass_s *gr  = &g->grass[n];
         v2_i32   pos = v2_add(gr->pos, camoffset);
 
+        // prerender?
         for (int i = 0; i < 16; i++) {
             v2_i32 p = pos;
             p.y += i;
-
-            p.x += (gr->x_q8 * (15 - i)) >> 8;
+            p.x += (gr->x_q8 * (15 - i)) >> 8; // shear
             rec_i32 rg = {8, i + gr->type * 16, 16, 1};
             trgrass.r  = rg;
-            // gfx_sprite(ctx, p, rg, 0);
             gfx_spr(ctx, trgrass, p, 0, 0);
         }
     }
 
-    enveffect_wind_draw(ctx, &g->env_wind, camoffset);
-    // enveffect_heat_draw(ctx, &g->env_heat, camoffset);
+    ocean_draw(g, asset_tex(0), camoffset);
 
-    ocean_draw(g, asset_tex(0));
+    if (g->env_effects & ENVEFFECT_WIND)
+        enveffect_wind_draw(ctx, &g->env_wind, camoffset);
+    if (g->env_effects & ENVEFFECT_HEAT)
+        enveffect_heat_draw(ctx, &g->env_heat, camoffset);
+
     render_ui(g, camoffset);
     transition_draw(&g->transition);
 
@@ -229,15 +249,14 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
 
     for (int y = bounds.y1; y <= bounds.y2; y++) {
         for (int x = bounds.x1; x <= bounds.x2; x++) {
-#if 1
             if (g->tiles[x + y * g->tiles_x].collision == TILE_ONE_WAY) {
                 rec_i32 rr = {x << 4, y << 4, 16, 4};
                 rr         = translate_rec(rr, camoffset);
                 gfx_rec_fill(ctx, rr, PRIM_MODE_BLACK);
+                continue;
             }
 
             rtile_s rt = g->rtiles[layer][x + y * g->tiles_x];
-            // rt.u = g_animated_tiles[tiles[x + y * g->tiles_x].u];
             if (rt.u == 0) continue;
 
             tr.r.x   = rt.tx << 4;
@@ -245,7 +264,6 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
             gfx_spr(ctx, tr, p, 0, 0);
 
-#endif
 #if defined(SYS_DEBUG) && 0
             {
                 int t = g->tiles[x + y * g->tiles_x].collision;
@@ -259,52 +277,6 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
                 gfx_spr(ctx, tr, p, 0, 0);
             }
 #endif
-        }
-    }
-}
-
-void render_parallax(game_s *g, v2_i32 camoffset)
-{
-    parallax_img_s par = g->parallax;
-    par.tr             = asset_texrec(TEXID_BACKGROUND, 0, 0, 618, 320);
-    par.loopx          = 1;
-    par.img_pos        = BG_IMG_POS_FIT_ROOM;
-
-    if (!par.tr.t.px) return;
-    cam_s *cam = &g->cam;
-
-    int bgx = 0;
-    int bgy = 0;
-
-    switch (par.img_pos) {
-    case BG_IMG_POS_TILED:
-        bgx = (int)(cam->pos.x * (1.f - par.x) + par.offx) + camoffset.x;
-        bgy = (int)(cam->pos.y * (1.f - par.y) + par.offy) + camoffset.y;
-        break;
-    case BG_IMG_POS_FIT_ROOM:
-        bgx = -((par.tr.r.w - SYS_DISPLAY_W) * -camoffset.x) / (g->pixel_x - SYS_DISPLAY_W);
-        bgy = -((par.tr.r.h - SYS_DISPLAY_H) * -camoffset.y) / (g->pixel_y - SYS_DISPLAY_H);
-        break;
-    }
-
-    int nx = 1;
-    int ny = 1;
-
-    if (par.loopx) {
-        nx  = (SYS_DISPLAY_W) / par.tr.r.w + 1;
-        bgx = bgx % par.tr.r.w;
-    }
-    if (par.loopy) {
-        ny  = (SYS_DISPLAY_H) / par.tr.r.h + 1;
-        bgy = bgy % par.tr.r.h;
-    }
-
-    gfx_ctx_s ctx = gfx_ctx_display();
-
-    for (int y = 0; y < ny; y++) {
-        for (int x = 0; x < nx; x++) {
-            v2_i32 pos = {bgx + x * par.tr.r.w, bgy + y * par.tr.r.h};
-            gfx_spr(ctx, par.tr, pos, 0, 0);
         }
     }
 }
@@ -326,7 +298,11 @@ static int ocean_render_amplitude_at(game_s *g, i32 px_x)
 void ocean_calc_spans(game_s *g, rec_i32 camr)
 {
     ocean_s *oc = &g->ocean;
-    if (!oc->active) return;
+    if (!oc->active) {
+        oc->y_min = camr.h;
+        oc->y_max = camr.h;
+        return;
+    }
 
     if (inp_debug_space()) {
         water_impact(&oc->surf, 30, 6, 30000);
@@ -352,60 +328,28 @@ void ocean_calc_spans(game_s *g, rec_i32 camr)
     }
 }
 
-void ocean_draw_bg(game_s *g, tex_s t, v2_i32 camoff)
-{
-    ocean_s *oc = &g->ocean;
-    if (!oc->active) return;
-
-    gfx_ctx_s ctx = gfx_ctx_default(t);
-
-#define HORIZONT_X     2000                // distance horizont from screen plane
-#define HORIZONT_X_EYE 600                 // distance eye from screen plane
-#define HORIZONT_Y_EYE (SYS_DISPLAY_H / 2) // height eye on screen plane (center)
-
-    int y_max = clamp_i(oc->y_max, 0, t.h);
-
-    for (int k = 0, x = 0; k < oc->n_spans; k++) {
-        ocean_span_s sp = oc->spans[k];
-        rec_i32      rf = {x, sp.y, sp.w, y_max - sp.y};
-
-        gfx_rec_fill_display(ctx, rf, PRIM_MODE_BLACK);
-
-        // calc height of horizont based on thales theorem
-        int y_horizont = ((sp.y - HORIZONT_Y_EYE) * HORIZONT_X) /
-                         (HORIZONT_X + HORIZONT_X_EYE);
-        for (int i = 1; i <= 8; i++) {
-            int       yy   = sp.y - ((y_horizont * i) >> 3);
-            rec_i32   rl   = {x, yy, sp.w, 1};
-            gfx_ctx_s ctxl = ctx;
-            ctxl.pat       = gfx_pattern_interpolate(8 - i, 8);
-            gfx_rec_fill_display(ctxl, rl, PRIM_MODE_BLACK);
-        }
-        x += sp.w;
-    }
-
-    { // fill "static" bottom section
-        u32 *px = &((u32 *)t.px)[y_max * t.wword];
-        int  N  = t.wword * (t.h - y_max);
-        for (int n = 0; n < N; n++) {
-            *px++ = 0;
-        }
-    }
-}
-
-void ocean_draw(game_s *g, tex_s t)
+void ocean_draw(game_s *g, tex_s t, v2_i32 camoff)
 {
     ocean_s *oc = &g->ocean;
     if (!oc->active) return;
     const gfx_ctx_s ctx  = gfx_ctx_default(t);
     gfx_ctx_s       ctxf = ctx;
-    ctxf.pat             = gfx_pattern_4x4(B4(0101),
-                                           B4(1010),
-                                           B4(0101),
-                                           B4(1010));
-    gfx_ctx_s ctxl       = ctx;
-    ctxl.pat             = gfx_pattern_interpolate(1, 6);
-    int y_max            = clamp_i(oc->y_max, 0, t.h - 1);
+
+    if ((camoff.x ^ camoff.y) & 1) {
+        ctxf.pat = gfx_pattern_4x4(B4(0101),
+                                   B4(1010),
+                                   B4(0101),
+                                   B4(1010));
+    } else {
+        ctxf.pat = gfx_pattern_4x4(B4(1010),
+                                   B4(0101),
+                                   B4(1010),
+                                   B4(0101));
+    }
+
+    gfx_ctx_s ctxl = ctx;
+    ctxl.pat       = gfx_pattern_interpolate(1, 6);
+    int y_max      = clamp_i(oc->y_max, 0, t.h - 1);
 
     { // fill "static" bottom section
         u32 *px = &((u32 *)t.px)[y_max * t.wword];

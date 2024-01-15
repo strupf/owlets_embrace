@@ -4,7 +4,6 @@
 
 #include "game.h"
 
-#if 1
 enum {
     DOOR_STATE_CLOSED,
     DOOR_STATE_OPEN,
@@ -23,8 +22,6 @@ enum {
 };
 
 typedef struct {
-    obj_s o;
-
     int    state;
     int    type;
     bool32 can_open;
@@ -40,49 +37,55 @@ typedef struct {
 
 obj_s *door_create(game_s *g)
 {
-    door_s *o = (door_s *)obj_create(g);
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_DOOR;
+    o->flags = OBJ_FLAG_SOLID |
+               OBJ_FLAG_RENDER_AABB;
 
-    return (obj_s *)o;
+    o->w = 16;
+    o->h = 16;
+
+    return o;
 }
 
-void door_update(game_s *g, obj_s *obj)
+void door_on_update(game_s *g, obj_s *o)
 {
-    door_s *o = (door_s *)obj;
+    door_s *door = (door_s *)o->mem;
 
     if (o->state == DOOR_STATE_CLOSED || o->state == DOOR_STATE_OPEN) return;
 
-    o->tick++;
+    o->timer++;
 
     switch (o->state) {
     case DOOR_STATE_OPENING:
-        if (o->tick < o->ticks_to_open) break;
-        o->state    = DOOR_STATE_OPEN;
-        obj->tomove = v2_sub(o->pos_slide_open, obj->pos);
+        if (o->timer < door->ticks_to_open) break;
+        o->state  = DOOR_STATE_OPEN;
+        o->tomove = v2_sub(door->pos_slide_open, o->pos);
         return;
     case DOOR_STATE_CLOSING:
-        if (o->tick < o->ticks_to_close) break;
-        o->state    = DOOR_STATE_CLOSED;
-        obj->tomove = v2_sub(o->pos_slide_closed, obj->pos);
+        if (o->timer < door->ticks_to_close) break;
+        o->state  = DOOR_STATE_CLOSED;
+        o->tomove = v2_sub(door->pos_slide_closed, o->pos);
         return;
     }
 
-    switch (o->type) {
+    switch (door->type) {
     case DOOR_TYPE_SLIDING: {
-        v2_i32 p0 = o->pos_slide_closed;
-        v2_i32 p1 = o->pos_slide_open;
+        v2_i32 p0 = door->pos_slide_closed;
+        v2_i32 p1 = door->pos_slide_open;
 
         if (o->state == DOOR_STATE_CLOSING) {
             SWAP(v2_i32, p0, p1);
         }
 
-        int    ticks = o->state == DOOR_STATE_CLOSING ? o->ticks_to_close : o->ticks_to_open;
-        v2_i32 pos   = v2_lerp(p0, p1, o->tick, ticks);
-        obj->tomove  = v2_sub(pos, obj->pos);
+        int    ticks = o->state == DOOR_STATE_CLOSING ? door->ticks_to_close : door->ticks_to_open;
+        v2_i32 pos   = v2_lerp(p0, p1, o->timer, ticks);
+        o->tomove    = v2_sub(pos, o->pos);
     } break;
     }
 }
 
-void door_trigger(game_s *g, obj_s *obj, int trigger)
+void door_on_trigger(game_s *g, obj_s *obj, int trigger)
 {
     door_s *o = (door_s *)obj;
 
@@ -101,4 +104,3 @@ void door_trigger(game_s *g, obj_s *obj, int trigger)
     } break;
     }
 }
-#endif

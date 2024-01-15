@@ -23,9 +23,24 @@ static int char_is_any(char c, const char *chars)
 
 static int str_eq(const char *a, const char *b)
 {
-    for (const char *x = a, *y = b;; x++, y++) {
+    const char *x = a;
+    const char *y = b;
+    while (*x != '\0') {
         if (*x != *y) return 0;
-        if (*x == '\0') break;
+        x++, y++;
+    }
+    return 1;
+}
+
+// ignore lower/upper case when comparing
+static int str_eq_nc(const char *a, const char *b)
+{
+    const char *x = a;
+    const char *y = b;
+    while (*x != '\0') {
+        if (((uint)(*x) & B8(11011111)) != ((uint)(*y) & B8(11011111)))
+            return 0;
+        x++, y++;
     }
     return 1;
 }

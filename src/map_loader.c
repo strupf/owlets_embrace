@@ -103,14 +103,17 @@ static bool32 map_prop_bool(map_properties_s p, const char *name);
 
 void game_load_map(game_s *g, const char *mapfile)
 {
-    g->obj_ndelete = 0;
-    g->obj_nbusy   = 0;
-    g->obj_nfree   = NUM_OBJ;
+    g->obj_ndelete         = 0;
+    g->obj_head_busy       = NULL;
+    g->obj_head_free       = &g->obj_raw[0];
+    g->obj_head_free->next = NULL;
+
     for (int n = 0; n < NUM_OBJ; n++) {
-        obj_s *o             = &g->obj_raw[n];
-        o->UID.index         = n;
-        o->UID.gen           = 1;
-        g->obj_free_stack[n] = o;
+        obj_s *o         = &g->obj_raw[n];
+        o->UID.index     = n;
+        o->UID.gen       = 1;
+        o->next          = g->obj_head_free;
+        g->obj_head_free = o;
     }
 
     for (int n = 0; n < NUM_OBJ_TAGS; n++) {
@@ -200,9 +203,15 @@ void game_load_map(game_s *g, const char *mapfile)
         op += o->bytes;
 
         if (0) {
-        } else if (str_eq(o->name, "Switch")) {
+        } else if (str_eq_nc(o->name, "Switch")) {
             switch_load(g, o);
-        } else if (str_eq(o->name, "Ocean")) {
+        } else if (str_eq_nc(o->name, "Heroupgrade")) {
+            heroupgrade_load(g, o);
+        } else if (str_eq_nc(o->name, "NPC")) {
+            npc_load(g, o);
+        } else if (str_eq_nc(o->name, "Crawler")) {
+            crawler_load(g, o);
+        } else if (str_eq_nc(o->name, "Ocean")) {
             int n_waterp = g->tiles_x * 2 + 1;
 
             watersurface_s *oceanwater = &g->ocean.surf;

@@ -28,7 +28,6 @@ void *assetmem_alloc(usize s)
         sys_printf("+++ ran out of asset mem!\n");
         BAD_PATH
     }
-    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
     return mem;
 }
 

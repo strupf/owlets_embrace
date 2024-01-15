@@ -25,13 +25,13 @@ void enveffect_wind_update(enveffect_wind_s *e)
         }
 
         if (p->circticks > 0) { // run through circle but keep slowly moving forward
-            i32 a     = (Q16_ANGLE_TURN * (p->ticks - p->circticks)) / p->ticks;
-            p->p_q8.x = p->circc.x + ((sin_q16(a) * BG_WIND_CIRCLE_R) >> 16);
-            p->p_q8.y = p->circc.y + ((cos_q16(a) * BG_WIND_CIRCLE_R) >> 16);
+            i32 a     = (0x400 * (p->ticks - p->circticks)) / p->ticks;
+            p->p_q8.x = p->circc.x + ((sin_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
+            p->p_q8.y = p->circc.y + ((cos_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
             p->circc.x += 200;
             p->circticks--;
         } else {
-            p->v_q8.y += rngr_i32(-60, +60);
+            p->v_q8.y += rngr_sym_i32(60);
             p->v_q8.y = clamp_i(p->v_q8.y, -400, +400);
             p->p_q8   = v2_add(p->p_q8, p->v_q8);
         }

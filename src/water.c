@@ -33,7 +33,7 @@ void water_update(watersurface_s *ws)
     i_water_update(ws);
     for (int n = 0; n < ws->nparticles; n++) {
         waterparticle_s *pc = &ws->particles[n];
-        pc->v_q12 += (i32)(rng_u32() & 127) - 64;
+        pc->v_q12 += rngr_sym_i32(64);
     }
 }
 
