@@ -50,6 +50,10 @@ static void gameplay_tick(game_s *g)
     for (obj_each(g, o)) {
         const v2_i32 posprev = o->pos;
 
+        if (0 < o->invincible_tick) {
+            o->invincible_tick--;
+        }
+
         // implement as function pointers?
         // but I do like the explicit way of the program flow, though
         switch (o->ID) {
@@ -67,6 +71,8 @@ static void gameplay_tick(game_s *g)
         o->posprev = posprev;
 #ifdef SYS_DEBUG
         assert(o->magic == OBJ_MAGIC);
+        assert((o->flags & (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID)) !=
+               (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID));
 #endif
     }
 
@@ -83,9 +89,13 @@ static void gameplay_tick(game_s *g)
     }
 
     for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_ACTOR)) continue;
-        if (actor_try_wiggle(g, o))
+        if (!(o->flags & OBJ_FLAG_ACTOR_PLATFORM)) continue;
+        if ((o->flags & OBJ_FLAG_ACTOR_PLATFORM) == OBJ_FLAG_PLATFORM) {
+            platform_move(g, o, o->tomove);
+        } else if (actor_try_wiggle(g, o)) {
             actor_move(g, o, o->tomove);
+        }
+
         o->tomove.x = 0, o->tomove.y = 0;
     }
 
@@ -99,29 +109,48 @@ static void gameplay_tick(game_s *g)
 
     objs_cull_to_delete(g);
 
-    obj_s        *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
-    const rec_i32 heroaabb = obj_aabb(ohero);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
-    if (ohero && ohero->invincible_tick <= 0) {
+    // hero touching other objects
+    if (ohero) {
+        const rec_i32 heroaabb = obj_aabb(ohero);
+        for (obj_each(g, o)) {
+            switch (o->ID) {
+            case OBJ_ID_SHROOMY: {
+                rec_i32 rshroomy = obj_aabb(o);
+                if (!overlap_rec(heroaabb, rshroomy)) break;
+                if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rshroomy.y + rshroomy.h) {
+                    ohero->vel_q8.y = -2000;
+                    shroomy_bounced_on(o);
+                }
+            } break;
+            }
+        }
 
         // touched hurting things?
+        if (0 < ohero->invincible_tick) goto SKIP_HAZARDS;
         for (obj_each(g, o)) {
             if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
             if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
 
             v2_i32 dt       = v2_sub(obj_pos_center(ohero), obj_pos_center(o));
-            ohero->vel_q8.x = sgn_i(dt.x) * 700;
-            ohero->vel_q8.y = -700;
+            ohero->vel_q8.x = sgn_i(dt.x) * 1000;
+            ohero->vel_q8.y = -1000;
             hero_hurt(g, ohero, &g->herodata, 1);
             g->events_frame |= EVENT_HERO_DAMAGE;
+            snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
             break;
         }
+    SKIP_HAZARDS:;
     }
 
     objs_cull_to_delete(g);
+
+    // retrieve again in case the hero died
     ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     if (ohero) {
+        const rec_i32 heroaabb = obj_aabb(ohero);
         hero_check_rope_intact(g, ohero);
 
         // collectibles
@@ -156,18 +185,36 @@ static void gameplay_tick(game_s *g)
         water_update(&g->water[n].surf);
 
     if (g->events_frame & EVENT_HIT_ENEMY) {
-        g->freeze_tick = WEAPON_HIT_FREEZE_TICKS;
+        g->freeze_ticks = max_i(g->freeze_ticks, 2);
     }
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick = HERO_DAMAGE_FREEZE_TICKS;
+        g->freeze_ticks = max_i(g->freeze_ticks, 4);
     }
 }
 
 void game_tick(game_s *g)
 {
-    if (0 < g->freeze_tick) {
-        g->freeze_tick--;
+    g->substate_tick++;
+
+    if (0 < g->freeze_ticks) {
+        g->freeze_ticks--;
         return;
+    }
+
+    if (g->substate == GAME_SUBSTATE_HERO_DIE) {
+        if (50 <= g->substate_tick) {
+            game_load_savefile(g, g->savefile, g->savefile_slotID);
+            g->substate      = GAME_SUBSTATE_HERO_RESPAWN;
+            g->substate_tick = 0;
+            return;
+        }
+    }
+
+    if (g->substate == GAME_SUBSTATE_HERO_RESPAWN) {
+        if (50 <= g->substate_tick) {
+            g->substate      = 0;
+            g->substate_tick = 0;
+        }
     }
 
     g->tick++;
@@ -175,9 +222,10 @@ void game_tick(game_s *g)
     bool32 update_gameplay   = 1;
     bool32 update_animations = 1;
 
-    if (g->textbox.state != TEXTBOX_STATE_INACTIVE) {
+    if (g->substate == GAME_SUBSTATE_TEXTBOX) {
         textbox_update(g, &g->textbox);
         update_gameplay = 0;
+        // update_animations = 0;
     } else if (!transition_finished(&g->transition)) {
         transition_update(&g->transition);
         update_gameplay = 0;
@@ -188,25 +236,40 @@ void game_tick(game_s *g)
     }
 
     if (update_animations) {
-        cam_update(g, &g->cam);
-        fade_update(&g->fade_upgrade);
-        fade_update(&g->areaname.fade);
-        enveffect_wind_update(&g->env_wind);
-        enveffect_heat_update(&g->env_heat);
-        backforeground_animate_grass(g);
+        game_update_animations(g);
+    }
+}
 
-        for (obj_each(g, o)) {
+void game_update_animations(game_s *g)
+{
+    // every tick
+    for (obj_each(g, o)) {
 
-            switch (o->ID) {
-            case OBJ_ID_HERO: hero_on_animate(g, o); break;
-            case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
-            case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
-            case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
-            case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
-            case OBJ_ID_HOOK: hook_on_animate(g, o); break;
-            case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
-            }
+        switch (o->ID) {
+        case OBJ_ID_HERO: hero_on_animate(g, o); break;
+        case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
+        case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+        case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
+        case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
+        case OBJ_ID_HOOK: hook_on_animate(g, o); break;
+        case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
         }
+    }
+
+    cam_update(g, &g->cam);
+    fade_update(&g->fade_upgrade);
+    fade_update(&g->areaname.fade);
+
+    if (g->env_effects & ENVEFFECT_WIND)
+        enveffect_wind_update(&g->env_wind);
+
+    // every other tick to save some CPU cycles;
+    // split between even and uneven frames
+    if (g->tick & 1) {
+        backforeground_animate_grass(g);
+    } else {
+        if (g->env_effects & ENVEFFECT_HEAT)
+            enveffect_heat_update(&g->env_heat);
     }
 }
 
@@ -254,6 +317,14 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     game_load_map(g, sf.area_filename);
     g->tick = sf.tick;
 
+    sys_mus_play("assets/mus/background.wav");
+
+    herodata_s *hero       = &g->herodata;
+    hero->aquired_items    = sf.aquired_items;
+    hero->aquired_upgrades = sf.aquired_upgrades;
+    hero->n_airjumps       = sf.n_airjumps;
+    hero->health           = sf.health;
+
 #if 1
     obj_s *oh = hero_create(g);
     oh->pos.x = 50;
@@ -266,15 +337,27 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
             break;
         }
     }
+
+    obj_s *os = shroomy_create(g);
+    os->pos.x = 200;
+    os->pos.y = 30;
 #endif
 
-    herodata_s *hero       = &g->herodata;
-    hero->aquired_items    = sf.aquired_items;
-    hero->aquired_upgrades = sf.aquired_upgrades;
-    hero->n_airjumps       = sf.n_airjumps;
-    hero->health           = sf.health;
+    // obj_s *mo = movingplatform_create(g);
 
-    g->env_effects |= ENVEFFECT_WIND;
+#if 0
+    obj_s *oc = charger_create(g);
+    oc->pos.x = 100;
+    oc->pos.y = 50;
+
+    oc        = charger_create(g);
+    oc->pos.x = 100;
+    oc->pos.y = 10;
+
+        obj_s *occ = carrier_create(g);
+    occ->pos.x = 100;
+    occ->pos.y = 50;
+#endif
 }
 
 static void backforeground_animate_grass(game_s *g)
@@ -290,11 +373,11 @@ static void backforeground_animate_grass(game_s *g)
         }
 
         int f2 = rngr_sym_i32(30000 * 150) >> (13 + 8);
-        int f1 = -((gr->x_q8 * 4) >> 8);
+        int f1 = -((gr->x_q8 * 6) >> 8);
         gr->v_q8 += f1 + f2;
         gr->x_q8 += gr->v_q8;
         gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
-        gr->v_q8 = (gr->v_q8 * 245) >> 8;
+        gr->v_q8 = (gr->v_q8 * 230) >> 8;
     }
 }
 
@@ -320,22 +403,6 @@ void game_on_trigger(game_s *g, int trigger)
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o, trigger); break;
         }
     }
-}
-
-solid_rec_list_s game_solid_recs(game_s *g)
-{
-    static rec_i32 solidrecs[NUM_OBJ];
-
-    solid_rec_list_s l = {0};
-    l.recs             = solidrecs;
-
-    for (obj_each(g, o)) {
-        if (o->flags & OBJ_FLAG_SOLID) {
-            rec_i32 r     = obj_aabb(o);
-            l.recs[l.n++] = r;
-        }
-    }
-    return l;
 }
 
 void game_put_grass(game_s *g, int tx, int ty)

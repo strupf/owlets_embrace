@@ -110,6 +110,7 @@ f32           sys_crank(); // [0, 1]
 int           sys_crank_docked();
 f32           sys_seconds();
 int           sys_key(int k);
+bool32        sys_reduced_flicker();
 
 typedef void *sys_file_s;
 sys_file_s   *sys_fopen(const char *path, const char *mode);

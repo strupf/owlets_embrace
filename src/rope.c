@@ -16,11 +16,6 @@ typedef struct {
     int    n;
 } ropepts_s;
 
-static solid_rec_list_s rope_solid_recs(game_s *g)
-{
-    return game_solid_recs(g);
-}
-
 static int ropepts_find(ropepts_s *pts, v2_i32 p)
 {
     for (int i = 0; i < pts->n; i++) {
@@ -33,7 +28,7 @@ static int ropepts_find(ropepts_s *pts, v2_i32 p)
 static void ropepts_remove(ropepts_s *pts, v2_i32 p)
 {
     int i = ropepts_find(pts, p);
-    if (i >= 0) {
+    if (0 <= i) {
         pts->pt[i] = pts->pt[--pts->n];
     }
 }
@@ -116,9 +111,9 @@ static int rope_points_collinearity(ropepts_s *pts, v2_i32 c)
             u32 dab = v2_lensq(ab);
             u32 dbc = v2_distancesq(c, b);
 
-            if (dac > dab && dac > dbc) return i;  // b is midpoint, replace at i
-            if (dbc > dac && dbc > dab) return n;  // a is midpoint, replace at n
-            if (dab > dac && dab > dbc) return -1; // c is midpoint, don't add
+            if (dab < dac && dbc < dac) return i;  // b is midpoint, replace at i
+            if (dac < dbc && dab < dbc) return n;  // a is midpoint, replace at n
+            if (dac < dab && dbc < dab) return -1; // c is midpoint, don't add
         }
     }
     return pts->n;
@@ -143,7 +138,7 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
     // add or overwrite
     if (k == pts->n) {
         pts->pt[pts->n++] = p.p;
-    } else if (k >= 0) { // add only if positive
+    } else if (0 <= k) { // add only if positive
         pts->pt[k] = p.p;
     }
 }
@@ -196,10 +191,10 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
         }
     }
 
-    solid_rec_list_s solids = rope_solid_recs(g);
-    for (int n = 0; n < solids.n; n++) {
+    for (obj_each(g, o)) {
+        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
         v2_i32 p[4];
-        points_from_rec(solids.recs[n], p);
+        points_from_rec(obj_aabb(o), p);
 
         convex_vertex_s v0 = {p[0], p[1], p[2]};
         convex_vertex_s v1 = {p[1], p[2], p[3]};
@@ -231,7 +226,7 @@ static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
             if (i == p || i == q) continue;
             v2_i32 pi = pts->pt[i];
             i32    v  = v2_crs(v2_sub(pn, pi), v2_sub(pi, pc));
-            if ((v | dir) >= 0 || (v <= 0 && dir <= 0)) {
+            if (0 <= (v | dir) || (v <= 0 && dir <= 0)) {
                 q  = i;
                 pn = pi;
             }
@@ -382,7 +377,7 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
 
     // only consider the points moving "forward" of the solid
     v2_i32 points[2];
-    if (dt.x > 0) {
+    if (0 < dt.x) {
         rec.w += dt.x;
         points[0] = points_[1];
         points[1] = points_[2];
@@ -391,7 +386,7 @@ void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
         rec.w += dt.x;
         points[0] = points_[0];
         points[1] = points_[3];
-    } else if (dt.y > 0) {
+    } else if (0 < dt.y) {
         rec.h += dt.y;
         points[0] = points_[2];
         points[1] = points_[3];
@@ -487,10 +482,10 @@ void tighten_ropesegment(game_s *g, rope_s *r,
         }
     }
 
-    solid_rec_list_s solids = rope_solid_recs(g);
-    for (int n = 0; n < solids.n; n++) {
+    for (obj_each(g, o)) {
+        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
         v2_i32 p[4];
-        points_from_rec(solids.recs[n], p);
+        points_from_rec(obj_aabb(o), p);
         if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
             rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
             rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
@@ -618,10 +613,9 @@ bool32 rope_intact(game_s *g, rope_s *r)
             }
         }
 
-        solid_rec_list_s solids = rope_solid_recs(g);
-        for (int n = 0; n < solids.n; n++) {
-            rec_i32 ro = solids.recs[n];
-            if (overlap_rec_lineseg_excl(ro, ls)) {
+        for (obj_each(g, o)) {
+            if (!(o->flags & OBJ_FLAG_SOLID)) continue;
+            if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
                 sys_printf("BREAKME\n");
                 return 0;
             }

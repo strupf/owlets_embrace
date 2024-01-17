@@ -7,7 +7,6 @@
 
 #include "gamedef.h"
 #include "rope.h"
-#include "spriteanim.h"
 
 #define NUM_OBJ 256
 
@@ -16,6 +15,7 @@ enum {
     OBJ_ID_HERO,
     OBJ_ID_HOOK,
     OBJ_ID_SIGN,
+    OBJ_ID_SIGN_POPUP,
     OBJ_ID_SOLID,
     OBJ_ID_KILLABLE,
     OBJ_ID_DOOR_SLIDE,
@@ -57,8 +57,9 @@ enum {
 #define OBJ_FLAG_ENEMY          ((u64)1 << 10)
 #define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
 #define OBJ_FLAG_HURT_ON_TOUCH  ((u64)1 << 12)
-//
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
+
+#define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
 
 enum {
     OBJ_BUMPED_X_NEG  = 1 << 0,
@@ -175,7 +176,6 @@ struct obj_s {
     int          attached;
     obj_handle_s linked_solid;
     obj_handle_s obj_handles[16];
-    spriteanim_s spriteanim[4];
 
     int             subattack;
     int             attack;
@@ -220,6 +220,8 @@ void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 //
 int          obj_health_change(obj_s *o, int dt); // returns health left
+int          enemy_obj_damage(obj_s *o, int dmg, int invincible_ticks);
+int          obj_invincible_frame(obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

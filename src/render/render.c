@@ -5,106 +5,38 @@
 #include "render.h"
 #include "game.h"
 
-void game_draw(game_s *g)
+static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 camoffset)
 {
-    rec_i32 camrec      = cam_rec_px(g, &g->cam);
-    g->avoid_flickering = 1;
-
-    // avoid dither flickering? -> snap camera pos
-    if (g->avoid_flickering
-#if 1
-        && ((camrec.x ^ camrec.y) & 1) != 0
-#endif
-    ) {
-        camrec.x &= ~1;
-        camrec.y &= ~1;
-    }
-
-    const v2_i32    camoffset = {-camrec.x, -camrec.y};
-    const gfx_ctx_s ctx       = gfx_ctx_display();
-
-    render_bg(g, camrec);
-    ocean_s *ocean = &g->ocean;
-
-    bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
-    // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
-
-    for (int n = 0; n < g->n_decal_bg; n++) {
-        gfx_ctx_s ctx_decal = ctx;
-        decal_s   decal     = g->decal_bg[n];
-        texrec_s  decalrec  = {decal.tex,
-                               {0, 0, decal.tex.w, decal.tex.h}};
-        v2_i32    decalpos  = {decal.x, decal.y};
-        gfx_spr(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
-    }
-
-    render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && ohero->rope) {
-        rope_s   *rope     = ohero->rope;
-        gfx_ctx_s ctx_rope = ctx;
-
-        int         inode       = 0;
-        int         lensofar_q4 = 0;
-        ropenode_s *r1          = rope->tail;
-        ropenode_s *r2          = r1->prev;
-
-        while (r1 && r2) {
-            v2_i32 p1        = v2_add(r1->p, camoffset);
-            v2_i32 p2        = v2_add(r2->p, camoffset);
-            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
-            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
-
-            while (inode * 80 < lenend_q4) {
-                int dst = inode * 80 - lensofar_q4;
-                assert(0 <= dst);
-                inode++;
-
-                v2_i32 dd = dt12_q4;
-                dd        = v2_setlen(dd, dst);
-                dd        = v2_shr(dd, 4);
-                dd        = v2_add(dd, p1);
-                gfx_cir_fill(ctx_rope, dd, 6, PRIM_MODE_BLACK);
-                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
-            }
-            lensofar_q4 = lenend_q4;
-            r1          = r2;
-            r2          = r2->prev;
-        }
-    }
-
-    for (obj_each(g, o)) {
-        v2_i32  ppos = v2_add(o->pos, camoffset);
-        rec_i32 aabb = {ppos.x, ppos.y, o->w, o->h};
+    v2_i32  ppos = v2_add(o->pos, camoffset);
+    rec_i32 aabb = {ppos.x, ppos.y, o->w, o->h};
 
 #ifdef SYS_DEBUG
-        if (o->flags & OBJ_FLAG_RENDER_AABB) {
-            gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
-        }
+    if (o->flags & OBJ_FLAG_RENDER_AABB) {
+        gfx_rec_fill(ctx, aabb, PRIM_MODE_BLACK);
+    }
 #endif
 
-        if (o->flags & OBJ_FLAG_SPRITE) {
-            for (int n = 0; n < o->n_sprites; n++) {
-                sprite_simple_s sprite = o->sprites[n];
-                if (sprite.trec.t.px == NULL) continue;
-                v2_i32 sprpos = v2_add(ppos, sprite.offs);
-                gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, sprite.mode);
-            }
+    if (o->flags & OBJ_FLAG_SPRITE) {
+        for (int n = 0; n < o->n_sprites; n++) {
+            sprite_simple_s sprite = o->sprites[n];
+            if (sprite.trec.t.px == NULL) continue;
+            v2_i32 sprpos = v2_add(ppos, sprite.offs);
+            gfx_spr_display(ctx, sprite.trec, sprpos, sprite.flip, sprite.mode);
         }
+    }
 
-        switch (o->ID) {
-        case OBJ_ID_BLOB:
-            blob_on_draw(g, o, camoffset);
-            break;
-        case OBJ_ID_TOGGLEBLOCK:
-            toggleblock_on_draw(g, o, camoffset);
-            break;
-        case OBJ_ID_HEROUPGRADE:
-            heroupgrade_on_draw(g, o, camoffset);
-            break;
-        case OBJ_ID_HERO: {
-            herodata_s *hero = &g->herodata;
+    switch (o->ID) {
+    case OBJ_ID_BLOB:
+        blob_on_draw(g, o, camoffset);
+        break;
+    case OBJ_ID_TOGGLEBLOCK:
+        toggleblock_on_draw(g, o, camoffset);
+        break;
+    case OBJ_ID_HEROUPGRADE:
+        heroupgrade_on_draw(g, o, camoffset);
+        break;
+    case OBJ_ID_HERO: {
+        herodata_s *hero = &g->herodata;
 #if 0 // render hitboxes
             gfx_ctx_s ctxhb = ctx;
             for (int i = 0; i < hero->n_hitbox; i++) {
@@ -135,16 +67,80 @@ void game_draw(game_s *g)
                 }
             }
 #endif
-        } break;
-        }
+    } break;
+    }
 
 #ifdef SYS_DEBUG
-        if (o->flags & OBJ_FLAG_RENDER_AABB) {
-            gfx_ctx_s ctx_aabb = ctx;
-            ctx_aabb.pat       = gfx_pattern_interpolate(1, 3);
-            gfx_rec_fill(ctx_aabb, aabb, PRIM_MODE_BLACK);
-        }
+    if (o->flags & OBJ_FLAG_RENDER_AABB) {
+        gfx_ctx_s ctx_aabb = ctx;
+        ctx_aabb.pat       = gfx_pattern_interpolate(1, 3);
+        gfx_rec_fill(ctx_aabb, aabb, PRIM_MODE_BLACK);
+    }
 #endif
+}
+
+void game_draw(game_s *g)
+{
+    const rec_i32   camrec    = cam_rec_px(g, &g->cam);
+    const v2_i32    camoffset = {-camrec.x, -camrec.y};
+    const gfx_ctx_s ctx       = gfx_ctx_display();
+
+    render_bg(g, camrec);
+    ocean_s *ocean = &g->ocean;
+
+    bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
+    // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
+
+    for (int n = 0; n < g->n_decal_bg; n++) {
+        gfx_ctx_s ctx_decal = ctx;
+        decal_s   decal     = g->decal_bg[n];
+        texrec_s  decalrec  = {decal.tex,
+                               {0, 0, decal.tex.w, decal.tex.h}};
+        v2_i32    decalpos  = {decal.x, decal.y};
+        gfx_spr_display(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
+    }
+
+    render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero && ohero->rope) {
+        rope_s   *rope     = ohero->rope;
+        gfx_ctx_s ctx_rope = ctx;
+
+        int         inode       = 0;
+        int         lensofar_q4 = 0;
+        ropenode_s *r1          = rope->tail;
+        ropenode_s *r2          = r1->prev;
+
+        int seg_len = (80 * rope_length_q4(g, rope)) / rope->len_max_q4;
+        seg_len     = max_i(seg_len, 80);
+
+        while (r1 && r2) {
+            v2_i32 p1        = v2_add(r1->p, camoffset);
+            v2_i32 p2        = v2_add(r2->p, camoffset);
+            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
+            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
+
+            while (inode * seg_len < lenend_q4) {
+                int dst = inode * seg_len - lensofar_q4;
+                assert(0 <= dst);
+                inode++;
+
+                v2_i32 dd = dt12_q4;
+                dd        = v2_setlen(dd, dst);
+                dd        = v2_shr(dd, 4);
+                dd        = v2_add(dd, p1);
+                gfx_cir_fill(ctx_rope, dd, 6, PRIM_MODE_BLACK);
+                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
+            }
+            lensofar_q4 = lenend_q4;
+            r1          = r2;
+            r2          = r2->prev;
+        }
+    }
+
+    for (obj_each(g, o)) {
+        obj_draw(ctx, g, o, camoffset);
     }
 
     for (int i = 0; i < g->particles.n; i++) {
@@ -173,14 +169,17 @@ void game_draw(game_s *g)
         texrec_s  decalrec  = {decal.tex,
                                {0, 0, decal.tex.w, decal.tex.h}};
         v2_i32    decalpos  = {decal.x, decal.y};
-        gfx_spr(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
+        gfx_spr_display(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
     }
 
     texrec_s trgrass;
     trgrass.t = asset_tex(TEXID_PLANTS);
     for (int n = 0; n < g->n_grass; n++) {
-        grass_s *gr  = &g->grass[n];
-        v2_i32   pos = v2_add(gr->pos, camoffset);
+        grass_s *gr     = &g->grass[n];
+        rec_i32  rgrass = {gr->pos.x - 8, gr->pos.y - 8, 32, 32};
+        if (!overlap_rec(rgrass, camrec)) continue;
+
+        v2_i32 pos = v2_add(gr->pos, camoffset);
 
         // prerender?
         for (int i = 0; i < 16; i++) {
@@ -189,7 +188,7 @@ void game_draw(game_s *g)
             p.x += (gr->x_q8 * (15 - i)) >> 8; // shear
             rec_i32 rg = {8, i + gr->type * 16, 16, 1};
             trgrass.r  = rg;
-            gfx_spr(ctx, trgrass, p, 0, 0);
+            gfx_spr_display(ctx, trgrass, p, 0, 0);
         }
     }
 
@@ -202,33 +201,6 @@ void game_draw(game_s *g)
 
     render_ui(g, camoffset);
     transition_draw(&g->transition);
-
-#if 0 // speech bubble animation
-    rec_i32 rec = {100, 50, 50, 30};
-
-    gfx_rec_fill(ctx, translate_rec(rec, camoffset), 0);
-
-    v2_i32 cc = {
-        rec.x + rec.w / 2,
-        rec.y + rec.h / 2};
-
-    v2_i32 speaker = obj_pos_center(obj_get_tagged(g, OBJ_TAG_HERO));
-    v2_i32 dt      = v2_sub(cc, speaker);
-
-    v2_i32 dta, dtb;
-
-    float ang   = 0.3f;
-    dta.x       = cos_f(ang) * (f32)dt.x - sin_f(ang) * (f32)dt.y;
-    dta.y       = sin_f(ang) * (f32)dt.x + cos_f(ang) * (f32)dt.y;
-    ang         = -ang;
-    dtb.x       = cos_f(ang) * (f32)dt.x - sin_f(ang) * (f32)dt.y;
-    dtb.y       = sin_f(ang) * (f32)dt.x + cos_f(ang) * (f32)dt.y;
-    tri_i32 tri = {speaker,
-                   v2_add(speaker, dta),
-                   v2_add(speaker, dtb)};
-    tri         = translate_tri(tri, camoffset);
-    gfx_tri_fill(ctx, tri, 0);
-#endif
 }
 
 void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
@@ -249,20 +221,13 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
 
     for (int y = bounds.y1; y <= bounds.y2; y++) {
         for (int x = bounds.x1; x <= bounds.x2; x++) {
-            if (g->tiles[x + y * g->tiles_x].collision == TILE_ONE_WAY) {
-                rec_i32 rr = {x << 4, y << 4, 16, 4};
-                rr         = translate_rec(rr, camoffset);
-                gfx_rec_fill(ctx, rr, PRIM_MODE_BLACK);
-                continue;
-            }
-
             rtile_s rt = g->rtiles[layer][x + y * g->tiles_x];
             if (rt.u == 0) continue;
 
             tr.r.x   = rt.tx << 4;
             tr.r.y   = rt.ty << 4;
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
-            gfx_spr(ctx, tr, p, 0, 0);
+            gfx_spr_display(ctx, tr, p, 0, 0);
 
 #if defined(SYS_DEBUG) && 0
             {

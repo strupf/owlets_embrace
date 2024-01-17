@@ -74,9 +74,10 @@ void enveffect_wind_draw(gfx_ctx_s ctx, enveffect_wind_s *e, v2_i32 cam)
     }
 }
 
+// called every other frame
 void enveffect_heat_update(enveffect_heat_s *e)
 {
-    e->tick += 1000;
+    e->tick += 2000;
     for (int i = 0; i < BG_NUM_HEAT_ROWS; i++) {
         int s        = sin_q16(e->tick + i * 3000);
         e->offset[i] = (s * 2 - 1) >> 16;

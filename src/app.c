@@ -2,20 +2,30 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "app.h"
 #include "core/assets.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "game.h"
 #include "sys/sys.h"
 
-typedef game_s GAME_s;
-GAME_s         GAME;
+app_s APP;
+
+typedef game_s     GAME_s;
+typedef mainmenu_s MAINMENU_s;
+
+GAME_s     GAME;
+MAINMENU_s MAINMENU;
+
+static void app_load_assets();
 
 void app_init()
 {
     spm_init();
     assets_init();
+    app_load_assets();
 
+    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
     usize size_tabs = sizeof(g_animated_tiles) +
                       sizeof(g_pxmask_tab) +
                       sizeof(tilecolliders) +
@@ -31,6 +41,57 @@ void app_init()
                                        size_tabs) /
                                     1024);
 
+    mainmenu_init(&GAME.mainmenu);
+    game_init(&GAME);
+}
+
+void app_tick()
+{
+    inp_update();
+    game_s *g = &GAME;
+
+    switch (g->state) {
+    case GAMESTATE_MAINMENU:
+        mainmenu_update(g, &g->mainmenu);
+        break;
+    case GAMESTATE_GAMEPLAY:
+        game_tick(g);
+        break;
+    }
+    aud_update();
+}
+
+void app_draw()
+{
+    sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+    game_s *g = &GAME;
+    switch (g->state) {
+    case GAMESTATE_MAINMENU:
+        tex_clr(asset_tex(0), TEX_CLR_WHITE);
+        mainmenu_render(&g->mainmenu);
+        break;
+    case GAMESTATE_GAMEPLAY:
+        game_draw(g);
+        break;
+    }
+}
+
+void app_close()
+{
+}
+
+void app_resume()
+{
+    game_resume(&GAME);
+}
+
+void app_pause()
+{
+    game_paused(&GAME);
+}
+
+static void app_load_assets()
+{
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_BG, "tileset_bg.tex", NULL);
@@ -56,6 +117,7 @@ void app_init()
 
     asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
     asset_tex_putID(TEXID_OCEAN, tex_create(400, 240, asset_allocator));
+    asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox.tex", NULL);
     asset_tex_loadID(TEXID_HERO_WHIP, "attackanim-sheet.tex", NULL);
@@ -121,87 +183,12 @@ void app_init()
     asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
     asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
 
+    asset_snd_loadID(SNDID_SHROOMY_JUMP, "shroomyjump.wav", NULL);
     asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach.wav", NULL);
     asset_snd_loadID(SNDID_SPEAK, "speak.wav", NULL);
     asset_snd_loadID(SNDID_STEP, "step.wav", NULL);
     asset_snd_loadID(SNDID_SWITCH, "switch.wav", NULL);
     asset_snd_loadID(SNDID_WHIP, "whip.wav", NULL);
     asset_snd_loadID(SNDID_SWOOSH, "swoosh_0.wav", NULL);
-
-    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
-    mainmenu_init(&GAME.mainmenu);
-    game_init(&GAME);
-}
-
-void app_tick()
-{
-    inp_update();
-    game_s *g = &GAME;
-
-    switch (g->state) {
-    case GAMESTATE_MAINMENU:
-        mainmenu_update(g, &g->mainmenu);
-        break;
-    case GAMESTATE_GAMEPLAY:
-        game_tick(g);
-        break;
-    }
-    aud_update();
-}
-
-void app_draw()
-{
-    sys_display_update_rows(0, SYS_DISPLAY_H - 1);
-#if 1
-    game_s *g = &GAME;
-    switch (g->state) {
-    case GAMESTATE_MAINMENU:
-        tex_clr(asset_tex(0), TEX_CLR_WHITE);
-        mainmenu_render(&g->mainmenu);
-        break;
-    case GAMESTATE_GAMEPLAY:
-        game_draw(g);
-        break;
-    }
-#else
-    gfx_ctx_s ctx   = gfx_ctx_default(asset_tex(0));
-    texrec_s  props = asset_texrec(TEXID_HERO, 0, 0, 256, 256);
-    gfx_spr(ctx, props, (v2_i32){0, 0}, 0, GAME.tick & 7);
-
-    /*
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-    rec_i32   rr  = {0, 0, 1, 1};
-
-    int from = -80;
-    int to   = 160;
-    int ii   = 350;
-
-    gfx_lin(ctx, (v2_i32){0, 10}, (v2_i32){400, 10}, 0);
-    gfx_lin(ctx, (v2_i32){0, 230}, (v2_i32){400, 230}, 0);
-    gfx_lin(ctx, (v2_i32){10, 0}, (v2_i32){10, 240}, 0);
-    gfx_lin(ctx, (v2_i32){10 + ii, 0}, (v2_i32){10 + ii, 240}, 0);
-
-    for (int i = 0; i <= ii; i++) {
-
-        int e = ease_in_out_quad(from, to, i, ii);
-        rr.x  = 10 + i;
-        rr.y  = 230 - ((e - from) * 220) / (to - from);
-        gfx_rec_fill(ctx, rr, PRIM_MODE_BLACK);
-    }
-    */
-#endif
-}
-
-void app_close()
-{
-}
-
-void app_resume()
-{
-    game_resume(&GAME);
-}
-
-void app_pause()
-{
-    game_paused(&GAME);
+    asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy.wav", NULL);
 }

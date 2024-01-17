@@ -7,7 +7,6 @@
 
 #include "aud.h"
 #include "gfx.h"
-#include "spriteanim.h"
 
 enum {
     TEXID_DISPLAY,
@@ -35,7 +34,8 @@ enum {
     TEXID_MISCOBJ,
     TEXID_HOOK,
     TEXID_MAINMENU,
-
+    TEXID_AREALABEL,
+    TEXID_UPGRADELABEL,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -62,6 +62,8 @@ enum {
     SNDID_SWITCH,
     SNDID_WHIP,
     SNDID_SWOOSH,
+    SNDID_HIT_ENEMY,
+    SNDID_SHROOMY_JUMP,
     //
     NUM_SNDID
 };

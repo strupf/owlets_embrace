@@ -36,6 +36,9 @@ static struct {
     int               pausebtnp;
     int               paused;
     int               spacepressed;
+    int               reduce_flicker;
+    int               flickerbtn;
+    int               flickerbtnp;
 } OS_SDL;
 
 static void                backend_SDL_audio(void *unused, u8 *stream, int len);
@@ -52,12 +55,13 @@ int main(int argc, char **argv)
              SDL_INIT_AUDIO |
              SDL_INIT_GAMECONTROLLER);
 
-    OS_SDL.window   = SDL_CreateWindow("SDL2 Window",
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SYS_DISPLAY_W * SYS_SDL_SCALE,
-                                       SYS_DISPLAY_H * SYS_SDL_SCALE,
-                                       SDL_WINDOW_RESIZABLE);
+    OS_SDL.window = SDL_CreateWindow("SDL2 Window",
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SYS_DISPLAY_W * SYS_SDL_SCALE,
+                                     SYS_DISPLAY_H * SYS_SDL_SCALE,
+                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
+    SDL_SetWindowMinimumSize(OS_SDL.window, SYS_DISPLAY_W, SYS_DISPLAY_H);
     OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window, -1, 0);
     SDL_SetRenderDrawColor(OS_SDL.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RendererInfo info;
@@ -95,7 +99,7 @@ int main(int argc, char **argv)
     OS_SDL.timeorigin = SDL_GetPerformanceCounter();
     OS_SDL.is_mono    = 1;
     OS_SDL.vol        = 1.f;
-    backend_display_row_updated(0, SYS_DISPLAY_H);
+    backend_display_row_updated(0, SYS_DISPLAY_H - 1);
 
     sys_init();
 
@@ -132,6 +136,12 @@ int main(int argc, char **argv)
                 }
                 break;
             }
+        }
+
+        OS_SDL.flickerbtnp = OS_SDL.flickerbtn;
+        OS_SDL.flickerbtn  = sys_key(SYS_KEY_SPACE);
+        if (!OS_SDL.flickerbtnp && OS_SDL.flickerbtn) {
+            OS_SDL.reduce_flicker = 1 - OS_SDL.reduce_flicker;
         }
 
         OS_SDL.pausebtnp = OS_SDL.pausebtn;
@@ -389,4 +399,9 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
         }
     }
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+}
+
+bool32 backend_reduced_flicker()
+{
+    return OS_SDL.reduce_flicker;
 }

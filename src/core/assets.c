@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "assets.h"
+#include "gamedef.h"
 #include "util/mem.h"
 
 ASSETS_s ASSETS;

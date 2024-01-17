@@ -55,7 +55,7 @@ void npc_on_update(game_s *g, obj_s *o)
 
 void npc_on_interact(game_s *g, obj_s *o)
 {
-    textbox_load_dialog(&g->textbox, o->filename);
+    textbox_load_dialog(g, &g->textbox, o->filename);
 }
 
 void npc_on_animate(game_s *g, obj_s *o)

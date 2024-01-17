@@ -184,15 +184,6 @@ gfx_ctx_s gfx_ctx_display()
     return gfx_ctx_default(tex_framebuffer());
 }
 
-gfx_ctx_s gfx_ctx_stencil(tex_s dst, tex_s stc)
-{
-    assert(stc.wbyte == dst.wbyte && stc.h == dst.h);
-    gfx_ctx_s ctx = gfx_ctx_default(dst);
-    ctx.st        = stc.px;
-    memset(&ctx.pat, 0xFF, sizeof(gfx_pattern_s));
-    return ctx;
-}
-
 gfx_ctx_s gfx_ctx_unclip(gfx_ctx_s ctx)
 {
     gfx_ctx_s c = ctx;
@@ -383,7 +374,6 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
     info.dp          = &((u32 *)ctx.dst.px)[dsti];
     info.dm          = ctx.dst.mk ? &((u32 *)ctx.dst.mk)[dsti] : NULL;
-    info.ds          = ctx.st ? &((u32 *)ctx.st)[dsti] : NULL;
     info.pat         = ctx.pat;
     return info;
 }

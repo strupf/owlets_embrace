@@ -79,4 +79,6 @@ static u8 brev8(u8 b)
 }
 #endif
 
+#define bswaprev32(I) bswap32(brev32(I))
+
 #endif

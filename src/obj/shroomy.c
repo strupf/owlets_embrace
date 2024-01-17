@@ -8,13 +8,15 @@ enum {
     SHROOMY_WALK,
     SHROOMY_HIDE,
     SHROOMY_HIDDEN,
+    SHROOMY_BOUNCED,
     SHROOMY_APPEAR,
 };
 
 static const frame_ticks_s g_shroomyhide = {{30, 7, 3, 2, 2, 2, 2, 2}};
 
-#define SHROOMY_TICKS_APPEAR 10
-#define SHROOMY_TICKS_HIDDEN 50
+#define SHROOMY_TICKS_APPEAR   10
+#define SHROOMY_TICKS_HIDDEN   50
+#define SHROOMY_NOTICE_RANGE_X 100
 
 obj_s *shroomy_create(game_s *g)
 {
@@ -27,7 +29,7 @@ obj_s *shroomy_create(game_s *g)
     o->facing       = 1;
     o->gravity_q8.y = 30;
     o->drag_q8.y    = 255;
-    o->drag_q8.x    = 256;
+    o->drag_q8.x    = 240;
     o->w            = 16;
     o->h            = 16;
     o->moverflags =
@@ -54,42 +56,65 @@ void shroomy_on_update(game_s *g, obj_s *o)
         (obj_grounded(g, o) && !obj_grounded_at_offs(g, o, off))) {
         o->facing = -o->facing;
     }
-
     o->bumpflags = 0;
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+
+    rec_i32 rr;
+    if (o->facing == -1) {
+        rr = obj_rec_left(o);
+        rr.w += SHROOMY_NOTICE_RANGE_X;
+        rr.x -= SHROOMY_NOTICE_RANGE_X;
+    } else {
+        rr = obj_rec_right(o);
+        rr.w += SHROOMY_NOTICE_RANGE_X;
+    }
 
     switch (o->state) {
     case SHROOMY_WALK: {
         o->vel_q8.x = o->facing * 64;
-        if (inp_debug_space()) { // saw hero
+
+        if (ohero && overlap_rec(obj_aabb(ohero), rr)) { // saw hero
             o->state    = SHROOMY_HIDE;
             o->timer    = 0;
             o->vel_q8.x = 0;
         }
     } break;
-        //
     case SHROOMY_HIDE:
         if (anim_total_ticks((frame_ticks_s *)&g_shroomyhide) <= ++o->timer) {
             o->state = SHROOMY_HIDDEN;
             o->timer = 0;
         }
         break;
-        //
     case SHROOMY_HIDDEN:
         if (++o->timer < SHROOMY_TICKS_HIDDEN) {
             break;
         }
 
-        if (inp_debug_space()) { // no danger in sight
+        if (!ohero || !overlap_rec(obj_aabb(ohero), rr)) { // no danger in sight
             o->state = SHROOMY_APPEAR;
             o->timer = 0;
         }
         break;
-        //
+    case SHROOMY_BOUNCED: {
+        o->timer++;
+        if (o->timer == 60) {
+            o->state = SHROOMY_HIDDEN;
+            o->timer = 0;
+        }
+    } break;
     case SHROOMY_APPEAR:
         if (SHROOMY_TICKS_APPEAR <= ++o->timer)
             o->state = SHROOMY_WALK;
         break;
     }
+}
+
+void shroomy_bounced_on(obj_s *o)
+{
+    snd_play_ext(SNDID_SHROOMY_JUMP, 0.3f, 1.f);
+    o->state = SHROOMY_BOUNCED;
+    o->timer = 0;
 }
 
 void shroomy_on_animate(game_s *g, obj_s *o)
@@ -101,34 +126,29 @@ void shroomy_on_animate(game_s *g, obj_s *o)
     const int W = spr->trec.r.w;
 
     switch (o->state) {
-        //
-    case SHROOMY_WALK: {
+    case SHROOMY_WALK:
         o->animation += o->vel_q8.x;
         spr->trec.r.y = 0;
         if (obj_grounded(g, o))
             spr->trec.r.x = W * ((o->animation >> 9) & 3);
         else
             spr->trec.r.x = 0;
-    } break;
-        //
-    case SHROOMY_HIDE: {
-
+        break;
+    case SHROOMY_HIDE:
         spr->trec.r.y = 1 * H;
-        spr->trec.r.x = W * anim_frame_from_ticks(o->timer,
-                                                  (frame_ticks_s *)&g_shroomyhide);
-    } break;
-        //
-    case SHROOMY_HIDDEN: {
+        spr->trec.r.x = W * anim_frame_from_ticks(o->timer, (frame_ticks_s *)&g_shroomyhide);
+        break;
+    case SHROOMY_BOUNCED:
+        spr->trec.r.y = 1 * H;
+        spr->trec.r.x = W * (6 + tick_to_index_freq(o->timer, 2, 10));
+        break;
+    case SHROOMY_HIDDEN:
         spr->trec.r.y = 2 * H;
         spr->trec.r.x = (o->timer >= SHROOMY_TICKS_HIDDEN) * W;
-    } break;
-        //
-    case SHROOMY_APPEAR: {
+        break;
+    case SHROOMY_APPEAR:
         spr->trec.r.y = 3 * H;
-        spr->trec.r.x = lerp_i32(0, 3,
-                                 o->timer,
-                                 SHROOMY_TICKS_APPEAR) *
-                        W;
-    } break;
+        spr->trec.r.x = W * lerp_i32(0, 3, o->timer, SHROOMY_TICKS_APPEAR);
+        break;
     }
 }

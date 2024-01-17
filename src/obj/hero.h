@@ -10,6 +10,13 @@
 #include "rope.h"
 
 enum {
+    HERO_STATE_GROUND,
+    HERO_STATE_AIR,
+    HERO_STATE_LADDER,
+    HERO_STATE_SWIMMING,
+};
+
+enum {
     HERO_UPGRADE_HOOK,
     HERO_UPGRADE_WHIP,
     HERO_UPGRADE_HIGH_JUMP,
@@ -55,13 +62,15 @@ typedef struct {
 } herodata_s;
 
 typedef struct {
-    int attackbuffer;
-    int jump_btn_buffer;
-    int airjumps_left;
-    int jump_index; // index into jump parameter table
-    i32 jumpticks;
-    i32 edgeticks;
-    i32 swimticks;
+    int    attackbuffer;
+    int    jump_btn_buffer;
+    int    airjumps_left;
+    int    jump_index; // index into jump parameter table
+    i32    jumpticks;
+    i32    edgeticks;
+    i32    swimticks;
+    bool32 onladder;
+    int    ladderx;
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -75,5 +84,6 @@ void   hook_update(game_s *g, obj_s *hook);
 void   hero_crank_item_selection(herodata_s *h);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage);
+int    hero_determine_state(game_s *g, obj_s *o, herodata_s *h);
 
 #endif

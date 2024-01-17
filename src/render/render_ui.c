@@ -5,11 +5,12 @@
 #include "game.h"
 #include "render.h"
 
-#define ITEM_FRAME_SIZE 64
-#define ITEM_BARREL_R   16
-#define ITEM_SIZE       32
-#define ITEM_X_OFFS     16
-#define ITEM_Y_OFFS     16
+#define ITEM_FRAME_SIZE  64
+#define ITEM_BARREL_R    16
+#define ITEM_SIZE        32
+#define ITEM_X_OFFS      16
+#define ITEM_Y_OFFS      16
+#define FNTID_AREA_LABEL FNTID_LARGE
 
 static void render_item_selection(herodata_s *h);
 
@@ -17,36 +18,32 @@ void render_ui(game_s *g, v2_i32 camoff)
 {
     const gfx_ctx_s ctx_ui = gfx_ctx_display();
 
-    fnt_s font_1 = asset_fnt(FNTID_LARGE);
+    fnt_s font_1 = asset_fnt(FNTID_AREA_LABEL);
 
     fade_s *areaname    = &g->areaname.fade;
     fade_s *fadeupgrade = &g->fade_upgrade;
     if (fade_phase(areaname)) {
         gfx_ctx_s ctx_af = ctx_ui;
+        texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
         int       fade_i = fade_interpolate(areaname, 0, 100);
         ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
-        char  *label     = g->areaname.label;
-        int    strl      = fnt_length_px(font_1, label);
+        int    strl      = fnt_length_px(font_1, g->areaname.label);
         v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
 
-        for (int yy = -2; yy <= +2; yy++) {
-            for (int xx = -2; xx <= +2; xx++) {
-                v2_i32 locbg = loc;
-                locbg.x += xx;
-                locbg.y += yy;
-                fnt_draw_ascii(ctx_af, font_1, locbg, label, SPR_MODE_WHITE);
-            }
-        }
-        fnt_draw_ascii(ctx_af, font_1, loc, label, SPR_MODE_BLACK);
+        gfx_spr_display(ctx_af, tlabel, loc, 0, 0);
     }
 
     if (fade_phase(fadeupgrade)) {
         gfx_ctx_s ctx_af = ctx_ui;
         int       fade_i = fade_interpolate(fadeupgrade, 0, 100);
         ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
-        char  *label     = "Aquired upgrade";
+        char  *label     = "Aquired High Jump!";
         int    strl      = fnt_length_px(font_1, label);
-        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
+        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 100};
+
+        spm_push();
+        tex_s ttmp = tex_create(256, 64, spm_allocator);
+        tex_clr(ttmp, TEX_CLR_TRANSPARENT);
 
         for (int yy = -2; yy <= +2; yy++) {
             for (int xx = -2; xx <= +2; xx++) {
@@ -57,6 +54,7 @@ void render_ui(game_s *g, v2_i32 camoff)
             }
         }
         fnt_draw_ascii(ctx_af, font_1, loc, label, SPR_MODE_BLACK);
+        spm_pop();
     }
 
     if (g->herodata.aquired_items) {
@@ -67,7 +65,7 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && g->textbox.state == TEXTBOX_STATE_INACTIVE) {
+    if (ohero && g->substate == 0) {
         v2_i32 posc         = obj_pos_center(ohero);
         obj_s *interactable = obj_closest_interactable(g, posc);
 
@@ -82,7 +80,9 @@ void render_ui(game_s *g, v2_i32 camoff)
         }
     }
 
-    textbox_draw(&g->textbox, camoff);
+    if (g->substate == GAME_SUBSTATE_TEXTBOX) {
+        textbox_draw(&g->textbox, camoff);
+    }
 
     if (ohero) {
         texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
@@ -94,6 +94,35 @@ void render_ui(game_s *g, v2_i32 camoff)
             gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
         }
     }
+
+    if (g->substate == GAME_SUBSTATE_HERO_DIE) {
+        gfx_ctx_s ctx_black = gfx_ctx_display();
+        ctx_black.pat       = gfx_pattern_interpolate(g->substate_tick, 30);
+        gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
+    }
+
+    if (g->substate == GAME_SUBSTATE_HERO_RESPAWN) {
+        gfx_ctx_s ctx_black = gfx_ctx_display();
+        ctx_black.pat       = gfx_pattern_interpolate(50 - g->substate_tick, 50);
+        gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
+    }
+}
+
+void prerender_area_label(game_s *g)
+{
+    fnt_s     font_1 = asset_fnt(FNTID_AREA_LABEL);
+    gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
+    tex_clr(ctx.dst, TEX_CLR_TRANSPARENT);
+    char  *label = g->areaname.label;
+    v2_i32 loc   = {2, 2};
+
+    for (int yy = -2; yy <= +2; yy++) {
+        for (int xx = -2; xx <= +2; xx++) {
+            v2_i32 locbg = {loc.x + xx, loc.y + yy};
+            fnt_draw_ascii(ctx, font_1, locbg, label, SPR_MODE_WHITE);
+        }
+    }
+    fnt_draw_ascii(ctx, font_1, loc, label, SPR_MODE_BLACK);
 }
 
 void render_pause(game_s *g)

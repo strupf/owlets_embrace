@@ -230,6 +230,11 @@ void sys_set_menu_image(u8 *px, int h, int wbyte)
     backend_set_menu_image(px, h, wbyte);
 }
 
+bool32 sys_reduced_flicker()
+{
+    return backend_reduced_flicker();
+}
+
 // http://soundfile.sapp.org/doc/WaveFormat/
 typedef struct {
     u32 chunkID;
@@ -258,7 +263,7 @@ static void  muschannel_stream(sys_muschannel_s *ch, i16 *buf, int len);
 int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
 {
     sys_muschannel_s *mch = &SYS.muschannel;
-    // muschannel_stream(mch, lbuf, len);
+    muschannel_stream(mch, lbuf, len);
 
     SYS_AUDIO_CB(lbuf, len);
 

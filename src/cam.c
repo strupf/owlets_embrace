@@ -30,10 +30,16 @@ v2_i32 cam_pos_px(game_s *g, cam_s *c)
 rec_i32 cam_rec_px(game_s *g, cam_s *c)
 {
     v2_i32  p = cam_pos_px(g, c);
-    rec_i32 r = {p.x - (c->w / 2),
-                 p.y - (c->h / 2),
+    rec_i32 r = {p.x - (c->w >> 1),
+                 p.y - (c->h >> 1),
                  c->w,
                  c->h};
+
+    // avoid dither flickering? -> snap camera pos
+    if (sys_reduced_flicker()) {
+        r.x &= ~1;
+        r.y &= ~1;
+    }
     return r;
 }
 
@@ -53,7 +59,7 @@ void cam_update(game_s *g, cam_s *c)
         int    py_bot = herop.y - 55;
         int    py_top = herop.y + 20;
 
-        c->pos.x += (f32)(trg.x - c->pos.x) * 0.05f;
+        c->pos.x += (f32)(trg.x - c->pos.x) * .05f;
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
     }
 
@@ -75,8 +81,8 @@ void cam_update(game_s *g, cam_s *c)
 
 static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center, int w, int h)
 {
-    int    w2 = w / 2;
-    int    h2 = h / 2;
+    int    w2 = w >> 1;
+    int    h2 = h >> 1;
     v2_i32 v  = {clamp_i(p_center.x, w2, g->pixel_x - w2),
                  clamp_i(p_center.y, h2, g->pixel_y - h2)};
     return v;

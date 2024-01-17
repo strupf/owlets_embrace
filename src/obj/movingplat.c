@@ -28,7 +28,7 @@ obj_s *movingplatform_create(game_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_MOVINGPLATFORM;
-    o->flags = OBJ_FLAG_SOLID |
+    o->flags = OBJ_FLAG_PLATFORM |
                OBJ_FLAG_RENDER_AABB;
     o->w = 64;
     o->h = 16;

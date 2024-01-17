@@ -36,6 +36,7 @@ void   fallingblock_on_update(game_s *g, obj_s *o);
 void   fallingblock_on_animate(game_s *g, obj_s *o);
 //
 obj_s *shroomy_create(game_s *g);
+void   shroomy_bounced_on(obj_s *o);
 void   shroomy_on_update(game_s *g, obj_s *o);
 void   shroomy_on_animate(game_s *g, obj_s *o);
 //
@@ -67,7 +68,16 @@ void   npc_on_interact(game_s *g, obj_s *o);
 void   npc_on_animate(game_s *g, obj_s *o);
 //
 obj_s *charger_create(game_s *g);
+obj_s *charger_load(game_s *g, map_obj_s *mo);
 void   charger_on_update(game_s *g, obj_s *o);
 void   charger_on_animate(game_s *g, obj_s *o);
+//
+obj_s *sign_popup_create(game_s *g);
+obj_s *sign_popup_load(game_s *g, map_obj_s *mo);
+void   sign_popup_on_update(game_s *g, obj_s *o);
+void   sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+obj_s *sign_create(game_s *g);
+obj_s *sign_load(game_s *g, map_obj_s *mo);
+void   sign_on_interact(game_s *g, obj_s *o);
 
 #endif

@@ -4,6 +4,7 @@
 
 #include "map_loader.h"
 #include "game.h"
+#include "render/render.h"
 #include "util/str.h"
 
 // set tiles automatically - www.cr31.co.uk/stagecast/wang/blob.html
@@ -101,6 +102,34 @@ static i32    map_prop_i32(map_properties_s p, const char *name);
 static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
 
+static void map_obj_parse(game_s *g, map_obj_s *o)
+{
+    if (0) {
+    } else if (str_eq_nc(o->name, "Switch")) {
+        switch_load(g, o);
+    } else if (str_eq_nc(o->name, "Heroupgrade")) {
+        heroupgrade_load(g, o);
+    } else if (str_eq_nc(o->name, "NPC")) {
+        npc_load(g, o);
+    } else if (str_eq_nc(o->name, "Crawler")) {
+        crawler_load(g, o);
+    } else if (str_eq_nc(o->name, "Sign")) {
+        sign_load(g, o);
+    } else if (str_eq_nc(o->name, "Ocean")) {
+        int n_waterp = g->tiles_x * 2 + 1;
+
+        watersurface_s *oceanwater = &g->ocean.surf;
+        g->ocean.active            = 1;
+        g->ocean.y                 = o->y + 16;
+        oceanwater->particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * n_waterp);
+        oceanwater->nparticles     = n_waterp;
+        oceanwater->dampening_q12  = 4092;
+        oceanwater->fneighbour_q16 = 2000;
+        oceanwater->fzero_q16      = 100;
+        oceanwater->loops          = 2;
+    }
+}
+
 void game_load_map(game_s *g, const char *mapfile)
 {
     g->obj_ndelete         = 0;
@@ -125,6 +154,7 @@ void game_load_map(game_s *g, const char *mapfile)
     g->n_decal_bg   = 0;
     g->particles.n  = 0;
     g->ocean.active = 0;
+    g->env_effects  = 0;
     marena_init(&g->arena, g->mem, sizeof(g->mem));
 
     strcpy(g->areaname.filename, mapfile);
@@ -150,12 +180,16 @@ void game_load_map(game_s *g, const char *mapfile)
 
     // PROPERTIES ==============================================================
     spm_push();
-    map_properties_s mapprop = {0};
-    mapprop.p                = spm_alloc(header.bytes_prop);
-    mapprop.n                = header.n_prop;
-    sys_file_read(mapf, mapprop.p, header.bytes_prop);
-
-    map_prop_strs(mapprop, "Name", g->areaname.label);
+    map_properties_s mp = {0};
+    mp.p                = spm_alloc(header.bytes_prop);
+    mp.n                = header.n_prop;
+    sys_file_read(mapf, mp.p, header.bytes_prop);
+    map_prop_strs(mp, "Name", g->areaname.label);
+    prerender_area_label(g);
+    if (map_prop_bool(mp, "Effect_Wind"))
+        g->env_effects |= ENVEFFECT_WIND;
+    if (map_prop_bool(mp, "Effect_Heat"))
+        g->env_effects |= ENVEFFECT_HEAT;
 
     spm_pop();
 
@@ -171,7 +205,28 @@ void game_load_map(game_s *g, const char *mapfile)
     int n_ext = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            map_autotile_terrain(g, &n_ext, layer_terrain, x, y);
+            int               k  = x + y * w;
+            map_terraintile_s tt = layer_terrain.tiles[k];
+            switch (tt.shape) {
+            case TILE_LADDER: {
+                g->tiles[k].collision              = TILE_LADDER;
+                g->rtiles[TILELAYER_TERRAIN][k].tx = 464 / 16;
+                g->rtiles[TILELAYER_TERRAIN][k].ty = 48 / 16;
+            } break;
+            case TILE_ONE_WAY: {
+                g->tiles[k].collision = TILE_ONE_WAY;
+
+                int    tilex    = 480 / 16;
+                bool32 oneway_l = (0 < x + 0 && layer_terrain.tiles[k - 1].shape == TILE_ONE_WAY);
+                bool32 oneway_r = (x + 1 < w && layer_terrain.tiles[k + 1].shape == TILE_ONE_WAY);
+                if (oneway_l && !oneway_r) tilex++;
+                if (oneway_r && !oneway_l) tilex--;
+                g->rtiles[TILELAYER_TERRAIN][k].tx = tilex;
+            } break;
+            default:
+                map_autotile_terrain(g, &n_ext, layer_terrain, x, y);
+                break;
+            }
         }
     }
 
@@ -200,30 +255,10 @@ void game_load_map(game_s *g, const char *mapfile)
 
     for (int n = 0; n < header.n_obj; n++) {
         map_obj_s *o = (map_obj_s *)op;
+
+        map_obj_parse(g, o);
+
         op += o->bytes;
-
-        if (0) {
-        } else if (str_eq_nc(o->name, "Switch")) {
-            switch_load(g, o);
-        } else if (str_eq_nc(o->name, "Heroupgrade")) {
-            heroupgrade_load(g, o);
-        } else if (str_eq_nc(o->name, "NPC")) {
-            npc_load(g, o);
-        } else if (str_eq_nc(o->name, "Crawler")) {
-            crawler_load(g, o);
-        } else if (str_eq_nc(o->name, "Ocean")) {
-            int n_waterp = g->tiles_x * 2 + 1;
-
-            watersurface_s *oceanwater = &g->ocean.surf;
-            g->ocean.active            = 1;
-            g->ocean.y                 = o->y + 16;
-            oceanwater->particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * n_waterp);
-            oceanwater->nparticles     = n_waterp;
-            oceanwater->dampening_q12  = 4092;
-            oceanwater->fneighbour_q16 = 2000;
-            oceanwater->fzero_q16      = 100;
-            oceanwater->loops          = 2;
-        }
     }
     spm_pop();
     sys_file_close(mapf);
@@ -234,7 +269,7 @@ static int autotile_bg_is(tilelayer_bg_s tiles, int x, int y, int sx, int sy)
     int u = x + sx;
     int v = y + sy;
     if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
-    return (tiles.tiles[u + v * tiles.w] > 0);
+    return (0 < tiles.tiles[u + v * tiles.w]);
 }
 
 static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, int sy)
@@ -323,6 +358,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
     map_terraintile_s tile  = tiles.tiles[index];
     rtile_s          *rtile = &g->rtiles[TILELAYER_TERRAIN][index];
 
+#if 0
     if (tile.type == 0 && *n_ext < NUM_RESERVED_TERRAIN) {
         return; // disabled
         int ntiles[8] = {0};
@@ -391,6 +427,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
         rtile->ty = tposy;
         return;
     }
+#endif
 
     flags32 march = 0;
     if (autotile_terrain_is(tiles, x, y, +0, -1)) march |= AT_N;
@@ -473,7 +510,7 @@ static map_prop_s *map_prop_get(map_properties_s p, const char *name)
     char *ptr = (char *)p.p;
     for (int n = 0; n < p.n; n++) {
         map_prop_s *prop = (map_prop_s *)ptr;
-        if (str_eq(prop->name, name)) {
+        if (str_eq_nc(prop->name, name)) {
             return prop;
         }
         ptr += prop->bytes;

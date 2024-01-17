@@ -31,7 +31,6 @@ typedef struct {
 typedef struct {
     tex_s         dst;
     gfx_pattern_s pat;
-    u8           *st; // stencil
     i32           clip_x1;
     i32           clip_x2;
     i32           clip_y1;
@@ -96,7 +95,6 @@ void          tex_mk(tex_s tex, int x, int y, int col);
 void          tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
-gfx_ctx_s     gfx_ctx_stencil(tex_s dst, tex_s stc);
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);
 gfx_ctx_s     gfx_ctx_clip(gfx_ctx_s ctx, i32 x1, i32 y1, i32 x2, i32 y2);
 gfx_ctx_s     gfx_ctx_clip_top(gfx_ctx_s ctx, i32 y1);
@@ -112,6 +110,7 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
 gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den);
 //
+void          gfx_spr_display(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,

@@ -285,7 +285,7 @@ static void wave_envelope(wave_s *w, i32 vol_peak, i32 vol_sustain,
 
 void aud_audio_cb(i16 *buf, int len)
 {
-    memset(buf, 0, sizeof(i16) * len);
+    // memset(buf, 0, sizeof(i16) * len);
 
     wave_s *wave = &AUD.waves[0];
     wave->vol    = 10000;

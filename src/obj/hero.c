@@ -33,7 +33,7 @@ obj_s *hero_create(game_s *g)
                     OBJ_MOVER_AVOID_HEADBUMP |
                     OBJ_MOVER_ONE_WAY_PLAT;
 
-    o->health_max   = 3;
+    o->health_max   = g->herodata.health;
     o->health       = o->health_max;
     o->n_sprites    = 2;
     o->drag_q8.x    = 256;
@@ -250,44 +250,6 @@ void hero_use_hook(game_s *g, obj_s *h, herodata_s *hero)
     g->ropes[0]          = rope;
 }
 
-static void hero_use_item(game_s *g, obj_s *o, herodata_s *hero)
-{
-    if (o->attack != HERO_ATTACK_NONE && o->attack_tick > 5)
-        return;
-
-    obj_s *ohook_;
-    if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
-        hook_destroy(g, o, ohook_);
-        return;
-    }
-
-    switch (hero->selected_item) {
-    case HERO_ITEM_HOOK: {
-        hero_use_hook(g, o, hero);
-    } break;
-    case HERO_ITEM_WHIP: {
-
-        o->attack_tick = 15;
-        o->subattack   = 1 - o->subattack; // alternate
-
-        switch (inp_dpad_dir()) {
-        case INP_DPAD_DIR_NONE:
-        case INP_DPAD_DIR_E:
-        case INP_DPAD_DIR_W:
-            o->attack = HERO_ATTACK_SIDE;
-            break;
-        case INP_DPAD_DIR_N:
-            o->attack = HERO_ATTACK_UP;
-            break;
-        case INP_DPAD_DIR_S:
-            o->attack = HERO_ATTACK_DOWN;
-            break;
-        }
-        snd_play_ext(SNDID_SWOOSH, 0.7f, rngr_f32(1.2f, 1.5f));
-    } break;
-    }
-}
-
 void hero_on_update(game_s *g, obj_s *o)
 {
     herodata_s *herodata = &g->herodata;
@@ -295,7 +257,7 @@ void hero_on_update(game_s *g, obj_s *o)
     hero_s *hero         = (hero_s *)o->mem;
 
     if (o->attack != HERO_ATTACK_NONE) {
-        if (o->attack_tick == 12) {
+        if (o->attack_tick == 14) {
             hitbox_s hitboxes[4] = {0};
             v2_i32   hbp         = obj_pos_bottom_center(o);
             switch (o->attack) {
@@ -339,17 +301,14 @@ void hero_on_update(game_s *g, obj_s *o)
     bool32 grounded = obj_grounded(g, o);
     bool32 usehook  = o->ropenode != NULL;
 
-    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
     o->facing_locked = 0;
     o->drag_q8.y     = 256;
-
-    if (0 < o->invincible_tick)
-        o->invincible_tick--;
-
+    o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
     if (0 < dpad_y)
         o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
 
-    if (o->attack != HERO_ATTACK_NONE) {
+    if (o->attack != HERO_ATTACK_NONE ||
+        hero->onladder) {
         o->facing_locked = 1;
     }
 
@@ -358,12 +317,10 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 
     if (o->bumpflags & OBJ_BUMPED_Y) {
-
         if (1000.f <= o->vel_q8.y) {
-            f32 vol = (.5f * (f32)o->vel_q8.y) / 2000.f;
-            snd_play_ext(SNDID_STEP, min_f(vol, 0.5f), 1.f);
+            f32 vol = (.7f * (f32)o->vel_q8.y) / 2000.f;
+            snd_play_ext(SNDID_STEP, min_f(vol, 0.7f), 1.f);
         }
-
         o->vel_q8.y = 0;
     }
     if (o->bumpflags & OBJ_BUMPED_X) {
@@ -387,6 +344,33 @@ void hero_on_update(game_s *g, obj_s *o)
             o->vel_q8.y -= water_depth;
         }
     }
+
+#if 0
+    v2_i32 pcenter       = obj_pos_center(o);
+    int    ladderx       = pcenter.x >> 4;
+    int    laddery       = pcenter.y >> 4;
+    bool32 covers_ladder = (g->tiles[ladderx + laddery * g->tiles_x].collision == TILE_LADDER);
+
+    bool32 can_climb_ladder = !hero->onladder &&
+                              !swimming &&
+                              covers_ladder;
+
+    bool32 on_ladder = hero->onladder && o->pos.x == hero->ladderx;
+
+    if (inp_just_pressed(INP_DPAD_U) && can_climb_ladder) {
+        int     centerx   = (ladderx << 4) + 8;
+        int     offsetx   = centerx - pcenter.x;
+        rec_i32 ladderrec = obj_aabb(o);
+        ladderrec.x += offsetx;
+        if (game_traversable(g, ladderrec)) {
+            hero->onladder = 1;
+
+            o->pos.x += offsetx;
+            hero->ladderx = o->pos.x;
+            o->flags &= ~OBJ_FLAG_MOVER;
+        }
+    }
+#endif
 
     // jump buffering
     // https://twitter.com/MaddyThorson/status/1238338575545978880
@@ -475,6 +459,7 @@ void hero_on_update(game_s *g, obj_s *o)
         if ((jump_ground || jump_midair)) {
             int jumpindex = 0;
             if (jump_ground) {
+                snd_play_ext(SNDID_SPEAK, 0.5f, 0.5f);
                 o->vel_q8.y  = 0;
                 bool32 hjump = hero_has_upgrade(herodata, HERO_UPGRADE_HIGH_JUMP);
                 jumpindex    = hjump ? 1 : 0;
@@ -500,7 +485,36 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 
     if (inp_just_pressed(INP_B) && !swimming) {
-        hero_use_item(g, o, herodata);
+        obj_s *ohook_;
+        if (obj_try_from_obj_handle(o->obj_handles[0], &ohook_)) {
+            hook_destroy(g, o, ohook_);
+        } else {
+            switch (herodata->selected_item) {
+            case HERO_ITEM_HOOK: {
+                hero_use_hook(g, o, herodata);
+            } break;
+            case HERO_ITEM_WHIP: {
+                if (8 < o->attack_tick) break;
+                o->attack_tick = 15;
+                o->subattack   = 1 - o->subattack; // alternate
+
+                switch (inp_dpad_dir()) {
+                case INP_DPAD_DIR_NONE:
+                case INP_DPAD_DIR_E:
+                case INP_DPAD_DIR_W:
+                    o->attack = HERO_ATTACK_SIDE;
+                    break;
+                case INP_DPAD_DIR_N:
+                    o->attack = HERO_ATTACK_UP;
+                    break;
+                case INP_DPAD_DIR_S:
+                    o->attack = HERO_ATTACK_DOWN;
+                    break;
+                }
+                snd_play_ext(SNDID_SWOOSH, 0.7f, rngr_f32(1.2f, 1.5f));
+            } break;
+            }
+        }
     }
 
     obj_s *ohook = obj_from_obj_handle(o->obj_handles[0]);
@@ -682,10 +696,7 @@ void hero_on_animate(game_s *g, obj_s *o)
     sprite->flip   = flip;
     sprite->offs.x = o->w / 2 - 32;
     sprite->offs.y = o->h - 64;
-    sprite->mode   = 0;
-    if (0 < o->invincible_tick && tick_to_index_freq(g->tick, 2, 8)) {
-        sprite->mode = SPR_MODE_INV;
-    }
+    sprite->mode   = obj_invincible_frame(o) ? SPR_MODE_INV : 0;
 
     o->n_sprites = 1;
     if (o->attack != HERO_ATTACK_NONE) {
@@ -743,6 +754,18 @@ void hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage)
     if (0 < health) {
         o->invincible_tick = ticks_from_ms(1000);
     } else {
+        g->substate      = GAME_SUBSTATE_HERO_DIE;
+        g->substate_tick = 0;
+        obj_delete(g, o);
         // kill
     }
+}
+
+int hero_determine_state(game_s *g, obj_s *o, herodata_s *h)
+{
+    bool32 grounded    = obj_grounded(g, o);
+    int    water_depth = water_depth_rec(g, obj_aabb(o));
+    bool32 swimming    = 0 < water_depth && !grounded;
+    NOT_IMPLEMENTED
+    return 0;
 }

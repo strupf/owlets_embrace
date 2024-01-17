@@ -15,7 +15,7 @@ static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
     return len;
 }
 
-void textbox_load_dialog(textbox_s *tb, const char *filename)
+void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
 {
     *tb = (textbox_s){0};
     FILEPATH_GEN(filepath, FILEPATH_DIALOG, filename);
@@ -32,6 +32,8 @@ void textbox_load_dialog(textbox_s *tb, const char *filename)
         sys_printf("could not find dialog json root: %s\n", filepath);
         goto DIALOG_ERR;
     }
+
+    g->substate  = GAME_SUBSTATE_TEXTBOX;
     tb->state    = TEXTBOX_STATE_FADE_IN;
     tb->fadetick = TEXTBOX_FADE_TICKS;
 
@@ -130,6 +132,19 @@ void textbox_update(game_s *g, textbox_s *tb)
     tb->tick++;
 
     switch (tb->state) {
+    case TEXTBOX_STATE_FADE_IN:
+        tb->fadetick--;
+        if (tb->fadetick <= 0) {
+            tb->state = TEXTBOX_STATE_WRITE;
+        }
+        break;
+    case TEXTBOX_STATE_FADE_OUT:
+        tb->fadetick--;
+        if (tb->fadetick <= 0) {
+            tb->state   = TEXTBOX_STATE_INACTIVE;
+            g->substate = 0;
+        }
+        break;
     case TEXTBOX_STATE_WAIT: {
         textbox_block_s *b = &tb->blocks[tb->block];
         if (inp_just_pressed(INP_A)) {
@@ -195,18 +210,6 @@ void textbox_update(game_s *g, textbox_s *tb)
             }
         }
     } break;
-    case TEXTBOX_STATE_FADE_IN:
-        tb->fadetick--;
-        if (tb->fadetick <= 0) {
-            tb->state = TEXTBOX_STATE_WRITE;
-        }
-        break;
-    case TEXTBOX_STATE_FADE_OUT:
-        tb->fadetick--;
-        if (tb->fadetick <= 0) {
-            tb->state = TEXTBOX_STATE_INACTIVE;
-        }
-        break;
     }
 }
 

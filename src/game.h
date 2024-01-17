@@ -26,12 +26,10 @@
 // 100 x 60
 //
 
-#define NUM_TILES                0x40000
-#define INTERACTABLE_DIST        32
-#define NUM_DECALS               256
-#define WEAPON_HIT_FREEZE_TICKS  2
-#define HERO_DAMAGE_FREEZE_TICKS 8
-#define NUM_WATER                16
+#define NUM_TILES         0x40000
+#define INTERACTABLE_DIST 32
+#define NUM_DECALS        256
+#define NUM_WATER         16
 
 typedef struct {
     watersurface_s surf;
@@ -109,8 +107,10 @@ struct game_s {
     mainmenu_s mainmenu;
     int        state;
 
-    int              gameover_ticks;
-    fade_s           fade_gameover;
+    int freeze_ticks;
+
+    int              substate;
+    int              substate_tick;
     fade_s           fade_upgrade;
     savefile_s       savefile;
     map_world_s      map_world; // layout of all map files globally
@@ -137,7 +137,6 @@ struct game_s {
     herodata_s herodata;
     rope_s     rope; // hero rope, singleton
     textbox_s  textbox;
-    int        freeze_tick;
 
     bool32           avoid_flickering;
     flags32          env_effects;
@@ -169,11 +168,6 @@ struct game_s {
     alignas(4) char mem[MKILOBYTE(256)];
 };
 
-typedef struct {
-    rec_i32 *recs;
-    int      n;
-} solid_rec_list_s;
-
 extern u16       g_animated_tiles[65536];
 extern const int g_pxmask_tab[32 * 16];
 extern const i32 tilecolliders[GAME_NUM_TILECOLLIDERS * 6]; // triangles
@@ -183,26 +177,26 @@ void game_tick(game_s *g);
 void game_draw(game_s *g);
 void game_resume(game_s *g);
 void game_paused(game_s *g);
+void game_update_animations(game_s *g);
 
-int              tick_now(game_s *g);
-void             game_new_savefile(game_s *g, int slotID);
-void             game_write_savefile(game_s *g);
-void             game_load_savefile(game_s *g, savefile_s sf, int slotID);
-void             game_on_trigger(game_s *g, int trigger);
-bool32           tiles_solid(game_s *g, rec_i32 r);
-bool32           tiles_solid_pt(game_s *g, int x, int y);
-bool32           tile_one_way(game_s *g, rec_i32 r);
-bool32           game_traversable(game_s *g, rec_i32 r);
-bool32           game_traversable_pt(game_s *g, int x, int y);
-solid_rec_list_s game_solid_recs(game_s *g);
-void             game_on_solid_appear(game_s *g);
-void             game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
-void             game_put_grass(game_s *g, int tx, int ty);
+int     tick_now(game_s *g);
+void    game_new_savefile(game_s *g, int slotID);
+void    game_write_savefile(game_s *g);
+void    game_load_savefile(game_s *g, savefile_s sf, int slotID);
+void    game_on_trigger(game_s *g, int trigger);
+bool32  tiles_solid(game_s *g, rec_i32 r);
+bool32  tiles_solid_pt(game_s *g, int x, int y);
+bool32  tile_one_way(game_s *g, rec_i32 r);
+bool32  game_traversable(game_s *g, rec_i32 r);
+bool32  game_traversable_pt(game_s *g, int x, int y);
+void    game_on_solid_appear(game_s *g);
+void    game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
+void    game_put_grass(game_s *g, int tx, int ty);
 //
-int              ocean_height(game_s *g, int pixel_x);
-int              water_depth_rec(game_s *g, rec_i32 r);
+int     ocean_height(game_s *g, int pixel_x);
+int     water_depth_rec(game_s *g, rec_i32 r);
 //
-alloc_s          game_allocator(game_s *g);
+alloc_s game_allocator(game_s *g);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

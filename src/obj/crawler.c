@@ -7,9 +7,8 @@
 #include "game.h"
 
 #define CRAWLER_TICKS_BOUNCING 200  // minimum time bouncing
-#define CRAWLER_ACTION_HISTORY 2    // number of actions for angle smoothing
-#define CRAWLER_DISTSQ_CURL    3000 // distance^2 to player to curl
-#define CRAWLER_DISTSQ_UNCURL  3000 // distance^2 to player to uncurl
+#define CRAWLER_DISTSQ_CURL    2000 // distance^2 to player to curl
+#define CRAWLER_DISTSQ_UNCURL  2000 // distance^2 to player to uncurl
 #define CRAWLER_TICKS_TO_CURL  25   // ticks when crawler is still killable while curling
 
 enum {
@@ -44,6 +43,8 @@ obj_s *crawler_create(game_s *g)
     o->drag_q8.x         = 255;
     o->w                 = 14;
     o->h                 = 14;
+    o->health_max        = 3;
+    o->health            = o->health_max;
     sprite_simple_s *spr = &o->sprites[0];
     o->n_sprites         = 1;
     spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
@@ -184,7 +185,7 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
         o->vel_q8.y = -(o->vel_q8.y * my) >> 8;
     }
     if (o->bumpflags & (OBJ_BUMPED_X | OBJ_BUMPED_Y)) {
-        crawler->bounce_rotation_q12 = rngr_i32(-2000, +2000);
+        crawler->bounce_rotation_q12 = rngr_sym_i32(2000);
     }
     o->bumpflags = 0;
 
@@ -291,6 +292,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
         imgy = (crawler->bounce_angle_q12 >> 9) & 7;
     }
 
+    spr->mode     = obj_invincible_frame(o) ? SPR_MODE_INV : 0;
     spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
     if (o->substate == CRAWLER_SUBSTATE_CURLED) {
         if (o->subtimer < CRAWLER_TICKS_TO_CURL) {
@@ -307,11 +309,34 @@ void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)
 {
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
 
-    bool32 can_be_hurt = !(o->substate == CRAWLER_SUBSTATE_CURLED &&
-                           CRAWLER_TICKS_TO_CURL <= o->subtimer);
+    bool32 can_be_hurt = !((o->substate == CRAWLER_SUBSTATE_CURLED &&
+                            CRAWLER_TICKS_TO_CURL <= o->subtimer));
 
     if (can_be_hurt) {
-        obj_delete(g, o);
+        cam_screenshake(&g->cam, 20, 3);
+        if (o->invincible_tick <= 0)
+            snd_play_ext(SNDID_HIT_ENEMY, 1.f, rngr_f32(0.9f, 1.1f));
+        if (enemy_obj_damage(o, hb.damage, 10) == 0) {
+            obj_delete(g, o);
+
+            particle_desc_s prt = {0};
+            prt.p.p_q8          = v2_shl(obj_pos_center(o), 8);
+            prt.p.v_q8.x        = rngr_sym_i32(1000);
+            prt.p.v_q8.y        = -rngr_i32(500, 1000);
+            prt.p.a_q8.y        = 25;
+            prt.p.size          = 4;
+            prt.p.ticks_max     = 100;
+            prt.ticksr          = 20;
+            prt.pr_q8.x         = 4000;
+            prt.pr_q8.y         = 4000;
+            prt.vr_q8.x         = 400;
+            prt.vr_q8.y         = 400;
+            prt.ar_q8.y         = 4;
+            prt.sizer           = 2;
+            prt.p.gfx           = PARTICLE_GFX_CIR;
+            particles_spawn(g, &g->particles, prt, 30);
+        }
+
         return;
     }
 
@@ -323,5 +348,5 @@ void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)
     o->vel_q8.x                  = (hb.force_q8.x * 1000) >> 8;
     o->drag_q8.y                 = 255;
     o->drag_q8.x                 = 255;
-    crawler->bounce_rotation_q12 = rngr_i32(-2000, +2000);
+    crawler->bounce_rotation_q12 = rngr_sym_i32(2000);
 }

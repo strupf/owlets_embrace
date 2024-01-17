@@ -43,7 +43,7 @@ obj_s *heroupgrade_load(game_s *g, map_obj_s *mo)
 void heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h)
 {
     hero_aquire_upgrade(h, o->state);
-    fade_start(&g->fade_upgrade, 60, 200, 60, NULL, NULL, NULL);
+    fade_start(&g->fade_upgrade, 30, 150, 30, NULL, NULL, NULL);
 }
 
 void heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam)

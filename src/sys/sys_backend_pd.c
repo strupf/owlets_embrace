@@ -33,6 +33,12 @@ static LCDBitmap *PD_menu_bm;
 void (*PD_log)(const char *fmt, ...);
 #endif
 
+static void (*PD_getButtonState)(PDButtons *a, PDButtons *b, PDButtons *c);
+static float (*PD_getElapsedTime)(void);
+static void (*PD_markUpdatedRows)(int a, int b);
+static float (*PD_getCrankAngle)(void);
+static int (*PD_isCrankDocked)(void);
+
 #ifdef _WINDLL
 __declspec(dllexport)
 #endif
@@ -44,8 +50,13 @@ __declspec(dllexport)
 #ifndef SYS_PD_HW
         PD_log = PD->system->logToConsole;
 #endif
-        PD_format_str = PD->system->formatString;
-        PD_realloc    = PD->system->realloc;
+        PD_format_str      = PD->system->formatString;
+        PD_realloc         = PD->system->realloc;
+        PD_getButtonState  = PD->system->getButtonState;
+        PD_getElapsedTime  = PD->system->getElapsedTime;
+        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
+        PD_getCrankAngle   = PD->system->getCrankAngle;
+        PD_isCrankDocked   = PD->system->isCrankDocked;
         PD->system->setUpdateCallback(sys_tick, PD);
         PD->sound->addSource(sys_audio_cb, NULL, 0);
         PD->system->resetElapsedTime();
@@ -75,7 +86,7 @@ __declspec(dllexport)
 int backend_inp()
 {
     PDButtons b;
-    PD->system->getButtonState(&b, NULL, NULL);
+    PD_getButtonState(&b, NULL, NULL);
     return (int)b;
 }
 
@@ -86,22 +97,22 @@ int backend_key(int key)
 
 f32 backend_crank()
 {
-    return (PD->system->getCrankAngle() * 0.002777778f); // 1 / 360
+    return (PD_getCrankAngle() * 0.002777778f); // 1 / 360
 }
 
 int backend_crank_docked()
 {
-    return PD->system->isCrankDocked();
+    return PD_isCrankDocked();
 }
 
 void backend_display_row_updated(int a, int b)
 {
-    PD->graphics->markUpdatedRows(a, b);
+    PD_markUpdatedRows(a, b);
 }
 
 f32 backend_seconds()
 {
-    return PD->system->getElapsedTime();
+    return PD_getElapsedTime();
 }
 
 u8 *backend_framebuffer()
@@ -161,4 +172,9 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
             p[b + y * byt] = px[b + y * wbyte];
     }
     PD->system->setMenuImage(PD_menu_bm, 0);
+}
+
+bool32 backend_reduced_flicker()
+{
+    return PD->system->getReduceFlashing();
 }

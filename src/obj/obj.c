@@ -140,7 +140,10 @@ bool32 actor_try_wiggle(game_s *g, obj_s *o)
 void obj_on_squish(game_s *g, obj_s *o)
 {
     switch (o->ID) {
-    default: obj_delete(g, o); break;
+    default:
+        obj_delete(g, o);
+        sys_printf("Squishkill\n");
+        break;
     case OBJ_ID_HERO:
         hero_on_squish(g, o);
         break;
@@ -154,7 +157,14 @@ void squish_delete(game_s *g, obj_s *o)
 
 static void actor_move_by(game_s *g, obj_s *o, v2_i32 dt)
 {
-    o->pos = v2_add(o->pos, dt);
+    assert(o->flags & OBJ_FLAG_ACTOR);
+
+    if (o->flags & OBJ_FLAG_PLATFORM) {
+        platform_move(g, o, dt);
+    } else {
+        o->pos = v2_add(o->pos, dt);
+    }
+
     if (o->ropenode) {
         ropenode_move(g, o->rope, o->ropenode, dt);
     }
@@ -162,6 +172,8 @@ static void actor_move_by(game_s *g, obj_s *o, v2_i32 dt)
 
 void actor_move(game_s *g, obj_s *o, v2_i32 dt)
 {
+    assert(o->flags & OBJ_FLAG_ACTOR);
+
 #define DO_BUMP_X                                                 \
     o->bumpflags |= sx > 0 ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG; \
     break
@@ -227,10 +239,10 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
             collide_plat = (orec.y & 15) == 0 && tile_one_way(g, orec);
             if (!collide_plat) {
-
-                for (obj_s *k = g->obj_head_busy; k; k = k->next) {
-                    if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
-                    rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
+                for (obj_each(g, a)) {
+                    if (o == a) continue;
+                    if (!(a->flags & OBJ_FLAG_PLATFORM)) continue;
+                    rec_i32 rplat = {a->pos.x, a->pos.y, a->w, 1};
                     if (overlap_rec(orec, rplat)) {
                         collide_plat = 1;
                         break;
@@ -268,16 +280,20 @@ static void platform_movestep(game_s *g, obj_s *o, v2_i32 dt)
 {
     assert(v2_lensq(dt) == 1);
 
-    rec_i32 aabbog = obj_aabb(o);
-    o->pos         = v2_add(o->pos, dt);
+    rec_i32 rplat = {o->pos.x, o->pos.y, o->w, 1};
+    o->pos        = v2_add(o->pos, dt);
 
     for (obj_each(g, a)) {
+        if (a == o) continue;
         if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
         if (!(a->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) continue;
-        rec_i32 feet = obj_rec_bottom(a);
+        bool32 linked = (obj_from_obj_handle(a->linked_solid) == o);
 
-        if (overlap_rec(feet, aabbog) ||
-            obj_from_obj_handle(a->linked_solid) == o) {
+        rec_i32 feet = obj_rec_bottom(a);
+        if (overlap_rec(feet, rplat))
+            linked = 1;
+
+        if (linked) {
             actor_move(g, a, dt);
         }
     }
@@ -325,16 +341,25 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
             break;
         default: {
             rec_i32 feet = obj_rec_bottom(a);
-            if (overlap_rec(feet, aabbog))
-                linked = 1;
+
+            if (o->flags & OBJ_FLAG_SOLID) {
+                if (overlap_rec(feet, aabbog))
+                    linked = 1;
+            }
+            if (o->flags & OBJ_FLAG_PLATFORM) {
+                rec_i32 rplat = {aabbog.x, aabbog.y, aabbog.w, 1};
+                if (overlap_rec(feet, rplat))
+                    linked = 1;
+            }
+
         } break;
         }
 
         if (overlap_rec(body, aabb) || linked) {
-            if (a->flags & OBJ_FLAG_ACTOR)
-                actor_move(g, a, dt);
-            else
+            if (a->flags & OBJ_FLAG_PLATFORM)
                 platform_move(g, a, dt);
+            else
+                actor_move(g, a, dt);
         }
     }
 }
@@ -357,7 +382,7 @@ void solid_move(game_s *g, obj_s *o, v2_i32 dt)
 void obj_interact(game_s *g, obj_s *o)
 {
     switch (o->ID) {
-    case OBJ_ID_SIGN: textbox_load_dialog(&g->textbox, o->filename); break;
+    case OBJ_ID_SIGN: textbox_load_dialog(g, &g->textbox, o->filename); break;
     case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     case OBJ_ID_NPC: npc_on_interact(g, o); break;
@@ -443,18 +468,19 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rec_i32 rbot = obj_rec_bottom(o);
     rbot.x += offs.x;
     rbot.y += offs.y;
-    if ((o->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)) &&
-        (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
+    if (!game_traversable(g, rbot)) return 1;
+    if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
             return 1;
         for (obj_each(g, k)) {
-            if (!(k->flags & OBJ_FLAG_PLATFORM) || k == o) continue;
+            if (k == o) continue;
+            if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
             rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
             if (overlap_rec(rbot, rplat))
                 return 1;
         }
     }
-    return (!game_traversable(g, rbot));
+    return 0;
 }
 
 obj_s *obj_slide_door_create(game_s *g)
@@ -515,4 +541,19 @@ int obj_health_change(obj_s *o, int dt)
 {
     o->health = clamp_i(o->health + dt, 0, o->health_max);
     return o->health;
+}
+
+int enemy_obj_damage(obj_s *o, int dmg, int invincible_ticks)
+{
+    if (0 < o->invincible_tick) return o->health;
+    int h = obj_health_change(o, -dmg);
+    if (0 < h) {
+        o->invincible_tick = invincible_ticks;
+    }
+    return h;
+}
+
+int obj_invincible_frame(obj_s *o)
+{
+    return ((o->invincible_tick >> 2) & 1);
 }
