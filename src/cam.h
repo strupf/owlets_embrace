@@ -2,8 +2,8 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef CAM_H
-#define CAM_H
+#ifndef CAM_H_
+#define CAM_H_
 
 #include "gamedef.h"
 
@@ -17,8 +17,6 @@ typedef struct {
     v2_f32 pos;
     v2_f32 offs_shake;
     v2_f32 offs_textbox;
-    int    w;
-    int    h;
     int    mode;
 
     int shake_ticks;

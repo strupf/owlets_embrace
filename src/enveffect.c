@@ -3,12 +3,13 @@
 // =============================================================================
 
 #include "enveffect.h"
+#include "game.h"
 
 void enveffect_wind_update(enveffect_wind_s *e)
 {
     // UPDATE PARTICLES
     // traverse backwards to avoid weird removal while iterating
-    for (int n = e->n - 1; n >= 0; n--) {
+    for (int n = e->n - 1; 0 <= n; n--) {
         windparticle_s *p = &e->p[n];
         if (p->p_q8.x < 0 || BG_SIZE < (p->p_q8.x >> 8)) {
             e->p[n] = e->p[--e->n];
@@ -24,7 +25,7 @@ void enveffect_wind_update(enveffect_wind_s *e)
             p->circcooldown = 60;
         }
 
-        if (p->circticks > 0) { // run through circle but keep slowly moving forward
+        if (0 < p->circticks) { // run through circle but keep slowly moving forward
             i32 a     = (0x400 * (p->ticks - p->circticks)) / p->ticks;
             p->p_q8.x = p->circc.x + ((sin_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
             p->p_q8.y = p->circc.y + ((cos_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
@@ -109,5 +110,26 @@ void enveffect_heat_draw(gfx_ctx_s ctx, enveffect_heat_s *e, v2_i32 cam)
                 ((u32 *)dst.px)[i] = bswap32((b1 << a) | (b2 >> b));
             }
         }
+    }
+}
+
+void backforeground_animate_grass(game_s *g)
+{
+    for (int n = 0; n < g->n_grass; n++) {
+        grass_s *gr = &g->grass[n];
+        rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
+
+        for (obj_each(g, o)) {
+            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
+                gr->v_q8 += o->vel_q8.x >> 6;
+            }
+        }
+
+        int f2 = rngr_sym_i32(30000 * 150) >> (13 + 8);
+        int f1 = -((gr->x_q8 * 6) >> 8);
+        gr->v_q8 += f1 + f2;
+        gr->x_q8 += gr->v_q8;
+        gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
+        gr->v_q8 = (gr->v_q8 * 230) >> 8;
     }
 }

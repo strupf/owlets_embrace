@@ -16,6 +16,7 @@
 #include "util/mathfunc.h"
 #include "util/mem.h"
 #include "util/rng.h"
+#include "util/sorting.h"
 #include "util/str.h"
 
 #define FILEPATH_MAP    "assets/map/"
@@ -53,8 +54,15 @@ static int direction_nearest(int dir, bool32 cw)
 enum {
     TILELAYER_BG,
     TILELAYER_TERRAIN,
+    TILELAYER_PROP_BG,
+    TILELAYER_PROP_FG,
     //
-    NUM_TILELAYER = 4
+    NUM_TILELAYER
+};
+
+enum {
+    MENUITEM_GAME_INVENTORY,
+    MENUITEM_REDUCE_FLICKER,
 };
 
 enum {

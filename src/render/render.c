@@ -5,6 +5,13 @@
 #include "render.h"
 #include "game.h"
 
+int cmp_obj_render_priority(const void *a, const void *b)
+{
+    const obj_s *x = *(const obj_s **)a;
+    const obj_s *y = *(const obj_s **)b;
+    return (x->render_priority - y->render_priority);
+}
+
 static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 camoffset)
 {
     v2_i32  ppos = v2_add(o->pos, camoffset);
@@ -90,6 +97,7 @@ void game_draw(game_s *g)
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
+    render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
 
     for (int n = 0; n < g->n_decal_bg; n++) {
         gfx_ctx_s ctx_decal = ctx;
@@ -102,45 +110,48 @@ void game_draw(game_s *g)
 
     render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && ohero->rope) {
-        rope_s   *rope     = ohero->rope;
-        gfx_ctx_s ctx_rope = ctx;
+    obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    rope_s *rope  = ohero ? ohero->rope : NULL;
+    if (rope) {
+#define ROPE_SEG_DISTANCE 120
+        const int seg_len = max_i((ROPE_SEG_DISTANCE * rope_length_q4(g, rope)) / rope->len_max_q4, ROPE_SEG_DISTANCE);
 
-        int         inode       = 0;
-        int         lensofar_q4 = 0;
-        ropenode_s *r1          = rope->tail;
-        ropenode_s *r2          = r1->prev;
+        for (int pass = 0; pass < 2; pass++) {
+            texrec_s tseg = asset_texrec(TEXID_HOOK, 32, pass * 12, 12, 12);
 
-        int seg_len = (80 * rope_length_q4(g, rope)) / rope->len_max_q4;
-        seg_len     = max_i(seg_len, 80);
+            int inode       = 0;
+            int lensofar_q4 = 0;
 
-        while (r1 && r2) {
-            v2_i32 p1        = v2_add(r1->p, camoffset);
-            v2_i32 p2        = v2_add(r2->p, camoffset);
-            v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
-            int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
+            for (ropenode_s *r1 = rope->tail, *r2 = r1->prev;
+                 r2; r1 = r2, r2 = r2->prev) {
+                v2_i32 p1        = v2_add(r1->p, camoffset);
+                v2_i32 p2        = v2_add(r2->p, camoffset);
+                v2_i32 dt12_q4   = v2_shl(v2_sub(p2, p1), 4);
+                int    lenend_q4 = lensofar_q4 + v2_len(dt12_q4);
 
-            while (inode * seg_len < lenend_q4) {
-                int dst = inode * seg_len - lensofar_q4;
-                assert(0 <= dst);
-                inode++;
+                while (inode < lenend_q4) {
+                    int dst = inode - lensofar_q4;
+                    inode += seg_len;
+                    assert(0 <= dst);
 
-                v2_i32 dd = dt12_q4;
-                dd        = v2_setlen(dd, dst);
-                dd        = v2_shr(dd, 4);
-                dd        = v2_add(dd, p1);
-                gfx_cir_fill(ctx_rope, dd, 6, PRIM_MODE_BLACK);
-                gfx_cir_fill(ctx_rope, dd, 2, PRIM_MODE_WHITE);
+                    v2_i32 dd = dt12_q4;
+                    dd        = v2_setlen(dd, dst);
+                    dd        = v2_shr(dd, 4);
+                    dd        = v2_add(dd, p1);
+                    gfx_spr_cpy_display(ctx, tseg, dd);
+                }
+                lensofar_q4 = lenend_q4;
             }
-            lensofar_q4 = lenend_q4;
-            r1          = r2;
-            r2          = r2->prev;
         }
     }
 
-    for (obj_each(g, o)) {
-        obj_draw(ctx, g, o, camoffset);
+    if (g->objrender_dirty) {
+        g->objrender_dirty = 0;
+        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s **), cmp_obj_render_priority);
+    }
+
+    for (int n = 0; n < g->n_objrender; n++) {
+        obj_draw(ctx, g, g->obj_render[n], camoffset);
     }
 
     for (int i = 0; i < g->particles.n; i++) {
@@ -207,11 +218,12 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
 {
     texrec_s tr = {0};
     switch (layer) {
+    case TILELAYER_BG:
     case TILELAYER_TERRAIN:
         tr.t = asset_tex(TEXID_TILESET_TERRAIN);
         break;
-    case TILELAYER_BG:
-        tr.t = asset_tex(TEXID_TILESET_BG);
+    case TILELAYER_PROP_BG:
+        tr.t = asset_tex(TEXID_TILESET_PROPS_BG);
         break;
     default: return;
     }
@@ -230,17 +242,10 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
             gfx_spr_display(ctx, tr, p, 0, 0);
 
 #if defined(SYS_DEBUG) && 0
-            {
-                int t = g->tiles[x + y * g->tiles_x].collision;
-                if (!(0 < t && t < NUM_TILE_BLOCKS)) continue;
-                texrec_s tr;
-                tr.t   = asset_tex(TEXID_COLLISION_TILES);
-                tr.r.x = 0;
-                tr.r.y = t * 16;
-                tr.r.w = 16;
-                tr.r.h = 16;
-                gfx_spr(ctx, tr, p, 0, 0);
-            }
+            int t1 = g->tiles[x + y * g->tiles_x].collision;
+            if (!(0 < t1 && t1 < NUM_TILE_BLOCKS)) continue;
+            texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
+            gfx_spr(ctx, tr1, p, 0, 0);
 #endif
         }
     }

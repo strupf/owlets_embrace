@@ -31,4 +31,9 @@ int    backend_file_seek(void *f, int pos, int origin);
 int    backend_file_remove(const char *path);
 void   backend_set_menu_image(u8 *px, int h, int wbyte);
 bool32 backend_reduced_flicker();
+void   backend_set_FPS(int fps);
+void  *backend_menu_item_add(const char *title, void (*cb)(void *arg), void *arg);
+void  *backend_menu_checkmark_add(const char *title, int val, void (*cb)(void *arg), void *arg);
+bool32 backend_menu_checkmark(void *ptr);
+void   backend_menu_clr();
 #endif

@@ -111,6 +111,12 @@ int           sys_crank_docked();
 f32           sys_seconds();
 int           sys_key(int k);
 bool32        sys_reduced_flicker();
+void          sys_set_reduced_flicker(int enabled);
+void          sys_set_FPS(int fps);
+void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg);
+void          sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg);
+bool32        sys_menu_checkmark(int ID);
+void          sys_menu_clr();
 
 typedef void *sys_file_s;
 sys_file_s   *sys_fopen(const char *path, const char *mode);

@@ -13,46 +13,59 @@ enum {
 #define CRUMBLE_TICKS_BREAK   100
 #define CRUMBLE_TICKS_RESPAWN 100
 
+static void crumbleblock_set_block(game_s *g, obj_s *o, int b)
+{
+    int tx = o->pos.x >> 4;
+    int ty = o->pos.y >> 4;
+
+    g->tiles[tx + ty * g->tiles_x].collision = b;
+    if (b != TILE_EMPTY) {
+        game_on_solid_appear(g);
+    }
+}
+
 obj_s *crumbleblock_create(game_s *g)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_CRUMBLEBLOCK;
-    o->flags |= OBJ_FLAG_SPRITE;
-
-    o->sprites[0].trec = asset_texrec(TEXID_TILESET_TERRAIN,
-                                      16, 0, 16, 16);
-    o->n_sprites       = 1;
-    o->state           = CRUMBLE_STATE_IDLE;
-
-    int tx                                   = o->pos.x >> 4;
-    int ty                                   = o->pos.y >> 4;
-    g->tiles[tx + ty * g->tiles_x].collision = TILE_BLOCK;
+    obj_s *o             = obj_create(g);
+    o->ID                = OBJ_ID_CRUMBLEBLOCK;
+    o->flags             = OBJ_FLAG_SPRITE;
+    o->n_sprites         = 1;
+    sprite_simple_s *spr = &o->sprites[0];
+    spr->trec            = asset_texrec(TEXID_TILESET_TERRAIN, 16, 0, 16, 16);
+    o->state             = CRUMBLE_STATE_IDLE;
     return o;
+}
+
+void crumbleblock_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = crumbleblock_create(g);
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+    o->w     = mo->w;
+    o->h     = mo->h;
+    crumbleblock_set_block(g, o, TILE_BLOCK);
 }
 
 void crumbleblock_update(game_s *g, obj_s *o)
 {
-    int tx = o->pos.x >> 4;
-    int ty = o->pos.y >> 4;
+    sprite_simple_s *spr = &o->sprites[0];
 
     switch (o->state) {
     case CRUMBLE_STATE_IDLE: {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero) break;
-
         if (overlap_rec(obj_rec_bottom(ohero), obj_aabb(o))) {
             o->state = CRUMBLE_STATE_BREAKING;
             o->timer = CRUMBLE_TICKS_BREAK;
         }
-
     } break;
     case CRUMBLE_STATE_BREAKING: {
         o->timer--;
-        if (o->timer > 0) {
-            o->sprites[0].offs.x = rngr_i32(-1, +1);
-            o->sprites[0].offs.y = rngr_i32(-1, +1);
+        if (0 < o->timer) {
+            spr->offs.x = rngr_sym_i32(1);
+            spr->offs.y = rngr_sym_i32(1);
         } else { // break
-            g->tiles[tx + ty * g->tiles_x].collision = TILE_EMPTY;
+            crumbleblock_set_block(g, o, TILE_EMPTY);
             o->flags &= ~OBJ_FLAG_SPRITE;
             o->state = CRUMBLE_STATE_RESPAWNING;
             o->timer = CRUMBLE_TICKS_RESPAWN;
@@ -60,14 +73,13 @@ void crumbleblock_update(game_s *g, obj_s *o)
     } break;
     case CRUMBLE_STATE_RESPAWNING: {
         o->timer--;
-        if (o->timer > 0) break;
+        if (0 < o->timer) break;
 
         o->state = CRUMBLE_STATE_IDLE;
         o->flags |= OBJ_FLAG_SPRITE;
-        o->sprites[0].offs.x = 0;
-        o->sprites[0].offs.y = 0;
-
-        g->tiles[tx + ty * g->tiles_x].collision = TILE_BLOCK;
+        spr->offs.x = 0;
+        spr->offs.y = 0;
+        crumbleblock_set_block(g, o, TILE_BLOCK);
         game_on_solid_appear(g);
     } break;
     }

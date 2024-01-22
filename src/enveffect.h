@@ -2,8 +2,8 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef ENVEFFECT_H
-#define ENVEFFECT_H
+#ifndef _ENVEFFECT_H
+#define _ENVEFFECT_H
 
 #include "gamedef.h"
 
@@ -46,5 +46,7 @@ void enveffect_wind_draw(gfx_ctx_s ctx, enveffect_wind_s *e, v2_i32 cam);
 
 void enveffect_heat_update(enveffect_heat_s *e);
 void enveffect_heat_draw(gfx_ctx_s ctx, enveffect_heat_s *e, v2_i32 cam);
+
+void backforeground_animate_grass(game_s *g);
 
 #endif

@@ -177,6 +177,9 @@ struct playdate_sound_lfo
 	
 	// 1.10
 	void (*setGlobal)(PDSynthLFO* lfo, int global);
+	
+	// 2.2
+	void (*setStartPhase)(PDSynthLFO* lfo, float phase);
 };
 
 
@@ -274,6 +277,9 @@ struct playdate_sound_synth // PDSynth extends SoundSource
 	
 	// 1.13
 	PDSynthEnvelope* (*getEnvelope)(PDSynth* synth); // synth keeps ownership--don't free this!
+	
+	// 2.2
+	int (*setWavetable)(PDSynth* synth, AudioSample* sample, int log2size, int columns, int rows);
 };
 
 
@@ -365,7 +371,7 @@ struct playdate_sound_sequence
 	void (*setTime)(SoundSequence* seq, uint32_t time);
 	void (*setLoops)(SoundSequence* seq, int loopstart, int loopend, int loops);
 	int (*getTempo)(SoundSequence* seq);
-	void (*setTempo)(SoundSequence* seq, int stepsPerSecond);
+	void (*setTempo)(SoundSequence* seq, float stepsPerSecond);
 	int (*getTrackCount)(SoundSequence* seq);
 	SequenceTrack* (*addTrack)(SoundSequence* seq);
 	SequenceTrack* (*getTrackAtIndex)(SoundSequence* seq, unsigned int track);
@@ -571,6 +577,9 @@ struct playdate_sound
 	
 	// 1.12
 	const struct playdate_sound_signal* signal;
+	
+	// 2.2
+	const char* (*getError)(void);
 };
 
 #endif /* pdext_sound_h */

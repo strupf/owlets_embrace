@@ -8,7 +8,12 @@
 #define CAM_TB_TICKS 20
 #define CAM_TB_Y     50
 
-static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center, int w, int h);
+#define CAM_W  SYS_DISPLAY_W
+#define CAM_H  SYS_DISPLAY_H
+#define CAM_WH (SYS_DISPLAY_W >> 1)
+#define CAM_HH (SYS_DISPLAY_H >> 1)
+
+static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center);
 
 void cam_screenshake(cam_s *c, int ticks, int str)
 {
@@ -23,17 +28,14 @@ v2_i32 cam_pos_px(game_s *g, cam_s *c)
     p        = v2f_add(p, c->offs_shake);
     p        = v2f_add(p, c->offs_textbox);
     v2_i32 v = {(i32)(p.x + .5f), (i32)(p.y + .5f)};
-    v2_i32 r = cam_constrain_to_room(g, v, c->w, c->h);
+    v2_i32 r = cam_constrain_to_room(g, v);
     return r;
 }
 
 rec_i32 cam_rec_px(game_s *g, cam_s *c)
 {
     v2_i32  p = cam_pos_px(g, c);
-    rec_i32 r = {p.x - (c->w >> 1),
-                 p.y - (c->h >> 1),
-                 c->w,
-                 c->h};
+    rec_i32 r = {p.x - CAM_WH, p.y - CAM_HH, CAM_W, CAM_H};
 
     // avoid dither flickering? -> snap camera pos
     if (sys_reduced_flicker()) {
@@ -79,11 +81,9 @@ void cam_update(game_s *g, cam_s *c)
     }
 }
 
-static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center, int w, int h)
+static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center)
 {
-    int    w2 = w >> 1;
-    int    h2 = h >> 1;
-    v2_i32 v  = {clamp_i(p_center.x, w2, g->pixel_x - w2),
-                 clamp_i(p_center.y, h2, g->pixel_y - h2)};
+    v2_i32 v = {clamp_i(p_center.x, CAM_WH, g->pixel_x - CAM_WH),
+                clamp_i(p_center.y, CAM_HH, g->pixel_y - CAM_HH)};
     return v;
 }

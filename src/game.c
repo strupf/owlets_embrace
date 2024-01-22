@@ -5,34 +5,13 @@
 #include "game.h"
 #include "render/render.h"
 
-u16 g_animated_tiles[65536];
-
-static void backforeground_animate_grass(game_s *g);
-
 void game_init(game_s *g)
 {
-    for (int i = 0; i < ARRLEN(g_animated_tiles); i++) {
-        g_animated_tiles[i] = i;
-    }
-
-    g->cam.w    = SYS_DISPLAY_W;
-    g->cam.h    = SYS_DISPLAY_H;
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
 
-    /*
-    for (int i = 0; i < 65536; i += 4) {
-        if ((i & 31) == 0) sys_printf("\n");
-        sys_printf("%i, ", cos_q16(i));
-    }
-
-    sys_printf("%i\n", cos_q16(65536));
-    sys_printf("%i\n", cos_q16(65536 * 2));
-    sys_printf("%i\n", cos_q16(65536 * 3));
-    sys_printf("%i\n", cos_q16(65536 * 4));
-    */
-#if 0
+#if 0 // gen cos table
     for (int i = 0; i < 256; i++) {
         if ((i & 7) == 0) sys_printf("\n");
         sys_printf("0x%05X, ", (int)(65536.5f * cosf(M_PI * 0.5f * (f32)i / 256.f)));
@@ -65,8 +44,8 @@ static void gameplay_tick(game_s *g)
         case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         case OBJ_ID_CARRIER: carrier_on_update(g, o); break;
         case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
-        case OBJ_ID_DOOR: door_on_update(g, o); break;
         case OBJ_ID_CHARGER: charger_on_update(g, o); break;
+        case OBJ_ID_DOOR_SWING: swingdoor_on_update(g, o); break;
         }
         o->posprev = posprev;
 #ifdef SYS_DEBUG
@@ -253,6 +232,7 @@ void game_update_animations(game_s *g)
         case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
         case OBJ_ID_HOOK: hook_on_animate(g, o); break;
         case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
+        case OBJ_ID_DOOR_SWING: swingdoor_on_animate(g, o); break;
         }
     }
 
@@ -271,6 +251,10 @@ void game_update_animations(game_s *g)
         if (g->env_effects & ENVEFFECT_HEAT)
             enveffect_heat_update(&g->env_heat);
     }
+}
+
+void game_open_inventory(game_s *g)
+{
 }
 
 void game_resume(game_s *g)
@@ -327,8 +311,8 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 
 #if 1
     obj_s *oh = hero_create(g);
-    oh->pos.x = 50;
-    oh->pos.y = 10;
+    oh->pos.x = 600;
+    oh->pos.y = 400;
 
     for (obj_each(g, o)) {
         if (o->ID == OBJ_ID_SAVEPOINT) {
@@ -337,63 +321,7 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
             break;
         }
     }
-
-    obj_s *os = shroomy_create(g);
-    os->pos.x = 200;
-    os->pos.y = 30;
 #endif
-
-    // obj_s *mo = movingplatform_create(g);
-
-#if 0
-    obj_s *oc = charger_create(g);
-    oc->pos.x = 100;
-    oc->pos.y = 50;
-
-    oc        = charger_create(g);
-    oc->pos.x = 100;
-    oc->pos.y = 10;
-
-        obj_s *occ = carrier_create(g);
-    occ->pos.x = 100;
-    occ->pos.y = 50;
-#endif
-}
-
-static void backforeground_animate_grass(game_s *g)
-{
-    for (int n = 0; n < g->n_grass; n++) {
-        grass_s *gr = &g->grass[n];
-        rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
-
-        for (obj_each(g, o)) {
-            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
-                gr->v_q8 += o->vel_q8.x >> 6;
-            }
-        }
-
-        int f2 = rngr_sym_i32(30000 * 150) >> (13 + 8);
-        int f1 = -((gr->x_q8 * 6) >> 8);
-        gr->v_q8 += f1 + f2;
-        gr->x_q8 += gr->v_q8;
-        gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
-        gr->v_q8 = (gr->v_q8 * 230) >> 8;
-    }
-}
-
-obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
-{
-    u32    interactable_dt = pow2_i32(INTERACTABLE_DIST); // max distance
-    obj_s *interactable    = NULL;
-    for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_INTERACTABLE)) continue;
-        u32 d = v2_distancesq(pos, o->pos);
-        if (d < interactable_dt) {
-            interactable_dt = d;
-            interactable    = o;
-        }
-    }
-    return interactable;
 }
 
 void game_on_trigger(game_s *g, int trigger)

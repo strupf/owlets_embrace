@@ -41,11 +41,9 @@ obj_s *charger_create(game_s *g)
     return o;
 }
 
-obj_s *charger_load(game_s *g, map_obj_s *mo)
+void charger_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = charger_create(g);
-
-    return o;
 }
 
 static void charger_update_normal(game_s *g, obj_s *o)

@@ -23,6 +23,8 @@ obj_s *hero_create(game_s *g)
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HERO;
     obj_tag(g, o, OBJ_TAG_HERO);
+    o->render_priority = 1000;
+
     o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_TILE_COLLISION |
                OBJ_FLAG_ACTOR |
@@ -429,7 +431,6 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 #endif
 
-    hero->jumpticks--;
     if (0 < hero->jumpticks) {
         if (inp_pressed(INP_A)) {
 #if EDIT_JUMP
@@ -444,10 +445,12 @@ void hero_on_update(game_s *g, obj_s *o)
             int j0 = vticks - hero->jumpticks;
             int j1 = vticks;
             o->vel_q8.y -= vi - (vi * j0) / j1;
+            hero->jumpticks--;
         } else {
             hero->jumpticks = 0;
         }
     } else {
+        hero->jumpticks--;
         bool32 jump_ground = 0 < hero->jump_btn_buffer && 0 < hero->edgeticks;
         bool32 jump_midair = !usehook &&                // not hooked
                              !swimming &&               // not swimming
@@ -511,7 +514,7 @@ void hero_on_update(game_s *g, obj_s *o)
                     o->attack = HERO_ATTACK_DOWN;
                     break;
                 }
-                snd_play_ext(SNDID_SWOOSH, 0.7f, rngr_f32(1.2f, 1.5f));
+                snd_play_ext(SNDID_WHIP, 0.7f, rngr_f32(1.2f, 1.5f));
             } break;
             }
         }

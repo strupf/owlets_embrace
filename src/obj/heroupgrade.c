@@ -24,7 +24,7 @@ obj_s *heroupgrade_create(game_s *g)
     return o;
 }
 
-obj_s *heroupgrade_load(game_s *g, map_obj_s *mo)
+void heroupgrade_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = heroupgrade_create(g);
     o->pos.x = mo->x;
@@ -36,8 +36,6 @@ obj_s *heroupgrade_load(game_s *g, map_obj_s *mo)
     } else if (str_eq(prop, "HIJUMP")) {
         o->state = HERO_UPGRADE_HIGH_JUMP;
     }
-
-    return o;
 }
 
 void heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h)

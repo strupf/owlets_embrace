@@ -107,6 +107,7 @@ int backend_crank_docked()
 
 void backend_display_row_updated(int a, int b)
 {
+    assert(0 <= a && b < SYS_DISPLAY_H);
     PD_markUpdatedRows(a, b);
 }
 
@@ -177,4 +178,32 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
 bool32 backend_reduced_flicker()
 {
     return PD->system->getReduceFlashing();
+}
+
+void backend_set_FPS(int fps)
+{
+    if (fps < 0) return;
+    PD->display->setRefreshRate((float)fps);
+}
+
+void *backend_menu_item_add(const char *title, void (*cb)(void *arg), void *arg)
+{
+    PDMenuItem *mi = PD->system->addMenuItem(title, cb, arg);
+    return mi;
+}
+
+void *backend_menu_checkmark_add(const char *title, int val, void (*cb)(void *arg), void *arg)
+{
+    PDMenuItem *mi = PD->system->addCheckmarkMenuItem(title, val, cb, arg);
+    return mi;
+}
+
+bool32 backend_menu_checkmark(void *ptr)
+{
+    return PD->system->getMenuItemValue((PDMenuItem *)ptr);
+}
+
+void backend_menu_clr()
+{
+    PD->system->removeAllMenuItems();
 }

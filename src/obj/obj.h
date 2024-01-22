@@ -18,7 +18,7 @@ enum {
     OBJ_ID_SIGN_POPUP,
     OBJ_ID_SOLID,
     OBJ_ID_KILLABLE,
-    OBJ_ID_DOOR_SLIDE,
+    OBJ_ID_DOOR_SWING,
     OBJ_ID_SAVEPOINT,
     OBJ_ID_CRUMBLEBLOCK,
     OBJ_ID_BLOB,
@@ -32,7 +32,6 @@ enum {
     OBJ_ID_CARRIER,
     OBJ_ID_HEROUPGRADE,
     OBJ_ID_MOVINGPLATFORM,
-    OBJ_ID_DOOR,
     OBJ_ID_NPC,
     OBJ_ID_CHARGER,
 };
@@ -120,63 +119,62 @@ typedef struct {
 
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
-    obj_s    *next; // linked list
+    obj_s          *next; // linked list
     //
-    obj_UID_s UID;
-    int       ID;
-    flags64   flags;
-    flags32   tags;
-
-    flags32 bumpflags; // has to be cleared manually
-    flags32 moverflags;
-    int     w;
-    int     h;
-    v2_i32  posprev;
-    v2_i32  pos; // position in pixels
-    v2_i32  subpos_q8;
-    v2_i32  vel_q8;
-    v2_i32  vel_prev_q8;
-    v2_i32  vel_cap_q8;
-    v2_i32  drag_q8;
-    v2_i32  gravity_q8;
-    v2_i32  acc_q8;
-    v2_i32  tomove;
-
-    int trigger;
-    int facing; // -1 left, +1 right
-
-    int trigger_on_0;
-    int trigger_on_1; // used by switch and toggleblock
-    int switch_oneway;
-
+    obj_UID_s       UID;
+    int             ID;
+    flags64         flags;
+    flags32         tags;
+    //
+    int             render_priority;
+    flags32         bumpflags; // has to be cleared manually
+    flags32         moverflags;
+    int             w;
+    int             h;
+    v2_i32          posprev;
+    v2_i32          pos; // position in pixels
+    v2_i32          subpos_q8;
+    v2_i32          vel_q8;
+    v2_i32          vel_prev_q8;
+    v2_i32          vel_cap_q8;
+    v2_i32          drag_q8;
+    v2_i32          gravity_q8;
+    v2_i32          acc_q8;
+    v2_i32          tomove;
+    //
+    int             trigger;
+    int             facing; // -1 left, +1 right
+    int             trigger_on_0;
+    int             trigger_on_1; // used by switch and toggleblock
+    int             switch_oneway;
     // some generic behaviour fields
-    fade_s fade;
-    int    action;
-    int    subaction;
-    int    state;
-    int    animation;
-    int    timer;
-    int    subtimer;
-    int    substate;
-
-    int      collectible_type;
-    int      collectible_amount;
-    int      health;
-    int      health_max;
-    int      invincible_tick;
-    int      frametick;
-    int      frame;
-    int      n_hitboxes;
-    hitbox_s hitboxes[4];
-    int      n_hurtboxes;
-    hitbox_s hurtboxes[4];
-
-    ropenode_s  *ropenode;
-    rope_s      *rope;
-    int          attached;
-    obj_handle_s linked_solid;
-    obj_handle_s obj_handles[16];
-
+    fade_s          fade;
+    int             action;
+    int             subaction;
+    int             state;
+    int             animation;
+    int             timer;
+    int             subtimer;
+    int             substate;
+    //
+    int             collectible_type;
+    int             collectible_amount;
+    int             health;
+    int             health_max;
+    int             invincible_tick;
+    int             frametick;
+    int             frame;
+    int             n_hitboxes;
+    hitbox_s        hitboxes[4];
+    int             n_hurtboxes;
+    hitbox_s        hurtboxes[4];
+    //
+    ropenode_s     *ropenode;
+    rope_s         *rope;
+    int             attached;
+    obj_handle_s    linked_solid;
+    obj_handle_s    obj_handles[16];
+    //
     int             subattack;
     int             attack;
     int             attack_tick;
@@ -188,6 +186,11 @@ struct obj_s {
     char            mem[256];
     u32             magic;
 };
+
+typedef struct {
+    int    n;
+    obj_s *o[NUM_OBJ];
+} obj_arr_s;
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);

@@ -17,13 +17,44 @@ typedef mainmenu_s MAINMENU_s;
 GAME_s     GAME;
 MAINMENU_s MAINMENU;
 
-static void app_load_assets();
+void menu_cb_inventory(void *arg)
+{
+    game_s *g = (game_s *)arg;
+    game_open_inventory(g);
+}
+
+void menu_cb_reduce_flicker(void *arg)
+{
+    bool32 b = sys_menu_checkmark(MENUITEM_REDUCE_FLICKER);
+    sys_set_reduced_flicker(b);
+}
+
+void menu_setup_game()
+{
+    game_s *g = &GAME;
+    sys_menu_clr();
+
+    sys_menu_checkmark_add(MENUITEM_REDUCE_FLICKER, "Reduce flicker", sys_reduced_flicker(),
+                           menu_cb_reduce_flicker, NULL);
+    sys_menu_item_add(MENUITEM_GAME_INVENTORY, "Inventory", menu_cb_inventory, g);
+}
+
+void menu_setup_title()
+{
+    sys_menu_clr();
+
+    sys_menu_checkmark_add(MENUITEM_REDUCE_FLICKER, "Reduce flicker", sys_reduced_flicker(),
+                           menu_cb_reduce_flicker, NULL);
+}
 
 void app_init()
 {
     spm_init();
     assets_init();
     app_load_assets();
+    menu_setup_game();
+
+    game_s *g = &GAME;
 
     sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
     usize size_tabs = sizeof(g_animated_tiles) +
@@ -41,8 +72,8 @@ void app_init()
                                        size_tabs) /
                                     1024);
 
-    mainmenu_init(&GAME.mainmenu);
-    game_init(&GAME);
+    mainmenu_init(&g->mainmenu);
+    game_init(g);
 }
 
 void app_tick()
@@ -90,11 +121,10 @@ void app_pause()
     game_paused(&GAME);
 }
 
-static void app_load_assets()
+void app_load_assets()
 {
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
-    asset_tex_loadID(TEXID_TILESET_BG, "tileset_bg.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg.tex", NULL);
     asset_tex_loadID(TEXID_MAINMENU, "mainmenu.tex", NULL);
@@ -128,6 +158,14 @@ static void app_load_assets()
     asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
     asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
     asset_tex_loadID(TEXID_MISCOBJ, "miscobj.tex", NULL);
+    asset_tex_loadID(TEXID_BG_CAVE, "bg_cave.tex", NULL);
+
+    tex_s tshroomy = asset_tex(TEXID_SHROOMY);
+    for (int y = 0; y < 4; y++) {
+        for (int x = 0; x < 8; x++) {
+            tex_outline(tshroomy, x * 64, y * 48, 64, 48, 1, 1);
+        }
+    }
 
     // prerender 8 rotations
     asset_tex_loadID(TEXID_CRAWLER, "crawler.tex", NULL);
@@ -137,13 +175,14 @@ static void app_load_assets()
         for (int k = 0; k < 4; k++) {
             v2_i32 origin = {32, 48 - 10};
             trcrawler.r.x = k * 64;
+
             for (int i = 1; i < 8; i++) {
                 v2_i32 pp  = {k * 64, i * 64};
                 f32    ang = (PI_FLOAT * (f32)i * 0.25f);
                 gfx_spr_rotscl(ctx_crawler, trcrawler, pp, origin, -ang, 1.f, 1.f);
-                tex_outline(trcrawler.t, pp.x, pp.y, trcrawler.r.w, trcrawler.r.h, 1, 1);
             }
         }
+        tex_outline(trcrawler.t, 0, 0, trcrawler.t.w, trcrawler.t.h, 1, 1);
     }
 
     // prerender 16 rotations
@@ -157,8 +196,8 @@ static void app_load_assets()
             v2_i32 pp     = {0, i * 32};
             f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
             gfx_spr_rotscl(ctx_hook, thook, pp, origin, -ang, 1.f, 1.f);
-            tex_outline(thook.t, pp.x, pp.y, thook.r.w, thook.r.h, 1, 1);
         }
+        tex_outline(thook.t, 0, 0, thook.t.w / 2, thook.t.h, 1, 1);
     }
 
 #ifdef SYS_DEBUG
@@ -191,4 +230,6 @@ static void app_load_assets()
     asset_snd_loadID(SNDID_WHIP, "whip.wav", NULL);
     asset_snd_loadID(SNDID_SWOOSH, "swoosh_0.wav", NULL);
     asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy.wav", NULL);
+    asset_snd_loadID(SNDID_DOOR_TOGGLE, "doortoggle.wav", NULL);
+    asset_snd_loadID(SNDID_DOOR_SQUEEK, "doorsqueek.wav", NULL);
 }

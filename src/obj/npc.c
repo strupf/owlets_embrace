@@ -31,15 +31,13 @@ obj_s *npc_create(game_s *g)
     return o;
 }
 
-obj_s *npc_load(game_s *g, map_obj_s *mo)
+void npc_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = npc_create(g);
     o->pos.x = mo->x;
     o->pos.y = mo->y;
 
     map_obj_strs(mo, "Dialogfile", o->filename);
-
-    return o;
 }
 
 void npc_on_update(game_s *g, obj_s *o)

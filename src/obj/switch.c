@@ -23,9 +23,10 @@ static void switch_set_sprite(obj_s *o)
 
 obj_s *switch_create(game_s *g)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_SWITCH;
-    o->flags = OBJ_FLAG_INTERACTABLE |
+    obj_s *o           = obj_create(g);
+    o->ID              = OBJ_ID_SWITCH;
+    o->render_priority = -1;
+    o->flags           = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
     o->n_sprites         = 1;
     o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);
@@ -35,7 +36,7 @@ obj_s *switch_create(game_s *g)
     return o;
 }
 
-obj_s *switch_load(game_s *g, map_obj_s *mo)
+void switch_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = switch_create(g);
     o->pos.x = mo->x;
@@ -44,7 +45,6 @@ obj_s *switch_load(game_s *g, map_obj_s *mo)
     obj_switch_s *os       = (obj_switch_s *)o->mem;
     os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");
     os->trigger_on_disable = map_obj_i32(mo, "Trigger_disable");
-    return o;
 }
 
 void switch_on_animate(game_s *g, obj_s *o)

@@ -22,6 +22,8 @@ static void mainmenu_navigate(mainmenu_s *t, int dx, int dy);
 static void mainmenu_op_start_file(game_s *g, mainmenu_s *t, int index);
 static void mainmenu_play_sound(int soundID);
 static void mainmenu_update_savefiles(mainmenu_s *t);
+static void mainmenu_render_save_slots(mainmenu_s *t, gfx_ctx_s ctx);
+static void mainmenu_render_yes_no(mainmenu_s *t, gfx_ctx_s ctx);
 
 void mainmenu_init(mainmenu_s *t)
 {
@@ -38,6 +40,9 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.n_airjumps = 1;
     t->savefiles[0].sf.health     = 10;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;
+    str_cpys(t->savefiles[0].sf.hero_name, sizeof(t->savefiles[0].sf.hero_name), "Link");
+    str_cpys(t->savefiles[1].sf.hero_name, sizeof(t->savefiles[1].sf.hero_name), "Mario");
+    str_cpys(t->savefiles[2].sf.hero_name, sizeof(t->savefiles[2].sf.hero_name), "Samus");
 
     strcpy(t->savefiles[0].sf.area_filename, "Level_0");
     savefile_write(0, &t->savefiles[0].sf);
@@ -92,6 +97,7 @@ static void cb_mainmenu_to_fileselect(void *arg)
 {
     mainmenu_s *t = (mainmenu_s *)arg;
     t->state      = MAINMENU_ST_FILESELECT;
+    t->option     = 0;
 }
 
 static void cb_mainmenu_to_press_start(void *arg)
@@ -113,7 +119,7 @@ static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
     switch (t->state) {
     case MAINMENU_ST_PRESS_START:
         mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
-#if 1
+#if 0
         fade_start(&t->fade, 30, 0, 15, cb_load_game_debug, NULL, g);
 #else
         fade_start(&t->fade, 30, 0, 15, cb_mainmenu_to_fileselect, NULL, t);
@@ -307,10 +313,9 @@ static void mainmenu_update_savefiles(mainmenu_s *t)
 
 void mainmenu_render(mainmenu_s *t)
 {
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-
-    int fade_i = fade_interpolate(&t->fade, 100, 0);
-    ctx.pat    = gfx_pattern_interpolate(fade_i, 100);
+    gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(0));
+    int       fade_i = fade_interpolate(&t->fade, 100, 0);
+    ctx.pat          = gfx_pattern_interpolate(fade_i, 100);
 
     { // feather falling animation and logo
         float s1  = sin_f(t->feather_time);
@@ -335,24 +340,10 @@ void mainmenu_render(mainmenu_s *t)
     }
 
     fnt_s font = asset_fnt(FNTID_LARGE);
-
     gfx_rec_fill(ctx, (rec_i32){5, t->option * 20 + 25, 10, 10}, PRIM_MODE_BLACK);
 
     texrec_s tbutton = asset_texrec(TEXID_MAINMENU, 0, 0, 64, 64);
-
-    int mode = SPR_MODE_BLACK;
-
-    if (t->state != MAINMENU_ST_PRESS_START) {
-        char buf0[8] = {0};
-        char buf1[8] = {0};
-        char buf2[8] = {0};
-        str_append_i(buf0, t->savefiles[0].sf.tick);
-        str_append_i(buf1, t->savefiles[1].sf.tick);
-        str_append_i(buf2, t->savefiles[2].sf.tick);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, buf0, mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, 40}, buf1, mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, 60}, buf2, mode);
-    }
+    int      mode    = SPR_MODE_BLACK;
 
     switch (t->state) {
     case MAINMENU_ST_PRESS_START: {
@@ -369,43 +360,33 @@ void mainmenu_render(mainmenu_s *t)
         fnt_draw_ascii(ctx, font, (v2_i32){140, 200}, "Press Start", mode);
     } break;
     case MAINMENU_ST_FILESELECT:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "File 1", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 60}, "File 2", mode);
+        mainmenu_render_save_slots(t, ctx);
         //
         fnt_draw_ascii(ctx, font, (v2_i32){40, 100}, "Copy", mode);
         fnt_draw_ascii(ctx, font, (v2_i32){200, 100}, "Delete", mode);
         break;
     case MAINMENU_ST_COPY_SELECT_FROM:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "File 1", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 60}, "File 2", mode);
+        mainmenu_render_save_slots(t, ctx);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "Copy from", mode);
         break;
     case MAINMENU_ST_DELETE_SELECT:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "File 1", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 60}, "File 2", mode);
+        mainmenu_render_save_slots(t, ctx);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "delete", mode);
         break;
     case MAINMENU_ST_COPY_SELECT_TO:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "File 0", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 40}, "File 1", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 60}, "File 2", mode);
+        mainmenu_render_save_slots(t, ctx);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "copy to", mode);
         break;
     case MAINMENU_ST_COPY_NO_OR_YES:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "No", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, "Yes", mode);
+        mainmenu_render_yes_no(t, ctx);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "COPY?", mode);
         break;
     case MAINMENU_ST_DELETE_NO_OR_YES:
-        fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "No", mode);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, "Yes", mode);
+        mainmenu_render_yes_no(t, ctx);
 
         fnt_draw_ascii(ctx, font, (v2_i32){40, 200}, "DELETE?", mode);
         break;
@@ -413,4 +394,28 @@ void mainmenu_render(mainmenu_s *t)
         BAD_PATH
         break;
     }
+}
+
+static void mainmenu_render_save_slots(mainmenu_s *t, gfx_ctx_s ctx)
+{
+    fnt_s font = asset_fnt(FNTID_LARGE);
+    int   mode = SPR_MODE_BLACK;
+
+    for (int n = 0; n < 3; n++) {
+        savefile_s *sf = &t->savefiles[n].sf;
+        int         y  = 20 + 20 * n;
+        fnt_draw_ascii(ctx, font, (v2_i32){40, y}, sf->hero_name, mode);
+
+        char buf[8] = {0};
+        str_append_i(buf, sf->tick);
+        fnt_draw_ascii(ctx, font, (v2_i32){200, y}, buf, mode);
+    }
+}
+
+static void mainmenu_render_yes_no(mainmenu_s *t, gfx_ctx_s ctx)
+{
+    fnt_s font = asset_fnt(FNTID_LARGE);
+    int   mode = SPR_MODE_BLACK;
+    fnt_draw_ascii(ctx, font, (v2_i32){40, 20}, "No", mode);
+    fnt_draw_ascii(ctx, font, (v2_i32){200, 20}, "Yes", mode);
 }

@@ -38,6 +38,7 @@ obj_s *crawler_create(game_s *g)
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH;
+    o->render_priority   = 0;
     o->gravity_q8.y      = 30;
     o->drag_q8.y         = 255;
     o->drag_q8.x         = 255;
@@ -53,22 +54,20 @@ obj_s *crawler_create(game_s *g)
     return o;
 }
 
-obj_s *crawler_load(game_s *g, map_obj_s *mo)
+void crawler_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = crawler_create(g);
 
     // difference between tilesize and object dimension
     for (int y = 0; y <= 2; y += 2) {
         for (int x = 0; x <= 2; x += 2) {
-            o->pos.x = mo->x + x;
-            o->pos.y = mo->y + y;
+            o->pos.x = mo->x + x - mo->w / 2;
+            o->pos.y = mo->y + y - mo->h;
             if (crawler_find_crawl_direction(g, o, 0)) {
-                goto BREAKLOOP;
+                return;
             }
         }
     }
-BREAKLOOP:
-    return o;
 }
 
 static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
@@ -205,6 +204,7 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
 // to continue crawling.
 void crawler_on_update(game_s *g, obj_s *o)
 {
+
     o->drag_q8.y = 255;
     o->drag_q8.x = 255;
 

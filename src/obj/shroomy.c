@@ -29,7 +29,7 @@ obj_s *shroomy_create(game_s *g)
     o->facing       = 1;
     o->gravity_q8.y = 30;
     o->drag_q8.y    = 255;
-    o->drag_q8.x    = 240;
+    o->drag_q8.x    = 200;
     o->w            = 16;
     o->h            = 16;
     o->moverflags =
@@ -43,6 +43,13 @@ obj_s *shroomy_create(game_s *g)
     spr->offs.x = -(spr->trec.r.w - o->w) / 2;
     spr->offs.y = -(spr->trec.r.h - o->h);
     return o;
+}
+
+void shroomy_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = shroomy_create(g);
+    o->pos.x = mo->x;
+    o->pos.y = mo->y - mo->h;
 }
 
 void shroomy_on_update(game_s *g, obj_s *o)
@@ -112,7 +119,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
 
 void shroomy_bounced_on(obj_s *o)
 {
-    snd_play_ext(SNDID_SHROOMY_JUMP, 0.3f, 1.f);
+    snd_play_ext(SNDID_SHROOMY_JUMP, 0.15f, 1.f);
     o->state = SHROOMY_BOUNCED;
     o->timer = 0;
 }

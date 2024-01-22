@@ -10,11 +10,7 @@
 #ifdef SYS_PD_HW
 static inline u32 bswap32(u32 v)
 {
-    u32 r;
-    __asm("rev %0, %1"
-          : "=r"(r)
-          : "r"(v));
-    return r;
+    return __builtin_bswap32(v);
 }
 
 static inline u32 clz32(u32 v)
@@ -29,15 +25,6 @@ static inline u32 clz32(u32 v)
 static inline u32 brev32(u32 v)
 {
     u32 r;
-    __asm("rbit %0, %1"
-          : "=r"(r)
-          : "r"(v));
-    return r;
-}
-
-static inline u8 brev8(u8 v)
-{
-    u8 r;
     __asm("rbit %0, %1"
           : "=r"(r)
           : "r"(v));
@@ -68,14 +55,6 @@ static u32 brev32(u32 x)
         s--;
     }
     return (r << s);
-}
-
-static u8 brev8(u8 b)
-{
-    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
-    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
-    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
-    return b;
 }
 #endif
 

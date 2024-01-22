@@ -22,6 +22,8 @@ typedef struct {
     u32 bytes_prop;
     u32 bytes_tiles_bg;
     u32 bytes_tiles_terrain;
+    u32 bytes_tiles_prop_bg;
+    u32 bytes_tiles_prop_fg;
     u32 bytes_obj;
 } map_header_s;
 
@@ -77,6 +79,7 @@ typedef struct {
 
 enum {
     AUTOTILE_TYPE_NONE,
+    AUTOTILE_TYPE_FAKE,
     AUTOTILE_TYPE_BRICK,
     AUTOTILE_TYPE_BRICK_SMALL,
     AUTOTILE_TYPE_DIRT,
@@ -89,7 +92,25 @@ enum {
     TILE_FLIP_X   = 1 << 2,
 };
 
+// this is used to merge render tile layers into a single layer
+typedef union {
+    u16 IDs[4];
+    u64 u;
+} tile_stacked_s;
+
+typedef struct {
+    int            n;
+    tile_stacked_s t[65536];
+} tile_stacker_s;
+
 static const u8 g_autotilemarch[256];
+
+static inline void map_proptile_decode(u16 t, int *tx, int *ty, int *f)
+{
+    *f  = (t >> 14);
+    *tx = t & B8(01111111);
+    *ty = (t >> 7) & B8(01111111);
+}
 
 static void             map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int y);
 static void             map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tiles, int x, int y);
@@ -115,6 +136,14 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         crawler_load(g, o);
     } else if (str_eq_nc(o->name, "Sign")) {
         sign_load(g, o);
+    } else if (str_eq_nc(o->name, "Shroomy")) {
+        shroomy_load(g, o);
+    } else if (str_eq_nc(o->name, "Toggleblock")) {
+        toggleblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Door_Swing")) {
+        swingdoor_load(g, o);
+    } else if (str_eq_nc(o->name, "Crumbleblock")) {
+        crumbleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Ocean")) {
         int n_waterp = g->tiles_x * 2 + 1;
 
@@ -133,6 +162,7 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
 void game_load_map(game_s *g, const char *mapfile)
 {
     g->obj_ndelete         = 0;
+    g->n_objrender         = 0;
     g->obj_head_busy       = NULL;
     g->obj_head_free       = &g->obj_raw[0];
     g->obj_head_free->next = NULL;
@@ -163,6 +193,8 @@ void game_load_map(game_s *g, const char *mapfile)
     memset(g->rtiles, 0, sizeof(g->rtiles));
     fade_start(&g->areaname.fade, 30, 200, 100, NULL, NULL, NULL);
 
+    spm_push();
+
     // READ FILE ===============================================================
     map_header_s header = {0};
 
@@ -192,6 +224,8 @@ void game_load_map(game_s *g, const char *mapfile)
         g->env_effects |= ENVEFFECT_HEAT;
 
     spm_pop();
+    tile_stacker_s *stacker = (tile_stacker_s *)spm_alloc(sizeof(tile_stacker_s));
+    stacker->n              = 0;
 
     // TERRAIN =================================================================
     spm_push();
@@ -248,6 +282,44 @@ void game_load_map(game_s *g, const char *mapfile)
     }
     spm_pop();
 
+    // PROPS_BG ================================================================
+    spm_push();
+    u16 *props_bg = (u16 *)spm_alloc(header.bytes_tiles_prop_bg);
+    sys_file_read(mapf, props_bg, header.bytes_tiles_prop_bg);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int k  = x + y * w;
+            int ID = props_bg[k];
+            if (ID == 0) continue;
+            int tx, ty, f;
+            map_proptile_decode(ID, &tx, &ty, &f);
+            rtile_s *rt = &g->rtiles[TILELAYER_PROP_BG][k];
+            rt->tx      = tx;
+            rt->ty      = ty;
+        }
+    }
+    spm_pop();
+
+    // PROPS_FG ================================================================
+    spm_push();
+    u16 *props_fg = (u16 *)spm_alloc(header.bytes_tiles_prop_fg);
+    sys_file_read(mapf, props_fg, header.bytes_tiles_prop_fg);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int k  = x + y * w;
+            int ID = props_bg[k];
+            if (ID == 0) continue;
+            int tx, ty, f;
+            map_proptile_decode(ID, &tx, &ty, &f);
+            rtile_s *rt = &g->rtiles[TILELAYER_PROP_BG][k];
+            rt->tx      = tx;
+            rt->ty      = ty;
+        }
+    }
+    spm_pop();
+
     // OBJECTS =================================================================
     spm_push();
     char *op = (char *)spm_alloc(header.bytes_obj);
@@ -260,6 +332,8 @@ void game_load_map(game_s *g, const char *mapfile)
 
         op += o->bytes;
     }
+    spm_pop();
+
     spm_pop();
     sys_file_close(mapf);
 }
@@ -279,7 +353,7 @@ static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, 
     if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
 
     map_terraintile_s b = tiles.tiles[u + v * tiles.w];
-    if (b.type == AUTOTILE_TYPE_NONE) return 0;
+    if (b.type <= 1) return 0; // empty or "fake" terrain tile
 
     switch (b.shape) {
     case TILE_BLOCK: return 1;
@@ -340,7 +414,7 @@ static void map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int 
 
     int      coords = g_autotilemarch[march];
     rtile_s *rtile  = &g->rtiles[TILELAYER_BG][index];
-    rtile->tx       = coords & 15;
+    rtile->tx       = 32 + (coords & 15);
     rtile->ty       = ((tile - 1) * 8) + (coords >> 4);
 }
 
@@ -356,7 +430,12 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
 {
     int               index = x + y * tiles.w;
     map_terraintile_s tile  = tiles.tiles[index];
-    rtile_s          *rtile = &g->rtiles[TILELAYER_TERRAIN][index];
+    if (tile.type == 1) {
+        g->tiles[index].collision = tile.shape;
+        return;
+    }
+
+    rtile_s *rtile = &g->rtiles[TILELAYER_TERRAIN][index];
 
 #if 0
     if (tile.type == 0 && *n_ext < NUM_RESERVED_TERRAIN) {
@@ -440,7 +519,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
     int xcoord = 0;
-    int ycoord = (tile.type - 1) * 8;
+    int ycoord = ((int)tile.type - 2) * 8;
     int coords = g_autotilemarch[march];
 
     switch (tile.shape) {
@@ -474,7 +553,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
 
         if (0 < y) {
             map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
-            if (above.type == 0) {
+            if (tile.type == 3 && above.type == 0) {
                 game_put_grass(g, x, y - 1);
             }
         }

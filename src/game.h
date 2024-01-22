@@ -9,6 +9,7 @@
 #include "enveffect.h"
 #include "fade.h"
 #include "gamedef.h"
+#include "ingamemenu.h"
 #include "mainmenu.h"
 #include "map_loader.h"
 #include "obj/behaviour.h"
@@ -20,26 +21,20 @@
 #include "transition.h"
 #include "water.h"
 
-//  25 x 15
-//  50 x 30
-//  75 x 45
-// 100 x 60
-//
-
 #define NUM_TILES         0x40000
 #define INTERACTABLE_DIST 32
 #define NUM_DECALS        256
 #define NUM_WATER         16
 
-typedef struct {
-    watersurface_s surf;
-    rec_i32        area;
-} water_s;
-
 #define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
 #define OCEAN_W_PX      SYS_DISPLAY_W
 #define OCEAN_H_PX      SYS_DISPLAY_H
 #define OCEAN_NUM_SPANS 512
+
+typedef struct {
+    watersurface_s surf;
+    rec_i32        area;
+} water_s;
 
 typedef struct {
     i16 y;
@@ -50,11 +45,10 @@ typedef struct {
     bool32         active;
     watersurface_s surf;
     int            y;
-
-    i32          y_min; // boundaries of affected wave area
-    i32          y_max;
-    int          n_spans;
-    ocean_span_s spans[OCEAN_NUM_SPANS];
+    i32            y_min; // boundaries of affected wave area
+    i32            y_max;
+    int            n_spans;
+    ocean_span_s   spans[OCEAN_NUM_SPANS];
 } ocean_s;
 
 typedef struct {
@@ -107,14 +101,14 @@ struct game_s {
     mainmenu_s mainmenu;
     int        state;
 
-    int freeze_ticks;
-
+    int              freeze_ticks;
     int              substate;
     int              substate_tick;
     fade_s           fade_upgrade;
     savefile_s       savefile;
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
+    ingamemenu_s     ingamemenu;
     //
     int              savefile_slotID;
     transition_s     transition;
@@ -128,10 +122,13 @@ struct game_s {
     int              pixel_x;
     int              pixel_y;
     int              obj_ndelete;
+    int              n_objrender;
+    bool32           objrender_dirty;
     obj_s           *obj_head_busy; // linked list
     obj_s           *obj_head_free; // linked list
     obj_s           *obj_tag[NUM_OBJ_TAGS];
     obj_s           *obj_to_delete[NUM_OBJ];
+    obj_s           *obj_render[NUM_OBJ]; // sorted render array
     obj_s            obj_raw[NUM_OBJ];
 
     herodata_s herodata;
@@ -179,6 +176,7 @@ void game_resume(game_s *g);
 void game_paused(game_s *g);
 void game_update_animations(game_s *g);
 
+void    game_open_inventory(game_s *g);
 int     tick_now(game_s *g);
 void    game_new_savefile(game_s *g, int slotID);
 void    game_write_savefile(game_s *g);

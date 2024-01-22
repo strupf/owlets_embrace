@@ -2,4 +2,5 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "scene.h"
+#include "ingamemenu.h"
+#include "game.h"

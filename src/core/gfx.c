@@ -348,7 +348,6 @@ typedef struct {
     int           doff; // bitoffset of first dst bit
     u32          *dp;   // pixel
     u32          *dm;   // mask
-    u32          *ds;   // stencil
     int           y;
     gfx_pattern_s pat;
     //
@@ -595,12 +594,8 @@ void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32
     }
 }
 
-static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds, u32 sm, int mode, u32 pt)
+static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 sm, int mode, u32 pt)
 {
-    if (ds) {
-        sm &= ~*ds;
-    }
-
     switch (mode) {
     case PRIM_MODE_INV: sm &= pt, *dp = (*dp & ~sm) | (~*dp & sm); break;
     case PRIM_MODE_WHITE: sm &= pt, *dp |= sm; break;
@@ -610,66 +605,22 @@ static void apply_prim_mode(u32 *restrict dp, u32 *restrict dm, u32 *restrict ds
     }
 
     if (dm) *dm |= sm;
-    if (ds) *ds |= sm;
 }
 
 static void prim_blit_span(span_blit_s info)
 {
     u32 *restrict dp = (u32 *restrict)info.dp;
     u32 *restrict dm = (u32 *restrict)info.dm;
-    u32 *restrict ds = (u32 *restrict)info.ds;
 
     u32 pt = info.pat.p[info.y & 7];
     u32 m  = info.ml;
     for (int i = 0; i < info.dmax; i++) {
-        apply_prim_mode(dp, dm, ds, m, info.mode, pt);
+        apply_prim_mode(dp, dm, m, info.mode, pt);
         m = 0xFFFFFFFFU;
         dp++;
         if (dm) dm++;
-        if (ds) ds++;
     }
-    apply_prim_mode(dp, dm, ds, m & info.mr, info.mode, pt);
-}
-
-static void apply_prim_mode_display(u32 *restrict dp, u32 sm, int mode, u32 pt)
-{
-    switch (mode) {
-    case PRIM_MODE_INV: sm &= pt, *dp = (*dp & ~sm) | (~*dp & sm); break;
-    case PRIM_MODE_WHITE: sm &= pt, *dp |= sm; break;
-    case PRIM_MODE_BLACK: sm &= pt, *dp &= ~sm; break;
-    case PRIM_MODE_WHITE_BLACK: pt = ~pt; // fallthrough
-    case PRIM_MODE_BLACK_WHITE: *dp = (*dp & ~(sm & pt)) | (sm & ~pt); break;
-    }
-}
-
-static void prim_blit_span_display(span_blit_s info)
-{
-    u32 *restrict dp = (u32 *restrict)info.dp;
-
-    u32 pt = info.pat.p[info.y & 7];
-    u32 m  = info.ml;
-    for (int i = 0; i < info.dmax; i++) {
-        apply_prim_mode_display(dp, m, info.mode, pt);
-        m = 0xFFFFFFFFU;
-        dp++;
-    }
-    apply_prim_mode_display(dp, m & info.mr, info.mode, pt);
-}
-
-void gfx_rec_fill_display(gfx_ctx_s ctx, rec_i32 rec, int mode)
-{
-    tex_s dtex = ctx.dst; // area bounds on canvas [x1/y1, x2/y2]
-    int   x1   = max_i(rec.x, ctx.clip_x1);
-    int   y1   = max_i(rec.y, ctx.clip_y1);
-    int   x2   = min_i(rec.x + rec.w - 1, ctx.clip_x2);
-    int   y2   = min_i(rec.y + rec.h - 1, ctx.clip_y2);
-    if (x2 < x1) return;
-
-    span_blit_s info = span_blit_gen(ctx, y1, x1, x2, mode);
-    for (info.y = y1; info.y <= y2; info.y++) {
-        prim_blit_span_display(info);
-        info.dp += dtex.wword;
-    }
+    apply_prim_mode(dp, dm, m & info.mr, info.mode, pt);
 }
 
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
@@ -687,7 +638,6 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
 
         info.dp += dtex.wword;
         if (info.dm) info.dm += dtex.wword;
-        if (info.ds) info.ds += dtex.wword;
     }
 }
 

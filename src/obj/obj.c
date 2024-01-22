@@ -41,7 +41,9 @@ obj_s *obj_create(game_s *g)
         BAD_PATH
         return NULL;
     }
-    g->obj_head_free = o->next;
+    g->objrender_dirty              = 1;
+    g->obj_render[g->n_objrender++] = o;
+    g->obj_head_free                = o->next;
 
     obj_UID_s UID = o->UID;
     *o            = (obj_s){0};
@@ -88,12 +90,19 @@ obj_s *obj_get_tagged(game_s *g, int tag)
 
 void objs_cull_to_delete(game_s *g)
 {
+    if (g->obj_ndelete <= 0) return;
     for (int n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
 
         for (int k = 0; k < NUM_OBJ_TAGS; k++) {
             if (g->obj_tag[k] == o)
                 g->obj_tag[k] = NULL;
+        }
+        for (int k = 0; k < g->n_objrender; k++) {
+            if (g->obj_render[k] == o) {
+                g->obj_render[k] = g->obj_render[--g->n_objrender];
+                break;
+            }
         }
 
         if (g->obj_head_busy == o) {
@@ -110,8 +119,8 @@ void objs_cull_to_delete(game_s *g)
         o->next          = g->obj_head_free;
         g->obj_head_free = o;
     }
-
-    g->obj_ndelete = 0;
+    g->obj_ndelete     = 0;
+    g->objrender_dirty = 1;
 }
 
 bool32 actor_try_wiggle(game_s *g, obj_s *o)
@@ -386,6 +395,7 @@ void obj_interact(game_s *g, obj_s *o)
     case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     case OBJ_ID_NPC: npc_on_interact(g, o); break;
+    case OBJ_ID_DOOR_SWING: swingdoor_on_interact(g, o); break;
     }
 }
 
@@ -483,15 +493,19 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     return 0;
 }
 
-obj_s *obj_slide_door_create(game_s *g)
+obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_DOOR_SLIDE;
-    o->flags |= OBJ_FLAG_SOLID;
-    o->w       = 16;
-    o->h       = 64;
-    o->trigger = 4;
-    return o;
+    u32    interactable_dt = pow2_i32(INTERACTABLE_DIST); // max distance
+    obj_s *interactable    = NULL;
+    for (obj_each(g, o)) {
+        if (!(o->flags & OBJ_FLAG_INTERACTABLE)) continue;
+        u32 d = v2_distancesq(pos, o->pos);
+        if (d < interactable_dt) {
+            interactable_dt = d;
+            interactable    = o;
+        }
+    }
+    return interactable;
 }
 
 obj_s *obj_savepoint_create(game_s *g)

@@ -19,16 +19,18 @@ void render_bg(game_s *g, rec_i32 cam)
     int clip_yy = min_i(clip_y1, clip_y2);
 
     gfx_ctx_s ctx_ocean = gfx_ctx_clip_top(ctx, 100);
+#if 0
     gfx_ctx_s ctx_near  = gfx_ctx_clip_bot(ctx, clip_yy - 1);
     gfx_ctx_s ctx_far   = gfx_ctx_clip_bot(ctx, clip_yy - 1);
-    ctx_near.pat        = gfx_pattern_4x4(B4(1000),
-                                          B4(0000),
-                                          B4(0010),
-                                          B4(0000));
-    ctx_far.pat         = gfx_pattern_4x4(B4(1000),
-                                          B4(0000),
-                                          B4(0000),
-                                          B4(0000));
+
+    ctx_near.pat = gfx_pattern_4x4(B4(1000),
+                                   B4(0000),
+                                   B4(0010),
+                                   B4(0000));
+    ctx_far.pat  = gfx_pattern_4x4(B4(1000),
+                                   B4(0000),
+                                   B4(0000),
+                                   B4(0000));
 
     for (int y = 0; y < clip_yy; y++) {
         for (int x = 0; x < dst.wword; x++) {
@@ -42,16 +44,46 @@ void render_bg(game_s *g, rec_i32 cam)
             ((u32 *)dst.px)[x + y * dst.wword] = p;
         }
     }
+#else
+    gfx_pattern_s pattern_fill = gfx_pattern_4x4(B4(0000),
+                                                 B4(0000),
+                                                 B4(0000),
+                                                 B4(0000));
+    for (int y = 0; y < dst.h; y++) {
+        const u32 p  = pattern_fill.p[y & 3];
+        u32      *px = &((u32 *)dst.px)[y * dst.wword];
+        for (int x = 0; x < dst.wword; x++) {
+            *px++ = p;
+        }
+    }
+#endif
+    texrec_s tcave_1   = asset_texrec(TEXID_BG_CAVE, 0, 0, 1024, 256);
+    texrec_s tcave_2   = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
+    v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, 20};
+    v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
+    if (sys_reduced_flicker()) {
+        cavepos_1.x &= ~1;
+        cavepos_1.y &= ~1;
+        cavepos_2.x &= ~3;
+        cavepos_2.y &= ~3;
+    }
+    gfx_spr_cpy_display(ctx, tcave_2, cavepos_2);
+    gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
+
+#if 0
+    texrec_s tmountain = asset_texrec(TEXID_BG_ART, 0, 128, 256, 128);
+    gfx_spr(ctx, tmountain, (v2_i32){0, 50}, 0, 0);
 
     texrec_s tbackground = asset_texrec(TEXID_BG_ART, 0, 0, 128, 128);
 
-    for (int l = 3; l >= 2; l--) {
-        gfx_ctx_s ct = l == 2 ? ctx_far : ctx_near;
+    for (int l = 3; l >= 3; l--) {
+        gfx_ctx_s ct = ctx;
         for (int i = 0; i < 10; i++) {
-            v2_i32 pos = {i * 128 - cam.x * l / 4, 80};
+            v2_i32 pos = {100 + i * 256 - cam.x * l / 4, 80};
             gfx_spr(ct, tbackground, pos, 0, 0);
         }
     }
+#endif
 
     ocean_draw_bg(ctx_ocean, g, camoff);
 }

@@ -8,11 +8,13 @@
 
 #define SYS_SHOW_CONSOLE       0 // enable or display hardware console
 #define SYS_SHOW_FPS           1 // enable fps/ups counter
+#define SYS_FPS_CAP_BY_DISPLAY 0 // cap fps/ups by hardware instead of software
+#define SYS_FPS_CAP_HW         (defined(SYS_PD_HW) && SYS_FPS_CAP_BY_DISPLAY)
 //
 #define SYS_UPS_DT             (1.f / (f32)SYS_UPS)
-#define SYS_DT_ACCUMULATOR_CAP (SYS_UPS_DT * 5.f)
-#define SYS_NUM_SNDCHANNEL     4
-#define SYS_MUSCHUNK_MEM       0x4000 // 16 KB
+#define SYS_DT_ACCUMULATOR_CAP (3.f / (f32)SYS_UPS)
+#define SYS_NUM_SNDCHANNEL     8
+#define SYS_MUSCHUNK_MEM       0x1000 // 4 KB
 #define SYS_MUSCHUNK_SAMPLES   (SYS_MUSCHUNK_MEM / sizeof(i16))
 #define SYS_MUS_LEN_FILENAME   64
 
@@ -73,6 +75,8 @@ static struct {
     int ups; // frames per second
     int fps; // updates per second
 #endif
+    bool32           reduce_flicker;
+    void            *menu_items[8];
     int              inp;
     f32              crank;
     int              crank_docked;
@@ -91,58 +95,78 @@ void sys_init()
     SYS.fps = SYS_UPS;
     SYS.ups = SYS_UPS;
 #endif
-    SYS.lasttime = backend_seconds();
+    SYS.lasttime       = backend_seconds();
+    SYS.reduce_flicker = backend_reduced_flicker();
     app_init();
+}
+
+static inline void sys_tick_()
+{
+    SYS.inp          = backend_inp();
+    SYS.crank        = backend_crank();
+    SYS.crank_docked = backend_crank_docked();
+    app_tick();
+#if SYS_SHOW_FPS
+    SYS.ups_counter++;
+#endif
+}
+
+static inline void sys_draw_()
+{
+    app_draw();
+#if SYS_SHOW_CONSOLE
+    sys_draw_console();
+#endif
+#if SYS_SHOW_FPS
+    char fps[8] = {0};
+    fps[0] = '0' + (SYS.fps / 10), fps[1] = '0' + (SYS.fps % 10);
+    fps[2] = '|';
+    fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
+
+    u8 *fb = backend_framebuffer();
+    for (int k = 0; k <= 4; k++) {
+        int cx = ((int)fps[k] & 31);
+        int cy = ((int)fps[k] >> 5) << 3;
+        for (int n = 0; n < 8; n++) {
+            fb[k + n * SYS_DISPLAY_WBYTES] = ((u8 *)sys_consolefont)[cx + ((cy + n) << 5)];
+        }
+    }
+    SYS.fps_counter++;
+#endif
 }
 
 int sys_tick(void *arg)
 {
+#if !SYS_FPS_CAP_HW || SYS_SHOW_FPS
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
     SYS.lasttime = time;
+#endif
+
+#if SYS_FPS_CAP_HW
+    sys_tick_();
+    sys_draw_();
+#else
     SYS.ups_timeacc += timedt;
-    if (SYS.ups_timeacc > SYS_DT_ACCUMULATOR_CAP) {
+    if (SYS_DT_ACCUMULATOR_CAP < SYS.ups_timeacc) {
         SYS.ups_timeacc = SYS_DT_ACCUMULATOR_CAP;
     }
 
-    int rendered = 0;
-    while (SYS.ups_timeacc >= SYS_UPS_DT) {
-        rendered = 1;
+    bool32 rendered = 0;
+    while (SYS_UPS_DT <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
-        SYS.inp          = backend_inp();
-        SYS.crank        = backend_crank();
-        SYS.crank_docked = backend_crank_docked();
-        app_tick();
-#if SYS_SHOW_FPS
-        SYS.ups_counter++;
-#endif
+        rendered = 1;
+        sys_tick_();
     }
 
     if (rendered) {
-        app_draw();
-#if SYS_SHOW_CONSOLE
-        sys_draw_console();
-#endif
-#if SYS_SHOW_FPS
-        char fps[8];
-        fps[0] = '0' + (SYS.fps / 10), fps[1] = '0' + (SYS.fps % 10);
-        fps[2] = '|';
-        fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
-
-        u8 *fb = backend_framebuffer();
-        for (int k = 0; k <= 4; k++) {
-            int cx = ((int)fps[k] & 31);
-            int cy = ((int)fps[k] >> 5) * 8;
-            for (int n = 0; n < 8; n++)
-                fb[k + n * 52] = ((u8 *)sys_consolefont)[cx + ((cy + n) * 32)];
-        }
-        SYS.fps_counter++;
-#endif
+        sys_draw_();
     }
+#endif
 
 #if SYS_SHOW_FPS
     SYS.fps_timeacc += timedt;
-    if (SYS.fps_timeacc >= 1.f) {
+    if (1.f <= SYS.fps_timeacc) {
         SYS.fps_timeacc -= 1.f;
         SYS.fps         = SYS.fps_counter;
         SYS.ups         = SYS.ups_counter;
@@ -150,7 +174,12 @@ int sys_tick(void *arg)
         SYS.fps_counter = 0;
     }
 #endif
+
+#if defined(SYS_PD_HW) && SYS_FPS_CAP_BY_DISPLAY
+    return 1;
+#else
     return (rendered);
+#endif
 }
 
 void sys_close()
@@ -230,9 +259,42 @@ void sys_set_menu_image(u8 *px, int h, int wbyte)
     backend_set_menu_image(px, h, wbyte);
 }
 
+void sys_set_reduced_flicker(int enabled)
+{
+    SYS.reduce_flicker = enabled;
+}
+
 bool32 sys_reduced_flicker()
 {
-    return backend_reduced_flicker();
+    return SYS.reduce_flicker;
+}
+
+void sys_set_FPS(int fps)
+{
+    backend_set_FPS(fps);
+}
+
+void sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg)
+{
+    void *mi           = backend_menu_item_add(title, cb, arg);
+    SYS.menu_items[ID] = mi;
+}
+
+void sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg)
+{
+    void *mi           = backend_menu_checkmark_add(title, val, cb, arg);
+    SYS.menu_items[ID] = mi;
+}
+
+bool32 sys_menu_checkmark(int ID)
+{
+    return backend_menu_checkmark(SYS.menu_items[ID]);
+}
+
+void sys_menu_clr()
+{
+    backend_menu_clr();
+    memset(SYS.menu_items, 0, sizeof(SYS.menu_items));
 }
 
 // http://soundfile.sapp.org/doc/WaveFormat/
