@@ -233,6 +233,7 @@ void game_update_animations(game_s *g)
         case OBJ_ID_HOOK: hook_on_animate(g, o); break;
         case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
         case OBJ_ID_DOOR_SWING: swingdoor_on_animate(g, o); break;
+        case OBJ_ID_NPC: npc_on_animate(g, o); break;
         }
     }
 

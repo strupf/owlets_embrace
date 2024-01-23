@@ -75,7 +75,6 @@ static struct {
     int ups; // frames per second
     int fps; // updates per second
 #endif
-    bool32           reduce_flicker;
     void            *menu_items[8];
     int              inp;
     f32              crank;
@@ -95,8 +94,7 @@ void sys_init()
     SYS.fps = SYS_UPS;
     SYS.ups = SYS_UPS;
 #endif
-    SYS.lasttime       = backend_seconds();
-    SYS.reduce_flicker = backend_reduced_flicker();
+    SYS.lasttime = backend_seconds();
     app_init();
 }
 
@@ -123,7 +121,7 @@ static inline void sys_draw_()
     fps[2] = '|';
     fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
 
-    u8 *fb = backend_framebuffer();
+    u8 *fb = (u8 *)backend_framebuffer();
     for (int k = 0; k <= 4; k++) {
         int cx = ((int)fps[k] & 31);
         int cy = ((int)fps[k] >> 5) << 3;
@@ -254,19 +252,9 @@ int sys_crank_docked()
     return backend_crank_docked();
 }
 
-void sys_set_menu_image(u8 *px, int h, int wbyte)
+void sys_set_menu_image(void *px, int h, int wbyte)
 {
     backend_set_menu_image(px, h, wbyte);
-}
-
-void sys_set_reduced_flicker(int enabled)
-{
-    SYS.reduce_flicker = enabled;
-}
-
-bool32 sys_reduced_flicker()
-{
-    return SYS.reduce_flicker;
 }
 
 void sys_set_FPS(int fps)

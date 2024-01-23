@@ -14,9 +14,10 @@ obj_s *npc_create(game_s *g)
     o->ID    = OBJ_ID_NPC;
     o->flags = OBJ_FLAG_SPRITE |
                OBJ_FLAG_ACTOR |
-               OBJ_FLAG_INTERACTABLE;
+               OBJ_FLAG_INTERACTABLE |
+               OBJ_FLAG_MOVER;
     o->w = 16;
-    o->h = 16;
+    o->h = 20;
 
     o->gravity_q8.y = 30;
     o->drag_q8.x    = 250;
@@ -24,7 +25,7 @@ obj_s *npc_create(game_s *g)
 
     sprite_simple_s *spr = &o->sprites[0];
     o->n_sprites         = 1;
-    spr->trec            = asset_texrec(TEXID_HERO, 0, 0, 64, 64);
+    spr->trec            = asset_texrec(TEXID_MISCOBJ, 0, 192, 64, 64);
     spr->offs.x          = (o->w - spr->trec.r.h) / 2;
     spr->offs.y          = o->h - spr->trec.r.h;
 
@@ -58,4 +59,6 @@ void npc_on_interact(game_s *g, obj_s *o)
 
 void npc_on_animate(game_s *g, obj_s *o)
 {
+    o->animation++;
+    o->sprites[0].trec.r.x = ((o->animation >> 4) & 1) * 64;
 }

@@ -34,7 +34,8 @@ obj_s *shroomy_create(game_s *g)
     o->h            = 16;
     o->moverflags =
         OBJ_MOVER_SLOPES |
-        OBJ_MOVER_ONE_WAY_PLAT;
+        OBJ_MOVER_ONE_WAY_PLAT |
+        OBJ_MOVER_GLUE_GROUND;
 
     o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
@@ -58,9 +59,8 @@ void shroomy_on_update(game_s *g, obj_s *o)
         o->vel_q8.y = 0;
     }
 
-    v2_i32 off = {o->facing, 0};
     if ((o->bumpflags & OBJ_BUMPED_X) ||
-        (obj_grounded(g, o) && !obj_grounded_at_offs(g, o, off))) {
+        obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
     o->bumpflags = 0;

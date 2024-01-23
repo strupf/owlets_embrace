@@ -61,6 +61,7 @@ typedef struct {
 } textbox_block_s;
 
 typedef struct {
+    int             animation;
     int             fadetick;
     int             tick; // animation tick
     int             state;

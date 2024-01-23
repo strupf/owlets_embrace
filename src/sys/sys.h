@@ -38,11 +38,11 @@ typedef struct {
 } sys_snddata_s;
 
 typedef struct {
-    u8 *px;
-    int w;
-    int h;
-    int wword;
-    int wbyte;
+    u32 *px;
+    int  w;
+    int  h;
+    int  wword;
+    int  wbyte;
 } sys_display_s;
 
 typedef struct {
@@ -95,7 +95,7 @@ enum {                     // pd_api.h:
 #define sys_file_remove backend_file_remove
 //
 sys_display_s sys_display();
-void          sys_set_menu_image(u8 *px, int h, int wbyte);
+void          sys_set_menu_image(void *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
 sys_wav_s     sys_load_wav(const char *filename, alloc_s ma);
 void          sys_wavdata_play(sys_wav_s s, f32 vol, f32 pitch);
@@ -110,8 +110,6 @@ f32           sys_crank(); // [0, 1]
 int           sys_crank_docked();
 f32           sys_seconds();
 int           sys_key(int k);
-bool32        sys_reduced_flicker();
-void          sys_set_reduced_flicker(int enabled);
 void          sys_set_FPS(int fps);
 void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg);
 void          sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg);

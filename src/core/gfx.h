@@ -11,26 +11,16 @@
 #define GFX_MEM_KB 1024
 
 enum {
-    TEX_FMT_OPAQUE,
-    TEX_FMT_MASK,
+    TEX_FMT_OPAQUE, // only color pixels
+    TEX_FMT_MASK,   // color and mask interlaced in words
 };
 
 typedef struct {
-    u8 *px;
-    int fmt;
-    int w;
-    int h;
-    int wword;
-    int wbyte;
-} img_s;
-
-typedef struct {
-    u8 *px;
-    u8 *mk;
-    int w;
-    int h;
-    int wword;
-    int wbyte;
+    u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
+    int  fmt;
+    int  w;
+    int  h;
+    int  wword;
 } tex_s;
 
 typedef struct {
@@ -63,10 +53,6 @@ typedef struct {
     int n;
     int cap;
 } fntstr_s;
-
-typedef struct {
-    i32 m[6]; // Q8
-} gfx_affine_s;
 
 enum {
     SPR_FLIP_X = 1, // kBitmapFlippedX
@@ -131,8 +117,6 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
 void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                     f32 sclx, f32 scly);
-void gfx_spr_affine(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, gfx_affine_s m);
-void gfx_affine_gen_rot(i32 a, rec_i32 r, v2_i32 pos, v2_i32 origin, gfx_affine_s *m, v2_i32 *p);
 //
 #define gfx_rec_fill_display(C, R, M) gfx_rec_fill(C, R, M)
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
@@ -143,7 +127,6 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r);
 void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
 void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
-void gfx_textri(gfx_ctx_s ctx, tex_s src, tri_i32 tri, tri_i32 tex, int mode);
 //
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
 int  fnt_length_px(fnt_s fnt, const char *txt);

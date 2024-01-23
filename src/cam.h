@@ -16,15 +16,17 @@ enum {
 typedef struct {
     v2_f32 pos;
     v2_f32 offs_shake;
-    v2_f32 offs_textbox;
+    v2_f32 offs;
     int    mode;
+    bool32 look_down;
 
     int shake_ticks;
     int shake_ticks_max;
     int shake_str;
 
-    f32 addy;
-    int addticks;
+    int addxticks;
+    int addyticks;
+    int addyoffset;
 
     bool32 locked_x;
     bool32 locked_y;

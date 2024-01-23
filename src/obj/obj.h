@@ -219,6 +219,7 @@ void         obj_interact(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);
 bool32       obj_grounded(game_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
+bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 //

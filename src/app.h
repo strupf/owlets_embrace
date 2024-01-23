@@ -5,8 +5,11 @@
 #ifndef APP_H
 #define APP_H
 
+#include "scene.h"
+
 typedef struct {
-    int x;
+    int           x;
+    scene_stack_s scene_stack;
 } app_s;
 
 extern app_s APP;

@@ -193,12 +193,13 @@ void textbox_update(game_s *g, textbox_s *tb)
 
         tb->tick_q2 += 4;
         int tick = b->chars[tb->n].tick_q2;
-        while (tb->tick_q2 >= tick) {
+        while (tick <= tb->tick_q2) {
             tb->tick_q2 -= tick;
             tb->n++;
 
-            if (tb->n >= b->n_chars) {
+            if (b->n_chars <= tb->n) {
                 tb->state     = TEXTBOX_STATE_WAIT;
+                tb->animation = 0;
                 tb->curchoice = 0;
                 break;
             }
@@ -273,6 +274,21 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
     switch (tb->state) {
     case TEXTBOX_STATE_WAIT: {
+        // arrow bop animation
+#define TB_ANIM_TICKS       15
+#define TB_ANIM_TICKS_IDLE  20
+#define TB_ANIM_TOTAL_TICKS (TB_ANIM_TICKS + TB_ANIM_TICKS_IDLE)
+
+        tb->animation = (tb->animation + 1) % TB_ANIM_TOTAL_TICKS;
+        int fr        = 0;
+        if (TB_ANIM_TICKS_IDLE <= tb->animation) {
+            int ti = tb->animation - TB_ANIM_TICKS_IDLE;
+            fr     = tick_to_index_freq(ti, 6, TB_ANIM_TICKS);
+        }
+
+        texrec_s tarrow = asset_texrec(TEXID_UI, fr * 32, 176, 32, 32);
+        gfx_spr(ctx, tarrow, (v2_i32){360, 200}, 0, 0);
+
         if (b->n_choices <= 0) break;
 
         for (int n = 0; n < b->n_choices; n++) {

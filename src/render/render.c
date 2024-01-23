@@ -28,7 +28,23 @@ static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 camoffset)
             sprite_simple_s sprite = o->sprites[n];
             if (sprite.trec.t.px == NULL) continue;
             v2_i32 sprpos = v2_add(ppos, sprite.offs);
+#if 0
+            txrec_s txr     = {0};
+            txr.t           = tx_from_tex(sprite.trec.t, malloc);
+            txr.r           = sprite.trec.r;
+            gfx_ctx2_s ctx2 = {0};
+            ctx2.dst        = tx_display(ctx.dst);
+            memcpy(&ctx2.pat, &ctx.pat, sizeof(ctx.pat));
+            ctx2.clip_x1 = ctx.clip_x1;
+            ctx2.clip_y1 = ctx.clip_y1;
+            ctx2.clip_x2 = ctx.clip_x2;
+            ctx2.clip_y2 = ctx.clip_y2;
+            gfx_spr2(ctx2, txr, sprpos, sprite.flip, sprite.mode);
+
+            free(txr.t.px);
+#else
             gfx_spr_display(ctx, sprite.trec, sprpos, sprite.flip, sprite.mode);
+#endif
         }
     }
 
@@ -240,7 +256,7 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
             tr.r.y   = rt.ty << 4;
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
             gfx_spr_display(ctx, tr, p, 0, 0);
-
+            // gfx_spr2(ctx2, trr, p, 0, 0);
 #if defined(SYS_DEBUG) && 0
             int t1 = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t1 && t1 < NUM_TILE_BLOCKS)) continue;

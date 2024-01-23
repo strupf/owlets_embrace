@@ -80,8 +80,7 @@ static void charger_update_normal(game_s *g, obj_s *o)
         }
     }
 
-    if (bumpedx || !(obj_grounded_at_offs(g, o, (v2_i32){o->facing, 0}) ||
-                     obj_grounded_at_offs(g, o, (v2_i32){o->facing, 1}))) {
+    if (bumpedx || obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
 

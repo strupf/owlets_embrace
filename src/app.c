@@ -23,28 +23,17 @@ void menu_cb_inventory(void *arg)
     game_open_inventory(g);
 }
 
-void menu_cb_reduce_flicker(void *arg)
-{
-    bool32 b = sys_menu_checkmark(MENUITEM_REDUCE_FLICKER);
-    sys_set_reduced_flicker(b);
-}
-
 void menu_setup_game()
 {
     game_s *g = &GAME;
     sys_menu_clr();
 
-    sys_menu_checkmark_add(MENUITEM_REDUCE_FLICKER, "Reduce flicker", sys_reduced_flicker(),
-                           menu_cb_reduce_flicker, NULL);
     sys_menu_item_add(MENUITEM_GAME_INVENTORY, "Inventory", menu_cb_inventory, g);
 }
 
 void menu_setup_title()
 {
     sys_menu_clr();
-
-    sys_menu_checkmark_add(MENUITEM_REDUCE_FLICKER, "Reduce flicker", sys_reduced_flicker(),
-                           menu_cb_reduce_flicker, NULL);
 }
 
 void app_init()
@@ -159,6 +148,9 @@ void app_load_assets()
     asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
     asset_tex_loadID(TEXID_MISCOBJ, "miscobj.tex", NULL);
     asset_tex_loadID(TEXID_BG_CAVE, "bg_cave.tex", NULL);
+
+    tex_s tmisc = asset_tex(TEXID_MISCOBJ);
+    tex_outline(tmisc, 0, 192, 64 * 2, 64, 1, 1);
 
     tex_s tshroomy = asset_tex(TEXID_SHROOMY);
     for (int y = 0; y < 4; y++) {

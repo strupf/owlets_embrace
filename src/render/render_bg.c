@@ -61,12 +61,10 @@ void render_bg(game_s *g, rec_i32 cam)
     texrec_s tcave_2   = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
     v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, 20};
     v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
-    if (sys_reduced_flicker()) {
-        cavepos_1.x &= ~1;
-        cavepos_1.y &= ~1;
-        cavepos_2.x &= ~3;
-        cavepos_2.y &= ~3;
-    }
+    cavepos_1.x &= ~1; // reduce dither flickering
+    cavepos_1.y &= ~1;
+    cavepos_2.x &= ~3;
+    cavepos_2.y &= ~3;
     gfx_spr_cpy_display(ctx, tcave_2, cavepos_2);
     gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
 

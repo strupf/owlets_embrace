@@ -18,20 +18,22 @@ typedef struct {
     int           mode; // drawing mode
     int           doff; // bitoffset of first dst bit
     u32          *dp;   // pixel
-    u32          *dm;   // mask
     int           y;
     gfx_pattern_s pat;
     int           shift; // amount of bitshift needed to align
     int           smax;  // count of src words -1
     int           soff;  // bitoffset of first src bit
     u32          *sp;
-    u32          *sm;
+    int           sadd;
+    int           dadd;
 } spr_blit_s;
 
 static spr_blit_s spr_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
 {
     int nbit = (x2 + 1) - x1; // number of bits in a row to blit
-    int dsti = (x1 >> 5) + y * ctx.dst.wword;
+    int dstx = (x1 >> 5);
+    if (ctx.dst.fmt == TEX_FMT_MASK) dstx *= 2;
+    int dsti = dstx + y * ctx.dst.wword;
 
     spr_blit_s info = {0};
     info.y          = y;
@@ -40,9 +42,10 @@ static spr_blit_s spr_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     info.mode       = mode;                                               // sprite masking mode
     info.ml         = bswap32(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
     info.mr         = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
-    info.dp         = &((u32 *)ctx.dst.px)[dsti];
-    info.dm         = ctx.dst.mk ? &((u32 *)ctx.dst.mk)[dsti] : NULL;
+    info.dp         = &ctx.dst.px[dsti];
     info.pat        = ctx.pat;
+    info.dadd       = (ctx.dst.fmt == TEX_FMT_MASK ? 2 : 1);
+
     return info;
 }
 
@@ -68,24 +71,25 @@ static void spr_blit_row_rev(spr_blit_s info)
 {
     u32 pt = info.pat.p[info.y & 7];
     if (pt == 0) return;
+    int sadd               = info.sadd;
+    int dadd               = info.dadd;
     u32 *restrict dp       = (u32 *restrict)info.dp;
-    u32 *restrict dm       = (u32 *restrict)info.dm;
-    const u32 *restrict sp = (u32 *restrict)info.sp;
-    const u32 *restrict sm = (u32 *restrict)info.sm;
+    const u32 *restrict sp = (u32 *restrict)info.sp + info.smax;
     int a                  = info.shift;
     int b                  = 32 - a;
 
     if (a == 0) { // same alignment, fast path
-        u32 p = brev32(*sp--);
-        u32 m = sm ? brev32(*sm--) & info.ml : info.ml;
+        u32 p = brev32(*sp);
+        u32 m = sadd == -2 ? brev32(*(sp + 1)) & info.ml : info.ml;
+        sp += sadd;
         for (int i = 0; i < info.dmax; i++) {
-            spr_blit(dp, dm, p, m & pt, info.mode);
-            p  = brev32(*sp--);
-            m  = sm ? brev32(*sm--) : 0xFFFFFFFFU;
-            dp = dp + 1;
-            dm = dm ? dm + 1 : dm;
+            spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & pt, info.mode);
+            p = brev32(*sp);
+            m = sadd == -2 ? brev32(*(sp + 1)) : 0xFFFFFFFFU;
+            sp += sadd;
+            dp += dadd;
         }
-        spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
         return;
     }
 
@@ -94,48 +98,45 @@ static void spr_blit_row_rev(spr_blit_s info)
         u32 m = 0;
         if (info.doff < info.soff) {
             p = brev32(bswap32(*sp)) << a;
-            m = sm ? brev32(bswap32(*sm)) << a : 0xFFFFFFFFU;
+            m = sadd == -2 ? brev32(bswap32(*(sp + 1))) << a : 0xFFFFFFFFU;
             if (0 < info.smax) {
-                sp = sp - 1;
-                sm = sm ? sm - 1 : sm;
+                sp += sadd;
             }
         }
 
         p = bswap32(p | (brev32(bswap32(*sp)) >> b));
-        m = sm ? bswap32(m | (brev32(bswap32(*sm)) >> b)) & info.ml : info.ml;
+        m = sadd == -2 ? bswap32(m | (brev32(bswap32(*(sp + 1))) >> b)) & info.ml : info.ml;
 
         if (info.dmax == 0) {
-            spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+            spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
             return; // only one word long
         }
 
-        spr_blit(dp, dm, p, m & pt, info.mode);
-        dp = dp + 1;
-        dm = dm ? dm + 1 : dm;
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & pt, info.mode);
+        dp += dadd;
     }
 
     // middle words without first and last word
     for (int i = 1; i < info.dmax; i++) {
-        u32 p = bswap32((brev32(bswap32(*sp)) << a) | (brev32(bswap32(*(sp - 1))) >> b));
-        u32 m = sm ? bswap32((brev32(bswap32(*sm)) << a) | (brev32(bswap32(*(sm - 1))) >> b)) : 0xFFFFFFFFU;
-        spr_blit(dp, dm, p, m & pt, info.mode);
-        sp = sp - 1;
-        sm = sm ? sm - 1 : sm;
-        dp = dp + 1;
-        dm = dm ? dm + 1 : dm;
+        u32 p = bswap32((brev32(bswap32(*sp)) << a) | (brev32(bswap32(*(sp + sadd))) >> b));
+        u32 m = sadd == -2 ? bswap32((brev32(bswap32(*(sp + 1))) << a) | (brev32(bswap32(*(sp - 1))) >> b)) : 0xFFFFFFFFU;
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & pt, info.mode);
+        sp += sadd;
+        dp += dadd;
     }
 
     { // last word
         u32 p = brev32(bswap32(*sp)) << a;
-        u32 m = sm ? brev32(bswap32(*sm)) << a : 0xFFFFFFFFU;
+        u32 m = sadd == -2 ? brev32(bswap32(*(sp + 1))) << a : 0xFFFFFFFFU;
         if (info.sp < sp) {
-            p |= brev32(bswap32(*--sp)) >> b;
-            if (sm)
-                m |= brev32(bswap32(*--sm)) >> b;
+            sp += sadd;
+            p |= brev32(bswap32(*sp)) >> b;
+            if (sadd == -2)
+                m |= brev32(bswap32(*(sp + 1))) >> b;
         }
         p = bswap32(p);
         m = bswap32(m);
-        spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
     }
 }
 
@@ -143,24 +144,26 @@ static void spr_blit_row(spr_blit_s info)
 {
     u32 pt = info.pat.p[info.y & 7];
     if (pt == 0) return;
+
+    int sadd               = info.sadd;
+    int dadd               = info.dadd;
     u32 *restrict dp       = (u32 *restrict)info.dp;
-    u32 *restrict dm       = (u32 *restrict)info.dm;
     const u32 *restrict sp = (u32 *restrict)info.sp;
-    const u32 *restrict sm = (u32 *restrict)info.sm;
     int a                  = info.shift;
     int b                  = 32 - a;
 
     if (a == 0) { // same alignment, fast path
-        u32 p = *sp++;
-        u32 m = sm ? *sm++ & info.ml : info.ml;
+        u32 p = *sp;
+        u32 m = sadd == 2 ? *(sp + 1) & info.ml : info.ml;
+        sp += sadd;
         for (int i = 0; i < info.dmax; i++) {
-            spr_blit(dp, dm, p, m & pt, info.mode);
-            p  = *sp++;
-            m  = sm ? *sm++ : 0xFFFFFFFFU;
-            dp = dp + 1;
-            dm = dm ? dm + 1 : dm;
+            spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & pt, info.mode);
+            p = *sp;
+            m = sadd == 2 ? *(sp + 1) : 0xFFFFFFFFU;
+            sp += sadd;
+            dp += dadd;
         }
-        spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
         return;
     }
 
@@ -169,47 +172,44 @@ static void spr_blit_row(spr_blit_s info)
         u32 m = 0;
         if (info.doff < info.soff) {
             p = bswap32(*sp) << a;
-            m = sm ? bswap32(*sm) << a : 0xFFFFFFFFU;
+            m = sadd == 2 ? bswap32(*(sp + 1)) << a : 0xFFFFFFFFU;
             if (0 < info.smax) {
-                sp = sp + 1;
-                sm = sm ? sm + 1 : sm;
+                sp += sadd;
             }
         }
 
         p = bswap32(p | (bswap32(*sp) >> b));
-        m = sm ? bswap32(m | (bswap32(*sm) >> b)) & info.ml : info.ml;
+        m = sadd == 2 ? bswap32(m | (bswap32(*(sp + 1)) >> b)) & info.ml : info.ml;
         if (info.dmax == 0) {
-            spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+            spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
             return; // only one word long
         }
 
-        spr_blit(dp, dm, p, m & pt, info.mode);
-        dp = dp + 1;
-        dm = dm ? dm + 1 : dm;
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & pt, info.mode);
+        dp += dadd;
     }
 
     // middle words without first and last word
     for (int i = 1; i < info.dmax; i++) {
-        u32 p = bswap32((bswap32(*sp) << a) | (bswap32(*(sp + 1)) >> b));
-        u32 m = sm ? bswap32((bswap32(*sm) << a) | (bswap32(*(sm + 1)) >> b)) & pt : pt;
-        spr_blit(dp, dm, p, m, info.mode);
-        sp = sp + 1;
-        sm = sm ? sm + 1 : sm;
-        dp = dp + 1;
-        dm = dm ? dm + 1 : dm;
+        u32 p = bswap32((bswap32(*sp) << a) | (bswap32(*(sp + sadd)) >> b));
+        u32 m = sadd == 2 ? bswap32((bswap32(*(sp + 1)) << a) | (bswap32(*(sp + 3)) >> b)) & pt : pt;
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m, info.mode);
+        sp += sadd;
+        dp += dadd;
     }
 
     { // last word
         u32 p = bswap32(*sp) << a;
-        u32 m = sm ? bswap32(*sm) << a : 0xFFFFFFFFU;
+        u32 m = sadd == 2 ? bswap32(*(sp + 1)) << a : 0xFFFFFFFFU;
         if (sp < info.sp + info.smax) { // this is different for reversed blitting!
-            p |= bswap32(*++sp) >> b;
-            if (sm)
-                m |= bswap32(*++sm) >> b;
+            sp += sadd;
+            p |= bswap32(*sp) >> b;
+            if (sadd == 2)
+                m |= bswap32(*(sp + 1)) >> b;
         }
         p = bswap32(p);
         m = bswap32(m);
-        spr_blit(dp, dm, p, m & (pt & info.mr), info.mode);
+        spr_blit(dp, dadd == 1 ? NULL : dp + 1, p, m & (pt & info.mr), info.mode);
     }
 }
 
@@ -237,15 +237,22 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode)
     info.shift = (info.soff - info.doff) & 31; // word shift amount
     info.smax  = (info.soff + nbit - 1) >> 5;  // number of touched src words -1
 
-    int srci = (u1 >> 5) + (flip & SPR_FLIP_X ? info.smax : 0); // first word index in src
+    info.sadd = (stex.fmt == TEX_FMT_MASK ? 2 : 1);
+    info.smax *= info.sadd;
+
+    // TODO: HAVE TO FIX CORRECT INDEX
+    int srci = ((u1 >> 5) * info.sadd); // first word index in src
+    if (flip & SPR_FLIP_X) {
+        info.sadd = -info.sadd;
+    }
+
     if (flip & SPR_FLIP_Y) {
         srci += stex.wword * (src.r.y + pos.y - y1 + src.r.h - 1);
     } else {
         srci += stex.wword * (src.r.y - pos.y + y1);
     }
 
-    info.sp = &((u32 *restrict)stex.px)[srci];                  // src black/white
-    info.sm = stex.mk ? &((u32 *restrict)stex.mk)[srci] : NULL; // src opaque/transparent
+    info.sp = &stex.px[srci]; // src black/white
 
     for (info.y = y1; info.y <= y2; info.y++) {
         if (flip & SPR_FLIP_X) {
@@ -256,13 +263,10 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode)
 
         if (flip & SPR_FLIP_Y) {
             info.sp -= stex.wword;
-            if (info.sm) info.sm -= stex.wword;
         } else {
             info.sp += stex.wword;
-            if (info.sm) info.sm += stex.wword;
         }
 
         info.dp += dtex.wword;
-        if (info.dm) info.dm += dtex.wword;
     }
 }

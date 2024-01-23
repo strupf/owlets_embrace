@@ -493,6 +493,19 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     return 0;
 }
 
+bool32 obj_would_fall_down_next(game_s *g, obj_s *o, int xdir)
+{
+    if (!obj_grounded(g, o)) return 0;
+
+    rec_i32 r1   = {o->pos.x + xdir, o->pos.y, o->w, o->h + 1};
+    v2_i32  off1 = {xdir, 0};
+    v2_i32  off2 = {xdir, 1};
+
+    return (game_traversable(g, r1) &&
+            !obj_grounded_at_offs(g, o, off1) &&
+            !obj_grounded_at_offs(g, o, off2));
+}
+
 obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 {
     u32    interactable_dt = pow2_i32(INTERACTABLE_DIST); // max distance

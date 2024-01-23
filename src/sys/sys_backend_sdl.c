@@ -57,9 +57,6 @@ static struct {
     int               pausebtnp;
     int               paused;
     int               spacepressed;
-    int               reduce_flicker;
-    int               flickerbtn;
-    int               flickerbtnp;
 } OS_SDL;
 
 static void                backend_SDL_audio(void *u, Uint8 *stream, int len);
@@ -98,8 +95,8 @@ int main(int argc, char **argv)
     OS_SDL.window = SDL_CreateWindow("Owlet's Embrace",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
-                                     SYS_DISPLAY_W * SYS_SDL_SCALE + 32,
-                                     SYS_DISPLAY_H * SYS_SDL_SCALE + 32,
+                                     SYS_DISPLAY_W * SYS_SDL_SCALE,
+                                     SYS_DISPLAY_H * SYS_SDL_SCALE,
                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
     SDL_SetWindowMinimumSize(OS_SDL.window, SYS_DISPLAY_W, SYS_DISPLAY_H);
     OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window, -1, 0);
@@ -131,15 +128,14 @@ int main(int argc, char **argv)
         SDL_PauseAudioDevice(OS_SDL.audiodevID, 0);
     }
 
-    OS_SDL.running        = 1;
-    OS_SDL.reduce_flicker = SYS_REDUCE_FLICKER;
-    OS_SDL.r_src.w        = SYS_DISPLAY_W;
-    OS_SDL.r_src.h        = SYS_DISPLAY_H;
-    OS_SDL.r_dst.w        = SYS_DISPLAY_W * SYS_SDL_SCALE;
-    OS_SDL.r_dst.h        = SYS_DISPLAY_H * SYS_SDL_SCALE;
-    OS_SDL.timeorigin     = SDL_GetPerformanceCounter();
-    OS_SDL.is_mono        = 1;
-    OS_SDL.vol            = 1.f;
+    OS_SDL.running    = 1;
+    OS_SDL.r_src.w    = SYS_DISPLAY_W;
+    OS_SDL.r_src.h    = SYS_DISPLAY_H;
+    OS_SDL.r_dst.w    = SYS_DISPLAY_W * SYS_SDL_SCALE;
+    OS_SDL.r_dst.h    = SYS_DISPLAY_H * SYS_SDL_SCALE;
+    OS_SDL.timeorigin = SDL_GetPerformanceCounter();
+    OS_SDL.is_mono    = 1;
+    OS_SDL.vol        = 1.f;
     backend_display_row_updated(0, SYS_DISPLAY_H - 1);
     SDL_on_resize();
     sys_init();
@@ -170,12 +166,6 @@ int main(int argc, char **argv)
                 }
                 break;
             }
-        }
-
-        OS_SDL.flickerbtnp = OS_SDL.flickerbtn;
-        OS_SDL.flickerbtn  = sys_key(SYS_KEY_SPACE);
-        if (!OS_SDL.flickerbtnp && OS_SDL.flickerbtn) {
-            OS_SDL.reduce_flicker = 1 - OS_SDL.reduce_flicker;
         }
 
         OS_SDL.pausebtnp = OS_SDL.pausebtn;
@@ -387,9 +377,9 @@ f32 backend_seconds()
     return (f32)dt_counter / (f32)SDL_GetPerformanceFrequency();
 }
 
-u8 *backend_framebuffer()
+u32 *backend_framebuffer()
 {
-    return OS_SDL.framebuffer;
+    return (u32 *)OS_SDL.framebuffer;
 }
 
 void *backend_file_open(const char *path, int mode)
@@ -443,7 +433,7 @@ int backend_debug_space()
     return (keys[SDL_SCANCODE_SPACE]);
 }
 
-void backend_set_menu_image(u8 *px, int h, int wbyte)
+void backend_set_menu_image(void *px, int h, int wbyte)
 {
     int y2 = SYS_DISPLAY_H < h ? SYS_DISPLAY_H : h;
     int b2 = SYS_DISPLAY_WBYTES < wbyte ? SYS_DISPLAY_WBYTES : wbyte;
@@ -451,16 +441,11 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
         for (int b = 0; b < b2; b++) {
             int i                 = b + y * wbyte;
             int k                 = b + y * SYS_DISPLAY_WBYTES;
-            OS_SDL.menuimg[k]     = px[i];
-            OS_SDL.framebuffer[k] = px[i];
+            OS_SDL.menuimg[k]     = ((u8 *)px)[i];
+            OS_SDL.framebuffer[k] = ((u8 *)px)[i];
         }
     }
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
-}
-
-bool32 backend_reduced_flicker()
-{
-    return OS_SDL.reduce_flicker;
 }
 
 void backend_set_FPS(int fps)

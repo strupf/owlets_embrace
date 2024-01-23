@@ -30,7 +30,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         int    strl      = fnt_length_px(font_1, g->areaname.label);
         v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
 
-        gfx_spr_display(ctx_af, tlabel, loc, 0, 0);
+        gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
     if (fade_phase(fadeupgrade)) {
@@ -131,11 +131,11 @@ void render_pause(game_s *g)
     tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
     gfx_ctx_s ctx = gfx_ctx_default(tex);
 
-    for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WBYTES; i++) {
-        tex.px[i] = rngr_i32(0, 255);
+    for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WWORDS; i++) {
+        tex.px[i] = rng_u32();
     }
 
-    sys_set_menu_image(tex.px, tex.h, tex.wbyte);
+    sys_set_menu_image(tex.px, tex.h, tex.wword * 4);
     spm_pop();
 }
 

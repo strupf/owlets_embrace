@@ -60,7 +60,7 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
     o->pos.y        = mo->y;
     o->w            = mo->w;
     o->h            = mo->h;
-    o->timer        = SWINGDOOR_TICKS;
+    o->timer        = SWINGDOOR_TICKS + 1;
 
     if (map_obj_bool(mo, "Opened")) {
         o->state = SWINGDOOR_OPEN;

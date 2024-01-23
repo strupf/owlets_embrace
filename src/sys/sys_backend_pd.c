@@ -116,9 +116,9 @@ f32 backend_seconds()
     return PD_getElapsedTime();
 }
 
-u8 *backend_framebuffer()
+u32 *backend_framebuffer()
 {
-    return PD->graphics->getFrame();
+    return (u32 *)PD->graphics->getFrame();
 }
 
 void *backend_file_open(const char *path, int mode)
@@ -161,7 +161,7 @@ int backend_debug_space()
     return 0;
 }
 
-void backend_set_menu_image(u8 *px, int h, int wbyte)
+void backend_set_menu_image(void *px, int h, int wbyte)
 {
     int wid, hei, byt;
     u8 *p;
@@ -170,14 +170,9 @@ void backend_set_menu_image(u8 *px, int h, int wbyte)
     int b2 = byt < wbyte ? byt : wbyte;
     for (int y = 0; y < y2; y++) {
         for (int b = 0; b < b2; b++)
-            p[b + y * byt] = px[b + y * wbyte];
+            p[b + y * byt] = ((u8 *)px)[b + y * wbyte];
     }
     PD->system->setMenuImage(PD_menu_bm, 0);
-}
-
-bool32 backend_reduced_flicker()
-{
-    return PD->system->getReduceFlashing();
 }
 
 void backend_set_FPS(int fps)
