@@ -8,10 +8,7 @@
 #include "sys_types.h"
 
 #ifdef SYS_PD_HW
-static inline u32 bswap32(u32 v)
-{
-    return __builtin_bswap32(v);
-}
+#define bswap32 __builtin_bswap32
 
 static inline u32 clz32(u32 v)
 {
@@ -33,8 +30,7 @@ static inline u32 brev32(u32 v)
 #else
 static u32 bswap32(u32 i)
 {
-    return (i >> 24) | ((i << 8) & 0xFF0000U) |
-           (i << 24) | ((i >> 8) & 0x00FF00U);
+    return (i >> 24) | ((i << 8) & 0xFF0000U) | (i << 24) | ((i >> 8) & 0x00FF00U);
 }
 
 static i32 clz32(u32 v)
@@ -57,7 +53,5 @@ static u32 brev32(u32 x)
     return (r << s);
 }
 #endif
-
-#define bswaprev32(I) bswap32(brev32(I))
 
 #endif

@@ -5,6 +5,108 @@
 #include "enveffect.h"
 #include "game.h"
 
+static cloud_s *cloud_create(enveffect_cloud_s *e)
+{
+    if (e->n == BG_NUM_CLOUDS) return NULL;
+    cloud_s *c = &e->clouds[e->n++];
+    *c         = (cloud_s){0};
+    e->dirty   = 1;
+    c->t       = asset_texrec(TEXID_CLOUDS, 0, 0, 0, 0);
+    int roll   = rngr_i32(0, 100);
+    int size   = 0;
+    if (roll <= 70) {
+        size = 0;
+    } else if (roll <= 90) {
+        size = 1;
+    } else {
+        size = 2;
+    }
+    switch (size) {
+    case 0: {
+        int t    = rngr_i32(0, 3);
+        c->t.r.x = 3 * t * 32;
+        c->t.r.w = 3 * 32;
+        c->t.r.h = 3 * 16;
+    } break;
+    case 1: {
+        int t    = rngr_i32(0, 1);
+        t        = 0;
+        c->t.r.y = 3 * 16;
+        c->t.r.x = 4 * t * 32 * 4;
+        c->t.r.w = 4 * 32;
+        c->t.r.h = 4 * 16;
+    } break;
+    case 2: {
+        int t    = rngr_i32(0, 1);
+        t        = 0;
+        c->t.r.y = 7 * 16;
+        c->t.r.x = t * 32 * 5;
+        c->t.r.w = 5 * 32;
+        c->t.r.h = 16 * 5;
+    } break;
+    }
+    c->vx_q8 = rngr_i32(16, 256) * (rngr_i32(0, 1) * 2 - 1);
+    c->p.x   = 0 < c->vx_q8 ? -200 : +600;
+    c->p.y   = rngr_i32(-70, 180);
+    return c;
+}
+
+void enveffect_cloud_setup(enveffect_cloud_s *e)
+{
+    e->n  = 0;
+    int N = rngr_i32(8, 16);
+    for (int n = 0; n < N; n++) {
+        cloud_s *c = cloud_create(e);
+        if (!c) break;
+        c->p.x = rngr_i32(0, 400);
+    }
+}
+
+// called at 25 FPS (half frequency)
+void enveffect_cloud_update(enveffect_cloud_s *e)
+{
+    for (int n = e->n - 1; 0 <= n; n--) {
+        cloud_s *c = &e->clouds[n];
+
+        if ((c->vx_q8 < 0 && c->p.x < -200) &&
+            (c->vx_q8 > 0 && c->p.x > +500)) {
+            *c       = e->clouds[--e->n];
+            e->dirty = 1;
+            continue;
+        }
+
+        c->mx_q8 += c->vx_q8;
+        c->p.x += (c->mx_q8 >> 8);
+        c->mx_q8 &= 0xFF;
+    }
+
+    if (rng_u32() < 0x10000000U) {
+        cloud_s *c = cloud_create(e);
+    }
+}
+
+int cmp_cloud(const void *a, const void *b)
+{
+    const cloud_s *x = (const cloud_s *)a;
+    const cloud_s *y = (const cloud_s *)b;
+    return (x->priority - y->priority);
+}
+
+void enveffect_cloud_draw(gfx_ctx_s ctx, enveffect_cloud_s *e, v2_i32 cam)
+{
+    if (e->dirty) {
+        e->dirty = 0;
+        sort_array(e->clouds, e->n, sizeof(cloud_s), cmp_cloud);
+    }
+    for (int n = 0; n < e->n; n++) {
+        cloud_s *c = &e->clouds[n];
+        v2_i32   p = c->p;
+        p.x &= ~1;
+        p.y &= ~1;
+        gfx_spr(ctx, c->t, p, 0, 0);
+    }
+}
+
 void enveffect_wind_update(enveffect_wind_s *e)
 {
     // UPDATE PARTICLES
@@ -27,8 +129,8 @@ void enveffect_wind_update(enveffect_wind_s *e)
 
         if (0 < p->circticks) { // run through circle but keep slowly moving forward
             i32 a     = (0x400 * (p->ticks - p->circticks)) / p->ticks;
-            p->p_q8.x = p->circc.x + ((sin_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
-            p->p_q8.y = p->circc.y + ((cos_q16_fast(a) * BG_WIND_CIRCLE_R) >> 16);
+            p->p_q8.x = p->circc.x + ((sin_q16(a) * BG_WIND_CIRCLE_R) >> 16);
+            p->p_q8.y = p->circc.y + ((cos_q16(a) * BG_WIND_CIRCLE_R) >> 16);
             p->circc.x += 200;
             p->circticks--;
         } else {
@@ -75,7 +177,7 @@ void enveffect_wind_draw(gfx_ctx_s ctx, enveffect_wind_s *e, v2_i32 cam)
     }
 }
 
-// called every other frame
+// called at 25 FPS (half frequency)
 void enveffect_heat_update(enveffect_heat_s *e)
 {
     e->tick += 2000;

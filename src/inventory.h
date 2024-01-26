@@ -7,8 +7,12 @@
 
 #define INVENTORY_NUM_ITEMS 256
 
+#include "gamedef.h"
+
 enum {
     INVENTORY_ID_POTION,
+    //
+    INVENTORY_ID_KEY_1 = 100,
 };
 
 typedef struct {
@@ -18,7 +22,7 @@ typedef struct {
 
 typedef struct {
     int ID;
-    int count;
+    int n;
 } inventory_item_s;
 
 typedef struct {
@@ -28,8 +32,8 @@ typedef struct {
 
 extern const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS];
 
-void inventory_add(inventory_s *i, int ID, int count);
-void inventory_rem(inventory_s *i, int ID, int count);
+void inventory_add(inventory_s *i, int ID, int n);
+void inventory_rem(inventory_s *i, int ID, int n);
 int  inventory_count_of(inventory_s *i, int ID);
 
 #endif

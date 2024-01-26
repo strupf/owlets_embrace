@@ -16,7 +16,6 @@
 #include "util/mathfunc.h"
 #include "util/mem.h"
 #include "util/rng.h"
-#include "util/sorting.h"
 #include "util/str.h"
 
 #define FILEPATH_MAP    "assets/map/"

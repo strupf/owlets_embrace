@@ -39,8 +39,6 @@ enum {
     HERO_ATTACK_NONE,
     HERO_ATTACK_SIDE,
     HERO_ATTACK_UP,
-    HERO_ATTACK_DIA_UP,
-    HERO_ATTACK_DIA_DOWN,
     HERO_ATTACK_DOWN,
 };
 
@@ -50,11 +48,10 @@ typedef struct {
     flags32 aquired_items;
     rope_s  rope;
 
-    int         n_airjumps;
-    int         selected_item;
-    bool32      itemselection_decoupled;
-    int         item_angle;
-    inventory_s inventory;
+    int    n_airjumps;
+    int    selected_item;
+    bool32 itemselection_decoupled;
+    int    item_angle;
 
     int      health;
     int      n_hitbox; // only for debugging
@@ -71,6 +68,8 @@ typedef struct {
     i32    swimticks;
     bool32 onladder;
     int    ladderx;
+    int    windgush_ticks;
+    v2_i32 jumped_at;
 } hero_s;
 
 obj_s *hero_create(game_s *g);

@@ -17,10 +17,10 @@ enum {
 
 typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
+    int  wword;
     int  fmt;
     int  w;
     int  h;
-    int  wword;
 } tex_s;
 
 typedef struct {
@@ -87,6 +87,7 @@ enum {
 fnt_s         fnt_load(const char *filename, alloc_s ma);
 tex_s         tex_framebuffer();
 tex_s         tex_create(int w, int h, alloc_s ma);
+tex_s         tex_create_opaque(int w, int h, alloc_s ma);
 tex_s         tex_load(const char *path, alloc_s ma);
 int           tex_px_at(tex_s tex, int x, int y);
 int           tex_mk_at(tex_s tex, int x, int y);
@@ -108,7 +109,6 @@ gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
 gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
-gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den);
 //
 #define gfx_spr_cpy_display(C, S, P)   gfx_spr(C, S, P, 0, 0)
 #define gfx_spr_display(C, S, P, F, M) gfx_spr(C, S, P, F, M)

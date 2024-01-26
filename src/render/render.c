@@ -9,7 +9,9 @@ int cmp_obj_render_priority(const void *a, const void *b)
 {
     const obj_s *x = *(const obj_s **)a;
     const obj_s *y = *(const obj_s **)b;
-    return (x->render_priority - y->render_priority);
+    if (x->render_priority < y->render_priority) return -1;
+    if (x->render_priority > y->render_priority) return +1;
+    return 0;
 }
 
 static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 camoffset)
@@ -112,18 +114,28 @@ void game_draw(game_s *g)
     ocean_s *ocean = &g->ocean;
 
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
-    // render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
-    render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
+    render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
 
-    for (int n = 0; n < g->n_decal_bg; n++) {
-        gfx_ctx_s ctx_decal = ctx;
-        decal_s   decal     = g->decal_bg[n];
-        texrec_s  decalrec  = {decal.tex,
-                               {0, 0, decal.tex.w, decal.tex.h}};
-        v2_i32    decalpos  = {decal.x, decal.y};
-        gfx_spr_display(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
+#if 0 // roughly cuts FPS in half
+    void tex_px_unsafe_display(tex_s tex, int x, int y, int col);
+    for (int y = 0, it = 1; y < camrec.h; y++, it = 1 - it) {
+        int pposy = y - camoffset.y;
+        int tiley = (pposy >> 4) * g->tiles_x;
+        for (int x = it; x < camrec.w; x += 2) {
+            int pposx = x - camoffset.x;
+
+            if (g->rtiles[TILELAYER_BG][(pposx >> 4) + tiley].u == 0) continue;
+
+            rec_i32 rr = {pposx - 4, pposy - 4, 9, 9};
+            if (tiles_solid(g, rr)) {
+                tex_px_unsafe_display(ctx.dst, x, y, 0);
+            }
+        }
     }
 
+#endif
+
+    render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
 
     obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -163,7 +175,7 @@ void game_draw(game_s *g)
 
     if (g->objrender_dirty) {
         g->objrender_dirty = 0;
-        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s **), cmp_obj_render_priority);
+        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s *), cmp_obj_render_priority);
     }
 
     for (int n = 0; n < g->n_objrender; n++) {
@@ -188,15 +200,6 @@ void game_draw(game_s *g)
             gfx_spr(ctxparticle, p->texrec, ppos, 0, 0);
         } break;
         }
-    }
-
-    for (int n = 0; n < g->n_decal_fg; n++) {
-        gfx_ctx_s ctx_decal = ctx;
-        decal_s   decal     = g->decal_fg[n];
-        texrec_s  decalrec  = {decal.tex,
-                               {0, 0, decal.tex.w, decal.tex.h}};
-        v2_i32    decalpos  = {decal.x, decal.y};
-        gfx_spr_display(ctx_decal, decalrec, v2_add(decalpos, camoffset), 0, 0);
     }
 
     texrec_s trgrass;
@@ -228,6 +231,16 @@ void game_draw(game_s *g)
 
     render_ui(g, camoffset);
     transition_draw(&g->transition);
+#if 0
+    texrec_s   trrr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 128, 128);
+    static int posxx;
+    static int posyy;
+    if (sys_key(SYS_KEY_UP)) posyy -= 3;
+    if (sys_key(SYS_KEY_DOWN)) posyy += 3;
+    if (sys_key(SYS_KEY_LEFT)) posxx -= 3;
+    if (sys_key(SYS_KEY_RIGHT)) posxx += 3;
+    gfx_spr(ctx, trrr, (v2_i32){posxx, posyy}, SPR_FLIP_X, 0);
+#endif
 }
 
 void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
@@ -267,20 +280,6 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
     }
 }
 
-static int ocean_render_amplitude_at(game_s *g, i32 px_x)
-{
-    assert(0 <= px_x && (px_x >> 3) < g->ocean.surf.nparticles);
-    int i1 = (px_x) >> 3;
-    int i2 = (px_x + 7) >> 3;
-    int h1 = water_amplitude(&g->ocean.surf, i1);
-    int h2 = water_amplitude(&g->ocean.surf, i2);
-    int u1 = px_x & 7;
-    int u2 = 8 - u1;
-    int oh = ocean_height(g, px_x);
-    oh     = g->ocean.y;
-    return oh + ((h1 * u2 + h2 * u1) >> 3);
-}
-
 void ocean_calc_spans(game_s *g, rec_i32 camr)
 {
     ocean_s *oc = &g->ocean;
@@ -290,19 +289,20 @@ void ocean_calc_spans(game_s *g, rec_i32 camr)
         return;
     }
 
-    if (inp_debug_space()) {
-        water_impact(&oc->surf, 30, 6, 30000);
-    }
+    int (*height)(game_s * g, int pixel_x) =
+        inp_debug_space() ? ocean_height : ocean_render_height;
 
     oc->y_min          = I32_MAX;
     oc->y_max          = I32_MIN;
     oc->n_spans        = 1;
     ocean_span_s *span = &oc->spans[0];
-    span->y            = ocean_render_amplitude_at(g, 0 + camr.x) - camr.y;
+    span->y            = height(g, 0 + camr.x) - camr.y;
     span->w            = 1;
 
     for (int x = 1; x < camr.w; x++) {
-        i32 h     = ocean_render_amplitude_at(g, x + camr.x) - camr.y;
+        int xpos = x + camr.x;
+        i32 h    = height(g, x + camr.x) - camr.y;
+
         oc->y_min = min_i32(oc->y_min, h);
         oc->y_max = max_i32(oc->y_max, h);
         if (h != span->y) {

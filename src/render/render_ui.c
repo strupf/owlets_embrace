@@ -128,7 +128,8 @@ void prerender_area_label(game_s *g)
 void render_pause(game_s *g)
 {
     spm_push();
-    tex_s     tex = tex_create(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
+    tex_s tex = tex_create_opaque(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
+    tex_clr(tex, TEX_CLR_WHITE);
     gfx_ctx_s ctx = gfx_ctx_default(tex);
 
     for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WWORDS; i++) {
@@ -159,10 +160,10 @@ static void render_item_selection(herodata_s *h)
 
     int turn1 = (inp_crank_q16() >> 6) + 0x400;
     int turn2 = (h->item_angle >> 6) + 0x400;
-    int sy1   = (sin_q16_fast(turn1) * ITEM_OVAL_Y) >> 16;
-    int sy2   = (sin_q16_fast(turn2) * ITEM_OVAL_Y) >> 16;
-    int sx1   = (cos_q16_fast(turn1));
-    int sx2   = (cos_q16_fast(turn2));
+    int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
+    int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
+    int sx1   = (cos_q16(turn1));
+    int sx2   = (cos_q16(turn2));
 
     // wraps the item image around a rotating barrel
     // map coordinate to angle to image coordinate

@@ -232,8 +232,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
         break;
     }
 
-    gfx_ctx_s ctx_bg = ctx;
-    gfx_rec_fill(ctx_bg, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
+    gfx_rec_fill(ctx, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
 
     v2_i32   pos = {10, 160};
     fnt_s    fnt = asset_fnt(FNTID_LARGE);
@@ -262,11 +261,10 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
         gfx_spr(ctx, t, pp, 0, SPR_MODE_WHITE);
 
         p.x += fnt.widths[ci.glyph];
-
         len++;
-        if (len >= b->line_length[row]) {
-            len = 0;
+        if (b->line_length[row] <= len) {
             row++;
+            len = 0;
             p.x = pos.x;
             p.y += TB_LINE_SPACING;
         }
@@ -287,9 +285,13 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
         }
 
         texrec_s tarrow = asset_texrec(TEXID_UI, fr * 32, 176, 32, 32);
+        if (tb->block == tb->n_blocks - 1)
+            tarrow.r.y += 64 + 16;
         gfx_spr(ctx, tarrow, (v2_i32){360, 200}, 0, 0);
 
         if (b->n_choices <= 0) break;
+
+        gfx_rec_fill(ctx, (rec_i32){230, 70, 200, 100}, PRIM_MODE_BLACK);
 
         for (int n = 0; n < b->n_choices; n++) {
             textbox_choice_s *choice = &b->choices[n];
@@ -298,7 +300,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
                 int ci = choice->chars[i];
                 t.r.x  = fnt.grid_w * (ci & 31);
                 t.r.y  = fnt.grid_h * (ci >> 5);
-                gfx_spr(ctx, t, pp, 0, 0);
+                gfx_spr(ctx, t, pp, 0, SPR_MODE_WHITE);
                 pp.x += fnt.widths[ci];
             }
         }

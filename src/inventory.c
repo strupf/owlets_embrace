@@ -3,43 +3,43 @@
 // =============================================================================
 
 #include "inventory.h"
-#include "game.h"
 
 const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS] =
     {0};
 
-static int inventory_find(inventory_s *i, int ID)
+static inventory_item_s *inventory_find(inventory_s *i, int ID)
 {
     for (int n = 0; n < i->n_items; n++) {
-        if (i->items[n].ID == ID) return n;
+        inventory_item_s *item = &i->items[n];
+        if (item->ID == ID) return item;
     }
-    return -1;
+    return NULL;
 }
 
-void inventory_add(inventory_s *i, int ID, int count)
+void inventory_add(inventory_s *i, int ID, int n)
 {
-    int k = inventory_find(i, ID);
-    if (k >= 0) {
-        i->items[k].count += count;
+    inventory_item_s *item = inventory_find(i, ID);
+    if (item) {
+        item->n += n;
     } else {
-        inventory_item_s *item = &i->items[i->n_items++];
-        item->ID               = ID;
-        item->count            = count;
+        item     = &i->items[i->n_items++];
+        item->ID = ID;
+        item->n  = n;
     }
 }
 
-void inventory_rem(inventory_s *i, int ID, int count)
+void inventory_rem(inventory_s *i, int ID, int n)
 {
-    int k = inventory_find(i, ID);
-    if (k < 0) return;
-    i->items[k].count -= count;
-    if (i->items[k].count <= 0) {
-        i->items[k] = i->items[--i->n_items];
+    inventory_item_s *item = inventory_find(i, ID);
+    if (!item) return;
+    item->n -= min_i(n, item->n);
+    if (item->n == 0) {
+        *item = i->items[--i->n_items];
     }
 }
 
 int inventory_count_of(inventory_s *i, int ID)
 {
-    int k = inventory_find(i, ID);
-    return (k >= 0 ? i->items[k].count : 0);
+    inventory_item_s *item = inventory_find(i, ID);
+    return (item ? item->n : 0);
 }

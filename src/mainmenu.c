@@ -36,7 +36,7 @@ void mainmenu_init(mainmenu_s *t)
     t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_WHIP;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
-    // t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
+    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
     t->savefiles[0].sf.n_airjumps = 1;
     t->savefiles[0].sf.health     = 10;
     t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;

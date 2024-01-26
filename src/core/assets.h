@@ -36,6 +36,11 @@ enum {
     TEXID_AREALABEL,
     TEXID_UPGRADELABEL,
     TEXID_BG_CAVE,
+    TEXID_BG_MOUNTAINS,
+    TEXID_CARRIER,
+    TEXID_CRUMBLE,
+    TEXID_NPC,
+    TEXID_WINDGUSH,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -95,7 +100,7 @@ typedef struct {
     int next_texID;
 
     marena_s marena;
-    alignas(4) char mem[MKILOBYTE(6144)];
+    alignas(8) char mem[MMEGABYTE(5)];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;

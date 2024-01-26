@@ -19,7 +19,6 @@
 #include "rope.h"
 #include "textbox.h"
 #include "transition.h"
-#include "water.h"
 
 #define NUM_TILES         0x40000
 #define INTERACTABLE_DIST 32
@@ -32,8 +31,7 @@
 #define OCEAN_NUM_SPANS 512
 
 typedef struct {
-    watersurface_s surf;
-    rec_i32        area;
+    rec_i32 area;
 } water_s;
 
 typedef struct {
@@ -42,13 +40,12 @@ typedef struct {
 } ocean_span_s;
 
 typedef struct {
-    bool32         active;
-    watersurface_s surf;
-    int            y;
-    i32            y_min; // boundaries of affected wave area
-    i32            y_max;
-    int            n_spans;
-    ocean_span_s   spans[OCEAN_NUM_SPANS];
+    bool32       active;
+    int          y;
+    i32          y_min; // boundaries of affected wave area
+    i32          y_max;
+    int          n_spans;
+    ocean_span_s spans[OCEAN_NUM_SPANS];
 } ocean_s;
 
 typedef struct {
@@ -75,16 +72,6 @@ typedef union {
     };
     u16 u;
 } rtile_s;
-
-typedef struct {
-    tex_s tex;
-    int   x;
-    int   y;
-    int   w;
-    int   h;
-    int   sx;
-    int   sy;
-} decal_s;
 
 enum {
     EVENT_HIT_ENEMY   = 1 << 0,
@@ -131,14 +118,16 @@ struct game_s {
     obj_s           *obj_render[NUM_OBJ]; // sorted render array
     obj_s            obj_raw[NUM_OBJ];
 
-    herodata_s herodata;
-    rope_s     rope; // hero rope, singleton
-    textbox_s  textbox;
+    inventory_s inventory;
+    herodata_s  herodata;
+    rope_s      rope; // hero rope, singleton
+    textbox_s   textbox;
 
-    bool32           avoid_flickering;
-    flags32          env_effects;
-    enveffect_wind_s env_wind;
-    enveffect_heat_s env_heat;
+    bool32            avoid_flickering;
+    flags32           env_effects;
+    enveffect_cloud_s env_cloud;
+    enveffect_wind_s  env_wind;
+    enveffect_heat_s  env_heat;
 
     rope_s *ropes[2];
     int     n_ropes;
@@ -149,11 +138,7 @@ struct game_s {
         fade_s fade;
     } areaname;
 
-    int         n_decal_fg;
-    int         n_decal_bg;
     int         n_grass;
-    decal_s     decal_fg[NUM_DECALS];
-    decal_s     decal_bg[NUM_DECALS];
     grass_s     grass[256];
     particles_s particles;
 
@@ -174,7 +159,6 @@ void game_tick(game_s *g);
 void game_draw(game_s *g);
 void game_resume(game_s *g);
 void game_paused(game_s *g);
-void game_update_animations(game_s *g);
 
 void    game_open_inventory(game_s *g);
 int     tick_now(game_s *g);
@@ -192,6 +176,7 @@ void    game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
 void    game_put_grass(game_s *g, int tx, int ty);
 //
 int     ocean_height(game_s *g, int pixel_x);
+int     ocean_render_height(game_s *g, int pixel_x);
 int     water_depth_rec(game_s *g, rec_i32 r);
 //
 alloc_s game_allocator(game_s *g);

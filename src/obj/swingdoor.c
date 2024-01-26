@@ -74,7 +74,7 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
     }
     od->trigger_to_open  = map_obj_i32(mo, "trigger_to_open");
     od->trigger_to_close = map_obj_i32(mo, "trigger_to_close");
-    od->key_to_open      = map_obj_i32(mo, "keyID");
+    od->key_to_open      = map_obj_i32(mo, "KeyID");
 }
 
 void swingdoor_toggle(game_s *g, obj_s *o)
@@ -89,19 +89,19 @@ void swingdoor_on_update(game_s *g, obj_s *o)
 {
     o->timer++;
     if (o->state == SWINGDOOR_OPEN) return;
-    swingdoor_s *od = (swingdoor_s *)o->mem;
-    if (od->key_to_open == 0) return;
+    swingdoor_s *od    = (swingdoor_s *)o->mem;
+    int          keyID = od->key_to_open;
+    if (keyID == 0) return;
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!ohero) return;
-    if (0 != od->key_to_open) return;
-    sys_printf("Reminder: Swingdoor key code\n");
+    inventory_s *inv = &g->inventory;
+    if (!inventory_count_of(inv, keyID)) return;
 
     rec_i32 rkey = obj_aabb(o);
     rkey.x -= SWINGDOOR_KEY_RANGE;
-    rkey.y -= SWINGDOOR_KEY_RANGE;
     rkey.w += SWINGDOOR_KEY_RANGE << 1;
-    rkey.h += SWINGDOOR_KEY_RANGE << 1;
     if (overlap_rec(rkey, obj_aabb(ohero))) {
+        inventory_rem(inv, keyID, 1);
         swingdoor_toggle(g, o);
     }
 }

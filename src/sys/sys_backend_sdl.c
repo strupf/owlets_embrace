@@ -95,8 +95,8 @@ int main(int argc, char **argv)
     OS_SDL.window = SDL_CreateWindow("Owlet's Embrace",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
-                                     SYS_DISPLAY_W * SYS_SDL_SCALE,
-                                     SYS_DISPLAY_H * SYS_SDL_SCALE,
+                                     SYS_DISPLAY_W * SYS_SDL_SCALE + 16,
+                                     SYS_DISPLAY_H * SYS_SDL_SCALE + 16,
                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
     SDL_SetWindowMinimumSize(OS_SDL.window, SYS_DISPLAY_W, SYS_DISPLAY_H);
     OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window, -1, 0);
@@ -373,8 +373,8 @@ int backend_crank_docked()
 
 f32 backend_seconds()
 {
-    Uint64 dt_counter = SDL_GetPerformanceCounter() - OS_SDL.timeorigin;
-    return (f32)dt_counter / (f32)SDL_GetPerformanceFrequency();
+    Uint64 d = SDL_GetPerformanceCounter() - OS_SDL.timeorigin;
+    return (f32)d / (f32)SDL_GetPerformanceFrequency();
 }
 
 u32 *backend_framebuffer()

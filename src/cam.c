@@ -5,7 +5,7 @@
 #include "cam.h"
 #include "game.h"
 
-#define CAM_TICKS_TB 20
+#define CAM_TICKS_TB 30
 #define CAM_TICKS_X  200
 
 #define CAM_W  SYS_DISPLAY_W
@@ -80,7 +80,7 @@ void cam_update(game_s *g, cam_s *c)
 
     if (g->textbox.state) {
         c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
-        c->addyoffset = 50;
+        c->addyoffset = 60;
     } else if (c->look_down) {
         c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
         c->addyoffset = 100;

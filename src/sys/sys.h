@@ -108,7 +108,6 @@ void          sys_log(const char *str);
 int           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]
 int           sys_crank_docked();
-f32           sys_seconds();
 int           sys_key(int k);
 void          sys_set_FPS(int fps);
 void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg);

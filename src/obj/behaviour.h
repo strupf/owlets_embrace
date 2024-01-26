@@ -49,7 +49,9 @@ void   crawler_on_animate(game_s *g, obj_s *o);
 void   crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb);
 //
 obj_s *carrier_create(game_s *g);
+void   carrier_load(game_s *g, map_obj_s *mo);
 void   carrier_on_update(game_s *g, obj_s *o);
+void   carrier_on_animate(game_s *g, obj_s *o);
 //
 obj_s *heroupgrade_create(game_s *g);
 void   heroupgrade_load(game_s *g, map_obj_s *mo);
@@ -83,5 +85,6 @@ void   swingdoor_load(game_s *g, map_obj_s *mo);
 void   swingdoor_on_update(game_s *g, obj_s *o);
 void   swingdoor_on_interact(game_s *g, obj_s *o);
 void   swingdoor_on_animate(game_s *g, obj_s *o);
+void   swingdoor_on_trigger(game_s *g, obj_s *o, int trigger);
 
 #endif

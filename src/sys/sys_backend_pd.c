@@ -34,10 +34,10 @@ void (*PD_log)(const char *fmt, ...);
 #endif
 
 static void (*PD_getButtonState)(PDButtons *a, PDButtons *b, PDButtons *c);
-static float (*PD_getElapsedTime)(void);
 static void (*PD_markUpdatedRows)(int a, int b);
 static float (*PD_getCrankAngle)(void);
 static int (*PD_isCrankDocked)(void);
+static float (*PD_seconds)(void);
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -53,14 +53,14 @@ __declspec(dllexport)
         PD_format_str      = PD->system->formatString;
         PD_realloc         = PD->system->realloc;
         PD_getButtonState  = PD->system->getButtonState;
-        PD_getElapsedTime  = PD->system->getElapsedTime;
         PD_markUpdatedRows = PD->graphics->markUpdatedRows;
         PD_getCrankAngle   = PD->system->getCrankAngle;
         PD_isCrankDocked   = PD->system->isCrankDocked;
+        PD_seconds         = PD->system->getElapsedTime;
         PD->system->setUpdateCallback(sys_tick, PD);
         PD->sound->addSource(sys_audio_cb, NULL, 0);
-        PD->system->resetElapsedTime();
         PD->display->setRefreshRate(0.f);
+        PD->system->resetElapsedTime();
         PD_menu_bm = PD->graphics->newBitmap(400, 240, kColorWhite);
         sys_init();
         break;
@@ -107,13 +107,12 @@ int backend_crank_docked()
 
 void backend_display_row_updated(int a, int b)
 {
-    assert(0 <= a && b < SYS_DISPLAY_H);
     PD_markUpdatedRows(a, b);
 }
 
 f32 backend_seconds()
 {
-    return PD_getElapsedTime();
+    return PD_seconds();
 }
 
 u32 *backend_framebuffer()

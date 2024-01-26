@@ -139,7 +139,6 @@ struct obj_s {
     v2_i32          vel_cap_q8;
     v2_i32          drag_q8;
     v2_i32          gravity_q8;
-    v2_i32          acc_q8;
     v2_i32          tomove;
     //
     int             trigger;

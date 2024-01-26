@@ -5,6 +5,17 @@
 #include "game.h"
 #include "render.h"
 
+static void bg_fill_rows(tex_s dst, gfx_pattern_s pat, int y1, int y2)
+{
+    u32 *px = &((u32 *)dst.px)[y1 * dst.wword];
+    for (int y = y1; y < y2; y++) {
+        const u32 p = pat.p[y & 3];
+        for (int x = 0; x < dst.wword; x++) {
+            *px++ = p;
+        }
+    }
+}
+
 void render_bg(game_s *g, rec_i32 cam)
 {
     const gfx_ctx_s ctx    = gfx_ctx_display();
@@ -14,49 +25,33 @@ void render_bg(game_s *g, rec_i32 cam)
     ocean_s *ocean = &g->ocean;
     ocean_calc_spans(g, cam);
 
-    int clip_y1 = 200;
-    int clip_y2 = min_i(ocean->y_max, dst.h);
-    int clip_yy = min_i(clip_y1, clip_y2);
+    int clip_bot = min_i(ocean->y_max, dst.h);
 
-    gfx_ctx_s ctx_ocean = gfx_ctx_clip_top(ctx, 100);
-#if 0
-    gfx_ctx_s ctx_near  = gfx_ctx_clip_bot(ctx, clip_yy - 1);
-    gfx_ctx_s ctx_far   = gfx_ctx_clip_bot(ctx, clip_yy - 1);
+    gfx_ctx_s     ctx_ocean     = gfx_ctx_clip_top(ctx, 100);
+    gfx_pattern_s pattern_black = gfx_pattern_bayer_4x4(0);
+    gfx_pattern_s pattern_white = gfx_pattern_bayer_4x4(16);
+#if 1
+    bg_fill_rows(dst, pattern_white, 0, clip_bot);
+    texrec_s tcave_1   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 0, 1024, 256);
+    texrec_s tcave_2   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 256, 1024, 256);
+    v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, -20};
+    v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
+    cavepos_1.x &= ~1; // reduce dither flickering
+    cavepos_1.y &= ~1;
+    cavepos_2.x &= ~3;
+    cavepos_2.y &= ~3;
 
-    ctx_near.pat = gfx_pattern_4x4(B4(1000),
-                                   B4(0000),
-                                   B4(0010),
-                                   B4(0000));
-    ctx_far.pat  = gfx_pattern_4x4(B4(1000),
-                                   B4(0000),
-                                   B4(0000),
-                                   B4(0000));
-
-    for (int y = 0; y < clip_yy; y++) {
-        for (int x = 0; x < dst.wword; x++) {
-            ((u32 *)dst.px)[x + y * dst.wword] = 0xFFFFFFFFU;
-        }
-    }
-
-    for (int y = clip_yy; y < clip_y2; y++) {
-        u32 p = ~ctx_near.pat.p[y & 3];
-        for (int x = 0; x < dst.wword; x++) {
-            ((u32 *)dst.px)[x + y * dst.wword] = p;
-        }
-    }
+    gfx_ctx_s ctx_bg = gfx_ctx_clip_bot(ctx, clip_bot);
+    gfx_spr_cpy_display(ctx_bg, tcave_1, cavepos_1);
+    gfx_spr_cpy_display(ctx_bg, tcave_2, cavepos_2);
+#elif 0
+    gfx_pattern_s pattern_1 = gfx_pattern_bayer_4x4(16);
+    bg_fill_rows(dst, pattern_1, 0, clip_bot);
+    texrec_s tcave_1   = asset_texrec(TEXID_CLOUDS, 0, 0, 512, 256);
+    v2_i32   cavepos_1 = {0, 0};
+    gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
 #else
-    gfx_pattern_s pattern_fill = gfx_pattern_4x4(B4(0000),
-                                                 B4(0000),
-                                                 B4(0000),
-                                                 B4(0000));
-    for (int y = 0; y < dst.h; y++) {
-        const u32 p  = pattern_fill.p[y & 3];
-        u32      *px = &((u32 *)dst.px)[y * dst.wword];
-        for (int x = 0; x < dst.wword; x++) {
-            *px++ = p;
-        }
-    }
-#endif
+    bg_fill_rows(dst, pattern_black, 0, clip_bot);
     texrec_s tcave_1   = asset_texrec(TEXID_BG_CAVE, 0, 0, 1024, 256);
     texrec_s tcave_2   = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
     v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, 20};
@@ -67,23 +62,21 @@ void render_bg(game_s *g, rec_i32 cam)
     cavepos_2.y &= ~3;
     gfx_spr_cpy_display(ctx, tcave_2, cavepos_2);
     gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
+#endif
+
+    if (g->env_effects & ENVEFFECT_CLOUD) {
+        enveffect_cloud_draw(ctx, &g->env_cloud, camoff);
+    }
+
+    ocean_draw_bg(ctx_ocean, g, camoff);
 
 #if 0
-    texrec_s tmountain = asset_texrec(TEXID_BG_ART, 0, 128, 256, 128);
-    gfx_spr(ctx, tmountain, (v2_i32){0, 50}, 0, 0);
-
-    texrec_s tbackground = asset_texrec(TEXID_BG_ART, 0, 0, 128, 128);
-
-    for (int l = 3; l >= 3; l--) {
-        gfx_ctx_s ct = ctx;
-        for (int i = 0; i < 10; i++) {
-            v2_i32 pos = {100 + i * 256 - cam.x * l / 4, 80};
-            gfx_spr(ct, tbackground, pos, 0, 0);
+    for (int y = clip_yy; y < dst.h; y++) {
+        for (int x = 0; x < dst.wword; x++) {
+            ((u32 *)dst.px)[x + y * dst.wword] = 0xFFFFFFFFU;
         }
     }
 #endif
-
-    ocean_draw_bg(ctx_ocean, g, camoff);
 }
 
 void ocean_draw_bg(gfx_ctx_s ctx, game_s *g, v2_i32 camoff)
@@ -105,6 +98,7 @@ void ocean_draw_bg(gfx_ctx_s ctx, game_s *g, v2_i32 camoff)
 
         gfx_rec_fill_display(ctx, rf, PRIM_MODE_BLACK);
 
+#if 0
         // calc height of horizont based on thales theorem
         int y_horizont = ((sp.y - HORIZONT_Y_EYE) * HORIZONT_X) /
                          (HORIZONT_X + HORIZONT_X_EYE);
@@ -115,6 +109,7 @@ void ocean_draw_bg(gfx_ctx_s ctx, game_s *g, v2_i32 camoff)
             ctxl.pat       = gfx_pattern_interpolate(8 - i, 8);
             gfx_rec_fill_display(ctxl, rl, PRIM_MODE_BLACK);
         }
+#endif
         x += sp.w;
     }
 

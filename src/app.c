@@ -118,6 +118,24 @@ void app_load_assets()
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg.tex", NULL);
     asset_tex_loadID(TEXID_MAINMENU, "mainmenu.tex", NULL);
     asset_tex_loadID(TEXID_BG_ART, "bg_art.tex", NULL);
+    asset_tex_loadID(TEXID_CRUMBLE, "crumble.tex", NULL);
+    {
+        texrec_s  tcrumble   = asset_texrec(TEXID_CRUMBLE, 0, 0, 16, 16);
+        gfx_ctx_s ctxcrumble = gfx_ctx_default(tcrumble.t);
+        for (int y = 1; y < 4; y++) {
+            tcrumble.r.x = 0;
+            tcrumble.r.w = 4;
+            gfx_spr(ctxcrumble, tcrumble, (v2_i32){0, y * 16}, 0, 0);
+            tcrumble.r.x = 20;
+            gfx_spr(ctxcrumble, tcrumble, (v2_i32){(2 + y) * 16 - 12, y * 16}, 0, 0);
+            tcrumble.r.x = 4;
+            tcrumble.r.w = 16;
+            for (int x = 0; x <= y; x++) {
+                gfx_spr(ctxcrumble, tcrumble, (v2_i32){(1 + x) * 16 - 12, y * 16}, 0, 0);
+            }
+        }
+    }
+
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player.tex", &texhero);
     for (int y = 0; y < 6; y++) {
@@ -145,9 +163,19 @@ void app_load_assets()
     asset_tex_loadID(TEXID_TITLE, "title.tex", NULL);
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
     asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
-    asset_tex_loadID(TEXID_SHROOMY, "shroomysheet.tex", NULL);
+    asset_tex_loadID(TEXID_SHROOMY, "shroomy.tex", NULL);
     asset_tex_loadID(TEXID_MISCOBJ, "miscobj.tex", NULL);
+    asset_tex_loadID(TEXID_WINDGUSH, "windgush.tex", NULL);
+    asset_tex_loadID(TEXID_NPC, "npc.tex", NULL);
     asset_tex_loadID(TEXID_BG_CAVE, "bg_cave.tex", NULL);
+    asset_tex_loadID(TEXID_BG_MOUNTAINS, "bg_mountains.tex", NULL);
+
+    tex_s tnpc = asset_tex(TEXID_NPC);
+    for (int y = 0; y < 5; y++) {
+        for (int x = 0; x < 2; x++) {
+            tex_outline(tnpc, x * 64, y * 64, 64, 64, 1, 1);
+        }
+    }
 
     tex_s tmisc = asset_tex(TEXID_MISCOBJ);
     tex_outline(tmisc, 0, 192, 64 * 2, 64, 1, 1);
@@ -175,6 +203,15 @@ void app_load_assets()
             }
         }
         tex_outline(trcrawler.t, 0, 0, trcrawler.t.w, trcrawler.t.h, 1, 1);
+    }
+
+    asset_tex_loadID(TEXID_CARRIER, "carrier.tex", NULL);
+    {
+        texrec_s  trcarrier   = asset_texrec(TEXID_CARRIER, 0, 0, 64, 64);
+        gfx_ctx_s ctx_carrier = gfx_ctx_default(trcarrier.t);
+        for (int x = 0; x < 1; x++) {
+            tex_outline(trcarrier.t, x * 96, 0, 96, 64, 1, 1);
+        }
     }
 
     // prerender 16 rotations

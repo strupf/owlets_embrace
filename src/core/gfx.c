@@ -66,20 +66,30 @@ tex_s tex_framebuffer()
     return t;
 }
 
-tex_s tex_create(int w, int h, alloc_s ma)
+tex_s tex_create_(int w, int h, bool32 mask, alloc_s ma)
 {
     tex_s t        = {0};
     int   waligned = (w + 31) & ~31;
-    int   wword    = waligned / 32;
+    int   wword    = (waligned / 32) << (0 < mask);
     usize size     = sizeof(u32) * wword * h;
-    void *mem      = ma.allocf(ma.ctx, size * 2); // * 2 bc of mask pixels
+    void *mem      = ma.allocf(ma.ctx, size); // * 2 bc of mask pixels
     if (!mem) return t;
     t.px    = (u32 *)mem;
-    t.fmt   = TEX_FMT_MASK;
+    t.fmt   = (0 < mask);
     t.w     = w;
     t.h     = h;
-    t.wword = wword * 2;
+    t.wword = wword;
     return t;
+}
+
+tex_s tex_create(int w, int h, alloc_s ma)
+{
+    return tex_create_(w, h, 1, ma);
+}
+
+tex_s tex_create_opaque(int w, int h, alloc_s ma)
+{
+    return tex_create_(w, h, 0, ma);
 }
 
 tex_s tex_load(const char *path, alloc_s ma)
@@ -98,75 +108,102 @@ tex_s tex_load(const char *path, alloc_s ma)
     return t;
 }
 
-int tex_px_at(tex_s tex, int x, int y)
+static int tex_px_at_unsafe(tex_s tex, int x, int y)
 {
-    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
     u32 b = bswap32(0x80000000U >> (x & 31));
     switch (tex.fmt) {
-    case TEX_FMT_MASK: return ((tex.px[y * tex.wword + (x >> 5) * 2] & b) > 0);
-    case TEX_FMT_OPAQUE: return ((tex.px[y * tex.wword + (x >> 5)] & b) > 0);
+    case TEX_FMT_MASK: return (tex.px[y * tex.wword + ((x >> 5) << 1)] & b);
+    case TEX_FMT_OPAQUE: return (tex.px[y * tex.wword + (x >> 5)] & b);
     }
     return 0;
 }
 
+static int tex_mk_at_unsafe(tex_s tex, int x, int y)
+{
+    if (tex.fmt == TEX_FMT_OPAQUE) return 1;
+
+    u32 b = bswap32(0x80000000U >> (x & 31));
+    return (tex.px[y * tex.wword + ((x >> 5) << 1) + 1] & b);
+}
+
+static void tex_px_unsafe(tex_s tex, int x, int y, int col)
+{
+    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32 *p = NULL;
+    switch (tex.fmt) {
+    case TEX_FMT_MASK: p = &tex.px[y * tex.wword + ((x >> 5) << 1)]; break;
+    case TEX_FMT_OPAQUE: p = &tex.px[y * tex.wword + (x >> 5)]; break;
+    default: return;
+    }
+    *p = (col == 0 ? *p & ~b : *p | b);
+}
+
+void tex_px_unsafe_display(tex_s tex, int x, int y, int col)
+{
+    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32 *p = &tex.px[y * tex.wword + (x >> 5)];
+    *p     = (col == 0 ? *p & ~b : *p | b);
+}
+
+static void tex_mk_unsafe(tex_s tex, int x, int y, int col)
+{
+    if (tex.fmt == TEX_FMT_OPAQUE) return;
+    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32 *p = &tex.px[y * tex.wword + ((x >> 5) << 1) + 1];
+    *p     = (col == 0 ? *p & ~b : *p | b);
+}
+
+int tex_px_at(tex_s tex, int x, int y)
+{
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 0;
+    return tex_px_at_unsafe(tex, x, y);
+}
+
 int tex_mk_at(tex_s tex, int x, int y)
 {
-    if (tex.fmt == TEX_FMT_OPAQUE || x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 1;
-    u32 b = bswap32(0x80000000U >> (x & 31));
-    return ((tex.px[y * tex.wword + (x >> 5) * 2 + 1] & b) > 0);
+    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return 1;
+    return tex_mk_at_unsafe(tex, x, y);
 }
 
 void tex_px(tex_s tex, int x, int y, int col)
 {
-    if (x < 0 || tex.w <= x || y < 0 || tex.h <= y) return;
-    u32  b  = bswap32(0x80000000U >> (x & 31));
-    int  n  = y * tex.wword + (x >> 5);
-    u32 *px = NULL;
-    switch (tex.fmt) {
-    case TEX_FMT_MASK: px = &tex.px[y * tex.wword + (x >> 5) * 2]; break;
-    case TEX_FMT_OPAQUE: px = &tex.px[y * tex.wword + (x >> 5)]; break;
-    }
-    *px = (col == 0 ? *px & ~b : *px | b);
+    if (0 <= x && x < tex.w && 0 <= y && y < tex.h)
+        tex_px_unsafe(tex, x, y, col);
 }
 
 void tex_mk(tex_s tex, int x, int y, int col)
 {
-    if (tex.fmt == TEX_FMT_OPAQUE || x < 0 || tex.w <= x || y < 0 || tex.h <= y) return;
-    u32 *px = &tex.px[y * tex.wword + (x >> 5) * 2 + 1];
-    u32  b  = bswap32(0x80000000U >> (x & 31));
-    *px     = (col == 0 ? *px & ~b : *px | b);
+    if (0 <= x && x < tex.w && 0 <= y && y < tex.h)
+        tex_mk_unsafe(tex, x, y, col);
 }
 
 void tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia)
 {
     spm_push();
+    tex_s src  = tex; // need to work off of a copy
     usize size = sizeof(u32) * tex.wword * tex.h;
-
-    tex_s src = tex; // need to work off of a copy
-    src.px    = (u32 *)spm_alloc(size);
+    src.px     = (u32 *)spm_alloc(size);
     memcpy(src.px, tex.px, size);
 
     int x2 = x + w;
     int y2 = y + h;
-
     for (int yy = y; yy < y2; yy++) {
         for (int xx = x; xx < x2; xx++) {
 
-            if (tex_mk_at(src, xx, yy) == 1) continue;
+            if (tex_mk_at_unsafe(src, xx, yy)) continue;
 
             for (int u = -1; u <= +1; u++) {
                 for (int v = -1; v <= +1; v++) {
-                    if (u == 0 && v == 0) continue;
+                    if ((u | v) == 0) continue; // same pixel
                     if (!dia && v != 0 && u != 0) continue;
 
                     int t = xx + u;
                     int s = yy + v;
-                    if (!(x <= t && t < x2)) continue;
-                    if (!(y <= s && s < y2)) continue;
+                    if (!(x <= t && t < x2 && y <= s && s < y2)) continue;
 
-                    if (tex_mk_at(src, t, s)) {
-                        tex_mk(tex, xx, yy, 1);
-                        tex_px(tex, xx, yy, col);
+                    if (tex_mk_at_unsafe(src, t, s)) {
+                        tex_mk_unsafe(tex, xx, yy, 1);
+                        tex_px_unsafe(tex, xx, yy, col);
                         goto BREAK_LOOP;
                     }
                 }
@@ -301,55 +338,32 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i)
     return pat;
 }
 
-gfx_pattern_s gfx_pattern_hor_stripes_4x4(int i)
-{
-    static const u32 ditherpat[5 * 8] = {
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
-        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
-        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
-        0xFFFFFFFFU, 0x00000000U, 0x00000000U, 0x00000000U,
-        0xFFFFFFFFU, 0x00000000U, 0xFFFFFFFFU, 0x00000000U,
-        0xFFFFFFFFU, 0x00000000U, 0xFFFFFFFFU, 0x00000000U,
-        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU,
-        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
-
-    const u32    *p   = &ditherpat[clamp_i(i, 0, 4) << 3];
-    gfx_pattern_s pat = {{p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]}};
-    return pat;
-}
-
 gfx_pattern_s gfx_pattern_interpolate(int num, int den)
 {
     return gfx_pattern_bayer_4x4((num * 16 + (den / 2)) / den);
 }
 
-gfx_pattern_s gfx_pattern_interpolate_hor_stripes(int num, int den)
-{
-    return gfx_pattern_hor_stripes_4x4((num * 5 + (den / 2)) / den);
-}
-
 void tex_clr(tex_s dst, int col)
 {
-    int N = dst.wword * dst.h;
+    int  N = dst.wword * dst.h;
+    u32 *p = dst.px;
     switch (col) {
     case TEX_CLR_BLACK:
         for (int n = 0; n < N; n++) {
-            dst.px[n] = 0xFFFFFFFFU;
+            *p++ = 0xFFFFFFFFU;
         }
         break;
     case TEX_CLR_WHITE:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
             for (int n = 0; n < N; n++) {
-                dst.px[n] = 0U;
+                *p++ = 0U;
             }
             break;
         case TEX_FMT_MASK:
             for (int n = 0; n < N; n += 2) {
-                dst.px[n + 0] = 0U;
-                dst.px[n + 1] = 0xFFFFFFFFU;
+                *p++ = 0;           // data
+                *p++ = 0xFFFFFFFFU; // mask
             }
             break;
         }
@@ -357,7 +371,7 @@ void tex_clr(tex_s dst, int col)
     case TEX_CLR_TRANSPARENT:
         if (dst.fmt == TEX_FMT_OPAQUE) break;
         for (int n = 0; n < N; n++) {
-            dst.px[n] = 0U;
+            *p++ = 0;
         }
         break;
     }
@@ -395,7 +409,6 @@ static void apply_spr_mode(u32 *restrict dp, u32 *restrict dm, u32 sp, u32 sm, i
 span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
 {
     int nbit = (x2 + 1) - x1; // number of bits in a row to blit
-    int dsti = (x1 >> 5) + y * ctx.dst.wword;
 
     span_blit_s info = {0};
     info.y           = y;
@@ -404,8 +417,8 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     info.mode        = mode;                                               // sprite masking mode
     info.ml          = bswap32(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
     info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
-    info.dp          = &ctx.dst.px[dsti];
-    info.dadd        = ctx.dst.fmt == TEX_FMT_MASK ? 2 : 1;
+    info.dp          = &ctx.dst.px[(x1 >> 5) + y * ctx.dst.wword];
+    info.dadd        = 1 + (ctx.dst.fmt == TEX_FMT_MASK);
     info.pat         = ctx.pat;
     return info;
 }
@@ -427,7 +440,7 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
     m         = m33_mul(m, m4);
     m         = m33_mul(m, m1);
 
-    int x1 = 0;
+    int x1 = 0; // optimize by inverting the matrix and calc corners
     int y1 = 0;
     int x2 = ctx.dst.w - 1;
     int y2 = ctx.dst.h - 1;
@@ -464,11 +477,14 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
             u32 *dp = NULL;
             u32 *dm = NULL;
             switch (ctx.dst.fmt) {
-            case TEX_FMT_OPAQUE: dp = &ctx.dst.px[y * dst.wword + wi]; break;
-            case TEX_FMT_MASK:
-                dp = &dst.px[y * dst.wword + wi * 2];
-                dm = &dst.px[y * dst.wword + wi * 2 + 1];
+            case TEX_FMT_OPAQUE:
+                dp = &ctx.dst.px[y * dst.wword + wi];
                 break;
+            case TEX_FMT_MASK:
+                dp = &dst.px[y * dst.wword + (wi << 1)];
+                dm = dp + 1;
+                break;
+            default: BAD_PATH
             }
 
             apply_spr_mode(dp, dm, bswap32(sp), bswap32(sm) & pat, 0);
@@ -507,20 +523,63 @@ static void prim_blit_span(span_blit_s info)
     apply_prim_mode(dp, info.dadd == 2 ? dp + 1 : NULL, m & info.mr, info.mode, pt);
 }
 
+static void apply_prim_mode_X(u32 *restrict dp, u32 sm, int mode, u32 pt)
+{
+    switch (mode) {
+    case PRIM_MODE_INV: sm &= pt, *dp = (*dp & ~sm) | (~*dp & sm); break;
+    case PRIM_MODE_WHITE: sm &= pt, *dp |= sm; break;
+    case PRIM_MODE_BLACK: sm &= pt, *dp &= ~sm; break;
+    case PRIM_MODE_WHITE_BLACK: pt = ~pt; // fallthrough
+    case PRIM_MODE_BLACK_WHITE: *dp = (*dp & ~(sm & pt)) | (sm & ~pt); break;
+    }
+}
+
+static void prim_blit_span_X(span_blit_s info)
+{
+    u32 *restrict dp = (u32 *restrict)info.dp;
+    u32 pt           = info.pat.p[info.y & 7];
+    u32 m            = info.ml;
+    for (int i = 0; i < info.dmax; i++) {
+        apply_prim_mode_X(dp, m, info.mode, pt);
+        m = 0xFFFFFFFFU;
+        dp++;
+    }
+    apply_prim_mode_X(dp, m & info.mr, info.mode, pt);
+}
+
+static void prim_blit_span_Y(span_blit_s info)
+{
+    u32 *restrict dp = (u32 *restrict)info.dp;
+    u32 pt           = info.pat.p[info.y & 7];
+    u32 m            = info.ml;
+    for (int i = 0; i < info.dmax; i++) {
+        apply_prim_mode(dp, dp + 1, m, info.mode, pt);
+        m = 0xFFFFFFFFU;
+        dp += 2;
+    }
+    apply_prim_mode(dp, dp + 1, m & info.mr, info.mode, pt);
+}
+
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
 {
-    tex_s dtex = ctx.dst; // area bounds on canvas [x1/y1, x2/y2]
-    int   x1   = max_i(rec.x, ctx.clip_x1);
-    int   y1   = max_i(rec.y, ctx.clip_y1);
-    int   x2   = min_i(rec.x + rec.w - 1, ctx.clip_x2);
-    int   y2   = min_i(rec.y + rec.h - 1, ctx.clip_y2);
+    int x1 = max_i(rec.x, ctx.clip_x1); // area bounds on canvas [x1/y1, x2/y2]
+    int y1 = max_i(rec.y, ctx.clip_y1);
+    int x2 = min_i(rec.x + rec.w - 1, ctx.clip_x2);
+    int y2 = min_i(rec.y + rec.h - 1, ctx.clip_y2);
     if (x2 < x1) return;
 
+    tex_s       dtex = ctx.dst;
     span_blit_s info = span_blit_gen(ctx, y1, x1, x2, mode);
-    for (info.y = y1; info.y <= y2; info.y++) {
-        prim_blit_span(info);
-
-        info.dp += dtex.wword;
+    if (dtex.fmt == TEX_FMT_OPAQUE) {
+        for (info.y = y1; info.y <= y2; info.y++) {
+            prim_blit_span_X(info);
+            info.dp += dtex.wword;
+        }
+    } else {
+        for (info.y = y1; info.y <= y2; info.y++) {
+            prim_blit_span_Y(info);
+            info.dp += dtex.wword;
+        }
     }
 }
 

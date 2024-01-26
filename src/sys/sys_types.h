@@ -16,6 +16,7 @@
 #if SYS_CONFIG_EDIT_PD
 #undef SYS_SDL
 #define SYS_PD
+#define SYS_PD_HW
 #endif
 
 #if !defined(SYS_SDL) && !defined(SYS_PD)
@@ -241,6 +242,53 @@ typedef v2_f32   v2f;
 typedef rec_i32  recti;
 typedef tri_i32  trianglei;
 typedef line_i32 linei;
+
+// int (*cmp)(const void *a, const void *b)
+// -: a goes before b | b goes after a
+// 0: equivalent
+// +: a goes after b | b goes before a
+typedef int (*cmp_f)(const void *a, const void *b);
+static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp);
+
+static void sort_array(void *base, int num, usize s, cmp_f cmp)
+{
+    if (num <= 1) return;
+    assert(base && s && cmp);
+    _quicksort(base, 0, num - 1, s, cmp);
+}
+
+static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
+{
+    static char m[1024];
+    assert(s <= sizeof(m));
+    assert(lo < hi);
+
+    int   i = lo;
+    int   j = hi;
+    char *a = (char *)base + i * s;
+    char *b = (char *)base + j * s;
+    char *p = (char *)base + ((lo + hi) >> 1) * s;
+    while (i < j) {
+        while (cmp((const void *)a, (const void *)p) < 0) {
+            a += s, i++;
+        }
+        while (cmp((const void *)b, (const void *)p) > 0) {
+            b -= s, j--;
+        }
+
+        if (i != j) {
+            memcpy(m, (const void *)a, s);
+            memcpy(a, (const void *)b, s);
+            memcpy(b, (const void *)m, s);
+        }
+
+        a += s, i++;
+        b -= s, j--;
+    } // -> moved to end because we know that lo/i is < hi/j
+
+    if (lo < j) _quicksort(base, lo, j, s, cmp);
+    if (i < hi) _quicksort(base, i, hi, s, cmp);
+}
 
 // =============================================================================
 // B8(00001111) -> 0x0F

@@ -10,11 +10,17 @@ void game_init(game_s *g)
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
-
-#if 0 // gen cos table
-    for (int i = 0; i < 256; i++) {
+#if 0
+    for (int i = 0; i < 1024; i++) {
         if ((i & 7) == 0) sys_printf("\n");
-        sys_printf("0x%05X, ", (int)(65536.5f * cosf(M_PI * 0.5f * (f32)i / 256.f)));
+        int r = (int)(cosf(M_PI * 2.f * (f32)i / 1024.f) * 64.5f);
+        if (r < 0) {
+            sys_printf("-");
+        } else {
+            sys_printf("+");
+        }
+
+        sys_printf("0x%02X, ", abs_i(r));
     }
 #endif
 }
@@ -46,6 +52,7 @@ static void gameplay_tick(game_s *g)
         case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
         case OBJ_ID_CHARGER: charger_on_update(g, o); break;
         case OBJ_ID_DOOR_SWING: swingdoor_on_update(g, o); break;
+        case OBJ_ID_NPC: npc_on_update(g, o); break;
         }
         o->posprev = posprev;
 #ifdef SYS_DEBUG
@@ -99,7 +106,7 @@ static void gameplay_tick(game_s *g)
                 rec_i32 rshroomy = obj_aabb(o);
                 if (!overlap_rec(heroaabb, rshroomy)) break;
                 if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rshroomy.y + rshroomy.h) {
-                    ohero->vel_q8.y = -2000;
+                    ohero->vel_q8.y = -1500;
                     shroomy_bounced_on(o);
                 }
             } break;
@@ -158,10 +165,6 @@ static void gameplay_tick(game_s *g)
 
     transition_check_herodata_slide(&g->transition, g);
     particles_update(g, &g->particles);
-    if (g->ocean.active)
-        water_update(&g->ocean.surf);
-    for (int n = 0; n < g->n_water; n++)
-        water_update(&g->water[n].surf);
 
     if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_ticks = max_i(g->freeze_ticks, 2);
@@ -198,13 +201,13 @@ void game_tick(game_s *g)
 
     g->tick++;
 
-    bool32 update_gameplay   = 1;
-    bool32 update_animations = 1;
+    bool32 update_gameplay = 1;
+    bool32 animate_objs    = 1;
 
     if (g->substate == GAME_SUBSTATE_TEXTBOX) {
         textbox_update(g, &g->textbox);
         update_gameplay = 0;
-        // update_animations = 0;
+        animate_objs    = 0;
     } else if (!transition_finished(&g->transition)) {
         transition_update(&g->transition);
         update_gameplay = 0;
@@ -214,43 +217,43 @@ void game_tick(game_s *g)
         gameplay_tick(g);
     }
 
-    if (update_animations) {
-        game_update_animations(g);
-    }
-}
-
-void game_update_animations(game_s *g)
-{
-    // every tick
-    for (obj_each(g, o)) {
-
-        switch (o->ID) {
-        case OBJ_ID_HERO: hero_on_animate(g, o); break;
-        case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
-        case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
-        case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
-        case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
-        case OBJ_ID_HOOK: hook_on_animate(g, o); break;
-        case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
-        case OBJ_ID_DOOR_SWING: swingdoor_on_animate(g, o); break;
-        case OBJ_ID_NPC: npc_on_animate(g, o); break;
-        }
-    }
-
     cam_update(g, &g->cam);
     fade_update(&g->fade_upgrade);
     fade_update(&g->areaname.fade);
 
-    if (g->env_effects & ENVEFFECT_WIND)
+    if (g->env_effects & ENVEFFECT_WIND) {
         enveffect_wind_update(&g->env_wind);
+    }
 
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
     if (g->tick & 1) {
         backforeground_animate_grass(g);
     } else {
-        if (g->env_effects & ENVEFFECT_HEAT)
+        if (g->env_effects & ENVEFFECT_HEAT) {
             enveffect_heat_update(&g->env_heat);
+        }
+        if (g->env_effects & ENVEFFECT_CLOUD) {
+            enveffect_cloud_update(&g->env_cloud);
+        }
+    }
+
+    if (animate_objs) {
+        for (obj_each(g, o)) {
+
+            switch (o->ID) {
+            case OBJ_ID_HERO: hero_on_animate(g, o); break;
+            case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
+            case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+            case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
+            case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
+            case OBJ_ID_HOOK: hook_on_animate(g, o); break;
+            case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
+            case OBJ_ID_DOOR_SWING: swingdoor_on_animate(g, o); break;
+            case OBJ_ID_NPC: npc_on_animate(g, o); break;
+            case OBJ_ID_CARRIER: carrier_on_animate(g, o); break;
+            }
+        }
     }
 }
 
@@ -323,6 +326,8 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
         }
     }
 #endif
+
+    inventory_add(&g->inventory, INVENTORY_ID_KEY_1, 1);
 }
 
 void game_on_trigger(game_s *g, int trigger)
@@ -330,6 +335,7 @@ void game_on_trigger(game_s *g, int trigger)
     for (obj_each(g, o)) {
         switch (o->ID) {
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o, trigger); break;
+        case OBJ_ID_DOOR_SWING: swingdoor_on_trigger(g, o, trigger); break;
         }
     }
 }
@@ -344,15 +350,29 @@ void game_put_grass(game_s *g, int tx, int ty)
     gr->type    = rngr_i32(0, 2);
 }
 
+static inline i32 ocean_height_logic_q6(i32 p, i32 t)
+{
+    return (sin_q6((p >> 2) + (t << 1) + 0x00) << 4) +
+           (sin_q6((p >> 1) + (t << 1) + 0x80) << 3) +
+           (sin_q6((p >> 0) - (t << 2) + 0x40) << 2);
+}
+
 int ocean_height(game_s *g, int pixel_x)
 {
-    f32 p = (f32)pixel_x;
-    f32 t = (f32)g->tick;
-    i32 h = (i32)(sin_f_fast(p * 0.0025f + t * 0.01f) * 15.f +
-                  sin_f_fast(p * 0.0050f + t * 0.02f + 1.f) * 10.f +
-                  sin_f_fast(p * 0.0100f + t * 0.08f + 1.f) * 6.f +
-                  sin_f_fast(p * 0.0250f + t * 0.20f + 2.f) * 2.f);
-    return h + g->ocean.y;
+    i32 h = ocean_height_logic_q6(pixel_x, g->tick);
+    return (h >> 6) + g->ocean.y;
+}
+
+int ocean_render_height(game_s *g, int pixel_x)
+{
+    int p = pixel_x;
+    int t = g->tick;
+    i32 y = ocean_height_logic_q6(p, t) +
+            (sin_q6((p << 2) + (t << 4) + 0x20) << 1) +
+            (sin_q6((p << 4) - (t << 5) + 0x04) << 0) +
+            (sin_q6((p << 5) + (t << 6) + 0x10) >> 2);
+    i32 h = (y >> 6) + g->ocean.y;
+    return h;
 }
 
 int water_depth_rec(game_s *g, rec_i32 r)

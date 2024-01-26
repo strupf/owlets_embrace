@@ -144,18 +144,11 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         swingdoor_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
         crumbleblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Carrier")) {
+        carrier_load(g, o);
     } else if (str_eq_nc(o->name, "Ocean")) {
-        int n_waterp = g->tiles_x * 2 + 1;
-
-        watersurface_s *oceanwater = &g->ocean.surf;
-        g->ocean.active            = 1;
-        g->ocean.y                 = o->y + 16;
-        oceanwater->particles      = (waterparticle_s *)marena_alloc(&g->arena, sizeof(waterparticle_s) * n_waterp);
-        oceanwater->nparticles     = n_waterp;
-        oceanwater->dampening_q12  = 4092;
-        oceanwater->fneighbour_q16 = 2000;
-        oceanwater->fzero_q16      = 100;
-        oceanwater->loops          = 2;
+        g->ocean.active = 1;
+        g->ocean.y      = o->y + 16;
     }
 }
 
@@ -180,8 +173,6 @@ void game_load_map(game_s *g, const char *mapfile)
     }
     g->n_grass      = 0;
     g->n_ropes      = 0;
-    g->n_decal_fg   = 0;
-    g->n_decal_bg   = 0;
     g->particles.n  = 0;
     g->ocean.active = 0;
     g->env_effects  = 0;
@@ -218,10 +209,16 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_read(mapf, mp.p, header.bytes_prop);
     map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
-    if (map_prop_bool(mp, "Effect_Wind"))
+    if (map_prop_bool(mp, "Effect_Wind")) {
         g->env_effects |= ENVEFFECT_WIND;
-    if (map_prop_bool(mp, "Effect_Heat"))
+    }
+    if (map_prop_bool(mp, "Effect_Heat")) {
         g->env_effects |= ENVEFFECT_HEAT;
+    }
+    if (map_prop_bool(mp, "Effect_Clouds")) {
+        g->env_effects |= ENVEFFECT_CLOUD;
+        enveffect_cloud_setup(&g->env_cloud);
+    }
 
     spm_pop();
     tile_stacker_s *stacker = (tile_stacker_s *)spm_alloc(sizeof(tile_stacker_s));
@@ -594,6 +591,7 @@ static map_prop_s *map_prop_get(map_properties_s p, const char *name)
         }
         ptr += prop->bytes;
     }
+    sys_printf("No property: %s\n", name);
     return NULL;
 }
 

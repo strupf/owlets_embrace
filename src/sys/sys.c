@@ -6,17 +6,16 @@
 #include "sys_backend.h"
 #include "sys_types.h"
 
-#define SYS_SHOW_CONSOLE       0 // enable or display hardware console
-#define SYS_SHOW_FPS           1 // enable fps/ups counter
-#define SYS_FPS_CAP_BY_DISPLAY 0 // cap fps/ups by hardware instead of software
-#define SYS_FPS_CAP_HW         (defined(SYS_PD_HW) && SYS_FPS_CAP_BY_DISPLAY)
+#define SYS_SHOW_CONSOLE     0 // enable or display hardware console
+#define SYS_SHOW_FPS         1 // enable fps/ups counter
 //
-#define SYS_UPS_DT             (1.f / (f32)SYS_UPS)
-#define SYS_DT_ACCUMULATOR_CAP (3.f / (f32)SYS_UPS)
-#define SYS_NUM_SNDCHANNEL     8
-#define SYS_MUSCHUNK_MEM       0x1000 // 4 KB
-#define SYS_MUSCHUNK_SAMPLES   (SYS_MUSCHUNK_MEM / sizeof(i16))
-#define SYS_MUS_LEN_FILENAME   64
+#define SYS_UPS_DT           .0200f // 1 /  50
+#define SYS_UPS_DT_TEST      .0195f // 1 / ~51
+#define SYS_UPS_DT_CAP       .0600f // 3 /  50
+#define SYS_NUM_SNDCHANNEL   8
+#define SYS_MUSCHUNK_MEM     0x1000 // 4 KB
+#define SYS_MUSCHUNK_SAMPLES (SYS_MUSCHUNK_MEM / sizeof(i16))
+#define SYS_MUS_LEN_FILENAME 64
 
 #if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
 static const u32 sys_consolefont[512];
@@ -70,9 +69,7 @@ static struct {
     f32 ups_timeacc;
 #if SYS_SHOW_FPS
     f32 fps_timeacc;
-    int ups_counter;
     int fps_counter;
-    int ups; // frames per second
     int fps; // updates per second
 #endif
     void            *menu_items[8];
@@ -92,7 +89,6 @@ void sys_init()
 {
 #if SYS_SHOW_FPS
     SYS.fps = SYS_UPS;
-    SYS.ups = SYS_UPS;
 #endif
     SYS.lasttime = backend_seconds();
     app_init();
@@ -104,9 +100,6 @@ static inline void sys_tick_()
     SYS.crank        = backend_crank();
     SYS.crank_docked = backend_crank_docked();
     app_tick();
-#if SYS_SHOW_FPS
-    SYS.ups_counter++;
-#endif
 }
 
 static inline void sys_draw_()
@@ -116,13 +109,9 @@ static inline void sys_draw_()
     sys_draw_console();
 #endif
 #if SYS_SHOW_FPS
-    char fps[8] = {0};
-    fps[0] = '0' + (SYS.fps / 10), fps[1] = '0' + (SYS.fps % 10);
-    fps[2] = '|';
-    fps[3] = '0' + (SYS.ups / 10), fps[4] = '0' + (SYS.ups % 10);
-
-    u8 *fb = (u8 *)backend_framebuffer();
-    for (int k = 0; k <= 4; k++) {
+    char fps[2] = {'0' + (SYS.fps / 10), '0' + (SYS.fps % 10)};
+    u8  *fb     = (u8 *)backend_framebuffer();
+    for (int k = 0; k <= 1; k++) {
         int cx = ((int)fps[k] & 31);
         int cy = ((int)fps[k] >> 5) << 3;
         for (int n = 0; n < 8; n++) {
@@ -135,49 +124,38 @@ static inline void sys_draw_()
 
 int sys_tick(void *arg)
 {
-#if !SYS_FPS_CAP_HW || SYS_SHOW_FPS
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
     SYS.lasttime = time;
-#endif
-
-#if SYS_FPS_CAP_HW
-    sys_tick_();
-    sys_draw_();
-#else
     SYS.ups_timeacc += timedt;
-    if (SYS_DT_ACCUMULATOR_CAP < SYS.ups_timeacc) {
-        SYS.ups_timeacc = SYS_DT_ACCUMULATOR_CAP;
+    if (SYS_UPS_DT_CAP < SYS.ups_timeacc) {
+        SYS.ups_timeacc = SYS_UPS_DT_CAP;
     }
 
-    bool32 rendered = 0;
-    while (SYS_UPS_DT <= SYS.ups_timeacc) {
+    // there are some frame skips when using the exact delta time
+    // and when running at 50 FPS on the hardware
+    //
+    // https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
+    int n_upd = 0;
+    while (SYS_UPS_DT_TEST <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
-        rendered = 1;
+        n_upd++;
         sys_tick_();
     }
 
-    if (rendered) {
+    if (n_upd) {
         sys_draw_();
     }
-#endif
 
 #if SYS_SHOW_FPS
     SYS.fps_timeacc += timedt;
     if (1.f <= SYS.fps_timeacc) {
         SYS.fps_timeacc -= 1.f;
         SYS.fps         = SYS.fps_counter;
-        SYS.ups         = SYS.ups_counter;
-        SYS.ups_counter = 0;
         SYS.fps_counter = 0;
     }
 #endif
-
-#if defined(SYS_PD_HW) && SYS_FPS_CAP_BY_DISPLAY
-    return 1;
-#else
-    return (rendered);
-#endif
+    return (0 < n_upd);
 }
 
 void sys_close()
@@ -229,6 +207,7 @@ sys_display_s sys_display()
 
 void sys_display_update_rows(int a, int b)
 {
+    assert(0 <= a && b < SYS_DISPLAY_H);
     backend_display_row_updated(a, b);
 }
 
@@ -522,11 +501,6 @@ static void muschannel_fillbuf(sys_muschannel_s *ch, i16 *buf, int len)
     }
 }
 
-f32 sys_seconds()
-{
-    return backend_seconds();
-}
-
 sys_file_s *sys_fopen(const char *path, const char *mode)
 {
     switch (mode[0]) {
@@ -600,18 +574,18 @@ static void sys_draw_console()
     if (SYS.console_ticks <= 0) return;
     SYS.console_ticks--;
 
-    u8 *fb = backend_framebuffer();
-    for (int y = 10; y < SYS_CONSOLE_LINES; y++) {
+    u8 *fb = (u8 *)backend_framebuffer();
+    for (int y = 20; y < SYS_CONSOLE_LINES; y++) {
         int yy = SYS_CONSOLE_LINES - y - 1;
         for (int x = 0; x < SYS_CONSOLE_LINE_CHARS; x++) {
             int k = x + yy * SYS_CONSOLE_LINE_CHARS;
             int c = (int)SYS.console_out[k];
             if (!(32 <= c && c < 127)) continue; // printable
-            int cx = c % 32;
-            int cy = c / 32;
+            int cx = c & 31;
+            int cy = c >> 5;
             for (int n = 0; n < 8; n++) {
-                fb[x + (y * 8 + n) * 52] =
-                    ((u8 *)sys_consolefont)[cx + (cy * 8 + n) * 32];
+                fb[x + ((y << 3) + n) * 52] =
+                    ((u8 *)sys_consolefont)[cx + ((cy * 8 + n) << 5)];
             }
         }
     }
