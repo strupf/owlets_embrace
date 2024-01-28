@@ -83,6 +83,6 @@ void   hook_update(game_s *g, obj_s *hook);
 void   hero_crank_item_selection(herodata_s *h);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage);
-int    hero_determine_state(game_s *g, obj_s *o, herodata_s *h);
+int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
 
 #endif

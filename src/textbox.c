@@ -41,9 +41,9 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
         textbox_block_s *block = &tb->blocks[tb->n_blocks++];
         block->tag             = jsonk_u32(jblock, "tag");
 
-        int effect  = TEXTBOX_EFFECT_NONE;
-        int tick_q2 = TEXTBOX_SPEED_DEFAULT_Q2;
-        int n_lines = 0;
+        int effect     = TEXTBOX_EFFECT_NONE;
+        int tick_q2    = TEXTBOX_SPEED_DEFAULT_Q2;
+        block->n_lines = 0;
 
         for (json_each (jblock, "lines", jline)) {
             int linelength = 0;
@@ -88,7 +88,7 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
                 }
             }
 
-            block->line_length[n_lines++] = linelength;
+            block->line_length[block->n_lines++] = linelength;
         }
 
         // CHOICES
@@ -106,6 +106,8 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
                 choice->gototag = jsonk_u32(jchoice, "tag");
             } else if (str_eq(action, "exit")) {
                 choice->type = TEXTBOX_CHOICE_EXIT;
+            } else if (str_eq(action, "shop")) {
+                choice->type = TEXTBOX_CHOICE_OPEN_SHOP;
             }
         }
     }
@@ -176,6 +178,11 @@ void textbox_update(game_s *g, textbox_s *tb)
                 tb->state    = TEXTBOX_STATE_FADE_OUT;
                 tb->fadetick = TEXTBOX_FADE_TICKS;
             } break;
+            case TEXTBOX_CHOICE_OPEN_SHOP: {
+                tb->state    = TEXTBOX_STATE_FADE_OUT;
+                tb->fadetick = TEXTBOX_FADE_TICKS;
+                shop_open(g);
+            } break;
             }
             break;
         }
@@ -234,7 +241,11 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
     gfx_rec_fill(ctx, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
 
-    v2_i32   pos = {10, 160};
+    v2_i32 pos = {10, 160};
+    switch (b->n_lines) {
+    case 1: pos.y += TB_LINE_SPACING; break;
+    case 2: pos.y += TB_LINE_SPACING / 2; break;
+    }
     fnt_s    fnt = asset_fnt(FNTID_LARGE);
     v2_i32   p   = pos;
     texrec_s t   = {0};

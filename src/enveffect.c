@@ -45,9 +45,11 @@ static cloud_s *cloud_create(enveffect_cloud_s *e)
         c->t.r.h = 16 * 5;
     } break;
     }
-    c->vx_q8 = rngr_i32(16, 256) * (rngr_i32(0, 1) * 2 - 1);
-    c->p.x   = 0 < c->vx_q8 ? -200 : +600;
-    c->p.y   = rngr_i32(-70, 180);
+
+    c->vx_q8    = (1 << rngr_i32(0, 7)) * (rngr_i32(0, 1) * 2 - 1);
+    c->p.x      = 0 < c->vx_q8 ? -200 : +600;
+    c->p.y      = rngr_i32(-70, 180);
+    c->priority = (rng_u32() & 0xFFFF);
     return c;
 }
 
@@ -101,7 +103,7 @@ void enveffect_cloud_draw(gfx_ctx_s ctx, enveffect_cloud_s *e, v2_i32 cam)
     for (int n = 0; n < e->n; n++) {
         cloud_s *c = &e->clouds[n];
         v2_i32   p = c->p;
-        p.x &= ~1;
+        p.x &= ~3;
         p.y &= ~1;
         gfx_spr(ctx, c->t, p, 0, 0);
     }

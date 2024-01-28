@@ -211,6 +211,10 @@ void game_tick(game_s *g)
     } else if (!transition_finished(&g->transition)) {
         transition_update(&g->transition);
         update_gameplay = 0;
+    } else if (shop_active(g)) {
+        shop_update(g);
+        update_gameplay = 0;
+        animate_objs    = 0;
     }
 
     if (update_gameplay) {

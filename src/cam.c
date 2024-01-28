@@ -78,7 +78,7 @@ void cam_update(game_s *g, cam_s *c)
         c->addxticks = clamp_i(c->addxticks, -CAM_TICKS_X, +CAM_TICKS_X);
     }
 
-    if (g->textbox.state) {
+    if (g->textbox.state || shop_active(g)) {
         c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
         c->addyoffset = 60;
     } else if (c->look_down) {

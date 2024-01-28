@@ -64,7 +64,13 @@ typedef struct {
     int  wavepos;
 } sys_sndchannel_s;
 
+typedef struct {
+    u32 ticks_held;
+    u32 tick_last_down;
+} sys_btn_timing_s;
+
 static struct {
+    u32 tick;
     f32 lasttime;
     f32 ups_timeacc;
 #if SYS_SHOW_FPS
@@ -73,6 +79,7 @@ static struct {
     int fps; // updates per second
 #endif
     void            *menu_items[8];
+    sys_btn_timing_s btn_timing[8];
     int              inp;
     f32              crank;
     int              crank_docked;
@@ -100,6 +107,7 @@ static inline void sys_tick_()
     SYS.crank        = backend_crank();
     SYS.crank_docked = backend_crank_docked();
     app_tick();
+    SYS.tick++;
 }
 
 static inline void sys_draw_()
@@ -122,6 +130,10 @@ static inline void sys_draw_()
 #endif
 }
 
+// there are some frame skips when using the exact delta time and evaluating
+// if an update tick should run (@50 FPS cap on hardware)
+//
+// https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
 int sys_tick(void *arg)
 {
     f32 time     = backend_seconds();
@@ -132,10 +144,6 @@ int sys_tick(void *arg)
         SYS.ups_timeacc = SYS_UPS_DT_CAP;
     }
 
-    // there are some frame skips when using the exact delta time
-    // and when running at 50 FPS on the hardware
-    //
-    // https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
     int n_upd = 0;
     while (SYS_UPS_DT_TEST <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
@@ -213,7 +221,16 @@ void sys_display_update_rows(int a, int b)
 
 int sys_inp()
 {
-    return backend_inp();
+    int i = backend_inp();
+#if 0
+    if (i & SYS_INP_A) {
+        SYS.btn_timing[0].ticks_held++;
+        SYS.btn_timing[0].tick_last_down = SYS.tick;
+    } else {
+        SYS.btn_timing[0].ticks_held = 0;
+    }
+#endif
+    return i;
 }
 
 int sys_key(int k)

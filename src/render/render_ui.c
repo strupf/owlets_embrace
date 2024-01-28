@@ -84,6 +84,10 @@ void render_ui(game_s *g, v2_i32 camoff)
         textbox_draw(&g->textbox, camoff);
     }
 
+    if (shop_active(g)) {
+        shop_draw(g);
+    }
+
     if (ohero) {
         texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
         gfx_rec_fill(ctx_ui, (rec_i32){0, 0, ohero->health_max * 6 + 2, 16},

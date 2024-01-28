@@ -66,7 +66,7 @@ void crumbleblock_update(game_s *g, obj_s *o)
     case CRUMBLE_STATE_IDLE: {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero) break;
-        if (overlap_rec(obj_rec_bottom(ohero), obj_aabb(o))) {
+        if (0 <= ohero->vel_q8.y && overlap_rec(obj_rec_bottom(ohero), obj_aabb(o))) {
             o->state = CRUMBLE_STATE_BREAKING;
             o->timer = CRUMBLE_TICKS_BREAK;
         }

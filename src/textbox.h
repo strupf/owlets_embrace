@@ -55,6 +55,7 @@ typedef struct {
     int              tag;
     int              n_chars;
     int              n_choices;
+    int              n_lines;
     int              line_length[TEXTBOX_NUM_LINES];
     textbox_char_s   chars[TEXTBOX_MAX_CHARS];
     textbox_choice_s choices[4];

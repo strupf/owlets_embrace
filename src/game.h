@@ -17,6 +17,7 @@
 #include "obj/obj.h"
 #include "particle.h"
 #include "rope.h"
+#include "shop.h"
 #include "textbox.h"
 #include "transition.h"
 
@@ -96,6 +97,7 @@ struct game_s {
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
     ingamemenu_s     ingamemenu;
+    shop_s           shop;
     //
     int              savefile_slotID;
     transition_s     transition;
