@@ -9,13 +9,10 @@
 #include "game.h"
 #include "sys/sys.h"
 
-app_s APP;
+game_s     GAME;
+mainmenu_s MAINMENU;
 
-typedef game_s     GAME_s;
-typedef mainmenu_s MAINMENU_s;
-
-GAME_s     GAME;
-MAINMENU_s MAINMENU;
+static void app_load_assets();
 
 void menu_cb_inventory(void *arg)
 {
@@ -53,13 +50,15 @@ void app_init()
                       sizeof(AUD_s);
     sys_printf("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
     sys_printf("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
-    sys_printf("size GAM: %u kb\n", (uint)sizeof(GAME_s) / 1024);
+    sys_printf("size GAM: %u kb\n", (uint)sizeof(game_s) / 1024);
     sys_printf("size TAB: %u kb\n", (uint)(size_tabs / 1024));
     sys_printf("  = %u kb\n\n", (uint)(sizeof(ASSETS_s) +
                                        sizeof(SPM_s) +
-                                       sizeof(GAME_s) +
+                                       sizeof(game_s) +
                                        size_tabs) /
                                     1024);
+    sys_printf("size snd: %u kb\n", (uint)(ASSETS.size_snd / 1024));
+    sys_printf("size tex: %u kb\n", (uint)(ASSETS.size_tex / 1024));
 
     mainmenu_init(&g->mainmenu);
     game_init(g);
@@ -110,7 +109,12 @@ void app_pause()
     game_paused(&GAME);
 }
 
-void app_load_assets()
+void app_audio(i16 *buf, int len)
+{
+    aud_audio(buf, len);
+}
+
+static void app_load_assets()
 {
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
@@ -138,9 +142,10 @@ void app_load_assets()
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player.tex", &texhero);
-    for (int y = 0; y < 6; y++) {
-        for (int x = 0; x < 4; x++) {
-            tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
+    tex_outline(texhero, 0, 768, 768, 256, 1, 1);
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 5; x++) {
+            tex_outline(texhero, x * 96, y * 96, 96, 96, 1, 1);
         }
     }
 
@@ -148,9 +153,7 @@ void app_load_assets()
     asset_tex_loadID(TEXID_UI_ITEMS, "items.tex", NULL);
     tex_s texswitch;
     asset_tex_loadID(TEXID_SWITCH, "switch.tex", &texswitch);
-    for (int x = 0; x < 4; x++) {
-        tex_outline(texswitch, x * 64, 0, 64, 64, 1, 1);
-    }
+    tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
     asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
     asset_tex_putID(TEXID_OCEAN, tex_create(400, 240, asset_allocator));
@@ -158,7 +161,17 @@ void app_load_assets()
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox.tex", NULL);
     asset_tex_loadID(TEXID_HERO_WHIP, "attackanim-sheet.tex", NULL);
+    asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut.tex", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants.tex", NULL);
+    tex_s tplants = asset_tex(TEXID_PLANTS);
+    for (int x = -7; x <= +7; x++) {
+        asset_texrec(TEXID_PLANTS, 224, 0, 32, 16);
+        if (x == 0) continue;
+        gfx_ctx_s pctx = gfx_ctx_default(tplants);
+
+        pctx = gfx_ctx_clip(pctx, 0, 0, 0, 0);
+    }
+
     asset_tex_loadID(TEXID_CLOUDS, "clouds.tex", NULL);
     asset_tex_loadID(TEXID_TITLE, "title.tex", NULL);
     asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
@@ -251,6 +264,14 @@ void app_load_assets()
     asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
     asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
 
+    asset_snd_loadID(SNDID_ENEMY_DIE, "enemy_die.wav", NULL);
+    asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt.wav", NULL);
+    asset_snd_loadID(SNDID_BASIC_ATTACK, "basic_attack.wav", NULL);
+    asset_snd_loadID(SNDID_COIN, "coin.wav", NULL);
+    asset_snd_loadID(SNDID_ATTACK_DASH, "dash_attack.wav", NULL);
+    asset_snd_loadID(SNDID_ATTACK_SPIN, "spin_attack.wav", NULL);
+    asset_snd_loadID(SNDID_ATTACK_SLIDE_GROUND, "slide_ground.wav", NULL);
+    asset_snd_loadID(SNDID_ATTACK_SLIDE_AIR, "slide_air.wav", NULL);
     asset_snd_loadID(SNDID_SHROOMY_JUMP, "shroomyjump.wav", NULL);
     asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach.wav", NULL);
     asset_snd_loadID(SNDID_SPEAK, "speak.wav", NULL);
@@ -261,4 +282,7 @@ void app_load_assets()
     asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy.wav", NULL);
     asset_snd_loadID(SNDID_DOOR_TOGGLE, "doortoggle.wav", NULL);
     asset_snd_loadID(SNDID_DOOR_SQUEEK, "doorsqueek.wav", NULL);
+    asset_snd_loadID(SNDID_SELECT, "select.wav", NULL);
+    asset_snd_loadID(SNDID_MENU_NEXT_ITEM, "menu_next_item.wav", NULL);
+    asset_snd_loadID(SNDID_MENU_NONEXT_ITEM, "menu_no_next_item.wav", NULL);
 }

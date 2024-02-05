@@ -48,30 +48,49 @@ void cam_set_pos_px(cam_s *c, int x, int y)
     c->pos.y = (f32)y;
 }
 
+void cam_init_level(game_s *g, cam_s *c)
+{
+    for (int n = 0; n < 64; n++) {
+        cam_update(g, c);
+    }
+}
+
 void cam_update(game_s *g, cam_s *c)
 {
-    obj_s *hero  = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
+
     c->look_down = 0;
 
     const int addxticks_prev = c->addxticks;
-    if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
-        v2_i32 herop        = obj_pos_bottom_center(hero);
-        int    py_bot       = herop.y - 65;
-        int    py_top       = herop.y + 20;
-        int    target_x     = herop.x;
-        int    target_y     = py_bot;
-        bool32 herogrounded = obj_grounded(g, hero);
+    int       ctx            = 40;
 
-        c->pos.x += (f32)(target_x - c->pos.x) * .05f;
+    v2_f32 padd = {0};
+    if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
+        hero_s *h            = (hero_s *)hero->mem;
+        v2_i32  herop        = obj_pos_bottom_center(hero);
+        int     py_bot       = herop.y - 65;
+        int     py_top       = herop.y + 20;
+        int     target_x     = herop.x;
+        int     target_y     = py_bot;
+        bool32  herogrounded = obj_grounded(g, hero);
+
+        padd.x = (f32)(target_x - c->pos.x) * .1f;
 
         if (herogrounded && 0 <= hero->vel_q8.y) {
             // move camera upwards if hero landed on new platform
             // "new base height"
-            c->pos.y += (f32)(target_y - c->pos.y) * .05f;
+            padd.y = (f32)(target_y - c->pos.y) * .05f;
 
             // look down when pressing down and standing still
-            c->look_down = (inp_pressed(INP_DPAD_D) && hero->vel_q8.x == 0);
+            c->look_down = (inp_pressed(INP_DPAD_D) &&
+                            hero->vel_q8.x == 0 &&
+                            !h->sliding);
         }
+
+        if (0.05f <= v2f_lensq(padd)) {
+            c->pos = v2f_add(c->pos, padd);
+        }
+
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
 
         c->addxticks += hero->facing * (hero->vel_q8.x == 0 ? 2 : 3);
@@ -92,8 +111,7 @@ void cam_update(game_s *g, cam_s *c)
         c->addxticks -= sgn_i(c->addxticks);
     }
 
-    c->offs.x       = (f32)(sgn_i(c->addxticks) *
-                      ease_out_quad(0, 40, abs_i(c->addxticks), CAM_TICKS_X));
+    c->offs.x       = (f32)(sgn_i(c->addxticks) * ease_out_quad(0, ctx, abs_i(c->addxticks), CAM_TICKS_X));
     c->offs.y       = (f32)ease_in_out_quad(0, c->addyoffset, c->addyticks, CAM_TICKS_TB);
     c->offs_shake.x = 0.f;
     c->offs_shake.y = 0.f;

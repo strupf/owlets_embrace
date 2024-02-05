@@ -14,28 +14,13 @@
 #define SYS_DISPLAY_WBYTES 52
 #define SYS_DISPLAY_WWORDS 13
 
-#if SYS_CONFIG_ONLY_BACKEND || 0
-#define SYS_AUDIO_CB(BUF, LEN)
-#else
-#define SYS_AUDIO_CB(BUF, LEN) aud_audio_cb(BUF, LEN)
-#endif
-
-enum {
-    SYS_WAV_8  = 1, // size in bytes
-    SYS_WAV_16 = 2,
-
-    SYS_WAV_I8_44100,
-    SYS_WAV_I8_22050,
-    SYS_WAV_I16_44100,
-    SYS_WAV_I16_22050,
-};
-
-typedef struct {
-    i16 *data;
-    int  len;
-    f32  pitch;
-    f32  vol;
-} sys_snddata_s;
+// For possible porting way way in the future:
+// Dynamic aspect ratio, resolution and scale to prevent black bars
+//  -> Affects also game design
+// Find the best fitting resolution between these X/Y values:
+//
+// Minimum resolution: 400 x 240 (25 x 15 tiles)
+// Maximum resolution: 480 x 284 (30 x 18 tiles)
 
 typedef struct {
     u32 *px;
@@ -45,13 +30,6 @@ typedef struct {
     int  wbyte;
 } sys_display_s;
 
-typedef struct {
-    void *buf;
-    int   len; // number of samples
-    int   bits;
-    int   rate;
-} sys_wav_s;
-
 // implemented by user
 void app_init();
 void app_tick();
@@ -59,6 +37,7 @@ void app_draw();
 void app_close();
 void app_resume();
 void app_pause();
+void app_audio(i16 *buf, int len); // mono
 
 enum {                  // pd_api.h:
     SYS_FILE_R = 1 | 2, // kFileRead | kFileReadData
@@ -95,15 +74,9 @@ enum {                     // pd_api.h:
 #define sys_file_remove backend_file_remove
 //
 sys_display_s sys_display();
+u32           sys_tick();
 void          sys_set_menu_image(void *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
-sys_wav_s     sys_load_wav(const char *filename, alloc_s ma);
-void          sys_wavdata_play(sys_wav_s s, f32 vol, f32 pitch);
-int           sys_mus_play(const char *filename);
-void          sys_mus_stop();
-void          sys_set_mus_vol(int vol_q8);
-int           sys_mus_vol();
-bool32        sys_mus_playing();
 void          sys_log(const char *str);
 int           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]
@@ -114,6 +87,7 @@ void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg)
 void          sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg);
 bool32        sys_menu_checkmark(int ID);
 void          sys_menu_clr();
+void          sys_set_volume(f32 vol); // only works in SDL
 
 typedef void *sys_file_s;
 sys_file_s   *sys_fopen(const char *path, const char *mode);

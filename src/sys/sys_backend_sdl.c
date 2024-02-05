@@ -49,14 +49,13 @@ static struct {
     SDL_Rect          r_dst;
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
-    int               is_mono;
+    bool32            is_mono;
     int               inv;
     f32               vol;
     f32               crank;
     int               pausebtn;
     int               pausebtnp;
-    int               paused;
-    int               spacepressed;
+    bool32            paused;
 } OS_SDL;
 
 static void                backend_SDL_audio(void *u, Uint8 *stream, int len);
@@ -95,8 +94,8 @@ int main(int argc, char **argv)
     OS_SDL.window = SDL_CreateWindow("Owlet's Embrace",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
-                                     SYS_DISPLAY_W * SYS_SDL_SCALE + 16,
-                                     SYS_DISPLAY_H * SYS_SDL_SCALE + 16,
+                                     SYS_DISPLAY_W * SYS_SDL_SCALE,
+                                     SYS_DISPLAY_H * SYS_SDL_SCALE,
                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
     SDL_SetWindowMinimumSize(OS_SDL.window, SYS_DISPLAY_W, SYS_DISPLAY_H);
     OS_SDL.renderer = SDL_CreateRenderer(OS_SDL.window, -1, 0);
@@ -135,17 +134,16 @@ int main(int argc, char **argv)
     OS_SDL.r_dst.h    = SYS_DISPLAY_H * SYS_SDL_SCALE;
     OS_SDL.timeorigin = SDL_GetPerformanceCounter();
     OS_SDL.is_mono    = 1;
-    OS_SDL.vol        = 1.f;
+    OS_SDL.vol        = 0.5f;
     backend_display_row_updated(0, SYS_DISPLAY_H - 1);
     SDL_on_resize();
     sys_init();
+    sys_set_FPS(60);
 
     Uint64 time_prev     = SDL_GetPerformanceCounter();
     Uint64 fps_timer     = 0;
     int    fps_tick      = 0;
     int    fps_tick_prev = 0;
-
-    sys_set_FPS(60);
 
     while (OS_SDL.running) {
         Uint64 time   = SDL_GetPerformanceCounter();
@@ -181,66 +179,68 @@ int main(int argc, char **argv)
             }
         }
 
-        int i = 1;
+        bool32 draw_requested = 1;
         if (!OS_SDL.paused) {
-            i = sys_tick(NULL);
+            draw_requested = sys_step(NULL);
         }
 
-        if (i != 0) {
+        if (draw_requested) {
             int   pitch;
             void *pixelsptr;
             SDL_LockTexture(OS_SDL.texture, NULL, &pixelsptr, &pitch);
-            Uint32 *pixels = (Uint32 *)pixelsptr;
+            {
+                Uint32 *pixels = (Uint32 *)pixelsptr;
 
-            for (int y = 0; y < SYS_DISPLAY_H; y++) {
-                if (!OS_SDL.update_row[y]) continue;
-                OS_SDL.update_row[y] = 0;
-                for (int x = 0; x < SYS_DISPLAY_W; x++) {
-                    int i     = (x >> 3) + y * SYS_DISPLAY_WBYTES;
-                    int k     = x + y * SYS_DISPLAY_W;
-                    int byt   = OS_SDL.framebuffer[i];
-                    int bit   = (byt & (0x80 >> (x & 7))) > 0;
-                    pixels[k] = pal[OS_SDL.inv ? !bit : bit];
-                }
+                for (int y = 0; y < SYS_DISPLAY_H; y++) {
+                    if (!OS_SDL.update_row[y]) continue;
+                    OS_SDL.update_row[y] = 0;
+                    for (int x = 0; x < SYS_DISPLAY_W; x++) {
+                        int i     = (x >> 3) + y * SYS_DISPLAY_WBYTES;
+                        int k     = x + y * SYS_DISPLAY_W;
+                        int byt   = OS_SDL.framebuffer[i];
+                        int bit   = (byt & (0x80 >> (x & 7))) > 0;
+                        pixels[k] = pal[OS_SDL.inv ? !bit : bit];
+                    }
 
-                if (OS_SDL.paused) {
-                    for (int x = 200; x < SYS_DISPLAY_W; x++) {
-                        pixels[x + y * SYS_DISPLAY_W] = pal[0];
+                    if (OS_SDL.paused) {
+                        for (int x = 200; x < SYS_DISPLAY_W; x++) {
+                            pixels[x + y * SYS_DISPLAY_W] = pal[0];
+                        }
                     }
                 }
             }
             SDL_UnlockTexture(OS_SDL.texture);
+
+            SDL_SetRenderDrawColor(OS_SDL.renderer, 0x31, 0x2F, 0x28, 0xFF);
+            SDL_RenderClear(OS_SDL.renderer);
+            SDL_RenderCopy(OS_SDL.renderer, OS_SDL.texture, &OS_SDL.r_src, &OS_SDL.r_dst);
+            SDL_RenderPresent(OS_SDL.renderer);
         }
 
-        SDL_SetRenderDrawColor(OS_SDL.renderer, 0x31, 0x2F, 0x28, 0xFF);
-        SDL_RenderClear(OS_SDL.renderer);
-        SDL_RenderCopy(OS_SDL.renderer, OS_SDL.texture, &OS_SDL.r_src, &OS_SDL.r_dst);
-        SDL_RenderPresent(OS_SDL.renderer);
-
-        // FPS cap
+        // FPS cap in SDL
         if (OS_SDL.fps_cap) {
             fps_tick++;
             fps_timer += timedt;
             Uint64 one_second = SDL_GetPerformanceFrequency();
             if (one_second <= fps_timer) {
                 fps_timer -= one_second;
-                f64 avg_fps  = (f64)(fps_tick + fps_tick_prev) * .5;
+                f64 avg_fps  = (f64)(fps_tick + fps_tick_prev) * 0.5;
                 f64 diff     = avg_fps - (f64)OS_SDL.fps_cap;
-                f64 k_change = 0.;
-                f64 diff_abs = 0. <= diff ? diff : -diff;
-                if (2. <= diff_abs) k_change = .025;
-                else if (1.00 <= diff_abs) k_change = .010;
-                else if (0.25 <= diff_abs) k_change = .001;
-                if (0. < diff) OS_SDL.delay_timer_k += k_change;
-                if (0. > diff) OS_SDL.delay_timer_k -= k_change;
+                f64 k_change = 0.0;
+                f64 diff_abs = 0.0 <= diff ? diff : -diff;
+                if (2.0 <= diff_abs) k_change = 0.025;
+                else if (1.00 <= diff_abs) k_change = 0.010;
+                else if (0.25 <= diff_abs) k_change = 0.001;
+                if (0.0 < diff) OS_SDL.delay_timer_k += k_change;
+                if (0.0 > diff) OS_SDL.delay_timer_k -= k_change;
                 fps_tick_prev = fps_tick;
                 fps_tick      = 0;
             }
 
-            f64 timedt = (f64)(SDL_GetPerformanceCounter() - time) / (f64)one_second;
-            OS_SDL.delay_timer += (OS_SDL.fps_cap_dt - timedt) * 1000. * OS_SDL.delay_timer_k;
-            OS_SDL.delay_timer = 0. <= OS_SDL.delay_timer ? OS_SDL.delay_timer : 0.;
-            if (1. <= OS_SDL.delay_timer) {
+            f64 tdt = (f64)(SDL_GetPerformanceCounter() - time) / (f64)one_second;
+            OS_SDL.delay_timer += (OS_SDL.fps_cap_dt - tdt) * 1000.0 * OS_SDL.delay_timer_k;
+            OS_SDL.delay_timer = 0.0 <= OS_SDL.delay_timer ? OS_SDL.delay_timer : 0.0;
+            if (1.0 <= OS_SDL.delay_timer) {
                 Uint32 sleepfor = (Uint32)OS_SDL.delay_timer;
                 OS_SDL.delay_timer -= (f64)sleepfor;
                 SDL_Delay(sleepfor);
@@ -275,7 +275,7 @@ static void backend_SDL_audio(void *u, Uint8 *stream, int len)
     memset(rbuf, 0, sizeof(rbuf));
 
     int samples = len / (2 * sizeof(i16));
-    int active  = sys_audio_cb(NULL, lbuf, rbuf, samples);
+    int active  = sys_audio(NULL, lbuf, rbuf, samples);
     if (!active) {
         memset(stream, 0, len);
         return;
@@ -499,4 +499,9 @@ void backend_menu_clr()
 {
     memset(OS_SDL.menu_items, 0, sizeof(OS_SDL.menu_items));
     OS_SDL.n_menu_items = 0;
+}
+
+void backend_set_volume(f32 vol)
+{
+    OS_SDL.vol = 0.f <= vol ? (vol <= 1.f ? vol : 1.f) : 0.f;
 }

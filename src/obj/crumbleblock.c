@@ -34,6 +34,7 @@ obj_s *crumbleblock_create(game_s *g)
     obj_s *o             = obj_create(g);
     o->ID                = OBJ_ID_CRUMBLEBLOCK;
     o->flags             = OBJ_FLAG_SPRITE;
+    o->render_priority   = 0;
     o->n_sprites         = 1;
     o->w                 = 16;
     sprite_simple_s *spr = &o->sprites[0];
@@ -58,7 +59,7 @@ void crumbleblock_load(game_s *g, map_obj_s *mo)
     crumbleblock_set_block(g, o, o->substate);
 }
 
-void crumbleblock_update(game_s *g, obj_s *o)
+void crumbleblock_on_update(game_s *g, obj_s *o)
 {
     sprite_simple_s *spr = &o->sprites[0];
 
@@ -66,11 +67,13 @@ void crumbleblock_update(game_s *g, obj_s *o)
     case CRUMBLE_STATE_IDLE: {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero) break;
-        if (0 <= ohero->vel_q8.y && overlap_rec(obj_rec_bottom(ohero), obj_aabb(o))) {
+        rec_i32 r = {o->pos.x, o->pos.y, o->w, 1};
+        if (0 <= ohero->vel_q8.y && overlap_rec(obj_rec_bottom(ohero), r)) {
             o->state = CRUMBLE_STATE_BREAKING;
             o->timer = CRUMBLE_TICKS_BREAK;
         }
-    } break;
+        break;
+    }
     case CRUMBLE_STATE_BREAKING: {
         o->timer--;
         if (0 < o->timer) {
@@ -82,7 +85,8 @@ void crumbleblock_update(game_s *g, obj_s *o)
             o->state = CRUMBLE_STATE_RESPAWNING;
             o->timer = CRUMBLE_TICKS_RESPAWN;
         }
-    } break;
+        break;
+    }
     case CRUMBLE_STATE_RESPAWNING: {
         o->timer--;
         if (0 < o->timer) break;
@@ -93,6 +97,7 @@ void crumbleblock_update(game_s *g, obj_s *o)
         spr->offs.y = 0;
         crumbleblock_set_block(g, o, o->substate);
         game_on_solid_appear(g);
-    } break;
+        break;
+    }
     }
 }

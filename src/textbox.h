@@ -5,15 +5,12 @@
 #ifndef TEXTBOX_H
 #define TEXTBOX_H
 
-#include "fade.h"
 #include "gamedef.h"
 
 enum {
     TEXTBOX_STATE_INACTIVE,
     TEXTBOX_STATE_WAIT,
     TEXTBOX_STATE_WRITE,
-    TEXTBOX_STATE_FADE_IN,
-    TEXTBOX_STATE_FADE_OUT,
 };
 
 enum {
@@ -29,7 +26,7 @@ enum {
     TEXTBOX_CHOICE_OPEN_SHOP,
 };
 
-#define TEXTBOX_MAX_CHARS        256
+#define TEXTBOX_MAX_CHARS        192
 #define TEXTBOX_NUM_LINES        3
 #define TEXTBOX_NUM_BLOCKS       64
 #define TEXTBOX_SPEED_DEFAULT_Q2 4
@@ -46,9 +43,6 @@ typedef struct {
     int n_chars;
     int gototag;
     u8  chars[32];
-
-    int x;
-
 } textbox_choice_s;
 
 typedef struct {
@@ -63,7 +57,8 @@ typedef struct {
 
 typedef struct {
     int             animation;
-    int             fadetick;
+    int             fade_in;
+    int             fade_out;
     int             tick; // animation tick
     int             state;
     int             block;
@@ -74,8 +69,9 @@ typedef struct {
     textbox_block_s blocks[TEXTBOX_NUM_BLOCKS]; // the whole dialog tree
 } textbox_s;
 
-void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename);
-void textbox_update(game_s *g, textbox_s *tb);
-void textbox_draw(textbox_s *tb, v2_i32 camoffset);
+bool32 textbox_active(textbox_s *tb);
+void   textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename);
+void   textbox_update(game_s *g, textbox_s *tb);
+void   textbox_draw(textbox_s *tb, v2_i32 camoffset);
 
 #endif

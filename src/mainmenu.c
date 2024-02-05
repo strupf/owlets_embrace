@@ -18,7 +18,7 @@ enum {
 
 static void mainmenu_pressed_A(game_s *g, mainmenu_s *t);
 static void mainmenu_pressed_B(mainmenu_s *t);
-static void mainmenu_navigate(mainmenu_s *t, int dx, int dy);
+static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy);
 static void mainmenu_op_start_file(game_s *g, mainmenu_s *t, int index);
 static void mainmenu_play_sound(int soundID);
 static void mainmenu_update_savefiles(mainmenu_s *t);
@@ -29,17 +29,14 @@ void mainmenu_init(mainmenu_s *t)
 {
 #if 1
     // write some files to debug copy and delete
-    t->savefiles[0].sf.tick = 1;
-    t->savefiles[1].sf.tick = 5;
-    t->savefiles[2].sf.tick = -4610;
-    t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_HOOK;
-    t->savefiles[0].sf.aquired_items |= 1 << HERO_ITEM_WHIP;
-    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
-    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
-    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
-    t->savefiles[0].sf.n_airjumps = 1;
-    t->savefiles[0].sf.health     = 10;
-    t->savefiles[0].sf.aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;
+    savefile_s *sf = &t->savefiles[0].sf;
+    sf->aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
+    sf->aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
+    sf->aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
+    sf->aquired_upgrades |= 1 << HERO_UPGRADE_GLIDE;
+    sf->aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;
+    sf->n_airjumps = 1;
+    sf->health     = 10;
     str_cpys(t->savefiles[0].sf.hero_name, sizeof(t->savefiles[0].sf.hero_name), "Link");
     str_cpys(t->savefiles[1].sf.hero_name, sizeof(t->savefiles[1].sf.hero_name), "Mario");
     str_cpys(t->savefiles[2].sf.hero_name, sizeof(t->savefiles[2].sf.hero_name), "Samus");
@@ -69,7 +66,14 @@ void mainmenu_update(game_s *g, mainmenu_s *t)
 
     if (t->feather_y >= 500.f) t->feather_y = 0;
 
-    if (fade_update(&t->fade) != FADE_PHASE_NONE) return;
+    if (t->fade_to_game) {
+        t->fade_to_game++;
+        if (t->fade_to_game < (FADETICKS_MM_GAME + FADETICKS_MM_GAME_BLACK)) return;
+        t->fade_to_game = 0;
+        mainmenu_op_start_file(g, t, t->option);
+        g->mainmenu_fade_in = FADETICKS_GAME_IN;
+        return;
+    }
 
     if (inp_just_pressed(INP_B)) { // back or abort
         mainmenu_pressed_B(t);
@@ -89,7 +93,7 @@ void mainmenu_update(game_s *g, mainmenu_s *t)
     if (inp_just_pressed(INP_DPAD_D)) dy = +1;
 
     if (dx != 0 || dy != 0) {
-        mainmenu_navigate(t, dx, dy);
+        mainmenu_navigate(g, t, dx, dy);
     }
 }
 
@@ -120,9 +124,9 @@ static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
     case MAINMENU_ST_PRESS_START:
         mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
 #if 0
-        fade_start(&t->fade, 30, 0, 15, cb_load_game_debug, NULL, g);
+        cb_load_game_debug(g);
 #else
-        fade_start(&t->fade, 30, 0, 15, cb_mainmenu_to_fileselect, NULL, t);
+        cb_mainmenu_to_fileselect(g);
 #endif
         break;
         //
@@ -131,7 +135,9 @@ static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
         case 0:
         case 1:
         case 2: // selected file to play
-            mainmenu_op_start_file(g, t, t->option);
+            t->fade_to_game = 1;
+            mainmenu_play_sound(MAINMENU_SOUND_START);
+            // mainmenu_op_start_file(g, t, t->option);
             break;
         case MAINMENU_OPTION_COPY: // copy file
             mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
@@ -210,7 +216,7 @@ static void mainmenu_pressed_B(mainmenu_s *t)
     case MAINMENU_ST_PRESS_START:
         break;
     case MAINMENU_ST_FILESELECT:
-        fade_start(&t->fade, 15, 0, 30, cb_mainmenu_to_press_start, NULL, t);
+        cb_mainmenu_to_press_start(t);
         break;
     default:
         mainmenu_play_sound(MAINMENU_SOUND_ABORT);
@@ -220,7 +226,7 @@ static void mainmenu_pressed_B(mainmenu_s *t)
     }
 }
 
-static void mainmenu_navigate(mainmenu_s *t, int dx, int dy)
+static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy)
 {
     switch (t->state) {
     case MAINMENU_ST_PRESS_START:
@@ -313,9 +319,10 @@ static void mainmenu_update_savefiles(mainmenu_s *t)
 
 void mainmenu_render(mainmenu_s *t)
 {
-    gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(0));
-    int       fade_i = fade_interpolate(&t->fade, 100, 0);
-    ctx.pat          = gfx_pattern_interpolate(fade_i, 100);
+    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
+    gfx_rec_fill(ctx, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_WHITE);
+    int fade_i = 100;
+    ctx.pat    = gfx_pattern_interpolate(fade_i, 100);
 
     { // feather falling animation and logo
         float s1  = sin_f(t->feather_time);
@@ -394,6 +401,12 @@ void mainmenu_render(mainmenu_s *t)
         BAD_PATH
         break;
     }
+
+    if (!t->fade_to_game) return;
+
+    gfx_ctx_s ctxfill = gfx_ctx_display();
+    ctxfill.pat       = gfx_pattern_interpolate(t->fade_to_game, FADETICKS_MM_GAME);
+    gfx_rec_fill(ctxfill, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_BLACK);
 }
 
 static void mainmenu_render_save_slots(mainmenu_s *t, gfx_ctx_s ctx)
@@ -405,10 +418,6 @@ static void mainmenu_render_save_slots(mainmenu_s *t, gfx_ctx_s ctx)
         savefile_s *sf = &t->savefiles[n].sf;
         int         y  = 20 + 20 * n;
         fnt_draw_ascii(ctx, font, (v2_i32){40, y}, sf->hero_name, mode);
-
-        char buf[8] = {0};
-        str_append_i(buf, sf->tick);
-        fnt_draw_ascii(ctx, font, (v2_i32){200, y}, buf, mode);
     }
 }
 

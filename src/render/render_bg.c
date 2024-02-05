@@ -27,42 +27,48 @@ void render_bg(game_s *g, rec_i32 cam)
 
     int clip_bot = min_i(ocean->y_max, dst.h);
 
-    gfx_ctx_s     ctx_ocean     = gfx_ctx_clip_top(ctx, 100);
+    gfx_ctx_s     ctx_ocean     = ctx;
     gfx_pattern_s pattern_black = gfx_pattern_bayer_4x4(0);
     gfx_pattern_s pattern_white = gfx_pattern_bayer_4x4(16);
-#if 1
-    bg_fill_rows(dst, pattern_white, 0, clip_bot);
-    texrec_s tcave_1   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 0, 1024, 256);
-    texrec_s tcave_2   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 256, 1024, 256);
-    v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, -20};
-    v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
-    cavepos_1.x &= ~1; // reduce dither flickering
-    cavepos_1.y &= ~1;
-    cavepos_2.x &= ~3;
-    cavepos_2.y &= ~3;
 
-    gfx_ctx_s ctx_bg = gfx_ctx_clip_bot(ctx, clip_bot);
-    gfx_spr_cpy_display(ctx_bg, tcave_1, cavepos_1);
-    gfx_spr_cpy_display(ctx_bg, tcave_2, cavepos_2);
+#if 1
+    if (g->areaID == 0) {
+        bg_fill_rows(dst, pattern_white, 0, clip_bot);
+        texrec_s tcave_1   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 0, 1024, 256);
+        texrec_s tcave_2   = asset_texrec(TEXID_BG_MOUNTAINS, 0, 256, 1024, 256);
+        v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, -20};
+        v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
+        cavepos_1.x &= ~1; // reduce dither flickering
+        cavepos_1.y &= ~1;
+        cavepos_2.x &= ~1;
+        cavepos_2.y &= ~1;
+
+        gfx_ctx_s ctx_bg = gfx_ctx_clip_bot(ctx, clip_bot);
+        gfx_spr_cpy_display(ctx_bg, tcave_1, cavepos_1);
+        gfx_spr_cpy_display(ctx_bg, tcave_2, cavepos_2);
+    }
+
 #elif 0
     gfx_pattern_s pattern_1 = gfx_pattern_bayer_4x4(16);
     bg_fill_rows(dst, pattern_1, 0, clip_bot);
     texrec_s tcave_1   = asset_texrec(TEXID_CLOUDS, 0, 0, 512, 256);
     v2_i32   cavepos_1 = {0, 0};
     gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
-#else
-    bg_fill_rows(dst, pattern_black, 0, clip_bot);
-    texrec_s tcave_1   = asset_texrec(TEXID_BG_CAVE, 0, 0, 1024, 256);
-    texrec_s tcave_2   = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
-    v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, 20};
-    v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
-    cavepos_1.x &= ~1; // reduce dither flickering
-    cavepos_1.y &= ~1;
-    cavepos_2.x &= ~3;
-    cavepos_2.y &= ~3;
-    gfx_spr_cpy_display(ctx, tcave_2, cavepos_2);
-    gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
 #endif
+
+    if (g->areaID == 1) {
+        bg_fill_rows(dst, pattern_black, 0, clip_bot);
+        texrec_s tcave_1   = asset_texrec(TEXID_BG_CAVE, 0, 0, 1024, 256);
+        texrec_s tcave_2   = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
+        v2_i32   cavepos_1 = {(0 - cam.x * 3) / 4, 20};
+        v2_i32   cavepos_2 = {(0 - cam.x * 2) / 4, 0};
+        cavepos_1.x &= ~1; // reduce dither flickering
+        cavepos_1.y &= ~1;
+        cavepos_2.x &= ~3;
+        cavepos_2.y &= ~3;
+        gfx_spr_cpy_display(ctx, tcave_2, cavepos_2);
+        gfx_spr_cpy_display(ctx, tcave_1, cavepos_1);
+    }
 
     if (g->env_effects & ENVEFFECT_CLOUD) {
         enveffect_cloud_draw(ctx, &g->env_cloud, camoff);

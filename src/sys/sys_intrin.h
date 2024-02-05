@@ -30,7 +30,8 @@ static inline u32 brev32(u32 v)
 #else
 static u32 bswap32(u32 i)
 {
-    return (i >> 24) | ((i << 8) & 0xFF0000U) | (i << 24) | ((i >> 8) & 0x00FF00U);
+    return (i >> 24) | ((i << 8) & 0xFF0000U) |
+           (i << 24) | ((i >> 8) & 0x00FF00U);
 }
 
 static i32 clz32(u32 v)

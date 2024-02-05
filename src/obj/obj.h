@@ -17,15 +17,12 @@ enum {
     OBJ_ID_SIGN,
     OBJ_ID_SIGN_POPUP,
     OBJ_ID_SOLID,
-    OBJ_ID_KILLABLE,
     OBJ_ID_DOOR_SWING,
     OBJ_ID_SAVEPOINT,
     OBJ_ID_CRUMBLEBLOCK,
-    OBJ_ID_BLOB,
     OBJ_ID_SWITCH,
     OBJ_ID_TOGGLEBLOCK,
     OBJ_ID_CLOCKPULSE,
-    OBJ_ID_FALLINGBLOCK,
     OBJ_ID_SHROOMY,
     OBJ_ID_CRAWLER,
     OBJ_ID_CRAWLER_SNAIL,
@@ -34,6 +31,10 @@ enum {
     OBJ_ID_MOVINGPLATFORM,
     OBJ_ID_NPC,
     OBJ_ID_CHARGER,
+    OBJ_ID_TELEPORT,
+    OBJ_ID_JUGGERNAUT,
+    OBJ_ID_COLLECTIBLE,
+    OBJ_ID_STALACTITE,
 };
 
 enum {
@@ -72,23 +73,17 @@ enum {
 
 enum {
     OBJ_MOVER_SLOPES           = 1 << 0,
-    OBJ_MOVER_GLUE_GROUND      = 1 << 1,
-    OBJ_MOVER_AVOID_HEADBUMP   = 1 << 2,
-    OBJ_MOVER_ONE_WAY_PLAT     = 1 << 3,
-    OBJ_MOVER_CAN_BE_JUMPED_ON = 1 << 4,
-    OBJ_MOVER_CAN_JUMP_ON      = 1 << 5,
+    OBJ_MOVER_SLOPES_HI        = 1 << 1,
+    OBJ_MOVER_GLUE_GROUND      = 1 << 2,
+    OBJ_MOVER_AVOID_HEADBUMP   = 1 << 3,
+    OBJ_MOVER_ONE_WAY_PLAT     = 1 << 4,
+    OBJ_MOVER_CAN_BE_JUMPED_ON = 1 << 5,
+    OBJ_MOVER_CAN_JUMP_ON      = 1 << 6,
 };
 
 enum {
     FACING_LEFT,
     FACING_RIGHT,
-};
-
-enum {
-    GENERIC_STATE_ON,
-    GENERIC_STATE_OFF,
-    GENERIC_STATE_TURNING_ON,
-    GENERIC_STATE_TURNING_OFF,
 };
 
 enum {
@@ -117,16 +112,24 @@ typedef struct {
     int      mode;
 } sprite_simple_s;
 
+typedef struct {
+    int    sndID_hurt;
+    int    sndID_die;
+    int    drops;
+    int    invincible;
+    bool32 cannot_be_hurt;
+} enemy_s;
+
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
     obj_s          *next; // linked list
     //
     obj_UID_s       UID;
-    int             ID;
+    u32             ID;
     flags64         flags;
     flags32         tags;
     //
-    int             render_priority;
+    i32             render_priority;
     flags32         bumpflags; // has to be cleared manually
     flags32         moverflags;
     int             w;
@@ -143,11 +146,8 @@ struct obj_s {
     //
     int             trigger;
     int             facing; // -1 left, +1 right
-    int             trigger_on_0;
-    int             trigger_on_1; // used by switch and toggleblock
     int             switch_oneway;
     // some generic behaviour fields
-    fade_s          fade;
     int             action;
     int             subaction;
     int             state;
@@ -163,16 +163,13 @@ struct obj_s {
     int             invincible_tick;
     int             frametick;
     int             frame;
-    int             n_hitboxes;
-    hitbox_s        hitboxes[4];
-    int             n_hurtboxes;
-    hitbox_s        hurtboxes[4];
+    enemy_s         enemy;
     //
     ropenode_s     *ropenode;
     rope_s         *rope;
     int             attached;
     obj_handle_s    linked_solid;
-    obj_handle_s    obj_handles[16];
+    obj_handle_s    obj_handles[4];
     //
     int             subattack;
     int             attack;
@@ -197,11 +194,11 @@ bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
 //
 obj_s       *obj_create(game_s *g);
-void         obj_delete(game_s *g, obj_s *o);
+void         obj_delete(game_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
 bool32       obj_tag(game_s *g, obj_s *o, int tag);
 bool32       obj_untag(game_s *g, obj_s *o, int tag);
 obj_s       *obj_get_tagged(game_s *g, int tag);
-void         objs_cull_to_delete(game_s *g);
+void         objs_cull_to_delete(game_s *g); // removes all flagged objects
 bool32       overlap_obj(obj_s *a, obj_s *b);
 rec_i32      obj_aabb(obj_s *o);
 rec_i32      obj_rec_left(obj_s *o);
@@ -214,7 +211,6 @@ bool32       actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
 void         platform_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
-void         obj_interact(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);
 bool32       obj_grounded(game_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
@@ -224,7 +220,6 @@ v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 //
 int          obj_health_change(obj_s *o, int dt); // returns health left
 int          enemy_obj_damage(obj_s *o, int dmg, int invincible_ticks);
-int          obj_invincible_frame(obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

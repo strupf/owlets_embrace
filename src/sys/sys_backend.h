@@ -8,8 +8,8 @@
 #include "sys_types.h"
 
 void   sys_init();
-int    sys_tick(void *arg);
-int    sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len);
+int    sys_step(void *arg);
+int    sys_audio(void *context, i16 *lbuf, i16 *rbuf, int len);
 void   sys_close();
 void   sys_pause();
 void   sys_resume();
@@ -35,4 +35,5 @@ void  *backend_menu_item_add(const char *title, void (*cb)(void *arg), void *arg
 void  *backend_menu_checkmark_add(const char *title, int val, void (*cb)(void *arg), void *arg);
 bool32 backend_menu_checkmark(void *ptr);
 void   backend_menu_clr();
+void   backend_set_volume(f32 vol);
 #endif

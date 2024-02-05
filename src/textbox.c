@@ -5,6 +5,11 @@
 #include "textbox.h"
 #include "game.h"
 
+bool32 textbox_active(textbox_s *tb)
+{
+    return (tb->state != TEXTBOX_STATE_INACTIVE);
+}
+
 static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
 {
     int len = 0;
@@ -19,6 +24,7 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
 {
     *tb = (textbox_s){0};
     FILEPATH_GEN(filepath, FILEPATH_DIALOG, filename);
+    str_append(filepath, ".json");
 
     spm_push();
     char  *txt;
@@ -33,9 +39,9 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
         goto DIALOG_ERR;
     }
 
-    g->substate  = GAME_SUBSTATE_TEXTBOX;
-    tb->state    = TEXTBOX_STATE_FADE_IN;
-    tb->fadetick = TEXTBOX_FADE_TICKS;
+    tb->state    = TEXTBOX_STATE_WRITE;
+    tb->fade_out = 0;
+    tb->fade_in  = 1;
 
     for (json_each (jroot, "blocks", jblock)) {
         textbox_block_s *block = &tb->blocks[tb->n_blocks++];
@@ -123,8 +129,7 @@ static void select_tbblock(textbox_s *tb)
         tb->tick    = 0;
         tb->state   = TEXTBOX_STATE_WRITE;
     } else {
-        tb->state    = TEXTBOX_STATE_FADE_OUT;
-        tb->fadetick = TEXTBOX_FADE_TICKS;
+        tb->fade_out = 1;
     }
 }
 
@@ -133,20 +138,24 @@ void textbox_update(game_s *g, textbox_s *tb)
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
     tb->tick++;
 
+    if (tb->fade_in) {
+        tb->fade_in++;
+        if (TEXTBOX_FADE_TICKS <= tb->fade_in) {
+            tb->fade_in = 0;
+        }
+        return;
+    }
+
+    if (tb->fade_out) {
+        tb->fade_out++;
+        if (TEXTBOX_FADE_TICKS <= tb->fade_out) {
+            tb->fade_out = 0;
+            tb->state    = TEXTBOX_STATE_INACTIVE;
+        }
+        return;
+    }
+
     switch (tb->state) {
-    case TEXTBOX_STATE_FADE_IN:
-        tb->fadetick--;
-        if (tb->fadetick <= 0) {
-            tb->state = TEXTBOX_STATE_WRITE;
-        }
-        break;
-    case TEXTBOX_STATE_FADE_OUT:
-        tb->fadetick--;
-        if (tb->fadetick <= 0) {
-            tb->state   = TEXTBOX_STATE_INACTIVE;
-            g->substate = 0;
-        }
-        break;
     case TEXTBOX_STATE_WAIT: {
         textbox_block_s *b = &tb->blocks[tb->block];
         if (inp_just_pressed(INP_A)) {
@@ -175,12 +184,10 @@ void textbox_update(game_s *g, textbox_s *tb)
 
             } break;
             case TEXTBOX_CHOICE_EXIT: {
-                tb->state    = TEXTBOX_STATE_FADE_OUT;
-                tb->fadetick = TEXTBOX_FADE_TICKS;
+                tb->fade_out = 1;
             } break;
             case TEXTBOX_CHOICE_OPEN_SHOP: {
-                tb->state    = TEXTBOX_STATE_FADE_OUT;
-                tb->fadetick = TEXTBOX_FADE_TICKS;
+                tb->fade_out = 1;
                 shop_open(g);
             } break;
             }
@@ -189,10 +196,11 @@ void textbox_update(game_s *g, textbox_s *tb)
 
         if (b->n_choices <= 0) break;
 
-        if (inp_just_pressed(INP_DPAD_D))
-            tb->curchoice = min_i(tb->curchoice + 1, b->n_choices - 1);
-        if (inp_just_pressed(INP_DPAD_U))
-            tb->curchoice = max_i(tb->curchoice - 1, 0);
+        if (inp_just_pressed(INP_DPAD_D) || inp_just_pressed(INP_DPAD_U)) {
+            tb->curchoice += inp_dpad_y();
+            tb->curchoice = clamp_i(tb->curchoice, 0, b->n_choices - 1);
+            snd_play_ext(SNDID_MENU_NEXT_ITEM, 1.f, 1.f);
+        }
     } break;
     case TEXTBOX_STATE_WRITE: {
         textbox_block_s *b = &tb->blocks[tb->block];
@@ -229,15 +237,14 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
     gfx_ctx_s        ctx = gfx_ctx_display();
 
 #define TB_LINE_SPACING 26
-
-    switch (tb->state) {
-    case TEXTBOX_STATE_FADE_IN:
-        ctx.pat = gfx_pattern_interpolate(TEXTBOX_FADE_TICKS - tb->fadetick, TEXTBOX_FADE_TICKS);
-        break;
-    case TEXTBOX_STATE_FADE_OUT:
-        ctx.pat = gfx_pattern_interpolate(tb->fadetick, TEXTBOX_FADE_TICKS);
-        break;
+    int num = TEXTBOX_FADE_TICKS;
+    if (tb->fade_in) {
+        num = tb->fade_in;
     }
+    if (tb->fade_out) {
+        num = TEXTBOX_FADE_TICKS - tb->fade_out;
+    }
+    ctx.pat = gfx_pattern_interpolate(num, TEXTBOX_FADE_TICKS);
 
     gfx_rec_fill(ctx, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
 
@@ -288,17 +295,19 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 #define TB_ANIM_TICKS_IDLE  20
 #define TB_ANIM_TOTAL_TICKS (TB_ANIM_TICKS + TB_ANIM_TICKS_IDLE)
 
-        tb->animation = (tb->animation + 1) % TB_ANIM_TOTAL_TICKS;
-        int fr        = 0;
-        if (TB_ANIM_TICKS_IDLE <= tb->animation) {
-            int ti = tb->animation - TB_ANIM_TICKS_IDLE;
-            fr     = tick_to_index_freq(ti, 6, TB_ANIM_TICKS);
-        }
+        if (!tb->fade_out) {
+            tb->animation = (tb->animation + 1) % TB_ANIM_TOTAL_TICKS;
+            int fr        = 0;
+            if (TB_ANIM_TICKS_IDLE <= tb->animation) {
+                int ti = tb->animation - TB_ANIM_TICKS_IDLE;
+                fr     = tick_to_index_freq(ti, 6, TB_ANIM_TICKS);
+            }
 
-        texrec_s tarrow = asset_texrec(TEXID_UI, fr * 32, 176, 32, 32);
-        if (tb->block == tb->n_blocks - 1)
-            tarrow.r.y += 64 + 16;
-        gfx_spr(ctx, tarrow, (v2_i32){360, 200}, 0, 0);
+            texrec_s tarrow = asset_texrec(TEXID_UI, fr * 32, 176, 32, 32);
+            if (tb->block == tb->n_blocks - 1)
+                tarrow.r.y += 64 + 16;
+            gfx_spr(ctx, tarrow, (v2_i32){360, 200}, 0, 0);
+        }
 
         if (b->n_choices <= 0) break;
 

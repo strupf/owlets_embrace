@@ -7,84 +7,70 @@
 
 #include "sys/sys.h"
 
-typedef sys_wav_s aud_snd_s;
-
-#define AUD_WAVES   4
-#define AUD_SAMPLES 2
-
-enum {
-    WAVE_TYPE_SQUARE,
-    WAVE_TYPE_SINE,
-    WAVE_TYPE_TRIANGLE,
-    WAVE_TYPE_SAW,
-    WAVE_TYPE_NOISE,
-    WAVE_TYPE_SAMPLE,
-};
-
-enum {
-    ADSR_NONE,
-    ADSR_ATTACK,
-    ADSR_DECAY,
-    ADSR_SUSTAIN,
-    ADSR_RELEASE,
-};
-
-enum {
-    WAV_FMT_22050_I8,
-    WAV_FMT_44100_I8,
-    WAV_FMT_22050_I16,
-    WAV_FMT_44100_I16,
-};
+#define AUD_CLAMP        1
+#define MUSCHUNK_MEM     0x1000 // 4 KB
+#define MUSCHUNK_SAMPLES (MUSCHUNK_MEM / sizeof(i16))
+#define MUS_LEN_FILENAME 64
+#define NUM_SNDCHANNEL   8
 
 typedef struct {
-    int adsr;
-    int t;
-
-    i32 vol_sustain;
-    i32 vol_peak;
-    int attack; // ticks, 44100 = 1s
-    int decay;
-    int sustain;
-    int release;
-} envelope_s;
+    i16 *buf;
+    int  len;
+} snd_s;
 
 typedef struct {
-    u32 len;
-    i8  buf[0x10000]; // S8 22050Hz -> S16 44100Hz
-} wave_sample_s;
+    i16 *wavedata;
+    int  wavelen;
+    int  wavelen_og;
+    int  wavepos;
+    int  wavepos_inv_q8;
+    int  vol_q8;
+    int  invpitch_q8; // 1 / pitch
+} sndchannel_s;
 
 typedef struct {
-    int type;
-
-    u32 t; // 0 to 0xFFFFFFFF equals one period
-    u32 incr;
-    i32 vol;
-
-    wave_sample_s *sample;
-
-    envelope_s env;
-} wave_s;
+    char   filename[MUS_LEN_FILENAME];
+    //
+    void  *stream;
+    int    datapos;
+    int    streampos; // position in samples
+    int    streamlen;
+    int    chunkpos; // position in samples in chunk
+    int    vol_q8;
+    bool32 looping;
+    //
+    int    vol_q8_fade_out;
+    int    fade_out_ticks_og;
+    int    fade_out_ticks;
+    int    fade_in_ticks;
+    int    fade_in_ticks_og;
+    //
+    alignas(8) i16 chunk[MUSCHUNK_SAMPLES];
+} muschannel_s;
 
 typedef struct {
-    int  mus_fade_ticks;
-    int  mus_fade_ticks_max;
-    int  mus_fade_in;
-    int  mus_fade;
-    char mus_new[64];
-
-    wave_s        waves[AUD_WAVES];
-    wave_sample_s wavesamples[AUD_SAMPLES];
+    bool32       mute;
+    int          mus_fade_ticks;
+    int          mus_fade_ticks_max;
+    int          mus_fade_in;
+    int          mus_fade;
+    char         mus_new[64];
+    muschannel_s muschannel;
+    sndchannel_s sndchannel[NUM_SNDCHANNEL];
+    bool32       snd_playing_disabled;
 } AUD_s;
 
 extern AUD_s AUD;
 
-void      aud_update();
-//
-aud_snd_s aud_snd_load(const char *pathname, alloc_s ma);
-void      aud_snd_play(aud_snd_s s, f32 vol, f32 pitch);
-//
-void      aud_mus_fade_to(const char *pathname, int ticks_out, int ticks_in);
-void      aud_mus_stop();
-bool32    aud_mus_playing();
-
+void   aud_update();
+void   aud_mute(bool32 mute);
+void   aud_audio(i16 *buf, int len);
+void   aud_allow_playing_new_snd(bool32 enabled);
+snd_s  snd_load(const char *pathname, alloc_s ma);
+void   snd_play(snd_s s, f32 vol, f32 pitch);
+void   mus_fade_to(const char *pathname, int ticks_out, int ticks_in);
+void   mus_stop();
+bool32 mus_play(const char *filename);
+bool32 mus_playing();
+void   mus_set_vol(int vol_q8);
 #endif

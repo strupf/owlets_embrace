@@ -5,22 +5,12 @@
 #ifndef APP_H
 #define APP_H
 
-#include "scene.h"
-
-typedef struct {
-    int           x;
-    scene_stack_s scene_stack;
-} app_s;
-
-extern app_s APP;
-
 void app_init();
 void app_tick();
 void app_draw();
 void app_close();
 void app_resume();
 void app_pause();
-//
-void app_load_assets();
+void app_audio(i16 *buf, int len);
 
 #endif

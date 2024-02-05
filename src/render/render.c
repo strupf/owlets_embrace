@@ -30,30 +30,17 @@ static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 camoffset)
             sprite_simple_s sprite = o->sprites[n];
             if (sprite.trec.t.px == NULL) continue;
             v2_i32 sprpos = v2_add(ppos, sprite.offs);
-#if 0
-            txrec_s txr     = {0};
-            txr.t           = tx_from_tex(sprite.trec.t, malloc);
-            txr.r           = sprite.trec.r;
-            gfx_ctx2_s ctx2 = {0};
-            ctx2.dst        = tx_display(ctx.dst);
-            memcpy(&ctx2.pat, &ctx.pat, sizeof(ctx.pat));
-            ctx2.clip_x1 = ctx.clip_x1;
-            ctx2.clip_y1 = ctx.clip_y1;
-            ctx2.clip_x2 = ctx.clip_x2;
-            ctx2.clip_y2 = ctx.clip_y2;
-            gfx_spr2(ctx2, txr, sprpos, sprite.flip, sprite.mode);
+            int    mode   = sprite.mode;
+            if ((o->flags & OBJ_FLAG_ENEMY) &&
+                ((o->enemy.invincible >> 2) & 1)) {
+                mode = SPR_MODE_INV;
+            }
 
-            free(txr.t.px);
-#else
-            gfx_spr_display(ctx, sprite.trec, sprpos, sprite.flip, sprite.mode);
-#endif
+            gfx_spr_display(ctx, sprite.trec, sprpos, sprite.flip, mode);
         }
     }
 
     switch (o->ID) {
-    case OBJ_ID_BLOB:
-        blob_on_draw(g, o, camoffset);
-        break;
     case OBJ_ID_TOGGLEBLOCK:
         toggleblock_on_draw(g, o, camoffset);
         break;
@@ -136,6 +123,19 @@ void game_draw(game_s *g)
 #endif
 
     render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
+
+    if (g->objrender_dirty) {
+        g->objrender_dirty = 0;
+        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s *), cmp_obj_render_priority);
+    }
+
+    int n_obj_render = 0;
+    for (; n_obj_render < g->n_objrender; n_obj_render++) {
+        obj_s *o = g->obj_render[n_obj_render];
+        if (0 <= o->render_priority) break;
+        obj_draw(ctx, g, o, camoffset);
+    }
+
     render_tilemap(g, TILELAYER_TERRAIN, tilebounds, camoffset);
 
     obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -166,20 +166,27 @@ void game_draw(game_s *g)
                     dd        = v2_setlen(dd, dst);
                     dd        = v2_shr(dd, 4);
                     dd        = v2_add(dd, p1);
-                    gfx_spr_cpy_display(ctx, tseg, dd);
+                    gfx_spr(ctx, tseg, dd, 0, 0);
                 }
                 lensofar_q4 = lenend_q4;
             }
         }
     }
 
-    if (g->objrender_dirty) {
-        g->objrender_dirty = 0;
-        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s *), cmp_obj_render_priority);
-    }
+    // enemy death animations
+    for (int n = 0; n < g->n_enemy_decals; n++) {
+        texrec_s tr   = g->enemy_decals[n].t;
+        int      i0   = g->enemy_decals[n].tick;
+        v2_i32   dpos = v2_add(g->enemy_decals[n].pos, camoffset);
 
-    for (int n = 0; n < g->n_objrender; n++) {
-        obj_draw(ctx, g, g->obj_render[n], camoffset);
+        for (int y = 0; y < tr.r.h; y += 2) {
+            if (rngr_i32(0, (100 * i0) / ENEMY_DECAL_TICK) <= 4) continue;
+            v2_i32   ppp = {dpos.x, dpos.y + y};
+            texrec_s trr = tr;
+            trr.r.y      = tr.r.y + y;
+            trr.r.h      = 2;
+            gfx_spr(ctx, trr, ppp, 0, SPR_MODE_BLACK);
+        }
     }
 
     for (int i = 0; i < g->particles.n; i++) {
@@ -202,6 +209,13 @@ void game_draw(game_s *g)
         }
     }
 
+    collectibles_draw(g, camoffset);
+
+    for (; n_obj_render < g->n_objrender; n_obj_render++) {
+        obj_s *o = g->obj_render[n_obj_render];
+        obj_draw(ctx, g, o, camoffset);
+    }
+
     texrec_s trgrass;
     trgrass.t = asset_tex(TEXID_PLANTS);
     for (int n = 0; n < g->n_grass; n++) {
@@ -216,7 +230,7 @@ void game_draw(game_s *g)
             v2_i32 p = pos;
             p.y += i;
             p.x += (gr->x_q8 * (15 - i)) >> 8; // shear
-            rec_i32 rg = {8, i + gr->type * 16, 16, 1};
+            rec_i32 rg = {224 + 8, i + gr->type * 16, 16, 1};
             trgrass.r  = rg;
             gfx_spr_display(ctx, trgrass, p, 0, 0);
         }
@@ -230,7 +244,17 @@ void game_draw(game_s *g)
         enveffect_heat_draw(ctx, &g->env_heat, camoffset);
 
     render_ui(g, camoffset);
-    transition_draw(&g->transition);
+    transition_draw(g, &g->transition, camoffset);
+
+    if (g->mainmenu_fade_in) {
+        gfx_ctx_s ctxfade = ctx;
+        ctxfade.pat       = gfx_pattern_interpolate(g->mainmenu_fade_in, FADETICKS_GAME_IN);
+        gfx_rec_fill(ctxfade, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_BLACK);
+    }
+
+    if (upgradehandler_in_progress(&g->heroupgrade)) {
+        upgradehandler_draw(g, &g->heroupgrade, camoffset);
+    }
 #if 0
     texrec_s   trrr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 128, 128);
     static int posxx;
@@ -321,17 +345,10 @@ void ocean_draw(game_s *g, tex_s t, v2_i32 camoff)
     const gfx_ctx_s ctx  = gfx_ctx_default(t);
     gfx_ctx_s       ctxf = ctx;
 
-    if ((camoff.x ^ camoff.y) & 1) {
-        ctxf.pat = gfx_pattern_4x4(B4(0101),
-                                   B4(1010),
-                                   B4(0101),
-                                   B4(1010));
-    } else {
-        ctxf.pat = gfx_pattern_4x4(B4(1010),
-                                   B4(0101),
-                                   B4(1010),
-                                   B4(0101));
-    }
+    ctxf.pat = gfx_pattern_4x4(B4(1111),
+                               B4(1010),
+                               B4(1111),
+                               B4(1010));
 
     gfx_ctx_s ctxl = ctx;
     ctxl.pat       = gfx_pattern_interpolate(1, 6);
@@ -346,7 +363,7 @@ void ocean_draw(game_s *g, tex_s t, v2_i32 camoff)
         }
     }
 
-    // dynamic sin section
+    //  dynamic sin section
     for (int k = 0, x = 0; k < oc->n_spans; k++) {
         ocean_span_s sp  = oc->spans[k];
         rec_i32      rl1 = {x, sp.y + 2, sp.w, 2};

@@ -11,11 +11,10 @@ typedef struct {
 
 obj_s *sign_popup_create(game_s *g)
 {
-    obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_SIGN_POPUP;
-    o->flags           = OBJ_FLAG_SPRITE;
-    o->render_priority = -10;
-
+    obj_s *o             = obj_create(g);
+    o->ID                = OBJ_ID_SIGN_POPUP;
+    o->flags             = OBJ_FLAG_SPRITE;
+    o->render_priority   = 1;
     o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
     spr->trec            = asset_texrec(TEXID_MISCOBJ, 64, 0, 32, 32);

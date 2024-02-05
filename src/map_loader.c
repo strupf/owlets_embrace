@@ -146,9 +146,14 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         crumbleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Carrier")) {
         carrier_load(g, o);
+    } else if (str_eq_nc(o->name, "Teleport")) {
+        teleport_load(g, o);
+    } else if (str_eq_nc(o->name, "Stalactite")) {
+        stalactite_load(g, o);
     } else if (str_eq_nc(o->name, "Ocean")) {
         g->ocean.active = 1;
         g->ocean.y      = o->y + 16;
+    } else if (str_eq_nc(o->name, "Cam")) {
     }
 }
 
@@ -171,18 +176,22 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
-    g->n_grass      = 0;
-    g->n_ropes      = 0;
-    g->particles.n  = 0;
-    g->ocean.active = 0;
-    g->env_effects  = 0;
+    g->n_grass              = 0;
+    g->herodata.rope_active = 0;
+    g->particles.n          = 0;
+    g->ocean.active         = 0;
+    g->env_effects          = 0;
+    g->n_collectibles       = 0;
+    g->n_enemy_decals       = 0;
+    g->n_water              = 0;
+
     marena_init(&g->arena, g->mem, sizeof(g->mem));
 
     strcpy(g->areaname.filename, mapfile);
     g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
     memset(g->tiles, 0, sizeof(g->tiles));
     memset(g->rtiles, 0, sizeof(g->rtiles));
-    fade_start(&g->areaname.fade, 30, 200, 100, NULL, NULL, NULL);
+    g->areaname.fadeticks = 1;
 
     spm_push();
 
@@ -219,6 +228,7 @@ void game_load_map(game_s *g, const char *mapfile)
         g->env_effects |= ENVEFFECT_CLOUD;
         enveffect_cloud_setup(&g->env_cloud);
     }
+    g->areaID = map_prop_i32(mp, "AreaID");
 
     spm_pop();
     tile_stacker_s *stacker = (tile_stacker_s *)spm_alloc(sizeof(tile_stacker_s));
@@ -242,7 +252,7 @@ void game_load_map(game_s *g, const char *mapfile)
             case TILE_LADDER: {
                 g->tiles[k].collision              = TILE_LADDER;
                 g->rtiles[TILELAYER_TERRAIN][k].tx = 464 / 16;
-                g->rtiles[TILELAYER_TERRAIN][k].ty = 48 / 16;
+                g->rtiles[TILELAYER_TERRAIN][k].ty = 32 / 16;
             } break;
             case TILE_ONE_WAY: {
                 g->tiles[k].collision = TILE_ONE_WAY;
@@ -359,21 +369,21 @@ static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, 
     case TILE_SLOPE_45_2: return (sy == -1 || sx == +1);
     case TILE_SLOPE_45_3: return (sy == +1 || sx == +1);
     case TILE_SLOPE_LO_0: return (sy == -1 && sx <= 0);
-    case TILE_SLOPE_LO_1: return (sy == -1 && sx >= 0);
-    case TILE_SLOPE_LO_2: return (sy == +1 && sx <= 0);
+    case TILE_SLOPE_LO_2: return (sy == -1 && sx >= 0);
+    case TILE_SLOPE_LO_1: return (sy == +1 && sx <= 0);
     case TILE_SLOPE_LO_3: return (sy == +1 && sx >= 0);
     case TILE_SLOPE_LO_4: return (sx == -1 && sy <= 0);
-    case TILE_SLOPE_LO_5: return (sx == +1 && sy <= 0);
-    case TILE_SLOPE_LO_6: return (sx == -1 && sy >= 0);
+    case TILE_SLOPE_LO_6: return (sx == +1 && sy <= 0);
+    case TILE_SLOPE_LO_5: return (sx == -1 && sy >= 0);
     case TILE_SLOPE_LO_7: return (sx == +1 && sy >= 0);
-    case TILE_SLOPE_HI_0: return (sy <= 0 && (sx <= 0));
-    case TILE_SLOPE_HI_1: return (sy <= 0 && (sx >= 0));
-    case TILE_SLOPE_HI_2: return (sy >= 0 && (sx <= 0));
-    case TILE_SLOPE_HI_3: return (sy >= 0 && (sx >= 0));
-    case TILE_SLOPE_HI_4: return (sx <= 0 && (sy <= 0));
-    case TILE_SLOPE_HI_5: return (sx >= 0 && (sy <= 0));
-    case TILE_SLOPE_HI_6: return (sx <= 0 && (sy >= 0));
-    case TILE_SLOPE_HI_7: return (sx >= 0 && (sy >= 0));
+    case TILE_SLOPE_HI_0: return (sy <= 0);
+    case TILE_SLOPE_HI_2: return (sy <= 0);
+    case TILE_SLOPE_HI_1: return (sy >= 0);
+    case TILE_SLOPE_HI_3: return (sy >= 0);
+    case TILE_SLOPE_HI_4: return (sx <= 0);
+    case TILE_SLOPE_HI_6: return (sx >= 0);
+    case TILE_SLOPE_HI_5: return (sx <= 0);
+    case TILE_SLOPE_HI_7: return (sx >= 0);
     }
     return 0;
 }
@@ -550,7 +560,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
 
         if (0 < y) {
             map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
-            if (tile.type == 3 && above.type == 0) {
+            if ((tile.type == 3 || tile.type == 4) && above.type == 0) {
                 game_put_grass(g, x, y - 1);
             }
         }
@@ -572,6 +582,30 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
         xcoord        = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
         ycoord += (tile.shape - TILE_SLOPE_45);
 
+        g->tiles[index].collision = tile.shape;
+    } break;
+    case TILE_SLOPE_LO_0:
+    case TILE_SLOPE_LO_1:
+    case TILE_SLOPE_LO_2:
+    case TILE_SLOPE_LO_3:
+    case TILE_SLOPE_LO_4:
+    case TILE_SLOPE_LO_5:
+    case TILE_SLOPE_LO_6:
+    case TILE_SLOPE_LO_7: {
+        xcoord = 17; // slope image index
+        ycoord += (tile.shape - TILE_SLOPE_LO);
+        g->tiles[index].collision = tile.shape;
+    } break;
+    case TILE_SLOPE_HI_0:
+    case TILE_SLOPE_HI_1:
+    case TILE_SLOPE_HI_2:
+    case TILE_SLOPE_HI_3:
+    case TILE_SLOPE_HI_4:
+    case TILE_SLOPE_HI_5:
+    case TILE_SLOPE_HI_6:
+    case TILE_SLOPE_HI_7: {
+        xcoord = 23; // slope image index
+        ycoord += (tile.shape - TILE_SLOPE_HI);
         g->tiles[index].collision = tile.shape;
     } break;
     }

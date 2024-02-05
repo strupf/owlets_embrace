@@ -57,8 +57,8 @@ __declspec(dllexport)
         PD_getCrankAngle   = PD->system->getCrankAngle;
         PD_isCrankDocked   = PD->system->isCrankDocked;
         PD_seconds         = PD->system->getElapsedTime;
-        PD->system->setUpdateCallback(sys_tick, PD);
-        PD->sound->addSource(sys_audio_cb, NULL, 0);
+        PD->system->setUpdateCallback(sys_step, PD);
+        PD->sound->addSource(sys_audio, NULL, 0);
         PD->display->setRefreshRate(0.f);
         PD->system->resetElapsedTime();
         PD_menu_bm = PD->graphics->newBitmap(400, 240, kColorWhite);
@@ -200,4 +200,8 @@ bool32 backend_menu_checkmark(void *ptr)
 void backend_menu_clr()
 {
     PD->system->removeAllMenuItems();
+}
+
+void backend_set_volume(f32 vol)
+{
 }

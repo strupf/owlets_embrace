@@ -6,16 +6,12 @@
 #include "sys_backend.h"
 #include "sys_types.h"
 
-#define SYS_SHOW_CONSOLE     0 // enable or display hardware console
-#define SYS_SHOW_FPS         1 // enable fps/ups counter
+#define SYS_SHOW_CONSOLE 0 // enable or display hardware console
+#define SYS_SHOW_FPS     0 // enable fps/ups counter
 //
-#define SYS_UPS_DT           .0200f // 1 /  50
-#define SYS_UPS_DT_TEST      .0195f // 1 / ~51
-#define SYS_UPS_DT_CAP       .0600f // 3 /  50
-#define SYS_NUM_SNDCHANNEL   8
-#define SYS_MUSCHUNK_MEM     0x1000 // 4 KB
-#define SYS_MUSCHUNK_SAMPLES (SYS_MUSCHUNK_MEM / sizeof(i16))
-#define SYS_MUS_LEN_FILENAME 64
+#define SYS_UPS_DT       0.0200f // 1 /  50
+#define SYS_UPS_DT_TEST  0.0195f // 1 / ~51
+#define SYS_UPS_DT_CAP   0.0600f // 3 /  50
 
 #if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
 static const u32 sys_consolefont[512];
@@ -28,63 +24,19 @@ static const u32 sys_consolefont[512];
 static void sys_draw_console();
 #endif
 
-enum {
-    SNDCHANNEL_PB_SILENT,
-    SNDCHANNEL_PB_WAV,
-};
-
-typedef struct {
-    char   filename[SYS_MUS_LEN_FILENAME];
-    //
-    void  *stream;
-    int    datapos;
-    int    streampos; // position in samples
-    int    streamlen;
-    int    chunkpos; // position in samples in chunk
-    int    vol_q8;
-    bool32 looping;
-    //
-    int    vol_q8_fade_out;
-    int    fade_out_ticks_og;
-    int    fade_out_ticks;
-    int    fade_in_ticks;
-    int    fade_in_ticks_og;
-    //
-    alignas(32) i16 chunk[SYS_MUSCHUNK_SAMPLES];
-} sys_muschannel_s;
-
-typedef struct {
-    int playback_type;
-    int vol_q8;
-    f32 invpitch; // 1 / pitch
-
-    i16 *wavedata;
-    int  wavelen;
-    int  wavelen_og;
-    int  wavepos;
-} sys_sndchannel_s;
-
-typedef struct {
-    u32 ticks_held;
-    u32 tick_last_down;
-} sys_btn_timing_s;
-
 static struct {
-    u32 tick;
-    f32 lasttime;
-    f32 ups_timeacc;
+    void *menu_items[8];
+    int   inp;
+    f32   crank;
+    int   crank_docked;
+    u32   tick;
+    f32   lasttime;
+    f32   ups_timeacc;
 #if SYS_SHOW_FPS
     f32 fps_timeacc;
     int fps_counter;
     int fps; // updates per second
 #endif
-    void            *menu_items[8];
-    sys_btn_timing_s btn_timing[8];
-    int              inp;
-    f32              crank;
-    int              crank_docked;
-    sys_muschannel_s muschannel;
-    sys_sndchannel_s sndchannel[SYS_NUM_SNDCHANNEL];
 #if SYS_SHOW_CONSOLE
     char console_out[SYS_CONSOLE_LINES * SYS_CONSOLE_LINE_CHARS];
     int  console_x;
@@ -106,8 +58,8 @@ static inline void sys_tick_()
     SYS.inp          = backend_inp();
     SYS.crank        = backend_crank();
     SYS.crank_docked = backend_crank_docked();
-    app_tick();
     SYS.tick++;
+    app_tick();
 }
 
 static inline void sys_draw_()
@@ -134,7 +86,7 @@ static inline void sys_draw_()
 // if an update tick should run (@50 FPS cap on hardware)
 //
 // https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
-int sys_tick(void *arg)
+int sys_step(void *arg)
 {
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
@@ -148,6 +100,11 @@ int sys_tick(void *arg)
     while (SYS_UPS_DT_TEST <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
         n_upd++;
+#if defined(SYS_SDL) && defined(SYS_DEBUG)
+        static int slowtick;
+        if (sys_key(SYS_KEY_DOWN) && (slowtick++ & 3))
+            continue;
+#endif
         sys_tick_();
     }
 
@@ -163,13 +120,12 @@ int sys_tick(void *arg)
         SYS.fps_counter = 0;
     }
 #endif
-    return (0 < n_upd);
+    return (n_upd);
 }
 
 void sys_close()
 {
     app_close();
-    sys_mus_stop();
 }
 
 void sys_pause()
@@ -180,6 +136,12 @@ void sys_pause()
 void sys_resume()
 {
     app_resume();
+}
+
+int sys_audio(void *context, i16 *lbuf, i16 *rbuf, int len)
+{
+    app_audio(lbuf, len);
+    return 1;
 }
 
 void sys_log(const char *str)
@@ -213,6 +175,11 @@ sys_display_s sys_display()
     return s;
 }
 
+u32 sys_tick()
+{
+    return SYS.tick;
+}
+
 void sys_display_update_rows(int a, int b)
 {
     assert(0 <= a && b < SYS_DISPLAY_H);
@@ -221,16 +188,7 @@ void sys_display_update_rows(int a, int b)
 
 int sys_inp()
 {
-    int i = backend_inp();
-#if 0
-    if (i & SYS_INP_A) {
-        SYS.btn_timing[0].ticks_held++;
-        SYS.btn_timing[0].tick_last_down = SYS.tick;
-    } else {
-        SYS.btn_timing[0].ticks_held = 0;
-    }
-#endif
-    return i;
+    return backend_inp();
 }
 
 int sys_key(int k)
@@ -281,243 +239,6 @@ void sys_menu_clr()
     memset(SYS.menu_items, 0, sizeof(SYS.menu_items));
 }
 
-// http://soundfile.sapp.org/doc/WaveFormat/
-typedef struct {
-    u32 chunkID;
-    u32 chunksize;
-    u32 format;
-    u32 subchunk1ID;
-    u32 subchunk1size;
-    u16 audioformat;
-    u16 numchannels;
-    u32 samplerate;
-    u32 byterate;
-    u16 blockalign;
-    u16 bitspersample;
-    u32 subchunk2ID;   // "data"
-    u32 subchunk2size; // file size
-} wavheader_s;
-
-static_assert(sizeof(wavheader_s) == 44, "wav header size");
-
-static void *wavfile_open(const char *filename, wavheader_s *wh);
-static void  muschannel_update_chunk(sys_muschannel_s *ch, int samples);
-static void  sndchannel_wave(sys_sndchannel_s *ch, i16 *lbuf, int len);
-static void  muschannel_fillbuf(sys_muschannel_s *ch, i16 *buf, int len);
-static void  muschannel_stream(sys_muschannel_s *ch, i16 *buf, int len);
-
-int sys_audio_cb(void *context, i16 *lbuf, i16 *rbuf, int len)
-{
-    sys_muschannel_s *mch = &SYS.muschannel;
-    muschannel_stream(mch, lbuf, len);
-
-    SYS_AUDIO_CB(lbuf, len);
-
-    for (int i = 0; i < SYS_NUM_SNDCHANNEL; i++) {
-        sys_sndchannel_s *sch = &SYS.sndchannel[i];
-        switch (sch->playback_type) {
-        case SNDCHANNEL_PB_WAV:
-            sndchannel_wave(sch, lbuf, len);
-            break;
-        }
-    }
-    return 1;
-}
-
-sys_wav_s sys_load_wav(const char *filename, alloc_s ma)
-{
-    sys_wav_s   wav = {0};
-    wavheader_s wheader;
-    void       *f = wavfile_open(filename, &wheader);
-    if (!f) {
-        sys_printf("+++ wav file err: %s\n", filename);
-        return wav;
-    }
-
-    if (wheader.numchannels != 1) {
-        sys_printf("+++ wav not mono: %u, %s\n", wheader.numchannels, filename);
-        goto WAVERR;
-    }
-
-    if (wheader.bitspersample != 8 && wheader.bitspersample != 16) {
-        sys_printf("+++ wav neither S8 nor S16: %u, %s\n", wheader.bitspersample, filename);
-        goto WAVERR;
-    }
-
-    if (wheader.samplerate != 44100 && wheader.samplerate != 22050) {
-        sys_printf("+++ wav unsupported samplerate: %u, %s\n", wheader.samplerate, filename);
-        goto WAVERR;
-    }
-
-    wav.buf = ma.allocf(ma.ctx, wheader.subchunk2size);
-    if (wav.buf == NULL) {
-        sys_printf("+++ wav mem error: %s\n", filename);
-        goto WAVERR;
-    }
-
-    wav.len  = wheader.subchunk2size / wheader.blockalign;
-    wav.bits = wheader.bitspersample;
-    wav.rate = wheader.samplerate;
-    sys_file_read(f, wav.buf, wheader.subchunk2size); // we don't check for errors here...
-WAVERR:
-    sys_file_close(f);
-    return wav;
-}
-
-void sys_wavdata_play(sys_wav_s s, f32 vol, f32 pitch)
-{
-    for (int i = 0; i < SYS_NUM_SNDCHANNEL; i++) {
-        sys_sndchannel_s *ch = &SYS.sndchannel[i];
-        if (ch->playback_type != SNDCHANNEL_PB_SILENT) continue;
-        ch->playback_type = SNDCHANNEL_PB_WAV;
-        ch->wavedata      = s.buf;
-        ch->wavelen_og    = s.len;
-        ch->wavelen       = (int)((f32)s.len * pitch);
-        ch->invpitch      = 1.f / pitch;
-        ch->wavepos       = 0;
-        ch->vol_q8        = (int)(vol * 256.f);
-        break;
-    }
-}
-
-int sys_mus_play(const char *filename)
-{
-    sys_muschannel_s *ch = &SYS.muschannel;
-    sys_mus_stop();
-
-    wavheader_s wheader;
-    void       *f = wavfile_open(filename, &wheader);
-    if (!f) return 1;
-    strcpy(ch->filename, filename);
-
-    ch->stream    = f;
-    ch->datapos   = backend_file_tell(f);
-    ch->streamlen = (int)(wheader.subchunk2size / sizeof(i16));
-    ch->streampos = 0;
-    ch->vol_q8    = 256;
-    ch->looping   = 1;
-    muschannel_update_chunk(ch, 0);
-    return 0;
-}
-
-void sys_mus_stop()
-{
-    sys_muschannel_s *ch = &SYS.muschannel;
-    if (ch->stream) {
-        backend_file_close(ch->stream);
-        ch->stream = NULL;
-        memset(ch->filename, 0, sizeof(ch->filename));
-    }
-}
-
-void sys_set_mus_vol(int vol_q8)
-{
-    SYS.muschannel.vol_q8 = vol_q8;
-}
-
-int sys_mus_vol()
-{
-    return SYS.muschannel.vol_q8;
-}
-
-bool32 sys_mus_playing()
-{
-    return (SYS.muschannel.stream != NULL);
-}
-
-static void *wavfile_open(const char *filename, wavheader_s *wh)
-{
-    assert(filename);
-    if (!filename) return NULL;
-    void *f = backend_file_open(filename, SYS_FILE_R);
-    if (!f) return NULL;
-    backend_file_read(f, wh, sizeof(wavheader_s));
-    // assert(wh->bitspersample == 16);
-    backend_file_seek(f, sizeof(wavheader_s), SYS_FILE_SEEK_SET);
-    assert(wh->subchunk2ID == *((u32 *)"data"));
-    return f;
-}
-
-static void sndchannel_wave(sys_sndchannel_s *ch, i16 *lbuf, int len)
-{
-    int lmax = ch->wavelen - ch->wavepos;
-    int l;
-    if (len < lmax) {
-        l = len;
-    } else { // last part of the wav file, stop after this
-        l                 = lmax;
-        ch->playback_type = SNDCHANNEL_PB_SILENT;
-    }
-
-    i16 *buf = lbuf;
-    for (int n = 0; n < l; n++) {
-        int i = (int)((f32)ch->wavepos++ * ch->invpitch);
-        assert(i < ch->wavelen_og);
-        int v = *buf + ((ch->wavedata[i] * ch->vol_q8) >> 8);
-        if (v > I16_MAX) v = I16_MAX;
-        if (v < I16_MIN) v = I16_MIN;
-        *buf++ = v;
-    }
-}
-
-static void muschannel_stream(sys_muschannel_s *ch, i16 *buf, int len)
-{
-    if (!ch->stream) {
-        memset(buf, 0, sizeof(i16) * len);
-        return;
-    }
-
-    int l = MIN(len, (int)(ch->streamlen - ch->streampos));
-    muschannel_update_chunk(ch, len);
-    muschannel_fillbuf(ch, buf, l);
-
-    ch->streampos += l;
-    if (ch->streampos >= ch->streamlen) { // at the end of the song
-        int samples_left = len - l;
-        if (ch->looping) { // fill remainder of buffer and restart
-            ch->streampos = samples_left;
-            muschannel_update_chunk(ch, 0);
-            muschannel_fillbuf(ch, &buf[l], samples_left);
-        } else {
-            memset(&buf[l], 0, samples_left * sizeof(i16));
-            sys_mus_stop();
-        }
-    }
-}
-
-// update loaded music chunk if we are running out of samples
-static void muschannel_update_chunk(sys_muschannel_s *ch, int samples)
-{
-    int samples_chunked = SYS_MUSCHUNK_SAMPLES - ch->chunkpos;
-    if (0 < samples && samples <= samples_chunked) return;
-
-    // refill music buffer from file
-    // place chunk beginning right at streampos
-    backend_file_seek(ch->stream,
-                      ch->datapos + ch->streampos * sizeof(i16),
-                      SYS_FILE_SEEK_SET);
-    int samples_left    = ch->streamlen - ch->streampos;
-    int samples_to_read = MIN(SYS_MUSCHUNK_SAMPLES, samples_left);
-
-    backend_file_read(ch->stream, ch->chunk, sizeof(i16) * samples_to_read);
-    ch->chunkpos = 0;
-}
-
-static void muschannel_fillbuf(sys_muschannel_s *ch, i16 *buf, int len)
-{
-    i16 *b = buf;
-    i16 *c = &ch->chunk[ch->chunkpos];
-
-    ch->chunkpos += len;
-    if (ch->vol_q8 == 256) {
-        memcpy(b, c, sizeof(i16) * len);
-    } else {
-        for (int n = 0; n < len; n++) {
-            *b++ = (*c++ * ch->vol_q8) >> 8;
-        }
-    }
-}
-
 sys_file_s *sys_fopen(const char *path, const char *mode)
 {
     switch (mode[0]) {
@@ -554,6 +275,11 @@ int sys_fseek(sys_file_s *f, int pos, int origin)
     return backend_file_seek(f, pos, origin);
 }
 
+void sys_set_volume(f32 vol)
+{
+    backend_set_volume(vol);
+}
+
 #if SYS_CONFIG_ONLY_BACKEND
 void app_init()
 {}
@@ -566,6 +292,8 @@ void app_close()
 void app_resume()
 {}
 void app_pause()
+{}
+void app_audio(i16 *buf, int len)
 {}
 #endif
 

@@ -7,6 +7,7 @@
 
 #include "gamedef.h"
 #include "inventory.h"
+#include "obj.h"
 #include "rope.h"
 
 enum {
@@ -23,16 +24,10 @@ enum {
     HERO_UPGRADE_LONG_HOOK,
     HERO_UPGRADE_SWIM,
     HERO_UPGRADE_DIVE,
+    HERO_UPGRADE_GLIDE,
     HERO_UPGRADE_AIR_JUMP_1,
     HERO_UPGRADE_AIR_JUMP_2,
     HERO_UPGRADE_AIR_JUMP_3,
-};
-
-enum { // aquired automatically by setting upgrades
-    HERO_ITEM_HOOK,
-    HERO_ITEM_WHIP,
-    //
-    NUM_HERO_ITEMS
 };
 
 enum {
@@ -45,8 +40,8 @@ enum {
 typedef struct {
     char    name[LEN_HERO_NAME];
     flags32 aquired_upgrades;
-    flags32 aquired_items;
     rope_s  rope;
+    bool32  rope_active;
 
     int    n_airjumps;
     int    selected_item;
@@ -56,33 +51,59 @@ typedef struct {
     int      health;
     int      n_hitbox; // only for debugging
     hitbox_s hitbox_def[4];
+
+    obj_handle_s interactable;
 } herodata_s;
 
 typedef struct {
+    int    sprint_ticks;
+    bool32 sprinting;
+    int    sprint_dir;
+    //
+    int    whip_ticks;
+    int    whip_count; // alternates between 0 and 1
+    //
+    i32    walljumpticks;
+    i32    runup_wall_ticks;
+    i32 runup_wall;
+    i32    swimticks;
+    bool32 gliding;
+    bool32 sliding;
+    int    walking_ticks;
+    int    landed_ticks;
+    int    inair_ticks;
+    int    ground_ticks;
+    int    jumped_ticks;
     int    attackbuffer;
     int    jump_btn_buffer;
     int    airjumps_left;
     int    jump_index; // index into jump parameter table
     i32    jumpticks;
     i32    edgeticks;
-    i32    swimticks;
     bool32 onladder;
     int    ladderx;
-    int    windgush_ticks;
     v2_i32 jumped_at;
+
+    int state_prev;
+    u32 last_time_air;
+    u32 last_time_ground;
+    u32 last_time_ladder;
+    u32 last_time_swim;
 } hero_s;
+
+static_assert(sizeof(hero_s) <= 256, "");
 
 obj_s *hero_create(game_s *g);
 void   hero_on_update(game_s *g, obj_s *o);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_on_animate(game_s *g, obj_s *o);
-void   hook_on_animate(game_s *g, obj_s *o);
 bool32 hero_has_upgrade(herodata_s *h, int upgrade);
-void   hero_aquire_upgrade(herodata_s *h, int upgrade);
-void   hook_update(game_s *g, obj_s *hook);
 void   hero_crank_item_selection(herodata_s *h);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage);
 int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
+//
+void   hook_on_animate(game_s *g, obj_s *o);
+void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 
 #endif

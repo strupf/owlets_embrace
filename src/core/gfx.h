@@ -109,6 +109,8 @@ gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
 gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
+gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
+                                       int (*ease)(int a, int b, int num, int den));
 //
 #define gfx_spr_cpy_display(C, S, P)   gfx_spr(C, S, P, 0, 0)
 #define gfx_spr_display(C, S, P, F, M) gfx_spr(C, S, P, F, M)

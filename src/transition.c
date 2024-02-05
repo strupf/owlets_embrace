@@ -5,40 +5,36 @@
 #include "transition.h"
 #include "game.h"
 
-void cb_transition_load(void *arg)
-{
-    transition_fade_arg_s *fa = (transition_fade_arg_s *)arg;
-    transition_s          *t  = fa->t;
-    game_s                *g  = fa->g;
+enum {
+    TRANSITION_FADE_NONE,
+    TRANSITION_FADE_OUT,
+    TRANSITION_BLACK,
+    TRANSITION_FADE_IN,
+    //
+    NUM_TRANSITION_PHASES
+};
 
-    game_load_map(g, t->to_load);
-    obj_s *hero  = hero_create(g);
-    hero->pos.x  = t->hero_feet.x - hero->w / 2;
-    hero->pos.y  = t->hero_feet.y - hero->h;
-    hero->facing = t->hero_face;
-    hero->vel_q8 = t->hero_v;
-    cam_s *cam   = &g->cam;
-    v2_i32 hpos  = obj_pos_center(hero);
-    cam_set_pos_px(cam, hpos.x, hpos.y);
+static int transition_ticks(transition_s *t)
+{
+    static const int g_transition_ticks[NUM_TRANSITION_PHASES] = {
+        0,
+        20,
+        40,
+        20};
+    return g_transition_ticks[t->fade_phase];
 }
 
 static void transition_start(transition_s *t, game_s *g, const char *file,
                              int type, v2_i32 hero_feet, v2_i32 hero_v, int facing)
 {
-    t->fade_arg.t = t;
-    t->fade_arg.g = g;
-    t->dir        = 0;
-    t->type       = type;
-    t->hero_feet  = hero_feet;
-    t->hero_v     = hero_v;
-    t->hero_face  = facing;
-
+    t->dir       = 0;
+    t->type      = type;
+    t->hero_feet = hero_feet;
+    t->hero_v    = hero_v;
+    t->hero_face = facing;
     str_cpy(t->to_load, file);
-    fade_start(&t->fade,
-               20, // ticks fading out
-               10, // ticks black
-               20, // ticks fading in
-               cb_transition_load, NULL, &t->fade_arg);
+    t->fade_tick  = 0;
+    t->fade_phase = TRANSITION_FADE_OUT;
 }
 
 void transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32 hero_feet)
@@ -104,28 +100,112 @@ void transition_check_herodata_slide(transition_s *t, game_s *g)
     t->dir = touchedbounds;
 }
 
-void transition_update(transition_s *t)
+void transition_update(game_s *g, transition_s *t)
 {
-    fade_update(&t->fade);
+    if (transition_finished(t)) return;
+
+    const int ticks = transition_ticks(t);
+    t->fade_tick++;
+    if (t->fade_tick < ticks) return;
+
+    t->fade_tick = 0;
+    t->fade_phase++;
+
+    switch (t->fade_phase) {
+    case NUM_TRANSITION_PHASES:
+        t->fade_phase = 0;
+        break;
+    case TRANSITION_BLACK: {
+        game_load_map(g, t->to_load);
+        obj_s *hero  = hero_create(g);
+        hero->pos.x  = t->hero_feet.x - hero->w / 2;
+        hero->pos.y  = t->hero_feet.y - hero->h;
+        hero->facing = t->hero_face;
+        hero->vel_q8 = t->hero_v;
+
+        aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+        for (obj_each(g, o)) {
+            obj_game_animate(g, o); // just setting initial sprites for obj
+        }
+        aud_allow_playing_new_snd(1);
+
+        cam_s *cam  = &g->cam;
+        v2_i32 hpos = obj_pos_center(hero);
+        cam_set_pos_px(cam, hpos.x, hpos.y);
+        cam_init_level(g, cam);
+        break;
+    }
+    }
+}
+
+bool32 transition_blocks_gameplay(transition_s *t)
+{
+    return (t->fade_phase == TRANSITION_FADE_OUT ||
+            t->fade_phase == TRANSITION_BLACK);
 }
 
 bool32 transition_finished(transition_s *t)
 {
-    return (fade_phase(&t->fade) == FADE_PHASE_NONE);
+    return (t->fade_phase == TRANSITION_FADE_NONE);
 }
 
-void transition_draw(transition_s *t)
+void transition_draw(game_s *g, transition_s *t, v2_i32 camoffset)
 {
     if (transition_finished(t)) return;
 
-    int           fade_i = fade_interpolate(&t->fade, 0, 100);
-    gfx_pattern_s pat    = gfx_pattern_interpolate(fade_i, 100);
+    const int     ticks = transition_ticks(t);
+    gfx_pattern_s pat   = {0};
+
+    switch (t->fade_phase) {
+    case TRANSITION_FADE_OUT:
+        pat = gfx_pattern_interpolate(t->fade_tick, ticks);
+        break;
+    case TRANSITION_BLACK: {
+        pat = gfx_pattern_interpolate(1, 1);
+    } break;
+    case TRANSITION_FADE_IN:
+        pat = gfx_pattern_interpolate(ticks - t->fade_tick, ticks);
+        break;
+    }
+
+    spm_push();
 
     tex_s display = asset_tex(0);
-    for (int y = 0; y < display.h; y++) {
-        u32 p = pat.p[y & 7];
-        for (int x = 0; x < display.wword; x++) {
-            ((u32 *)display.px)[x + y * display.wword] &= ~p;
+    tex_s tmp     = tex_create_opaque(display.w, display.h, spm_allocator);
+
+    for (int y = 0; y < tmp.h; y++) {
+        u32 p = ~pat.p[y & 7];
+        for (int x = 0; x < tmp.wword; x++) {
+            tmp.px[x + y * tmp.wword] = p;
         }
     }
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero && t->fade_phase != TRANSITION_FADE_OUT) {
+        gfx_ctx_s ctxc = gfx_ctx_default(tmp);
+        v2_i32    cpos = v2_add(obj_pos_center(ohero), camoffset);
+        int       cird = 200;
+
+        if (t->fade_phase == TRANSITION_BLACK) {
+            int ticksh = ticks >> 1;
+            int ft     = t->fade_tick - ticksh;
+            if (0 <= ft) {
+                ctxc.pat = gfx_pattern_interpolate(ft, ticksh);
+                cird     = ease_out_quad(0, cird, ft, ticksh);
+            } else {
+                cird = 0;
+            }
+        }
+
+        gfx_cir_fill(ctxc, cpos, cird, PRIM_MODE_WHITE);
+    }
+
+    for (int y = 0; y < tmp.h; y++) {
+        for (int x = 0; x < tmp.wword; x++) {
+            int i = x + y * tmp.wword;
+            display.px[i] &= tmp.px[i];
+        }
+    }
+
+    spm_pop();
 }

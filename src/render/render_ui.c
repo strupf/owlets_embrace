@@ -20,67 +20,46 @@ void render_ui(game_s *g, v2_i32 camoff)
 
     fnt_s font_1 = asset_fnt(FNTID_AREA_LABEL);
 
-    fade_s *areaname    = &g->areaname.fade;
-    fade_s *fadeupgrade = &g->fade_upgrade;
-    if (fade_phase(areaname)) {
+    if (g->areaname.fadeticks) {
         gfx_ctx_s ctx_af = ctx_ui;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
-        int       fade_i = fade_interpolate(areaname, 0, 100);
-        ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
-        int    strl      = fnt_length_px(font_1, g->areaname.label);
-        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 10};
+        int       p1     = (FADETICKS_AREALABEL * 1) / 8;
+        int       p2     = (FADETICKS_AREALABEL * 6) / 8;
+        int       ft     = g->areaname.fadeticks;
+        if (ft <= p1) {
+            ctx_af.pat = gfx_pattern_interpolate(ft, p1);
+        } else if (p2 <= ft) {
+            ctx_af.pat = gfx_pattern_interpolate(FADETICKS_AREALABEL - ft, FADETICKS_AREALABEL - p2);
+        }
+        int    strl = fnt_length_px(font_1, g->areaname.label);
+        v2_i32 loc  = {(ctx_af.dst.w - strl) >> 1, 10};
 
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
-    if (fade_phase(fadeupgrade)) {
-        gfx_ctx_s ctx_af = ctx_ui;
-        int       fade_i = fade_interpolate(fadeupgrade, 0, 100);
-        ctx_af.pat       = gfx_pattern_interpolate(fade_i, 100);
-        char  *label     = "Aquired High Jump!";
-        int    strl      = fnt_length_px(font_1, label);
-        v2_i32 loc       = {(ctx_af.dst.w - strl) >> 1, 100};
-
-        spm_push();
-        tex_s ttmp = tex_create(256, 64, spm_allocator);
-        tex_clr(ttmp, TEX_CLR_TRANSPARENT);
-
-        for (int yy = -2; yy <= +2; yy++) {
-            for (int xx = -2; xx <= +2; xx++) {
-                v2_i32 locbg = loc;
-                locbg.x += xx;
-                locbg.y += yy;
-                fnt_draw_ascii(ctx_af, font_1, locbg, label, SPR_MODE_WHITE);
-            }
-        }
-        fnt_draw_ascii(ctx_af, font_1, loc, label, SPR_MODE_BLACK);
-        spm_pop();
-    }
-
-    if (g->herodata.aquired_items) {
+#if 0
+    if (g->herodata.aquired_items && 0) {
         render_item_selection(&g->herodata);
         texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
                                          0, 0, 128, ITEM_FRAME_SIZE);
         gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 92, 240 - 64 + 16}, 0, 0);
     }
+#endif
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero && g->substate == 0) {
-        v2_i32 posc         = obj_pos_center(ohero);
-        obj_s *interactable = obj_closest_interactable(g, posc);
 
-        if (interactable) {
-            v2_i32 posi = obj_pos_center(interactable);
-            posi        = v2_add(posi, camoff);
-            posi.y -= 64 + 16;
-            posi.x -= 32;
-            int      btn_frame = tick_to_index_freq(g->tick, 2, 50);
-            texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
-            gfx_spr(ctx_ui, tui, posi, 0, 0);
-        }
+    obj_s *interactable = obj_from_obj_handle(g->herodata.interactable);
+    if (interactable) {
+        v2_i32 posi = obj_pos_center(interactable);
+        posi        = v2_add(posi, camoff);
+        posi.y -= 64 + 16;
+        posi.x -= 32;
+        int      btn_frame = (sys_tick() >> 5) & 1;
+        texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
+        gfx_spr(ctx_ui, tui, posi, 0, 0);
     }
 
-    if (g->substate == GAME_SUBSTATE_TEXTBOX) {
+    if (textbox_active(&g->textbox)) {
         textbox_draw(&g->textbox, camoff);
     }
 
@@ -99,15 +78,15 @@ void render_ui(game_s *g, v2_i32 camoff)
         }
     }
 
-    if (g->substate == GAME_SUBSTATE_HERO_DIE) {
+    if (g->die_ticks) {
         gfx_ctx_s ctx_black = gfx_ctx_display();
-        ctx_black.pat       = gfx_pattern_interpolate(g->substate_tick, 30);
+        ctx_black.pat       = gfx_pattern_interpolate(g->die_ticks, 50);
         gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
     }
 
-    if (g->substate == GAME_SUBSTATE_HERO_RESPAWN) {
+    if (g->respawn_ticks) {
         gfx_ctx_s ctx_black = gfx_ctx_display();
-        ctx_black.pat       = gfx_pattern_interpolate(50 - g->substate_tick, 50);
+        ctx_black.pat       = gfx_pattern_interpolate(50 - g->respawn_ticks, 50);
         gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
     }
 }

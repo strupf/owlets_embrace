@@ -5,7 +5,6 @@
 #ifndef MAINMENU_H
 #define MAINMENU_H
 
-#include "fade.h"
 #include "gamedef.h"
 #include "savefile.h"
 #include "sys/sys_types.h"
@@ -55,7 +54,7 @@ typedef struct {
 } mainmenu_savefile_s;
 
 typedef struct {
-    fade_s fade;
+    int fade_to_game;
 
     int state;
     int option;

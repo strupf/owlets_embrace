@@ -9,17 +9,12 @@
 #include "hero.h"
 #include "map_loader.h"
 
-obj_s *blob_create(game_s *g);
-void   blob_on_update(game_s *g, obj_s *o);
-void   blob_on_animate(game_s *g, obj_s *o);
-void   blob_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-//
 obj_s *clockpulse_create(game_s *g);
-void   clockpulse_update(game_s *g, obj_s *o);
+void   clockpulse_on_update(game_s *g, obj_s *o);
 //
 obj_s *crumbleblock_create(game_s *g);
 void   crumbleblock_load(game_s *g, map_obj_s *mo);
-void   crumbleblock_update(game_s *g, obj_s *o);
+void   crumbleblock_on_update(game_s *g, obj_s *o);
 //
 obj_s *switch_create(game_s *g);
 void   switch_load(game_s *g, map_obj_s *mo);
@@ -31,10 +26,6 @@ void   toggleblock_load(game_s *g, map_obj_s *mo);
 void   toggleblock_on_animate(game_s *g, obj_s *o);
 void   toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 void   toggleblock_on_trigger(game_s *g, obj_s *o, int trigger);
-//
-obj_s *fallingblock_create(game_s *g);
-void   fallingblock_on_update(game_s *g, obj_s *o);
-void   fallingblock_on_animate(game_s *g, obj_s *o);
 //
 obj_s *shroomy_create(game_s *g);
 void   shroomy_load(game_s *g, map_obj_s *mo);
@@ -86,5 +77,17 @@ void   swingdoor_on_update(game_s *g, obj_s *o);
 void   swingdoor_on_interact(game_s *g, obj_s *o);
 void   swingdoor_on_animate(game_s *g, obj_s *o);
 void   swingdoor_on_trigger(game_s *g, obj_s *o, int trigger);
-
+//
+obj_s *teleport_create(game_s *g);
+void   teleport_load(game_s *g, map_obj_s *mo);
+void   teleport_on_interact(game_s *g, obj_s *o);
+//
+obj_s *juggernaut_create(game_s *g);
+void   juggernaut_load(game_s *g, map_obj_s *mo);
+void   juggernaut_on_update(game_s *g, obj_s *o);
+void   juggernaut_on_animate(game_s *g, obj_s *o);
+//
+obj_s *stalactite_create(game_s *g);
+void   stalactite_load(game_s *g, map_obj_s *mo);
+void   stalactite_on_update(game_s *g, obj_s *o);
 #endif

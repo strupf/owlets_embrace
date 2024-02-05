@@ -225,13 +225,11 @@ void backforeground_animate_grass(game_s *g)
 
         for (obj_each(g, o)) {
             if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
-                gr->v_q8 += o->vel_q8.x >> 6;
+                gr->v_q8 += o->vel_q8.x >> 4;
             }
         }
 
-        int f2 = rngr_sym_i32(30000 * 150) >> (13 + 8);
-        int f1 = -((gr->x_q8 * 6) >> 8);
-        gr->v_q8 += f1 + f2;
+        gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);
         gr->x_q8 += gr->v_q8;
         gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
         gr->v_q8 = (gr->v_q8 * 230) >> 8;

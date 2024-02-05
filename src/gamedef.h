@@ -28,9 +28,15 @@
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
 
-#define LEN_HERO_NAME          16
-#define LEN_AREA_FILENAME      64
-#define GAME_NUM_TILECOLLIDERS 32
+#define LEN_HERO_NAME           16
+#define LEN_AREA_FILENAME       64
+#define GAME_NUM_TILECOLLIDERS  32
+#define FADETICKS_MM_GAME       40
+#define FADETICKS_MM_GAME_BLACK 20
+#define FADETICKS_GAME_IN       40
+#define FADETICKS_AREALABEL     150
+
+#define RENDER_PRIO_HERO 0x100
 
 enum {
     DIRECTION_NONE,
@@ -50,6 +56,11 @@ static int direction_nearest(int dir, bool32 cw)
     return ((dir + (cw ? 0 : 6)) & 7) + 1;
 }
 
+static u32 time_now()
+{
+    return sys_tick();
+}
+
 enum {
     TILELAYER_BG,
     TILELAYER_TERRAIN,
@@ -67,36 +78,6 @@ enum {
 enum {
     GAMESTATE_MAINMENU,
     GAMESTATE_GAMEPLAY,
-};
-
-enum {
-    GAME_STATE_NONE,
-    GAME_STATE_TEXTBOX_IN,
-    GAME_STATE_TEXTBOX,
-    GAME_STATE_TEXTBOX_OUT,
-    GAME_STATE_HERO_DIE,
-    GAME_STATE_HERO_RESPAWN,
-    GAME_STATE_ROOM_OUT,
-    GAME_STATE_ROOM_BLACK,
-    GAME_STATE_ROOM_IN,
-    GAME_STATE_FREEZE,
-    GAME_STATE_INTRO,
-    GAME_STATE_MAINMENU,
-};
-
-enum {
-    GAME_SUBSTATE_NONE,
-    GAME_SUBSTATE_TEXTBOX_IN,
-    GAME_SUBSTATE_TEXTBOX,
-    GAME_SUBSTATE_TEXTBOX_OUT,
-    GAME_SUBSTATE_HERO_DIE,
-    GAME_SUBSTATE_HERO_RESPAWN,
-    GAME_SUBSTATE_ROOM_OUT,
-    GAME_SUBSTATE_ROOM_BLACK,
-    GAME_SUBSTATE_ROOM_IN,
-    GAME_SUBSTATE_FREEZE,
-    GAME_SUBSTATE_INTRO,
-    GAME_SUBSTATE_MAINMENU,
 };
 
 enum {

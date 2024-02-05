@@ -343,6 +343,13 @@ gfx_pattern_s gfx_pattern_interpolate(int num, int den)
     return gfx_pattern_bayer_4x4((num * 16 + (den / 2)) / den);
 }
 
+gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
+                                       int (*ease)(int a, int b, int num, int den))
+{
+    int i = ease(0, 16, num, den);
+    return gfx_pattern_bayer_4x4(i);
+}
+
 void tex_clr(tex_s dst, int col)
 {
     int  N = dst.wword * dst.h;
@@ -658,6 +665,7 @@ void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
 
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
 {
+    if (d <= 0) return;
     int y1 = max_i(p.y - (d >> 1), ctx.clip_y1);
     int y2 = min_i(y1 + d, ctx.clip_y2);
     int r2 = d * d + 1; // radius doubled^2

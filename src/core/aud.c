@@ -6,6 +6,14 @@
 #include "gamedef.h"
 #include "sys/sys.h"
 
+typedef struct {
+    void *buf;
+    int   fmt;
+    int   len; // samples
+    int   rate;
+    int   bits;
+} wav_s;
+
 enum {
     MUS_FADE_NONE,
     MUS_FADE_OUT,
@@ -14,21 +22,10 @@ enum {
 
 AUD_s AUD;
 
-typedef struct {
-    i16 *buf;
-    int  len;
-} wav_i16;
-
-typedef struct {
-    void *buf;
-    int   fmt;
-    int   len; // samples
-} wav_s;
-
-static wav_s wav_conv_to_i8_22050(wav_s src, alloc_s ma);
-static wav_s wav_conv_to_i8_44100(wav_s src, alloc_s ma);
-static wav_s wav_conv_to_i16_22050(wav_s src, alloc_s ma);
-static wav_s wav_conv_to_i16_44100(wav_s src, alloc_s ma);
+static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len);
+static void muschannel_update_chunk(muschannel_s *ch, int samples);
+static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len);
+static void muschannel_stream(muschannel_s *ch, i16 *buf, int len);
 
 void aud_update()
 {
@@ -36,10 +33,10 @@ void aud_update()
     case MUS_FADE_NONE: return;
     case MUS_FADE_OUT: {
         AUD.mus_fade_ticks--;
-        sys_set_mus_vol((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max);
+        mus_set_vol((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max);
         if (AUD.mus_fade_ticks > 0) break;
 
-        if (sys_mus_play(AUD.mus_new) != 0) {
+        if (mus_play(AUD.mus_new) != 0) {
             AUD.mus_fade = MUS_FADE_NONE;
             return;
         }
@@ -49,30 +46,243 @@ void aud_update()
     } break;
     case MUS_FADE_IN: {
         AUD.mus_fade_ticks--;
-        sys_set_mus_vol(256 - ((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max));
+        mus_set_vol(256 - ((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max));
         if (AUD.mus_fade_ticks > 0) break;
 
-        sys_set_mus_vol(256);
+        mus_set_vol(256);
         AUD.mus_fade = MUS_FADE_NONE;
     } break;
     }
 }
 
-aud_snd_s aud_snd_load(const char *pathname, alloc_s ma)
+void aud_mute(bool32 mute)
 {
-    return sys_load_wav(pathname, ma);
+    AUD.mute = mute;
 }
 
-void aud_snd_play(aud_snd_s s, f32 vol, f32 pitch)
+void aud_audio(i16 *buf, int len)
 {
-    sys_wavdata_play(s, vol, pitch);
+    if (AUD.mute) {
+        memset(buf, 0, sizeof(i16) * len);
+        return;
+    }
+
+    muschannel_stream(&AUD.muschannel, buf, len);
+    for (int n = 0; n < NUM_SNDCHANNEL; n++) {
+        sndchannel_s *ch = &AUD.sndchannel[n];
+        if (ch->wavedata) {
+            sndchannel_play(ch, buf, len);
+        }
+    }
 }
 
-void aud_mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
+void aud_allow_playing_new_snd(bool32 enabled)
+{
+    AUD.snd_playing_disabled = !enabled;
+}
+
+// http://soundfile.sapp.org/doc/WaveFormat/
+typedef struct {
+    u32 chunkID;
+    u32 chunksize;
+    u32 format;
+    u32 subchunk1ID;
+    u32 subchunk1size;
+    u16 audioformat;
+    u16 numchannels;
+    u32 samplerate;
+    u32 byterate;
+    u16 blockalign;
+    u16 bitspersample;
+    u32 subchunk2ID;   // "data"
+    u32 subchunk2size; // file size
+} wavheader_s;
+
+static void  *wavfile_open(const char *filename, wavheader_s *wh);
+static wav_s  wav_convert(wav_s src, int dst_fmt, alloc_s m);
+static bool32 wav_fmt_get(int fmt, int *rate, int *size_per_sample);
+
+static void *wavfile_open(const char *filename, wavheader_s *wh)
+{
+    assert(filename);
+    if (!filename) return NULL;
+    void *f = sys_file_open(filename, SYS_FILE_R);
+    if (!f) return NULL;
+    sys_file_read(f, wh, sizeof(wavheader_s));
+    sys_file_seek(f, sizeof(wavheader_s), SYS_FILE_SEEK_SET);
+    assert(wh->subchunk2ID == *((u32 *)"data"));
+    return f;
+}
+
+wav_s wav_load(const char *filename, alloc_s ma)
+{
+    wav_s       wav = {0};
+    wavheader_s wheader;
+    void       *f = wavfile_open(filename, &wheader);
+    if (!f) {
+        sys_printf("+++ wav file err: %s\n", filename);
+        return wav;
+    }
+
+    wav.buf = ma.allocf(ma.ctx, wheader.subchunk2size);
+    if (wav.buf == NULL) {
+        sys_printf("+++ wav mem error: %s\n", filename);
+        goto WAVERR;
+    }
+
+    wav.len  = wheader.subchunk2size / wheader.blockalign;
+    wav.bits = wheader.bitspersample;
+    wav.rate = wheader.samplerate;
+    sys_file_read(f, wav.buf, wheader.subchunk2size); // we don't check for errors here...
+WAVERR:
+    sys_file_close(f);
+    return wav;
+}
+
+#if 0
+static bool32 wav_fmt_get(int fmt, int *rate, int *size_per_sample)
+{
+    switch (fmt) {
+    case WAV_FMT_22050_I8:
+        *size_per_sample = 1;
+        *rate            = 22050;
+        return 1;
+    case WAV_FMT_44100_I8:
+        *size_per_sample = 1;
+        *rate            = 44100;
+        return 1;
+    case WAV_FMT_22050_I16:
+        *size_per_sample = 2;
+        *rate            = 22050;
+        return 1;
+    case WAV_FMT_44100_I16:
+        *size_per_sample = 2;
+        *rate            = 44100;
+        return 1;
+    }
+    return 0;
+}
+
+// cannot convert between arbitrary formats yet
+// not tested yet!
+static wav_s wav_convert(wav_s src, int dst_fmt, alloc_s m)
+{
+    wav_s w = {0};
+    int   size_s, size_d;
+    int   rate_s, rate_d;
+    if (!wav_fmt_get(src.fmt, &rate_s, &size_s)) return w;
+    if (!wav_fmt_get(dst_fmt, &rate_d, &size_d)) return w;
+
+    int   samples_d = (src.len * rate_d) / rate_s;
+    void *buf       = m.allocf(m.ctx, (usize)size_d * samples_d);
+    if (!buf) return w;
+
+    for (int i = 0; i < samples_d; i++) {
+        int j = (i * rate_s) / rate_d;
+        assert(0 <= i && i < src.len);
+
+        i32 a = 0;
+        switch (size_s) {
+        case 1: a = (i32)((i8 *)src.buf)[j] << (size_d == 2 ? 8 : 0); break;
+        case 2: a = (i32)((i16 *)src.buf)[j] >> (size_d == 1 ? 8 : 0); break;
+        }
+
+        switch (size_d) {
+        case 1: ((i8 *)buf)[i] = a; break;
+        case 2: ((i16 *)buf)[i] = a; break;
+        }
+    }
+
+    w.buf = buf;
+    w.len = samples_d;
+    w.fmt = dst_fmt;
+    return w;
+}
+#endif
+
+snd_s snd_load(const char *pathname, alloc_s ma)
+{
+    wav_s w = wav_load(pathname, ma);
+    snd_s r = {(i16 *)w.buf, w.len};
+    return r;
+}
+
+void snd_play(snd_s s, f32 vol, f32 pitch)
+{
+    if (AUD.snd_playing_disabled) return;
+    if (vol < 0.05f) return;
+    for (int i = 0; i < NUM_SNDCHANNEL; i++) {
+        sndchannel_s *ch = &AUD.sndchannel[i];
+        if (ch->wavedata) continue;
+        ch->wavedata       = s.buf;
+        ch->wavelen_og     = s.len;
+        ch->wavelen        = (int)((f32)s.len * pitch);
+        ch->invpitch_q8    = (int)(256.f / pitch);
+        ch->vol_q8         = (int)(vol * 256.f);
+        ch->wavepos        = 0;
+        ch->wavepos_inv_q8 = 0;
+
+        break;
+    }
+}
+
+static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len)
+{
+    int lmax = ch->wavelen - ch->wavepos;
+    int l    = min_i(len, lmax);
+
+    ch->wavepos += l;
+    i16 *buf = lbuf;
+    for (int n = 0; n < l; n++) {
+        int i = ch->wavepos_inv_q8 >> 8;
+        ch->wavepos_inv_q8 += ch->invpitch_q8;
+        assert(i < ch->wavelen_og);
+        i32 d = (i32)ch->wavedata[i];
+        i32 v = (i32)*buf + ((d * ch->vol_q8) >> 8);
+#if AUD_CLAMP
+        v = clamp_i32(v, I16_MIN, I16_MAX);
+#endif
+        *buf++ = v;
+    }
+
+    if (lmax <= len) { // last part of wav, stop after this
+        ch->wavedata = NULL;
+    }
+}
+
+bool32 mus_play(const char *filename)
+{
+    muschannel_s *ch = &AUD.muschannel;
+    mus_stop();
+
+    wavheader_s wheader;
+    void       *f = wavfile_open(filename, &wheader);
+    if (!f) return 0;
+    if (!(wheader.samplerate == 44100 &&
+          wheader.bitspersample == 16 &&
+          wheader.numchannels == 1)) {
+        sys_printf("Music wrong format: %s\n", filename);
+        sys_file_close(f);
+        return 0;
+    }
+
+    strcpy(ch->filename, filename);
+
+    ch->stream    = f;
+    ch->datapos   = sys_file_tell(f);
+    ch->streamlen = (int)(wheader.subchunk2size / sizeof(i16));
+    ch->streampos = 0;
+    ch->vol_q8    = 256;
+    ch->looping   = 1;
+    muschannel_update_chunk(ch, 0);
+    return 1;
+}
+
+void mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
 {
     AUD.mus_fade_in = ticks_in;
     AUD.mus_fade    = MUS_FADE_OUT;
-    if (sys_mus_playing()) {
+    if (mus_playing()) {
         AUD.mus_fade_ticks_max = ticks_out;
     } else {
         AUD.mus_fade_ticks_max = 1;
@@ -81,362 +291,82 @@ void aud_mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
     str_cpys(AUD.mus_new, sizeof(AUD.mus_new), pathname);
 }
 
-void aud_mus_stop()
+void mus_stop()
 {
-    sys_mus_stop();
+    muschannel_s *ch = &AUD.muschannel;
+    if (ch->stream) {
+        sys_file_close(ch->stream);
+        ch->stream = NULL;
+        memset(ch->filename, 0, sizeof(ch->filename));
+    }
 }
 
-bool32 aud_mus_playing()
+bool32 mus_playing()
 {
-    return sys_mus_playing();
+    return (AUD.muschannel.stream != NULL);
 }
 
-static void aud_set_freq(wave_s *w, int freq)
+void mus_set_vol(int vol_q8)
 {
-    if (0 <= freq && freq <= 16384) {
-        w->incr = (u32)(((u64)freq << 32) / (u64)44100);
+    AUD.muschannel.vol_q8 = vol_q8;
+}
+
+static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)
+{
+    if (!ch->stream) {
+        memset(buf, 0, sizeof(i16) * len);
+        return;
+    }
+
+    int l = min_i(len, (int)(ch->streamlen - ch->streampos));
+    muschannel_update_chunk(ch, len);
+    muschannel_fillbuf(ch, buf, l);
+
+    ch->streampos += l;
+    if (ch->streampos >= ch->streamlen) { // at the end of the song
+        int samples_left = len - l;
+        if (ch->looping) { // fill remainder of buffer and restart
+            ch->streampos = samples_left;
+            muschannel_update_chunk(ch, 0);
+            muschannel_fillbuf(ch, &buf[l], samples_left);
+        } else {
+            memset(&buf[l], 0, samples_left * sizeof(i16));
+            mus_stop();
+        }
+    }
+}
+
+// update loaded music chunk if we are running out of samples
+static void muschannel_update_chunk(muschannel_s *ch, int samples)
+{
+    int samples_chunked = MUSCHUNK_SAMPLES - ch->chunkpos;
+    if (0 < samples && samples <= samples_chunked) return;
+
+    // refill music buffer from file
+    // place chunk beginning right at streampos
+    sys_file_seek(ch->stream,
+                  ch->datapos + ch->streampos * sizeof(i16),
+                  SYS_FILE_SEEK_SET);
+    int samples_left    = ch->streamlen - ch->streampos;
+    int samples_to_read = min_i(MUSCHUNK_SAMPLES, samples_left);
+
+    sys_file_read(ch->stream, ch->chunk, sizeof(i16) * samples_to_read);
+    ch->chunkpos = 0;
+}
+
+static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len)
+{
+    i16 *b = buf;
+    i16 *c = &ch->chunk[ch->chunkpos];
+
+    ch->chunkpos += len;
+    if (ch->vol_q8 == 256) {
+        for (int n = 0; n < len; n++) {
+            *b++ = *c++;
+        }
     } else {
-        w->incr = 0;
-    }
-}
-
-static void aud_set_midi(wave_s *w, int midi)
-{
-    // increment values for wave synth
-    static const u32 incr_midi[128] = {
-        0x000C265D, 0x000CDF51, 0x000DA344, 0x000E72DE,
-        0x000F4ED0, 0x001037D7, 0x00112EB8, 0x00123448,
-        0x00134965, 0x00146EFD, 0x0015A60A, 0x0016EF96,
-        0x00184CBB, 0x0019BEA2, 0x001B4689, 0x001CE5BD,
-        0x001E9DA1, 0x00206FAE, 0x00225D71, 0x00246891,
-        0x002692CB, 0x0028DDFB, 0x002B4C15, 0x002DDF2D,
-        0x00309976, 0x00337D45, 0x00368D12, 0x0039CB7A,
-        0x003D3B43, 0x0040DF5C, 0x0044BAE3, 0x0048D122,
-        0x004D2597, 0x0051BBF7, 0x0056982B, 0x005BBE5B,
-        0x006132ED, 0x0066FA8B, 0x006D1A24, 0x007396F4,
-        0x007A7686, 0x0081BEB9, 0x008975C6, 0x0091A244,
-        0x009A4B2F, 0x00A377EE, 0x00AD3056, 0x00B77CB6,
-        0x00C265DB, 0x00CDF516, 0x00DA3449, 0x00E72DE9,
-        0x00F4ED0D, 0x01037D73, 0x0112EB8C, 0x01234489,
-        0x0134965F, 0x0146EFDC, 0x015A60AD, 0x016EF96D,
-        0x0184CBB6, 0x019BEA2D, 0x01B46892, 0x01CE5BD2,
-        0x01E9DA1A, 0x0206FAE6, 0x0225D719, 0x02468912,
-        0x02692CBF, 0x028DDFB9, 0x02B4C15A, 0x02DDF2DB,
-        0x0309976D, 0x0337D45B, 0x0368D125, 0x039CB7A5,
-        0x03D3B434, 0x040DF5CC, 0x044BAE33, 0x048D1225,
-        0x04D2597F, 0x051BBF72, 0x056982B5, 0x05BBE5B7,
-        0x06132EDB, 0x066FA8B6, 0x06D1A24A, 0x07396F4B,
-        0x07A76868, 0x081BEB99, 0x08975C67, 0x091A244A,
-        0x09A4B2FE, 0x0A377EE5, 0x0AD3056A, 0x0B77CB6E,
-        0x0C265DB7, 0x0CDF516D, 0x0DA34494, 0x0E72DE96,
-        0x0F4ED0D1, 0x1037D732, 0x112EB8CE, 0x12344894,
-        0x134965FD, 0x146EFDCB, 0x15A60AD5, 0x16EF96DC,
-        0x184CBB6F, 0x19BEA2DB, 0x1B468928, 0x1CE5BD2C,
-        0x1E9DA1A3, 0x206FAE64, 0x225D719D, 0x24689129,
-        0x2692CBFA, 0x28DDFB96, 0x2B4C15AA, 0x2DDF2DB9,
-        0x309976DF, 0x337D45B6, 0x368D1251, 0x39CB7A58,
-        0x3D3B4347, 0x40DF5CC9, 0x44BAE33A, 0x48D12252};
-
-    // u32 incr = ((u64)(0.5 + 4294967296.0 * 440.0 * pow(2.0, (double)(i - 69) / 12.0))) / (u64)44100;
-    w->incr = incr_midi[midi];
-}
-
-// maps u32 to sine, returns [-65536, +65536]
-static inline int synth_wave_sine(u32 x)
-{
-    u32 i = ((x - 0x40000000U) >> 14);
-    if ((i & 0xFFFF) == 0) return 0;
-    int neg = 0;
-    switch (i >> 16) {
-    case 1: i = 0x20000 - i, neg = 1; break; // [65536, 131071]
-    case 2: i = i - 0x20000, neg = 1; break; // [131072, 196607]
-    case 3: i = 0x40000 - i; break;          // [196608, 262143]
-    }
-
-    i = (i * i) >> 16;
-    u32 r;                         // 2 less terms than the other cos
-    r = 0x0051F;                   // Constants multiplied by scaling:
-    r = 0x040F0 - ((i * r) >> 16); // (PI/2)^6 / 720
-    r = 0x13BD3 - ((i * r) >> 16); // (PI/2)^4 / 24
-    r = 0x10000 - ((i * r) >> 16); // (PI/2)^2 / 2
-    return neg ? -(i32)r : (i32)r;
-}
-
-static void aud_wave_channel(wave_s *w, i16 *buf, int len)
-{
-    // ENVELOPE SWEEPS
-    envelope_s *e = &w->env;
-    if (e->adsr != ADSR_NONE) {
-        e->t += len;
-
-        switch (e->adsr) {
-        case ADSR_ATTACK:
-            if (e->t < e->attack) {
-                e->adsr = ADSR_ATTACK;
-                w->vol  = (e->t * e->vol_peak) / e->attack;
-                break;
-            }
-            e->t -= e->attack; // fallthrough
-        case ADSR_DECAY:
-            if (e->t < e->decay) {
-                e->adsr = ADSR_DECAY;
-                w->vol  = e->vol_peak + (e->t * (e->vol_sustain - e->vol_peak)) / e->decay;
-                break;
-            }
-            e->t -= e->decay; // fallthrough
-        case ADSR_SUSTAIN:
-            if (e->sustain < 0) { // manually release
-                e->t    = 0;
-                e->adsr = ADSR_SUSTAIN;
-                w->vol  = e->vol_sustain;
-                break;
-            }
-            if (e->t < e->sustain) {
-                e->adsr = ADSR_SUSTAIN;
-                w->vol  = e->vol_sustain;
-                break;
-            }
-            e->t -= e->sustain; // fallthrough
-        case ADSR_RELEASE:
-            if (e->t < e->release) {
-                e->adsr = ADSR_RELEASE;
-                w->vol  = e->vol_sustain - (e->t * e->vol_sustain) / e->release;
-                break;
-            }
-            e->t    = 0;
-            e->adsr = ADSR_NONE;
-            w->incr = 0;
-            return; // finished
+        for (int n = 0; n < len; n++) {
+            *b++ = (*c++ * ch->vol_q8) >> 8;
         }
     }
-
-    // SYNTH
-    i16 *bn = buf;
-    switch (w->type) {
-    case WAVE_TYPE_SQUARE:
-        for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
-            i32 b = (0x80000000U <= w->t ? w->vol : -w->vol);
-            *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
-        }
-        break;
-        //
-    case WAVE_TYPE_SINE:
-        for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
-            i32 b = (synth_wave_sine(w->t) * w->vol) >> 16;
-            *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
-        }
-        break;
-        //
-    case WAVE_TYPE_TRIANGLE:
-        for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
-            i32 t = w->t >> 16, b;
-            if (t <= 0x4000) // 0 - 0.25
-                b = (t * w->vol) >> 14;
-            else if (t <= 0xC000) // 0.25 - 0.75
-                b = w->vol - (((t - 0x4000) * w->vol) >> 14);
-            else // 0.75 - 1
-                b = (((t - 0xC000) * w->vol) >> 14) - w->vol;
-            *bn = clamp_i(*bn + b, I16_MIN, I16_MAX);
-        }
-        break;
-        //
-    case WAVE_TYPE_SAW:
-        for (int n = 0; n < len; n++, bn++, w->t += w->incr) {
-            i32 t = w->t >> 16, b;
-            if (t <= 0x8000) // 0 - 0.5
-                b = (t * w->vol) >> 15;
-            else // 0.5 - 1
-                b = (((t - 0x8000) * w->vol) >> 15) - w->vol;
-            *bn = clamp_i(*bn + b, I16_MIN, I16_MAX);
-        }
-        break;
-        //
-    case WAVE_TYPE_NOISE:
-        for (int n = 0; n < len; n++, bn++) {
-            i32 b = rngr_i32(-w->vol, +w->vol);
-            *bn   = clamp_i(*bn + b, I16_MIN, I16_MAX);
-        }
-        break;
-        //
-    case WAVE_TYPE_SAMPLE:
-        for (int n = 0; n < len; n += 2, bn += 2, w->t += w->incr) {
-            int i = ((u32)(w->t >> 16) * w->sample->len) >> 16;
-            i32 b = (w->sample->buf[i] * w->vol) >> 7;    // S8 -> S16
-            bn[0] = clamp_i(bn[0] + b, I16_MIN, I16_MAX); // 22050 -> 44100
-            bn[1] = clamp_i(bn[1] + b, I16_MIN, I16_MAX);
-        }
-        break;
-    }
-}
-
-static void wave_envelope(wave_s *w, i32 vol_peak, i32 vol_sustain,
-                          int ms_attack, int ms_decay, int ms_release)
-{
-    envelope_s *e  = &w->env;
-    e->t           = 0;
-    e->adsr        = ADSR_ATTACK;
-    e->vol_peak    = vol_peak;
-    e->vol_sustain = vol_sustain;
-    e->attack      = (ms_attack * 44100) / 1000;
-    e->decay       = (ms_decay * 44100) / 1000;
-    e->release     = (ms_release * 44100) / 1000;
-    e->sustain     = 0;
-}
-
-void aud_audio_cb(i16 *buf, int len)
-{
-    // memset(buf, 0, sizeof(i16) * len);
-
-    wave_s *wave = &AUD.waves[0];
-    wave->vol    = 10000;
-    wave->type   = WAVE_TYPE_SINE;
-
-    if (inp_debug_space() && 0) {
-        if (wave->incr == 0) {
-            // wave_envelope(wave, 10000, 5000, 50, 100, 100);
-            aud_set_freq(wave, 200);
-        }
-    }
-
-    for (int k = 0; k < AUD_WAVES; k++) {
-        wave_s *w = &AUD.waves[k];
-        if (w->incr == 0) continue;
-        aud_wave_channel(w, buf, len);
-    }
-}
-
-static wav_s wav_conv_to_i8_22050(wav_s src, alloc_s ma)
-{
-    wav_s r = {0};
-    r.fmt   = WAV_FMT_22050_I8;
-
-    switch (src.fmt) {
-    case WAV_FMT_22050_I8:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i];
-        break;
-    case WAV_FMT_44100_I8:
-        r.len = src.len / 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i << 1];
-        break;
-    case WAV_FMT_22050_I16:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i] >> 8;
-        break;
-    case WAV_FMT_44100_I16:
-        r.len = src.len / 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i << 1] >> 8;
-        break;
-    }
-    return r;
-}
-
-static wav_s wav_conv_to_i8_44100(wav_s src, alloc_s ma)
-{
-    wav_s r = {0};
-    r.fmt   = WAV_FMT_44100_I8;
-
-    switch (src.fmt) {
-    case WAV_FMT_22050_I8:
-        r.len = src.len * 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i >> 1];
-        break;
-    case WAV_FMT_44100_I8:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i8 *)src.buf)[i];
-        break;
-    case WAV_FMT_22050_I16:
-        r.len = src.len * 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i >> 1] >> 8;
-        break;
-    case WAV_FMT_44100_I16:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i8));
-        for (int i = 0; i < r.len; i++)
-            ((i8 *)r.buf)[i] = ((i16 *)src.buf)[i] >> 8;
-        break;
-    }
-    return r;
-}
-
-static wav_s wav_conv_to_i16_22050(wav_s src, alloc_s ma)
-{
-    wav_s r = {0};
-    r.fmt   = WAV_FMT_22050_I16;
-
-    switch (src.fmt) {
-    case WAV_FMT_22050_I8:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i] << 8;
-        break;
-    case WAV_FMT_44100_I8:
-        r.len = src.len / 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i << 1];
-        break;
-    case WAV_FMT_22050_I16:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i];
-        break;
-    case WAV_FMT_44100_I16:
-        r.len = src.len / 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i << 1];
-        break;
-    }
-    return r;
-}
-
-static wav_s wav_conv_to_i16_44100(wav_s src, alloc_s ma)
-{
-    wav_s r = {0};
-    r.fmt   = WAV_FMT_44100_I16;
-
-    switch (src.fmt) {
-    case WAV_FMT_22050_I8:
-        r.len = src.len * 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i >> 1] << 8;
-        break;
-    case WAV_FMT_44100_I8:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i8 *)src.buf)[i] << 8;
-        break;
-    case WAV_FMT_22050_I16:
-        r.len = src.len * 2;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i >> 1];
-        break;
-    case WAV_FMT_44100_I16:
-        r.len = src.len;
-        r.buf = ma.allocf(ma.ctx, r.len * sizeof(i16));
-        for (int i = 0; i < r.len; i++)
-            ((i16 *)r.buf)[i] = ((i16 *)src.buf)[i];
-        break;
-    }
-    return r;
 }

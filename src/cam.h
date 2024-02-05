@@ -36,6 +36,7 @@ void    cam_screenshake(cam_s *c, int ticks, int str);
 v2_i32  cam_pos_px(game_s *g, cam_s *c);
 rec_i32 cam_rec_px(game_s *g, cam_s *c);
 void    cam_set_pos_px(cam_s *c, int x, int y);
+void    cam_init_level(game_s *g, cam_s *c);
 void    cam_update(game_s *g, cam_s *c);
 
 #endif

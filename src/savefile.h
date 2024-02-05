@@ -8,7 +8,6 @@
 #include "gamedef.h"
 
 typedef struct savefile_s {
-    i32     tick;
     flags32 aquired_upgrades;
     flags32 aquired_items;
     int     n_airjumps;

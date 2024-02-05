@@ -41,6 +41,7 @@ enum {
     TEXID_CRUMBLE,
     TEXID_NPC,
     TEXID_WINDGUSH,
+    TEXID_JUGGERNAUT,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -71,11 +72,20 @@ enum {
     SNDID_SHROOMY_JUMP,
     SNDID_DOOR_SQUEEK,
     SNDID_DOOR_TOGGLE,
+    SNDID_ATTACK_DASH,
+    SNDID_ATTACK_SLIDE_GROUND,
+    SNDID_ATTACK_SLIDE_AIR,
+    SNDID_ATTACK_SPIN,
+    SNDID_SELECT,
+    SNDID_MENU_NEXT_ITEM,
+    SNDID_MENU_NONEXT_ITEM,
+    SNDID_COIN,
+    SNDID_BASIC_ATTACK,
+    SNDID_ENEMY_HURT,
+    SNDID_ENEMY_DIE,
     //
     NUM_SNDID
 };
-
-typedef aud_snd_s snd_s;
 
 typedef struct {
     tex_s tex;
@@ -101,6 +111,9 @@ typedef struct {
 
     marena_s marena;
     alignas(8) char mem[MMEGABYTE(5)];
+
+    usize size_snd;
+    usize size_tex;
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
@@ -121,7 +134,6 @@ tex_s asset_tex_putID(int ID, tex_s t);
 
 texrec_s asset_texrec(int ID, int x, int y, int w, int h);
 
-#define snd_play(ID) snd_play_ext(ID, 1.f, 1.f)
 void   snd_play_ext(int ID, f32 vol, f32 pitch);
 void   mus_fade_to(const char *filename, int ticks_out, int ticks_in);
 void   mus_stop();

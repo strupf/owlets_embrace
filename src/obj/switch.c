@@ -18,14 +18,15 @@ typedef struct {
 
 static void switch_set_sprite(obj_s *o)
 {
-    o->sprites[0].trec.r.x = (o->timer > 0 ? 64 : 128 * o->state);
+    o->sprites[0].trec.r.x = o->timer ? 64 : 0;
+    o->sprites[0].flip     = o->state ? SPR_FLIP_X : 0;
 }
 
 obj_s *switch_create(game_s *g)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_SWITCH;
-    o->render_priority = -1;
+    o->render_priority = RENDER_PRIO_HERO - 1;
     o->flags           = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
     o->n_sprites         = 1;
@@ -49,7 +50,7 @@ void switch_load(game_s *g, map_obj_s *mo)
 
 void switch_on_animate(game_s *g, obj_s *o)
 {
-    if (o->timer > 0)
+    if (0 < o->timer)
         o->timer--;
     switch_set_sprite(o);
 }

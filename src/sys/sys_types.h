@@ -146,6 +146,7 @@ typedef struct {
 #define U8_MAX  UINT8_MAX
 #define U8_MIN  0
 
+// clang-format off
 #define POW2(X)          ((X) * (X))
 #define GLUE2(A, B)      A##B
 #define GLUE(A, B)       GLUE2(A, B)
@@ -155,12 +156,7 @@ typedef struct {
 #define ABS(A)           ((A) >= 0 ? (A) : -(A))
 #define SGN(A)           ((0 < (A)) - (0 > (A)))
 #define CLAMP(X, LO, HI) ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
-#define SWAP(T, a, b)  \
-    do {               \
-        T tmp_ = a;    \
-        a      = b;    \
-        b      = tmp_; \
-    } while (0)
+#define SWAP(T, a, b)    do { T tmp_ = a; a = b; b = tmp_; } while (0)
 
 #ifndef SYS_PD_HW
 #define FILE_AND_LINE__(A, B) A "|" #B
@@ -169,6 +165,7 @@ typedef struct {
 #else
 #define FILE_AND_LINE ""
 #endif
+// clang-format on
 
 #define NOT_IMPLEMENTED                        \
     do {                                       \
@@ -268,7 +265,7 @@ static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
     char *a = (char *)base + i * s;
     char *b = (char *)base + j * s;
     char *p = (char *)base + ((lo + hi) >> 1) * s;
-    while (i < j) {
+    do {
         while (cmp((const void *)a, (const void *)p) < 0) {
             a += s, i++;
         }
@@ -284,7 +281,7 @@ static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
 
         a += s, i++;
         b -= s, j--;
-    } // -> moved to end because we know that lo/i is < hi/j
+    } while (i < j); // -> moved to end because we know that lo/i is < hi/j
 
     if (lo < j) _quicksort(base, lo, j, s, cmp);
     if (i < hi) _quicksort(base, i, hi, s, cmp);

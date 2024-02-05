@@ -156,6 +156,12 @@ void obj_on_squish(game_s *g, obj_s *o)
     case OBJ_ID_HERO:
         hero_on_squish(g, o);
         break;
+    case OBJ_ID_HOOK: {
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        assert(ohero);
+        hook_destroy(g, ohero, o);
+        break;
+    }
     }
 }
 
@@ -184,60 +190,68 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
     assert(o->flags & OBJ_FLAG_ACTOR);
 
 #define DO_BUMP_X                                                 \
-    o->bumpflags |= sx > 0 ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG; \
+    o->bumpflags |= 0 < sx ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG; \
     break
 #define DO_BUMP_Y                                                 \
-    o->bumpflags |= sy > 0 ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG; \
+    o->bumpflags |= 0 < sy ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG; \
     break
 
-    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); m; m--) {
-        rec_i32 aabb = obj_aabb(o);
-        v2_i32  dtm  = {sx, 0};
-        aabb.x += sx;
+    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); 0 < m; m--) {
+        rec_i32 r = obj_aabb(o);
+        v2_i32  v = {sx, 0};
+        r.x += sx;
 
         if ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
-            (aabb.x + aabb.w > g->pixel_x || aabb.x < 0)) {
+            (r.x + r.w > g->pixel_x || r.x < 0)) {
             DO_BUMP_X;
         }
 
-        if (game_traversable(g, aabb)) {
+        if (game_traversable(g, r)) {
             if ((o->moverflags & OBJ_MOVER_GLUE_GROUND) && 0 <= o->vel_q8.y) {
-                rec_i32 a1 = aabb;
-                a1.h += 1;
-
-                if (game_traversable(g, a1)) {
-                    rec_i32 a2 = aabb;
-                    a2.h += 2;
-                    if (game_traversable(g, a2)) {
-                        rec_i32 a3 = aabb;
-                        a3.h += 3;
-                        if (!game_traversable(g, a3)) {
-                            dtm.y = 2;
+                r.h++;
+                if (game_traversable(g, r)) {
+                    r.h++;
+                    if (game_traversable(g, r)) {
+                        r.h++;
+                        if (!game_traversable(g, r)) {
+                            v.y = 2;
+                            m--; // don't go down too fast
                         }
                     } else {
-                        dtm.y = 1;
+                        v.y = 1;
                     }
                 }
             }
         } else if (o->moverflags & OBJ_MOVER_SLOPES) {
-            aabb.y -= 1;
-            dtm.y = -1;
-            if (!game_traversable(g, aabb)) {
-                DO_BUMP_X;
+            r.y--;
+            v.y = -1;
+            if (!game_traversable(g, r)) {
+                if (o->moverflags & OBJ_MOVER_SLOPES_HI) {
+                    r.y--;
+                    v.y = -2;
+                    if (game_traversable(g, r)) {
+                        m--; // don't go up too fast
+                    } else {
+                        DO_BUMP_X;
+                    }
+                } else {
+                    DO_BUMP_X;
+                }
             }
         } else {
             DO_BUMP_X;
         }
 
-        actor_move_by(g, o, dtm);
+        actor_move_by(g, o, v);
     }
+
     for (int m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
-        rec_i32 aabb = obj_aabb(o);
-        v2_i32  dtm  = {0, sy};
-        aabb.y += sy;
+        rec_i32 r = obj_aabb(o);
+        v2_i32  v = {0, sy};
+        r.y += sy;
 
         if ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
-            (aabb.y + aabb.h > g->pixel_y || aabb.y < 0)) {
+            (r.y + r.h > g->pixel_y || r.y < 0)) {
             DO_BUMP_Y;
         }
 
@@ -261,19 +275,19 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         }
 
         if (!collide_plat && game_traversable(g, orec)) {
-            actor_move_by(g, o, dtm);
+            actor_move_by(g, o, v);
         } else if ((o->moverflags & OBJ_MOVER_AVOID_HEADBUMP) && sy < 0) {
             // jump corner correction
             // https://twitter.com/MaddyThorson/status/1238338578310000642
             for (int k = 1; k <= 4; k++) {
-                rec_i32 recr = {aabb.x + k, aabb.y, aabb.w, aabb.h};
-                rec_i32 recl = {aabb.x - k, aabb.y, aabb.w, aabb.h};
+                rec_i32 recr = {r.x + k, r.y, r.w, r.h};
+                rec_i32 recl = {r.x - k, r.y, r.w, r.h};
                 if (game_traversable(g, recr)) {
-                    actor_move_by(g, o, (v2_i32){+k, dtm.y});
+                    actor_move_by(g, o, (v2_i32){+k, v.y});
                     goto CONTINUE_Y;
                 }
                 if (game_traversable(g, recl)) {
-                    actor_move_by(g, o, (v2_i32){-k, dtm.y});
+                    actor_move_by(g, o, (v2_i32){-k, v.y});
                     goto CONTINUE_Y;
                 }
             }
@@ -327,11 +341,11 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
 {
     assert(v2_lensq(dt) == 1);
 
-    o->flags &= ~OBJ_FLAG_SOLID;
-    for (int n = 0; n < g->n_ropes; n++) {
-        rope_moved_by_solid(g, g->ropes[n], o, dt);
+    if (g->herodata.rope_active) {
+        o->flags &= ~OBJ_FLAG_SOLID;
+        rope_moved_by_solid(g, &g->herodata.rope, o, dt);
+        o->flags |= OBJ_FLAG_SOLID;
     }
-    o->flags |= OBJ_FLAG_SOLID;
 
     rec_i32 aabbog = obj_aabb(o);
     o->pos         = v2_add(o->pos, dt);
@@ -388,17 +402,6 @@ void solid_move(game_s *g, obj_s *o, v2_i32 dt)
     }
 }
 
-void obj_interact(game_s *g, obj_s *o)
-{
-    switch (o->ID) {
-    case OBJ_ID_SIGN: textbox_load_dialog(g, &g->textbox, o->filename); break;
-    case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
-    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
-    case OBJ_ID_NPC: npc_on_interact(g, o); break;
-    case OBJ_ID_DOOR_SWING: swingdoor_on_interact(g, o); break;
-    }
-}
-
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
@@ -407,12 +410,12 @@ void obj_apply_movement(obj_s *o)
 {
     o->vel_prev_q8 = o->vel_q8;
     o->vel_q8      = v2_add(o->vel_q8, o->gravity_q8);
+    o->vel_q8.x    = (o->vel_q8.x * o->drag_q8.x) >> 8;
+    o->vel_q8.y    = (o->vel_q8.y * o->drag_q8.y) >> 8;
     if (o->vel_cap_q8.x != 0)
         o->vel_q8.x = clamp_i(o->vel_q8.x, -o->vel_cap_q8.x, +o->vel_cap_q8.x);
     if (o->vel_cap_q8.y != 0)
         o->vel_q8.y = clamp_i(o->vel_q8.y, -o->vel_cap_q8.y, +o->vel_cap_q8.y);
-    o->vel_q8.x = (o->vel_q8.x * o->drag_q8.x) >> 8;
-    o->vel_q8.y = (o->vel_q8.y * o->drag_q8.y) >> 8;
 
     o->subpos_q8 = v2_add(o->subpos_q8, o->vel_q8);
     o->tomove    = v2_add(o->tomove, v2_shr(o->subpos_q8, 8));

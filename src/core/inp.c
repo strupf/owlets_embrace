@@ -6,6 +6,7 @@
 
 typedef struct {
     int btn;
+    int crank_q8;
     int crank_q16;
     int crank_docked;
 } inp_state_s;
@@ -18,9 +19,12 @@ static struct {
 void inp_update()
 {
     INP.prev              = INP.curr;
-    INP.curr.btn          = sys_inp();
-    INP.curr.crank_q16    = (int)(sys_crank() * 65536.f);
+    //
+    f32 crank             = sys_crank();
+    INP.curr.crank_q8     = (int)(crank * 256.f);
+    INP.curr.crank_q16    = (int)(crank * 65536.f);
     INP.curr.crank_docked = sys_crank_docked();
+    INP.curr.btn          = sys_inp();
 }
 
 bool32 inp_pressed(int b)
@@ -115,6 +119,29 @@ int inp_crank_calc_dt_q16(int ang_from, int ang_to)
     int dt = ang_to - ang_from;
     if (dt <= -32768) return (dt + 65536);
     if (dt >= +32768) return (dt - 65536);
+    return dt;
+}
+
+int inp_crank_q8()
+{
+    return INP.curr.crank_q8;
+}
+
+int inp_prev_crank_q8()
+{
+    return INP.prev.crank_q8;
+}
+
+int inp_crank_dt_q8()
+{
+    return inp_crank_calc_dt_q8(INP.prev.crank_q8, INP.curr.crank_q8);
+}
+
+int inp_crank_calc_dt_q8(int ang_from, int ang_to)
+{
+    int dt = ang_to - ang_from;
+    if (dt <= -128) return (dt + 256);
+    if (dt >= +128) return (dt - 256);
     return dt;
 }
 

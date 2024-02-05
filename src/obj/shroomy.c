@@ -26,12 +26,13 @@ obj_s *shroomy_create(game_s *g)
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE;
-    o->facing       = 1;
-    o->gravity_q8.y = 30;
-    o->drag_q8.y    = 255;
-    o->drag_q8.x    = 200;
-    o->w            = 16;
-    o->h            = 16;
+    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->facing          = 1;
+    o->gravity_q8.y    = 30;
+    o->drag_q8.y       = 255;
+    o->drag_q8.x       = 200;
+    o->w               = 16;
+    o->h               = 16;
     o->moverflags =
         OBJ_MOVER_SLOPES |
         OBJ_MOVER_ONE_WAY_PLAT |

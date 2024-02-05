@@ -7,6 +7,9 @@
 
 void game_init(game_s *g)
 {
+    aud_mute(0);
+    sys_set_volume(0.5f);
+
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
@@ -29,7 +32,7 @@ static void gameplay_tick(game_s *g)
 {
     g->events_frame                     = 0;
     g->herodata.itemselection_decoupled = 0;
-
+    g->herodata.interactable            = obj_handle_from_obj(NULL);
     hero_crank_item_selection(&g->herodata);
 
     for (obj_each(g, o)) {
@@ -38,22 +41,11 @@ static void gameplay_tick(game_s *g)
         if (0 < o->invincible_tick) {
             o->invincible_tick--;
         }
-
-        // implement as function pointers?
-        // but I do like the explicit way of the program flow, though
-        switch (o->ID) {
-        case OBJ_ID_BLOB: blob_on_update(g, o); break;
-        case OBJ_ID_HERO: hero_on_update(g, o); break;
-        case OBJ_ID_CRUMBLEBLOCK: crumbleblock_update(g, o); break;
-        case OBJ_ID_CLOCKPULSE: clockpulse_update(g, o); break;
-        case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
-        case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
-        case OBJ_ID_CARRIER: carrier_on_update(g, o); break;
-        case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
-        case OBJ_ID_CHARGER: charger_on_update(g, o); break;
-        case OBJ_ID_DOOR_SWING: swingdoor_on_update(g, o); break;
-        case OBJ_ID_NPC: npc_on_update(g, o); break;
+        if (o->enemy.invincible) {
+            o->enemy.invincible--;
         }
+
+        obj_game_update(g, o);
         o->posprev = posprev;
 #ifdef SYS_DEBUG
         assert(o->magic == OBJ_MAGIC);
@@ -99,17 +91,22 @@ static void gameplay_tick(game_s *g)
 
     // hero touching other objects
     if (ohero) {
-        const rec_i32 heroaabb = obj_aabb(ohero);
+        const rec_i32 heroaabb     = obj_aabb(ohero);
+        bool32        herogrounded = obj_grounded(g, ohero);
         for (obj_each(g, o)) {
             switch (o->ID) {
             case OBJ_ID_SHROOMY: {
-                rec_i32 rshroomy = obj_aabb(o);
-                if (!overlap_rec(heroaabb, rshroomy)) break;
-                if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rshroomy.y + rshroomy.h) {
+                if (herogrounded) break;
+                rec_i32 rs = obj_aabb(o);
+                rec_i32 ri;
+                if (!intersect_rec(heroaabb, rs, &ri)) break;
+                if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rs.y + rs.h) {
                     ohero->vel_q8.y = -1500;
+                    ohero->tomove.y -= ri.h;
                     shroomy_bounced_on(o);
                 }
-            } break;
+                break;
+            }
             }
         }
 
@@ -135,6 +132,8 @@ static void gameplay_tick(game_s *g)
     // retrieve again in case the hero died
     ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
+    collectibles_update(g);
+
     if (ohero) {
         const rec_i32 heroaabb = obj_aabb(ohero);
         hero_check_rope_intact(g, ohero);
@@ -148,8 +147,10 @@ static void gameplay_tick(game_s *g)
             case OBJ_ID_HEROUPGRADE:
                 heroupgrade_on_collect(g, o, &g->herodata);
                 break;
+            case OBJ_ID_COLLECTIBLE:
+                snd_play_ext(SNDID_COIN, 1.f, rngr_f32(0.8f, 1.2f));
+                break;
             }
-            sys_printf("has %i\n", hero_has_upgrade(&g->herodata, HERO_UPGRADE_HIGH_JUMP));
 
             obj_delete(g, o);
         }
@@ -176,54 +177,69 @@ static void gameplay_tick(game_s *g)
 
 void game_tick(game_s *g)
 {
-    g->substate_tick++;
+    if (g->mainmenu_fade_in) {
+        g->mainmenu_fade_in--;
+    }
 
-    if (0 < g->freeze_ticks) {
+    if (g->freeze_ticks) {
         g->freeze_ticks--;
         return;
     }
 
-    if (g->substate == GAME_SUBSTATE_HERO_DIE) {
-        if (50 <= g->substate_tick) {
+    if (g->die_ticks) {
+        g->die_ticks++;
+        if (50 <= g->die_ticks) {
             game_load_savefile(g, g->savefile, g->savefile_slotID);
-            g->substate      = GAME_SUBSTATE_HERO_RESPAWN;
-            g->substate_tick = 0;
+            g->die_ticks = 0;
             return;
         }
     }
 
-    if (g->substate == GAME_SUBSTATE_HERO_RESPAWN) {
-        if (50 <= g->substate_tick) {
-            g->substate      = 0;
-            g->substate_tick = 0;
+    if (g->respawn_ticks) {
+        g->respawn_ticks++;
+        if (50 <= g->respawn_ticks) {
+            g->respawn_ticks = 0;
+            return;
         }
     }
 
-    g->tick++;
-
     bool32 update_gameplay = 1;
-    bool32 animate_objs    = 1;
-
-    if (g->substate == GAME_SUBSTATE_TEXTBOX) {
+    if (upgradehandler_in_progress(&g->heroupgrade)) {
+        upgradehandler_tick(&g->heroupgrade);
+        update_gameplay = 0;
+    } else if (textbox_active(&g->textbox)) {
         textbox_update(g, &g->textbox);
         update_gameplay = 0;
-        animate_objs    = 0;
     } else if (!transition_finished(&g->transition)) {
-        transition_update(&g->transition);
-        update_gameplay = 0;
+        transition_update(g, &g->transition);
+        update_gameplay = !transition_blocks_gameplay(&g->transition);
     } else if (shop_active(g)) {
         shop_update(g);
         update_gameplay = 0;
-        animate_objs    = 0;
     }
 
     if (update_gameplay) {
         gameplay_tick(g);
+
+        for (obj_each(g, o)) {
+            obj_game_animate(g, o);
+        }
+
+        for (int n = g->n_enemy_decals - 1; 0 <= n; n--) {
+            g->enemy_decals[n].tick--;
+            if (g->enemy_decals[n].tick <= 0) {
+                g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
+            }
+        }
     }
 
     cam_update(g, &g->cam);
-    fade_update(&g->fade_upgrade);
-    fade_update(&g->areaname.fade);
+    if (g->areaname.fadeticks) {
+        g->areaname.fadeticks++;
+        if (FADETICKS_AREALABEL <= g->areaname.fadeticks) {
+            g->areaname.fadeticks = 0;
+        }
+    }
 
     if (g->env_effects & ENVEFFECT_WIND) {
         enveffect_wind_update(&g->env_wind);
@@ -231,7 +247,7 @@ void game_tick(game_s *g)
 
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
-    if (g->tick & 1) {
+    if (sys_tick() & 1) {
         backforeground_animate_grass(g);
     } else {
         if (g->env_effects & ENVEFFECT_HEAT) {
@@ -239,24 +255,6 @@ void game_tick(game_s *g)
         }
         if (g->env_effects & ENVEFFECT_CLOUD) {
             enveffect_cloud_update(&g->env_cloud);
-        }
-    }
-
-    if (animate_objs) {
-        for (obj_each(g, o)) {
-
-            switch (o->ID) {
-            case OBJ_ID_HERO: hero_on_animate(g, o); break;
-            case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
-            case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
-            case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
-            case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
-            case OBJ_ID_HOOK: hook_on_animate(g, o); break;
-            case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
-            case OBJ_ID_DOOR_SWING: swingdoor_on_animate(g, o); break;
-            case OBJ_ID_NPC: npc_on_animate(g, o); break;
-            case OBJ_ID_CARRIER: carrier_on_animate(g, o); break;
-            }
         }
     }
 }
@@ -281,7 +279,7 @@ void game_new_savefile(game_s *g, int slotID)
     game_load_map(g, "map_01");
     g->savefile_slotID = slotID;
     obj_s *oh          = hero_create(g);
-    oh->pos.x          = 60;
+    oh->pos.x          = 300;
     oh->pos.y          = 60;
 }
 
@@ -292,9 +290,7 @@ void game_write_savefile(game_s *g)
     herodata_s *hero = &g->herodata;
     strcpy(sf.area_filename, g->areaname.filename);
     strcpy(sf.hero_name, hero->name);
-    sf.aquired_items    = hero->aquired_items;
     sf.aquired_upgrades = hero->aquired_upgrades;
-    sf.tick             = g->tick;
     sf.n_airjumps       = hero->n_airjumps;
     sf.health           = hero->health;
     //
@@ -307,20 +303,18 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     g->savefile_slotID = slotID;
     g->savefile        = sf;
     game_load_map(g, sf.area_filename);
-    g->tick = sf.tick;
 
-    sys_mus_play("assets/mus/background.wav");
+    mus_play("assets/mus/background.wav");
 
     herodata_s *hero       = &g->herodata;
-    hero->aquired_items    = sf.aquired_items;
     hero->aquired_upgrades = sf.aquired_upgrades;
     hero->n_airjumps       = sf.n_airjumps;
     hero->health           = sf.health;
 
 #if 1
     obj_s *oh = hero_create(g);
-    oh->pos.x = 600;
-    oh->pos.y = 400;
+    oh->pos.x = 300;
+    oh->pos.y = 200;
 
     for (obj_each(g, o)) {
         if (o->ID == OBJ_ID_SAVEPOINT) {
@@ -331,16 +325,17 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
     }
 #endif
 
+    obj_s *oj = juggernaut_create(g);
+    oj->pos.x = 200;
+    oj->pos.y = 50;
+
     inventory_add(&g->inventory, INVENTORY_ID_KEY_1, 1);
 }
 
 void game_on_trigger(game_s *g, int trigger)
 {
     for (obj_each(g, o)) {
-        switch (o->ID) {
-        case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o, trigger); break;
-        case OBJ_ID_DOOR_SWING: swingdoor_on_trigger(g, o, trigger); break;
-        }
+        obj_game_trigger(g, o, trigger);
     }
 }
 
@@ -363,14 +358,14 @@ static inline i32 ocean_height_logic_q6(i32 p, i32 t)
 
 int ocean_height(game_s *g, int pixel_x)
 {
-    i32 h = ocean_height_logic_q6(pixel_x, g->tick);
+    i32 h = ocean_height_logic_q6(pixel_x, sys_tick());
     return (h >> 6) + g->ocean.y;
 }
 
 int ocean_render_height(game_s *g, int pixel_x)
 {
     int p = pixel_x;
-    int t = g->tick;
+    int t = sys_tick();
     i32 y = ocean_height_logic_q6(p, t) +
             (sin_q6((p << 2) + (t << 4) + 0x20) << 1) +
             (sin_q6((p << 4) - (t << 5) + 0x04) << 0) +
@@ -482,40 +477,6 @@ bool32 game_traversable_pt(game_s *g, int x, int y)
     return 1;
 }
 
-static void obj_apply_hitboxes(game_s *g, obj_s *o, hitbox_s *boxes, int nb)
-{
-    rec_i32 aabb = obj_aabb(o);
-    if ((aabb.w | aabb.h) == 0) { // point object
-        aabb.w = 1;
-        aabb.h = 1;
-    }
-
-    for (int n = 0; n < nb; n++) {
-        hitbox_s h = boxes[n];
-        if (!overlap_rec(h.r, aabb)) continue;
-
-        switch (o->ID) {
-        case OBJ_ID_SWITCH:
-            if (!(h.flags & HITBOX_FLAG_HERO)) break;
-            switch_on_interact(g, o);
-            return;
-        case OBJ_ID_CRAWLER:
-            if (!(h.flags & HITBOX_FLAG_HERO)) break;
-
-            crawler_on_weapon_hit(g, o, h);
-            g->events_frame |= EVENT_HIT_ENEMY;
-            return;
-        }
-    }
-}
-
-void game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes)
-{
-    for (obj_each(g, o)) {
-        obj_apply_hitboxes(g, o, boxes, n_boxes);
-    }
-}
-
 bounds_2D_s game_tilebounds_rec(game_s *g, rec_i32 r)
 {
     v2_i32 pmin = {r.x, r.y};
@@ -539,11 +500,6 @@ bounds_2D_s game_tilebounds_tri(game_s *g, tri_i32 t)
     v2_i32 pmin = v2_min3(t.p[0], t.p[1], t.p[2]);
     v2_i32 pmax = v2_max3(t.p[0], t.p[1], t.p[2]);
     return game_tilebounds_pts(g, pmin, pmax);
-}
-
-int tick_now(game_s *g)
-{
-    return g->tick;
 }
 
 int tick_to_index_freq(int tick, int n_frames, int freqticks)

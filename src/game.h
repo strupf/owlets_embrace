@@ -6,10 +6,9 @@
 #define GAME_H
 
 #include "cam.h"
+#include "collectible.h"
 #include "enveffect.h"
-#include "fade.h"
 #include "gamedef.h"
-#include "ingamemenu.h"
 #include "mainmenu.h"
 #include "map_loader.h"
 #include "obj/behaviour.h"
@@ -20,11 +19,13 @@
 #include "shop.h"
 #include "textbox.h"
 #include "transition.h"
+#include "upgradehandler.h"
 
 #define NUM_TILES         0x40000
 #define INTERACTABLE_DIST 32
 #define NUM_DECALS        256
 #define NUM_WATER         16
+#define ENEMY_DECAL_TICK  20
 
 #define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
 #define OCEAN_W_PX      SYS_DISPLAY_W
@@ -74,6 +75,12 @@ typedef union {
     u16 u;
 } rtile_s;
 
+typedef struct {
+    v2_i32   pos;
+    texrec_s t;
+    int      tick;
+} enemy_decal_s;
+
 enum {
     EVENT_HIT_ENEMY   = 1 << 0,
     EVENT_HERO_DAMAGE = 1 << 1,
@@ -85,19 +92,19 @@ enum {
     IT = IT->next
 
 struct game_s {
-    int        tick;
     mainmenu_s mainmenu;
     int        state;
 
+    int              areaID;
+    int              respawn_ticks;
+    int              die_ticks;
     int              freeze_ticks;
-    int              substate;
-    int              substate_tick;
-    fade_s           fade_upgrade;
     savefile_s       savefile;
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
-    ingamemenu_s     ingamemenu;
     shop_s           shop;
+    int              mainmenu_fade_in;
+    upgradehandler_s heroupgrade;
     //
     int              savefile_slotID;
     transition_s     transition;
@@ -120,9 +127,14 @@ struct game_s {
     obj_s           *obj_render[NUM_OBJ]; // sorted render array
     obj_s            obj_raw[NUM_OBJ];
 
+    int           n_enemy_decals;
+    enemy_decal_s enemy_decals[16];
+
+    int           n_collectibles;
+    collectible_s collectibles[NUM_COLLECTIBLE];
+
     inventory_s inventory;
     herodata_s  herodata;
-    rope_s      rope; // hero rope, singleton
     textbox_s   textbox;
 
     bool32            avoid_flickering;
@@ -131,13 +143,10 @@ struct game_s {
     enveffect_wind_s  env_wind;
     enveffect_heat_s  env_heat;
 
-    rope_s *ropes[2];
-    int     n_ropes;
-
     struct {
-        char   filename[LEN_AREA_FILENAME];
-        char   label[64];
-        fade_s fade;
+        char filename[LEN_AREA_FILENAME];
+        char label[64];
+        int  fadeticks;
     } areaname;
 
     int         n_grass;
@@ -174,8 +183,12 @@ bool32  tile_one_way(game_s *g, rec_i32 r);
 bool32  game_traversable(game_s *g, rec_i32 r);
 bool32  game_traversable_pt(game_s *g, int x, int y);
 void    game_on_solid_appear(game_s *g);
-void    game_apply_hitboxes(game_s *g, hitbox_s *boxes, int n_boxes);
 void    game_put_grass(game_s *g, int tx, int ty);
+void    obj_game_update(game_s *g, obj_s *o);
+void    obj_game_animate(game_s *g, obj_s *o);
+void    obj_game_trigger(game_s *g, obj_s *o, int trigger);
+void    obj_game_interact(game_s *g, obj_s *o);
+void    obj_game_player_attackbox(game_s *g, hitbox_s box);
 //
 int     ocean_height(game_s *g, int pixel_x);
 int     ocean_render_height(game_s *g, int pixel_x);

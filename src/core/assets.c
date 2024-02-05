@@ -81,8 +81,10 @@ int asset_tex_loadID(int ID, const char *filename, tex_s *tex)
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
 
     sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
+    usize memprev = ASSETS.marena.rem;
+    tex_s t       = tex_load(pathname, asset_allocator);
+    ASSETS.size_tex += memprev - ASSETS.marena.rem;
 
-    tex_s t = tex_load(pathname, asset_allocator);
     str_cpy(ASSETS.tex[ID].file, filename);
     ASSETS.tex[ID].tex = t;
     if (t.px) {
@@ -100,7 +102,10 @@ int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
     sys_printf("LOAD SND: %s (%s)\n", filename, pathname);
 
     str_cpy(ASSETS.snd[ID].file, filename);
-    snd_s s            = aud_snd_load(pathname, asset_allocator);
+
+    usize memprev = ASSETS.marena.rem;
+    snd_s s       = snd_load(pathname, asset_allocator);
+    ASSETS.size_snd += memprev - ASSETS.marena.rem;
     ASSETS.snd[ID].snd = s;
     if (s.buf) {
         if (snd) *snd = s;
@@ -155,21 +160,11 @@ texrec_s asset_texrec(int ID, int x, int y, int w, int h)
 
 void snd_play_ext(int ID, f32 vol, f32 pitch)
 {
-    aud_snd_play(asset_snd(ID), vol, pitch);
+    snd_play(asset_snd(ID), vol, pitch);
 }
 
-void mus_fade_to(const char *filename, int ticks_out, int ticks_in)
+void asset_mus_fade_to(const char *filename, int ticks_out, int ticks_in)
 {
     FILEPATH_GEN(path, FILEPATH_MUS, filename);
-    aud_mus_fade_to(path, ticks_out, ticks_in);
-}
-
-void mus_stop()
-{
-    aud_mus_stop();
-}
-
-bool32 mus_playing()
-{
-    return aud_mus_playing();
+    mus_fade_to(path, ticks_out, ticks_in);
 }
