@@ -1,11 +1,12 @@
-# Owlet's Embrace
+# Owlet's Embrace (working title)
 The goal is to make a 2D metroidvania from scratch using almost no external libraries for the **Playdate** in C. I only upload the source code and keep stuff like lib files and assets local. The game has two backends: One on top of the PlaydateSDK, and another one on top of SDL.
 
 ### Concept
 
-It'll be a slower paced adventure platformer. I love Zelda: Wind Waker, Link's Awakening, A Hat In Time, Celeste, 2D Metroid, Axiom Verge, Valheim. Most of these games have a certain "good vibes" feel to them, and a big focus on exploration, adventure, growing. But I also want to play with contrasts, "black & white" so to speak: Contrast lighthearted sections with dark themes, alternate between different moods etc.
+The game will be about the feeling I had as a kid when going outside and imagining all kinds of crazy stuff. Exploring local forests, finding cool spots, collecting things, thinking about fighting evil with a stick, occasionally getting into trouble. It's also about questioning and finding confidence in yourself. The story and game mechanics of the game will tie into those themes. A small owl accidentally falling out of the nest and landing in the land of nowhere, being lost. It starts exploring the world on its own after a while, having fun, getting some scratches every now and then, getting back up and starting to embrace its strengths, capabilities and personality while growing up - but there are still loose ends to tie back together. I want to play with contrasts, "black & white" so to speak: Contrast lighthearted sections with dark themes, alternate between different moods etc: On one hand there are places to calm down and where you like to spend time in, having fun. On the other hand there are grim dungeons and dangerous places, filled with all kinds of unknown stuff, creatures and mysteries. I really like that back and forth.
 
-They rely on the usage of different tools/items and a blend of different moods/themes: On the one hand, there are relaxing places like a sleepy village, your hideout and the peaceful nature. Places to calm down and where you like to spend time in. On the other hand there are grim dungeons and dangerous places, filled with all kinds of unknown stuff, creatures and mysteries. I really like that back and forth. In the end most of the game will be designed as I go and based on what I like while iterating - bottom-up.
+I'll do my best to convey those themes, and being a Metroidvania fan this is the genre I chose. Exploring, finding your way, getting stronger.
+
 
 <img src="misc/animation_04.gif" width="400" />
 
