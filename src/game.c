@@ -7,9 +7,11 @@
 
 void game_init(game_s *g)
 {
+#ifdef SYS_SDL
     aud_mute(0);
-    sys_set_volume(0.5f);
-
+    sys_set_volume(1.f);
+#endif
+    mus_set_trg_vol(64);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
@@ -26,14 +28,16 @@ void game_init(game_s *g)
         sys_printf("0x%02X, ", abs_i(r));
     }
 #endif
+    g->magic1 = OBJ_MAGIC;
+    g->magic2 = OBJ_MAGIC;
+    g->magic3 = OBJ_MAGIC;
 }
 
 static void gameplay_tick(game_s *g)
 {
-    g->events_frame                     = 0;
-    g->herodata.itemselection_decoupled = 0;
-    g->herodata.interactable            = obj_handle_from_obj(NULL);
-    hero_crank_item_selection(&g->herodata);
+    item_selector_update(&g->item_selector);
+    g->events_frame          = 0;
+    g->herodata.interactable = obj_handle_from_obj(NULL);
 
     for (obj_each(g, o)) {
         const v2_i32 posprev = o->pos;
@@ -101,7 +105,7 @@ static void gameplay_tick(game_s *g)
                 rec_i32 ri;
                 if (!intersect_rec(heroaabb, rs, &ri)) break;
                 if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rs.y + rs.h) {
-                    ohero->vel_q8.y = -1500;
+                    ohero->vel_q8.y = -1800;
                     ohero->tomove.y -= ri.h;
                     shroomy_bounced_on(o);
                 }
@@ -110,18 +114,34 @@ static void gameplay_tick(game_s *g)
             }
         }
 
+#if GAME_JUMP_ATTACK
+        void obj_game_player_jump_heads(game_s * g, obj_s * ohero);
+        obj_game_player_jump_heads(g, ohero);
+#endif
+        v2_i32 hcenter = obj_pos_center(ohero);
+
         // touched hurting things?
         if (0 < ohero->invincible_tick) goto SKIP_HAZARDS;
         for (obj_each(g, o)) {
             if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
             if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+            v2_i32 ocenter = obj_pos_center(o);
 
-            v2_i32 dt       = v2_sub(obj_pos_center(ohero), obj_pos_center(o));
+            v2_i32 dt       = v2_sub(hcenter, ocenter);
             ohero->vel_q8.x = sgn_i(dt.x) * 1000;
             ohero->vel_q8.y = -1000;
             hero_hurt(g, ohero, &g->herodata, 1);
             g->events_frame |= EVENT_HERO_DAMAGE;
             snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
+
+            switch (o->ID) {
+            case OBJ_ID_CHARGER: {
+                int pushs       = sgn_i(hcenter.x - ocenter.x);
+                ohero->vel_q8.x = pushs * 2000;
+                ohero->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+                break;
+            }
+            }
             break;
         }
     SKIP_HAZARDS:;
@@ -164,7 +184,7 @@ static void gameplay_tick(game_s *g)
     }
 #endif
 
-    transition_check_herodata_slide(&g->transition, g);
+    transition_check_hero_slide(&g->transition, g);
     particles_update(g, &g->particles);
 
     if (g->events_frame & EVENT_HIT_ENEMY) {
@@ -189,7 +209,10 @@ void game_tick(game_s *g)
     if (g->die_ticks) {
         g->die_ticks++;
         if (50 <= g->die_ticks) {
-            game_load_savefile(g, g->savefile, g->savefile_slotID);
+            if (g->transition_last.to_load[0] == '\0') {
+            }
+            transition_start_respawn(g, &g->transition_last);
+            // game_load_savefile(g, g->save, g->savefile_slotID);
             g->die_ticks = 0;
             return;
         }
@@ -244,6 +267,9 @@ void game_tick(game_s *g)
     if (g->env_effects & ENVEFFECT_WIND) {
         enveffect_wind_update(&g->env_wind);
     }
+    if (g->env_effects & ENVEFFECT_RAIN) {
+        enveffect_rain_update(g, &g->env_rain);
+    }
 
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
@@ -265,12 +291,10 @@ void game_open_inventory(game_s *g)
 
 void game_resume(game_s *g)
 {
-    g->herodata.itemselection_decoupled = 0;
 }
 
 void game_paused(game_s *g)
 {
-    g->herodata.itemselection_decoupled = 1;
     render_pause(g);
 }
 
@@ -280,7 +304,7 @@ void game_new_savefile(game_s *g, int slotID)
     g->savefile_slotID = slotID;
     obj_s *oh          = hero_create(g);
     oh->pos.x          = 300;
-    oh->pos.y          = 60;
+    oh->pos.y          = 30;
 }
 
 void game_write_savefile(game_s *g)
@@ -290,52 +314,49 @@ void game_write_savefile(game_s *g)
     herodata_s *hero = &g->herodata;
     strcpy(sf.area_filename, g->areaname.filename);
     strcpy(sf.hero_name, hero->name);
-    sf.aquired_upgrades = hero->aquired_upgrades;
-    sf.n_airjumps       = hero->n_airjumps;
-    sf.health           = hero->health;
+    memcpy(sf.upgrades, hero->upgrades, sizeof(hero->upgrades));
+    sf.n_airjumps = hero->n_airjumps;
+    sf.health     = hero->health;
     //
-    g->savefile         = sf;
+    g->save       = sf;
     savefile_write(g->savefile_slotID, &sf);
 }
 
 void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 {
     g->savefile_slotID = slotID;
-    g->savefile        = sf;
+    g->save            = sf;
     game_load_map(g, sf.area_filename);
 
-    mus_play("assets/mus/background.wav");
+    // mus_play("assets/mus/overworld.wav");
 
-    herodata_s *hero       = &g->herodata;
-    hero->aquired_upgrades = sf.aquired_upgrades;
-    hero->n_airjumps       = sf.n_airjumps;
-    hero->health           = sf.health;
+    herodata_s *hero = &g->herodata;
+    memcpy(hero->upgrades, sf.upgrades, sizeof(sf.upgrades));
+    hero->n_airjumps = sf.n_airjumps;
+    hero->health     = sf.health;
 
 #if 1
     obj_s *oh = hero_create(g);
-    oh->pos.x = 300;
-    oh->pos.y = 200;
-
-    for (obj_each(g, o)) {
-        if (o->ID == OBJ_ID_SAVEPOINT) {
-            oh->pos.x = o->pos.x;
-            oh->pos.y = o->pos.y - 20;
-            break;
-        }
-    }
+    oh->pos.x = 200;
+    oh->pos.y = 100;
 #endif
-
-    obj_s *oj = juggernaut_create(g);
-    oj->pos.x = 200;
-    oj->pos.y = 50;
-
-    inventory_add(&g->inventory, INVENTORY_ID_KEY_1, 1);
 }
 
 void game_on_trigger(game_s *g, int trigger)
 {
+    if (!trigger) return;
     for (obj_each(g, o)) {
         obj_game_trigger(g, o, trigger);
+    }
+    if (trigger == 1000) {
+        g->herodata.upgrades[HERO_UPGRADE_HIGH_JUMP]  = 1;
+        g->herodata.upgrades[HERO_UPGRADE_HOOK]       = 1;
+        g->herodata.upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
+        snd_play_ext(SNDID_UPGRADE, 1.f, 2.f);
+    }
+    if (trigger == 1001) {
+        g->herodata.upgrades[HERO_UPGRADE_SPRINT] = 1;
+        snd_play_ext(SNDID_UPGRADE, 1.f, 2.f);
     }
 }
 
@@ -377,19 +398,23 @@ int ocean_render_height(game_s *g, int pixel_x)
 int water_depth_rec(game_s *g, rec_i32 r)
 {
     int f        = 0;
-    int y_bottom = r.y + r.h;
+    int y_bottom = r.y + r.h - 1;
+    int px       = r.x + (r.w >> 1);
     if (g->ocean.active) {
-        int h1 = max_i(0, y_bottom - ocean_height(g, r.x));
-        int h2 = max_i(0, y_bottom - ocean_height(g, r.x + r.w));
-        f      = (h1 + h2) >> 1;
+        f = max_i(0, y_bottom - ocean_height(g, px));
     }
 
-    for (int i = 0; i < g->n_water; i++) {
-        water_s *wa = &g->water[i];
-        if (!overlap_rec(wa->area, r)) continue;
-        f = max_i(f, y_bottom - wa->area.y);
+    int d = 0;
+    int i = (px >> 4) + (y_bottom >> 4) * g->tiles_x;
+    if (g->tiles[i].type & TILE_WATER_MASK) {
+        d = (y_bottom & 15);
+        for (i -= g->tiles_x; 0 <= i; i -= g->tiles_x) {
+            if (!(g->tiles[i].type & TILE_WATER_MASK)) break;
+            d += 16;
+        }
     }
-    return f;
+
+    return max_i(f, d);
 }
 
 bool32 tiles_solid(game_s *g, rec_i32 r)
@@ -487,10 +512,10 @@ bounds_2D_s game_tilebounds_rec(game_s *g, rec_i32 r)
 bounds_2D_s game_tilebounds_pts(game_s *g, v2_i32 p0, v2_i32 p1)
 {
     bounds_2D_s b = {
-        max_i(p0.x, 0) >> 4, // div 16
-        max_i(p0.y, 0) >> 4,
-        min_i(p1.x, g->pixel_x - 1) >> 4,
-        min_i(p1.y, g->pixel_y - 1) >> 4,
+        max_i(p0.x - 1, 0) >> 4, // div 16
+        max_i(p0.y - 1, 0) >> 4,
+        min_i(p1.x + 1, g->pixel_x - 1) >> 4,
+        min_i(p1.y + 1, g->pixel_y - 1) >> 4,
     };
     return b;
 }
@@ -521,6 +546,66 @@ void game_on_solid_appear(game_s *g)
             actor_try_wiggle(g, o);
         }
     }
+}
+
+#define ITEM_SELECTOR_CRANK_THRESHOLD 8000
+void item_selector_update(item_selector_s *is)
+{
+    if (is->decoupled) return;
+
+    int p_q16 = inp_prev_crank_q16();
+    int c_q16 = inp_crank_q16();
+    int dt    = inp_crank_calc_dt_q16(p_q16, c_q16);
+    int dtp   = inp_crank_calc_dt_q16(p_q16, is->angle);
+    int dtc   = inp_crank_calc_dt_q16(is->angle, c_q16);
+
+    // turn item barrel, snaps into crank angle for small angles
+    int angle_old = is->angle;
+    if ((dt > 0 && dtp >= 0 && dtc >= 0) || (dt < 0 && dtp <= 0 && dtc <= 0)) {
+        is->angle = c_q16;
+    } else if (abs_i(dtc) < ITEM_SELECTOR_CRANK_THRESHOLD) {
+        int d = sgn_i(dtc) * (ITEM_SELECTOR_CRANK_THRESHOLD - abs_i(dtc)) / 10;
+        if (sgn_i(d) == sgn_i(dtc) && abs_i(d) > abs_i(dtc)) {
+            d = dtc;
+        }
+
+        is->angle = (is->angle + d + 0x10000) & 0xFFFF;
+    }
+
+    // item selection based on new item barrel angle
+    // check if the barrel "flipped over" the 180 deg position
+    // -> select next/prev item
+    int change = inp_crank_calc_dt_q16(angle_old, is->angle);
+    if (change > 0 && angle_old < 0x8000 && is->angle >= 0x8000) {
+#if 0
+        do {
+            is->item += 1;
+            is->item %= NUM_HERO_ITEMS;
+        } while (!(h->aquired_items & (1 << is->item)));
+#else
+        is->item = 1 - is->item;
+
+#endif
+    } else if (change < 0 && angle_old >= 0x8000 && is->angle < 0x8000) {
+#if 0
+        do {
+            is->item += NUM_HERO_ITEMS - 1;
+            is->item %= NUM_HERO_ITEMS;
+        } while (!(h->aquired_items & (1 << is->item)));
+#else
+        is->item = 1 - is->item;
+#endif
+    }
+}
+
+void logic_flag_set(game_s *g, int f)
+{
+    g->logic_flags |= (1U << f);
+}
+
+void logic_flag_clr(game_s *g, int f)
+{
+    g->logic_flags &= ~(1U << f);
 }
 
 static void *game_alloc_ctx(void *ctx, usize s)
@@ -585,21 +670,13 @@ const i32 tilecolliders[GAME_NUM_TILECOLLIDERS * 6] = {
     0, 0, 0, 16, 8, 16,   // 12
     0, 0, 8, 0, 0, 16,    // 13
     // slopes hi
-    0, 16, 16, 16, 16, 8, // 14
-    0, 16, 16, 16, 16, 8,
-    0, 0, 16, 0, 16, 8, // 15
-    0, 0, 16, 0, 16, 8,
-    0, 8, 0, 16, 16, 16, // 16
-    0, 8, 0, 16, 16, 16,
-    0, 0, 16, 0, 0, 8, // 17
-    0, 0, 16, 0, 0, 8,
-    16, 0, 16, 16, 8, 16, // 18
-    16, 0, 16, 16, 8, 16,
-    8, 0, 16, 0, 16, 16, // 19
-    8, 0, 16, 0, 16, 16,
-    0, 0, 0, 16, 8, 16, // 20
-    0, 0, 0, 16, 8, 16,
-    0, 0, 8, 0, 0, 16, // 21
-    0, 0, 8, 0, 0, 16,
+    0, 16, 16, 16, 16, 0, 0, 8, 0, 0, 0, 0, // 14
+    0, 0, 16, 0, 16, 16, 0, 8, 0, 0, 0, 0,  // 15
+    0, 0, 16, 8, 16, 16, 0, 16, 0, 0, 0, 0, // 16
+    0, 0, 16, 0, 16, 8, 0, 16, 0, 0, 0, 0,  // 17
+    8, 0, 16, 0, 16, 16, 0, 16, 0, 0, 0, 0, // 18
+    0, 0, 16, 0, 16, 16, 8, 16, 0, 0, 0, 0, // 19
+    0, 0, 8, 0, 16, 16, 0, 16, 0, 0, 0, 0,  // 20
+    0, 0, 16, 0, 8, 16, 0, 16, 0, 0, 0, 0,  // 21
     //
 };

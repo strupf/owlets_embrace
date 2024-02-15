@@ -24,6 +24,7 @@ enum {
     TEXTBOX_CHOICE_EXIT,
     TEXTBOX_CHOICE_GOTO,
     TEXTBOX_CHOICE_OPEN_SHOP,
+    TEXTBOX_CHOICE_TRIGGER,
 };
 
 #define TEXTBOX_MAX_CHARS        192
@@ -43,6 +44,7 @@ typedef struct {
     int n_chars;
     int gototag;
     u8  chars[32];
+    int trigger;
 } textbox_choice_s;
 
 typedef struct {

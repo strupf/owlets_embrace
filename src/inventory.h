@@ -10,9 +10,10 @@
 #include "gamedef.h"
 
 enum {
-    INVENTORY_ID_POTION,
-    //
-    INVENTORY_ID_KEY_1 = 100,
+    INVENTORY_ID_GOLD,
+    INVENTORY_ID_KEY_CIRCLE,
+    INVENTORY_ID_KEY_SQUARE,
+    INVENTORY_ID_KEY_TRIANGLE,
 };
 
 typedef struct {

@@ -46,6 +46,14 @@ void *spm_alloc(usize s)
     return mem;
 }
 
+void *spm_allocz(usize s)
+{
+    void *mem = spm_alloc(s);
+    if (!mem) return NULL;
+    memset(mem, 0, s);
+    return mem;
+}
+
 void *spm_alloc_rem(usize *s)
 {
     return marena_alloc_rem(&SPM.m, s);

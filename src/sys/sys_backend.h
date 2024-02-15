@@ -15,6 +15,7 @@ void   sys_pause();
 void   sys_resume();
 //
 void   backend_display_row_updated(int a, int b);
+void   backend_display_inv(int i);
 f32    backend_seconds();
 u32   *backend_framebuffer();
 int    backend_inp();

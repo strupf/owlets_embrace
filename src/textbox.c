@@ -114,6 +114,9 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
                 choice->type = TEXTBOX_CHOICE_EXIT;
             } else if (str_eq(action, "shop")) {
                 choice->type = TEXTBOX_CHOICE_OPEN_SHOP;
+            } else if (str_eq(action, "trigger")) {
+                choice->type    = TEXTBOX_CHOICE_TRIGGER;
+                choice->trigger = jsonk_i32(jchoice, "trigger");
             }
         }
     }
@@ -182,6 +185,10 @@ void textbox_update(game_s *g, textbox_s *tb)
                     BAD_PATH
                 }
 
+            } break;
+            case TEXTBOX_CHOICE_TRIGGER: {
+                tb->fade_out = 1;
+                game_on_trigger(g, choice->trigger);
             } break;
             case TEXTBOX_CHOICE_EXIT: {
                 tb->fade_out = 1;
@@ -311,7 +318,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
         if (b->n_choices <= 0) break;
 
-        gfx_rec_fill(ctx, (rec_i32){230, 70, 200, 100}, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctx, (rec_i32){220, 70, 200, 100}, PRIM_MODE_BLACK);
 
         for (int n = 0; n < b->n_choices; n++) {
             textbox_choice_s *choice = &b->choices[n];
@@ -325,7 +332,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
             }
         }
 
-        gfx_rec_fill(ctx, (rec_i32){220, 80 + tb->curchoice * 20, 8, 8}, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctx, (rec_i32){230, 80 + tb->curchoice * 20, 8, 8}, PRIM_MODE_WHITE);
     } break;
     case TEXTBOX_STATE_WRITE: {
 

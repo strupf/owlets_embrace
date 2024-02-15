@@ -77,6 +77,7 @@ sys_display_s sys_display();
 u32           sys_tick();
 void          sys_set_menu_image(void *px, int h, int wbyte);
 void          sys_display_update_rows(int a, int b);
+void          sys_display_inv(int i);
 void          sys_log(const char *str);
 int           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]

@@ -27,6 +27,15 @@
 #error "sys_types.h: More than one platform defined"
 #endif
 
+// size of cache line in bytes
+#ifdef SYS_PD_HW
+#define SYS_SIZE_CL 32
+#else
+#define SYS_SIZE_CL 32
+#endif
+
+#define align_CL alignas(SYS_SIZE_CL)
+
 #include <math.h>
 #include <stdalign.h>
 #include <stdarg.h>
@@ -39,11 +48,13 @@
 #undef static_assert
 #define assert(X)
 #define static_assert(A, B)
-#elif defined(SYS_SDL) // use SDL assert for desktop
+#else
+/*
 #include "SDL2/SDL_assert.h"
 #undef assert
 #define assert SDL_assert
 #else
+*/
 #include <assert.h>
 #endif
 
@@ -181,6 +192,11 @@ typedef struct {
     } while (0);
 
 typedef struct {
+    i32 num;
+    i32 den;
+} ratio_s;
+
+typedef struct {
     i32 x, y, w, h;
 } rec_i32;
 
@@ -291,6 +307,7 @@ static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
 // B8(00001111) -> 0x0F
 // B16(10000000, 00001111) -> 0x800F
 #define _B_(A)          GLUE(_B, A)
+#define B2(A)           GLUE(0x, _B_(GLUE(000000, A)))
 #define B4(A)           GLUE(0x, _B_(GLUE(0000, A)))
 #define B8(A)           GLUE(0x, _B_(A))
 #define B16(A, B)       GLUE(0x, GLUE(_B_(A), _B_(B)))

@@ -21,7 +21,8 @@ struct transition_s {
 };
 
 void   transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32 hero_feet);
-void   transition_check_herodata_slide(transition_s *t, game_s *g);
+void   transition_check_hero_slide(transition_s *t, game_s *g);
+void   transition_start_respawn(game_s *g, transition_s *t);
 void   transition_update(game_s *g, transition_s *t);
 bool32 transition_blocks_gameplay(transition_s *t);
 bool32 transition_finished(transition_s *t);

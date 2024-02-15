@@ -201,7 +201,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         v2_i32  v = {sx, 0};
         r.x += sx;
 
-        if ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
+        if ((o->flags & OBJ_FLAG_CLAMP_ROOM_X) &&
             (r.x + r.w > g->pixel_x || r.x < 0)) {
             DO_BUMP_X;
         }
@@ -250,26 +250,24 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         v2_i32  v = {0, sy};
         r.y += sy;
 
-        if ((o->flags & OBJ_FLAG_CLAMP_TO_ROOM) &&
+        if ((o->flags & OBJ_FLAG_CLAMP_ROOM_Y) &&
             (r.y + r.h > g->pixel_y || r.y < 0)) {
             DO_BUMP_Y;
         }
 
-        rec_i32 orec = 0 < sy ? obj_rec_bottom(o) : obj_rec_top(o);
-
-        int collide_plat = 0;
+        rec_i32 orec         = 0 < sy ? obj_rec_bottom(o) : obj_rec_top(o);
+        bool32  collide_plat = 0;
 
         if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
             collide_plat = (orec.y & 15) == 0 && tile_one_way(g, orec);
-            if (!collide_plat) {
-                for (obj_each(g, a)) {
-                    if (o == a) continue;
-                    if (!(a->flags & OBJ_FLAG_PLATFORM)) continue;
-                    rec_i32 rplat = {a->pos.x, a->pos.y, a->w, 1};
-                    if (overlap_rec(orec, rplat)) {
-                        collide_plat = 1;
-                        break;
-                    }
+            for (obj_each(g, a)) {
+                if (o == a) continue;
+                if (!(a->flags & OBJ_FLAG_PLATFORM)) continue;
+                if ((a->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) && o->ID != OBJ_ID_HERO) continue;
+                rec_i32 rplat = {a->pos.x, a->pos.y, a->w, 1};
+                if (overlap_rec(orec, rplat)) {
+                    collide_plat = 1;
+                    break;
                 }
             }
         }
@@ -310,6 +308,7 @@ static void platform_movestep(game_s *g, obj_s *o, v2_i32 dt)
         if (a == o) continue;
         if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
         if (!(a->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) continue;
+        if ((o->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) && a->ID != OBJ_ID_HERO) continue;
         bool32 linked = (obj_from_obj_handle(a->linked_solid) == o);
 
         rec_i32 feet = obj_rec_bottom(a);
@@ -369,6 +368,8 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
                 if (overlap_rec(feet, aabbog))
                     linked = 1;
             }
+            assert(!(o->flags & OBJ_FLAG_PLATFORM));
+            // TOdo
             if (o->flags & OBJ_FLAG_PLATFORM) {
                 rec_i32 rplat = {aabbog.x, aabbog.y, aabbog.w, 1};
                 if (overlap_rec(feet, rplat))
@@ -488,6 +489,8 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
         for (obj_each(g, k)) {
             if (k == o) continue;
             if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
+            if ((k->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) &&
+                o->ID != OBJ_ID_HERO) continue;
             rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
             if (overlap_rec(rbot, rplat))
                 return 1;
@@ -538,28 +541,27 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
 
     rope_s     *r          = o->rope;
     ropenode_s *rn         = o->ropenode;
-    u32         len_q4     = rope_length_q4(g, r);
-    u32         len_max_q4 = r->len_max_q4;
-    if (len_q4 <= len_max_q4) return o->vel_q8; // rope is not stretched
+    i32         len_q4     = rope_length_q4(g, r);
+    i32         len_max_q4 = r->len_max_q4;
+    i32         dt_len     = len_q4 - len_max_q4;
+    if (dt_len <= 0) return o->vel_q8; // rope is not stretched
 
     ropenode_s *rprev = rn->next ? rn->next : rn->prev;
     assert(rprev);
 
-    v2_i32 ropedt    = v2_sub(rn->p, rprev->p);
-    v2_i32 subpos_q4 = v2_shr(o->subpos_q8, 4);
-    v2_i32 dt_q4     = v2_add(v2_shl(ropedt, 4), subpos_q4);
+    v2_i32 ropedt = v2_sub(rn->p, rprev->p);
+    v2_i32 dt_q4  = v2_add(v2_shl(ropedt, 4), v2_shr(o->subpos_q8, 4));
 
     // damping force
+
     v2_i32 fdamp = {0};
-    v2_i32 vrad  = project_pnt_line(o->vel_q8, (v2_i32){0}, dt_q4);
     if (v2_dot(ropedt, o->vel_q8) > 0) {
-        fdamp = v2_shr(v2_mul(vrad, 250), 8);
+        v2_i32 vrad = project_pnt_line(o->vel_q8, (v2_i32){0}, dt_q4);
+        fdamp       = v2_mulq(vrad, 250, 8);
     }
 
     // spring force
-    u32    dt_len         = len_q4 - len_max_q4;
-    i32    fspring_scalar = (dt_len * 220) >> 8;
-    // i32    fspring_scalar = pow2_i32(dt_len / 12);
+    i32    fspring_scalar = (dt_len * 250) >> 8;
     v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
 
     v2_i32 frope   = v2_add(fdamp, fspring);
@@ -567,23 +569,10 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
     return vel_new;
 }
 
-int obj_health_change(obj_s *o, int dt)
+enemy_s enemy_default()
 {
-    o->health = clamp_i(o->health + dt, 0, o->health_max);
-    return o->health;
-}
-
-int enemy_obj_damage(obj_s *o, int dmg, int invincible_ticks)
-{
-    if (0 < o->invincible_tick) return o->health;
-    int h = obj_health_change(o, -dmg);
-    if (0 < h) {
-        o->invincible_tick = invincible_ticks;
-    }
-    return h;
-}
-
-int obj_invincible_frame(obj_s *o)
-{
-    return ((o->invincible_tick >> 2) & 1);
+    enemy_s e    = {0};
+    e.sndID_die  = SNDID_ENEMY_DIE;
+    e.sndID_hurt = SNDID_ENEMY_HURT;
+    return e;
 }

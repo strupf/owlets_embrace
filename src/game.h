@@ -20,6 +20,7 @@
 #include "textbox.h"
 #include "transition.h"
 #include "upgradehandler.h"
+#include "water.h"
 
 #define NUM_TILES         0x40000
 #define INTERACTABLE_DIST 32
@@ -31,10 +32,6 @@
 #define OCEAN_W_PX      SYS_DISPLAY_W
 #define OCEAN_H_PX      SYS_DISPLAY_H
 #define OCEAN_NUM_SPANS 512
-
-typedef struct {
-    rec_i32 area;
-} water_s;
 
 typedef struct {
     i16 y;
@@ -51,6 +48,14 @@ typedef struct {
 } ocean_s;
 
 typedef struct {
+    tex_s tex;
+    u16   sx, sy, sw, sh;
+    i32   n_frames;
+    u16   t;
+    u16   t_max;
+} anim_particle_s;
+
+typedef struct {
     v2_i32 pos;
     int    type;
     int    x_q8;
@@ -62,9 +67,19 @@ enum {
     BG_IMG_POS_FIT_ROOM,
 };
 
-typedef struct {
-    u8 type;
-    u8 collision;
+typedef union {
+    struct {
+        union {
+            struct {
+                u8 tx;
+                u8 ty;
+            };
+            u16 u;
+        };
+        u8 type; // 1 bit for water, 7 bits for type
+        u8 collision;
+    };
+    u32 U;
 } tile_s;
 
 typedef union {
@@ -91,6 +106,12 @@ enum {
     IT;                           \
     IT = IT->next
 
+typedef struct {
+    bool32 decoupled;
+    i32    angle;
+    i32    item;
+} item_selector_s;
+
 struct game_s {
     mainmenu_s mainmenu;
     int        state;
@@ -99,7 +120,7 @@ struct game_s {
     int              respawn_ticks;
     int              die_ticks;
     int              freeze_ticks;
-    savefile_s       savefile;
+    savefile_s       save;
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
     shop_s           shop;
@@ -108,8 +129,10 @@ struct game_s {
     //
     int              savefile_slotID;
     transition_s     transition;
+    transition_s     transition_last;
     cam_s            cam;
     flags32          events_frame;
+    flags32          logic_flags;
     //
     tile_s           tiles[NUM_TILES];
     rtile_s          rtiles[NUM_TILELAYER][NUM_TILES];
@@ -133,15 +156,21 @@ struct game_s {
     int           n_collectibles;
     collectible_s collectibles[NUM_COLLECTIBLE];
 
-    inventory_s inventory;
-    herodata_s  herodata;
-    textbox_s   textbox;
+    inventory_s     inventory;
+    herodata_s      herodata;
+    textbox_s       textbox;
+    item_selector_s item_selector;
 
-    bool32            avoid_flickering;
-    flags32           env_effects;
-    enveffect_cloud_s env_cloud;
-    enveffect_wind_s  env_wind;
-    enveffect_heat_s  env_heat;
+    bool32             avoid_flickering;
+    flags32            env_effects;
+    enveffect_cloud_s  env_cloud;
+    enveffect_wind_s   env_wind;
+    u32                magic1;
+    enveffect_heat_s   env_heat;
+    u32                magic2;
+    enveffect_leaves_s env_leaves;
+    u32                magic3;
+    enveffect_rain_s   env_rain;
 
     struct {
         char filename[LEN_AREA_FILENAME];
@@ -153,12 +182,9 @@ struct game_s {
     grass_s     grass[256];
     particles_s particles;
 
-    ocean_s ocean;
-    int     n_water;
-    water_s water[NUM_WATER];
-
-    marena_s arena;
-    alignas(4) char mem[MKILOBYTE(256)];
+    ocean_s              ocean;
+    marena_s             arena;
+    align_CL mkilobyte_s mem[256];
 };
 
 extern u16       g_animated_tiles[65536];
@@ -172,7 +198,6 @@ void game_resume(game_s *g);
 void game_paused(game_s *g);
 
 void    game_open_inventory(game_s *g);
-int     tick_now(game_s *g);
 void    game_new_savefile(game_s *g, int slotID);
 void    game_write_savefile(game_s *g);
 void    game_load_savefile(game_s *g, savefile_s sf, int slotID);
@@ -189,10 +214,13 @@ void    obj_game_animate(game_s *g, obj_s *o);
 void    obj_game_trigger(game_s *g, obj_s *o, int trigger);
 void    obj_game_interact(game_s *g, obj_s *o);
 void    obj_game_player_attackbox(game_s *g, hitbox_s box);
+void    item_selector_update(item_selector_s *is);
 //
 int     ocean_height(game_s *g, int pixel_x);
 int     ocean_render_height(game_s *g, int pixel_x);
 int     water_depth_rec(game_s *g, rec_i32 r);
+void    logic_flag_set(game_s *g, int f);
+void    logic_flag_clr(game_s *g, int f);
 //
 alloc_s game_allocator(game_s *g);
 

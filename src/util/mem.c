@@ -6,22 +6,23 @@
 
 void *alignup_ptr(void *p)
 {
-    return (void *)(((uptr)p + (uptr)3) & ~(uptr)3);
+    uptr pa = ((uptr)p + (uptr)(SYS_SIZE_CL - 1)) & ~(uptr)(SYS_SIZE_CL - 1);
+    return (void *)pa;
 }
 
 void *aligndn_ptr(void *p)
 {
-    return (void *)((uptr)p & ~(uptr)3);
+    return (void *)((uptr)p & ~(uptr)(SYS_SIZE_CL - 1));
 }
 
 usize alignup_usize(usize p)
 {
-    return ((p + (usize)3) & ~(usize)3);
+    return ((p + (usize)(SYS_SIZE_CL - 1)) & ~(usize)(SYS_SIZE_CL - 1));
 }
 
 usize aligndn_usize(usize p)
 {
-    return (p & ~(usize)3);
+    return (p & ~(usize)(SYS_SIZE_CL - 1));
 }
 
 mspan_s mspan_align(mspan_s m)

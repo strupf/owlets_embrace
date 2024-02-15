@@ -175,6 +175,18 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
                 try_add_point_in_tri(v3, t1, t2, pts);
                 continue;
             }
+            if (t < TILE_SLOPE_LO) {
+                tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
+                v2_i32 *p  = tr.p;
+
+                convex_vertex_s v0 = {p[0], p[1], p[2]};
+                convex_vertex_s v1 = {p[1], p[2], p[0]};
+                convex_vertex_s v2 = {p[2], p[0], p[1]};
+                try_add_point_in_tri(v0, t1, t2, pts);
+                try_add_point_in_tri(v1, t1, t2, pts);
+                try_add_point_in_tri(v2, t1, t2, pts);
+                continue;
+            }
             if (t < TILE_SLOPE_HI) {
                 tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                 v2_i32 *p  = tr.p;
@@ -187,7 +199,22 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
                 try_add_point_in_tri(v2, t1, t2, pts);
                 continue;
             }
-            NOT_IMPLEMENTED
+            if (t < NUM_TILE_BLOCKS) {
+                v2_i32 *quadbase = &((v2_i32 *)tilecolliders)[TILE_SLOPE_HI * 3];
+                v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI) * 6];
+                v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
+                                    v2_add(quad[2], pos), v2_add(quad[3], pos)};
+
+                convex_vertex_s v0 = {p[0], p[1], p[3]};
+                convex_vertex_s v1 = {p[1], p[2], p[0]};
+                convex_vertex_s v2 = {p[2], p[1], p[3]};
+                convex_vertex_s v3 = {p[3], p[0], p[2]};
+                try_add_point_in_tri(v0, t1, t2, pts);
+                try_add_point_in_tri(v1, t1, t2, pts);
+                try_add_point_in_tri(v2, t1, t2, pts);
+                try_add_point_in_tri(v3, t1, t2, pts);
+                continue;
+            }
         }
     }
 
@@ -469,6 +496,15 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                     return;
                 continue;
             }
+            if (t < TILE_SLOPE_LO) {
+                tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
+                v2_i32 *p  = tr.p;
+                if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
+                    return;
+                continue;
+            }
             if (t < TILE_SLOPE_HI) {
                 tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                 v2_i32 *p  = tr.p;
@@ -478,7 +514,18 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                     return;
                 continue;
             }
-            NOT_IMPLEMENTED
+            if (t < NUM_TILE_BLOCKS) {
+                v2_i32 *quadbase = &((v2_i32 *)tilecolliders)[TILE_SLOPE_HI * 3];
+                v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI) * 6];
+                v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
+                                    v2_add(quad[2], pos), v2_add(quad[3], pos)};
+                if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+                    rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+                    return;
+                continue;
+            }
         }
     }
 
@@ -543,23 +590,16 @@ void rope_update(game_s *g, rope_s *r)
         r->pmin = v2_min(r->pmin, rn->p);
         r->pmax = v2_max(r->pmax, rn->p);
     }
-
-    // assert(rope_intact(g, r));
 }
 
 u32 rope_length_q4(game_s *g, rope_s *r)
 {
     rope_update(g, r);
-    ropenode_s *rn1 = r->head;
-    ropenode_s *rn2 = r->head->next;
-    u32         len = 0;
-    do {
-        v2_i32 dt = v2_sub(rn1->p, rn2->p);
-        dt        = v2_shl(dt, 4);
+    u32 len = 0;
+    for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
+        v2_i32 dt = v2_shl(v2_sub(a->p, b->p), 4);
         len += v2_len(dt);
-        rn1 = rn2;
-        rn2 = rn2->next;
-    } while (rn2);
+    }
     return len;
 }
 
@@ -567,30 +607,18 @@ bool32 rope_stretched(game_s *g, rope_s *r)
 {
     u32 len_q4     = rope_length_q4(g, r);
     u32 len_max_q4 = r->len_max_q4;
-    return (len_q4 >= len_max_q4);
+    return (len_q4 > len_max_q4);
 }
 
 bool32 rope_intact(game_s *g, rope_s *r)
 {
-#if 0
-        u32 len_q4     = rope_length_q4(g, r);
-        u32 len_max_q4 = r->len_max << 4;
-        // check for maximum stretch
-        if (len_q4 > (len_max_q4 * 2)) {
-                PRINTF("LENGTH\n");
-                PRINTF("%i (%i) - %i (%i)\n", len_q4 >> 4, r->len_max, len_q4, len_max_q4);
-                return 0;
-        }
-#endif
-
     rope_update(g, r);
 
-    for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
-         r1 = r2, r2 = r2->next) {
-        lineseg_i32 ls     = {r1->p, r2->p};
+    for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
+        lineseg_i32 ls     = {a->p, b->p};
         bounds_2D_s bounds = game_tilebounds_pts(g,
-                                                 v2_min(r1->p, r2->p),
-                                                 v2_max(r1->p, r2->p));
+                                                 v2_min(a->p, b->p),
+                                                 v2_max(a->p, b->p));
 
         for (int y = bounds.y1; y <= bounds.y2; y++) {
             for (int x = bounds.x1; x <= bounds.x2; x++) {
@@ -602,13 +630,27 @@ bool32 rope_intact(game_s *g, rope_s *r)
                     if (overlap_rec_lineseg_excl(rr, ls)) {
                         return 0;
                     }
+                } else if (t < TILE_SLOPE_LO) {
+                    tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
+                    if (overlap_tri_lineseg_excl(tr, ls)) {
+                        return 0;
+                    }
                 } else if (t < TILE_SLOPE_HI) {
                     tri_i32 tr = translate_tri(((tri_i32 *)tilecolliders)[t], pos);
                     if (overlap_tri_lineseg_excl(tr, ls)) {
                         return 0;
                     }
-                } else {
-                    NOT_IMPLEMENTED
+                } else if (t < NUM_TILE_BLOCKS) {
+                    v2_i32 *quadbase = &((v2_i32 *)tilecolliders)[TILE_SLOPE_HI * 3];
+                    v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI) * 6];
+                    v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
+                                        v2_add(quad[2], pos), v2_add(quad[3], pos)};
+                    tri_i32 tr1      = {{p[0], p[1], p[3]}};
+                    tri_i32 tr2      = {{p[2], p[1], p[3]}};
+                    if (overlap_tri_lineseg_excl(tr1, ls) ||
+                        overlap_tri_lineseg_excl(tr2, ls)) {
+                        return 0;
+                    }
                 }
             }
         }
@@ -616,10 +658,15 @@ bool32 rope_intact(game_s *g, rope_s *r)
         for (obj_each(g, o)) {
             if (!(o->flags & OBJ_FLAG_SOLID)) continue;
             if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
-                sys_printf("BREAKME\n");
                 return 0;
             }
         }
     }
     return 1;
+}
+
+ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn)
+{
+    assert(rn == r->head || rn == r->tail);
+    return (rn->next ? rn->next : rn->prev);
 }

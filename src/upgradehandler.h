@@ -13,9 +13,10 @@ typedef struct {
     bool32 active;
     int    phase;
     int    t;
+    int    upgrade;
 } upgradehandler_s;
 
-void   upgradehandler_start_animation(upgradehandler_s *h);
+void   upgradehandler_start_animation(upgradehandler_s *h, int upgrade);
 bool32 upgradehandler_in_progress(upgradehandler_s *h);
 void   upgradehandler_tick(upgradehandler_s *h);
 void   upgradehandler_draw(game_s *g, upgradehandler_s *h, v2_i32 camoffset);

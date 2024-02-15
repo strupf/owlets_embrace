@@ -35,6 +35,9 @@ enum {
     OBJ_ID_JUGGERNAUT,
     OBJ_ID_COLLECTIBLE,
     OBJ_ID_STALACTITE,
+    OBJ_ID_WALKER,
+    OBJ_ID_FLYER,
+    OBJ_ID_LOGICFLAGGER,
 };
 
 enum {
@@ -44,50 +47,46 @@ enum {
     NUM_OBJ_TAGS
 };
 
-#define OBJ_FLAG_MOVER          ((u64)1 << 0)
-#define OBJ_FLAG_TILE_COLLISION ((u64)1 << 1)
-#define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
-#define OBJ_FLAG_ACTOR          ((u64)1 << 3)
-#define OBJ_FLAG_SOLID          ((u64)1 << 4)
-#define OBJ_FLAG_PLATFORM       ((u64)1 << 5)
-#define OBJ_FLAG_CLAMP_TO_ROOM  ((u64)1 << 6)
-#define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 7)
-#define OBJ_FLAG_HOOKABLE       ((u64)1 << 8)
-#define OBJ_FLAG_SPRITE         ((u64)1 << 9)
-#define OBJ_FLAG_ENEMY          ((u64)1 << 10)
-#define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
-#define OBJ_FLAG_HURT_ON_TOUCH  ((u64)1 << 12)
-#define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
+#define OBJ_FLAG_MOVER              ((u64)1 << 0)
+#define OBJ_FLAG_TILE_COLLISION     ((u64)1 << 1)
+#define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
+#define OBJ_FLAG_ACTOR              ((u64)1 << 3)
+#define OBJ_FLAG_SOLID              ((u64)1 << 4)
+#define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
+#define OBJ_FLAG_PLATFORM_HERO_ONLY ((u64)1 << 6) // only acts as a platform for the hero
+#define OBJ_FLAG_KILL_OFFSCREEN     ((u64)1 << 7)
+#define OBJ_FLAG_HOOKABLE           ((u64)1 << 8)
+#define OBJ_FLAG_SPRITE             ((u64)1 << 9)
+#define OBJ_FLAG_ENEMY              ((u64)1 << 10)
+#define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
+#define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
+#define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
 
+#define OBJ_FLAG_CLAMP_ROOM_X ((u64)1 << 15)
+#define OBJ_FLAG_CLAMP_ROOM_Y ((u64)1 << 16)
+#define OBJ_FLAG_RENDER_AABB  ((u64)1 << 63)
+
+#define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 #define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
 
 enum {
-    OBJ_BUMPED_X_NEG  = 1 << 0,
-    OBJ_BUMPED_X_POS  = 1 << 1,
-    OBJ_BUMPED_Y_NEG  = 1 << 2,
-    OBJ_BUMPED_Y_POS  = 1 << 3,
-    OBJ_BUMPED_SQUISH = 1 << 4,
-    OBJ_BUMPED_X      = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
-    OBJ_BUMPED_Y      = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
+    OBJ_BUMPED_X_NEG   = 1 << 0,
+    OBJ_BUMPED_X_POS   = 1 << 1,
+    OBJ_BUMPED_Y_NEG   = 1 << 2,
+    OBJ_BUMPED_Y_POS   = 1 << 3,
+    OBJ_BUMPED_SQUISH  = 1 << 4,
+    OBJ_BUMPED_ON_HEAD = 1 << 5,
+    OBJ_BUMPED_X       = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
+    OBJ_BUMPED_Y       = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
 };
 
 enum {
-    OBJ_MOVER_SLOPES           = 1 << 0,
-    OBJ_MOVER_SLOPES_HI        = 1 << 1,
-    OBJ_MOVER_GLUE_GROUND      = 1 << 2,
-    OBJ_MOVER_AVOID_HEADBUMP   = 1 << 3,
-    OBJ_MOVER_ONE_WAY_PLAT     = 1 << 4,
-    OBJ_MOVER_CAN_BE_JUMPED_ON = 1 << 5,
-    OBJ_MOVER_CAN_JUMP_ON      = 1 << 6,
-};
-
-enum {
-    FACING_LEFT,
-    FACING_RIGHT,
-};
-
-enum {
-    COLLECTIBLE_TYPE_COIN,
+    OBJ_MOVER_SLOPES         = 1 << 0,
+    OBJ_MOVER_SLOPES_HI      = 1 << 1,
+    OBJ_MOVER_GLUE_GROUND    = 1 << 2,
+    OBJ_MOVER_AVOID_HEADBUMP = 1 << 3,
+    OBJ_MOVER_ONE_WAY_PLAT   = 1 << 4,
+    OBJ_MOVER_CAN_JUMP_ON    = 1 << 5,
 };
 
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
@@ -146,7 +145,6 @@ struct obj_s {
     //
     int             trigger;
     int             facing; // -1 left, +1 right
-    int             switch_oneway;
     // some generic behaviour fields
     int             action;
     int             subaction;
@@ -217,13 +215,11 @@ bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
-//
-int          obj_health_change(obj_s *o, int dt); // returns health left
-int          enemy_obj_damage(obj_s *o, int dmg, int invincible_ticks);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
 // the goal is to move a whole pixel left or right
-void obj_apply_movement(obj_s *o);
+void    obj_apply_movement(obj_s *o);
+enemy_s enemy_default();
 #endif

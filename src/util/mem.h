@@ -10,13 +10,10 @@
 #define MKILOBYTE(X) ((X)*1024)
 #define MMEGABYTE(X) ((X)*1024 * 1024)
 
-typedef struct {
-    alignas(4) char byte[0x400];
+typedef union {
+    char  b[1024];
+    void *align_min;
 } mkilobyte_s;
-
-typedef struct {
-    alignas(4) char byte[0x100000];
-} mmegabyte_s;
 
 typedef struct {
     void *p;
@@ -33,14 +30,12 @@ typedef struct {
 
 typedef struct mhblock_s mhblock_s;
 struct mhblock_s {
-    mhblock_s *next;
-    mhblock_s *prev;
-    mhblock_s *nextphys;
-    mhblock_s *prevphys;
-    usize      s;
+    align_CL mhblock_s *next;
+    mhblock_s          *prev;
+    mhblock_s          *nextphys;
+    mhblock_s          *prevphys;
+    usize               s;
 };
-
-static_assert((alignof(mhblock_s) & 3) == 0, "mhblock alignment");
 
 typedef struct {
     void      *buf_og;

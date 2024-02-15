@@ -12,7 +12,13 @@
 game_s     GAME;
 mainmenu_s MAINMENU;
 
-static void app_load_assets();
+static int g_init_counter;
+
+static void app_load_tex_1();
+static void app_load_tex_2();
+static void app_load_fnt();
+static void app_load_snd();
+static void app_load_game();
 
 void menu_cb_inventory(void *arg)
 {
@@ -33,11 +39,8 @@ void menu_setup_title()
     sys_menu_clr();
 }
 
-void app_init()
+static void app_load_game()
 {
-    spm_init();
-    assets_init();
-    app_load_assets();
     menu_setup_game();
 
     game_s *g = &GAME;
@@ -64,18 +67,38 @@ void app_init()
     game_init(g);
 }
 
+void app_init()
+{
+    spm_init();
+    assets_init();
+}
+
 void app_tick()
 {
+    // TODO: I actually want to replace the update method
+    // in the PD SDK at some point instead of checking repeatly
+    //
+    // When the game gets release I don't want to load each asset
+    // individually, but dump the whole asset memarena once
+    // and just load that, so this workaround really is only needed
+    // when developing the game
+    if (g_init_counter <= 5) {
+        g_init_counter++;
+        switch (g_init_counter) {
+        case 1: app_load_tex_1(); return;
+        case 2: app_load_tex_2(); return;
+        case 3: app_load_fnt(); return;
+        case 4: app_load_snd(); return;
+        case 5: app_load_game(); return;
+        }
+    }
+
     inp_update();
     game_s *g = &GAME;
 
     switch (g->state) {
-    case GAMESTATE_MAINMENU:
-        mainmenu_update(g, &g->mainmenu);
-        break;
-    case GAMESTATE_GAMEPLAY:
-        game_tick(g);
-        break;
+    case GAMESTATE_MAINMENU: mainmenu_update(g, &g->mainmenu); break;
+    case GAMESTATE_GAMEPLAY: game_tick(g); break;
     }
     aud_update();
 }
@@ -83,15 +106,18 @@ void app_tick()
 void app_draw()
 {
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+    if (g_init_counter <= 5) {
+        gfx_ctx_s ctx   = gfx_ctx_display();
+        rec_i32   rfill = {0, SYS_DISPLAY_H - 4, (SYS_DISPLAY_W * g_init_counter) / 5, 4};
+        tex_clr(asset_tex(0), TEX_CLR_BLACK);
+        gfx_rec_fill(ctx, rfill, PRIM_MODE_WHITE);
+        return;
+    }
+
     game_s *g = &GAME;
     switch (g->state) {
-    case GAMESTATE_MAINMENU:
-        tex_clr(asset_tex(0), TEX_CLR_WHITE);
-        mainmenu_render(&g->mainmenu);
-        break;
-    case GAMESTATE_GAMEPLAY:
-        game_draw(g);
-        break;
+    case GAMESTATE_MAINMENU: mainmenu_render(&g->mainmenu); break;
+    case GAMESTATE_GAMEPLAY: game_draw(g); break;
     }
 }
 
@@ -114,38 +140,44 @@ void app_audio(i16 *buf, int len)
     aud_audio(buf, len);
 }
 
-static void app_load_assets()
+static void app_load_tex_1()
 {
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg.tex", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg.tex", NULL);
-    asset_tex_loadID(TEXID_MAINMENU, "mainmenu.tex", NULL);
-    asset_tex_loadID(TEXID_BG_ART, "bg_art.tex", NULL);
-    asset_tex_loadID(TEXID_CRUMBLE, "crumble.tex", NULL);
-    {
-        texrec_s  tcrumble   = asset_texrec(TEXID_CRUMBLE, 0, 0, 16, 16);
-        gfx_ctx_s ctxcrumble = gfx_ctx_default(tcrumble.t);
-        for (int y = 1; y < 4; y++) {
-            tcrumble.r.x = 0;
-            tcrumble.r.w = 4;
-            gfx_spr(ctxcrumble, tcrumble, (v2_i32){0, y * 16}, 0, 0);
-            tcrumble.r.x = 20;
-            gfx_spr(ctxcrumble, tcrumble, (v2_i32){(2 + y) * 16 - 12, y * 16}, 0, 0);
-            tcrumble.r.x = 4;
-            tcrumble.r.w = 16;
-            for (int x = 0; x <= y; x++) {
-                gfx_spr(ctxcrumble, tcrumble, (v2_i32){(1 + x) * 16 - 12, y * 16}, 0, 0);
+
+#ifdef SYS_DEBUG
+    tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
+    asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
+    gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
+    for (int t = 0; t < 22; t++) {
+        for (int i = 0; i < 16; i++) {
+            for (int j = 0; j < 16; j++) {
+                if (g_pxmask_tab[t * 16 + i] & (0x8000 >> j)) {
+                    rec_i32 pr = {j, i + t * 16, 1, 1};
+                    gfx_rec_fill(ctxcoll, pr, PRIM_MODE_BLACK);
+                }
             }
         }
     }
 
+#endif
+
+    water_prerender_tiles();
+}
+
+static void app_load_tex_2()
+{
+    asset_tex_loadID(TEXID_MAINMENU, "mainmenu.tex", NULL);
+    asset_tex_loadID(TEXID_CRUMBLE, "crumbleblock.tex", NULL);
+
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player.tex", &texhero);
     tex_outline(texhero, 0, 768, 768, 256, 1, 1);
-    for (int y = 0; y < 8; y++) {
+    for (int y = 0; y < 9; y++) {
         for (int x = 0; x < 5; x++) {
-            tex_outline(texhero, x * 96, y * 96, 96, 96, 1, 1);
+            tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
 
@@ -174,12 +206,11 @@ static void app_load_assets()
 
     asset_tex_loadID(TEXID_CLOUDS, "clouds.tex", NULL);
     asset_tex_loadID(TEXID_TITLE, "title.tex", NULL);
-    asset_tex_loadID(TEXID_BACKGROUND, "background_forest.tex", NULL);
-    asset_tex_loadID(TEXID_TOGGLEBLOCK, "toggleblock.tex", NULL);
     asset_tex_loadID(TEXID_SHROOMY, "shroomy.tex", NULL);
     asset_tex_loadID(TEXID_MISCOBJ, "miscobj.tex", NULL);
     asset_tex_loadID(TEXID_WINDGUSH, "windgush.tex", NULL);
     asset_tex_loadID(TEXID_NPC, "npc.tex", NULL);
+    asset_tex_loadID(TEXID_TOGGLE, "toggle.tex", NULL);
     asset_tex_loadID(TEXID_BG_CAVE, "bg_cave.tex", NULL);
     asset_tex_loadID(TEXID_BG_MOUNTAINS, "bg_mountains.tex", NULL);
 
@@ -241,29 +272,10 @@ static void app_load_assets()
         }
         tex_outline(thook.t, 0, 0, thook.t.w / 2, thook.t.h, 1, 1);
     }
+}
 
-#ifdef SYS_DEBUG
-    tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
-    asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
-    {
-        gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
-        for (int t = 0; t < 22; t++) {
-            for (int i = 0; i < 16; i++) {
-                for (int j = 0; j < 16; j++) {
-                    if (g_pxmask_tab[t * 16 + i] & (0x8000 >> j)) {
-                        rec_i32 pr = {j, i + t * 16, 1, 1};
-                        gfx_rec_fill(ctxcoll, pr, PRIM_MODE_BLACK);
-                    }
-                }
-            }
-        }
-    }
-#endif
-
-    asset_fnt_loadID(FNTID_SMALL, "font_small.json", NULL);
-    asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
-    asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
-
+static void app_load_snd()
+{
     asset_snd_loadID(SNDID_ENEMY_DIE, "enemy_die.wav", NULL);
     asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt.wav", NULL);
     asset_snd_loadID(SNDID_BASIC_ATTACK, "basic_attack.wav", NULL);
@@ -285,4 +297,16 @@ static void app_load_assets()
     asset_snd_loadID(SNDID_SELECT, "select.wav", NULL);
     asset_snd_loadID(SNDID_MENU_NEXT_ITEM, "menu_next_item.wav", NULL);
     asset_snd_loadID(SNDID_MENU_NONEXT_ITEM, "menu_no_next_item.wav", NULL);
+    asset_snd_loadID(SNDID_DOOR_UNLOCKED, "unlockdoor.wav", NULL);
+    asset_snd_loadID(SNDID_DOOR_KEY_SPAWNED, "keyspawn.wav", NULL);
+    asset_snd_loadID(SNDID_UPGRADE, "upgrade.wav", NULL);
+    asset_snd_loadID(SNDID_CRUMBLE, "crumble.wav", NULL);
+    asset_snd_loadID(SNDID_HOOK_THROW, "throw_hook.wav", NULL);
+}
+
+static void app_load_fnt()
+{
+    asset_fnt_loadID(FNTID_SMALL, "font_small.json", NULL);
+    asset_fnt_loadID(FNTID_MEDIUM, "font_med.json", NULL);
+    asset_fnt_loadID(FNTID_LARGE, "font_large.json", NULL);
 }

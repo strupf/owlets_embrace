@@ -26,22 +26,19 @@ obj_s *heroupgrade_create(game_s *g)
 
 void heroupgrade_load(game_s *g, map_obj_s *mo)
 {
+    int upgrade = map_obj_i32(mo, "UpgradeID");
+    if (g->herodata.upgrades[upgrade]) return;
+
     obj_s *o = heroupgrade_create(g);
     o->pos.x = mo->x;
     o->pos.y = mo->y;
-
-    char prop[64] = {0};
-    map_obj_strs(mo, "Heroupgrade", prop);
-    if (0) {
-    } else if (str_eq(prop, "HIJUMP")) {
-        o->state = HERO_UPGRADE_HIGH_JUMP;
-    }
+    o->state = upgrade;
 }
 
 void heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h)
 {
-    h->aquired_upgrades |= 1 << o->state;
-    upgradehandler_start_animation(&g->heroupgrade);
+    h->upgrades[o->state] = 1;
+    upgradehandler_start_animation(&g->heroupgrade, o->state);
 }
 
 void heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam)

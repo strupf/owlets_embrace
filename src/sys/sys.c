@@ -102,7 +102,7 @@ int sys_step(void *arg)
         n_upd++;
 #if defined(SYS_SDL) && defined(SYS_DEBUG)
         static int slowtick;
-        if (sys_key(SYS_KEY_DOWN) && (slowtick++ & 3))
+        if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 7))
             continue;
 #endif
         sys_tick_();
@@ -278,6 +278,11 @@ int sys_fseek(sys_file_s *f, int pos, int origin)
 void sys_set_volume(f32 vol)
 {
     backend_set_volume(vol);
+}
+
+void sys_display_inv(int i)
+{
+    backend_display_inv(i);
 }
 
 #if SYS_CONFIG_ONLY_BACKEND

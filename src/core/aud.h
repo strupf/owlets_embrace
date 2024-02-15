@@ -37,9 +37,9 @@ typedef struct {
     int    streamlen;
     int    chunkpos; // position in samples in chunk
     int    vol_q8;
+    int    trg_vol_q8;
     bool32 looping;
     //
-    int    vol_q8_fade_out;
     int    fade_out_ticks_og;
     int    fade_out_ticks;
     int    fade_in_ticks;
@@ -73,4 +73,5 @@ void   mus_stop();
 bool32 mus_play(const char *filename);
 bool32 mus_playing();
 void   mus_set_vol(int vol_q8);
+void   mus_set_trg_vol(int vol_q8);
 #endif

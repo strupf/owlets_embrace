@@ -61,11 +61,13 @@ obj_s *npc_create(game_s *g)
 
 void npc_load(game_s *g, map_obj_s *mo)
 {
-    obj_s *o = npc_create(g);
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
+    obj_s *o   = npc_create(g);
+    npc_s *npc = (npc_s *)o->mem;
+    o->pos.x   = mo->x;
+    o->pos.y   = mo->y;
 
     map_obj_strs(mo, "Dialogfile", o->filename);
+    npc->movement          = map_obj_i32(mo, "Movement");
     o->sprites[0].trec.r.y = map_obj_i32(mo, "Model") * 48;
 }
 

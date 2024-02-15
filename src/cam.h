@@ -30,6 +30,9 @@ typedef struct {
 
     bool32 locked_x;
     bool32 locked_y;
+
+    int    hookticks;
+    v2_f32 hookpos;
 } cam_s;
 
 void    cam_screenshake(cam_s *c, int ticks, int str);

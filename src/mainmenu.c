@@ -30,13 +30,16 @@ void mainmenu_init(mainmenu_s *t)
 #if 1
     // write some files to debug copy and delete
     savefile_s *sf = &t->savefiles[0].sf;
-    sf->aquired_upgrades |= 1 << HERO_UPGRADE_HOOK;
-    sf->aquired_upgrades |= 1 << HERO_UPGRADE_WHIP;
-    sf->aquired_upgrades |= 1 << HERO_UPGRADE_HIGH_JUMP;
-    sf->aquired_upgrades |= 1 << HERO_UPGRADE_GLIDE;
-    sf->aquired_upgrades |= 1 << HERO_UPGRADE_LONG_HOOK;
-    sf->n_airjumps = 1;
-    sf->health     = 10;
+#if 0
+    sf->upgrades[HERO_UPGRADE_HOOK]      = 1;
+    sf->upgrades[HERO_UPGRADE_WHIP]      = 1;
+    sf->upgrades[HERO_UPGRADE_HIGH_JUMP] = 1;
+    sf->upgrades[HERO_UPGRADE_LONG_HOOK] = 1;
+    sf->upgrades[HERO_UPGRADE_WALLJUMP]  = 1;
+#endif
+    sf->upgrades[HERO_UPGRADE_LONG_HOOK] = 1;
+    sf->upgrades[HERO_UPGRADE_WHIP]      = 1;
+    sf->health                           = 5;
     str_cpys(t->savefiles[0].sf.hero_name, sizeof(t->savefiles[0].sf.hero_name), "Link");
     str_cpys(t->savefiles[1].sf.hero_name, sizeof(t->savefiles[1].sf.hero_name), "Mario");
     str_cpys(t->savefiles[2].sf.hero_name, sizeof(t->savefiles[2].sf.hero_name), "Samus");
@@ -126,7 +129,8 @@ static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
 #if 0
         cb_load_game_debug(g);
 #else
-        cb_mainmenu_to_fileselect(g);
+        mainmenu_op_start_file(g, t, 0);
+        // cb_mainmenu_to_fileselect(g);
 #endif
         break;
         //
@@ -230,7 +234,6 @@ static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy)
 {
     switch (t->state) {
     case MAINMENU_ST_PRESS_START:
-        t->state = MAINMENU_ST_FILESELECT;
         break;
         //
     case MAINMENU_ST_FILESELECT:
@@ -320,7 +323,7 @@ static void mainmenu_update_savefiles(mainmenu_s *t)
 void mainmenu_render(mainmenu_s *t)
 {
     gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-    gfx_rec_fill(ctx, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_WHITE);
+    tex_clr(asset_tex(0), TEX_CLR_WHITE);
     int fade_i = 100;
     ctx.pat    = gfx_pattern_interpolate(fade_i, 100);
 
@@ -347,7 +350,9 @@ void mainmenu_render(mainmenu_s *t)
     }
 
     fnt_s font = asset_fnt(FNTID_LARGE);
-    gfx_rec_fill(ctx, (rec_i32){5, t->option * 20 + 25, 10, 10}, PRIM_MODE_BLACK);
+    if (t->state != MAINMENU_ST_PRESS_START) {
+        gfx_rec_fill(ctx, (rec_i32){5, t->option * 20 + 25, 10, 10}, PRIM_MODE_BLACK);
+    }
 
     texrec_s tbutton = asset_texrec(TEXID_MAINMENU, 0, 0, 64, 64);
     int      mode    = SPR_MODE_BLACK;

@@ -5,6 +5,9 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
+#define GAME_JUMP_ATTACK   0
+#define GAME_HERO_CANT_DIE 1
+
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
@@ -37,6 +40,7 @@ typedef struct obj_s  obj_s;
 #define FADETICKS_AREALABEL     150
 
 #define RENDER_PRIO_HERO 0x100
+#define TILE_WATER_MASK  0x80
 
 enum {
     DIRECTION_NONE,
@@ -63,7 +67,6 @@ static u32 time_now()
 
 enum {
     TILELAYER_BG,
-    TILELAYER_TERRAIN,
     TILELAYER_PROP_BG,
     TILELAYER_PROP_FG,
     //

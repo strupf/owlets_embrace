@@ -4,11 +4,6 @@
 
 #include "game.h"
 
-enum {
-    TOGGLEBLOCK_OFF,
-    TOGGLEBLOCK_ON,
-};
-
 #define TOGGLEBLOCK_TICKS 6
 
 typedef struct {
@@ -16,12 +11,24 @@ typedef struct {
     int trigger_to_disable;
 } obj_toggleblock_s;
 
-static void toggleblock_set_block(game_s *g, obj_s *o, int b)
+static void toggleblock_set_state(game_s *g, obj_s *o, int state)
 {
-    int tx                                   = o->pos.x >> 4;
-    int ty                                   = o->pos.y >> 4;
-    g->tiles[tx + ty * g->tiles_x].collision = b;
-    if (b != TILE_EMPTY) {
+    o->state = state;
+    o->timer = 0;
+    int b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
+
+    int tx = o->pos.x >> 4;
+    int ty = o->pos.y >> 4;
+    int nx = o->w >> 4;
+    int ny = o->h >> 4;
+
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            g->tiles[x + tx + (y + ty) * g->tiles_x].collision = b;
+        }
+    }
+
+    if (b == TILE_BLOCK) {
         game_on_solid_appear(g);
     }
 }
@@ -33,7 +40,7 @@ obj_s *toggleblock_create(game_s *g)
     o->render_priority = -10;
     o->w               = 16;
     o->h               = 16;
-    o->state           = TOGGLEBLOCK_OFF;
+    o->state           = 0;
     o->timer           = TOGGLEBLOCK_TICKS;
     return o;
 }
@@ -45,16 +52,12 @@ void toggleblock_load(game_s *g, map_obj_s *mo)
     obj_toggleblock_s *ot  = (obj_toggleblock_s *)o->mem;
     o->pos.x               = mo->x;
     o->pos.y               = mo->y;
+    o->w                   = mo->w;
+    o->h                   = mo->h;
     ot->trigger_to_enable  = map_obj_i32(mo, "Trigger_enable");
     ot->trigger_to_disable = map_obj_i32(mo, "Trigger_disable");
-
-    if (map_obj_bool(mo, "Enabled")) {
-        o->state = TOGGLEBLOCK_ON;
-        toggleblock_set_block(g, o, TILE_BLOCK);
-    } else {
-        o->state = TOGGLEBLOCK_OFF;
-        toggleblock_set_block(g, o, TILE_EMPTY);
-    }
+    toggleblock_set_state(g, o, map_obj_bool(mo, "Enabled"));
+    o->timer = TOGGLEBLOCK_TICKS;
 }
 
 void toggleblock_on_animate(game_s *g, obj_s *o)
@@ -64,25 +67,48 @@ void toggleblock_on_animate(game_s *g, obj_s *o)
 
 void toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
 {
-    gfx_ctx_s ctxa = gfx_ctx_display();
-    gfx_ctx_s ctxb = ctxa;
-    int       i    = min_i(o->timer, TOGGLEBLOCK_TICKS);
+    int sx = 0;
+
     switch (o->state) {
-    case TOGGLEBLOCK_OFF:
-        ctxb.pat = gfx_pattern_interpolate(TOGGLEBLOCK_TICKS - i, TOGGLEBLOCK_TICKS);
+    case 0:
+        sx = o->timer < TOGGLEBLOCK_TICKS ? 64 : 128;
         break;
-    case TOGGLEBLOCK_ON:
-        ctxb.pat = gfx_pattern_interpolate(i, TOGGLEBLOCK_TICKS);
+    case 1:
+        sx = o->timer < TOGGLEBLOCK_TICKS ? 64 : 0;
         break;
     }
 
-    tex_s    tex = asset_tex(TEXID_TOGGLEBLOCK);
-    texrec_s tr0 = {tex, {16, 16, 16, 16}};
-    texrec_s tr1 = {tex, {48, 16, 16, 16}};
-    v2_i32   pos = v2_add(o->pos, cam);
+    gfx_ctx_s ctx = gfx_ctx_display();
+    texrec_s  tr  = asset_texrec(TEXID_TOGGLE, 0, 0, 16, 16);
+    v2_i32    pos = v2_add(o->pos, cam);
+    int       nx  = o->w >> 4;
+    int       ny  = o->h >> 4;
 
-    gfx_spr(ctxa, tr1, pos, 0, 0);
-    gfx_spr(ctxb, tr0, pos, 0, 0);
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            v2_i32 p = {pos.x + (x << 4), pos.y + (y << 4)};
+            if (ny == 1) {
+                tr.r.y = 48;
+            } else if (y == 0) {
+                tr.r.y = 0;
+            } else if (y == ny - 1) {
+                tr.r.y = 32;
+            } else {
+                tr.r.y = 16;
+            }
+            if (nx == 1) {
+                tr.r.x = 48 + sx;
+            } else if (x == 0) {
+                tr.r.x = 0 + sx;
+            } else if (x == nx - 1) {
+                tr.r.x = 32 + sx;
+            } else {
+                tr.r.x = 16 + sx;
+            }
+
+            gfx_spr(ctx, tr, p, 0, 0);
+        }
+    }
 }
 
 void toggleblock_on_trigger(game_s *g, obj_s *o, int trigger)
@@ -90,16 +116,15 @@ void toggleblock_on_trigger(game_s *g, obj_s *o, int trigger)
     obj_toggleblock_s *ot = (obj_toggleblock_s *)o->mem;
 
     switch (o->state) {
-    case TOGGLEBLOCK_OFF:
-        if (trigger != ot->trigger_to_enable) return;
-        toggleblock_set_block(g, o, TILE_BLOCK);
+    case 0:
+        if (trigger == ot->trigger_to_enable) {
+            toggleblock_set_state(g, o, 1);
+        }
         break;
-    case TOGGLEBLOCK_ON:
-        if (trigger != ot->trigger_to_disable) return;
-        toggleblock_set_block(g, o, TILE_EMPTY);
+    case 1:
+        if (trigger == ot->trigger_to_disable) {
+            toggleblock_set_state(g, o, 0);
+        }
         break;
     }
-
-    o->state = 1 - o->state;
-    o->timer = 0;
 }

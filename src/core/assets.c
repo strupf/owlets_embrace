@@ -14,7 +14,6 @@ const alloc_s asset_allocator = {assetmem_alloc_ctx, NULL};
 void assets_init()
 {
     marena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
-    ASSETS.next_texID = NUM_TEXID;
 }
 
 static void *assetmem_alloc_ctx(void *arg, usize s)
@@ -65,7 +64,7 @@ int asset_tex_load(const char *filename, tex_s *tex)
 
     tex_s t = tex_load(pathname, asset_allocator);
     if (t.px != NULL) {
-        int ID = ASSETS.next_texID++;
+        int ID = NUM_TEXID + ASSETS.next_texID++;
         str_cpy(ASSETS.tex[ID].file, filename);
         ASSETS.tex[ID].tex = t;
         if (tex) *tex = t;
@@ -100,9 +99,6 @@ int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
     FILEPATH_GEN(pathname, FILEPATH_SND, filename);
 
     sys_printf("LOAD SND: %s (%s)\n", filename, pathname);
-
-    str_cpy(ASSETS.snd[ID].file, filename);
-
     usize memprev = ASSETS.marena.rem;
     snd_s s       = snd_load(pathname, asset_allocator);
     ASSETS.size_snd += memprev - ASSETS.marena.rem;
@@ -123,7 +119,6 @@ int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
     sys_printf("LOAD FNT: %s (%s)\n", filename, pathname);
 
     asset_fnt_s af = {0};
-    str_cpy(af.file, filename);
     af.fnt         = fnt_load(pathname, asset_allocator);
     ASSETS.fnt[ID] = af;
     if (af.fnt.widths) {

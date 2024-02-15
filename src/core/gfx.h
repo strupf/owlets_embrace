@@ -105,20 +105,16 @@ gfx_ctx_s     gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2);
 gfx_ctx_s     gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r);
 gfx_ctx_s     gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h);
 void          tex_clr(tex_s dst, int col);
+gfx_pattern_s gfx_pattern_2x2(int p0, int p1);
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
 gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
 gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
-gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
-                                       int (*ease)(int a, int b, int num, int den));
-//
-#define gfx_spr_cpy_display(C, S, P)   gfx_spr(C, S, P, 0, 0)
-#define gfx_spr_display(C, S, P, F, M) gfx_spr(C, S, P, F, M)
-//
-void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
-void gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
-void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
-                    f32 sclx, f32 scly);
+gfx_pattern_s gfx_pattern_interpolatec(int num, int den, int (*ease)(int a, int b, int num, int den));
+void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
+void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
+void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
+                             f32 sclx, f32 scly);
 //
 #define gfx_rec_fill_display(C, R, M) gfx_rec_fill(C, R, M)
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
@@ -129,6 +125,7 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r);
 void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
 void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
+void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode);
 //
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
 int  fnt_length_px(fnt_s fnt, const char *txt);

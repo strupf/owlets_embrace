@@ -23,13 +23,10 @@ enum {
     TEXID_PLANTS,
     TEXID_CLOUDS,
     TEXID_TITLE,
-    TEXID_BACKGROUND,
     TEXID_PROPS,
     TEXID_SWITCH,
-    TEXID_TOGGLEBLOCK,
     TEXID_SHROOMY,
     TEXID_CRAWLER,
-    TEXID_BG_ART,
     TEXID_MISCOBJ,
     TEXID_HOOK,
     TEXID_MAINMENU,
@@ -42,6 +39,8 @@ enum {
     TEXID_NPC,
     TEXID_WINDGUSH,
     TEXID_JUGGERNAUT,
+    TEXID_WATER_PRERENDER,
+    TEXID_TOGGLE,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -83,8 +82,15 @@ enum {
     SNDID_BASIC_ATTACK,
     SNDID_ENEMY_HURT,
     SNDID_ENEMY_DIE,
+    SNDID_CRUMBLE_BREAKING,
+    SNDID_CRUMBLE_BREAK,
+    SNDID_DOOR_KEY_SPAWNED,
+    SNDID_DOOR_UNLOCKED,
+    SNDID_UPGRADE,
+    SNDID_CRUMBLE,
+    SNDID_HOOK_THROW,
     //
-    NUM_SNDID
+    NUM_SNDID = 256
 };
 
 typedef struct {
@@ -94,12 +100,10 @@ typedef struct {
 
 typedef struct {
     snd_s snd;
-    char  file[32];
 } asset_snd_s;
 
 typedef struct {
     fnt_s fnt;
-    char  file[32];
 } asset_fnt_s;
 
 typedef struct {
@@ -109,8 +113,8 @@ typedef struct {
 
     int next_texID;
 
-    marena_s marena;
-    alignas(8) char mem[MMEGABYTE(5)];
+    marena_s             marena;
+    align_CL mkilobyte_s mem[5 * 1024];
 
     usize size_snd;
     usize size_tex;

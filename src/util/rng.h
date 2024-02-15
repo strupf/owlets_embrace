@@ -10,10 +10,19 @@
 static u32 RNG_seed = 213;
 
 // [0, 4294967296]
+static inline u32 rngn_u32(u32 u)
+{
+    u32 x = u;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return x;
+}
+
+// [0, 4294967296]
 static u32 rngs_u32(u32 *seed)
 {
-    u32 x = *seed;
-    x ^= x << 13, x ^= x >> 17, x ^= x << 5;
+    u32 x = rngn_u32(*seed);
     *seed = x;
     return x;
 }

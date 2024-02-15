@@ -42,7 +42,7 @@ void transition_teleport(transition_s *t, game_s *g, const char *mapfile, v2_i32
     transition_start(t, g, mapfile, 0, hero_feet, (v2_i32){0}, 1);
 }
 
-void transition_check_herodata_slide(transition_s *t, game_s *g)
+void transition_check_hero_slide(transition_s *t, game_s *g)
 {
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!o) return;
@@ -80,6 +80,7 @@ void transition_check_herodata_slide(transition_s *t, game_s *g)
     trgaabb.x += g->map_worldroom->x - nr.x;
     trgaabb.y += g->map_worldroom->y - nr.y;
 
+    v2_i32 hvel = o->vel_q8;
     switch (touchedbounds) {
     case DIRECTION_E:
         trgaabb.x = 8;
@@ -89,6 +90,7 @@ void transition_check_herodata_slide(transition_s *t, game_s *g)
         break;
     case DIRECTION_N:
         trgaabb.y = nr.h - trgaabb.h - 8;
+        hvel.y    = min_i(hvel.y, -1200);
         break;
     case DIRECTION_S:
         trgaabb.y = 8;
@@ -96,8 +98,36 @@ void transition_check_herodata_slide(transition_s *t, game_s *g)
     }
 
     v2_i32 feet = {trgaabb.x + trgaabb.w / 2, trgaabb.y + trgaabb.h};
-    transition_start(t, g, nextroom->filename, 0, feet, o->vel_q8, o->facing);
+
+    transition_start(t, g, nextroom->filename, 0, feet, hvel, o->facing);
     t->dir = touchedbounds;
+}
+
+void transition_start_respawn(game_s *g, transition_s *t)
+{
+    g->transition = *t;
+    hero_s h      = *((hero_s *)obj_get_tagged(g, OBJ_TAG_HERO)->mem);
+
+    game_load_map(g, t->to_load);
+    obj_s *hero      = hero_create(g);
+    hero->pos.x      = t->hero_feet.x - hero->w / 2;
+    hero->pos.y      = t->hero_feet.y - hero->h;
+    hero->facing     = t->hero_face;
+    hero->vel_q8     = t->hero_v;
+    hero_s *hh       = (hero_s *)hero->mem;
+    hh->sprinting    = h.sprinting;
+    hh->sprint_ticks = h.sprint_ticks;
+
+    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    for (obj_each(g, o)) {
+        obj_game_animate(g, o); // just setting initial sprites for obj
+    }
+    aud_allow_playing_new_snd(1);
+
+    cam_s *cam  = &g->cam;
+    v2_i32 hpos = obj_pos_center(hero);
+    cam_set_pos_px(cam, hpos.x, hpos.y);
+    cam_init_level(g, cam);
 }
 
 void transition_update(game_s *g, transition_s *t)
@@ -105,6 +135,7 @@ void transition_update(game_s *g, transition_s *t)
     if (transition_finished(t)) return;
 
     const int ticks = transition_ticks(t);
+
     t->fade_tick++;
     if (t->fade_tick < ticks) return;
 
@@ -116,23 +147,8 @@ void transition_update(game_s *g, transition_s *t)
         t->fade_phase = 0;
         break;
     case TRANSITION_BLACK: {
-        game_load_map(g, t->to_load);
-        obj_s *hero  = hero_create(g);
-        hero->pos.x  = t->hero_feet.x - hero->w / 2;
-        hero->pos.y  = t->hero_feet.y - hero->h;
-        hero->facing = t->hero_face;
-        hero->vel_q8 = t->hero_v;
-
-        aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-        for (obj_each(g, o)) {
-            obj_game_animate(g, o); // just setting initial sprites for obj
-        }
-        aud_allow_playing_new_snd(1);
-
-        cam_s *cam  = &g->cam;
-        v2_i32 hpos = obj_pos_center(hero);
-        cam_set_pos_px(cam, hpos.x, hpos.y);
-        cam_init_level(g, cam);
+        g->transition_last = *t;
+        transition_start_respawn(g, t);
         break;
     }
     }

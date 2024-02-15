@@ -28,7 +28,7 @@ obj_s *stalactite_create(game_s *g)
     o->n_sprites         = 1;
     o->w                 = 32;
     o->h                 = 16;
-    o->gravity_q8.y      = 40;
+    o->gravity_q8.y      = 30;
     o->drag_q8.y         = 254;
     spr->trec            = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
     return o;
@@ -58,6 +58,9 @@ void stalactite_on_update(game_s *g, obj_s *o)
 {
     sprite_simple_s *spr = &o->sprites[0];
 
+    o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
+    o->flags &= ~OBJ_FLAG_MOVER;
+
     switch (o->state) {
     case STALACTITE_IDLE: {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -66,6 +69,7 @@ void stalactite_on_update(game_s *g, obj_s *o)
         stalactite_s *s = (stalactite_s *)o->mem;
         if (overlap_rec(s->checkr, obj_aabb(ohero))) {
             o->state = STALACTITE_SHAKING;
+            snd_play_ext(SNDID_CRUMBLE, 1.f, 2.f);
         }
         break;
     }
@@ -81,9 +85,12 @@ void stalactite_on_update(game_s *g, obj_s *o)
         o->flags |= OBJ_FLAG_MOVER;
         spr->offs.x = 0;
         spr->offs.y = 0;
+        snd_play_ext(SNDID_SWITCH, 1.f, 0.7f);
         break;
     }
     case STALACTITE_FALLING: {
+        o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
+        o->flags |= OBJ_FLAG_MOVER;
         if (obj_grounded(g, o)) {
             snd_play_ext(SNDID_STEP, 1.f, 1.f);
             o->state = STALACTITE_STUCK;
@@ -105,7 +112,7 @@ void stalactite_on_update(game_s *g, obj_s *o)
     case STALACTITE_STUCK: {
         if (obj_grounded(g, o)) break;
         o->state = STALACTITE_FALLING;
-        o->flags |= OBJ_FLAG_MOVER;
+
         break;
     }
     }

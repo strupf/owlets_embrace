@@ -47,8 +47,8 @@ static cloud_s *cloud_create(enveffect_cloud_s *e)
     }
 
     c->vx_q8    = (1 << rngr_i32(0, 7)) * (rngr_i32(0, 1) * 2 - 1);
-    c->p.x      = 0 < c->vx_q8 ? -200 : +600;
-    c->p.y      = rngr_i32(-70, 180);
+    c->p.x      = 0 < c->vx_q8 ? -100 : +600;
+    c->p.y      = rngr_i32(-70, 200);
     c->priority = (rng_u32() & 0xFFFF);
     return c;
 }
@@ -60,7 +60,7 @@ void enveffect_cloud_setup(enveffect_cloud_s *e)
     for (int n = 0; n < N; n++) {
         cloud_s *c = cloud_create(e);
         if (!c) break;
-        c->p.x = rngr_i32(0, 400);
+        c->p.x = rngr_i32(-100, 600);
     }
 }
 
@@ -71,7 +71,7 @@ void enveffect_cloud_update(enveffect_cloud_s *e)
         cloud_s *c = &e->clouds[n];
 
         if ((c->vx_q8 < 0 && c->p.x < -200) &&
-            (c->vx_q8 > 0 && c->p.x > +500)) {
+            (c->vx_q8 > 0 && c->p.x > +700)) {
             *c       = e->clouds[--e->n];
             e->dirty = 1;
             continue;
@@ -102,7 +102,7 @@ void enveffect_cloud_draw(gfx_ctx_s ctx, enveffect_cloud_s *e, v2_i32 cam)
     }
     for (int n = 0; n < e->n; n++) {
         cloud_s *c = &e->clouds[n];
-        v2_i32   p = c->p;
+        v2_i32   p = {c->p.x + (cam.x * 1) / 16, c->p.y};
         p.x &= ~3;
         p.y &= ~1;
         gfx_spr(ctx, c->t, p, 0, 0);
@@ -233,5 +233,136 @@ void backforeground_animate_grass(game_s *g)
         gr->x_q8 += gr->v_q8;
         gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
         gr->v_q8 = (gr->v_q8 * 230) >> 8;
+    }
+}
+
+void enveffect_leaves_setup(enveffect_leaves_s *e)
+{
+}
+
+void enveffect_leaves_update(enveffect_leaves_s *e)
+{
+}
+
+void enveffect_leaves_draw(gfx_ctx_s ctx, enveffect_leaves_s *e, v2_i32 cam)
+{
+}
+
+//
+void enveffect_rain_setup(enveffect_rain_s *e)
+{
+}
+
+void enveffect_rain_update(game_s *g, enveffect_rain_s *e)
+{
+    if (e->lightning_tick) {
+        e->lightning_tick--;
+    }
+    if (rngr_i32(0, 1000) <= 4) {
+        e->lightning_tick  = rngr_i32(6, 10);
+        e->lightning_twice = rngr_i32(0, 4) == 0;
+    }
+
+    for (int n = e->n_drops - 1; 0 <= n; n--) {
+        raindrop_s *drop = &e->drops[n];
+
+        drop->p.x += drop->v.x;
+        drop->p.y += drop->v.y;
+
+        if ((512 << 8) < drop->p.y) {
+            *drop = e->drops[--e->n_drops];
+        }
+    }
+
+    for (int k = 0; k < 5; k++) {
+        if (BG_NUM_RAINDROPS <= e->n_drops) break;
+        raindrop_s *drop = &e->drops[e->n_drops++];
+        drop->p.x        = rngr_i32(0, 512) << 8;
+        drop->p.y        = -(100 << 8);
+        drop->v.y        = rngr_i32(2000, 2800);
+        drop->v.x        = rngr_i32(100, 700);
+    }
+
+    for (int n = e->n_splashes - 1; 0 <= n; n--) {
+        rainsplash_s *splash = &e->splashes[n];
+        splash->tick--;
+        if (splash->tick <= 0) {
+            *splash = e->splashes[--e->n_splashes];
+        }
+    }
+
+    for (int k = 0; k < 0; k++) {
+        if (BG_NUM_RAINSPLASHES <= e->n_splashes) break;
+        int px = rngr_i32(1, g->pixel_x - 1);
+        int py = rngr_i32(1, g->pixel_y - 1);
+
+        v2_i32 p0     = {px, py};
+        v2_i32 p1     = {px, py - 1};
+        bool32 dsolid = !game_traversable_pt(g, p0.x, p0.y) && game_traversable_pt(g, p1.x, p1.y);
+
+        int    tx1    = p0.x >> 4;
+        int    ty1    = p0.y >> 4;
+        int    tx2    = p1.x >> 4;
+        int    ty2    = p1.y >> 4;
+        bool32 dwater = (g->tiles[tx1 + ty1 * g->tiles_x].collision & TILE_WATER_MASK) &&
+                        (g->tiles[tx2 + ty2 * g->tiles_x].collision == 0);
+
+        if (dsolid || dwater) {
+            rainsplash_s *splash = &e->splashes[e->n_splashes++];
+            splash->pos.x        = p1.x;
+            splash->pos.y        = p1.y;
+            splash->tick         = 6;
+            if (dwater) splash->pos.y -= 10;
+        }
+    }
+}
+
+void enveffect_rain_draw(gfx_ctx_s ctx, enveffect_rain_s *e, v2_i32 cam)
+{
+    if (e->lightning_tick) {
+        gfx_ctx_s ctx_light = ctx;
+
+        if (5 < e->lightning_tick) {
+            ctx_light.pat = gfx_pattern_interpolate(1, 4);
+        } else if (3 < e->lightning_tick) {
+            if (e->lightning_twice) {
+                ctx_light.pat = gfx_pattern_interpolate(0, 2);
+            } else {
+                ctx_light.pat = gfx_pattern_interpolate(1, 2);
+            }
+        } else {
+            ctx_light.pat = gfx_pattern_interpolate(1, 8);
+        }
+
+        gfx_rec_fill(ctx_light, (rec_i32){0, 0, 400, 240}, PRIM_MODE_WHITE);
+    }
+    gfx_ctx_s ctxdrop = ctx;
+    ctxdrop.pat       = gfx_pattern_4x4(B4(0000),
+                                        B4(1111),
+                                        B4(0000),
+                                        B4(1111));
+    for (int n = 0; n < e->n_drops; n++) {
+        raindrop_s *drop = &e->drops[n];
+        v2_i32      pos  = v2_shr(drop->p, 8);
+        pos.x += cam.x;
+        pos.x = ((pos.x & 511) + 512) & 511;
+
+        rec_i32 rr1 = {pos.x, pos.y + 5, 3, 8};
+        rec_i32 rr2 = {pos.x, pos.y, 2, 5};
+        rec_i32 rr3 = {pos.x, pos.y + 1, 1, 6};
+        gfx_rec_fill(ctx, rr1, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctx, rr2, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctxdrop, rr3, PRIM_MODE_WHITE);
+    }
+
+    texrec_s trsplash = asset_texrec(TEXID_MISCOBJ, 256, 224, 16, 16);
+    for (int n = 0; n < e->n_splashes; n++) {
+        rainsplash_s *splash = &e->splashes[n];
+        trsplash.r.x         = splash->tick < 3 ? 272 : 256;
+        v2_i32 pos           = v2_add(splash->pos, cam);
+        pos.x -= 8;
+        pos.y -= 16;
+
+        gfx_spr(ctx, trsplash, pos, 0, SPR_MODE_WHITE);
     }
 }

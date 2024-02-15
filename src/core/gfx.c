@@ -95,6 +95,11 @@ tex_s tex_create_opaque(int w, int h, alloc_s ma)
 tex_s tex_load(const char *path, alloc_s ma)
 {
     void *f = sys_file_open(path, SYS_FILE_R);
+    if (!f) {
+        sys_printf("Can't load tex: %s\n", path);
+        tex_s t0 = {0};
+        return t0;
+    }
 
     uint w;
     uint h;
@@ -102,6 +107,7 @@ tex_s tex_load(const char *path, alloc_s ma)
     sys_file_read(f, &h, sizeof(uint));
 
     usize s = ((w * h) * 2) / 8;
+    sys_printf("tex size: %u kb\n", (uint)(s / 1024));
     tex_s t = tex_create(w, h, ma);
     sys_file_read(f, t.px, s);
     sys_file_close(f);
@@ -287,6 +293,22 @@ gfx_ctx_s gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h)
     return gfx_ctx_clip(ctx, x, y, x + w - 1, x + h - 1);
 }
 
+gfx_pattern_s gfx_pattern_2x2(int p0, int p1)
+{
+    gfx_pattern_s pat  = {0};
+    int           p[2] = {p0, p1};
+    for (int i = 0; i < 2; i++) {
+        u32 pp       = (u32)p[i];
+        u32 pa       = (pp << 6) | (pp << 4) | (pp << 2) | (pp);
+        u32 pb       = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
+        pat.p[i + 0] = pb;
+        pat.p[i + 2] = pb;
+        pat.p[i + 4] = pb;
+        pat.p[i + 6] = pb;
+    }
+    return pat;
+}
+
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 {
     gfx_pattern_s pat  = {0};
@@ -356,11 +378,6 @@ void tex_clr(tex_s dst, int col)
     u32 *p = dst.px;
     switch (col) {
     case TEX_CLR_BLACK:
-        for (int n = 0; n < N; n++) {
-            *p++ = 0xFFFFFFFFU;
-        }
-        break;
-    case TEX_CLR_WHITE:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
             for (int n = 0; n < N; n++) {
@@ -369,7 +386,22 @@ void tex_clr(tex_s dst, int col)
             break;
         case TEX_FMT_MASK:
             for (int n = 0; n < N; n += 2) {
-                *p++ = 0;           // data
+                *p++ = 0U;          // data
+                *p++ = 0xFFFFFFFFU; // mask
+            }
+            break;
+        }
+        break;
+    case TEX_CLR_WHITE:
+        switch (dst.fmt) {
+        case TEX_FMT_OPAQUE:
+            for (int n = 0; n < N; n++) {
+                *p++ = 0xFFFFFFFFU;
+            }
+            break;
+        case TEX_FMT_MASK:
+            for (int n = 0; n < N; n += 2) {
+                *p++ = 0xFFFFFFFFU; // data
                 *p++ = 0xFFFFFFFFU; // mask
             }
             break;
@@ -477,8 +509,8 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
                 int v = (int)(t * m.m[3] + s * m.m[4] + m.m[5] + .5f);
                 if (!(u1 <= u && u < u2)) continue;
                 if (!(v1 <= v && v < v2)) continue;
-                if (tex_px_at(src.t, u, v) != 0) sp |= 0x80000000U >> p;
-                if (tex_mk_at(src.t, u, v) != 0) sm |= 0x80000000U >> p;
+                if (tex_px_at_unsafe(src.t, u, v)) sp |= 0x80000000U >> p;
+                if (tex_mk_at_unsafe(src.t, u, v)) sm |= 0x80000000U >> p;
             }
 
             u32 *dp = NULL;
@@ -752,4 +784,53 @@ void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode)
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode)
 {
     NOT_IMPLEMENTED
+}
+
+int cmp_int_poly(const void *a, const void *b)
+{
+    int x = *(const int *)a;
+    int y = *(const int *)b;
+    if (x < y) return -1;
+    if (x > y) return +1;
+    return 0;
+}
+
+void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode)
+{
+    int y1 = 0x10000;
+    int y2 = 0;
+    for (int i = 0; i < n_pt; i++) {
+        y1 = min_i(y1, pt[i].y);
+        y2 = max_i(y2, pt[i].y);
+    }
+
+    y1 = max_i(y1, ctx.clip_y1);
+    y2 = min_i(y2, ctx.clip_y2);
+
+    int nx[64] = {0};
+    for (int y = y1; y <= y2; y++) {
+        int ns = 0;
+        for (int i = 0, j = n_pt - 1; i < n_pt; j = i, i++) {
+            v2_i32 pi = pt[i];
+            v2_i32 pj = pt[j];
+            if (!((pi.y < y && y <= pj.y) || (pj.y < y && y <= pi.y)))
+                continue;
+            nx[ns++] = pi.x + ((pj.x - pi.x) * (y - pi.y)) / (pj.y - pi.y);
+        }
+
+        sort_array(nx, ns, sizeof(int), cmp_int_poly);
+
+        for (int i = 0; i < ns; i += 2) {
+            int x1 = nx[i];
+            if (ctx.clip_x2 < x1) break;
+            int x2 = nx[i + 1];
+            if (x2 <= ctx.clip_x1) continue;
+
+            x1 = max_i(x1, ctx.clip_x1);
+            x2 = min_i(x2, ctx.clip_x2);
+
+            span_blit_s s = span_blit_gen(ctx, y, x1, x2, mode);
+            prim_blit_span(s);
+        }
+    }
 }

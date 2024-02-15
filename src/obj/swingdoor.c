@@ -11,13 +11,16 @@ enum {
     SWINGDOOR_CLOSED = 1,
 };
 
-#define SWINGDOOR_TICKS     8
-#define SWINGDOOR_KEY_RANGE 16
+#define SWINGDOOR_TICKS          8
+#define SWINGDOOR_KEY_RANGE      16
+#define SWINGDOOR_KEY_OPEN_TICKS 50
 
 typedef struct {
-    int trigger_to_open;
-    int trigger_to_close;
-    int key_to_open;
+    int    trigger_to_open;
+    int    trigger_to_close;
+    int    key_to_open;
+    int    key_opener_ticks;
+    v2_i32 key_open_origin;
 } swingdoor_s;
 
 obj_s *swingdoor_create(game_s *g)
@@ -25,7 +28,7 @@ obj_s *swingdoor_create(game_s *g)
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_DOOR_SWING;
     o->flags           = OBJ_FLAG_SPRITE;
-    o->render_priority = -1;
+    o->render_priority = 1;
     o->w               = 16;
     o->h               = 32;
 
@@ -88,21 +91,35 @@ void swingdoor_toggle(game_s *g, obj_s *o)
 void swingdoor_on_update(game_s *g, obj_s *o)
 {
     o->timer++;
+    swingdoor_s *od = (swingdoor_s *)o->mem;
     if (o->state == SWINGDOOR_OPEN) return;
-    swingdoor_s *od    = (swingdoor_s *)o->mem;
-    int          keyID = od->key_to_open;
-    if (keyID == 0) return;
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (!ohero) return;
-    inventory_s *inv = &g->inventory;
-    if (!inventory_count_of(inv, keyID)) return;
+    if (od->key_to_open == 0) return;
 
-    rec_i32 rkey = obj_aabb(o);
-    rkey.x -= SWINGDOOR_KEY_RANGE;
-    rkey.w += SWINGDOOR_KEY_RANGE << 1;
-    if (overlap_rec(rkey, obj_aabb(ohero))) {
-        inventory_rem(inv, keyID, 1);
-        swingdoor_toggle(g, o);
+    if (od->key_opener_ticks == 0) {
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        if (!ohero) return;
+        inventory_s *inv = &g->inventory;
+        inventory_add(inv, od->key_to_open, 1);
+        if (!inventory_count_of(inv, od->key_to_open)) return;
+
+        rec_i32 rkey = {o->pos.x - SWINGDOOR_KEY_RANGE,
+                        o->pos.y,
+                        o->w + (SWINGDOOR_KEY_RANGE << 1),
+                        o->h};
+        if (overlap_rec(rkey, obj_aabb(ohero))) {
+            inventory_rem(inv, od->key_to_open, 1);
+            od->key_open_origin = obj_pos_center(ohero);
+            od->key_open_origin.y -= 64;
+            od->key_opener_ticks = 1;
+            snd_play_ext(SNDID_DOOR_KEY_SPAWNED, 1.f, 1.f);
+        }
+    } else {
+        od->key_opener_ticks++;
+        if (SWINGDOOR_KEY_OPEN_TICKS <= od->key_opener_ticks) {
+            od->key_opener_ticks = 0;
+            swingdoor_toggle(g, o);
+            snd_play_ext(SNDID_DOOR_UNLOCKED, 1.f, 1.f);
+        }
     }
 }
 
@@ -134,6 +151,20 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
     if (o->state == SWINGDOOR_CLOSED) {
         fr = 2 - fr;
     }
+
+    o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
     spr->trec.r.x        = 64 * fr;
+
+    swingdoor_s *od = (swingdoor_s *)o->mem;
+    if (od->key_opener_ticks == 0) return;
+    o->n_sprites          = 2;
+    sprite_simple_s *sprk = &o->sprites[1];
+    sprk->trec            = asset_texrec(TEXID_MISCOBJ, 224, 64, 16, 32);
+
+    int    i0   = od->key_opener_ticks;
+    int    i1   = SWINGDOOR_KEY_OPEN_TICKS;
+    v2_i32 keyd = {ease_in_out_quad(od->key_open_origin.x, o->pos.x, i0, i1),
+                   ease_in_out_quad(od->key_open_origin.y, o->pos.y, i0, i1)};
+    sprk->offs  = v2_sub(keyd, o->pos);
 }

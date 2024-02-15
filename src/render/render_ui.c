@@ -12,13 +12,13 @@
 #define ITEM_Y_OFFS      16
 #define FNTID_AREA_LABEL FNTID_LARGE
 
-static void render_item_selection(herodata_s *h);
+static void render_item_selector(item_selector_s *is);
 
 void render_ui(game_s *g, v2_i32 camoff)
 {
     const gfx_ctx_s ctx_ui = gfx_ctx_display();
-
-    fnt_s font_1 = asset_fnt(FNTID_AREA_LABEL);
+    obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
+    fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
 
     if (g->areaname.fadeticks) {
         gfx_ctx_s ctx_af = ctx_ui;
@@ -36,17 +36,6 @@ void render_ui(game_s *g, v2_i32 camoff)
 
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
-
-#if 0
-    if (g->herodata.aquired_items && 0) {
-        render_item_selection(&g->herodata);
-        texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
-                                         0, 0, 128, ITEM_FRAME_SIZE);
-        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 92, 240 - 64 + 16}, 0, 0);
-    }
-#endif
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     obj_s *interactable = obj_from_obj_handle(g->herodata.interactable);
     if (interactable) {
@@ -66,6 +55,17 @@ void render_ui(game_s *g, v2_i32 camoff)
     if (shop_active(g)) {
         shop_draw(g);
     }
+
+#if !GAME_JUMP_ATTACK
+    if (g->herodata.upgrades[HERO_UPGRADE_HOOK] &&
+        g->herodata.upgrades[HERO_UPGRADE_WHIP]) {
+        render_item_selector(&g->item_selector);
+        texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
+                                         0, 0, 128, ITEM_FRAME_SIZE);
+        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 80, 240 - 64 + 16}, 0, 0);
+    }
+
+#endif
 
     if (ohero) {
         texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
@@ -111,6 +111,8 @@ void prerender_area_label(game_s *g)
 void render_pause(game_s *g)
 {
     spm_push();
+    fnt_s font = asset_fnt(FNTID_LARGE);
+
     tex_s tex = tex_create_opaque(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
     tex_clr(tex, TEX_CLR_WHITE);
     gfx_ctx_s ctx = gfx_ctx_default(tex);
@@ -119,11 +121,23 @@ void render_pause(game_s *g)
         tex.px[i] = rng_u32();
     }
 
+    v2_i32 pos = {80, 140};
+    for (int y = -2; y <= +2; y++) {
+        for (int x = -2; x <= +2; x++) {
+            v2_i32 p = pos;
+            p.x += x;
+            p.y += y;
+            fnt_draw_ascii(ctx, font, p, "Pause", SPR_MODE_WHITE);
+        }
+    }
+
+    fnt_draw_ascii(ctx, font, pos, "Pause", SPR_MODE_BLACK);
+
     sys_set_menu_image(tex.px, tex.h, tex.wword * 4);
     spm_pop();
 }
 
-static void render_item_selection(herodata_s *h)
+static void render_item_selector(item_selector_s *is)
 {
     tex_s     texcache = asset_tex(TEXID_UI_ITEM_CACHE);
     gfx_ctx_s ctx      = gfx_ctx_default(texcache);
@@ -134,15 +148,15 @@ static void render_item_selection(herodata_s *h)
     // barrel background
 
     int offs = 15;
-    if (!h->itemselection_decoupled) {
-        int dtang = abs_i(inp_crank_calc_dt_q16(h->item_angle, inp_crank_q16()));
+    if (!is->decoupled) {
+        int dtang = abs_i(inp_crank_calc_dt_q16(is->angle, inp_crank_q16()));
         offs      = min_i(pow2_i32(dtang) / 4000000, offs);
     }
 
 #define ITEM_OVAL_Y 12
 
     int turn1 = (inp_crank_q16() >> 6) + 0x400;
-    int turn2 = (h->item_angle >> 6) + 0x400;
+    int turn2 = (is->angle >> 6) + 0x400;
     int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
     int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
     int sx1   = (cos_q16(turn1));
@@ -161,9 +175,9 @@ static void render_item_selection(herodata_s *h)
     for (int y = 0; y < 2 * ITEM_BARREL_R; y++) {
         int yy   = y - ITEM_BARREL_R;
         int abar = asin_q16((yy << 16) / ITEM_BARREL_R) >> 2; // asin returns TURN in Q18, one turn = 0x40000, shr by 2 for Q16
-        int aimg = (abar + h->item_angle + 0x4000) & 0xFFFF;
+        int aimg = (abar + is->angle + 0x4000) & 0xFFFF;
         if (0 <= aimg && aimg < 0x8000) { // maps to [0, 180) deg (visible barrel)
-            tr.r.y = h->selected_item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
+            tr.r.y = is->item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
             gfx_spr(ctx, tr, (v2_i32){16, ITEM_Y_OFFS + y}, 0, 0);
         } else {
             gfx_rec_fill(ctx, (rec_i32){16, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);

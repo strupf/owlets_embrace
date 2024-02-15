@@ -8,7 +8,7 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE           1
+#define SYS_SDL_SCALE           2
 #define SYS_USE_INTEGER_SCALING 1
 #define SYS_REDUCE_FLICKER      1 // space to swap at runtime
 
@@ -198,7 +198,7 @@ int main(int argc, char **argv)
                         int i     = (x >> 3) + y * SYS_DISPLAY_WBYTES;
                         int k     = x + y * SYS_DISPLAY_W;
                         int byt   = OS_SDL.framebuffer[i];
-                        int bit   = (byt & (0x80 >> (x & 7))) > 0;
+                        int bit   = !!(byt & (0x80 >> (x & 7)));
                         pixels[k] = pal[OS_SDL.inv ? !bit : bit];
                     }
 
@@ -504,4 +504,9 @@ void backend_menu_clr()
 void backend_set_volume(f32 vol)
 {
     OS_SDL.vol = 0.f <= vol ? (vol <= 1.f ? vol : 1.f) : 0.f;
+}
+
+void backend_display_inv(int i)
+{
+    OS_SDL.inv = i;
 }

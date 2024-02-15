@@ -37,6 +37,9 @@ obj_s *crawler_create(game_s *g)
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE |
+#if GAME_JUMP_ATTACK
+               OBJ_FLAG_PLATFORM | OBJ_FLAG_PLATFORM_HERO_ONLY |
+#endif
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY;
     o->render_priority   = 1;
@@ -47,8 +50,7 @@ obj_s *crawler_create(game_s *g)
     o->h                 = 14;
     o->health_max        = 3;
     o->health            = o->health_max;
-    o->enemy.sndID_die   = SNDID_ENEMY_DIE;
-    o->enemy.sndID_hurt  = SNDID_ENEMY_HURT;
+    o->enemy             = enemy_default();
     sprite_simple_s *spr = &o->sprites[0];
     o->n_sprites         = 1;
     spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);

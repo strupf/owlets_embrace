@@ -6,16 +6,16 @@
 #define SAVEFILE_H
 
 #include "gamedef.h"
+#include "obj/hero.h"
 
 typedef struct savefile_s {
-    flags32 aquired_upgrades;
-    flags32 aquired_items;
-    int     n_airjumps;
-    int     health;
-    char    area_filename[LEN_AREA_FILENAME];
-    char    hero_name[LEN_HERO_NAME];
+    bool8 upgrades[NUM_HERO_UPGRADES];
+    int   n_airjumps;
+    int   health;
+    char  area_filename[LEN_AREA_FILENAME];
+    char  hero_name[LEN_HERO_NAME];
     //
-    u8      saved_events[256];
+    u8    saved_events[256];
 } savefile_s;
 
 bool32 savefile_copy(int slotID_from, int slotID_to);

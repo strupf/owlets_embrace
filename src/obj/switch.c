@@ -12,8 +12,9 @@ enum {
 };
 
 typedef struct {
-    int trigger_on_enable;
-    int trigger_on_disable;
+    int    trigger_on_enable;
+    int    trigger_on_disable;
+    bool32 once;
 } obj_switch_s;
 
 static void switch_set_sprite(obj_s *o)
@@ -46,6 +47,7 @@ void switch_load(game_s *g, map_obj_s *mo)
     obj_switch_s *os       = (obj_switch_s *)o->mem;
     os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");
     os->trigger_on_disable = map_obj_i32(mo, "Trigger_disable");
+    os->once               = map_obj_bool(mo, "Once");
 }
 
 void switch_on_animate(game_s *g, obj_s *o)
@@ -57,13 +59,13 @@ void switch_on_animate(game_s *g, obj_s *o)
 
 void switch_on_interact(game_s *g, obj_s *o)
 {
+    if (!(o->flags & OBJ_FLAG_INTERACTABLE)) return;
     snd_play_ext(SNDID_SWITCH, .5f, 1.f);
     cam_screenshake(&g->cam, 8, 5);
-    if (o->switch_oneway) {
+    obj_switch_s *os = (obj_switch_s *)o->mem;
+    if (os->once) {
         o->flags &= ~OBJ_FLAG_INTERACTABLE;
     }
-
-    obj_switch_s *os = (obj_switch_s *)o->mem;
 
     switch (o->state) {
     case SWITCH_ST_OFF:

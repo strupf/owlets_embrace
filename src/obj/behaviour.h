@@ -9,12 +9,19 @@
 #include "hero.h"
 #include "map_loader.h"
 
+void   logicflagger_load(game_s *g, map_obj_s *mo);
+void   logicflagger_on_trigger(game_s *g, obj_s *o, int trigger);
+//
 obj_s *clockpulse_create(game_s *g);
+void   clockpulse_load(game_s *g, map_obj_s *mo);
 void   clockpulse_on_update(game_s *g, obj_s *o);
+void   clockpulse_on_trigger(game_s *g, obj_s *o, int trigger);
 //
 obj_s *crumbleblock_create(game_s *g);
 void   crumbleblock_load(game_s *g, map_obj_s *mo);
+void   crumbleblock_on_hooked(obj_s *o);
 void   crumbleblock_on_update(game_s *g, obj_s *o);
+void   crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 obj_s *switch_create(game_s *g);
 void   switch_load(game_s *g, map_obj_s *mo);
@@ -50,7 +57,9 @@ void   heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h);
 void   heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 obj_s *movingplatform_create(game_s *g);
+void   movingplatform_load(game_s *g, map_obj_s *mo);
 void   movingplatform_on_update(game_s *g, obj_s *o);
+void   movingplatform_on_trigger(game_s *g, obj_s *o, int trigger);
 //
 obj_s *npc_create(game_s *g);
 void   npc_load(game_s *g, map_obj_s *mo);
@@ -90,4 +99,12 @@ void   juggernaut_on_animate(game_s *g, obj_s *o);
 obj_s *stalactite_create(game_s *g);
 void   stalactite_load(game_s *g, map_obj_s *mo);
 void   stalactite_on_update(game_s *g, obj_s *o);
+//
+obj_s *walker_create(game_s *g);
+void   walker_load(game_s *g, map_obj_s *mo);
+void   walker_on_update(game_s *g, obj_s *o);
+//
+obj_s *flyer_create(game_s *g);
+void   flyer_load(game_s *g, map_obj_s *mo);
+void   flyer_on_update(game_s *g, obj_s *o);
 #endif

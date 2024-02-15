@@ -205,3 +205,8 @@ void backend_menu_clr()
 void backend_set_volume(f32 vol)
 {
 }
+
+void backend_display_inv(int i)
+{
+    PD->display->setInverted(i);
+}

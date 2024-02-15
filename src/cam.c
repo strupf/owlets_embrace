@@ -7,6 +7,7 @@
 
 #define CAM_TICKS_TB 30
 #define CAM_TICKS_X  200
+#define CAM_FACING_X 50
 
 #define CAM_W  SYS_DISPLAY_W
 #define CAM_H  SYS_DISPLAY_H
@@ -24,9 +25,24 @@ void cam_screenshake(cam_s *c, int ticks, int str)
 
 v2_i32 cam_pos_px(game_s *g, cam_s *c)
 {
-    v2_f32 p = c->pos;
-    p        = v2f_add(p, c->offs_shake);
-    p        = v2f_add(p, c->offs);
+    v2_f32 pprev = c->pos;
+    v2_f32 p     = c->pos;
+
+    f32    hlerp = (f32)c->hookticks / 100.f;
+    v2_f32 hoffs = {(c->hookpos.x - p.x) * hlerp, (c->hookpos.y - p.y) * hlerp};
+    if (30.f < v2f_len(hoffs)) {
+        v2f_setlen(hoffs, 30.f);
+    }
+    p = v2f_add(p, hoffs);
+    p = v2f_add(p, c->offs);
+    if (c->locked_x) {
+        p.x = pprev.x;
+    }
+    if (c->locked_y) {
+        p.y = pprev.y;
+    }
+    p = v2f_add(p, c->offs_shake);
+
     v2_i32 v = {(i32)(p.x + .5f), (i32)(p.y + .5f)};
     v2_i32 r = cam_constrain_to_room(g, v);
     return r;
@@ -60,19 +76,20 @@ void cam_update(game_s *g, cam_s *c)
     obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     c->look_down = 0;
+    v2_f32 ppos  = c->pos;
 
     const int addxticks_prev = c->addxticks;
-    int       ctx            = 40;
 
     v2_f32 padd = {0};
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
-        hero_s *h            = (hero_s *)hero->mem;
-        v2_i32  herop        = obj_pos_bottom_center(hero);
-        int     py_bot       = herop.y - 65;
-        int     py_top       = herop.y + 20;
-        int     target_x     = herop.x;
-        int     target_y     = py_bot;
-        bool32  herogrounded = obj_grounded(g, hero);
+        hero_s *h     = (hero_s *)hero->mem;
+        v2_i32  herop = obj_pos_bottom_center(hero);
+
+        int    py_bot       = herop.y - 65;
+        int    py_top       = herop.y + 20;
+        int    target_x     = herop.x;
+        int    target_y     = py_bot;
+        bool32 herogrounded = obj_grounded(g, hero);
 
         padd.x = (f32)(target_x - c->pos.x) * .1f;
 
@@ -95,23 +112,40 @@ void cam_update(game_s *g, cam_s *c)
 
         c->addxticks += hero->facing * (hero->vel_q8.x == 0 ? 2 : 3);
         c->addxticks = clamp_i(c->addxticks, -CAM_TICKS_X, +CAM_TICKS_X);
+
+        if (g->herodata.rope_active) {
+            v2_i32 rpos = g->herodata.rope.tail->p;
+            c->hookticks += 2;
+            c->hookticks = min_i(c->hookticks, 30);
+            c->hookpos   = (v2f){rpos.x, rpos.y};
+        }
     }
+
+    static int lookdowntick = 0;
 
     if (g->textbox.state || shop_active(g)) {
         c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
         c->addyoffset = 60;
     } else if (c->look_down) {
-        c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
-        c->addyoffset = 100;
+        lookdowntick++;
+        if (25 <= lookdowntick) {
+            c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
+            c->addyoffset = 100;
+        }
     } else if (0 < c->addyticks) {
         c->addyticks--;
     }
+    if (0 < c->hookticks) {
+        c->hookticks--;
+    }
+
+    if (!c->look_down) lookdowntick = 0;
 
     if (addxticks_prev == c->addxticks && c->addxticks != 0) {
         c->addxticks -= sgn_i(c->addxticks);
     }
 
-    c->offs.x       = (f32)(sgn_i(c->addxticks) * ease_out_quad(0, ctx, abs_i(c->addxticks), CAM_TICKS_X));
+    c->offs.x       = (f32)(sgn_i(c->addxticks) * ease_out_quad(0, CAM_FACING_X, abs_i(c->addxticks), CAM_TICKS_X));
     c->offs.y       = (f32)ease_in_out_quad(0, c->addyoffset, c->addyticks, CAM_TICKS_TB);
     c->offs_shake.x = 0.f;
     c->offs_shake.y = 0.f;
@@ -120,6 +154,13 @@ void cam_update(game_s *g, cam_s *c)
 
         c->offs_shake.x = (f32)rngr_sym_i32(s);
         c->offs_shake.y = (f32)rngr_sym_i32(s);
+    }
+
+    if (c->locked_x) {
+        c->pos.x = ppos.x;
+    }
+    if (c->locked_y) {
+        c->pos.y = ppos.y;
     }
 }
 

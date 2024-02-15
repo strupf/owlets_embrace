@@ -30,28 +30,33 @@ static void muschannel_stream(muschannel_s *ch, i16 *buf, int len);
 void aud_update()
 {
     switch (AUD.mus_fade) {
-    case MUS_FADE_NONE: return;
+    case MUS_FADE_NONE:
+        AUD.muschannel.vol_q8 = AUD.muschannel.trg_vol_q8;
+        break;
     case MUS_FADE_OUT: {
         AUD.mus_fade_ticks--;
-        mus_set_vol((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max);
+        mus_set_vol((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max);
         if (AUD.mus_fade_ticks > 0) break;
 
-        if (mus_play(AUD.mus_new) != 0) {
+        if (!mus_play(AUD.mus_new)) {
             AUD.mus_fade = MUS_FADE_NONE;
-            return;
+            break;
         }
         AUD.mus_fade           = MUS_FADE_IN;
         AUD.mus_fade_ticks     = AUD.mus_fade_in;
         AUD.mus_fade_ticks_max = AUD.mus_fade_ticks;
-    } break;
+        break;
+    }
     case MUS_FADE_IN: {
         AUD.mus_fade_ticks--;
-        mus_set_vol(256 - ((AUD.mus_fade_ticks << 8) / AUD.mus_fade_ticks_max));
+        mus_set_vol(AUD.muschannel.trg_vol_q8 - ((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max));
+
         if (AUD.mus_fade_ticks > 0) break;
 
-        mus_set_vol(256);
+        mus_set_vol(AUD.muschannel.trg_vol_q8);
         AUD.mus_fade = MUS_FADE_NONE;
-    } break;
+        break;
+    }
     }
 }
 
@@ -62,10 +67,12 @@ void aud_mute(bool32 mute)
 
 void aud_audio(i16 *buf, int len)
 {
+#ifdef SYS_SDL
     if (AUD.mute) {
         memset(buf, 0, sizeof(i16) * len);
         return;
     }
+#endif
 
     muschannel_stream(&AUD.muschannel, buf, len);
     for (int n = 0; n < NUM_SNDCHANNEL; n++) {
@@ -209,8 +216,11 @@ snd_s snd_load(const char *pathname, alloc_s ma)
 
 void snd_play(snd_s s, f32 vol, f32 pitch)
 {
+#ifdef SYS_SDL
     if (AUD.snd_playing_disabled) return;
-    if (vol < 0.05f) return;
+#endif
+    if (!s.buf || s.len == 0 || vol < .05f) return;
+
     for (int i = 0; i < NUM_SNDCHANNEL; i++) {
         sndchannel_s *ch = &AUD.sndchannel[i];
         if (ch->wavedata) continue;
@@ -272,7 +282,6 @@ bool32 mus_play(const char *filename)
     ch->datapos   = sys_file_tell(f);
     ch->streamlen = (int)(wheader.subchunk2size / sizeof(i16));
     ch->streampos = 0;
-    ch->vol_q8    = 256;
     ch->looping   = 1;
     muschannel_update_chunk(ch, 0);
     return 1;
@@ -280,6 +289,7 @@ bool32 mus_play(const char *filename)
 
 void mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
 {
+    if (mus_playing() && str_eq(AUD.muschannel.filename, pathname)) return;
     AUD.mus_fade_in = ticks_in;
     AUD.mus_fade    = MUS_FADE_OUT;
     if (mus_playing()) {
@@ -309,6 +319,11 @@ bool32 mus_playing()
 void mus_set_vol(int vol_q8)
 {
     AUD.muschannel.vol_q8 = vol_q8;
+}
+
+void mus_set_trg_vol(int vol_q8)
+{
+    AUD.muschannel.trg_vol_q8 = vol_q8;
 }
 
 static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)

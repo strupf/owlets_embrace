@@ -15,8 +15,8 @@ typedef struct {
     usize lowestleft;
 #endif
 
-    marena_s m;
-    alignas(4) char mem[MKILOBYTE(1024)];
+    marena_s             m;
+    align_CL mkilobyte_s mem[1024];
 } SPM_s;
 
 extern SPM_s         SPM;
@@ -26,6 +26,7 @@ void  spm_init();
 void  spm_push();
 void  spm_pop();
 void *spm_alloc(usize s);
+void *spm_allocz(usize s);
 void *spm_alloc_rem(usize *s);
 void  spm_reset();
 

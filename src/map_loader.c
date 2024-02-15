@@ -9,6 +9,17 @@
 
 // set tiles automatically - www.cr31.co.uk/stagecast/wang/blob.html
 
+enum {
+    AUTOTILE_TYPE_NONE,
+    AUTOTILE_TYPE_FAKE,
+    AUTOTILE_TYPE_BRICK,
+    AUTOTILE_TYPE_BRICK_SMALL,
+    AUTOTILE_TYPE_DIRT,
+    AUTOTILE_TYPE_STONE,
+    //
+    NUM_AUTOTILE_TYPES
+};
+
 typedef struct {
     u8 type;
     u8 shape;
@@ -78,30 +89,10 @@ typedef struct {
 #define NUM_RESERVED_TERRAIN   (RESERVED_TERRAIN_X * RESERVED_TERRAIN_Y)
 
 enum {
-    AUTOTILE_TYPE_NONE,
-    AUTOTILE_TYPE_FAKE,
-    AUTOTILE_TYPE_BRICK,
-    AUTOTILE_TYPE_BRICK_SMALL,
-    AUTOTILE_TYPE_DIRT,
-    AUTOTILE_TYPE_STONE,
-};
-
-enum {
     TILE_FLIP_DIA = 1 << 0,
     TILE_FLIP_Y   = 1 << 1,
     TILE_FLIP_X   = 1 << 2,
 };
-
-// this is used to merge render tile layers into a single layer
-typedef union {
-    u16 IDs[4];
-    u64 u;
-} tile_stacked_s;
-
-typedef struct {
-    int            n;
-    tile_stacked_s t[65536];
-} tile_stacker_s;
 
 static const u8 g_autotilemarch[256];
 
@@ -112,16 +103,19 @@ static inline void map_proptile_decode(u16 t, int *tx, int *ty, int *f)
     *ty = (t >> 7) & B8(01111111);
 }
 
-static void             map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int y);
-static void             map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tiles, int x, int y);
+static void             map_at_background(game_s *g, tilelayer_bg_s tiles, int x, int y);
+static void             map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y);
 static map_prop_s      *map_prop_get(map_properties_s p, const char *name);
 static map_properties_s map_obj_properties(map_obj_s *mo);
+//
+static bool32           at_types_blending(int a, int b);
 
 #define map_prop_strs(P, NAME, B) map_prop_str(P, NAME, B, sizeof(B))
 static void   map_prop_str(map_properties_s p, const char *name, void *b, usize bs);
 static i32    map_prop_i32(map_properties_s p, const char *name);
 static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
+static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 
 static void map_obj_parse(game_s *g, map_obj_s *o)
 {
@@ -134,12 +128,16 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         npc_load(g, o);
     } else if (str_eq_nc(o->name, "Crawler")) {
         crawler_load(g, o);
+    } else if (str_eq_nc(o->name, "Charger")) {
+        charger_load(g, o);
     } else if (str_eq_nc(o->name, "Sign")) {
         sign_load(g, o);
     } else if (str_eq_nc(o->name, "Shroomy")) {
         shroomy_load(g, o);
     } else if (str_eq_nc(o->name, "Toggleblock")) {
         toggleblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Moving_Plat")) {
+        movingplatform_load(g, o);
     } else if (str_eq_nc(o->name, "Door_Swing")) {
         swingdoor_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
@@ -150,10 +148,39 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         teleport_load(g, o);
     } else if (str_eq_nc(o->name, "Stalactite")) {
         stalactite_load(g, o);
+    } else if (str_eq_nc(o->name, "Walker")) {
+        walker_load(g, o);
+    } else if (str_eq_nc(o->name, "Flyer")) {
+        flyer_load(g, o);
+    } else if (str_eq_nc(o->name, "Clockpulse")) {
+        clockpulse_load(g, o);
     } else if (str_eq_nc(o->name, "Ocean")) {
         g->ocean.active = 1;
         g->ocean.y      = o->y + 16;
+    } else if (str_eq_nc(o->name, "Hero_Spawn")) {
+        g->herodata.hero_spawn_x = o->x;
+        g->herodata.hero_spawn_y = o->y;
     } else if (str_eq_nc(o->name, "Cam")) {
+        cam_s *cam    = &g->cam;
+        cam->locked_x = map_obj_bool(o, "Locked_X");
+        cam->locked_y = map_obj_bool(o, "Locked_Y");
+        if (cam->locked_x) {
+            cam->pos.x = o->x + SYS_DISPLAY_W / 2;
+        }
+        if (cam->locked_y) {
+            cam->pos.y = o->y + SYS_DISPLAY_H / 2;
+        }
+    } else if (str_eq_nc(o->name, "Water")) {
+        int x1 = (o->x) >> 4;
+        int y1 = (o->y) >> 4;
+        int x2 = (o->x + o->w - 1) >> 4;
+        int y2 = (o->y + o->h - 1) >> 4;
+
+        for (int y = y1; y <= y2; y++) {
+            for (int x = x1; x <= x2; x++) {
+                g->tiles[x + y * g->tiles_x].type |= TILE_WATER_MASK;
+            }
+        }
     }
 }
 
@@ -181,17 +208,21 @@ void game_load_map(game_s *g, const char *mapfile)
     g->particles.n          = 0;
     g->ocean.active         = 0;
     g->env_effects          = 0;
+    g->env_rain.n_drops     = 0;
+    g->env_rain.n_splashes  = 0;
     g->n_collectibles       = 0;
     g->n_enemy_decals       = 0;
-    g->n_water              = 0;
+    g->cam.locked_x         = 0;
+    g->cam.locked_y         = 0;
+    g->logic_flags          = 0;
 
     marena_init(&g->arena, g->mem, sizeof(g->mem));
-
-    strcpy(g->areaname.filename, mapfile);
-    g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
     memset(g->tiles, 0, sizeof(g->tiles));
     memset(g->rtiles, 0, sizeof(g->rtiles));
     g->areaname.fadeticks = 1;
+
+    strcpy(g->areaname.filename, mapfile);
+    g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
 
     spm_push();
 
@@ -228,11 +259,19 @@ void game_load_map(game_s *g, const char *mapfile)
         g->env_effects |= ENVEFFECT_CLOUD;
         enveffect_cloud_setup(&g->env_cloud);
     }
-    g->areaID = map_prop_i32(mp, "AreaID");
+    if (map_prop_bool(mp, "Effect_Rain")) {
+        g->env_effects |= ENVEFFECT_RAIN;
+        enveffect_rain_setup(&g->env_rain);
+    }
+    g->areaID        = map_prop_i32(mp, "AreaID");
+    char musname[64] = {0};
+    map_prop_strs(mp, "Music", musname);
+    char muspath[128] = {0};
+    str_append(muspath, "assets/mus/");
+    str_append(muspath, musname);
+    mus_fade_to(muspath, 50, 50);
 
     spm_pop();
-    tile_stacker_s *stacker = (tile_stacker_s *)spm_alloc(sizeof(tile_stacker_s));
-    stacker->n              = 0;
 
     // TERRAIN =================================================================
     spm_push();
@@ -243,7 +282,6 @@ void game_load_map(game_s *g, const char *mapfile)
     layer_terrain.tiles = (map_terraintile_s *)spm_alloc(header.bytes_tiles_terrain);
     sys_file_read(mapf, layer_terrain.tiles, header.bytes_tiles_terrain);
 
-    int n_ext = 0;
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int               k  = x + y * w;
@@ -251,21 +289,22 @@ void game_load_map(game_s *g, const char *mapfile)
             switch (tt.shape) {
             case TILE_LADDER: {
                 g->tiles[k].collision              = TILE_LADDER;
-                g->rtiles[TILELAYER_TERRAIN][k].tx = 464 / 16;
-                g->rtiles[TILELAYER_TERRAIN][k].ty = 32 / 16;
+                g->rtiles[TILELAYER_PROP_BG][k].tx = 0;
+                g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
             } break;
             case TILE_ONE_WAY: {
                 g->tiles[k].collision = TILE_ONE_WAY;
-
-                int    tilex    = 480 / 16;
-                bool32 oneway_l = (0 < x + 0 && layer_terrain.tiles[k - 1].shape == TILE_ONE_WAY);
-                bool32 oneway_r = (x + 1 < w && layer_terrain.tiles[k + 1].shape == TILE_ONE_WAY);
+                int    tilex          = 480 / 16;
+                bool32 oneway_l       = (0 < x + 0 && layer_terrain.tiles[k - 1].shape == TILE_ONE_WAY);
+                bool32 oneway_r       = (x + 1 < w && layer_terrain.tiles[k + 1].shape == TILE_ONE_WAY);
                 if (oneway_l && !oneway_r) tilex++;
                 if (oneway_r && !oneway_l) tilex--;
-                g->rtiles[TILELAYER_TERRAIN][k].tx = tilex;
+                g->tiles[k].tx                     = tilex;
+                g->rtiles[TILELAYER_PROP_BG][k].tx = 1;
+                g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
             } break;
             default:
-                map_autotile_terrain(g, &n_ext, layer_terrain, x, y);
+                map_at_terrain(g, layer_terrain, x, y);
                 break;
             }
         }
@@ -284,7 +323,7 @@ void game_load_map(game_s *g, const char *mapfile)
 
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
-            map_autotile_background(g, layer_bg, x, y);
+            map_at_background(g, layer_bg, x, y);
         }
     }
     spm_pop();
@@ -316,11 +355,11 @@ void game_load_map(game_s *g, const char *mapfile)
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             int k  = x + y * w;
-            int ID = props_bg[k];
+            int ID = props_fg[k];
             if (ID == 0) continue;
             int tx, ty, f;
             map_proptile_decode(ID, &tx, &ty, &f);
-            rtile_s *rt = &g->rtiles[TILELAYER_PROP_BG][k];
+            rtile_s *rt = &g->rtiles[TILELAYER_PROP_FG][k];
             rt->tx      = tx;
             rt->ty      = ty;
         }
@@ -345,6 +384,19 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_close(mapf);
 }
 
+static bool32 _at_types_blending(int a, int b)
+{
+    switch (a) {
+    case 7: return 0;
+    }
+    return 1;
+}
+
+static bool32 at_types_blending(int a, int b)
+{
+    return (_at_types_blending(a, b) | _at_types_blending(b, a));
+}
+
 static int autotile_bg_is(tilelayer_bg_s tiles, int x, int y, int sx, int sy)
 {
     int u = x + sx;
@@ -359,8 +411,10 @@ static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, 
     int v = y + sy;
     if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
 
-    map_terraintile_s b = tiles.tiles[u + v * tiles.w];
-    if (b.type <= 1) return 0; // empty or "fake" terrain tile
+    map_terraintile_s a     = tiles.tiles[x + y * tiles.w];
+    map_terraintile_s b     = tiles.tiles[u + v * tiles.w];
+    bool32            blend = at_types_blending(a.type, b.type);
+    if (!blend) return 0;
 
     switch (b.shape) {
     case TILE_BLOCK: return 1;
@@ -403,7 +457,7 @@ enum {
     AT_NW = B8(10000000),
 };
 
-static void map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int y)
+static void map_at_background(game_s *g, tilelayer_bg_s tiles, int x, int y)
 {
     int index = x + y * tiles.w;
     int tile  = tiles.tiles[index];
@@ -422,18 +476,10 @@ static void map_autotile_background(game_s *g, tilelayer_bg_s tiles, int x, int 
     int      coords = g_autotilemarch[march];
     rtile_s *rtile  = &g->rtiles[TILELAYER_BG][index];
     rtile->tx       = 32 + (coords & 15);
-    rtile->ty       = ((tile - 1) * 8) + (coords >> 4);
+    rtile->ty       = (tile * 8) + (coords >> 4);
 }
 
-int terrain_mapper_entry(tilelayer_terrain_s tiles, int x, int y)
-{
-    if (!(0 <= x && x < tiles.w && 0 <= y && y < tiles.h)) return 0;
-    map_terraintile_s tile = tiles.tiles[x + y * tiles.w];
-    if (tile.shape != TILE_BLOCK) return 0;
-    return tile.type;
-}
-
-static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tiles, int x, int y)
+static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 {
     int               index = x + y * tiles.w;
     map_terraintile_s tile  = tiles.tiles[index];
@@ -442,78 +488,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
         return;
     }
 
-    rtile_s *rtile = &g->rtiles[TILELAYER_TERRAIN][index];
-
-#if 0
-    if (tile.type == 0 && *n_ext < NUM_RESERVED_TERRAIN) {
-        return; // disabled
-        int ntiles[8] = {0};
-        ntiles[0]     = terrain_mapper_entry(tiles, x - 1, y + 0);
-        ntiles[1]     = terrain_mapper_entry(tiles, x + 1, y + 0);
-        ntiles[2]     = terrain_mapper_entry(tiles, x + 0, y - 1);
-        ntiles[3]     = terrain_mapper_entry(tiles, x + 0, y + 1);
-        ntiles[4]     = terrain_mapper_entry(tiles, x - 1, y - 1);
-        ntiles[5]     = terrain_mapper_entry(tiles, x - 1, y + 1);
-        ntiles[6]     = terrain_mapper_entry(tiles, x + 1, y - 1);
-        ntiles[7]     = terrain_mapper_entry(tiles, x + 1, y + 1);
-
-        // check if any is nonzero
-        int ntilescomb = 0;
-        for (int n = 0; n < 8; n++)
-            ntilescomb |= ntiles[n];
-        if (ntilescomb == 0) return;
-
-        int tID         = *n_ext;
-        *n_ext          = *n_ext + 1;
-        int       tposx = (tID % RESERVED_TERRAIN_X);
-        int       tposy = (tID / RESERVED_TERRAIN_X) + RESERVED_TERRAIN_POS_Y;
-        v2_i32    tpos  = {tposx << 4, tposy << 4};
-        gfx_ctx_s ctx   = gfx_ctx_default(asset_tex(TEXID_TILESET_TERRAIN));
-        texrec_s  trs   = {0};
-        trs.t           = ctx.dst;
-        trs.r.w         = 8;
-        trs.r.h         = 8;
-        for (int n = 0; n < 4; n++) {
-            if (ntiles[n] == 0) continue;
-            trs.r.x      = 416;
-            trs.r.y      = (ntiles[n] - 1) * 128;
-            v2_i32 ttpos = tpos;
-
-            switch (n) {
-            case 0:
-                trs.r.w = 8;
-                trs.r.h = 16;
-                trs.r.y += 16;
-                break;
-            case 1:
-                trs.r.w = 8;
-                trs.r.h = 16;
-                trs.r.y += 16;
-                trs.r.x += 8;
-                ttpos.x += 8;
-                break;
-            case 2:
-                trs.r.w = 16;
-                trs.r.h = 8;
-                trs.r.y += 16;
-                trs.r.x += 16;
-                break;
-            case 3:
-                ttpos.y += 8;
-                trs.r.w = 16;
-                trs.r.h = 8;
-                trs.r.y += 16 + 8;
-                trs.r.x += 16;
-                break;
-            }
-
-            gfx_spr(ctx, trs, ttpos, 0, 0);
-        }
-        rtile->tx = tposx;
-        rtile->ty = tposy;
-        return;
-    }
-#endif
+    tile_s *rtile = &g->tiles[index];
 
     flags32 march = 0;
     if (autotile_terrain_is(tiles, x, y, +0, -1)) march |= AT_N;
@@ -526,7 +501,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
     int xcoord = 0;
-    int ycoord = ((int)tile.type - 2) * 8;
+    int ycoord = ((int)tile.type - 1) * 8;
     int coords = g_autotilemarch[march];
 
     switch (tile.shape) {
@@ -556,7 +531,8 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
 
         xcoord = coords & 15;
         ycoord += coords >> 4;
-        g->tiles[index].collision = TILE_BLOCK;
+
+        rtile->collision = TILE_BLOCK;
 
         if (0 < y) {
             map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
@@ -582,7 +558,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
         xcoord        = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
         ycoord += (tile.shape - TILE_SLOPE_45);
 
-        g->tiles[index].collision = tile.shape;
+        rtile->collision = tile.shape;
     } break;
     case TILE_SLOPE_LO_0:
     case TILE_SLOPE_LO_1:
@@ -594,7 +570,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
     case TILE_SLOPE_LO_7: {
         xcoord = 17; // slope image index
         ycoord += (tile.shape - TILE_SLOPE_LO);
-        g->tiles[index].collision = tile.shape;
+        rtile->collision = tile.shape;
     } break;
     case TILE_SLOPE_HI_0:
     case TILE_SLOPE_HI_1:
@@ -606,7 +582,7 @@ static void map_autotile_terrain(game_s *g, int *n_ext, tilelayer_terrain_s tile
     case TILE_SLOPE_HI_7: {
         xcoord = 23; // slope image index
         ycoord += (tile.shape - TILE_SLOPE_HI);
-        g->tiles[index].collision = tile.shape;
+        rtile->collision = tile.shape;
     } break;
     }
 
@@ -669,6 +645,13 @@ static bool32 map_prop_bool(map_properties_s p, const char *name)
     return prop->u.b;
 }
 
+static v2_i16 map_prop_pt(map_properties_s p, const char *name)
+{
+    map_prop_s *prop = map_prop_get(p, name);
+    if (prop == NULL || prop->type != MAP_PROP_POINT) return (v2_i16){0};
+    return prop->u.p;
+}
+
 static map_properties_s map_obj_properties(map_obj_s *mo)
 {
     map_properties_s p = {0};
@@ -695,6 +678,19 @@ f32 map_obj_f32(map_obj_s *mo, const char *name)
 bool32 map_obj_bool(map_obj_s *mo, const char *name)
 {
     return map_prop_bool(map_obj_properties(mo), name);
+}
+
+v2_i16 map_obj_pt(map_obj_s *mo, const char *name)
+{
+    return map_prop_pt(map_obj_properties(mo), name);
+}
+
+void *map_obj_arr(map_obj_s *mo, const char *name, int *num)
+{
+    map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
+    if (prop == NULL || prop->type != MAP_PROP_ARRAY) return NULL;
+    *num = prop->u.n;
+    return (prop + 1);
 }
 
 void map_world_load(map_world_s *world, const char *worldfile)
