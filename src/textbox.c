@@ -5,9 +5,9 @@
 #include "textbox.h"
 #include "game.h"
 
-bool32 textbox_active(textbox_s *tb)
+bool32 textbox_finished(textbox_s *tb)
 {
-    return (tb->state != TEXTBOX_STATE_INACTIVE);
+    return (tb->state == TEXTBOX_STATE_INACTIVE);
 }
 
 static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
@@ -70,14 +70,15 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
                         default: BAD_PATH
                         }
                         break;
-                    case '>': tick_q2 = u32_from_str(c + 2); break;
+                    case '>': tick_q2 = u32_from_str(c + 1); break;
                     case '~': effect = TEXTBOX_EFFECT_WAVE; break;
                     case '*': effect = TEXTBOX_EFFECT_SHAKE; break;
                     default: BAD_PATH
                     }
 
-                    while (*c != '}')
+                    while (*c != '}') {
                         c++;
+                    }
                 } else {
                     // TEXT CHARACTER
                     textbox_char_s tbc = {0};
@@ -213,7 +214,7 @@ void textbox_update(game_s *g, textbox_s *tb)
         textbox_block_s *b = &tb->blocks[tb->block];
         assert(tb->n < b->n_chars);
 
-        tb->tick_q2 += 4;
+        tb->tick_q2 += inp_pressed(INP_A) || inp_pressed(INP_B) ? 12 : 4;
         int tick = b->chars[tb->n].tick_q2;
         while (tick <= tb->tick_q2) {
             tb->tick_q2 -= tick;
@@ -254,6 +255,9 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
     ctx.pat = gfx_pattern_interpolate(num, TEXTBOX_FADE_TICKS);
 
     gfx_rec_fill(ctx, (rec_i32){0, 150, 400, 90}, PRIM_MODE_BLACK);
+    if (tb->state == TEXTBOX_STATE_WAIT && 0 < b->n_choices) {
+        gfx_rec_fill(ctx, (rec_i32){220, 70, 200, 100}, PRIM_MODE_BLACK);
+    }
 
     v2_i32 pos = {10, 160};
     switch (b->n_lines) {
@@ -317,8 +321,6 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
         }
 
         if (b->n_choices <= 0) break;
-
-        gfx_rec_fill(ctx, (rec_i32){220, 70, 200, 100}, PRIM_MODE_BLACK);
 
         for (int n = 0; n < b->n_choices; n++) {
             textbox_choice_s *choice = &b->choices[n];

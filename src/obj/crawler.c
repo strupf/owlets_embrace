@@ -29,10 +29,11 @@ typedef struct {
     i32 bounce_angle_q12;    // in turns
 } obj_crawler_s;
 
-obj_s *crawler_create(game_s *g)
+obj_s *crawler_create(game_s *g, int ID)
 {
+    assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_CRAWLER;
+    o->ID    = ID;
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
@@ -46,9 +47,9 @@ obj_s *crawler_create(game_s *g)
     o->gravity_q8.y      = 30;
     o->drag_q8.y         = 255;
     o->drag_q8.x         = 255;
-    o->w                 = 14;
-    o->h                 = 14;
-    o->health_max        = 3;
+    o->w                 = 15;
+    o->h                 = 15;
+    o->health_max        = ID == OBJ_ID_CRAWLER ? 2 : 1;
     o->health            = o->health_max;
     o->enemy             = enemy_default();
     sprite_simple_s *spr = &o->sprites[0];
@@ -59,13 +60,13 @@ obj_s *crawler_create(game_s *g)
     return o;
 }
 
-void crawler_load(game_s *g, map_obj_s *mo)
+static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
 {
-    obj_s *o = crawler_create(g);
+    obj_s *o = crawler_create(g, ID);
 
     // difference between tilesize and object dimension
-    for (int y = 0; y <= 2; y += 2) {
-        for (int x = 0; x <= 2; x += 2) {
+    for (int y = 0; y <= 1; y++) {
+        for (int x = 0; x <= 1; x++) {
             o->pos.x = mo->x + x - mo->w / 2;
             o->pos.y = mo->y + y - mo->h;
             if (crawler_find_crawl_direction(g, o, 0)) {
@@ -73,6 +74,16 @@ void crawler_load(game_s *g, map_obj_s *mo)
             }
         }
     }
+}
+
+void crawler_load(game_s *g, map_obj_s *mo)
+{
+    crawler_load_i(g, mo, OBJ_ID_CRAWLER);
+}
+
+void crawler_caterpillar_load(game_s *g, map_obj_s *mo)
+{
+    crawler_load_i(g, mo, OBJ_ID_CRAWLER_CATERPILLAR);
 }
 
 static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
@@ -122,10 +133,10 @@ static void crawler_do_normal(game_s *g, obj_s *o)
     case OBJ_ID_CRAWLER:
         if (o->timer & 1) domove = 0;
         break;
-    case OBJ_ID_CRAWLER_SNAIL:
+    case OBJ_ID_CRAWLER_CATERPILLAR:
         if (o->timer & 3) domove = 0;
         break;
-    default: BAD_PATH
+    default: break;
     }
 
     // returns a direction if still sticking to a wall
@@ -135,34 +146,37 @@ static void crawler_do_normal(game_s *g, obj_s *o)
     if (dir_to_crawl) { // glued to wall
         o->state = CRAWLER_STATE_CRAWLING;
         o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
-        obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
-        u32    distsq = U32_MAX;
-        if (ohero) {
-            distsq = v2_distancesq(obj_pos_center(o), obj_pos_center(ohero));
-        }
 
-        switch (o->substate) {
-        case CRAWLER_SUBSTATE_NORMAL: {
-            if (distsq <= CRAWLER_DISTSQ_CURL) {
-                o->substate = CRAWLER_SUBSTATE_CURLED;
-                o->subtimer = 0;
+        if (o->ID == OBJ_ID_CRAWLER) {
+            obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
+            u32    distsq = U32_MAX;
+            if (ohero) {
+                distsq = v2_distancesq(obj_pos_center(o), obj_pos_center(ohero));
             }
-        } break;
-        case CRAWLER_SUBSTATE_CURLED: {
-            if (CRAWLER_DISTSQ_UNCURL < distsq) {
-                o->substate = CRAWLER_SUBSTATE_NORMAL;
-                o->subtimer = 0;
+
+            switch (o->substate) {
+            case CRAWLER_SUBSTATE_NORMAL: {
+                if (distsq <= CRAWLER_DISTSQ_CURL) {
+                    o->substate = CRAWLER_SUBSTATE_CURLED;
+                    o->subtimer = 0;
+                }
+            } break;
+            case CRAWLER_SUBSTATE_CURLED: {
+                if (CRAWLER_DISTSQ_UNCURL < distsq) {
+                    o->substate = CRAWLER_SUBSTATE_NORMAL;
+                    o->subtimer = 0;
+                }
+            } break;
             }
-        } break;
-        }
 
-        bool32 can_be_hurt      = !((o->substate == CRAWLER_SUBSTATE_CURLED &&
-                                CRAWLER_TICKS_TO_CURL <= o->subtimer));
-        o->enemy.cannot_be_hurt = !can_be_hurt;
+            bool32 can_be_hurt      = !((o->substate == CRAWLER_SUBSTATE_CURLED &&
+                                    CRAWLER_TICKS_TO_CURL <= o->subtimer));
+            o->enemy.cannot_be_hurt = !can_be_hurt;
 
-        // if curled: don't move
-        if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
-            domove = 0;
+            // if curled: don't move
+            if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
+                domove = 0;
+            }
         }
 
         if (domove && dir_to_crawl) {
@@ -302,8 +316,13 @@ void crawler_on_animate(game_s *g, obj_s *o)
         imgy = (crawler->bounce_angle_q12 >> 9) & 7;
     }
 
-    spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
-    if (o->substate == CRAWLER_SUBSTATE_CURLED) {
+    if (o->ID == OBJ_ID_CRAWLER_CATERPILLAR) {
+        spr->trec.r.x = 64 * ((o->subtimer / 18) & 3) + 256;
+    } else {
+        spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
+    }
+
+    if (o->ID == OBJ_ID_CRAWLER && o->substate == CRAWLER_SUBSTATE_CURLED) {
         if (o->subtimer < CRAWLER_TICKS_TO_CURL) {
             spr->trec.r.x = 2 * 64;
         } else {

@@ -6,7 +6,7 @@
 #define GAMEDEF_H
 
 #define GAME_JUMP_ATTACK   0
-#define GAME_HERO_CANT_DIE 1
+#define GAME_HERO_CANT_DIE 0
 
 #include "core/assets.h"
 #include "core/aud.h"
@@ -38,9 +38,7 @@ typedef struct obj_s  obj_s;
 #define FADETICKS_MM_GAME_BLACK 20
 #define FADETICKS_GAME_IN       40
 #define FADETICKS_AREALABEL     150
-
-#define RENDER_PRIO_HERO 0x100
-#define TILE_WATER_MASK  0x80
+#define RENDER_PRIO_HERO        0x100
 
 enum {
     DIRECTION_NONE,
@@ -84,6 +82,23 @@ enum {
 };
 
 enum {
+    TILE_TYPE_NONE,
+    TILE_TYPE_FAKE_1,
+    TILE_TYPE_FAKE_2,
+    //
+    TILE_TYPE_BRICK       = 3,
+    TILE_TYPE_BRICK_SMALL = 4,
+    TILE_TYPE_DIRT        = 5,
+    TILE_TYPE_STONE       = 6,
+    TILE_TYPE_1           = 7,
+    TILE_TYPE_2           = 8,
+    TILE_TYPE_3           = 9,
+    TILE_TYPE_DIRT_DARK   = 10,
+    //
+    NUM_TILE_TYPES
+};
+
+enum {
     TILE_EMPTY,
     TILE_BLOCK,
     //
@@ -117,6 +132,7 @@ enum {
     NUM_TILE_BLOCKS,
     //
     TILE_LADDER = NUM_TILE_BLOCKS,
+    TILE_LADDER_ONE_WAY,
     TILE_ONE_WAY,
     TILE_SPIKES,
 };

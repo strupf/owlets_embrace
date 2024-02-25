@@ -7,23 +7,22 @@
 #include "render/render.h"
 #include "util/str.h"
 
-// set tiles automatically - www.cr31.co.uk/stagecast/wang/blob.html
-
 enum {
     AUTOTILE_TYPE_NONE,
-    AUTOTILE_TYPE_FAKE,
-    AUTOTILE_TYPE_BRICK,
-    AUTOTILE_TYPE_BRICK_SMALL,
-    AUTOTILE_TYPE_DIRT,
-    AUTOTILE_TYPE_STONE,
+    AUTOTILE_TYPE_FAKE_1,
+    AUTOTILE_TYPE_FAKE_2,
+    //
+    AUTOTILE_TYPE_BRICK       = 3,
+    AUTOTILE_TYPE_BRICK_SMALL = 4,
+    AUTOTILE_TYPE_DIRT        = 5,
+    AUTOTILE_TYPE_STONE       = 6,
+    AUTOTILE_TYPE_1           = 7,
+    AUTOTILE_TYPE_2           = 8,
+    AUTOTILE_TYPE_3           = 9,
+    AUTOTILE_TYPE_DIRT_DARK   = 10,
     //
     NUM_AUTOTILE_TYPES
 };
-
-typedef struct {
-    u8 type;
-    u8 shape;
-} map_terraintile_s;
 
 typedef struct {
     int w;
@@ -43,6 +42,11 @@ typedef struct {
     int w;
     int h;
 } tilelayer_bg_s;
+
+typedef struct {
+    u8 type;
+    u8 shape;
+} map_terraintile_s;
 
 typedef struct {
     map_terraintile_s *tiles;
@@ -82,11 +86,6 @@ typedef struct {
 typedef struct {
     char c[64];
 } map_string_s;
-
-#define RESERVED_TERRAIN_POS_Y 224 // in tiles
-#define RESERVED_TERRAIN_X     32
-#define RESERVED_TERRAIN_Y     32
-#define NUM_RESERVED_TERRAIN   (RESERVED_TERRAIN_X * RESERVED_TERRAIN_Y)
 
 enum {
     TILE_FLIP_DIA = 1 << 0,
@@ -128,8 +127,12 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         npc_load(g, o);
     } else if (str_eq_nc(o->name, "Crawler")) {
         crawler_load(g, o);
+    } else if (str_eq_nc(o->name, "Caterpillar")) {
+        crawler_caterpillar_load(g, o);
     } else if (str_eq_nc(o->name, "Charger")) {
         charger_load(g, o);
+    } else if (str_eq_nc(o->name, "Pushable_Box")) {
+        pushablebox_load(g, o);
     } else if (str_eq_nc(o->name, "Sign")) {
         sign_load(g, o);
     } else if (str_eq_nc(o->name, "Shroomy")) {
@@ -140,6 +143,8 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         movingplatform_load(g, o);
     } else if (str_eq_nc(o->name, "Door_Swing")) {
         swingdoor_load(g, o);
+    } else if (str_contains(o->name, "Spikes_")) {
+        spikes_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
         crumbleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Carrier")) {
@@ -154,21 +159,28 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         flyer_load(g, o);
     } else if (str_eq_nc(o->name, "Clockpulse")) {
         clockpulse_load(g, o);
+    } else if (str_eq_nc(o->name, "Trigger_Area")) {
+        triggerarea_load(g, o);
     } else if (str_eq_nc(o->name, "Ocean")) {
         g->ocean.active = 1;
         g->ocean.y      = o->y + 16;
-    } else if (str_eq_nc(o->name, "Hero_Spawn")) {
-        g->herodata.hero_spawn_x = o->x;
-        g->herodata.hero_spawn_y = o->y;
+    } else if (str_eq_nc(o->name, "Respawn")) {
+        assert(g->n_respawns < NUM_RESPAWNS);
+        respawn_pos_s rp             = {0};
+        rp.r.x                       = o->x;
+        rp.r.y                       = o->y;
+        rp.r.w                       = o->w;
+        rp.r.h                       = o->h;
+        g->respawns[g->n_respawns++] = rp;
     } else if (str_eq_nc(o->name, "Cam")) {
         cam_s *cam    = &g->cam;
         cam->locked_x = map_obj_bool(o, "Locked_X");
         cam->locked_y = map_obj_bool(o, "Locked_Y");
         if (cam->locked_x) {
-            cam->pos.x = o->x + SYS_DISPLAY_W / 2;
+            cam->pos.x = (f32)(o->x + SYS_DISPLAY_W / 2);
         }
         if (cam->locked_y) {
-            cam->pos.y = o->y + SYS_DISPLAY_H / 2;
+            cam->pos.y = (f32)(o->y + SYS_DISPLAY_H / 2);
         }
     } else if (str_eq_nc(o->name, "Water")) {
         int x1 = (o->x) >> 4;
@@ -208,14 +220,11 @@ void game_load_map(game_s *g, const char *mapfile)
     g->particles.n          = 0;
     g->ocean.active         = 0;
     g->env_effects          = 0;
-    g->env_rain.n_drops     = 0;
-    g->env_rain.n_splashes  = 0;
-    g->n_collectibles       = 0;
+    g->n_coinparticles      = 0;
     g->n_enemy_decals       = 0;
     g->cam.locked_x         = 0;
     g->cam.locked_y         = 0;
-    g->logic_flags          = 0;
-
+    g->n_respawns           = 0;
     marena_init(&g->arena, g->mem, sizeof(g->mem));
     memset(g->tiles, 0, sizeof(g->tiles));
     memset(g->rtiles, 0, sizeof(g->rtiles));
@@ -249,26 +258,15 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_read(mapf, mp.p, header.bytes_prop);
     map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
-    if (map_prop_bool(mp, "Effect_Wind")) {
-        g->env_effects |= ENVEFFECT_WIND;
-    }
-    if (map_prop_bool(mp, "Effect_Heat")) {
-        g->env_effects |= ENVEFFECT_HEAT;
-    }
-    if (map_prop_bool(mp, "Effect_Clouds")) {
-        g->env_effects |= ENVEFFECT_CLOUD;
-        enveffect_cloud_setup(&g->env_cloud);
-    }
-    if (map_prop_bool(mp, "Effect_Rain")) {
-        g->env_effects |= ENVEFFECT_RAIN;
-        enveffect_rain_setup(&g->env_rain);
-    }
-    g->areaID        = map_prop_i32(mp, "AreaID");
+
+    area_setup(g, &g->area, map_prop_i32(mp, "Area_ID"));
+
     char musname[64] = {0};
     map_prop_strs(mp, "Music", musname);
     char muspath[128] = {0};
-    str_append(muspath, "assets/mus/");
+    str_append(muspath, FILEPATH_MUS);
     str_append(muspath, musname);
+    str_append(muspath, ".aud");
     mus_fade_to(muspath, 50, 50);
 
     spm_pop();
@@ -292,15 +290,14 @@ void game_load_map(game_s *g, const char *mapfile)
                 g->rtiles[TILELAYER_PROP_BG][k].tx = 0;
                 g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
             } break;
-            case TILE_ONE_WAY: {
-                g->tiles[k].collision = TILE_ONE_WAY;
-                int    tilex          = 480 / 16;
-                bool32 oneway_l       = (0 < x + 0 && layer_terrain.tiles[k - 1].shape == TILE_ONE_WAY);
-                bool32 oneway_r       = (x + 1 < w && layer_terrain.tiles[k + 1].shape == TILE_ONE_WAY);
-                if (oneway_l && !oneway_r) tilex++;
-                if (oneway_r && !oneway_l) tilex--;
-                g->tiles[k].tx                     = tilex;
+            case TILE_LADDER_ONE_WAY: {
+                g->tiles[k].collision              = TILE_LADDER_ONE_WAY;
                 g->rtiles[TILELAYER_PROP_BG][k].tx = 1;
+                g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
+            } break;
+            case TILE_ONE_WAY: {
+                g->tiles[k].collision              = TILE_ONE_WAY;
+                g->rtiles[TILELAYER_PROP_BG][k].tx = 2;
                 g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
             } break;
             default:
@@ -384,17 +381,12 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_close(mapf);
 }
 
-static bool32 _at_types_blending(int a, int b)
-{
-    switch (a) {
-    case 7: return 0;
-    }
-    return 1;
-}
-
 static bool32 at_types_blending(int a, int b)
 {
-    return (_at_types_blending(a, b) | _at_types_blending(b, a));
+    if (a == b) return 1;
+    if (b == AUTOTILE_TYPE_FAKE_1) return 0;
+    if (a == AUTOTILE_TYPE_DIRT_DARK || b == AUTOTILE_TYPE_DIRT_DARK) return 0;
+    return 1;
 }
 
 static int autotile_bg_is(tilelayer_bg_s tiles, int x, int y, int sx, int sy)
@@ -411,17 +403,24 @@ static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, 
     int v = y + sy;
     if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
 
-    map_terraintile_s a     = tiles.tiles[x + y * tiles.w];
-    map_terraintile_s b     = tiles.tiles[u + v * tiles.w];
-    bool32            blend = at_types_blending(a.type, b.type);
-    if (!blend) return 0;
+    map_terraintile_s a = tiles.tiles[x + y * tiles.w];
+    map_terraintile_s b = tiles.tiles[u + v * tiles.w];
+    if (!at_types_blending(a.type, b.type)) return 0;
 
     switch (b.shape) {
     case TILE_BLOCK: return 1;
-    case TILE_SLOPE_45_0: return (sy == -1 || sx == -1);
-    case TILE_SLOPE_45_1: return (sy == +1 || sx == -1);
-    case TILE_SLOPE_45_2: return (sy == -1 || sx == +1);
-    case TILE_SLOPE_45_3: return (sy == +1 || sx == +1);
+    case TILE_SLOPE_45_0: return ((sx == -1 && sy == +0) ||
+                                  (sx == +0 && sy == -1) ||
+                                  (sx == -1 && sy == -1));
+    case TILE_SLOPE_45_1: return ((sx == -1 && sy == +0) ||
+                                  (sx == +0 && sy == +1) ||
+                                  (sx == -1 && sy == +1));
+    case TILE_SLOPE_45_2: return ((sx == +1 && sy == +0) ||
+                                  (sx == +0 && sy == -1) ||
+                                  (sx == +1 && sy == -1));
+    case TILE_SLOPE_45_3: return ((sx == +1 && sy == +0) ||
+                                  (sx == +0 && sy == +1) ||
+                                  (sx == +1 && sy == +1));
     case TILE_SLOPE_LO_0: return (sy == -1 && sx <= 0);
     case TILE_SLOPE_LO_2: return (sy == -1 && sx >= 0);
     case TILE_SLOPE_LO_1: return (sy == +1 && sx <= 0);
@@ -483,12 +482,13 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 {
     int               index = x + y * tiles.w;
     map_terraintile_s tile  = tiles.tiles[index];
-    if (tile.type == 1) {
-        g->tiles[index].collision = tile.shape;
+    tile_s           *rtile = &g->tiles[index];
+    if (tile.type == 0) return;
+    if (tile.type == 1 || tile.type == 2) {
+        rtile->collision = tile.shape;
         return;
     }
-
-    tile_s *rtile = &g->tiles[index];
+    rtile->type = tile.type;
 
     flags32 march = 0;
     if (autotile_terrain_is(tiles, x, y, +0, -1)) march |= AT_N;
@@ -501,7 +501,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
     int xcoord = 0;
-    int ycoord = ((int)tile.type - 1) * 8;
+    int ycoord = ((int)tile.type - 2) * 8;
     int coords = g_autotilemarch[march];
 
     switch (tile.shape) {
@@ -536,7 +536,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 
         if (0 < y) {
             map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
-            if ((tile.type == 3 || tile.type == 4) && above.type == 0) {
+            if ((tile.type == AUTOTILE_TYPE_DIRT) && above.type == 0) {
                 game_put_grass(g, x, y - 1);
             }
         }

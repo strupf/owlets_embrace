@@ -7,7 +7,7 @@
 
 void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
 {
-    if (pr->n == BG_NUM_PARTICLES) return;
+    if (pr->n == PARTICLE_NUM) return;
     for (int i = 0; i < n; i++) {
         v2_i32 pos = desc.p.p_q8;
         pos.x += rngr_sym_i32(desc.pr_q8.x);
@@ -23,7 +23,7 @@ void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
             p->size += rngr_i32(0, desc.sizer);
             p->ticks_max += rngr_i32(0, desc.ticksr);
             p->ticks = p->ticks_max;
-            if (pr->n == BG_NUM_PARTICLES) return;
+            if (pr->n == PARTICLE_NUM) return;
         }
     }
 }

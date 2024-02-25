@@ -29,9 +29,7 @@ PlaydateAPI *PD;
 int (*PD_format_str)(char **ret, const char *format, ...);
 void *(*PD_realloc)(void *ptr, size_t size);
 static LCDBitmap *PD_menu_bm;
-#ifndef SYS_PD_HW
 void (*PD_log)(const char *fmt, ...);
-#endif
 
 static void (*PD_getButtonState)(PDButtons *a, PDButtons *b, PDButtons *c);
 static void (*PD_markUpdatedRows)(int a, int b);
@@ -46,10 +44,8 @@ __declspec(dllexport)
 {
     switch (event) {
     case kEventInit:
-        PD = pd;
-#ifndef SYS_PD_HW
-        PD_log = PD->system->logToConsole;
-#endif
+        PD                 = pd;
+        PD_log             = PD->system->logToConsole;
         PD_format_str      = PD->system->formatString;
         PD_realloc         = PD->system->realloc;
         PD_getButtonState  = PD->system->getButtonState;

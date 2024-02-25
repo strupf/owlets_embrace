@@ -18,7 +18,7 @@ static const u32 sys_consolefont[512];
 #endif
 #if SYS_SHOW_CONSOLE
 #define SYS_CONSOLE_LINE_CHARS 50
-#define SYS_CONSOLE_LINES      30
+#define SYS_CONSOLE_LINES      40
 #define SYS_CONSOLE_TICKS      (SYS_UPS * 6)
 
 static void sys_draw_console();
@@ -102,7 +102,7 @@ int sys_step(void *arg)
         n_upd++;
 #if defined(SYS_SDL) && defined(SYS_DEBUG)
         static int slowtick;
-        if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 7))
+        if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 31))
             continue;
 #endif
         sys_tick_();
@@ -325,7 +325,7 @@ static void sys_draw_console()
     SYS.console_ticks--;
 
     u8 *fb = (u8 *)backend_framebuffer();
-    for (int y = 20; y < SYS_CONSOLE_LINES; y++) {
+    for (int y = 10; y < SYS_CONSOLE_LINES; y++) {
         int yy = SYS_CONSOLE_LINES - y - 1;
         for (int x = 0; x < SYS_CONSOLE_LINE_CHARS; x++) {
             int k = x + yy * SYS_CONSOLE_LINE_CHARS;

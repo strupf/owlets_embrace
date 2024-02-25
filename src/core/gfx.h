@@ -17,16 +17,19 @@ enum {
 
 typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
-    int  wword;
-    int  fmt;
-    int  w;
-    int  h;
+    u16  wword;
+    u16  fmt;
+    u16  w;
+    u16  h;
 } tex_s;
 
 typedef struct {
     tex_s   t;
     rec_i32 r;
 } texrec_s;
+
+#define GFX_PATTERN_NUM 17
+#define GFX_PATTERN_MAX (GFX_PATTERN_NUM - 1)
 
 typedef struct {
     u32 p[8];
@@ -44,8 +47,8 @@ typedef struct {
 typedef struct {
     tex_s t;
     u8   *widths;
-    int   grid_w;
-    int   grid_h;
+    u16   grid_w;
+    u16   grid_h;
 } fnt_s;
 
 typedef struct {
@@ -115,6 +118,12 @@ void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mod
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                              f32 sclx, f32 scly);
+
+// tiles spr across screen with tile dimensions tx/ty (pass 0 if not tiled)
+void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, int tx, int ty);
+
+// tiles spr across screen (true/false for x/y)
+void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, bool32 x, bool32 y);
 //
 #define gfx_rec_fill_display(C, R, M) gfx_rec_fill(C, R, M)
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
@@ -126,6 +135,7 @@ void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
 void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
 void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode);
+void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, int y1, int y2);
 //
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
 int  fnt_length_px(fnt_s fnt, const char *txt);

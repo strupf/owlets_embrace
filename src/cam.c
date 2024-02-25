@@ -52,9 +52,6 @@ rec_i32 cam_rec_px(game_s *g, cam_s *c)
 {
     v2_i32  p = cam_pos_px(g, c);
     rec_i32 r = {p.x - CAM_WH, p.y - CAM_HH, CAM_W, CAM_H};
-
-    r.x &= ~1; // avoid dither flickering -> snap camera pos
-    r.y &= ~1;
     return r;
 }
 
@@ -117,13 +114,13 @@ void cam_update(game_s *g, cam_s *c)
             v2_i32 rpos = g->herodata.rope.tail->p;
             c->hookticks += 2;
             c->hookticks = min_i(c->hookticks, 30);
-            c->hookpos   = (v2f){rpos.x, rpos.y};
+            c->hookpos   = (v2f){(f32)rpos.x, (f32)rpos.y};
         }
     }
 
     static int lookdowntick = 0;
 
-    if (g->textbox.state || shop_active(g)) {
+    if (g->substate.state == SUBSTATE_TEXTBOX || shop_active(g)) {
         c->addyticks  = min_i(c->addyticks + 1, CAM_TICKS_TB);
         c->addyoffset = 60;
     } else if (c->look_down) {

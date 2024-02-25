@@ -26,7 +26,7 @@ obj_s *heroupgrade_create(game_s *g)
 
 void heroupgrade_load(game_s *g, map_obj_s *mo)
 {
-    int upgrade = map_obj_i32(mo, "UpgradeID");
+    int upgrade = map_obj_i32(mo, "Upgrade");
     if (g->herodata.upgrades[upgrade]) return;
 
     obj_s *o = heroupgrade_create(g);
@@ -38,7 +38,12 @@ void heroupgrade_load(game_s *g, map_obj_s *mo)
 void heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h)
 {
     h->upgrades[o->state] = 1;
-    upgradehandler_start_animation(&g->heroupgrade, o->state);
+
+    sys_printf("also long hook\n");
+    if (o->state == HERO_UPGRADE_HOOK) {
+        h->upgrades[HERO_UPGRADE_LONG_HOOK] = 1;
+    }
+    substate_upgrade_collected(g, &g->substate, o->state);
 }
 
 void heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam)

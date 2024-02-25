@@ -19,7 +19,9 @@ static void crumbleblock_set_block(game_s *g, obj_s *o, int b)
     int ty = o->pos.y >> 4;
     int n  = o->w >> 4;
     for (int i = 0; i < n; i++) {
-        g->tiles[tx + i + ty * g->tiles_x].collision = b;
+        tile_s *t    = &g->tiles[tx + i + ty * g->tiles_x];
+        t->collision = b;
+        t->type      = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
     }
 
     if (b == TILE_BLOCK) {

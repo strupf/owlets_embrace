@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-#define NUM_PARTICLES 256
+#define PARTICLE_NUM 256
 
 enum {
     PARTICLE_GFX_REC,
@@ -38,7 +38,7 @@ typedef struct {
 
 typedef struct {
     int        n;
-    particle_s particles[NUM_PARTICLES];
+    particle_s particles[PARTICLE_NUM];
 } particles_s;
 
 void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n);

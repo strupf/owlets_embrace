@@ -25,7 +25,7 @@ enum {
     OBJ_ID_CLOCKPULSE,
     OBJ_ID_SHROOMY,
     OBJ_ID_CRAWLER,
-    OBJ_ID_CRAWLER_SNAIL,
+    OBJ_ID_CRAWLER_CATERPILLAR,
     OBJ_ID_CARRIER,
     OBJ_ID_HEROUPGRADE,
     OBJ_ID_MOVINGPLATFORM,
@@ -38,6 +38,10 @@ enum {
     OBJ_ID_WALKER,
     OBJ_ID_FLYER,
     OBJ_ID_LOGICFLAGGER,
+    OBJ_ID_TRIGGERAREA,
+    OBJ_ID_PUSHABLEBOX,
+    OBJ_ID_SPIKES,
+    OBJ_ID_KEY,
 };
 
 enum {
@@ -61,23 +65,24 @@ enum {
 #define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
 #define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
 #define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
-
-#define OBJ_FLAG_CLAMP_ROOM_X ((u64)1 << 15)
-#define OBJ_FLAG_CLAMP_ROOM_Y ((u64)1 << 16)
-#define OBJ_FLAG_RENDER_AABB  ((u64)1 << 63)
+#define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
+#define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
+#define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 #define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
 
 enum {
-    OBJ_BUMPED_X_NEG   = 1 << 0,
-    OBJ_BUMPED_X_POS   = 1 << 1,
-    OBJ_BUMPED_Y_NEG   = 1 << 2,
-    OBJ_BUMPED_Y_POS   = 1 << 3,
-    OBJ_BUMPED_SQUISH  = 1 << 4,
-    OBJ_BUMPED_ON_HEAD = 1 << 5,
-    OBJ_BUMPED_X       = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
-    OBJ_BUMPED_Y       = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
+    OBJ_BUMPED_X_NEG    = 1 << 0,
+    OBJ_BUMPED_X_POS    = 1 << 1,
+    OBJ_BUMPED_Y_NEG    = 1 << 2,
+    OBJ_BUMPED_Y_POS    = 1 << 3,
+    OBJ_BUMPED_SQUISH   = 1 << 4,
+    OBJ_BUMPED_ON_HEAD  = 1 << 5,
+    OBJ_BUMPED_X_BOUNDS = 1 << 6,
+    OBJ_BUMPED_Y_BOUNDS = 1 << 7,
+    OBJ_BUMPED_X        = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
+    OBJ_BUMPED_Y        = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
 };
 
 enum {
@@ -86,7 +91,6 @@ enum {
     OBJ_MOVER_GLUE_GROUND    = 1 << 2,
     OBJ_MOVER_AVOID_HEADBUMP = 1 << 3,
     OBJ_MOVER_ONE_WAY_PLAT   = 1 << 4,
-    OBJ_MOVER_CAN_JUMP_ON    = 1 << 5,
 };
 
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
@@ -159,13 +163,10 @@ struct obj_s {
     int             health;
     int             health_max;
     int             invincible_tick;
-    int             frametick;
-    int             frame;
     enemy_s         enemy;
     //
     ropenode_s     *ropenode;
     rope_s         *rope;
-    int             attached;
     obj_handle_s    linked_solid;
     obj_handle_s    obj_handles[4];
     //

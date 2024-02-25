@@ -9,7 +9,7 @@
 #include "savefile.h"
 #include "sys/sys_types.h"
 
-#define MAINMENU_SKIP_TO_GAME 0
+#define MAINMENU_SKIP_TO_GAME 1
 
 enum {
     MAINMENU_FADE_NONE,

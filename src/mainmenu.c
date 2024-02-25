@@ -30,16 +30,13 @@ void mainmenu_init(mainmenu_s *t)
 #if 1
     // write some files to debug copy and delete
     savefile_s *sf = &t->savefiles[0].sf;
-#if 0
-    sf->upgrades[HERO_UPGRADE_HOOK]      = 1;
-    sf->upgrades[HERO_UPGRADE_WHIP]      = 1;
-    sf->upgrades[HERO_UPGRADE_HIGH_JUMP] = 1;
-    sf->upgrades[HERO_UPGRADE_LONG_HOOK] = 1;
+
+    // sf->upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
+    // sf->upgrades[HERO_UPGRADE_HOOK]     = 1;
     sf->upgrades[HERO_UPGRADE_WALLJUMP]  = 1;
-#endif
     sf->upgrades[HERO_UPGRADE_LONG_HOOK] = 1;
     sf->upgrades[HERO_UPGRADE_WHIP]      = 1;
-    sf->health                           = 5;
+    sf->health                           = 3;
     str_cpys(t->savefiles[0].sf.hero_name, sizeof(t->savefiles[0].sf.hero_name), "Link");
     str_cpys(t->savefiles[1].sf.hero_name, sizeof(t->savefiles[1].sf.hero_name), "Mario");
     str_cpys(t->savefiles[2].sf.hero_name, sizeof(t->savefiles[2].sf.hero_name), "Samus");
@@ -74,7 +71,7 @@ void mainmenu_update(game_s *g, mainmenu_s *t)
         if (t->fade_to_game < (FADETICKS_MM_GAME + FADETICKS_MM_GAME_BLACK)) return;
         t->fade_to_game = 0;
         mainmenu_op_start_file(g, t, t->option);
-        g->mainmenu_fade_in = FADETICKS_GAME_IN;
+        g->substate.state = SUBSTATE_MAINMENU_FADE_IN;
         return;
     }
 

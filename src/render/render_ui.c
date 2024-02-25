@@ -23,9 +23,10 @@ void render_ui(game_s *g, v2_i32 camoff)
     if (g->areaname.fadeticks) {
         gfx_ctx_s ctx_af = ctx_ui;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
-        int       p1     = (FADETICKS_AREALABEL * 1) / 8;
-        int       p2     = (FADETICKS_AREALABEL * 6) / 8;
-        int       ft     = g->areaname.fadeticks;
+
+        int p1 = (FADETICKS_AREALABEL * 1) / 8;
+        int p2 = (FADETICKS_AREALABEL * 6) / 8;
+        int ft = g->areaname.fadeticks;
         if (ft <= p1) {
             ctx_af.pat = gfx_pattern_interpolate(ft, p1);
         } else if (p2 <= ft) {
@@ -46,10 +47,6 @@ void render_ui(game_s *g, v2_i32 camoff)
         int      btn_frame = (sys_tick() >> 5) & 1;
         texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
         gfx_spr(ctx_ui, tui, posi, 0, 0);
-    }
-
-    if (textbox_active(&g->textbox)) {
-        textbox_draw(&g->textbox, camoff);
     }
 
     if (shop_active(g)) {
@@ -76,18 +73,6 @@ void render_ui(game_s *g, v2_i32 camoff)
             v2_i32 barpos = {i * 6, 0};
             gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
         }
-    }
-
-    if (g->die_ticks) {
-        gfx_ctx_s ctx_black = gfx_ctx_display();
-        ctx_black.pat       = gfx_pattern_interpolate(g->die_ticks, 50);
-        gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
-    }
-
-    if (g->respawn_ticks) {
-        gfx_ctx_s ctx_black = gfx_ctx_display();
-        ctx_black.pat       = gfx_pattern_interpolate(50 - g->respawn_ticks, 50);
-        gfx_rec_fill(ctx_black, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
     }
 }
 

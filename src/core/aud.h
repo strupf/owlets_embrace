@@ -9,23 +9,23 @@
 
 #define AUD_CLAMP        1
 #define MUSCHUNK_MEM     0x1000 // 4 KB
-#define MUSCHUNK_SAMPLES (MUSCHUNK_MEM / sizeof(i16))
+#define MUSCHUNK_SAMPLES (MUSCHUNK_MEM / sizeof(i8))
 #define MUS_LEN_FILENAME 64
 #define NUM_SNDCHANNEL   8
 
 typedef struct {
-    i16 *buf;
-    int  len;
+    i8 *buf;
+    u32 len;
 } snd_s;
 
 typedef struct {
-    i16 *wavedata;
-    int  wavelen;
-    int  wavelen_og;
-    int  wavepos;
-    int  wavepos_inv_q8;
-    int  vol_q8;
-    int  invpitch_q8; // 1 / pitch
+    i8 *wavedata;
+    int wavelen;
+    int wavelen_og;
+    int wavepos;
+    int wavepos_inv_q8;
+    int vol_q8;
+    int invpitch_q8; // 1 / pitch
 } sndchannel_s;
 
 typedef struct {
@@ -45,7 +45,7 @@ typedef struct {
     int    fade_in_ticks;
     int    fade_in_ticks_og;
     //
-    alignas(8) i16 chunk[MUSCHUNK_SAMPLES];
+    alignas(8) i8 chunk[MUSCHUNK_SAMPLES];
 } muschannel_s;
 
 typedef struct {

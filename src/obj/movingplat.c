@@ -66,16 +66,9 @@ void movingplatform_load(game_s *g, map_obj_s *mo)
     v2_i16 *pts_cir = (v2_i16 *)map_obj_arr(mo, "Path_Circular", &num_cir);
     v2_i16 *pts     = NULL;
     int     num     = 0;
-    char    mode[16];
-    map_obj_strs(mo, "Moving_Platform_Stop", mode);
-    if (0) {
-    } else if (str_eq_nc(mode, "Continuous")) {
-        o->substate = MOVPL_CONTINUOUS;
-    } else if (str_eq_nc(mode, "Stop_End")) {
-        o->substate = MOVPL_STOP_AT_END;
-    } else if (str_eq_nc(mode, "Stop_Each")) {
-        o->substate = MOVPL_STOP_AT_EACH;
-    }
+
+    o->substate = map_obj_i32(mo, "Moving_Platform_Stop");
+
     if (pts_lin && num_lin) {
         pts      = pts_lin;
         num      = num_lin;

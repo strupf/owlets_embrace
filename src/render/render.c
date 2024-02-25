@@ -7,39 +7,38 @@
 
 static inline gfx_pattern_s water_pattern()
 {
-    return gfx_pattern_4x4(B4(1111),
+    return gfx_pattern_4x4(B4(0101),
                            B4(1010),
-                           B4(1111),
+                           B4(0101),
                            B4(1010));
 }
 
 static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam);
-
-int cmp_obj_render_priority(const void *a, const void *b)
-{
-    const obj_s *x = *(const obj_s **)a;
-    const obj_s *y = *(const obj_s **)b;
-    if (x->render_priority < y->render_priority) return -1;
-    if (x->render_priority > y->render_priority) return +1;
-    return 0;
-}
+static int  cmp_obj_render_priority(const void *a, const void *b);
 
 void game_draw(game_s *g)
 {
-    const rec_i32   camrec    = cam_rec_px(g, &g->cam);
-    const v2_i32    camoffset = {-camrec.x, -camrec.y};
-    const gfx_ctx_s ctx       = gfx_ctx_display();
+    rec_i32 camrec_raw    = cam_rec_px(g, &g->cam);
+    v2_i32  camoffset_raw = {-camrec_raw.x, -camrec_raw.y};
+    rec_i32 camrec        = camrec_raw;
+    camrec.x &= ~1;
+    camrec.y &= ~1;
 
-    ocean_s *ocean = &g->ocean;
-
+    v2_i32      camoffset  = {-camrec.x, -camrec.y};
+    tex_s       texdisplay = asset_tex(0);
+    gfx_ctx_s   ctx        = gfx_ctx_default(texdisplay);
+    ocean_s    *ocean      = &g->ocean;
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
-    render_bg(g, camrec, tilebounds);
+    ocean_calc_spans(g, camrec);
+    area_draw_bg(g, &g->area, camoffset_raw, camoffset);
+    render_water_background(g, camoffset, tilebounds);
     render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
 
     if (g->objrender_dirty) {
         g->objrender_dirty = 0;
-        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s *), cmp_obj_render_priority);
+        sort_array(g->obj_render, g->n_objrender, sizeof(obj_s *),
+                   cmp_obj_render_priority);
     }
 
     int n_obj_render = 0;
@@ -49,16 +48,13 @@ void game_draw(game_s *g)
         obj_draw(ctx, g, o, camoffset);
     }
 
-    // texrec_s tr_charge = asset_texrec(TEXID_MISCOBJ, 336, 16, 80, 64);
-    // gfx_spr(ctx, tr_charge, v2_add(camoffset, (v2_i32){180, 96 + 32}), 0, 0);
-
     obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     rope_s *rope  = ohero ? ohero->rope : NULL;
     if (rope) {
         v2_i32 ropepts[64];
         int    n_ropepts = 0;
 
-        if (rope->len_max_q4 <= rope_length_q4(g, rope)) {
+        if (rope->len_max_q4 <= rope_length_q4(g, rope) && 0) {
             for (ropenode_s *a = rope->head; a; a = a->next) {
                 ropepts[n_ropepts++] = v2_add(a->p, camoffset);
             }
@@ -117,7 +113,7 @@ void game_draw(game_s *g)
         }
     }
 
-    collectibles_draw(g, camoffset);
+    coinparticle_draw(g, camoffset);
 
     for (; n_obj_render < g->n_objrender; n_obj_render++) {
         obj_s *o = g->obj_render[n_obj_render];
@@ -144,41 +140,55 @@ void game_draw(game_s *g)
         }
     }
 
-    if (g->env_effects & ENVEFFECT_RAIN) {
-        enveffect_rain_draw(ctx, &g->env_rain, camoffset);
-    }
-
-    render_terraintiles(g, tilebounds, camoffset);
-    ocean_draw(g, asset_tex(0), camoffset);
+    area_draw_mg(g, &g->area, camoffset_raw, camoffset);
+    render_water_and_terrain(g, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
+    area_draw_fg(g, &g->area, camoffset_raw, camoffset);
 
-    if (g->env_effects & ENVEFFECT_WIND)
-        enveffect_wind_draw(ctx, &g->env_wind, camoffset);
-    if (g->env_effects & ENVEFFECT_HEAT)
-        enveffect_heat_draw(ctx, &g->env_heat, camoffset);
+    /*
+    int           nwalls = 0;
+    static wall_s walls[1024];
+    for (int y = 0; y < g->tiles_y; y++) {
+        for (int x = 0; x < g->tiles_x; x++) {
+            tile_s tile = g->tiles[x + y * g->tiles_x];
+            if (tile.collision == TILE_BLOCK) {
+                rec_i32 trec = {(x << 4) + camoffset.x, (y << 4) + camoffset.y, 16, 16};
+                v2_i32  pts[4];
+                points_from_rec(trec, pts);
+                walls[nwalls++] = (wall_s){pts[0], pts[1]};
+                walls[nwalls++] = (wall_s){pts[1], pts[2]};
+                walls[nwalls++] = (wall_s){pts[2], pts[3]};
+                walls[nwalls++] = (wall_s){pts[3], pts[0]};
+            }
+        }
+    }
+    sys_printf("%i\n", nwalls);
+
+    light_s lights[2] = {0};
+    lights[0].p       = v2_add(obj_pos_center(ohero), camoffset);
+
+    int nlights = 1;
+    if (sys_key(SYS_KEY_X)) {
+        lights[nlights++].p = v2_add((v2_i32){65, 45}, camoffset);
+    }
+    */
+
+    // lighting_do(texdisplay, lights, nlights, walls, nwalls);
 
     render_ui(g, camoffset);
-    transition_draw(g, &g->transition, camoffset);
 
-    if (g->mainmenu_fade_in) {
-        gfx_ctx_s ctxfade = ctx;
-        ctxfade.pat       = gfx_pattern_interpolate(g->mainmenu_fade_in, FADETICKS_GAME_IN);
-        gfx_rec_fill(ctxfade, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_BLACK);
+    if (!substate_finished(&g->substate)) {
+        substate_draw(g, &g->substate, camoffset);
     }
+}
 
-    if (upgradehandler_in_progress(&g->heroupgrade)) {
-        upgradehandler_draw(g, &g->heroupgrade, camoffset);
-    }
-#if 0
-    texrec_s   trrr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 128, 128);
-    static int posxx;
-    static int posyy;
-    if (sys_key(SYS_KEY_UP)) posyy -= 3;
-    if (sys_key(SYS_KEY_DOWN)) posyy += 3;
-    if (sys_key(SYS_KEY_LEFT)) posxx -= 3;
-    if (sys_key(SYS_KEY_RIGHT)) posxx += 3;
-    gfx_spr(ctx, trrr, (v2_i32){posxx, posyy}, SPR_FLIP_X, 0);
-#endif
+static int cmp_obj_render_priority(const void *a, const void *b)
+{
+    const obj_s *x = *(const obj_s **)a;
+    const obj_s *y = *(const obj_s **)b;
+    if (x->render_priority < y->render_priority) return -1;
+    if (x->render_priority > y->render_priority) return +1;
+    return 0;
 }
 
 static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
@@ -207,15 +217,10 @@ static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
     }
 
     switch (o->ID) {
-    case OBJ_ID_TOGGLEBLOCK:
-        toggleblock_on_draw(g, o, cam);
-        break;
-    case OBJ_ID_CRUMBLEBLOCK:
-        crumbleblock_on_draw(g, o, cam);
-        break;
-    case OBJ_ID_HEROUPGRADE:
-        heroupgrade_on_draw(g, o, cam);
-        break;
+    case OBJ_ID_TOGGLEBLOCK: toggleblock_on_draw(g, o, cam); break;
+    case OBJ_ID_CRUMBLEBLOCK: crumbleblock_on_draw(g, o, cam); break;
+    case OBJ_ID_HEROUPGRADE: heroupgrade_on_draw(g, o, cam); break;
+    case OBJ_ID_SPIKES: spikes_on_draw(g, o, cam); break;
     }
 
 #ifdef SYS_DEBUG
@@ -265,44 +270,14 @@ void render_tilemap(game_s *g, int layer, bounds_2D_s bounds, v2_i32 camoffset)
     }
 }
 
-void render_terraintiles(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
+int water_render_height(game_s *g, int pixel_x)
 {
-    texrec_s  tr   = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 16, 16);
-    texrec_s  tw   = asset_texrec(TEXID_WATER_PRERENDER, 16, 0, 16, 16);
-    gfx_ctx_s ctx  = gfx_ctx_display();
-    gfx_ctx_s ctxw = ctx;
-    ctxw.pat       = gfx_pattern_2x2(B2(11),
-                                     B2(10));
-    int tick       = sys_tick();
-
-    for (int y = bounds.y1; y <= bounds.y2; y++) {
-        for (int x = bounds.x1; x <= bounds.x2; x++) {
-            int    i  = x + y * g->tiles_x;
-            tile_s rt = g->tiles[i];
-            if (rt.U == 0) continue;
-            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
-            if (rt.type & TILE_WATER_MASK) {
-                int j = i - g->tiles_x;
-                if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
-                    tw.r.y = water_tile_get(x, y, tick) << 4;
-                    gfx_spr(ctxw, tw, p, 0, 0);
-                } else {
-                    gfx_rec_fill(ctxw, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
-                }
-            }
-
-            if (rt.u == 0) continue;
-            tr.r.x = rt.tx << 4;
-            tr.r.y = rt.ty << 4;
-            gfx_spr(ctx, tr, p, 0, 0);
-#if defined(SYS_DEBUG) && 0
-            int t1 = g->tiles[x + y * g->tiles_x].collision;
-            if (!(0 < t1 && t1 < NUM_TILE_BLOCKS)) continue;
-            texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
-            gfx_spr(ctx, tr1, p, 0, 0);
-#endif
-        }
-    }
+    int p = pixel_x;
+    int t = sys_tick();
+    i32 y = (sin_q6((p << 2) + (t << 4) + 0x20) << 1) +
+            (sin_q6((p << 4) - (t << 5) + 0x04) << 0) +
+            (sin_q6((p << 5) + (t << 6) + 0x10) >> 2);
+    return (y >> 6);
 }
 
 void ocean_calc_spans(game_s *g, rec_i32 camr)
@@ -339,36 +314,167 @@ void ocean_calc_spans(game_s *g, rec_i32 camr)
     }
 }
 
-void ocean_draw(game_s *g, tex_s t, v2_i32 camoff)
+void render_water_and_terrain(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
 {
-    ocean_s *oc = &g->ocean;
-    if (!oc->active) return;
-    const gfx_ctx_s ctx  = gfx_ctx_default(t);
-    gfx_ctx_s       ctxf = ctx;
+    texrec_s        tr   = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 16, 16);
+    texrec_s        tw   = asset_texrec(TEXID_WATER_PRERENDER, 16, 0, 16, 16);
+    const gfx_ctx_s ctx  = gfx_ctx_display();
+    gfx_ctx_s       ctxw = ctx;
+    ctxw.pat             = water_pattern();
+    int tick             = sys_tick();
 
-    ctxf.pat = water_pattern();
+    for (int y = bounds.y1; y <= bounds.y2; y++) {
+        for (int x = bounds.x1; x <= bounds.x2; x++) {
+            int    i  = x + y * g->tiles_x;
+            tile_s rt = g->tiles[i];
+            if (rt.U == 0) continue;
+            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
+            if (rt.type & TILE_WATER_MASK) {
+                int j = i - g->tiles_x;
+                if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
+                    tw.r.y = water_tile_get(x, y, tick) << 4;
+                    gfx_spr(ctxw, tw, p, 0, 0);
+                } else {
+                    gfx_rec_fill(ctxw, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
+                }
+            }
 
-    gfx_ctx_s ctxl = ctx;
-    ctxl.pat       = gfx_pattern_interpolate(1, 6);
-    int y_max      = clamp_i(oc->y_max, 0, t.h - 1);
-
-    // fill "static" bottom section
-    u32 *px = &((u32 *)t.px)[y_max * t.wword];
-    for (int y = y_max; y < t.h; y++) {
-        u32 pt = ~ctxf.pat.p[y & 1];
-        for (int x = 0; x < t.wword; x++)
-            *px++ &= pt;
+            if (rt.u == 0) continue;
+            tr.r.x = rt.tx << 4;
+            tr.r.y = rt.ty << 4;
+            gfx_spr(ctx, tr, p, 0, 0);
+#if defined(SYS_DEBUG) && 0
+            int t1 = g->tiles[x + y * g->tiles_x].collision;
+            if (!(0 < t1 && t1 < NUM_TILE_BLOCKS)) continue;
+            texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
+            gfx_spr(ctx, tr1, p, 0, 0);
+#endif
+        }
     }
 
-    //  dynamic sin section
-    for (int k = 0, x = 0; k < oc->n_spans; k++) {
-        ocean_span_s sp  = oc->spans[k];
-        rec_i32      rl1 = {x, sp.y + 2, sp.w, 2};
-        rec_i32      rl2 = {x, sp.y + 4, sp.w, 2};
-        rec_i32      rfb = {x, sp.y, sp.w, y_max - sp.y};
-        gfx_rec_fill(ctxf, rfb, PRIM_MODE_BLACK);
-        gfx_rec_fill(ctxf, rl1, PRIM_MODE_WHITE);
-        gfx_rec_fill(ctxl, rl2, PRIM_MODE_WHITE);
-        x += sp.w;
+    ocean_s *oc = &g->ocean;
+    if (oc->active) {
+        gfx_ctx_s ctxf = ctx;
+        gfx_ctx_s ctxl = ctx;
+
+        ctxf.pat  = water_pattern();
+        ctxl.pat  = gfx_pattern_interpolate(1, 6);
+        int y_max = clamp_i(oc->y_max, 0, ctx.dst.h - 1);
+
+        // fill "static" bottom section
+        u32 *px = &((u32 *)ctx.dst.px)[y_max * ctx.dst.wword];
+        for (int y = y_max; y < ctx.dst.h; y++) {
+            u32 pt = ~ctxf.pat.p[y & 7];
+            for (int x = 0; x < ctx.dst.wword; x++)
+                *px++ &= pt;
+        }
+
+        //  dynamic sin section
+        for (int k = 0, x = 0; k < oc->n_spans; k++) {
+            ocean_span_s sp  = oc->spans[k];
+            rec_i32      rl1 = {x, sp.y + 2, sp.w, 2};
+            rec_i32      rl2 = {x, sp.y + 4, sp.w, 2};
+            rec_i32      rfb = {x, sp.y, sp.w, y_max - sp.y};
+            gfx_rec_fill(ctxf, rfb, PRIM_MODE_BLACK);
+            gfx_rec_fill(ctxf, rl1, PRIM_MODE_WHITE);
+            gfx_rec_fill(ctxl, rl2, PRIM_MODE_WHITE);
+            x += sp.w;
+        }
+    }
+}
+
+void render_water_background(game_s *g, v2_i32 camoff, bounds_2D_s bounds)
+{
+    int       tick   = sys_tick();
+    texrec_s  twater = asset_texrec(TEXID_WATER_PRERENDER, 0, 0, 16, 16);
+    gfx_ctx_s ctx    = gfx_ctx_display();
+    tex_s     t      = ctx.dst;
+
+    for (int y = bounds.y1; y <= bounds.y2; y++) {
+        for (int x = bounds.x1; x <= bounds.x2; x++) {
+            int    i  = x + y * g->tiles_x;
+            tile_s rt = g->tiles[i];
+            if (!(rt.type & TILE_WATER_MASK)) continue;
+            v2_i32 p = {(x << 4) + camoff.x, (y << 4) + camoff.y};
+            int    j = i - g->tiles_x;
+            if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
+                twater.r.y = water_tile_get(x, y, tick) << 4;
+                gfx_spr(ctx, twater, p, 0, 0);
+            } else {
+                gfx_rec_fill(ctx, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
+            }
+        }
+    }
+
+    ocean_s *oc = &g->ocean;
+    if (oc->active) {
+        int y_max = clamp_i(oc->y_max, 0, t.h);
+
+        for (int k = 0, x = 0; k < oc->n_spans; k++) {
+            ocean_span_s sp = oc->spans[k];
+            rec_i32      rf = {x, sp.y, sp.w, y_max - sp.y};
+
+            gfx_rec_fill(ctx, rf, PRIM_MODE_BLACK);
+            x += sp.w;
+        }
+
+        u32 *px = &((u32 *)t.px)[y_max * t.wword];
+        int  N  = t.wword * (t.h - y_max);
+        for (int n = 0; n < N; n++) {
+            *px++ = 0;
+        }
+    }
+}
+
+void render_rec_as_terrain(gfx_ctx_s ctx, rec_i32 r, int terrain)
+{
+    assert((r.w & 15) == 0 && (r.h & 15) == 0);
+    int nx = r.w >> 4;
+    int ny = r.h >> 4;
+
+    texrec_s tr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 16, 16);
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            if (ny == 1 && nx == 1) { // single block
+                tr.r.x = 7 * 16;
+                tr.r.y = 1 * 16;
+            } else if (ny == 1) { // horizontal strip
+                if (x == 0) {
+
+                } else if (x == nx - 1) {
+                } else {
+                }
+            } else if (nx == 1) { // vertical strip
+                if (y == 0) {
+
+                } else if (y == ny - 1) {
+                } else {
+                }
+            } else if (y == 0) { // top row
+                if (x == 0) {
+
+                } else if (x == nx - 1) {
+
+                } else {
+                }
+            } else if (y == ny - 1) { // bottom row
+                if (x == 0) {
+
+                } else if (x == nx - 1) {
+
+                } else {
+                }
+            } else { // middle row
+                if (x == 0) {
+
+                } else if (x == nx - 1) {
+
+                } else {
+                }
+            }
+
+            v2_i32 pos = {0};
+            gfx_spr(ctx, tr, pos, 0, 0);
+        }
     }
 }

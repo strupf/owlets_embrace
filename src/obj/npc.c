@@ -64,7 +64,7 @@ void npc_load(game_s *g, map_obj_s *mo)
     obj_s *o   = npc_create(g);
     npc_s *npc = (npc_s *)o->mem;
     o->pos.x   = mo->x;
-    o->pos.y   = mo->y;
+    o->pos.y   = mo->y + mo->h - o->h;
 
     map_obj_strs(mo, "Dialogfile", o->filename);
     npc->movement          = map_obj_i32(mo, "Movement");
@@ -122,9 +122,13 @@ void npc_on_update(game_s *g, obj_s *o)
 
 void npc_on_interact(game_s *g, obj_s *o)
 {
-    npc_s *npc  = (npc_s *)o->mem;
+    npc_s *npc   = (npc_s *)o->mem;
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero) {
+        o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
+    }
     o->vel_q8.x = 0;
-    textbox_load_dialog(g, &g->textbox, o->filename);
+    substate_load_textbox(g, &g->substate, o->filename);
 }
 
 void npc_on_animate(game_s *g, obj_s *o)

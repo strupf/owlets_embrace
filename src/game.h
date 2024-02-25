@@ -5,10 +5,11 @@
 #ifndef GAME_H
 #define GAME_H
 
+#include "area/area.h"
 #include "cam.h"
-#include "collectible.h"
-#include "enveffect.h"
+#include "coinparticle.h"
 #include "gamedef.h"
+#include "lighting.h"
 #include "mainmenu.h"
 #include "map_loader.h"
 #include "obj/behaviour.h"
@@ -17,9 +18,7 @@
 #include "particle.h"
 #include "rope.h"
 #include "shop.h"
-#include "textbox.h"
-#include "transition.h"
-#include "upgradehandler.h"
+#include "substate.h"
 #include "water.h"
 
 #define NUM_TILES         0x40000
@@ -27,6 +26,7 @@
 #define NUM_DECALS        256
 #define NUM_WATER         16
 #define ENEMY_DECAL_TICK  20
+#define NUM_RESPAWNS      8
 
 #define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
 #define OCEAN_W_PX      SYS_DISPLAY_W
@@ -62,10 +62,12 @@ typedef struct {
     int    v_q8;
 } grass_s;
 
-enum {
-    BG_IMG_POS_TILED,
-    BG_IMG_POS_FIT_ROOM,
-};
+typedef struct {
+    rec_i32 r;
+} respawn_pos_s;
+
+#define TILE_WATER_MASK 0x80
+#define TILE_ICE_MASK   0x40
 
 typedef union {
     struct {
@@ -76,7 +78,7 @@ typedef union {
             };
             u16 u;
         };
-        u8 type; // 1 bit for water, 7 bits for type
+        u8 type; // 6 bits for type, 1 bit for water, 1 bit for iced
         u8 collision;
     };
     u32 U;
@@ -113,26 +115,23 @@ typedef struct {
 } item_selector_s;
 
 struct game_s {
-    mainmenu_s mainmenu;
-    int        state;
-
-    int              areaID;
-    int              respawn_ticks;
-    int              die_ticks;
-    int              freeze_ticks;
+    mainmenu_s       mainmenu;
+    int              state;
+    //
     savefile_s       save;
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
     shop_s           shop;
-    int              mainmenu_fade_in;
-    upgradehandler_s heroupgrade;
+    area_s           area;
+    substate_s       substate;
     //
     int              savefile_slotID;
-    transition_s     transition;
-    transition_s     transition_last;
     cam_s            cam;
     flags32          events_frame;
-    flags32          logic_flags;
+    //
+    int              respawn_closest; // set by transition func
+    int              n_respawns;
+    respawn_pos_s    respawns[8];
     //
     tile_s           tiles[NUM_TILES];
     rtile_s          rtiles[NUM_TILELAYER][NUM_TILES];
@@ -153,24 +152,15 @@ struct game_s {
     int           n_enemy_decals;
     enemy_decal_s enemy_decals[16];
 
-    int           n_collectibles;
-    collectible_s collectibles[NUM_COLLECTIBLE];
+    int            n_coinparticles;
+    coinparticle_s coinparticles[NUM_COINPARTICLE];
 
     inventory_s     inventory;
     herodata_s      herodata;
-    textbox_s       textbox;
     item_selector_s item_selector;
 
-    bool32             avoid_flickering;
-    flags32            env_effects;
-    enveffect_cloud_s  env_cloud;
-    enveffect_wind_s   env_wind;
-    u32                magic1;
-    enveffect_heat_s   env_heat;
-    u32                magic2;
-    enveffect_leaves_s env_leaves;
-    u32                magic3;
-    enveffect_rain_s   env_rain;
+    bool32  avoid_flickering;
+    flags32 env_effects;
 
     struct {
         char filename[LEN_AREA_FILENAME];
@@ -202,6 +192,7 @@ void    game_new_savefile(game_s *g, int slotID);
 void    game_write_savefile(game_s *g);
 void    game_load_savefile(game_s *g, savefile_s sf, int slotID);
 void    game_on_trigger(game_s *g, int trigger);
+bool32  tiles_hookable(game_s *g, rec_i32 r);
 bool32  tiles_solid(game_s *g, rec_i32 r);
 bool32  tiles_solid_pt(game_s *g, int x, int y);
 bool32  tile_one_way(game_s *g, rec_i32 r);
@@ -215,14 +206,14 @@ void    obj_game_trigger(game_s *g, obj_s *o, int trigger);
 void    obj_game_interact(game_s *g, obj_s *o);
 void    obj_game_player_attackbox(game_s *g, hitbox_s box);
 void    item_selector_update(item_selector_s *is);
+bool32  ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos);
 //
 int     ocean_height(game_s *g, int pixel_x);
 int     ocean_render_height(game_s *g, int pixel_x);
 int     water_depth_rec(game_s *g, rec_i32 r);
-void    logic_flag_set(game_s *g, int f);
-void    logic_flag_clr(game_s *g, int f);
 //
 alloc_s game_allocator(game_s *g);
+void    backforeground_animate_grass(game_s *g);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

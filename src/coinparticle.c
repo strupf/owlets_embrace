@@ -2,34 +2,35 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "coinparticle.h"
 #include "game.h"
 
-collectible_s *collectible_create(game_s *g)
+coinparticle_s *coinparticle_create(game_s *g)
 {
-    if (NUM_COLLECTIBLE <= g->n_collectibles) return NULL;
-    collectible_s *c = &g->collectibles[g->n_collectibles++];
-    *c               = (collectible_s){0};
+    if (NUM_COINPARTICLE <= g->n_coinparticles) return NULL;
+    coinparticle_s *c = &g->coinparticles[g->n_coinparticles++];
+    *c                = (coinparticle_s){0};
     return c;
 }
 
-void collectibles_update(game_s *g)
+void coinparticle_update(game_s *g)
 {
     obj_s *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
     v2_i32 heropos = {0};
     if (ohero) {
         heropos = obj_pos_center(ohero);
     }
-    for (int n = g->n_collectibles - 1; 0 <= n; n--) {
-        collectible_s *c = &g->collectibles[n];
-        if (ohero && v2_distancesq(heropos, c->pos) < COLLECTIBLE_COLLECT_DISTSQ) {
+    for (int n = g->n_coinparticles - 1; 0 <= n; n--) {
+        coinparticle_s *c = &g->coinparticles[n];
+        if (ohero && v2_distancesq(heropos, c->pos) < COINPARTICLE_COLLECT_DISTSQ) {
             inventory_add(&g->inventory, INVENTORY_ID_GOLD, 1);
             snd_play_ext(SNDID_COIN, 1.f, 1.f);
-            *c = g->collectibles[--g->n_collectibles];
+            *c = g->coinparticles[--g->n_coinparticles];
             continue;
         }
         c->tick--;
         if (c->tick <= 0 || !game_traversable_pt(g, c->pos.x, c->pos.y)) {
-            *c = g->collectibles[--g->n_collectibles];
+            *c = g->coinparticles[--g->n_coinparticles];
             continue;
         }
 
@@ -61,14 +62,14 @@ void collectibles_update(game_s *g)
     }
 }
 
-void collectibles_draw(game_s *g, v2_i32 cam)
+void coinparticle_draw(game_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_MISCOBJ, 0, 160, 16, 16);
-    for (int n = 0; n < g->n_collectibles; n++) {
-        collectible_s *c = &g->collectibles[n];
-        v2_i32         p = v2_add(c->pos, cam);
-        tr.r.x           = (((sys_tick() + n) >> 2) % 6) * 16;
+    for (int n = 0; n < g->n_coinparticles; n++) {
+        coinparticle_s *c = &g->coinparticles[n];
+        v2_i32          p = v2_add(c->pos, cam);
+        tr.r.x            = (((sys_tick() + n) >> 2) % 6) * 16;
         p.y -= 16;
         p.x -= 8;
         int mode = rngr_i32(0, 10) == 1 ? SPR_MODE_WHITE : 0;

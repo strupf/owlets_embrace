@@ -8,11 +8,11 @@
 #include "aud.h"
 #include "gfx.h"
 
+#define ASSET_FILENAME "assets/assets/assets.fil"
+
 enum {
     TEXID_DISPLAY,
-    TEXID_OCEAN,
     TEXID_HERO,
-    TEXID_HERO_WHIP,
     TEXID_TILESET_TERRAIN,
     TEXID_TILESET_PROPS_BG,
     TEXID_TILESET_PROPS_FG,
@@ -23,7 +23,6 @@ enum {
     TEXID_PLANTS,
     TEXID_CLOUDS,
     TEXID_TITLE,
-    TEXID_PROPS,
     TEXID_SWITCH,
     TEXID_SHROOMY,
     TEXID_CRAWLER,
@@ -34,10 +33,11 @@ enum {
     TEXID_UPGRADELABEL,
     TEXID_BG_CAVE,
     TEXID_BG_MOUNTAINS,
+    TEXID_BG_DEEP_FOREST,
+    TEXID_BG_CAVE_DEEP,
     TEXID_CARRIER,
     TEXID_CRUMBLE,
     TEXID_NPC,
-    TEXID_WINDGUSH,
     TEXID_JUGGERNAUT,
     TEXID_WATER_PRERENDER,
     TEXID_TOGGLE,
@@ -46,9 +46,9 @@ enum {
     TEXID_COLLISION_TILES,
 #endif
     //
-    NUM_TEXID,
+    NUM_TEXID_EXPLICIT,
     //
-    NUM_TEXID_MAX = 256
+    NUM_TEXID = 128
 };
 
 enum {
@@ -95,7 +95,6 @@ enum {
 
 typedef struct {
     tex_s tex;
-    char  file[32];
 } asset_tex_s;
 
 typedef struct {
@@ -107,23 +106,20 @@ typedef struct {
 } asset_fnt_s;
 
 typedef struct {
-    asset_tex_s tex[NUM_TEXID_MAX];
+    asset_tex_s tex[NUM_TEXID];
     asset_snd_s snd[NUM_SNDID];
     asset_fnt_s fnt[NUM_FNTID];
 
-    int next_texID;
-
     marena_s             marena;
     align_CL mkilobyte_s mem[5 * 1024];
-
-    usize size_snd;
-    usize size_tex;
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
 extern const alloc_s asset_allocator;
 
 void  assets_init();
+void  assets_export();
+void  assets_import();
 //
 void *assetmem_alloc(usize s);
 tex_s asset_tex(int ID);

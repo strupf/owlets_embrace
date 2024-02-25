@@ -26,14 +26,14 @@ void teleport_load(game_s *g, map_obj_s *mo)
     o->w          = mo->w;
     o->h          = mo->h;
     teleport_s *t = (teleport_s *)o->mem;
-    map_obj_strs(mo, "Map", o->filename);
+    map_obj_strs(mo, "Target_Map", o->filename);
     t->tx = map_obj_i32(mo, "Target_X");
     t->ty = map_obj_i32(mo, "Target_Y");
 }
 
 void teleport_on_interact(game_s *g, obj_s *o)
 {
-    teleport_s *t      = (teleport_s *)o->mem;
-    v2_i32      target = {t->tx << 4, t->ty << 4};
-    transition_teleport(&g->transition, g, o->filename, target);
+    teleport_s *t   = (teleport_s *)o->mem;
+    v2_i32      pos = {t->tx, t->ty};
+    substate_transition_teleport(g, &g->substate, o->filename, pos);
 }

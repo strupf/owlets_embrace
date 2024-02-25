@@ -13,6 +13,7 @@ void obj_game_update(game_s *g, obj_s *o)
     case OBJ_ID_CRUMBLEBLOCK: crumbleblock_on_update(g, o); break;
     case OBJ_ID_CLOCKPULSE: clockpulse_on_update(g, o); break;
     case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
+    case OBJ_ID_CRAWLER_CATERPILLAR:
     case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
     case OBJ_ID_CARRIER: carrier_on_update(g, o); break;
     case OBJ_ID_MOVINGPLATFORM: movingplatform_on_update(g, o); break;
@@ -23,6 +24,8 @@ void obj_game_update(game_s *g, obj_s *o)
     case OBJ_ID_STALACTITE: stalactite_on_update(g, o); break;
     case OBJ_ID_WALKER: walker_on_update(g, o); break;
     case OBJ_ID_FLYER: flyer_on_update(g, o); break;
+    case OBJ_ID_TRIGGERAREA: triggerarea_update(g, o); break;
+    case OBJ_ID_PUSHABLEBOX: pushablebox_update(g, o); break;
     }
 }
 
@@ -33,6 +36,7 @@ void obj_game_animate(game_s *g, obj_s *o)
     case OBJ_ID_SWITCH: switch_on_animate(g, o); break;
     case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
     case OBJ_ID_SHROOMY: shroomy_on_animate(g, o); break;
+    case OBJ_ID_CRAWLER_CATERPILLAR:
     case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
     case OBJ_ID_HOOK: hook_on_animate(g, o); break;
     case OBJ_ID_CHARGER: charger_on_animate(g, o); break;
@@ -40,6 +44,7 @@ void obj_game_animate(game_s *g, obj_s *o)
     case OBJ_ID_NPC: npc_on_animate(g, o); break;
     case OBJ_ID_CARRIER: carrier_on_animate(g, o); break;
     case OBJ_ID_JUGGERNAUT: juggernaut_on_animate(g, o); break;
+    case OBJ_ID_SPIKES: spikes_on_animate(g, o); break;
     }
 }
 
@@ -50,13 +55,14 @@ void obj_game_trigger(game_s *g, obj_s *o, int trigger)
     case OBJ_ID_TOGGLEBLOCK: toggleblock_on_trigger(g, o, trigger); break;
     case OBJ_ID_DOOR_SWING: swingdoor_on_trigger(g, o, trigger); break;
     case OBJ_ID_MOVINGPLATFORM: movingplatform_on_trigger(g, o, trigger); break;
+    case OBJ_ID_SPIKES: spikes_on_trigger(g, o, trigger); break;
     }
 }
 
 void obj_game_interact(game_s *g, obj_s *o)
 {
     switch (o->ID) {
-    case OBJ_ID_SIGN: textbox_load_dialog(g, &g->textbox, o->filename); break;
+    case OBJ_ID_SIGN: substate_load_textbox(g, &g->substate, o->filename); break;
     case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     case OBJ_ID_NPC: npc_on_interact(g, o); break;
@@ -96,7 +102,7 @@ void obj_game_player_jump_heads(game_s *g, obj_s *ohero)
 
             int n_drops = 10;
             for (int n = 0; n < n_drops; n++) {
-                collectible_s *c = collectible_create(g);
+                coinparticle_s *c = coinparticle_create(g);
                 if (!c) break;
                 c->pos       = o->pos;
                 c->vel_q8.y  = rngr_i32(-1500, -1000);
@@ -176,7 +182,7 @@ void obj_game_player_attackbox(game_s *g, hitbox_s box)
 
             int n_drops = 10;
             for (int n = 0; n < n_drops; n++) {
-                collectible_s *c = collectible_create(g);
+                coinparticle_s *c = coinparticle_create(g);
                 if (!c) break;
                 c->pos       = o->pos;
                 c->vel_q8.y  = rngr_i32(-1500, -1000);

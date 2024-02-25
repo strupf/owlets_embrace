@@ -16,13 +16,13 @@ enum {
     HERO_STATE_LADDER,
     HERO_STATE_SWIMMING,
     HERO_STATE_AIR_HOOK,
+    HERO_STATE_DEAD,
 };
 
 enum {
 
     HERO_UPGRADE_WHIP,
     HERO_UPGRADE_SWIM,
-    HERO_UPGRADE_HIGH_JUMP,
     HERO_UPGRADE_HOOK,
     HERO_UPGRADE_LONG_HOOK,
     HERO_UPGRADE_SPRINT,
@@ -71,6 +71,9 @@ typedef struct {
     int          hero_spawn_x;
     int          hero_spawn_y;
 
+    int          n_obj_following;
+    obj_handle_s obj_following[16];
+
     hook_pt_s hookpt[ROPE_VERLET_N];
 } herodata_s;
 
@@ -82,8 +85,6 @@ typedef struct {
     int    whip_count; // alternates between 0 and 1
     //
     i32    walljumpticks;
-    i32    runup_wall_ticks;
-    i32    runup_wall;
 
     i32    ropewalljump_dir;
     bool32 carrying;
@@ -110,7 +111,8 @@ void   hero_on_update(game_s *g, obj_s *o);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_on_animate(game_s *g, obj_s *o);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
-void   hero_hurt(game_s *g, obj_s *o, herodata_s *h, int damage);
+void   hero_hurt(game_s *g, obj_s *o, int damage);
+void   hero_kill(game_s *g, obj_s *o);
 int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
 //
 void   hook_on_animate(game_s *g, obj_s *o);

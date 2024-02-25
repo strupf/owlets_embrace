@@ -128,10 +128,10 @@ bool32 actor_try_wiggle(game_s *g, obj_s *o)
     rec_i32 r = obj_aabb(o);
     if (game_traversable(g, r)) return 1;
 
-#define WIGGLE_AMOUNT 2
+    int wiggle = o->ID == OBJ_ID_HERO ? 16 : 4;
 
-    for (int y = -WIGGLE_AMOUNT; y <= +WIGGLE_AMOUNT; y++) {
-        for (int x = -WIGGLE_AMOUNT; x <= +WIGGLE_AMOUNT; x++) {
+    for (int y = -wiggle; y <= +wiggle; y++) {
+        for (int x = -wiggle; x <= +wiggle; x++) {
             rec_i32 rr = {r.x + x, r.y + y, r.w, r.h};
             if (game_traversable(g, rr)) {
                 o->pos.x += x;
@@ -203,6 +203,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
 
         if ((o->flags & OBJ_FLAG_CLAMP_ROOM_X) &&
             (r.x + r.w > g->pixel_x || r.x < 0)) {
+            o->bumpflags |= OBJ_BUMPED_X_BOUNDS;
             DO_BUMP_X;
         }
 
@@ -252,6 +253,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
 
         if ((o->flags & OBJ_FLAG_CLAMP_ROOM_Y) &&
             (r.y + r.h > g->pixel_y || r.y < 0)) {
+            o->bumpflags |= OBJ_BUMPED_Y_BOUNDS;
             DO_BUMP_Y;
         }
 
@@ -356,8 +358,8 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
         bool32  linked = (obj_from_obj_handle(a->linked_solid) == o);
 
         switch (a->ID) {
+        case OBJ_ID_CRAWLER_CATERPILLAR:
         case OBJ_ID_CRAWLER:
-        case OBJ_ID_CRAWLER_SNAIL:
             if (overlap_rec_touch(body, aabbog))
                 linked = 1;
             break;

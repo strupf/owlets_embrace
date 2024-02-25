@@ -312,7 +312,7 @@ gfx_pattern_s gfx_pattern_2x2(int p0, int p1)
 gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3)
 {
     gfx_pattern_s pat  = {0};
-    int           p[4] = {p0, p1, p2, p3};
+    u32           p[4] = {p0, p1, p2, p3};
     for (int i = 0; i < 4; i++) {
         u32 pa       = ((u32)p[i] << 4) | ((u32)p[i]);
         u32 pb       = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
@@ -326,7 +326,7 @@ gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3,
                               int p4, int p5, int p6, int p7)
 {
     gfx_pattern_s pat  = {0};
-    int           p[8] = {p0, p1, p2, p3, p4, p5, p6, p7};
+    u32           p[8] = {p0, p1, p2, p3, p4, p5, p6, p7};
     for (int i = 0; i < 8; i++) {
         u32 pp   = (u32)p[i];
         pat.p[i] = (pp << 24) | (pp << 16) | (pp << 8) | (pp);
@@ -336,7 +336,7 @@ gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3,
 
 gfx_pattern_s gfx_pattern_bayer_4x4(int i)
 {
-    static const u32 ditherpat[17 * 4] = {
+    static const u32 ditherpat[GFX_PATTERN_NUM * 4] = {
         0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
         0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
         0x88888888U, 0x00000000U, 0x22222222U, 0x00000000U,
@@ -355,14 +355,14 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i)
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0x77777777U,
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 
-    const u32    *p   = &ditherpat[clamp_i(i, 0, 16) << 2];
+    const u32    *p   = &ditherpat[clamp_i(i, 0, GFX_PATTERN_MAX) << 2];
     gfx_pattern_s pat = {{p[0], p[1], p[2], p[3], p[0], p[1], p[2], p[3]}};
     return pat;
 }
 
 gfx_pattern_s gfx_pattern_interpolate(int num, int den)
 {
-    return gfx_pattern_bayer_4x4((num * 16 + (den / 2)) / den);
+    return gfx_pattern_bayer_4x4((num * GFX_PATTERN_NUM + (den / 2)) / den);
 }
 
 gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
@@ -462,6 +462,29 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     return info;
 }
 
+void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, int tx, int ty)
+{
+    if ((src.r.w | src.r.h) == 0) return;
+    int dx = src.r.w;
+    int dy = src.r.h;
+    int x1 = tx ? ((pos.x % dx) - dx) % dx : pos.x;
+    int y1 = ty ? ((pos.y % dy) - dy) % dy : pos.y;
+    int x2 = tx ? ((ctx.dst.w - x1) / dx) * dx : x1;
+    int y2 = ty ? ((ctx.dst.h - y1) / dy) * dy : y1;
+
+    for (int y = y1; y <= y2; y += dy) {
+        for (int x = x1; x <= x2; x += dx) {
+            v2_i32 p = {x, y};
+            gfx_spr(ctx, src, p, flip, mode);
+        }
+    }
+}
+
+void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, bool32 x, bool32 y)
+{
+    gfx_spr_tiled(ctx, src, pos, flip, mode, x ? src.r.w : 0, y ? src.r.h : 0);
+}
+
 void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                     f32 sclx, f32 scly)
 {
@@ -501,7 +524,7 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
             u32 sm = 0;
 
             for (int p = p1; p <= p2; p++) {
-                int x = wi * 32 + p;
+                int x = (wi << 5) + p;
 
                 f32 t = (f32)(x + src.r.x);
                 f32 s = (f32)(y + src.r.y);
@@ -509,8 +532,10 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
                 int v = (int)(t * m.m[3] + s * m.m[4] + m.m[5] + .5f);
                 if (!(u1 <= u && u < u2)) continue;
                 if (!(v1 <= v && v < v2)) continue;
-                if (tex_px_at_unsafe(src.t, u, v)) sp |= 0x80000000U >> p;
-                if (tex_mk_at_unsafe(src.t, u, v)) sm |= 0x80000000U >> p;
+                u32 bit = 0x80000000U >> p;
+
+                if (tex_px_at_unsafe(src.t, u, v)) sp |= bit;
+                if (tex_mk_at_unsafe(src.t, u, v)) sm |= bit;
             }
 
             u32 *dp = NULL;
@@ -618,6 +643,18 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, int mode)
         for (info.y = y1; info.y <= y2; info.y++) {
             prim_blit_span_Y(info);
             info.dp += dtex.wword;
+        }
+    }
+}
+
+void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, int y1, int y2)
+{
+    assert(0 <= y1 && y2 <= dst.h);
+    u32 *px = &dst.px[y1 * dst.wword];
+    for (int y = y1; y < y2; y++) {
+        const u32 p = pat.p[y & 7];
+        for (int x = 0; x < dst.wword; x++) {
+            *px++ = p;
         }
     }
 }

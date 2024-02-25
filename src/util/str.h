@@ -8,7 +8,7 @@
 #include "sys/sys_types.h"
 
 #define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
-    char NAME[64];                             \
+    char NAME[128];                            \
     str_cpy(NAME, PATHNAME);                   \
     str_append(NAME, FILENAME)
 

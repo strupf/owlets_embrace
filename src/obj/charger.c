@@ -31,20 +31,20 @@ obj_s *charger_create(game_s *g)
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_KILL_OFFSCREEN |
+               // OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_CLAMP_ROOM_X |
 #if GAME_JUMP_ATTACK
                OBJ_FLAG_PLATFORM | OBJ_FLAG_PLATFORM_HERO_ONLY |
 #endif
-               OBJ_FLAG_RENDER_AABB;
+               OBJ_FLAG_KILL_OFFSCREEN;
     o->w                 = 32;
     o->h                 = 32;
-    o->gravity_q8.y      = 60;
+    o->gravity_q8.y      = 80;
     o->drag_q8.y         = 255;
     o->drag_q8.x         = 256;
     o->moverflags        = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLOPES;
     o->vel_cap_q8.x      = 2000;
-    o->facing            = -1; // -1 or +1
+    o->facing            = -1;
     o->health_max        = 3;
     o->health            = o->health_max;
     o->enemy             = enemy_default();

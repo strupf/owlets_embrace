@@ -9,9 +9,6 @@
 #include "hero.h"
 #include "map_loader.h"
 
-void   logicflagger_load(game_s *g, map_obj_s *mo);
-void   logicflagger_on_trigger(game_s *g, obj_s *o, int trigger);
-//
 obj_s *clockpulse_create(game_s *g);
 void   clockpulse_load(game_s *g, map_obj_s *mo);
 void   clockpulse_on_update(game_s *g, obj_s *o);
@@ -40,8 +37,9 @@ void   shroomy_bounced_on(obj_s *o);
 void   shroomy_on_update(game_s *g, obj_s *o);
 void   shroomy_on_animate(game_s *g, obj_s *o);
 //
-obj_s *crawler_create(game_s *g);
+obj_s *crawler_create(game_s *g, int ID);
 void   crawler_load(game_s *g, map_obj_s *mo);
+void   crawler_caterpillar_load(game_s *g, map_obj_s *mo);
 void   crawler_on_update(game_s *g, obj_s *o);
 void   crawler_on_animate(game_s *g, obj_s *o);
 void   crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb);
@@ -107,4 +105,15 @@ void   walker_on_update(game_s *g, obj_s *o);
 obj_s *flyer_create(game_s *g);
 void   flyer_load(game_s *g, map_obj_s *mo);
 void   flyer_on_update(game_s *g, obj_s *o);
+//
+void   triggerarea_load(game_s *g, map_obj_s *mo);
+void   triggerarea_update(game_s *g, obj_s *o);
+//
+void   pushablebox_load(game_s *g, map_obj_s *mo);
+void   pushablebox_update(game_s *g, obj_s *o);
+//
+void   spikes_load(game_s *g, map_obj_s *mo);
+void   spikes_on_trigger(game_s *g, obj_s *o, int trigger);
+void   spikes_on_animate(game_s *g, obj_s *o);
+void   spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 #endif

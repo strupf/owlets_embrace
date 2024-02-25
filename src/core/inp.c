@@ -16,6 +16,12 @@ static struct {
     inp_state_s prev;
 } INP;
 
+inp_s inp_state()
+{
+    inp_s i = {0};
+    return i;
+}
+
 void inp_update()
 {
     INP.prev              = INP.curr;

@@ -21,8 +21,8 @@ obj_s *flyer_create(game_s *g)
 #endif
                OBJ_FLAG_KILL_OFFSCREEN;
 
-    o->w          = 16;
-    o->h          = 16;
+    o->w          = 24;
+    o->h          = 24;
     o->health_max = 1;
     o->health     = o->health_max;
     o->enemy      = enemy_default();

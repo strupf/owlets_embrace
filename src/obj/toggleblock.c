@@ -24,7 +24,9 @@ static void toggleblock_set_state(game_s *g, obj_s *o, int state)
 
     for (int y = 0; y < ny; y++) {
         for (int x = 0; x < nx; x++) {
-            g->tiles[x + tx + (y + ty) * g->tiles_x].collision = b;
+            tile_s *t    = &g->tiles[x + tx + (y + ty) * g->tiles_x];
+            t->collision = b;
+            t->type      = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
         }
     }
 

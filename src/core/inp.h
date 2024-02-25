@@ -8,12 +8,13 @@
 #include "sys/sys.h"
 
 enum {
-    INP_A      = SYS_INP_A,
-    INP_B      = SYS_INP_B,
-    INP_DPAD_U = SYS_INP_DPAD_U,
-    INP_DPAD_D = SYS_INP_DPAD_D,
-    INP_DPAD_L = SYS_INP_DPAD_L,
-    INP_DPAD_R = SYS_INP_DPAD_R,
+    INP_A            = SYS_INP_A,
+    INP_B            = SYS_INP_B,
+    INP_DPAD_U       = SYS_INP_DPAD_U,
+    INP_DPAD_D       = SYS_INP_DPAD_D,
+    INP_DPAD_L       = SYS_INP_DPAD_L,
+    INP_DPAD_R       = SYS_INP_DPAD_R,
+    INP_CRANK_DOCKED = 128,
 };
 
 enum {
@@ -28,6 +29,26 @@ enum {
     INP_DPAD_DIR_SW,
 };
 
+#if 0
+enum {
+    INP_BTN_A,
+    INP_BTN_B,
+    INP_BTN_UP,
+    INP_BTN_DOWN,
+    INP_BTN_RIGHT,
+    INP_BTN_LEFT,
+    INP_CRANK_DOCKED,
+};
+#endif
+
+typedef struct {
+    flags32 btn;
+    flags32 btnp;
+    i32     crank;
+    i32     crankp;
+} inp_s;
+
+inp_s  inp_state();
 void   inp_update();
 bool32 inp_pressed(int b);
 bool32 inp_pressed_any(int b);

@@ -91,5 +91,5 @@ void sign_load(game_s *g, map_obj_s *mo)
 
 void sign_on_interact(game_s *g, obj_s *o)
 {
-    textbox_load_dialog(g, &g->textbox, o->filename);
+    substate_load_textbox(g, &g->substate, o->filename);
 }

@@ -5,9 +5,10 @@
 #ifndef SYS_TYPES_H
 #define SYS_TYPES_H
 
-#define SYS_CONFIG_EDIT_PD      0 // allow editing of Playdate specific stuff inside VS
-#define SYS_CONFIG_ONLY_BACKEND 0 // only barebones engine stuff
-#define SYS_CONFIG_DEBUG        1
+#define SYS_CONFIG_EDIT_PD        0 // allow editing of Playdate specific stuff inside VS
+#define SYS_CONFIG_ONLY_BACKEND   0 // only barebones engine stuff
+#define SYS_CONFIG_DEBUG          1
+#define SYS_CONFIG_USE_SDL_ASSERT 1
 
 #if SYS_CONFIG_DEBUG
 #define SYS_DEBUG
@@ -27,14 +28,8 @@
 #error "sys_types.h: More than one platform defined"
 #endif
 
-// size of cache line in bytes
-#ifdef SYS_PD_HW
 #define SYS_SIZE_CL 32
-#else
-#define SYS_SIZE_CL 32
-#endif
-
-#define align_CL alignas(SYS_SIZE_CL)
+#define align_CL    alignas(SYS_SIZE_CL) // align on cache line boundaries
 
 #include <math.h>
 #include <stdalign.h>
@@ -48,13 +43,11 @@
 #undef static_assert
 #define assert(X)
 #define static_assert(A, B)
-#else
-/*
+#elif defined(SYS_SDL) && SYS_CONFIG_USE_SDL_ASSERT
 #include "SDL2/SDL_assert.h"
 #undef assert
 #define assert SDL_assert
 #else
-*/
 #include <assert.h>
 #endif
 

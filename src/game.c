@@ -9,7 +9,7 @@ void game_init(game_s *g)
 {
 #ifdef SYS_SDL
     aud_mute(0);
-    sys_set_volume(1.f);
+    sys_set_volume(0.1f);
 #endif
     mus_set_trg_vol(64);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
@@ -28,9 +28,6 @@ void game_init(game_s *g)
         sys_printf("0x%02X, ", abs_i(r));
     }
 #endif
-    g->magic1 = OBJ_MAGIC;
-    g->magic2 = OBJ_MAGIC;
-    g->magic3 = OBJ_MAGIC;
 }
 
 static void gameplay_tick(game_s *g)
@@ -85,16 +82,18 @@ static void gameplay_tick(game_s *g)
     for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) &&
             !overlap_rec(obj_aabb(o), roombounds)) {
+            assert(o->ID != OBJ_ID_HERO);
             obj_delete(g, o);
         }
     }
 
     objs_cull_to_delete(g);
+    coinparticle_update(g);
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     // hero touching other objects
-    if (ohero) {
+    if (ohero && 0 < ohero->health) {
         const rec_i32 heroaabb     = obj_aabb(ohero);
         bool32        herogrounded = obj_grounded(g, ohero);
         for (obj_each(g, o)) {
@@ -105,7 +104,7 @@ static void gameplay_tick(game_s *g)
                 rec_i32 ri;
                 if (!intersect_rec(heroaabb, rs, &ri)) break;
                 if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rs.y + rs.h) {
-                    ohero->vel_q8.y = -1800;
+                    ohero->vel_q8.y = -2000;
                     ohero->tomove.y -= ri.h;
                     shroomy_bounced_on(o);
                 }
@@ -118,62 +117,45 @@ static void gameplay_tick(game_s *g)
         void obj_game_player_jump_heads(game_s * g, obj_s * ohero);
         obj_game_player_jump_heads(g, ohero);
 #endif
-        v2_i32 hcenter = obj_pos_center(ohero);
 
-        // touched hurting things?
-        if (0 < ohero->invincible_tick) goto SKIP_HAZARDS;
-        for (obj_each(g, o)) {
-            if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
-            if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
-            v2_i32 ocenter = obj_pos_center(o);
-
-            v2_i32 dt       = v2_sub(hcenter, ocenter);
-            ohero->vel_q8.x = sgn_i(dt.x) * 1000;
-            ohero->vel_q8.y = -1000;
-            hero_hurt(g, ohero, &g->herodata, 1);
-            g->events_frame |= EVENT_HERO_DAMAGE;
-            snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
-
-            switch (o->ID) {
-            case OBJ_ID_CHARGER: {
-                int pushs       = sgn_i(hcenter.x - ocenter.x);
-                ohero->vel_q8.x = pushs * 2000;
-                ohero->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
-                break;
-            }
-            }
-            break;
-        }
-    SKIP_HAZARDS:;
-    }
-
-    objs_cull_to_delete(g);
-
-    // retrieve again in case the hero died
-    ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-
-    collectibles_update(g);
-
-    if (ohero) {
-        const rec_i32 heroaabb = obj_aabb(ohero);
         hero_check_rope_intact(g, ohero);
 
-        // collectibles
-        for (obj_each(g, o)) {
-            if (!(o->flags & OBJ_FLAG_COLLECTIBLE)) continue;
-            if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+        // touched hurting things?
+        if (ohero->invincible_tick <= 0) {
+            v2_i32 hcenter        = obj_pos_center(ohero);
+            int    hero_dmg       = 0;
+            v2_i32 hero_knockback = {0};
 
-            switch (o->ID) {
-            case OBJ_ID_HEROUPGRADE:
-                heroupgrade_on_collect(g, o, &g->herodata);
-                break;
-            case OBJ_ID_COLLECTIBLE:
-                snd_play_ext(SNDID_COIN, 1.f, rngr_f32(0.8f, 1.2f));
-                break;
+            for (obj_each(g, o)) {
+                if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
+                if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+                v2_i32 ocenter   = obj_pos_center(o);
+                v2_i32 dt        = v2_sub(hcenter, ocenter);
+                hero_knockback.x = sgn_i(dt.x) * 1000;
+                hero_knockback.y = -1000;
+                hero_dmg         = max_i(hero_dmg, 1);
+
+                switch (o->ID) {
+                case OBJ_ID_CHARGER: {
+                    int pushs        = sgn_i(hcenter.x - ocenter.x);
+                    hero_knockback.x = pushs * 2000;
+                    break;
+                }
+                }
             }
 
-            obj_delete(g, o);
+            if (hero_dmg) {
+                hero_hurt(g, ohero, hero_dmg);
+                snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
+                ohero->vel_q8 = hero_knockback;
+                ohero->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+                g->events_frame |= EVENT_HERO_DAMAGE;
+            }
         }
+    }
+
+    if (sys_key(SYS_KEY_K) && ohero && 0 < ohero->health) {
+        hero_kill(g, ohero);
     }
 
     objs_cull_to_delete(g);
@@ -184,58 +166,58 @@ static void gameplay_tick(game_s *g)
     }
 #endif
 
-    transition_check_hero_slide(&g->transition, g);
-    particles_update(g, &g->particles);
-
+    int to_freeze = 0;
     if (g->events_frame & EVENT_HIT_ENEMY) {
-        g->freeze_ticks = max_i(g->freeze_ticks, 2);
+        to_freeze = max_i(to_freeze, 2);
     }
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_ticks = max_i(g->freeze_ticks, 4);
+        to_freeze = max_i(to_freeze, 4);
     }
+
+    // possibly enter new substates
+    if (ohero) {
+        obj_s *interactable = obj_from_obj_handle(g->herodata.interactable);
+        if (ohero->health <= 0) {
+            if (substate_finished(&g->substate))
+                substate_respawn(g, &g->substate);
+        } else if (substate_finished(&g->substate)) {
+
+            bool32        collected_upgrade = 0;
+            const rec_i32 heroaabb          = obj_aabb(ohero);
+            for (obj_each(g, o)) {
+                if (o->ID != OBJ_ID_HEROUPGRADE) continue;
+                if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+                heroupgrade_on_collect(g, o, &g->herodata);
+                obj_delete(g, o);
+                objs_cull_to_delete(g);
+                collected_upgrade = 1;
+                break;
+            }
+
+            if (!collected_upgrade) {
+                bool32 t = substate_transition_try_hero_slide(g, &g->substate);
+                if (t == 0) { // nothing happended
+                    if (interactable && inp_just_pressed(INP_DPAD_U)) {
+                        obj_game_interact(g, interactable);
+                        g->herodata.interactable = obj_handle_from_obj(NULL);
+                    } else if (to_freeze) {
+                        substate_freeze(&g->substate, to_freeze);
+                    }
+                }
+            }
+        }
+    }
+
+    particles_update(g, &g->particles);
 }
 
 void game_tick(game_s *g)
 {
-    if (g->mainmenu_fade_in) {
-        g->mainmenu_fade_in--;
-    }
-
-    if (g->freeze_ticks) {
-        g->freeze_ticks--;
-        return;
-    }
-
-    if (g->die_ticks) {
-        g->die_ticks++;
-        if (50 <= g->die_ticks) {
-            if (g->transition_last.to_load[0] == '\0') {
-            }
-            transition_start_respawn(g, &g->transition_last);
-            // game_load_savefile(g, g->save, g->savefile_slotID);
-            g->die_ticks = 0;
-            return;
-        }
-    }
-
-    if (g->respawn_ticks) {
-        g->respawn_ticks++;
-        if (50 <= g->respawn_ticks) {
-            g->respawn_ticks = 0;
-            return;
-        }
-    }
-
     bool32 update_gameplay = 1;
-    if (upgradehandler_in_progress(&g->heroupgrade)) {
-        upgradehandler_tick(&g->heroupgrade);
-        update_gameplay = 0;
-    } else if (textbox_active(&g->textbox)) {
-        textbox_update(g, &g->textbox);
-        update_gameplay = 0;
-    } else if (!transition_finished(&g->transition)) {
-        transition_update(g, &g->transition);
-        update_gameplay = !transition_blocks_gameplay(&g->transition);
+
+    if (!substate_finished(&g->substate)) {
+        substate_update(g, &g->substate);
+        update_gameplay = !substate_blocks_gameplay(&g->substate);
     } else if (shop_active(g)) {
         shop_update(g);
         update_gameplay = 0;
@@ -264,25 +246,13 @@ void game_tick(game_s *g)
         }
     }
 
-    if (g->env_effects & ENVEFFECT_WIND) {
-        enveffect_wind_update(&g->env_wind);
-    }
-    if (g->env_effects & ENVEFFECT_RAIN) {
-        enveffect_rain_update(g, &g->env_rain);
-    }
-
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
     if (sys_tick() & 1) {
         backforeground_animate_grass(g);
-    } else {
-        if (g->env_effects & ENVEFFECT_HEAT) {
-            enveffect_heat_update(&g->env_heat);
-        }
-        if (g->env_effects & ENVEFFECT_CLOUD) {
-            enveffect_cloud_update(&g->env_cloud);
-        }
     }
+
+    area_update(g, &g->area);
 }
 
 void game_open_inventory(game_s *g)
@@ -300,11 +270,12 @@ void game_paused(game_s *g)
 
 void game_new_savefile(game_s *g, int slotID)
 {
+    assert(0);
     game_load_map(g, "map_01");
     g->savefile_slotID = slotID;
     obj_s *oh          = hero_create(g);
     oh->pos.x          = 300;
-    oh->pos.y          = 30;
+    oh->pos.y          = 500;
 }
 
 void game_write_savefile(game_s *g)
@@ -338,7 +309,7 @@ void game_load_savefile(game_s *g, savefile_s sf, int slotID)
 #if 1
     obj_s *oh = hero_create(g);
     oh->pos.x = 200;
-    oh->pos.y = 100;
+    oh->pos.y = 350;
 #endif
 }
 
@@ -348,15 +319,11 @@ void game_on_trigger(game_s *g, int trigger)
     for (obj_each(g, o)) {
         obj_game_trigger(g, o, trigger);
     }
+
     if (trigger == 1000) {
-        g->herodata.upgrades[HERO_UPGRADE_HIGH_JUMP]  = 1;
-        g->herodata.upgrades[HERO_UPGRADE_HOOK]       = 1;
         g->herodata.upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
-        snd_play_ext(SNDID_UPGRADE, 1.f, 2.f);
-    }
-    if (trigger == 1001) {
-        g->herodata.upgrades[HERO_UPGRADE_SPRINT] = 1;
-        snd_play_ext(SNDID_UPGRADE, 1.f, 2.f);
+        g->herodata.upgrades[HERO_UPGRADE_HOOK]       = 1;
+        snd_play_ext(SNDID_UPGRADE, 0.6f, 1.f);
     }
 }
 
@@ -417,6 +384,44 @@ int water_depth_rec(game_s *g, rec_i32 r)
     return max_i(f, d);
 }
 
+bool32 tiles_hookable(game_s *g, rec_i32 r)
+{
+    rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
+    rec_i32 riarea;
+    if (!intersect_rec(r, rgrid, &riarea)) return 0;
+
+    int px0 = riarea.x;
+    int py0 = riarea.y;
+    int px1 = riarea.x + riarea.w - 1;
+    int py1 = riarea.y + riarea.h - 1;
+    int tx0 = px0 >> 4;
+    int ty0 = py0 >> 4;
+    int tx1 = px1 >> 4;
+    int ty1 = py1 >> 4;
+
+    for (int ty = ty0; ty <= ty1; ty++) {
+        int y0 = (ty == ty0 ? py0 & 15 : 0); // px in tile (local)
+        int y1 = (ty == ty1 ? py1 & 15 : 15);
+
+        for (int tx = tx0; tx <= tx1; tx++) {
+            tile_s tile = g->tiles[tx + ty * g->tiles_x];
+            int    c    = tile.collision;
+            int    t    = tile.type;
+            if (c == TILE_EMPTY || NUM_TILE_BLOCKS <= c) continue;
+            if (!(t == TILE_TYPE_DIRT ||
+                  t == TILE_TYPE_DIRT_DARK))
+                continue;
+            if (c == TILE_BLOCK) return 1;
+            int x0 = (tx == tx0 ? px0 & 15 : 0);
+            int x1 = (tx == tx1 ? px1 & 15 : 15);
+            int mk = (0xFFFF >> x0) & (0xFFFF << (15 - x1));
+            for (int py = y0; py <= y1; py++)
+                if (g_pxmask_tab[(c << 4) + py] & mk) return 1;
+        }
+    }
+    return 0;
+}
+
 bool32 tiles_solid(game_s *g, rec_i32 r)
 {
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
@@ -437,14 +442,14 @@ bool32 tiles_solid(game_s *g, rec_i32 r)
         int y1 = (ty == ty1 ? py1 & 15 : 15);
 
         for (int tx = tx0; tx <= tx1; tx++) {
-            int ID = g->tiles[tx + ty * g->tiles_x].collision;
-            if (ID == TILE_EMPTY || NUM_TILE_BLOCKS <= ID) continue;
-            if (ID == TILE_BLOCK) return 1;
+            int c = g->tiles[tx + ty * g->tiles_x].collision;
+            if (c == TILE_EMPTY || NUM_TILE_BLOCKS <= c) continue;
+            if (c == TILE_BLOCK) return 1;
             int x0 = (tx == tx0 ? px0 & 15 : 0);
             int x1 = (tx == tx1 ? px1 & 15 : 15);
             int mk = (0xFFFF >> x0) & (0xFFFF << (15 - x1));
             for (int py = y0; py <= y1; py++)
-                if (g_pxmask_tab[ID * 16 + py] & mk) return 1;
+                if (g_pxmask_tab[(c << 4) + py] & mk) return 1;
         }
     }
     return 0;
@@ -472,7 +477,8 @@ bool32 tile_one_way(game_s *g, rec_i32 r)
 
     for (int ty = ty0; ty <= ty1; ty++) {
         for (int tx = tx0; tx <= tx1; tx++) {
-            if (g->tiles[tx + ty * g->tiles_x].collision == TILE_ONE_WAY)
+            int t = g->tiles[tx + ty * g->tiles_x].collision;
+            if (t == TILE_ONE_WAY || t == TILE_LADDER_ONE_WAY)
                 return 1;
         }
     }
@@ -598,14 +604,28 @@ void item_selector_update(item_selector_s *is)
     }
 }
 
-void logic_flag_set(game_s *g, int f)
+bool32 ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos)
 {
-    g->logic_flags |= (1U << f);
-}
-
-void logic_flag_clr(game_s *g, int f)
-{
-    g->logic_flags &= ~(1U << f);
+    rec_i32 ri;
+    rec_i32 rroom = {0, 0, g->pixel_x, g->pixel_y};
+    if (!intersect_rec(rroom, r, &ri)) return 0;
+    int tx1 = (ri.x) >> 4;
+    int ty1 = (ri.y) >> 4;
+    int tx2 = (ri.x + ri.w - 1) >> 4;
+    int ty2 = (ri.y + ri.h - 1) >> 4;
+    for (int ty = ty1; ty <= ty2; ty++) {
+        for (int tx = tx1; tx <= tx2; tx++) {
+            int t = g->tiles[tx + ty * g->tiles_x].collision;
+            if (t == TILE_LADDER || t == TILE_LADDER_ONE_WAY) {
+                if (tpos) {
+                    tpos->x = tx;
+                    tpos->y = ty;
+                }
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 static void *game_alloc_ctx(void *ctx, usize s)
@@ -619,6 +639,25 @@ alloc_s game_allocator(game_s *g)
 {
     alloc_s a = {game_alloc_ctx, (void *)g};
     return a;
+}
+
+void backforeground_animate_grass(game_s *g)
+{
+    for (int n = 0; n < g->n_grass; n++) {
+        grass_s *gr = &g->grass[n];
+        rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
+
+        for (obj_each(g, o)) {
+            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
+                gr->v_q8 += o->vel_q8.x >> 4;
+            }
+        }
+
+        gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);
+        gr->x_q8 += gr->v_q8;
+        gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
+        gr->v_q8 = (gr->v_q8 * 230) >> 8;
+    }
 }
 
 // operate on 16x16 tiles

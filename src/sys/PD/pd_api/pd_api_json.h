@@ -114,20 +114,23 @@ static inline void json_setArrayDecode(json_decoder* decoder,
 	decoder->didDecodeSublist = didDecodeSublist;
 }
 
+// fill buffer, return bytes written or -1 on end of data
+typedef int (json_readFunc)(void* userdata, uint8_t* buf, int bufsize);
+
 typedef struct
 {
-	int (*read)(void* userdata, uint8_t* buf, int bufsize); // fill buffer, return bytes written or -1 on end of data
+    json_readFunc* read;
 	void* userdata; // passed back to the read function above
 } json_reader;
 
 
 // encoder
 
-typedef void (writeFunc)(void* userdata, const char* str, int len);
+typedef void (json_writeFunc)(void* userdata, const char* str, int len);
 
 typedef struct json_encoder
 {
-	writeFunc* writeStringFunc;
+    json_writeFunc* writeStringFunc;
 	void* userdata;
 	
 	int pretty : 1;
@@ -154,7 +157,7 @@ typedef struct json_encoder
 
 struct playdate_json
 {
-	void (*initEncoder)(json_encoder* encoder, writeFunc* write, void* userdata, int pretty);
+	void (*initEncoder)(json_encoder* encoder, json_writeFunc* write, void* userdata, int pretty);
 
 	int (*decode)(struct json_decoder* functions, json_reader reader, json_value* outval);
 	int (*decodeString)(struct json_decoder* functions, const char* jsonString, json_value* outval);
