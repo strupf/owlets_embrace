@@ -12,23 +12,23 @@ enum {
 };
 
 typedef struct {
-    int  ID;
-    int  cost;
-    int  count;
+    i32  ID;
+    i32  cost;
+    i32  count;
     char name[32];
 } shopitem_s;
 
 typedef struct {
-    int        active;
-    int        fade_in;
-    int        fade_out;
-    int        selected;
-    int        shows_i1;
-    int        shows_i2;
-    int        show_interpolator_q8;
-    int        n_items;
-    int        buyticks;
-    int        buycount;
+    i32        active;
+    i32        fade_in;
+    i32        fade_out;
+    i32        selected;
+    i32        shows_i1;
+    i32        shows_i2;
+    i32        show_interpolator_q8;
+    i32        n_items;
+    i32        buyticks;
+    i32        buycount;
     shopitem_s items[64];
 } shop_s;
 

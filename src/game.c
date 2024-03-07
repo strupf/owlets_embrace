@@ -9,32 +9,19 @@ void game_init(game_s *g)
 {
 #ifdef SYS_SDL
     aud_mute(0);
-    sys_set_volume(0.1f);
+    sys_set_volume(0.9f);
 #endif
-    mus_set_trg_vol(64);
+    mus_set_trg_vol_q8(32);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
-#if 0
-    for (int i = 0; i < 1024; i++) {
-        if ((i & 7) == 0) sys_printf("\n");
-        int r = (int)(cosf(M_PI * 2.f * (f32)i / 1024.f) * 64.5f);
-        if (r < 0) {
-            sys_printf("-");
-        } else {
-            sys_printf("+");
-        }
-
-        sys_printf("0x%02X, ", abs_i(r));
-    }
-#endif
 }
 
-static void gameplay_tick(game_s *g)
+static void gameplay_tick(game_s *g, inp_s inp)
 {
     item_selector_update(&g->item_selector);
     g->events_frame          = 0;
-    g->herodata.interactable = obj_handle_from_obj(NULL);
+    g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
     for (obj_each(g, o)) {
         const v2_i32 posprev = o->pos;
@@ -46,7 +33,7 @@ static void gameplay_tick(game_s *g)
             o->enemy.invincible--;
         }
 
-        obj_game_update(g, o);
+        obj_game_update(g, o, inp);
         o->posprev = posprev;
 #ifdef SYS_DEBUG
         assert(o->magic == OBJ_MAGIC);
@@ -113,11 +100,6 @@ static void gameplay_tick(game_s *g)
             }
         }
 
-#if GAME_JUMP_ATTACK
-        void obj_game_player_jump_heads(game_s * g, obj_s * ohero);
-        obj_game_player_jump_heads(g, ohero);
-#endif
-
         hero_check_rope_intact(g, ohero);
 
         // touched hurting things?
@@ -154,12 +136,6 @@ static void gameplay_tick(game_s *g)
         }
     }
 
-    if (sys_key(SYS_KEY_K) && ohero && 0 < ohero->health) {
-        hero_kill(g, ohero);
-    }
-
-    objs_cull_to_delete(g);
-
 #ifdef SYS_DEBUG
     for (obj_each(g, o)) {
         assert(o->magic == OBJ_MAGIC);
@@ -176,7 +152,7 @@ static void gameplay_tick(game_s *g)
 
     // possibly enter new substates
     if (ohero) {
-        obj_s *interactable = obj_from_obj_handle(g->herodata.interactable);
+        obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
         if (ohero->health <= 0) {
             if (substate_finished(&g->substate))
                 substate_respawn(g, &g->substate);
@@ -187,7 +163,7 @@ static void gameplay_tick(game_s *g)
             for (obj_each(g, o)) {
                 if (o->ID != OBJ_ID_HEROUPGRADE) continue;
                 if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
-                heroupgrade_on_collect(g, o, &g->herodata);
+                heroupgrade_on_collect(g, o);
                 obj_delete(g, o);
                 objs_cull_to_delete(g);
                 collected_upgrade = 1;
@@ -199,7 +175,7 @@ static void gameplay_tick(game_s *g)
                 if (t == 0) { // nothing happended
                     if (interactable && inp_just_pressed(INP_DPAD_U)) {
                         obj_game_interact(g, interactable);
-                        g->herodata.interactable = obj_handle_from_obj(NULL);
+                        g->hero_mem.interactable = obj_handle_from_obj(NULL);
                     } else if (to_freeze) {
                         substate_freeze(&g->substate, to_freeze);
                     }
@@ -207,24 +183,28 @@ static void gameplay_tick(game_s *g)
             }
         }
     }
-
+    objs_cull_to_delete(g);
     particles_update(g, &g->particles);
 }
 
 void game_tick(game_s *g)
 {
-    bool32 update_gameplay = 1;
+    const inp_s inp             = inp_state();
+    bool32      update_gameplay = 1;
 
     if (!substate_finished(&g->substate)) {
-        substate_update(g, &g->substate);
+        substate_update(g, &g->substate, inp);
         update_gameplay = !substate_blocks_gameplay(&g->substate);
     } else if (shop_active(g)) {
         shop_update(g);
         update_gameplay = 0;
+    } else if (inventory_active(&g->inventory)) {
+        inventory_update(g, &g->inventory);
+        update_gameplay = !inventory_active(&g->inventory);
     }
 
     if (update_gameplay) {
-        gameplay_tick(g);
+        gameplay_tick(g, inp);
 
         for (obj_each(g, o)) {
             obj_game_animate(g, o);
@@ -234,6 +214,13 @@ void game_tick(game_s *g)
             g->enemy_decals[n].tick--;
             if (g->enemy_decals[n].tick <= 0) {
                 g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
+            }
+        }
+
+        for (int n = g->n_sprite_decals - 1; 0 <= n; n--) {
+            g->sprite_decals[n].t--;
+            if (g->sprite_decals[n].t <= 0) {
+                g->sprite_decals[n] = g->sprite_decals[--g->n_sprite_decals];
             }
         }
     }
@@ -255,62 +242,60 @@ void game_tick(game_s *g)
     area_update(g, &g->area);
 }
 
-void game_open_inventory(game_s *g)
-{
-}
-
 void game_resume(game_s *g)
 {
+    g->item_selector.decoupled = 0;
 }
 
 void game_paused(game_s *g)
 {
-    render_pause(g);
+
+    if (g->state == GAMESTATE_GAMEPLAY) {
+        g->item_selector.decoupled = 1;
+        render_pause(g);
+    }
 }
 
-void game_new_savefile(game_s *g, int slotID)
+bool32 game_load_savefile(game_s *g)
 {
-    assert(0);
-    game_load_map(g, "map_01");
-    g->savefile_slotID = slotID;
-    obj_s *oh          = hero_create(g);
-    oh->pos.x          = 300;
-    oh->pos.y          = 500;
+    void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_R);
+    if (!f) {
+        sys_printf("New game\n");
+        return 1;
+    }
+
+    save_s *hs      = &g->save;
+    int     bread   = sys_file_read(f, hs, sizeof(save_s));
+    int     eclosed = sys_file_close(f);
+    bool32  success = (bread == sizeof(save_s) && eclosed == 0);
+    if (!success) {
+        sys_printf("+++ Error loading savefile!\n");
+    }
+
+    game_load_map(g, hs->hero_mapfile);
+
+    obj_s  *oh   = hero_create(g);
+    hero_s *hero = &g->hero_mem;
+
+    oh->pos.x = hs->hero_pos.x - oh->w / 2;
+    oh->pos.y = hs->hero_pos.y - oh->h;
+    game_prepare_new_map(g);
+    return success;
 }
 
-void game_write_savefile(game_s *g)
+bool32 game_save_savefile(game_s *g)
 {
-    savefile_s  sf   = {0};
-    //
-    herodata_s *hero = &g->herodata;
-    strcpy(sf.area_filename, g->areaname.filename);
-    strcpy(sf.hero_name, hero->name);
-    memcpy(sf.upgrades, hero->upgrades, sizeof(hero->upgrades));
-    sf.n_airjumps = hero->n_airjumps;
-    sf.health     = hero->health;
-    //
-    g->save       = sf;
-    savefile_write(g->savefile_slotID, &sf);
-}
+    save_s *hs = &g->save;
 
-void game_load_savefile(game_s *g, savefile_s sf, int slotID)
-{
-    g->savefile_slotID = slotID;
-    g->save            = sf;
-    game_load_map(g, sf.area_filename);
-
-    // mus_play("assets/mus/overworld.wav");
-
-    herodata_s *hero = &g->herodata;
-    memcpy(hero->upgrades, sf.upgrades, sizeof(sf.upgrades));
-    hero->n_airjumps = sf.n_airjumps;
-    hero->health     = sf.health;
-
-#if 1
-    obj_s *oh = hero_create(g);
-    oh->pos.x = 200;
-    oh->pos.y = 350;
-#endif
+    void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_W);
+    if (!f) {
+        sys_printf("+++ Can't write savefile!\n");
+        return 0;
+    }
+    sys_printf("SAVED!\n");
+    int bwritten = sys_file_write(f, (const void *)hs, sizeof(save_s));
+    int eclosed  = sys_file_close(f);
+    return (bwritten == sizeof(save_s) && eclosed == 0);
 }
 
 void game_on_trigger(game_s *g, int trigger)
@@ -319,12 +304,15 @@ void game_on_trigger(game_s *g, int trigger)
     for (obj_each(g, o)) {
         obj_game_trigger(g, o, trigger);
     }
+}
 
-    if (trigger == 1000) {
-        g->herodata.upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
-        g->herodata.upgrades[HERO_UPGRADE_HOOK]       = 1;
-        snd_play_ext(SNDID_UPGRADE, 0.6f, 1.f);
-    }
+sprite_decal_s *sprite_decal_create(game_s *g)
+{
+    if (ARRLEN(g->sprite_decals) <= g->n_sprite_decals) return NULL;
+
+    sprite_decal_s *s = &g->sprite_decals[g->n_sprite_decals++];
+    *s                = (sprite_decal_s){0};
+    return s;
 }
 
 void game_put_grass(game_s *g, int tx, int ty)
@@ -409,7 +397,8 @@ bool32 tiles_hookable(game_s *g, rec_i32 r)
             int    t    = tile.type;
             if (c == TILE_EMPTY || NUM_TILE_BLOCKS <= c) continue;
             if (!(t == TILE_TYPE_DIRT ||
-                  t == TILE_TYPE_DIRT_DARK))
+                  t == TILE_TYPE_DIRT_DARK ||
+                  t == TILE_TYPE_CLEAN))
                 continue;
             if (c == TILE_BLOCK) return 1;
             int x0 = (tx == tx0 ? px0 & 15 : 0);
@@ -554,52 +543,52 @@ void game_on_solid_appear(game_s *g)
     }
 }
 
-#define ITEM_SELECTOR_CRANK_THRESHOLD 8000
-void item_selector_update(item_selector_s *is)
+#define ITEM_SELECTOR_CRANK_THRESHOLD 0x80
+void item_selector_update(item_selector_s *s)
 {
-    if (is->decoupled) return;
+    if (s->decoupled) return;
 
-    int p_q16 = inp_prev_crank_q16();
-    int c_q16 = inp_crank_q16();
-    int dt    = inp_crank_calc_dt_q16(p_q16, c_q16);
-    int dtp   = inp_crank_calc_dt_q16(p_q16, is->angle);
-    int dtc   = inp_crank_calc_dt_q16(is->angle, c_q16);
+    int p_q12 = inp_prev_crank_q12();
+    int c_q12 = inp_crank_q12();
+    int dt    = inp_crank_calc_dt_q12(p_q12, c_q12);
+    int dtp   = inp_crank_calc_dt_q12(p_q12, s->angle);
+    int dtc   = inp_crank_calc_dt_q12(s->angle, c_q12);
 
     // turn item barrel, snaps into crank angle for small angles
-    int angle_old = is->angle;
+    int angle_old = s->angle;
     if ((dt > 0 && dtp >= 0 && dtc >= 0) || (dt < 0 && dtp <= 0 && dtc <= 0)) {
-        is->angle = c_q16;
+        s->angle = c_q12;
     } else if (abs_i(dtc) < ITEM_SELECTOR_CRANK_THRESHOLD) {
         int d = sgn_i(dtc) * (ITEM_SELECTOR_CRANK_THRESHOLD - abs_i(dtc)) / 10;
         if (sgn_i(d) == sgn_i(dtc) && abs_i(d) > abs_i(dtc)) {
             d = dtc;
         }
 
-        is->angle = (is->angle + d + 0x10000) & 0xFFFF;
+        s->angle = (s->angle + d + 0x1000) & 0xFFF;
     }
 
     // item selection based on new item barrel angle
     // check if the barrel "flipped over" the 180 deg position
     // -> select next/prev item
-    int change = inp_crank_calc_dt_q16(angle_old, is->angle);
-    if (change > 0 && angle_old < 0x8000 && is->angle >= 0x8000) {
+    int change = inp_crank_calc_dt_q12(angle_old, s->angle);
+    if (change > 0 && angle_old < 0x800 && s->angle >= 0x800) {
 #if 0
         do {
             is->item += 1;
             is->item %= NUM_HERO_ITEMS;
         } while (!(h->aquired_items & (1 << is->item)));
 #else
-        is->item = 1 - is->item;
+        s->item = 1 - s->item;
 
 #endif
-    } else if (change < 0 && angle_old >= 0x8000 && is->angle < 0x8000) {
+    } else if (change < 0 && angle_old >= 0x800 && s->angle < 0x800) {
 #if 0
         do {
             is->item += NUM_HERO_ITEMS - 1;
             is->item %= NUM_HERO_ITEMS;
         } while (!(h->aquired_items & (1 << is->item)));
 #else
-        is->item = 1 - is->item;
+        s->item = 1 - s->item;
 #endif
     }
 }

@@ -7,8 +7,8 @@
 #define TOGGLEBLOCK_TICKS 6
 
 typedef struct {
-    int trigger_to_enable;
-    int trigger_to_disable;
+    i32 trigger_to_enable;
+    i32 trigger_to_disable;
 } obj_toggleblock_s;
 
 static void toggleblock_set_state(game_s *g, obj_s *o, int state)

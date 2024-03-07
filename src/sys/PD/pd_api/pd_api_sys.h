@@ -9,6 +9,8 @@
 #ifndef pdext_sys_h
 #define pdext_sys_h
 
+#include <stdarg.h>
+
 #if TARGET_EXTENSION
 
 typedef enum
@@ -52,7 +54,8 @@ typedef enum
 } PDPeripherals;
 
 typedef int PDCallbackFunction(void* userdata); // return 0 when done
-typedef void PDMenuItemCallbackFunction(void* userdata); // return 0 when done
+typedef void PDMenuItemCallbackFunction(void* userdata);
+typedef int PDButtonCallbackFunction(PDButtons button, int down, uint32_t when, void* userdata);
 
 struct playdate_sys
 {
@@ -106,9 +109,15 @@ struct playdate_sys
 	int (*shouldDisplay24HourTime)(void);
 	void (*convertEpochToDateTime)(uint32_t epoch, struct PDDateTime* datetime);
 	uint32_t (*convertDateTimeToEpoch)(struct PDDateTime* datetime);
-	
+
 	// 2.0
 	void (*clearICache)(void);
+	
+	// 2.4
+	void (*setButtonCallback)(PDButtonCallbackFunction* cb, void* buttonud, int queuesize);
+	void (*setSerialMessageCallback)(void (*callback)(const char* data));
+	int (*vaFormatString)(char **outstr, const char *fmt, va_list args);
+	int (*parseString)(const char *str, const char *format, ...);
 };
 
 #endif /* pdext_sys_h */

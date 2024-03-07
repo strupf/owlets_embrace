@@ -20,15 +20,16 @@ enum {
     AUTOTILE_TYPE_2           = 8,
     AUTOTILE_TYPE_3           = 9,
     AUTOTILE_TYPE_DIRT_DARK   = 10,
+    AUTOTILE_TYPE_HUGE        = 11,
     //
     NUM_AUTOTILE_TYPES
 };
 
 typedef struct {
-    int w;
-    int h;
-    int n_obj;
-    int n_prop;
+    i32 w;
+    i32 h;
+    i32 n_obj;
+    i32 n_prop;
     u32 bytes_prop;
     u32 bytes_tiles_bg;
     u32 bytes_tiles_terrain;
@@ -66,7 +67,7 @@ enum {
 
 typedef struct {
     u32  bytes;
-    int  type;
+    u32  type;
     char name[32];
     union {
         i32    n; // array: num elements
@@ -123,6 +124,8 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         switch_load(g, o);
     } else if (str_eq_nc(o->name, "Heroupgrade")) {
         heroupgrade_load(g, o);
+    } else if (str_eq_nc(o->name, "Boat")) {
+        boat_load(g, o);
     } else if (str_eq_nc(o->name, "NPC")) {
         npc_load(g, o);
     } else if (str_eq_nc(o->name, "Crawler")) {
@@ -161,17 +164,16 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         clockpulse_load(g, o);
     } else if (str_eq_nc(o->name, "Trigger_Area")) {
         triggerarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Ocean")) {
-        g->ocean.active = 1;
-        g->ocean.y      = o->y + 16;
+    } else if (str_eq_nc(o->name, "Hooklever")) {
+        hooklever_load(g, o);
+    } else if (str_eq_nc(o->name, "Cam_Attractor")) {
+        v2_i32 p                                 = {o->x, o->y};
+        g->cam.attractors[g->cam.n_attractors++] = p;
     } else if (str_eq_nc(o->name, "Respawn")) {
         assert(g->n_respawns < NUM_RESPAWNS);
-        respawn_pos_s rp             = {0};
-        rp.r.x                       = o->x;
-        rp.r.y                       = o->y;
-        rp.r.w                       = o->w;
-        rp.r.h                       = o->h;
-        g->respawns[g->n_respawns++] = rp;
+        v2_i32 *rp = &g->respawns[g->n_respawns++];
+        rp->x      = o->x + o->w / 2;
+        rp->y      = o->y + o->h;
     } else if (str_eq_nc(o->name, "Cam")) {
         cam_s *cam    = &g->cam;
         cam->locked_x = map_obj_bool(o, "Locked_X");
@@ -216,15 +218,17 @@ void game_load_map(game_s *g, const char *mapfile)
         g->obj_tag[n] = NULL;
     }
     g->n_grass              = 0;
-    g->herodata.rope_active = 0;
+    g->hero_mem.rope_active = 0;
     g->particles.n          = 0;
     g->ocean.active         = 0;
-    g->env_effects          = 0;
     g->n_coinparticles      = 0;
+    g->n_sprite_decals      = 0;
     g->n_enemy_decals       = 0;
     g->cam.locked_x         = 0;
     g->cam.locked_y         = 0;
+    g->cam.n_attractors     = 0;
     g->n_respawns           = 0;
+    g->hero_mem             = (hero_s){0};
     marena_init(&g->arena, g->mem, sizeof(g->mem));
     memset(g->tiles, 0, sizeof(g->tiles));
     memset(g->rtiles, 0, sizeof(g->rtiles));
@@ -232,6 +236,7 @@ void game_load_map(game_s *g, const char *mapfile)
 
     strcpy(g->areaname.filename, mapfile);
     g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
+    sys_printf("%s | %s\n", g->map_worldroom->filename, mapfile);
 
     spm_push();
 
@@ -268,6 +273,13 @@ void game_load_map(game_s *g, const char *mapfile)
     str_append(muspath, musname);
     str_append(muspath, ".aud");
     mus_fade_to(muspath, 50, 50);
+
+    int room_y1 = g->map_worldroom->y;
+    int room_y2 = g->map_worldroom->y + g->map_worldroom->h;
+    if (room_y1 < 0 && 0 < room_y2 && map_prop_bool(mp, "Ocean")) {
+        g->ocean.y      = -room_y1;
+        g->ocean.active = 1;
+    }
 
     spm_pop();
 
@@ -381,6 +393,16 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_close(mapf);
 }
 
+void game_prepare_new_map(game_s *g)
+{
+    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    for (obj_each(g, o)) {
+        obj_game_animate(g, o); // just setting initial sprites for obj
+    }
+    aud_allow_playing_new_snd(1);
+    cam_init_level(g, &g->cam);
+}
+
 static bool32 at_types_blending(int a, int b)
 {
     if (a == b) return 1;
@@ -478,6 +500,28 @@ static void map_at_background(game_s *g, tilelayer_bg_s tiles, int x, int y)
     rtile->ty       = (tile * 8) + (coords >> 4);
 }
 
+static const int altc_17[3] = {(7) | (3 << 4),
+                               (7) | (4 << 4),
+                               (7) | (6 << 4)};
+static const int altc_31[3] = {(0) | (4 << 4),
+                               (0) | (5 << 4),
+                               (5) | (3 << 4)};
+static const int altc199[3] = {(4) | (2 << 4),
+                               (1) | (6 << 4),
+                               (3) | (6 << 4)};
+static const int altc241[3] = {(6) | (1 << 4),
+                               (6) | (3 << 4),
+                               (2) | (4 << 4)};
+static const int altc_68[3] = {(3) | (7 << 4),
+                               (4) | (7 << 4),
+                               (6) | (7 << 4)};
+static const int altc124[3] = {(4) | (0 << 4),
+                               (5) | (0 << 4),
+                               (3) | (5 << 4)};
+static const int altc255[3] = {(4) | (1 << 4),
+                               (1) | (4 << 4),
+                               (5) | (1 << 4)};
+
 static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 {
     int               index = x + y * tiles.w;
@@ -502,36 +546,39 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 
     int xcoord = 0;
     int ycoord = ((int)tile.type - 2) * 8;
+    ycoord     = 1280;
     int coords = g_autotilemarch[march];
 
     switch (tile.shape) {
     case TILE_BLOCK: {
+        int n_vari = 2; // number of variations in that tileset
+        int vari   = rngr_i32(0, n_vari);
         switch (march) {
         case 17: { // vertical
+            coords = altc_17[vari];
         } break;
         case 31: { // left border
-
+            coords = altc_31[vari];
         } break;
         case 199: { // bot border
-
+            coords = altc199[vari];
         } break;
         case 241: { // right border
-
+            coords = altc241[vari];
         } break;
         case 68: { // horizontal
-
+            coords = altc_68[vari];
         } break;
         case 124: { // top border
-
+            coords = altc124[vari];
         } break;
         case 255: { // mid
-
+            coords = altc255[vari];
         } break;
         }
 
         xcoord = coords & 15;
         ycoord += coords >> 4;
-
         rtile->collision = TILE_BLOCK;
 
         if (0 < y) {

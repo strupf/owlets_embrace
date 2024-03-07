@@ -404,3 +404,89 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int m)
         }
     }
 }
+
+// special case: drawing tiles equal or smaller than 32x32 to an opaque target texture
+// only copy mode
+static inline void spr_blit_tile(u32 *restrict DP, const u32 *restrict SP, u32 pt, int l,
+                                 int r, u32 ml, u32 mr, int dm, int offs)
+{
+#define SPR_BLIT_T(D, P, M) *(D) = (*(D) & ~(M)) | ((P) & (M))
+
+    u32 *restrict dp = DP;
+    u32 sp           = *(SP);
+    u32 sm           = *(SP + 1);
+    u32 p            = 0;
+    u32 m            = 0;
+
+    if (l == 0) { // same alignment, fast path
+        p = sp;
+        m = sm & ml;
+        if (dm == 1) {
+            SPR_BLIT_T(dp, p, m & pt);
+            m = sm;
+            dp++;
+        }
+        SPR_BLIT_T(dp, p, m & (pt & mr));
+        return;
+    }
+
+    sp = bswap32(sp);
+    sm = bswap32(sm);
+
+    if (0 < offs) { // first word
+        p = sp << l;
+        m = sm << l;
+    }
+
+    p = bswap32(p | (sp >> r));
+    m = bswap32(m | (sm >> r)) & ml;
+    if (dm == 0) {
+        SPR_BLIT_T(dp, p, m & (pt & mr));
+        return; // only one word long
+    }
+
+    SPR_BLIT_T(dp, p, m & pt);
+    dp++;
+
+    p = bswap32(sp << l); // last word
+    m = bswap32(sm << l);
+    SPR_BLIT_T(dp, p, m & (pt & mr));
+}
+
+// special case: drawing tiles equal or smaller than 32x32 to an opaque target texture
+// no XY flipping supported
+void gfx_spr_tile(gfx_ctx_s ctx, tex_s stex, int tx, int ty, int ts, v2_i32 pos)
+{
+    assert(ctx.dst.fmt == TEX_FMT_OPAQUE);
+    assert(stex.fmt == TEX_FMT_MASK);
+    assert(ts <= 5);
+    int      size = 1 << ts;
+    texrec_s src  = {stex, {tx << ts, ty << ts, size, size}};
+
+    // area bounds on canvas [x1/y1, x2/y2)
+    int x1 = max_i(pos.x, ctx.clip_x1);            // inclusive
+    int y1 = max_i(pos.y, ctx.clip_y1);            // inclusive
+    int x2 = min_i(pos.x + size - 1, ctx.clip_x2); // inclusive
+    int y2 = min_i(pos.y + size - 1, ctx.clip_y2); // inclusive
+    if (x2 < x1) return;
+
+    tex_s dtex = ctx.dst;
+    int   nb   = (x2 + 1) - x1;                                   // number of bits in a row
+    int   od   = x1 & 31;                                         // bitoffset in dst
+    int   dm   = (od + nb - 1) >> 5;                              // number of touched dst words -1
+    u32   ml   = bswap32(0xFFFFFFFFU >> (31 & od));               // mask to cut off boundary left
+    u32   mr   = bswap32(0xFFFFFFFFU << (31 & (uint)(-od - nb))); // mask to cut off boundary right
+    int   u1   = src.r.x - pos.x + x1;                            // first bit index in src row
+    int   of   = ((uint)u1 & 31) - od;                            // alignment difference
+    int   sl   = of & 31;                                         // word left shift amount
+    int   sr   = 32 - sl;                                         // word rght shift amound
+
+    u32 *dp = &dtex.px[(x1 >> 5) + y1 * dtex.wword];                              // dst pixel words
+    u32 *sp = &stex.px[((u1 >> 5) << 1) + stex.wword * (src.r.y + (y1 - pos.y))]; // src pixel words
+
+    for (int y = y1; y <= y2; y++, sp += stex.wword, dp += dtex.wword) {
+        u32 pt = ctx.pat.p[y & 7];
+        if (pt == 0) continue;
+        spr_blit_tile(dp, sp, pt, sl, sr, ml, mr, dm, of);
+    }
+}

@@ -20,42 +20,42 @@ enum {
 };
 
 typedef struct {
-    int tick;
-    int phase;
+    i32 tick;
+    i32 phase;
 } respawn_s;
 
 typedef struct {
-    int phase;
-    int t;
-    int upgrade;
+    i32 phase;
+    i32 t;
+    i32 upgrade;
 } upgrade_s;
 
 typedef struct {
-    int    fade_phase;
-    int    fade_tick;
-    int    type;
-    int    hero_face;
+    i32    fade_phase;
+    i32    fade_tick;
+    i32    type;
+    i32    hero_face;
     v2_i32 hero_v;
     v2_i32 hero_feet;
-    int    teleport_ID;
+    i32    teleport_ID;
     char   to_load[64];
-    int    dir;
+    i32    dir;
 } transition_s;
 
 typedef struct {
-    int          state;
+    i32          state;
     //
     transition_s transition;
     upgrade_s    upgrade;
     respawn_s    respawn;
     textbox_s    textbox;
-    int          mainmenu_tick;
-    int          freeze_tick;
+    i32          mainmenu_tick;
+    i32          freeze_tick;
 } substate_s;
 
 bool32 substate_blocks_gameplay(substate_s *st);
 bool32 substate_finished(substate_s *st);
-void   substate_update(game_s *g, substate_s *st);
+void   substate_update(game_s *g, substate_s *st, inp_s inp);
 void   substate_draw(game_s *g, substate_s *st, v2_i32 cam);
 //
 void   substate_transition_teleport(game_s *g, substate_s *st, const char *map, v2_i32 hero_feet);

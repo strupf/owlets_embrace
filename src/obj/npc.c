@@ -15,8 +15,8 @@ enum {
 };
 
 typedef struct {
-    int movement;
-    int movedir;
+    i32 movement;
+    i32 movedir;
 } npc_s;
 
 static int npc_get_state(game_s *g, obj_s *o)

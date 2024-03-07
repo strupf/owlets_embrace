@@ -10,16 +10,16 @@
 #include "gamedef.h"
 
 typedef struct {
-    int x;
+    i32 x;
 } area_mountain_s;
 
 typedef struct {
-    int x;
+    i32 x;
 } area_cave_s;
 
 typedef struct {
-    int             ID;
-    int             tick;
+    i32             ID;
+    i32             tick;
     //
     area_mountain_s mountain;
     area_cave_s     cave;

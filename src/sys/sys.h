@@ -24,10 +24,10 @@
 
 typedef struct {
     u32 *px;
-    int  w;
-    int  h;
-    int  wword;
-    int  wbyte;
+    i32  w;
+    i32  h;
+    i32  wword;
+    i32  wbyte;
 } sys_display_s;
 
 // implemented by user

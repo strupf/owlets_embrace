@@ -38,10 +38,10 @@ typedef struct {
 typedef struct {
     tex_s         dst;
     gfx_pattern_s pat;
-    i32           clip_x1;
-    i32           clip_x2;
-    i32           clip_y1;
-    i32           clip_y2;
+    u16           clip_x1;
+    u16           clip_x2;
+    u16           clip_y1;
+    u16           clip_y2;
 } gfx_ctx_s;
 
 typedef struct {
@@ -115,6 +115,7 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
 gfx_pattern_s gfx_pattern_interpolatec(int num, int den, int (*ease)(int a, int b, int num, int den));
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
+void          gfx_spr_tile(gfx_ctx_s ctx, tex_s tex, int tx, int ty, int ts, v2_i32 pos);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                              f32 sclx, f32 scly);

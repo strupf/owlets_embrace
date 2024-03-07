@@ -162,6 +162,11 @@ static inline i32 lerpl_i32(i32 a, i32 b, i32 num, i32 den)
     return r;
 }
 
+static inline f32 lerp_f32(f32 a, f32 b, f32 r)
+{
+    return (a + (b - a) * r);
+}
+
 static inline bool32 between_excl_incl_i32(i32 x, i32 a, i32 b)
 {
     return (a < x && x <= b) || (b <= x && x < a);
@@ -194,7 +199,12 @@ static inline u32 sqrt_u32(u32 x)
 
 static inline i32 sqrt_i32(i32 x)
 {
-    return (i32)sqrtf((f32)x);
+#ifdef SYS_DEBUG
+    if (x < 0) {
+        sys_printf("sqrt_warn: negative number!\n");
+    }
+#endif
+    return (x <= 0 ? 0 : (i32)sqrtf((f32)x));
 }
 
 #define Q16_ANGLE_TURN 0x40000
@@ -477,6 +487,12 @@ static inline v2_f32 v2f_sub(v2_f32 a, v2_f32 b)
 static inline v2_f32 v2f_add(v2_f32 a, v2_f32 b)
 {
     v2_f32 r = {a.x + b.x, a.y + b.y};
+    return r;
+}
+
+static inline v2_f32 v2f_mul(v2_f32 a, f32 s)
+{
+    v2_f32 r = {a.x * s, a.y * s};
     return r;
 }
 

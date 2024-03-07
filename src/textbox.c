@@ -137,7 +137,7 @@ static void select_tbblock(textbox_s *tb)
     }
 }
 
-void textbox_update(game_s *g, textbox_s *tb)
+void textbox_update(game_s *g, textbox_s *tb, inp_s inp)
 {
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
     tb->tick++;
@@ -162,7 +162,7 @@ void textbox_update(game_s *g, textbox_s *tb)
     switch (tb->state) {
     case TEXTBOX_STATE_WAIT: {
         textbox_block_s *b = &tb->blocks[tb->block];
-        if (inp_just_pressed(INP_A)) {
+        if (inps_just_pressed(inp, INP_A)) {
             if (b->n_choices <= 0) {
                 tb->block++;
                 select_tbblock(tb);
@@ -204,8 +204,8 @@ void textbox_update(game_s *g, textbox_s *tb)
 
         if (b->n_choices <= 0) break;
 
-        if (inp_just_pressed(INP_DPAD_D) || inp_just_pressed(INP_DPAD_U)) {
-            tb->curchoice += inp_dpad_y();
+        if (inps_just_pressed(inp, INP_DPAD_D) || inps_just_pressed(inp, INP_DPAD_U)) {
+            tb->curchoice += inps_dpad_y(inp);
             tb->curchoice = clamp_i(tb->curchoice, 0, b->n_choices - 1);
             snd_play_ext(SNDID_MENU_NEXT_ITEM, 1.f, 1.f);
         }
@@ -214,7 +214,7 @@ void textbox_update(game_s *g, textbox_s *tb)
         textbox_block_s *b = &tb->blocks[tb->block];
         assert(tb->n < b->n_chars);
 
-        tb->tick_q2 += inp_pressed(INP_A) || inp_pressed(INP_B) ? 12 : 4;
+        tb->tick_q2 += inps_pressed(inp, INP_A) || inps_pressed(inp, INP_B) ? 12 : 4;
         int tick = b->chars[tb->n].tick_q2;
         while (tick <= tb->tick_q2) {
             tb->tick_q2 -= tick;

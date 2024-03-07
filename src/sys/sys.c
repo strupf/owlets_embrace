@@ -8,12 +8,20 @@
 
 #define SYS_SHOW_CONSOLE 0 // enable or display hardware console
 #define SYS_SHOW_FPS     0 // enable fps/ups counter
-//
-#define SYS_UPS_DT       0.0200f // 1 /  50
-#define SYS_UPS_DT_TEST  0.0195f // 1 / ~51
-#define SYS_UPS_DT_CAP   0.0600f // 3 /  50
 
-#if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
+#define SYS_UPS_DT      0.0200f // 1 /  50
+#define SYS_UPS_DT_TEST 0.0195f // 1 / ~51
+#define SYS_UPS_DT_CAP  0.0600f // 3 /  50
+
+#ifdef SYS_PD_HW
+#define SYS_LOOP_HW 1 // use natural 50 FPS cap of the Playdate display
+#else
+#define SYS_LOOP_HW 0
+#endif
+#define SYS_NEEDS_TIMER (SYS_SHOW_FPS || !SYS_LOOP_HW)
+#define SYS_NEEDS_FONT  (SYS_SHOW_CONSOLE || SYS_SHOW_FPS)
+
+#if SYS_NEEDS_FONT
 static const u32 sys_consolefont[512];
 #endif
 #if SYS_SHOW_CONSOLE
@@ -26,38 +34,28 @@ static void sys_draw_console();
 
 static struct {
     void *menu_items[8];
-    int   inp;
-    f32   crank;
-    int   crank_docked;
     u32   tick;
     f32   lasttime;
     f32   ups_timeacc;
-#if SYS_SHOW_FPS
-    f32 fps_timeacc;
-    int fps_counter;
-    int fps; // updates per second
-#endif
+    f32   fps_timeacc;
+    i32   fps_counter;
+    i32   fps; // updates per second
 #if SYS_SHOW_CONSOLE
     char console_out[SYS_CONSOLE_LINES * SYS_CONSOLE_LINE_CHARS];
-    int  console_x;
-    int  console_ticks;
+    i32  console_x;
+    i32  console_ticks;
 #endif
 } SYS;
 
 void sys_init()
 {
-#if SYS_SHOW_FPS
-    SYS.fps = SYS_UPS;
-#endif
+    SYS.fps      = SYS_UPS;
     SYS.lasttime = backend_seconds();
     app_init();
 }
 
 static inline void sys_tick_()
 {
-    SYS.inp          = backend_inp();
-    SYS.crank        = backend_crank();
-    SYS.crank_docked = backend_crank_docked();
     SYS.tick++;
     app_tick();
 }
@@ -82,15 +80,37 @@ static inline void sys_draw_()
 #endif
 }
 
+static void sys_update_fps(f32 timedt)
+{
+    SYS.fps_timeacc += timedt;
+    if (1.f <= SYS.fps_timeacc) {
+        SYS.fps_timeacc -= 1.f;
+        SYS.fps         = SYS.fps_counter;
+        SYS.fps_counter = 0;
+    }
+}
+
 // there are some frame skips when using the exact delta time and evaluating
 // if an update tick should run (@50 FPS cap on hardware)
 //
 // https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
 int sys_step(void *arg)
 {
+#if SYS_NEEDS_TIMER
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
     SYS.lasttime = time;
+#endif
+
+#if SYS_LOOP_HW
+    sys_tick_();
+    sys_draw_();
+#if SYS_SHOW_FPS
+    sys_update_fps(timedt);
+#endif
+    return 1;
+
+#else // sys_loop_hw
     SYS.ups_timeacc += timedt;
     if (SYS_UPS_DT_CAP < SYS.ups_timeacc) {
         SYS.ups_timeacc = SYS_UPS_DT_CAP;
@@ -99,12 +119,12 @@ int sys_step(void *arg)
     int n_upd = 0;
     while (SYS_UPS_DT_TEST <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
-        n_upd++;
 #if defined(SYS_SDL) && defined(SYS_DEBUG)
         static int slowtick;
         if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 31))
             continue;
 #endif
+        n_upd++;
         sys_tick_();
     }
 
@@ -113,14 +133,10 @@ int sys_step(void *arg)
     }
 
 #if SYS_SHOW_FPS
-    SYS.fps_timeacc += timedt;
-    if (1.f <= SYS.fps_timeacc) {
-        SYS.fps_timeacc -= 1.f;
-        SYS.fps         = SYS.fps_counter;
-        SYS.fps_counter = 0;
-    }
+    sys_update_fps(timedt);
 #endif
     return (n_upd);
+#endif // sys_loop_hw
 }
 
 void sys_close()
@@ -343,7 +359,8 @@ static void sys_draw_console()
 }
 
 #endif
-#if SYS_SHOW_CONSOLE || SYS_SHOW_FPS
+
+#if SYS_NEEDS_FONT
 // bitmap data of IBM EGA 8x8
 static const u32 sys_consolefont[512] = {
     0x6C7E7E00U, 0x00103810U, 0x0FFF00FFU, 0x997F3F3CU, 0x66180280U, 0x18003E7FU, 0x00001818U, 0x00000000U,

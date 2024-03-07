@@ -5,8 +5,8 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
-#define GAME_JUMP_ATTACK   0
-#define GAME_HERO_CANT_DIE 0
+#define GAME_VERSION_MAJ 0
+#define GAME_VERSION_MIN 1
 
 #include "core/assets.h"
 #include "core/aud.h"
@@ -21,6 +21,7 @@
 #include "util/rng.h"
 #include "util/str.h"
 
+#define SAVEFILE_NAME   "save.sav"
 #define FILEPATH_MAP    "assets/map/"
 #define FILEPATH_SND    "assets/snd/"
 #define FILEPATH_MUS    "assets/mus/"
@@ -86,14 +87,15 @@ enum {
     TILE_TYPE_FAKE_1,
     TILE_TYPE_FAKE_2,
     //
-    TILE_TYPE_BRICK       = 3,
-    TILE_TYPE_BRICK_SMALL = 4,
-    TILE_TYPE_DIRT        = 5,
-    TILE_TYPE_STONE       = 6,
-    TILE_TYPE_1           = 7,
-    TILE_TYPE_2           = 8,
-    TILE_TYPE_3           = 9,
-    TILE_TYPE_DIRT_DARK   = 10,
+    TILE_TYPE_CLEAN       = 3,
+    TILE_TYPE_BRICK       = 4,
+    TILE_TYPE_BRICK_SMALL = 5,
+    TILE_TYPE_DIRT        = 6,
+    TILE_TYPE_STONE       = 7,
+    TILE_TYPE_1           = 8,
+    TILE_TYPE_2           = 9,
+    TILE_TYPE_3           = 10,
+    TILE_TYPE_DIRT_DARK   = 11,
     //
     NUM_TILE_TYPES
 };

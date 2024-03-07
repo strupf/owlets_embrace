@@ -16,12 +16,12 @@ enum {
 };
 
 typedef struct {
-    int    i0;
-    int    i1;
+    i32    i0;
+    i32    i1;
     i32    p_q4;
     i32    v_q4;
     i32    v_trg_q4;
-    int    n_path;
+    i32    n_path;
     v2_i16 path[16];
 } movingplatform_s;
 

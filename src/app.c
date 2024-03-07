@@ -17,29 +17,20 @@ static void app_load_fnt();
 static void app_load_snd();
 static void app_load_game();
 
-void menu_setup_game()
+void menu_cb_inventory(void *arg)
 {
-    game_s *g = &GAME;
-    sys_menu_clr();
-}
-
-void menu_setup_title()
-{
-    sys_menu_clr();
+    assert(arg);
+    game_s *g = (game_s *)arg;
+    inventory_open(g, &g->inventory);
 }
 
 static void app_load_game()
 {
-
-    menu_setup_game();
-
     game_s *g = &GAME;
 
     sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
-    usize size_tabs = sizeof(g_animated_tiles) +
-                      sizeof(g_pxmask_tab) +
+    usize size_tabs = sizeof(g_pxmask_tab) +
                       sizeof(tilecolliders) +
-                      sizeof(g_item_desc) +
                       sizeof(AUD_s);
     sys_printf("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
     sys_printf("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
@@ -51,6 +42,8 @@ static void app_load_game()
                                        size_tabs) /
                                     1024);
 
+    sys_printf("size save: %u bytes\n", (uint)(sizeof(save_s)));
+
     mainmenu_init(&g->mainmenu);
     game_init(g);
 }
@@ -59,6 +52,7 @@ void app_init()
 {
     spm_init();
     assets_init();
+    aud_init();
 #if defined(SYS_PD_HW) || 0
     assets_import();
 #else
@@ -73,10 +67,16 @@ void app_init()
 void app_tick()
 {
     inp_update();
+    sys_menu_clr();
     game_s *g = &GAME;
     switch (g->state) {
-    case GAMESTATE_MAINMENU: mainmenu_update(g, &g->mainmenu); break;
-    case GAMESTATE_GAMEPLAY: game_tick(g); break;
+    case GAMESTATE_MAINMENU:
+        mainmenu_update(g, &g->mainmenu);
+        break;
+    case GAMESTATE_GAMEPLAY:
+        sys_menu_item_add(0, "Inventory", menu_cb_inventory, g);
+        game_tick(g);
+        break;
     }
     aud_update();
 }
@@ -97,6 +97,7 @@ void app_close()
 
 void app_resume()
 {
+    inp_on_resume();
     game_resume(&GAME);
 }
 
@@ -115,6 +116,9 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg", NULL);
+
+    tex_s tex_propbg = asset_tex(TEXID_TILESET_PROPS_BG);
+    // RR tex_outline(tex_propbg, 352, 0, 256, 256, 0, 1);
 
 #if defined(SYS_DEBUG) && 0
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -142,7 +146,6 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_SWITCH, "switch", &texswitch);
     tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
-    asset_tex_putID(TEXID_UI_ITEM_CACHE, tex_create(128, 256, asset_allocator));
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
 
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox", NULL);

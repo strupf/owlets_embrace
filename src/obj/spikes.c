@@ -13,8 +13,8 @@ enum {
 };
 
 typedef struct {
-    int trigger_on;
-    int trigger_off;
+    i32 trigger_on;
+    i32 trigger_off;
 } spikes_s;
 
 void spikes_load(game_s *g, map_obj_s *mo)

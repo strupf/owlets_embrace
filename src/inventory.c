@@ -2,44 +2,29 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "inventory.h"
+#include "game.h"
 
-const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS] =
-    {0};
-
-static inventory_item_s *inventory_find(inventory_s *i, int ID)
+bool32 inventory_active(inventory_s *inv)
 {
-    for (int n = 0; n < i->n_items; n++) {
-        inventory_item_s *item = &i->items[n];
-        if (item->ID == ID) return item;
-    }
-    return NULL;
+    return inv->active;
 }
 
-void inventory_add(inventory_s *i, int ID, int n)
+void inventory_update(game_s *g, inventory_s *inv)
 {
-    inventory_item_s *item = inventory_find(i, ID);
-    if (item) {
-        item->n += n;
-    } else {
-        item     = &i->items[i->n_items++];
-        item->ID = ID;
-        item->n  = n;
+    if (inp_just_pressed(INP_A)) {
+        inv->active = 0;
     }
+
+    sys_menu_clr(); // clear menu
 }
 
-void inventory_rem(inventory_s *i, int ID, int n)
+void inventory_draw(game_s *g, inventory_s *inv)
 {
-    inventory_item_s *item = inventory_find(i, ID);
-    if (!item) return;
-    item->n -= min_i(n, item->n);
-    if (item->n == 0) {
-        *item = i->items[--i->n_items];
-    }
+    const gfx_ctx_s ctx = gfx_ctx_display();
 }
 
-int inventory_count_of(inventory_s *i, int ID)
+void inventory_open(game_s *g, inventory_s *inv)
 {
-    inventory_item_s *item = inventory_find(i, ID);
-    return (item ? item->n : 0);
+    inv->active = 1;
+    sys_printf("Open Menu\n");
 }

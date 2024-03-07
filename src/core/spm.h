@@ -10,7 +10,7 @@
 
 typedef struct {
     void *stack[16];
-    int   n_stack;
+    i32   n_stack;
 #ifdef SYS_DEBUG
     usize lowestleft;
 #endif

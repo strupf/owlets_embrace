@@ -19,6 +19,10 @@ static void muschannel_update_chunk(muschannel_s *ch, int samples);
 static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len);
 static void muschannel_stream(muschannel_s *ch, i16 *buf, int len);
 
+void aud_init()
+{
+}
+
 void aud_update()
 {
     switch (AUD.mus_fade) {
@@ -69,7 +73,7 @@ void aud_audio(i16 *buf, int len)
     muschannel_stream(&AUD.muschannel, buf, len);
     for (int n = 0; n < NUM_SNDCHANNEL; n++) {
         sndchannel_s *ch = &AUD.sndchannel[n];
-        if (ch->wavedata) {
+        if (ch->wavbuf) {
             sndchannel_play(ch, buf, len);
         }
     }
@@ -118,33 +122,30 @@ void snd_play(snd_s s, f32 vol, f32 pitch)
 
     for (int i = 0; i < NUM_SNDCHANNEL; i++) {
         sndchannel_s *ch = &AUD.sndchannel[i];
-        if (ch->wavedata) continue;
-        ch->wavedata       = s.buf;
-        ch->wavelen_og     = s.len;
-        ch->wavelen        = (int)((f32)s.len * pitch);
-        ch->invpitch_q8    = (int)(256.f / pitch);
-        ch->vol_q8         = (int)(vol * 256.f);
-        ch->wavepos        = 0;
-        ch->wavepos_inv_q8 = 0;
-
+        if (ch->wavbuf) continue;
+        ch->wavbuf = s.buf;
+        ch->wavlen = s.len;
+        ch->pitch  = pitch;
+        ch->vol_q8 = (int)(vol * 256.f);
+        ch->wavpos = 0;
         break;
     }
 }
 
 static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len)
 {
-    int lmax = ch->wavelen - ch->wavepos;
-    int l    = min_i(len, lmax);
+    f32 pitch  = ch->pitch;
+    f32 ipitch = 1.f / pitch;
 
-    ch->wavepos += l;
+    int len_pitched = (int)((f32)ch->wavlen * pitch);
+    int lmax        = len_pitched - ch->wavpos;
+    int l           = min_i(len, lmax);
+
     i16 *buf = lbuf;
     for (int n = 0; n < l; n++) {
-        int i = ch->wavepos_inv_q8 >> 8;
-        ch->wavepos_inv_q8 += ch->invpitch_q8;
-        assert(i < ch->wavelen_og);
-
-        // i8 * Q8 -> i16
-        i32 v = (i32)*buf + ((i32)ch->wavedata[i] * ch->vol_q8);
+        int i = (int)(ch->wavpos++ * ipitch);
+        assert(i < ch->wavlen);
+        i32 v = (i32)*buf + ((i32)ch->wavbuf[i] * ch->vol_q8); // i8 * Q8 -> i16
 #if AUD_CLAMP
         v = clamp_i32(v, I16_MIN, I16_MAX);
 #endif
@@ -152,7 +153,7 @@ static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len)
     }
 
     if (lmax <= len) { // last part of wav, stop after this
-        ch->wavedata = NULL;
+        ch->wavbuf = NULL;
     }
 }
 
@@ -213,7 +214,7 @@ void mus_set_vol(int vol_q8)
     AUD.muschannel.vol_q8 = vol_q8;
 }
 
-void mus_set_trg_vol(int vol_q8)
+void mus_set_trg_vol_q8(int vol_q8)
 {
     AUD.muschannel.trg_vol_q8 = vol_q8;
 }
@@ -225,7 +226,14 @@ static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)
         return;
     }
 
-    int l = min_i(len, (int)(ch->streamlen - ch->streampos));
+    f32 pitch = 1.f;
+    if (pitch == 0.f) return;
+    f32 ipitch = 1.f / pitch;
+
+    int len_pitched = (int)((f32)ch->streamlen * pitch);
+    int lmax        = len_pitched - ch->streampos;
+    int l           = min_i(len, lmax);
+
     muschannel_update_chunk(ch, len);
     muschannel_fillbuf(ch, buf, l);
 
@@ -267,6 +275,7 @@ static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len)
     i8  *c = &ch->chunk[ch->chunkpos];
     ch->chunkpos += len;
     for (int n = 0; n < len; n++) {
-        *b++ = (i16)((i32)*c++ * ch->vol_q8); // i8 * Q8 -> Q16
+        i32 vv = (i32)*c++ * ch->vol_q8; // i8 * Q8 -> Q16
+        *b++   = vv;
     }
 }

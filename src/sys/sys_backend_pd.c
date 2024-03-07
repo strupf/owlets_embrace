@@ -25,17 +25,25 @@ static_assert(SYS_INP_DPAD_R == kButtonRight, "input button mask Dpad");
 static_assert(SYS_INP_DPAD_U == kButtonUp, "input button mask Dpad");
 static_assert(SYS_INP_DPAD_D == kButtonDown, "input button mask Dpad");
 
-PlaydateAPI *PD;
+PlaydateAPI      *PD;
+static LCDBitmap *PD_menu_bm;
 int (*PD_format_str)(char **ret, const char *format, ...);
 void *(*PD_realloc)(void *ptr, size_t size);
-static LCDBitmap *PD_menu_bm;
 void (*PD_log)(const char *fmt, ...);
-
+//
 static void (*PD_getButtonState)(PDButtons *a, PDButtons *b, PDButtons *c);
 static void (*PD_markUpdatedRows)(int a, int b);
 static float (*PD_getCrankAngle)(void);
 static int (*PD_isCrankDocked)(void);
 static float (*PD_seconds)(void);
+//
+static SDFile *(*PD_file_open)(const char *name, FileOptions mode);
+static int (*PD_file_close)(SDFile *file);
+static int (*PD_file_read)(SDFile *file, void *buf, unsigned int len);
+static int (*PD_file_write)(SDFile *file, const void *buf, unsigned int len);
+static int (*PD_file_tell)(SDFile *file);
+static int (*PD_file_seek)(SDFile *file, int pos, int whence);
+static int (*PD_file_unlink)(const char *name, int recursive);
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -45,11 +53,18 @@ __declspec(dllexport)
     switch (event) {
     case kEventInit:
         PD                 = pd;
+        PD_file_open       = PD->file->open;
+        PD_file_read       = PD->file->read;
+        PD_file_write      = PD->file->write;
+        PD_file_close      = PD->file->close;
+        PD_file_seek       = PD->file->seek;
+        PD_file_tell       = PD->file->tell;
+        PD_file_unlink     = PD->file->unlink;
+        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
         PD_log             = PD->system->logToConsole;
         PD_format_str      = PD->system->formatString;
         PD_realloc         = PD->system->realloc;
         PD_getButtonState  = PD->system->getButtonState;
-        PD_markUpdatedRows = PD->graphics->markUpdatedRows;
         PD_getCrankAngle   = PD->system->getCrankAngle;
         PD_isCrankDocked   = PD->system->isCrankDocked;
         PD_seconds         = PD->system->getElapsedTime;
@@ -69,12 +84,6 @@ __declspec(dllexport)
     case kEventResume:
         sys_resume();
         break;
-    case kEventKeyPressed:
-    case kEventKeyReleased:
-    case kEventInitLua:
-    case kEventLock:
-    case kEventUnlock:
-    case kEventLowPower: break;
     }
     return 0;
 }
@@ -118,37 +127,37 @@ u32 *backend_framebuffer()
 
 void *backend_file_open(const char *path, int mode)
 {
-    return PD->file->open(path, mode);
+    return PD_file_open(path, mode);
 }
 
 int backend_file_close(void *f)
 {
-    return PD->file->close((SDFile *)f);
+    return PD_file_close((SDFile *)f);
 }
 
 int backend_file_read(void *f, void *buf, usize bufsize)
 {
-    return PD->file->read((SDFile *)f, buf, bufsize);
+    return PD_file_read((SDFile *)f, buf, bufsize);
 }
 
 int backend_file_write(void *f, const void *buf, usize bufsize)
 {
-    return PD->file->write((SDFile *)f, buf, bufsize);
+    return PD_file_write((SDFile *)f, buf, bufsize);
 }
 
 int backend_file_tell(void *f)
 {
-    return PD->file->tell((SDFile *)f);
+    return PD_file_tell((SDFile *)f);
 }
 
 int backend_file_seek(void *f, int pos, int origin)
 {
-    return PD->file->seek((SDFile *)f, pos, origin);
+    return PD_file_seek((SDFile *)f, pos, origin);
 }
 
 int backend_file_remove(const char *path)
 {
-    return PD->file->unlink(path, 0);
+    return PD_file_unlink(path, 0);
 }
 
 int backend_debug_space()
@@ -164,8 +173,9 @@ void backend_set_menu_image(void *px, int h, int wbyte)
     int y2 = hei < h ? hei : h;
     int b2 = byt < wbyte ? byt : wbyte;
     for (int y = 0; y < y2; y++) {
-        for (int b = 0; b < b2; b++)
+        for (int b = 0; b < b2; b++) {
             p[b + y * byt] = ((u8 *)px)[b + y * wbyte];
+        }
     }
     PD->system->setMenuImage(PD_menu_bm, 0);
 }
@@ -173,7 +183,7 @@ void backend_set_menu_image(void *px, int h, int wbyte)
 void backend_set_FPS(int fps)
 {
     if (fps < 0) return;
-    PD->display->setRefreshRate((float)fps);
+    PD->display->setRefreshRate((f32)fps);
 }
 
 void *backend_menu_item_add(const char *title, void (*cb)(void *arg), void *arg)

@@ -16,10 +16,10 @@ enum {
 #define SWINGDOOR_KEY_OPEN_TICKS 50
 
 typedef struct {
-    int    trigger_to_open;
-    int    trigger_to_close;
-    int    key_to_open;
-    int    key_opener_ticks;
+    i32    trigger_to_open;
+    i32    trigger_to_close;
+    i32    key_to_open;
+    i32    key_opener_ticks;
     v2_i32 key_open_origin;
 } swingdoor_s;
 
@@ -98,16 +98,15 @@ void swingdoor_on_update(game_s *g, obj_s *o)
     if (od->key_opener_ticks == 0) {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero) return;
-        inventory_s *inv = &g->inventory;
-        inventory_add(inv, od->key_to_open, 1);
-        if (!inventory_count_of(inv, od->key_to_open)) return;
+
+        if (!hero_inv_count_of(g, od->key_to_open)) return;
 
         rec_i32 rkey = {o->pos.x - SWINGDOOR_KEY_RANGE,
                         o->pos.y,
                         o->w + (SWINGDOOR_KEY_RANGE << 1),
                         o->h};
         if (overlap_rec(rkey, obj_aabb(ohero))) {
-            inventory_rem(inv, od->key_to_open, 1);
+            hero_inv_rem(g, od->key_to_open, 1);
             od->key_open_origin = obj_pos_center(ohero);
             od->key_open_origin.y -= 64;
             od->key_opener_ticks = 1;

@@ -342,9 +342,9 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
 {
     assert(v2_lensq(dt) == 1);
 
-    if (g->herodata.rope_active) {
+    if (g->hero_mem.rope_active) {
         o->flags &= ~OBJ_FLAG_SOLID;
-        rope_moved_by_solid(g, &g->herodata.rope, o, dt);
+        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
         o->flags |= OBJ_FLAG_SOLID;
     }
 
@@ -527,14 +527,6 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
         }
     }
     return interactable;
-}
-
-obj_s *obj_savepoint_create(game_s *g)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_SAVEPOINT;
-    o->flags |= OBJ_FLAG_INTERACTABLE;
-    return o;
 }
 
 v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)

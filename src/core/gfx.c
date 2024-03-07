@@ -362,7 +362,7 @@ gfx_pattern_s gfx_pattern_bayer_4x4(int i)
 
 gfx_pattern_s gfx_pattern_interpolate(int num, int den)
 {
-    return gfx_pattern_bayer_4x4((num * GFX_PATTERN_NUM + (den / 2)) / den);
+    return gfx_pattern_bayer_4x4((num * GFX_PATTERN_NUM) / den);
 }
 
 gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
@@ -449,6 +449,7 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
 {
     int nbit = (x2 + 1) - x1; // number of bits in a row to blit
 
+    int         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
     span_blit_s info = {0};
     info.y           = y;
     info.doff        = x1 & 31;
@@ -456,8 +457,8 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
     info.mode        = mode;                                               // sprite masking mode
     info.ml          = bswap32(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
     info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
-    info.dp          = &ctx.dst.px[(x1 >> 5) + y * ctx.dst.wword];
-    info.dadd        = 1 + (ctx.dst.fmt == TEX_FMT_MASK);
+    info.dp          = &ctx.dst.px[((x1 >> 5) << lsh) + y * ctx.dst.wword];
+    info.dadd        = 1 + lsh;
     info.pat         = ctx.pat;
     return info;
 }
@@ -465,8 +466,8 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
 void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, int tx, int ty)
 {
     if ((src.r.w | src.r.h) == 0) return;
-    int dx = src.r.w;
-    int dy = src.r.h;
+    int dx = tx ? tx : src.r.w;
+    int dy = ty ? ty : src.r.h;
     int x1 = tx ? ((pos.x % dx) - dx) % dx : pos.x;
     int y1 = ty ? ((pos.y % dy) - dy) % dy : pos.y;
     int x2 = tx ? ((ctx.dst.w - x1) / dx) * dx : x1;
@@ -739,13 +740,14 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
     int y2 = min_i(y1 + d, ctx.clip_y2);
     int r2 = d * d + 1; // radius doubled^2
     for (int y = y1; y <= y2; y++) {
-        int yy = (y - p.y) << 1;
-        int xx = sqrt_i32(r2 - yy * yy) >> 1;
+        int rd = r2 - pow2_i32((y - p.y) << 1);
+        if (rd < 0) continue;
+        int xx = sqrt_i32(rd) >> 1;
         int x1 = max_i(p.x - xx, ctx.clip_x1);
         int x2 = min_i(p.x + xx, ctx.clip_x2);
         if (x2 < x1) continue;
-        span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
-        prim_blit_span(info);
+        span_blit_s i = span_blit_gen(ctx, y, x1, x2, mode);
+        prim_blit_span(i);
     }
 }
 

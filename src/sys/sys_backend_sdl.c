@@ -32,11 +32,11 @@ typedef struct {
 static struct {
     bool32            running;
     Uint64            timeorigin;
-    uint              fps_cap;
+    u32               fps_cap;
     f64               fps_cap_dt;
     f64               delay_timer;
     f64               delay_timer_k;
-    int               n_menu_items;
+    i32               n_menu_items;
     SDL_menu_item_s   menu_items[8];
     //
     u8                framebuffer[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
@@ -50,11 +50,11 @@ static struct {
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
     bool32            is_mono;
-    int               inv;
+    i32               inv;
     f32               vol;
     f32               crank;
-    int               pausebtn;
-    int               pausebtnp;
+    i32               pausebtn;
+    i32               pausebtnp;
     bool32            paused;
 } OS_SDL;
 
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
     backend_display_row_updated(0, SYS_DISPLAY_H - 1);
     SDL_on_resize();
     sys_init();
-    sys_set_FPS(60);
+    sys_set_FPS(120);
 
     Uint64 time_prev     = SDL_GetPerformanceCounter();
     Uint64 fps_timer     = 0;
@@ -201,21 +201,19 @@ int main(int argc, char **argv)
                         int bit   = !!(byt & (0x80 >> (x & 7)));
                         pixels[k] = pal[OS_SDL.inv ? !bit : bit];
                     }
-
-                    if (OS_SDL.paused) {
-                        for (int x = 200; x < SYS_DISPLAY_W; x++) {
-                            pixels[x + y * SYS_DISPLAY_W] = pal[0];
-                        }
+                    if (!OS_SDL.paused) continue;
+                    for (int x = 200; x < SYS_DISPLAY_W; x++) {
+                        pixels[x + y * SYS_DISPLAY_W] = pal[(x & 1 ? 1 : 0)];
                     }
                 }
             }
             SDL_UnlockTexture(OS_SDL.texture);
-
-            SDL_SetRenderDrawColor(OS_SDL.renderer, 0x31, 0x2F, 0x28, 0xFF);
-            SDL_RenderClear(OS_SDL.renderer);
-            SDL_RenderCopy(OS_SDL.renderer, OS_SDL.texture, &OS_SDL.r_src, &OS_SDL.r_dst);
-            SDL_RenderPresent(OS_SDL.renderer);
         }
+
+        SDL_SetRenderDrawColor(OS_SDL.renderer, 0x31, 0x2F, 0x28, 0xFF);
+        SDL_RenderClear(OS_SDL.renderer);
+        SDL_RenderCopy(OS_SDL.renderer, OS_SDL.texture, &OS_SDL.r_src, &OS_SDL.r_dst);
+        SDL_RenderPresent(OS_SDL.renderer);
 
         // FPS cap in SDL
         if (OS_SDL.fps_cap) {
@@ -328,10 +326,10 @@ int backend_inp()
 
     int ax = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX);
     int ay = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY);
-    if (ay > +1000) b |= SYS_INP_DPAD_D;
-    if (ay < -1000) b |= SYS_INP_DPAD_U;
-    if (ax > +1000) b |= SYS_INP_DPAD_R;
-    if (ax < -1000) b |= SYS_INP_DPAD_L;
+    if (ay > +16384) b |= SYS_INP_DPAD_D;
+    if (ay < -16384) b |= SYS_INP_DPAD_U;
+    if (ax > +16384) b |= SYS_INP_DPAD_R;
+    if (ax < -16384) b |= SYS_INP_DPAD_L;
     if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_B)) b |= SYS_INP_A;
     if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_A)) b |= SYS_INP_B;
 

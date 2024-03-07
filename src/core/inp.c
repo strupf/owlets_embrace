@@ -4,33 +4,66 @@
 
 #include "inp.h"
 
-typedef struct {
-    int btn;
-    int crank_q8;
-    int crank_q16;
-    int crank_docked;
-} inp_state_s;
-
 static struct {
     inp_state_s curr;
     inp_state_s prev;
 } INP;
 
+void inp_update()
+{
+    INP.prev           = INP.curr;
+    //
+    INP.curr.crank_q12 = (int)(sys_crank() * 4096.f) & 0xFFF;
+    INP.curr.btn       = sys_inp();
+    INP.curr.btn |= sys_crank_docked() ? INP_CRANK_DOCKED : 0;
+}
+
+void inp_on_resume()
+{
+    inp_update();
+    INP.prev = INP.curr;
+}
+
 inp_s inp_state()
 {
     inp_s i = {0};
+    i.curr  = INP.curr;
+    i.prev  = INP.prev;
     return i;
 }
 
-void inp_update()
+bool32 inps_pressed(inp_s i, int b)
 {
-    INP.prev              = INP.curr;
-    //
-    f32 crank             = sys_crank();
-    INP.curr.crank_q8     = (int)(crank * 256.f);
-    INP.curr.crank_q16    = (int)(crank * 65536.f);
-    INP.curr.crank_docked = sys_crank_docked();
-    INP.curr.btn          = sys_inp();
+    return (i.curr.btn & b);
+}
+
+bool32 inps_was_pressed(inp_s i, int b)
+{
+    return (i.prev.btn & b);
+}
+
+bool32 inps_just_pressed(inp_s i, int b)
+{
+    return ((i.curr.btn & b) && !(i.prev.btn & b));
+}
+
+bool32 inps_just_released(inp_s i, int b)
+{
+    return (!(i.curr.btn & b) && (i.prev.btn & b));
+}
+
+int inps_dpad_x(inp_s i)
+{
+    if (inps_pressed(i, INP_DPAD_L)) return -1;
+    if (inps_pressed(i, INP_DPAD_R)) return +1;
+    return 0;
+}
+
+int inps_dpad_y(inp_s i)
+{
+    if (inps_pressed(i, INP_DPAD_U)) return -1;
+    if (inps_pressed(i, INP_DPAD_D)) return +1;
+    return 0;
 }
 
 bool32 inp_pressed(int b)
@@ -38,29 +71,9 @@ bool32 inp_pressed(int b)
     return (INP.curr.btn & b);
 }
 
-bool32 inp_pressed_any(int b)
-{
-    return (INP.curr.btn & b) != 0;
-}
-
-bool32 inp_pressed_all(int b)
-{
-    return (INP.curr.btn & b) == b;
-}
-
 bool32 inp_was_pressed(int b)
 {
     return (INP.prev.btn & b);
-}
-
-bool32 inp_was_pressed_any(int b)
-{
-    return (INP.prev.btn & b) != 0;
-}
-
-bool32 inp_was_pressed_all(int b)
-{
-    return (INP.prev.btn & b) == b;
 }
 
 bool32 inp_just_pressed(int b)
@@ -105,60 +118,37 @@ int inp_dpad_dir()
     return INP_DPAD_DIR_NONE;
 }
 
-int inp_crank_q16()
+int inp_crank_q12()
 {
-    return INP.curr.crank_q16;
+    return INP.curr.crank_q12;
 }
 
-int inp_prev_crank_q16()
+int inp_prev_crank_q12()
 {
-    return INP.prev.crank_q16;
+    return INP.prev.crank_q12;
 }
 
-int inp_crank_dt_q16()
+int inp_crank_dt_q12()
 {
-    return inp_crank_calc_dt_q16(INP.prev.crank_q16, INP.curr.crank_q16);
+    return inp_crank_calc_dt_q12(INP.prev.crank_q12, INP.curr.crank_q12);
 }
 
-int inp_crank_calc_dt_q16(int ang_from, int ang_to)
+int inp_crank_calc_dt_q12(int ang_from, int ang_to)
 {
     int dt = ang_to - ang_from;
-    if (dt <= -32768) return (dt + 65536);
-    if (dt >= +32768) return (dt - 65536);
-    return dt;
-}
-
-int inp_crank_q8()
-{
-    return INP.curr.crank_q8;
-}
-
-int inp_prev_crank_q8()
-{
-    return INP.prev.crank_q8;
-}
-
-int inp_crank_dt_q8()
-{
-    return inp_crank_calc_dt_q8(INP.prev.crank_q8, INP.curr.crank_q8);
-}
-
-int inp_crank_calc_dt_q8(int ang_from, int ang_to)
-{
-    int dt = ang_to - ang_from;
-    if (dt <= -128) return (dt + 256);
-    if (dt >= +128) return (dt - 256);
+    if (dt <= -2048) return (dt + 4096);
+    if (dt >= +2048) return (dt - 4096);
     return dt;
 }
 
 int inp_crank_docked()
 {
-    return INP.curr.crank_docked;
+    return (INP.curr.btn & INP_CRANK_DOCKED);
 }
 
 int inp_crank_was_docked()
 {
-    return INP.prev.crank_docked;
+    return (INP.prev.btn & INP_CRANK_DOCKED);
 }
 
 int inp_crank_just_docked()

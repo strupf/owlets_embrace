@@ -9,6 +9,10 @@
 #include "hero.h"
 #include "map_loader.h"
 
+void   boat_load(game_s *g, map_obj_s *mo);
+void   boat_on_update(game_s *g, obj_s *o);
+void   boat_on_animate(game_s *g, obj_s *o);
+//
 obj_s *clockpulse_create(game_s *g);
 void   clockpulse_load(game_s *g, map_obj_s *mo);
 void   clockpulse_on_update(game_s *g, obj_s *o);
@@ -51,7 +55,7 @@ void   carrier_on_animate(game_s *g, obj_s *o);
 //
 obj_s *heroupgrade_create(game_s *g);
 void   heroupgrade_load(game_s *g, map_obj_s *mo);
-void   heroupgrade_on_collect(game_s *g, obj_s *o, herodata_s *h);
+void   heroupgrade_on_collect(game_s *g, obj_s *o);
 void   heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 obj_s *movingplatform_create(game_s *g);
@@ -116,4 +120,8 @@ void   spikes_load(game_s *g, map_obj_s *mo);
 void   spikes_on_trigger(game_s *g, obj_s *o, int trigger);
 void   spikes_on_animate(game_s *g, obj_s *o);
 void   spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+//
+void   hooklever_load(game_s *g, map_obj_s *mo);
+void   hooklever_on_update(game_s *g, obj_s *o);
+void   hooklever_on_animate(game_s *g, obj_s *o);
 #endif

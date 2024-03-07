@@ -6,9 +6,17 @@
 #define HERO_H
 
 #include "gamedef.h"
-#include "inventory.h"
 #include "obj.h"
 #include "rope.h"
+
+#define HERO_BREATH_TICKS 200
+
+enum {
+    HERO_HOOK_START_AIMING   = 1,
+    HERO_HOOK_AIMING         = 2,
+    HERO_HOOK_JUST_THROWN    = 3,
+    HERO_HOOK_JUST_DESTROYED = 4,
+};
 
 enum {
     HERO_STATE_GROUND,
@@ -20,7 +28,6 @@ enum {
 };
 
 enum {
-
     HERO_UPGRADE_WHIP,
     HERO_UPGRADE_SWIM,
     HERO_UPGRADE_HOOK,
@@ -36,13 +43,6 @@ enum {
     NUM_HERO_UPGRADES = 32
 };
 
-enum {
-    HERO_ATTACK_NONE,
-    HERO_ATTACK_SIDE,
-    HERO_ATTACK_UP,
-    HERO_ATTACK_DOWN,
-};
-
 typedef struct {
     v2_i32 p;
     v2_i32 pp;
@@ -52,68 +52,65 @@ typedef struct {
 #define ROPE_VERLET_N    32
 #define ROPE_VERLET_GRAV 40
 
+enum {
+    INVENTORY_ID_GOLD,
+    INVENTORY_ID_KEY_CIRCLE,
+    INVENTORY_ID_KEY_SQUARE,
+    INVENTORY_ID_KEY_TRIANGLE,
+};
+
 typedef struct {
-    char   name[LEN_HERO_NAME];
-    bool8  upgrades[NUM_HERO_UPGRADES];
-    rope_s rope;
-    bool32 rope_active;
+    char name[64];
+    char desc[256];
+} inventory_item_desc_s;
+// extern const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS];
 
-    int n_airjumps;
-
-    int      health;
-    int      n_hitbox; // only for debugging
-    hitbox_s hitbox_def[4];
-
+typedef struct {
+    rope_s       rope;
+    bool32       rope_active;
+    i32          n_airjumps;
+    i32          n_hitbox; // only for debugging
+    hitbox_s     hitbox_def[4];
     obj_handle_s interactable;
-    int          gold;
-    int          gold_added;
-    int          gold_added_ticks;
-    int          hero_spawn_x;
-    int          hero_spawn_y;
-
-    int          n_obj_following;
+    i32          n_obj_following;
     obj_handle_s obj_following[16];
+    hook_pt_s    hookpt[ROPE_VERLET_N];
 
-    hook_pt_s hookpt[ROPE_VERLET_N];
-} herodata_s;
-
-typedef struct {
-    int    sprint_ticks;
+    i32    sprint_ticks;
     bool32 sprinting;
-    //
-    int    whip_ticks;
-    int    whip_count; // alternates between 0 and 1
-    //
     i32    walljumpticks;
-
+    i32    runup_tick;
+    i32    hook_aiming_ticks;
+    bool32 diving;
+    i32    breath_ticks;
     i32    ropewalljump_dir;
     bool32 carrying;
     i32    swimticks;
     bool32 gliding;
     bool32 sliding;
-    int    walking_ticks;
-    int    ground_impact_ticks;
-    int    attackbuffer;
-    int    jump_btn_buffer;
-    int    airjumps_left;
-    int    jump_index; // index into jump parameter table
+    i32    walking_ticks;
+    i32    ground_impact_ticks;
+    i32    attackbuffer;
+    i32    jump_btn_buffer;
+    i32    airjumps_left;
+    i32    jump_index; // index into jump parameter table
     i32    jumpticks;
     i32    edgeticks;
     bool32 onladder;
-    int    ladderx;
+    i32    ladderx;
     v2_i32 jumped_at;
 } hero_s;
 
-static_assert(sizeof(hero_s) <= 256, "");
-
 obj_s *hero_create(game_s *g);
-void   hero_on_update(game_s *g, obj_s *o);
+void   hero_on_update(game_s *g, obj_s *o, inp_s inp);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_on_animate(game_s *g, obj_s *o);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, int damage);
 void   hero_kill(game_s *g, obj_s *o);
 int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
+bool32 hero_is_submerged(game_s *g, obj_s *o, int *water_depth);
+int    hero_breath_tick(game_s *g);
 //
 void   hook_on_animate(game_s *g, obj_s *o);
 void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);

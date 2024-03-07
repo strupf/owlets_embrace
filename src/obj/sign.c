@@ -5,7 +5,7 @@
 #include "game.h"
 
 typedef struct {
-    int textlen;
+    i32 textlen;
     u8  text[128];
 } sign_popup_s;
 

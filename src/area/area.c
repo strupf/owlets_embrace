@@ -39,6 +39,7 @@ void area_setup(game_s *g, area_s *a, int ID)
 {
     *a    = (area_s){0};
     a->ID = ID;
+    a->ID = AREA_ID_CAVE;
 
     if (g_areafx[a->ID] & AFX_RAIN) {
         areafx_rain_setup(g, &a->fx.rain);
@@ -144,6 +145,23 @@ void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 
 void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
+    tex_s           tdisplay = asset_tex(0);
+    const gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
+
+    switch (a->ID) {
+    default: {
+        // set new origin
+        v2_i32   cmax    = cam_offset_max(g, &g->cam);
+        v2_i32   cc      = {cam.x, cam.y + cmax.y};
+        texrec_s tr_far  = asset_texrec(TEXID_MISCOBJ, 448, 0, 32, 80);
+        v2_i32   pos_far = area_parallax(cc, 300, 300, 1, 1);
+        pos_far.x += 400;
+        pos_far.y += SYS_DISPLAY_H - tr_far.r.h;
+        // gfx_spr_tiled(ctx, tr_far, pos_far, 0, 0, 100, 0);
+        break;
+    }
+    }
+
     if (g_areafx[a->ID] & AFX_HEAT) {
         areafx_heat_draw(g, &a->fx.heat, cam);
     }

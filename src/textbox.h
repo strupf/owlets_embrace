@@ -40,40 +40,40 @@ typedef struct {
 } textbox_char_s;
 
 typedef struct {
-    int type;
-    int n_chars;
-    int gototag;
+    i32 type;
+    i32 n_chars;
+    i32 gototag;
     u8  chars[32];
-    int trigger;
+    i32 trigger;
 } textbox_choice_s;
 
 typedef struct {
-    int              tag;
-    int              n_chars;
-    int              n_choices;
-    int              n_lines;
-    int              line_length[TEXTBOX_NUM_LINES];
+    i32              tag;
+    i32              n_chars;
+    i32              n_choices;
+    i32              n_lines;
+    i32              line_length[TEXTBOX_NUM_LINES];
     textbox_char_s   chars[TEXTBOX_MAX_CHARS];
     textbox_choice_s choices[4];
 } textbox_block_s;
 
 typedef struct {
-    int             animation;
-    int             fade_in;
-    int             fade_out;
-    int             tick; // animation tick
-    int             state;
-    int             block;
-    int             n; // currently visible characters
-    int             curchoice;
-    int             tick_q2; // tick accumulator for writing
-    int             n_blocks;
+    i32             animation;
+    i32             fade_in;
+    i32             fade_out;
+    i32             tick; // animation tick
+    i32             state;
+    i32             block;
+    i32             n; // currently visible characters
+    i32             curchoice;
+    i32             tick_q2; // tick accumulator for writing
+    i32             n_blocks;
     textbox_block_s blocks[TEXTBOX_NUM_BLOCKS]; // the whole dialog tree
 } textbox_s;
 
 bool32 textbox_finished(textbox_s *tb);
 void   textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename);
-void   textbox_update(game_s *g, textbox_s *tb);
+void   textbox_update(game_s *g, textbox_s *tb, inp_s inp);
 void   textbox_draw(textbox_s *tb, v2_i32 camoffset);
 
 #endif

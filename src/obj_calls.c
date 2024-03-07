@@ -4,12 +4,12 @@
 
 #include "game.h"
 
-void obj_game_update(game_s *g, obj_s *o)
+void obj_game_update(game_s *g, obj_s *o, inp_s inp)
 {
     // implement as function pointers?
     // but I do like the explicit way of the program flow, though
     switch (o->ID) {
-    case OBJ_ID_HERO: hero_on_update(g, o); break;
+    case OBJ_ID_HERO: hero_on_update(g, o, inp); break;
     case OBJ_ID_CRUMBLEBLOCK: crumbleblock_on_update(g, o); break;
     case OBJ_ID_CLOCKPULSE: clockpulse_on_update(g, o); break;
     case OBJ_ID_SHROOMY: shroomy_on_update(g, o); break;
@@ -26,6 +26,8 @@ void obj_game_update(game_s *g, obj_s *o)
     case OBJ_ID_FLYER: flyer_on_update(g, o); break;
     case OBJ_ID_TRIGGERAREA: triggerarea_update(g, o); break;
     case OBJ_ID_PUSHABLEBOX: pushablebox_update(g, o); break;
+    case OBJ_ID_BOAT: boat_on_update(g, o); break;
+    case OBJ_ID_HOOKLEVER: hooklever_on_update(g, o); break;
     }
 }
 
@@ -45,6 +47,8 @@ void obj_game_animate(game_s *g, obj_s *o)
     case OBJ_ID_CARRIER: carrier_on_animate(g, o); break;
     case OBJ_ID_JUGGERNAUT: juggernaut_on_animate(g, o); break;
     case OBJ_ID_SPIKES: spikes_on_animate(g, o); break;
+    case OBJ_ID_BOAT: boat_on_animate(g, o); break;
+    case OBJ_ID_HOOKLEVER: hooklever_on_animate(g, o); break;
     }
 }
 
@@ -63,7 +67,6 @@ void obj_game_interact(game_s *g, obj_s *o)
 {
     switch (o->ID) {
     case OBJ_ID_SIGN: substate_load_textbox(g, &g->substate, o->filename); break;
-    case OBJ_ID_SAVEPOINT: game_write_savefile(g); break;
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     case OBJ_ID_NPC: npc_on_interact(g, o); break;
     case OBJ_ID_DOOR_SWING: swingdoor_on_interact(g, o); break;

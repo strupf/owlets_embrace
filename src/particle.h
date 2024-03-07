@@ -32,12 +32,12 @@ typedef struct {
     v2_i32 pr_q8;
     v2_i32 vr_q8;
     v2_i32 ar_q8;
-    int    ticksr;
-    int    sizer;
+    i32    ticksr;
+    i32    sizer;
 } particle_desc_s;
 
 typedef struct {
-    int        n;
+    i32        n;
     particle_s particles[PARTICLE_NUM];
 } particles_s;
 

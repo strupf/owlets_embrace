@@ -18,7 +18,6 @@ enum {
     OBJ_ID_SIGN_POPUP,
     OBJ_ID_SOLID,
     OBJ_ID_DOOR_SWING,
-    OBJ_ID_SAVEPOINT,
     OBJ_ID_CRUMBLEBLOCK,
     OBJ_ID_SWITCH,
     OBJ_ID_TOGGLEBLOCK,
@@ -42,11 +41,14 @@ enum {
     OBJ_ID_PUSHABLEBOX,
     OBJ_ID_SPIKES,
     OBJ_ID_KEY,
+    OBJ_ID_BOAT,
+    OBJ_ID_HOOKLEVER,
 };
 
 enum {
     OBJ_TAG_HERO,
     OBJ_TAG_HOOK,
+    OBJ_TAG_CAM_ATTRACTOR,
     //
     NUM_OBJ_TAGS
 };
@@ -67,6 +69,7 @@ enum {
 #define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
 #define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
 #define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
+#define OBJ_FLAG_BOSS               ((u64)1 << 17)
 #define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
@@ -111,58 +114,67 @@ typedef struct {
 typedef struct {
     texrec_s trec;
     v2_i32   offs;
-    int      flip;
-    int      mode;
+    i16      flip;
+    i16      mode;
 } sprite_simple_s;
 
 typedef struct {
-    int    sndID_hurt;
-    int    sndID_die;
-    int    drops;
-    int    invincible;
+    i16    sndID_hurt;
+    i16    sndID_die;
+    i32    drops;
+    i32    invincible;
     bool32 cannot_be_hurt;
 } enemy_s;
 
+static inline u32 save_ID_gen(int roomID, int objID)
+{
+    u32 save_ID = ((u32)roomID << 16) | ((u32)objID);
+    return save_ID;
+}
+
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
-    obj_s          *next; // linked list
+    obj_s    *next; // linked list
     //
-    obj_UID_s       UID;
-    u32             ID;
-    flags64         flags;
-    flags32         tags;
+    obj_UID_s UID;
+    u32       ID;      // type of object
+    u32       save_ID; // used to register save events
+    flags64   flags;
+    flags32   tags;
     //
-    i32             render_priority;
-    flags32         bumpflags; // has to be cleared manually
-    flags32         moverflags;
-    int             w;
-    int             h;
-    v2_i32          posprev;
-    v2_i32          pos; // position in pixels
-    v2_i32          subpos_q8;
-    v2_i32          vel_q8;
-    v2_i32          vel_prev_q8;
-    v2_i32          vel_cap_q8;
-    v2_i32          drag_q8;
-    v2_i32          gravity_q8;
-    v2_i32          tomove;
+    i32       render_priority;
+    flags32   bumpflags; // has to be cleared manually
+    flags32   moverflags;
+    i32       w;
+    i32       h;
+    v2_i32    posprev;
+    v2_i32    pos; // position in pixels
+    v2_i32    subpos_q8;
+    v2_i32    vel_q8;
+    v2_i32    vel_prev_q8;
+    v2_i32    vel_cap_q8;
+    v2_i32    drag_q8;
+    v2_i32    gravity_q8;
+    v2_i32    tomove;
     //
-    int             trigger;
-    int             facing; // -1 left, +1 right
+
+    bool16          facing_locked;
+    i16             facing; // -1 left, +1 right
     // some generic behaviour fields
-    int             action;
-    int             subaction;
-    int             state;
-    int             animation;
-    int             timer;
-    int             subtimer;
-    int             substate;
+    i32             trigger;
+    i32             action;
+    i32             subaction;
+    i32             state;
+    i32             animation;
+    i32             timer;
+    i32             subtimer;
+    i32             substate;
     //
-    int             collectible_type;
-    int             collectible_amount;
-    int             health;
-    int             health_max;
-    int             invincible_tick;
+    i32             collectible_type;
+    i32             collectible_amount;
+    i32             health;
+    i32             health_max;
+    i32             invincible_tick;
     enemy_s         enemy;
     //
     ropenode_s     *ropenode;
@@ -170,16 +182,15 @@ struct obj_s {
     obj_handle_s    linked_solid;
     obj_handle_s    obj_handles[4];
     //
-    int             subattack;
-    int             attack;
-    int             attack_tick;
-    bool32          facing_locked;
-    int             n_sprites;
+    i32             subattack;
+    i32             attack;
+    i32             attack_tick;
+    i32             n_sprites;
     sprite_simple_s sprites[4];
     char            filename[64];
     //
-    char            mem[256];
-    u32             magic;
+    alignas(4) char mem[256];
+    u32 magic;
 };
 
 typedef struct {

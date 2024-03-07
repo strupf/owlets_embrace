@@ -5,6 +5,8 @@
 #include "substate.h"
 #include "game.h"
 
+#define RESPAWN_SHORTCUT 0
+
 void   respawn_start(game_s *g, respawn_s *rs);
 bool32 respawn_finished(respawn_s *rs);
 bool32 respawn_blocks_gameplay(respawn_s *rs);
@@ -13,7 +15,7 @@ void   respawn_draw(game_s *g, respawn_s *rs);
 //
 bool32 substate_blocks_gameplay(substate_s *st);
 bool32 substate_finished(substate_s *st);
-void   substate_update(game_s *g, substate_s *st);
+void   substate_update(game_s *g, substate_s *st, inp_s inp);
 void   substate_draw(game_s *g, substate_s *st, v2_i32 cam);
 //
 void   upgrade_start_animation(upgrade_s *h, int upgrade);
@@ -27,7 +29,7 @@ void   transition_update(game_s *g, transition_s *t);
 bool32 transition_blocks_gameplay(transition_s *t);
 bool32 transition_finished(transition_s *t);
 void   transition_draw(game_s *g, transition_s *t, v2_i32 camoffset);
-void   transition_start_respawn(game_s *g, transition_s *t);
+void   transition_load_map(game_s *g, transition_s *t);
 
 bool32 substate_blocks_gameplay(substate_s *st)
 {
@@ -62,7 +64,7 @@ bool32 substate_finished(substate_s *st)
     return 1;
 }
 
-void substate_update(game_s *g, substate_s *st)
+void substate_update(game_s *g, substate_s *st, inp_s inp)
 {
     switch (st->state) {
     case SUBSTATE_RESPAWN:
@@ -75,7 +77,7 @@ void substate_update(game_s *g, substate_s *st)
         upgrade_tick(&st->upgrade);
         break;
     case SUBSTATE_TEXTBOX:
-        textbox_update(g, &st->textbox);
+        textbox_update(g, &st->textbox, inp);
         break;
     case SUBSTATE_MAINMENU_FADE_IN:
         st->mainmenu_tick++;
@@ -219,9 +221,12 @@ bool32 respawn_blocks_gameplay(respawn_s *rs)
 
 void respawn_start(game_s *g, respawn_s *rs)
 {
-    assert(0 <= g->respawn_closest);
+#if RESPAWN_SHORTCUT
+    rs->phase = RESPAWN_GAMEOVER_INPUT;
+#else
     rs->phase = RESPAWN_DYING;
-    rs->tick  = 0;
+#endif
+    rs->tick = 0;
 }
 
 void respawn_update(game_s *g, respawn_s *rs)
@@ -230,7 +235,7 @@ void respawn_update(game_s *g, respawn_s *rs)
     if (rs->phase == 0) return;
 
     if (rs->phase == RESPAWN_GAMEOVER_INPUT) {
-        if (inp_just_pressed(INP_A) || 1) {
+        if (inp_just_pressed(INP_A) || RESPAWN_SHORTCUT) {
             rs->tick = respawn_ticks(rs);
         } else {
             return;
@@ -245,22 +250,7 @@ void respawn_update(game_s *g, respawn_s *rs)
     rs->phase %= NUM_RESPAWN_PHASES;
 
     if (rs->phase == RESPAWN_BLACK) {
-        // load map and setup
-        game_load_map(g, g->areaname.filename);
-        obj_s        *ohero = hero_create(g);
-        respawn_pos_s rp    = g->respawns[g->respawn_closest];
-        ohero->pos.x        = rp.r.x + rp.r.w / 2 - ohero->w / 2;
-        ohero->pos.y        = rp.r.y + rp.r.h - ohero->h;
-
-        aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-        for (obj_each(g, o)) {
-            obj_game_animate(g, o); // just setting initial sprites for obj
-        }
-        aud_allow_playing_new_snd(1);
-
-        cam_s *cam = &g->cam;
-        cam_set_pos_px(cam, ohero->pos.x, ohero->pos.y);
-        cam_init_level(g, cam);
+        game_load_savefile(g);
     }
 }
 
@@ -538,6 +528,7 @@ bool32 transition_check_hero_slide(transition_s *t, game_s *g, int *touched)
 
     if (!nextroom) {
         sys_printf("no room\n");
+        nextroom = map_world_overlapped_room(&g->map_world, g->map_worldroom, aabb);
         return 0;
     }
 
@@ -571,7 +562,7 @@ bool32 transition_check_hero_slide(transition_s *t, game_s *g, int *touched)
     return 1;
 }
 
-void transition_start_respawn(game_s *g, transition_s *t)
+void transition_load_map(game_s *g, transition_s *t)
 {
     hero_s h = *((hero_s *)obj_get_tagged(g, OBJ_TAG_HERO)->mem);
 
@@ -586,28 +577,23 @@ void transition_start_respawn(game_s *g, transition_s *t)
     hh->sprint_ticks = h.sprint_ticks;
     v2_i32 hpos      = obj_pos_center(hero);
 
-    u32 respawn_d      = U32_MAX;
-    g->respawn_closest = -1;
+    u32     respawn_d    = U32_MAX;
+    v2_i32 *resp_closest = NULL;
     for (int n = 0; n < g->n_respawns; n++) {
-        respawn_pos_s *r  = &g->respawns[n];
-        v2_i32         rp = {r->r.x + r->r.w / 2,
-                             r->r.y + r->r.h / 2};
-        u32            d  = v2_distancesq(hpos, rp);
+        v2_i32 *rp = &g->respawns[n];
+        u32     d  = v2_distancesq(hpos, *rp);
         if (d < respawn_d) {
-            respawn_d          = d;
-            g->respawn_closest = n;
+            respawn_d    = d;
+            resp_closest = rp;
         }
     }
 
-    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-    for (obj_each(g, o)) {
-        obj_game_animate(g, o); // just setting initial sprites for obj
+    if (resp_closest) {
+        strcpy(g->save.hero_mapfile, g->areaname.filename);
+        g->save.hero_pos = *resp_closest;
+        game_save_savefile(g);
     }
-    aud_allow_playing_new_snd(1);
-
-    cam_s *cam = &g->cam;
-    cam_set_pos_px(cam, hpos.x, hpos.y);
-    cam_init_level(g, cam);
+    game_prepare_new_map(g);
 }
 
 void transition_update(game_s *g, transition_s *t)
@@ -624,7 +610,7 @@ void transition_update(game_s *g, transition_s *t)
 
     switch (t->fade_phase) {
     case TRANSITION_BLACK: {
-        transition_start_respawn(g, t);
+        transition_load_map(g, t);
         break;
     }
     }
@@ -661,7 +647,6 @@ void transition_draw(game_s *g, transition_s *t, v2_i32 camoffset)
 
     tex_s display = asset_tex(0);
     tex_s tmp     = tex_create_opaque(display.w, display.h, spm_allocator);
-
     for (int y = 0; y < tmp.h; y++) {
         u32 p = ~pat.p[y & 7];
         for (int x = 0; x < tmp.wword; x++) {
@@ -685,7 +670,6 @@ void transition_draw(game_s *g, transition_s *t, v2_i32 camoffset)
                 cird = 0;
             }
         }
-
         gfx_cir_fill(ctxc, cpos, cird, PRIM_MODE_WHITE);
     }
     for (int y = 0; y < tmp.h; y++) {
@@ -701,44 +685,41 @@ void transition_draw(game_s *g, transition_s *t, v2_i32 camoffset)
 // =============================================================================
 static const upgrade_text_s g_upgrade_text[NUM_HERO_UPGRADES] =
     {
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"WHIP",
+         {"_"}},
         //
-        {"Air Jump",
-         {"Your confidence grew. Maybe you can try to",
-          "put those wings to use."}},
+        {"Swimming",
+         {"You can now swim infinitely."}},
         //
         {"Grappling Hook",
-         {"Maybe this tool can be",
-          "put to good use!",
+         {"You can't fly but this tool can be",
+          "a good substitute!",
           "Use the crank to switch between whip",
           "and grappling hook."}},
         //
-        {"Grappling Hook",
-         {"Maybe this tool can be",
-          "put to good use!"}},
+        {"LONGHOOK",
+         {"_"}},
         //
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"SPRINT",
+         {"_"}},
         //
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"Diving",
+         {"Press down while swimming to start diving."}},
         //
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"GLIDE",
+         {"_"}},
         //
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"WALLJUMP",
+         {"_"}},
         //
         {"Air Jump",
          {"Your confidence grew. You gained an additional",
           "jump when being midair."}},
         //
-        {"Air Jump",
-         {"Your confidence grew. Maybe you can try to",
-          "put those wings to use."}},
+        {"Additional Air Jump",
+         {"You can flap your wings once more midair."}},
         //
-        {"High Jump",
-         {"You grew stronger and can jump higher!"}},
+        {"Additional Air Jump",
+         {"You can flap your wings once more midair."}},
         //
 };

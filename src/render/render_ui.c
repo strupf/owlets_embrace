@@ -8,11 +8,9 @@
 #define ITEM_FRAME_SIZE  64
 #define ITEM_BARREL_R    16
 #define ITEM_SIZE        32
-#define ITEM_X_OFFS      16
-#define ITEM_Y_OFFS      16
+#define ITEM_X_OFFS      325
+#define ITEM_Y_OFFS      180
 #define FNTID_AREA_LABEL FNTID_LARGE
-
-static void render_item_selector(item_selector_s *is);
 
 void render_ui(game_s *g, v2_i32 camoff)
 {
@@ -38,7 +36,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
-    obj_s *interactable = obj_from_obj_handle(g->herodata.interactable);
+    obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
     if (interactable) {
         v2_i32 posi = obj_pos_center(interactable);
         posi        = v2_add(posi, camoff);
@@ -53,17 +51,6 @@ void render_ui(game_s *g, v2_i32 camoff)
         shop_draw(g);
     }
 
-#if !GAME_JUMP_ATTACK
-    if (g->herodata.upgrades[HERO_UPGRADE_HOOK] &&
-        g->herodata.upgrades[HERO_UPGRADE_WHIP]) {
-        render_item_selector(&g->item_selector);
-        texrec_s tr_items = asset_texrec(TEXID_UI_ITEM_CACHE,
-                                         0, 0, 128, ITEM_FRAME_SIZE);
-        gfx_spr(ctx_ui, tr_items, (v2_i32){400 - 80, 240 - 64 + 16}, 0, 0);
-    }
-
-#endif
-
     if (ohero) {
         texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
         gfx_rec_fill(ctx_ui, (rec_i32){0, 0, ohero->health_max * 6 + 2, 16},
@@ -74,6 +61,8 @@ void render_ui(game_s *g, v2_i32 camoff)
             gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
         }
     }
+
+    item_selector_draw(&g->item_selector);
 }
 
 void prerender_area_label(game_s *g)
@@ -93,55 +82,72 @@ void prerender_area_label(game_s *g)
     fnt_draw_ascii(ctx, font_1, loc, label, SPR_MODE_BLACK);
 }
 
+#define WORLD_GRID_W SYS_DISPLAY_W
+#define WORLD_GRID_H SYS_DISPLAY_H
+
 void render_pause(game_s *g)
 {
     spm_push();
-    fnt_s font = asset_fnt(FNTID_LARGE);
+    tex_s           tex = tex_create_opaque(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
+    const gfx_ctx_s ctx = gfx_ctx_default(tex);
+    tex_clr(tex, TEX_CLR_BLACK);
 
-    tex_s tex = tex_create_opaque(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
-    tex_clr(tex, TEX_CLR_WHITE);
-    gfx_ctx_s ctx = gfx_ctx_default(tex);
-
-    for (int i = 0; i < SYS_DISPLAY_H * SYS_DISPLAY_WWORDS; i++) {
-        tex.px[i] = rng_u32();
+    const int        scl     = 16;
+    int              offx    = 100;
+    int              offy    = 120;
+    map_worldroom_s *curroom = g->map_worldroom;
+    if (curroom) {
+        offx -= ((curroom->x + curroom->w / 2) * scl) / WORLD_GRID_W;
+        offy -= ((curroom->y + curroom->h / 2) * scl) / WORLD_GRID_H;
     }
 
-    v2_i32 pos = {80, 140};
-    for (int y = -2; y <= +2; y++) {
-        for (int x = -2; x <= +2; x++) {
-            v2_i32 p = pos;
-            p.x += x;
-            p.y += y;
-            fnt_draw_ascii(ctx, font, p, "Pause", SPR_MODE_WHITE);
-        }
+    for (int i = 0; i < g->map_world.n_rooms; i++) {
+        map_worldroom_s *room = &g->map_world.rooms[i];
+        int              xx   = room->x / WORLD_GRID_W;
+        int              yy   = room->y / WORLD_GRID_H;
+        int              ww   = room->w / WORLD_GRID_W;
+        int              hh   = room->h / WORLD_GRID_H;
+
+        rec_i32 rr1 = {xx * scl + offx,
+                       yy * scl + offy,
+                       ww * scl,
+                       hh * scl};
+        rec_i32 rr2 = {rr1.x + 1, rr1.y + 1, rr1.w - 2, rr1.h - 2};
+
+        gfx_rec_fill(ctx, rr2, PRIM_MODE_WHITE);
+        if (room != curroom) continue;
+        gfx_ctx_s ctx_cur = ctx;
+        ctx_cur.pat       = gfx_pattern_4x4(B4(0011),
+                                            B4(0110),
+                                            B4(1100),
+                                            B4(1001));
+        rec_i32 rr3       = {rr1.x + 3, rr1.y + 3, rr1.w - 6, rr1.h - 6};
+        rec_i32 rr4       = {rr1.x + 4, rr1.y + 4, rr1.w - 8, rr1.h - 8};
+        gfx_rec_fill(ctx, rr3, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctx_cur, rr4, PRIM_MODE_WHITE);
     }
-
-    fnt_draw_ascii(ctx, font, pos, "Pause", SPR_MODE_BLACK);
-
-    sys_set_menu_image(tex.px, tex.h, tex.wword * 4);
+    sys_set_menu_image(tex.px, tex.h, tex.wword << 2);
     spm_pop();
 }
 
-static void render_item_selector(item_selector_s *is)
+void item_selector_draw(item_selector_s *s)
 {
-    tex_s     texcache = asset_tex(TEXID_UI_ITEM_CACHE);
-    gfx_ctx_s ctx      = gfx_ctx_default(texcache);
-    texrec_s  tr       = {0};
-    tr.t               = asset_tex(TEXID_UI_ITEMS);
-    tex_clr(texcache, TEX_CLR_TRANSPARENT);
+    gfx_ctx_s ctx = gfx_ctx_display();
+    texrec_s  tr  = {0};
+    tr.t          = asset_tex(TEXID_UI_ITEMS);
 
     // barrel background
 
     int offs = 15;
-    if (!is->decoupled) {
-        int dtang = abs_i(inp_crank_calc_dt_q16(is->angle, inp_crank_q16()));
-        offs      = min_i(pow2_i32(dtang) / 4000000, offs);
+    if (!s->decoupled) {
+        int dtang = abs_i(inp_crank_calc_dt_q12(s->angle, inp_crank_q12()));
+        offs      = min_i(pow2_i32(dtang) / 4000, offs);
     }
 
 #define ITEM_OVAL_Y 12
 
-    int turn1 = (inp_crank_q16() >> 6) + 0x400;
-    int turn2 = (is->angle >> 6) + 0x400;
+    int turn1 = (inp_crank_q12() << 6);
+    int turn2 = (s->angle << 6);
     int sy1   = (sin_q16(turn1) * ITEM_OVAL_Y) >> 16;
     int sy2   = (sin_q16(turn2) * ITEM_OVAL_Y) >> 16;
     int sx1   = (cos_q16(turn1));
@@ -160,21 +166,21 @@ static void render_item_selector(item_selector_s *is)
     for (int y = 0; y < 2 * ITEM_BARREL_R; y++) {
         int yy   = y - ITEM_BARREL_R;
         int abar = asin_q16((yy << 16) / ITEM_BARREL_R) >> 2; // asin returns TURN in Q18, one turn = 0x40000, shr by 2 for Q16
-        int aimg = (abar + is->angle + 0x4000) & 0xFFFF;
+        int aimg = (abar + (s->angle << 4) + 0x4000) & 0xFFFF;
         if (0 <= aimg && aimg < 0x8000) { // maps to [0, 180) deg (visible barrel)
-            tr.r.y = is->item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
-            gfx_spr(ctx, tr, (v2_i32){16, ITEM_Y_OFFS + y}, 0, 0);
+            tr.r.y = s->item * ITEM_SIZE + (aimg * ITEM_SIZE) / 0x8000;
+            gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS + 16, ITEM_Y_OFFS + 16 + y}, 0, 0);
         } else {
-            gfx_rec_fill(ctx, (rec_i32){16, ITEM_Y_OFFS + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
+            gfx_rec_fill(ctx, (rec_i32){ITEM_X_OFFS + 16, ITEM_Y_OFFS + 16 + y, ITEM_SIZE, 1}, PRIM_MODE_WHITE);
         }
     }
 
     tr.r = (rec_i32){64, 0, 64, 64}; // frame
-    gfx_spr(ctx, tr, (v2_i32){0, 0}, 0, 0);
+    gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS + 0, ITEM_Y_OFFS + 0}, 0, 0);
     tr.r = (rec_i32){144, 0, 32, 64}; // disc
-    gfx_spr(ctx, tr, (v2_i32){48 + 17 + offs, 0}, 0, 0);
+    gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS + 48 + 17 + offs, ITEM_Y_OFFS + 0}, 0, 0);
     tr.r = (rec_i32){112, 64, 16, 16}; // hole
-    gfx_spr(ctx, tr, (v2_i32){48, 32 - 8 - sy2}, 0, 0);
+    gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS + 48, ITEM_Y_OFFS + 32 - 8 - sy2}, 0, 0);
     tr.r = (rec_i32){112, 80, 16, 16}; // bolt
-    gfx_spr(ctx, tr, (v2_i32){49 + offs, 32 - 8 - sy1}, 0, 0);
+    gfx_spr(ctx, tr, (v2_i32){ITEM_X_OFFS + 49 + offs, ITEM_Y_OFFS + 32 - 8 - sy1}, 0, 0);
 }

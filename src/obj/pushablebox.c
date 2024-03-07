@@ -5,7 +5,7 @@
 #include "game.h"
 
 typedef struct {
-    int x;
+    i32 x;
 } pushablebox_s;
 
 void pushablebox_load(game_s *g, map_obj_s *mo)

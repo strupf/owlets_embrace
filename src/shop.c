@@ -20,23 +20,6 @@ void shop_open(game_s *g)
     *shop         = (shop_s){0};
     shop->fade_in = 1;
     shop->active  = 1;
-#ifdef SYS_DEBUG
-    shopitem_s *si;
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "Sword");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "Delicious Food");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "Marbles");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "Holy Water");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "FHAH");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "DDDDDDDDDDD");
-    si = &shop->items[shop->n_items++];
-    str_cpys(si->name, sizeof(si->name), "oooo");
-#endif
 }
 
 void shop_update(game_s *g)

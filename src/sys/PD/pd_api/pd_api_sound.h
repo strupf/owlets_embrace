@@ -43,7 +43,7 @@ static inline MIDINote pd_frequencyToNote(float f) { return 12*log2f(f) - 36.376
 // SOUND SOURCES
 
 typedef struct SoundSource SoundSource;
-typedef void sndCallbackProc(SoundSource* c);
+typedef void sndCallbackProc(SoundSource* c, void* userdata);
 
 // SoundSource is the parent class for FilePlayer, SamplePlayer, PDSynth, and DelayLineTap. You can safely cast those objects to a SoundSource* and use these functions:
 
@@ -52,7 +52,7 @@ struct playdate_sound_source
 	void (*setVolume)(SoundSource* c, float lvol, float rvol);
 	void (*getVolume)(SoundSource* c, float* outl, float* outr);
 	int (*isPlaying)(SoundSource* c);
-	void (*setFinishCallback)(SoundSource* c, sndCallbackProc callback);
+	void (*setFinishCallback)(SoundSource* c, sndCallbackProc callback, void* userdata);
 };
 
 typedef struct FilePlayer FilePlayer; // extends SoundSource
@@ -74,12 +74,12 @@ struct playdate_sound_fileplayer
 	void (*setRate)(FilePlayer* player, float rate);
 	void (*setLoopRange)(FilePlayer* player, float start, float end);
 	int (*didUnderrun)(FilePlayer* player);
-	void (*setFinishCallback)(FilePlayer* player, sndCallbackProc callback);
-	void (*setLoopCallback)(FilePlayer* player, sndCallbackProc callback);
+	void (*setFinishCallback)(FilePlayer* player, sndCallbackProc callback, void* userdata);
+	void (*setLoopCallback)(FilePlayer* player, sndCallbackProc callback, void* userdata);
 	float (*getOffset)(FilePlayer* player);
 	float (*getRate)(FilePlayer* player);
 	void (*setStopOnUnderrun)(FilePlayer* player, int flag);
-	void (*fadeVolume)(FilePlayer* player, float left, float right, int32_t len, sndCallbackProc finishCallback);
+	void (*fadeVolume)(FilePlayer* player, float left, float right, int32_t len, sndCallbackProc finishCallback, void* userdata);
 	void (*setMP3StreamSource)(FilePlayer* player, int (*dataSource)(uint8_t* data, int bytes, void* userdata), void* userdata, float bufferLen);
 };
 
@@ -96,6 +96,9 @@ struct playdate_sound_sample
 	void (*getData)(AudioSample* sample, uint8_t** data, SoundFormat* format, uint32_t* sampleRate, uint32_t* bytelength);
 	void (*freeSample)(AudioSample* sample);
 	float (*getLength)(AudioSample* sample);
+	
+	// 2.4
+	int (*decompress)(AudioSample* sample);
 };
 
 struct playdate_sound_sampleplayer // SamplePlayer extends SoundSource
@@ -112,8 +115,8 @@ struct playdate_sound_sampleplayer // SamplePlayer extends SoundSource
 	void (*setOffset)(SamplePlayer* player, float offset);
 	void (*setRate)(SamplePlayer* player, float rate);
 	void (*setPlayRange)(SamplePlayer* player, int start, int end);
-	void (*setFinishCallback)(SamplePlayer* player, sndCallbackProc callback);
-	void (*setLoopCallback)(SamplePlayer* player, sndCallbackProc callback);
+	void (*setFinishCallback)(SamplePlayer* player, sndCallbackProc callback, void* userdata);
+	void (*setLoopCallback)(SamplePlayer* player, sndCallbackProc callback, void* userdata);
 	float (*getOffset)(SamplePlayer* player);
 	float (*getRate)(SamplePlayer* player);
 	void (*setPaused)(SamplePlayer* player, int flag);
@@ -130,7 +133,7 @@ typedef struct PDSynthSignal PDSynthSignal;
 
 typedef float (*signalStepFunc)(void* userdata, int* ioframes, float* ifval);
 typedef void (*signalNoteOnFunc)(void* userdata, MIDINote note, float vel, float len); // len = -1 for indefinite
-typedef void (*signalNoteOffFunc)(void* userdata, int stopped, int offset); // ended = 0 for note release, = 1 when note stops playing
+typedef void (*signalNoteOffFunc)(void* userdata, int stop, int offset); // stop = 0 for note release, = 1 when note stops playing
 typedef void (*signalDeallocFunc)(void* userdata);
 
 struct playdate_sound_signal
@@ -236,7 +239,7 @@ typedef void (*synthNoteOnFunc)(void* userdata, MIDINote note, float velocity, f
 typedef void (*synthReleaseFunc)(void* userdata, int stop);
 typedef int (*synthSetParameterFunc)(void* userdata, int parameter, float value);
 typedef void (*synthDeallocFunc)(void* userdata);
-
+typedef void* (*synthCopyUserdata)(void* userdata);
 typedef struct PDSynth PDSynth;
 
 struct playdate_sound_synth // PDSynth extends SoundSource
@@ -245,7 +248,7 @@ struct playdate_sound_synth // PDSynth extends SoundSource
 	void (*freeSynth)(PDSynth* synth);
 	
 	void (*setWaveform)(PDSynth* synth, SoundWaveform wave);
-	void (*setGenerator)(PDSynth* synth, int stereo, synthRenderFunc render, synthNoteOnFunc noteOn, synthReleaseFunc release, synthSetParameterFunc setparam, synthDeallocFunc dealloc, void* userdata);
+	void (*setGenerator_deprecated)(PDSynth* synth, int stereo, synthRenderFunc render, synthNoteOnFunc noteOn, synthReleaseFunc release, synthSetParameterFunc setparam, synthDeallocFunc dealloc, void* userdata);
 	void (*setSample)(PDSynth* synth, AudioSample* sample, uint32_t sustainStart, uint32_t sustainEnd);
 
 	void (*setAttackTime)(PDSynth* synth, float attack);
@@ -280,6 +283,10 @@ struct playdate_sound_synth // PDSynth extends SoundSource
 	
 	// 2.2
 	int (*setWavetable)(PDSynth* synth, AudioSample* sample, int log2size, int columns, int rows);
+	
+	// 2.4
+	void (*setGenerator)(PDSynth* synth, int stereo, synthRenderFunc render, synthNoteOnFunc noteOn, synthReleaseFunc release, synthSetParameterFunc setparam, synthDeallocFunc dealloc, synthCopyUserdata copyUserdata, void* userdata);
+	PDSynth* (*copy)(PDSynth* synth);
 };
 
 
@@ -366,7 +373,7 @@ struct playdate_sound_sequence
 	SoundSequence* (*newSequence)(void);
 	void (*freeSequence)(SoundSequence* sequence);
 	
-	int (*loadMidiFile)(SoundSequence* seq, const char* path);
+	int (*loadMIDIFile)(SoundSequence* seq, const char* path);
 	uint32_t (*getTime)(SoundSequence* seq);
 	void (*setTime)(SoundSequence* seq, uint32_t time);
 	void (*setLoops)(SoundSequence* seq, int loopstart, int loopend, int loops);
@@ -544,6 +551,12 @@ struct playdate_sound_channel
 
 typedef int RecordCallback(void *context, int16_t* buffer, int length); // data is mono
 
+enum MicSource {
+	kMicInputAutodetect = 0,
+	kMicInputInternal = 1,
+	kMicInputHeadset = 2
+};
+
 struct playdate_sound
 {
 	const struct playdate_sound_channel* channel;
@@ -568,7 +581,7 @@ struct playdate_sound
 	int (*addChannel)(SoundChannel* channel);
 	int (*removeChannel)(SoundChannel* channel);
 	
-	void (*setMicCallback)(RecordCallback* callback, void* context, int forceInternal);
+	int (*setMicCallback)(RecordCallback* callback, void* context, enum MicSource source);
 	void (*getHeadphoneState)(int* headphone, int* headsetmic, void (*changeCallback)(int headphone, int mic));
 	void (*setOutputsActive)(int headphone, int speaker);
 	

@@ -12,8 +12,8 @@ enum {
 };
 
 typedef struct {
-    int    trigger_on_enable;
-    int    trigger_on_disable;
+    i32    trigger_on_enable;
+    i32    trigger_on_disable;
     bool32 once;
 } obj_switch_s;
 

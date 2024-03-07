@@ -23,7 +23,7 @@ void coinparticle_update(game_s *g)
     for (int n = g->n_coinparticles - 1; 0 <= n; n--) {
         coinparticle_s *c = &g->coinparticles[n];
         if (ohero && v2_distancesq(heropos, c->pos) < COINPARTICLE_COLLECT_DISTSQ) {
-            inventory_add(&g->inventory, INVENTORY_ID_GOLD, 1);
+            hero_inv_add(g, INVENTORY_ID_GOLD, 1);
             snd_play_ext(SNDID_COIN, 1.f, 1.f);
             *c = g->coinparticles[--g->n_coinparticles];
             continue;

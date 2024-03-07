@@ -19,41 +19,39 @@ typedef struct {
 } snd_s;
 
 typedef struct {
-    i8 *wavedata;
-    int wavelen;
-    int wavelen_og;
-    int wavepos;
-    int wavepos_inv_q8;
-    int vol_q8;
-    int invpitch_q8; // 1 / pitch
+    i8 *wavbuf;
+    u32 wavlen;
+    u32 wavpos;
+    i32 vol_q8;
+    f32 pitch;
 } sndchannel_s;
 
 typedef struct {
     char   filename[MUS_LEN_FILENAME];
     //
     void  *stream;
-    int    datapos;
-    int    streampos; // position in samples
-    int    streamlen;
-    int    chunkpos; // position in samples in chunk
-    int    vol_q8;
-    int    trg_vol_q8;
+    i32    datapos;
+    i32    streampos; // position in samples
+    i32    streamlen;
+    i32    chunkpos; // position in samples in chunk
+    i32    vol_q8;
+    i32    trg_vol_q8;
     bool32 looping;
     //
-    int    fade_out_ticks_og;
-    int    fade_out_ticks;
-    int    fade_in_ticks;
-    int    fade_in_ticks_og;
+    i32    fade_out_ticks_og;
+    i32    fade_out_ticks;
+    i32    fade_in_ticks;
+    i32    fade_in_ticks_og;
     //
     alignas(8) i8 chunk[MUSCHUNK_SAMPLES];
 } muschannel_s;
 
 typedef struct {
     bool32       mute;
-    int          mus_fade_ticks;
-    int          mus_fade_ticks_max;
-    int          mus_fade_in;
-    int          mus_fade;
+    i32          mus_fade_ticks;
+    i32          mus_fade_ticks_max;
+    i32          mus_fade_in;
+    i32          mus_fade;
     char         mus_new[64];
     muschannel_s muschannel;
     sndchannel_s sndchannel[NUM_SNDCHANNEL];
@@ -62,6 +60,7 @@ typedef struct {
 
 extern AUD_s AUD;
 
+void   aud_init();
 void   aud_update();
 void   aud_mute(bool32 mute);
 void   aud_audio(i16 *buf, int len);
@@ -73,5 +72,5 @@ void   mus_stop();
 bool32 mus_play(const char *filename);
 bool32 mus_playing();
 void   mus_set_vol(int vol_q8);
-void   mus_set_trg_vol(int vol_q8);
+void   mus_set_trg_vol_q8(int vol_q8);
 #endif

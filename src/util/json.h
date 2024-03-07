@@ -31,7 +31,7 @@ enum {
 typedef struct {
     char *c0;
     char *c1; // NULL for arrays and objects
-    int   stack;
+    i32   stack;
     u32   nstack;
 } json_s;
 
