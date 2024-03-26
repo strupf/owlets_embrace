@@ -8,7 +8,22 @@
 #include "gamedef.h"
 #include "rope.h"
 
-#define NUM_OBJ 256
+#define NUM_OBJ 1024
+
+static inline void obj_GID_decode(u32 slot, i32 *index, i32 *gen)
+{
+    if (index) {
+        *index = (i32)(slot & 0xFFFFU);
+    }
+    if (gen) {
+        *gen = (i32)(slot >> 16);
+    }
+}
+
+static inline u32 obj_GID_incr_gen(u32 slot)
+{
+    return (slot + 0x10000U);
+}
 
 enum {
     OBJ_ID_NULL,
@@ -43,6 +58,7 @@ enum {
     OBJ_ID_KEY,
     OBJ_ID_BOAT,
     OBJ_ID_HOOKLEVER,
+    OBJ_ID_SPRITEDECAL,
 };
 
 enum {
@@ -104,11 +120,14 @@ typedef union {
         u16 gen;
     };
     u32 u;
-} obj_UID_s;
+} obj_GID_s;
 
+// handle to an object
+// object pointer is valid (still exists) if:
+//   o != NULL && GID == o->GID
 typedef struct {
     obj_s    *o;
-    obj_UID_s UID;
+    obj_GID_s GID;
 } obj_handle_s;
 
 typedef struct {
@@ -134,33 +153,31 @@ static inline u32 save_ID_gen(int roomID, int objID)
 
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
-    obj_s    *next; // linked list
+    obj_s          *next; // linked list
     //
-    obj_UID_s UID;
-    u32       ID;      // type of object
-    u32       save_ID; // used to register save events
-    flags64   flags;
-    flags32   tags;
+    obj_GID_s       GID;
+    u32             ID;      // type of object
+    u32             save_ID; // used to register save events
+    flags64         flags;
+    flags32         tags;
     //
-    i32       render_priority;
-    flags32   bumpflags; // has to be cleared manually
-    flags32   moverflags;
-    i32       w;
-    i32       h;
-    v2_i32    posprev;
-    v2_i32    pos; // position in pixels
-    v2_i32    subpos_q8;
-    v2_i32    vel_q8;
-    v2_i32    vel_prev_q8;
-    v2_i32    vel_cap_q8;
-    v2_i32    drag_q8;
-    v2_i32    gravity_q8;
-    v2_i32    tomove;
-    //
-
+    i32             render_priority;
+    flags32         bumpflags; // has to be cleared manually
+    flags32         moverflags;
+    i32             w;
+    i32             h;
+    v2_i32          posprev;
+    v2_i32          pos; // position in pixels
+    v2_i32          subpos_q8;
+    v2_i32          vel_q8;
+    v2_i32          vel_prev_q8;
+    v2_i32          vel_cap_q8;
+    v2_i32          drag_q8;
+    v2_i32          gravity_q8;
+    v2_i32          tomove;
+    // some generic behaviour fields
     bool16          facing_locked;
     i16             facing; // -1 left, +1 right
-    // some generic behaviour fields
     i32             trigger;
     i32             action;
     i32             subaction;
@@ -182,9 +199,6 @@ struct obj_s {
     obj_handle_s    linked_solid;
     obj_handle_s    obj_handles[4];
     //
-    i32             subattack;
-    i32             attack;
-    i32             attack_tick;
     i32             n_sprites;
     sprite_simple_s sprites[4];
     char            filename[64];
@@ -227,6 +241,7 @@ bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
+void         game_set_collision_tiles(game_s *g, rec_i32 r, int shape, int type);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

@@ -47,7 +47,7 @@ static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
     }
 
     c->vx_q8    = (1 << rngr_i32(0, 7)) * (rngr_i32(0, 1) * 2 - 1);
-    c->p.x      = 0 < c->vx_q8 ? -100 : +600;
+    c->p.x      = 0 < c->vx_q8 ? -100 : +800;
     c->p.y      = rngr_i32(-70, 200);
     c->priority = (rng_u32() & 0xFFFF);
     return c;
@@ -286,25 +286,27 @@ void areafx_heat_draw(game_s *g, areafx_heat_s *fx, v2_i32 cam)
     gfx_ctx_s ctx = gfx_ctx_display();
     tex_s     t   = ctx.dst;
     int       y2  = min_i(AREAFX_HEAT_ROWS, t.h);
+
     for (int y = 0; y < y2; y++) {
         int off = fx->offset[y];
+
         if (0 < off) {
-            int a = off;
+            int a = +off;
             int b = 32 - off;
             for (int x = t.wword - 1; 0 < x; x--) {
-                int i   = x + y * t.wword;
-                u32 b1  = bswap32(t.px[i]);
-                u32 b2  = bswap32(t.px[i - 1]);
-                t.px[i] = bswap32((b1 >> a) | (b2 << b));
+                u32 *p  = &t.px[x + y * t.wword];
+                u32  b1 = bswap32(*(p + 0));
+                u32  b2 = bswap32(*(p - 1));
+                *p      = bswap32((b1 >> a) | (b2 << b));
             }
         } else if (off < 0) {
             int a = -off;
             int b = 32 + off;
             for (int x = 0; x < t.wword - 1; x++) {
-                int i   = x + y * t.wword;
-                u32 b1  = bswap32(t.px[i]);
-                u32 b2  = bswap32(t.px[i + 1]);
-                t.px[i] = bswap32((b1 << a) | (b2 >> b));
+                u32 *p  = &t.px[x + y * t.wword];
+                u32  b1 = bswap32(*(p + 0));
+                u32  b2 = bswap32(*(p + 1));
+                *p      = bswap32((b1 << a) | (b2 >> b));
             }
         }
     }
@@ -320,4 +322,43 @@ void areafx_leaves_update(game_s *g, areafx_leaves_s *fx)
 
 void areafx_leaves_draw(game_s *g, areafx_leaves_s *fx, v2_i32 cam)
 {
+}
+
+void areafx_particles_calm_setup(game_s *g, areafx_particles_calm_s *fx)
+{
+    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+        areafx_particle_calm_s *p = &fx->p[n];
+
+        p->pos.x = rngr_i32(0, PT_CALM_X_RANGE << 8);
+        p->pos.y = rngr_i32(0, PT_CALM_Y_RANGE << 8);
+        p->vel.x = rngr_sym_i32(PT_CALM_VCAP);
+        p->vel.y = rngr_sym_i32(PT_CALM_VCAP);
+    }
+}
+
+void areafx_particles_calm_update(game_s *g, areafx_particles_calm_s *fx)
+{
+    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+        areafx_particle_calm_s *p = &fx->p[n];
+
+        p->pos = v2_add(p->pos, p->vel);
+        p->vel.x += rngr_sym_i32(PT_CALM_VRNG);
+        p->vel.y += rngr_sym_i32(PT_CALM_VRNG);
+        p->vel.x = clamp_i32(p->vel.x, -PT_CALM_VCAP, +PT_CALM_VCAP);
+        p->vel.y = clamp_i32(p->vel.y, -PT_CALM_VCAP, +PT_CALM_VCAP);
+    }
+}
+
+void areafx_particles_calm_draw(game_s *g, areafx_particles_calm_s *fx, v2_i32 cam)
+{
+    const gfx_ctx_s ctx = gfx_ctx_display();
+
+    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+        areafx_particle_calm_s p = fx->p[n];
+
+        v2_i32 pos = v2_add(v2_shr(p.pos, 8), cam);
+        pos.x      = (pos.x & (PT_CALM_X_RANGE - 1)) - 16;
+        pos.y      = (pos.y & (PT_CALM_Y_RANGE - 1)) - 16;
+        gfx_cir_fill(ctx, pos, 4, PRIM_MODE_BLACK);
+    }
 }

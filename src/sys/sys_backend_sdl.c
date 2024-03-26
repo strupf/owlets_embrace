@@ -8,9 +8,10 @@
 #include "SDL2/SDL.h"
 #include <stdio.h>
 
-#define SYS_SDL_SCALE           1
-#define SYS_USE_INTEGER_SCALING 1
-#define SYS_REDUCE_FLICKER      1 // space to swap at runtime
+#define SYS_SDL_SCALE             1
+#define SYS_USE_INTEGER_SCALING   1
+#define SYS_REDUCE_FLICKER        1 // space to swap at runtime
+#define SYS_SDL_COLOR_BLACK_WHITE 1
 
 static_assert(SYS_FILE_SEEK_SET == RW_SEEK_SET, "seek");
 static_assert(SYS_FILE_SEEK_CUR == RW_SEEK_CUR, "seek");
@@ -109,10 +110,17 @@ int main(int argc, char **argv)
                                        SYS_DISPLAY_W,
                                        SYS_DISPLAY_H);
 
-    SDL_PixelFormat *f      = SDL_AllocFormat(pformat);
-    const Uint32     pal[2] = {
-        SDL_MapRGB((const SDL_PixelFormat *)f, 0x31, 0x2F, 0x28),  // black
-        SDL_MapRGB((const SDL_PixelFormat *)f, 0xB1, 0xAF, 0xA8)}; // white
+    SDL_PixelFormat *f = SDL_AllocFormat(pformat);
+
+    const Uint32 pal[2] = {
+#if SYS_SDL_COLOR_BLACK_WHITE
+        SDL_MapRGB((const SDL_PixelFormat *)f, 0x00, 0x00, 0x00), // black
+        SDL_MapRGB((const SDL_PixelFormat *)f, 0xFF, 0xFF, 0xFF)  // white
+#else
+        SDL_MapRGB((const SDL_PixelFormat *)f, 0x31, 0x2F, 0x28), // black
+        SDL_MapRGB((const SDL_PixelFormat *)f, 0xB1, 0xAF, 0xA8)  // white
+#endif
+    };
     SDL_FreeFormat(f);
 
     SDL_AudioSpec frmt = {0};
@@ -123,7 +131,7 @@ int main(int argc, char **argv)
     frmt.callback      = backend_SDL_audio;
 
     OS_SDL.audiodevID = SDL_OpenAudioDevice(NULL, 0, &frmt, &OS_SDL.audiospec, 0);
-    if (0 < OS_SDL.audiodevID) {
+    if (OS_SDL.audiodevID) {
         SDL_PauseAudioDevice(OS_SDL.audiodevID, 0);
     }
 
@@ -142,8 +150,8 @@ int main(int argc, char **argv)
 
     Uint64 time_prev     = SDL_GetPerformanceCounter();
     Uint64 fps_timer     = 0;
-    int    fps_tick      = 0;
-    int    fps_tick_prev = 0;
+    i32    fps_tick      = 0;
+    i32    fps_tick_prev = 0;
 
     while (OS_SDL.running) {
         Uint64 time   = SDL_GetPerformanceCounter();
@@ -153,6 +161,8 @@ int main(int argc, char **argv)
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
+            case SDL_KEYDOWN:
+                if (e.key.keysym.sym != SDLK_ESCAPE) break;
             case SDL_QUIT: OS_SDL.running = 0; break;
             case SDL_WINDOWEVENT:
                 switch (e.window.event) {
@@ -202,6 +212,7 @@ int main(int argc, char **argv)
                         pixels[k] = pal[OS_SDL.inv ? !bit : bit];
                     }
                     if (!OS_SDL.paused) continue;
+                    continue;
                     for (int x = 200; x < SYS_DISPLAY_W; x++) {
                         pixels[x + y * SYS_DISPLAY_W] = pal[(x & 1 ? 1 : 0)];
                     }
@@ -380,6 +391,11 @@ u32 *backend_framebuffer()
     return (u32 *)OS_SDL.framebuffer;
 }
 
+u32 *backend_display_buffer()
+{
+    return backend_framebuffer();
+}
+
 void *backend_file_open(const char *path, int mode)
 {
     switch (mode) {
@@ -433,6 +449,9 @@ int backend_debug_space()
 
 void backend_set_menu_image(void *px, int h, int wbyte)
 {
+    if (!px) {
+        return;
+    }
     int y2 = SYS_DISPLAY_H < h ? SYS_DISPLAY_H : h;
     int b2 = SYS_DISPLAY_WBYTES < wbyte ? SYS_DISPLAY_WBYTES : wbyte;
     for (int y = 0; y < y2; y++) {
@@ -444,6 +463,10 @@ void backend_set_menu_image(void *px, int h, int wbyte)
         }
     }
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+}
+
+void backend_display_flush()
+{
 }
 
 void backend_set_FPS(int fps)
@@ -486,7 +509,13 @@ void *backend_menu_checkmark_add(const char *title, int val, void (*cb)(void *ar
     return mi;
 }
 
-bool32 backend_menu_checkmark(void *ptr)
+void *backend_menu_options_add(const char *title, const char **options,
+                               int count, void (*cb)(void *arg), void *arg)
+{
+    return NULL;
+}
+
+int backend_menu_value(void *ptr)
 {
     if (!ptr) return 0;
     SDL_menu_item_s *mi = (SDL_menu_item_s *)ptr;

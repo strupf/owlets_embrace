@@ -2,27 +2,27 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "mainmenu.h"
+#include "title.h"
 #include "game.h"
 #include "sys/sys.h"
 
 enum {
-    MAINMENU_SOUND_BUTTON,
-    MAINMENU_SOUND_START,
-    MAINMENU_SOUND_PROMPT,
-    MAINMENU_SOUND_DELETE,
-    MAINMENU_SOUND_COPY,
-    MAINMENU_SOUND_ABORT,
-    MAINMENU_SOUND_NAVIGATE,
+    TITLE_SOUND_BUTTON,
+    TITLE_SOUND_START,
+    TITLE_SOUND_PROMPT,
+    TITLE_SOUND_DELETE,
+    TITLE_SOUND_COPY,
+    TITLE_SOUND_ABORT,
+    TITLE_SOUND_NAVIGATE,
 };
 
-static void mainmenu_pressed_A(game_s *g, mainmenu_s *t);
-static void mainmenu_pressed_B(mainmenu_s *t);
-static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy);
-static void mainmenu_op_start_file(game_s *g, mainmenu_s *t);
-static void mainmenu_play_sound(int soundID);
+static void title_pressed_A(game_s *g, title_s *t);
+static void title_pressed_B(title_s *t);
+static void title_navigate(game_s *g, title_s *t, int dx, int dy);
+static void title_op_start_file(game_s *g, title_s *t);
+static void title_play_sound(int soundID);
 
-void mainmenu_init(mainmenu_s *t)
+void title_init(title_s *t)
 {
 #if 1
     save_s hs = {0};
@@ -48,10 +48,10 @@ void mainmenu_init(mainmenu_s *t)
 #endif
 }
 
-void mainmenu_update(game_s *g, mainmenu_s *t)
+void title_update(game_s *g, title_s *t)
 {
-#if MAINMENU_SKIP_TO_GAME
-    mainmenu_op_start_file(g, t);
+#if TITLE_SKIP_TO_GAME
+    title_op_start_file(g, t);
     return;
 #endif
 
@@ -63,24 +63,24 @@ void mainmenu_update(game_s *g, mainmenu_s *t)
     t->feather_time += (1.f - ABS(s1)) * 0.05f;
     t->feather_y += 0.6f;
 
-    if (t->feather_y >= 500.f) t->feather_y = 0;
+    if (t->feather_y >= 500.f) t->feather_y = 0.f;
 
     if (t->fade_to_game) {
         t->fade_to_game++;
         if (t->fade_to_game < (FADETICKS_MM_GAME + FADETICKS_MM_GAME_BLACK)) return;
         t->fade_to_game = 0;
-        mainmenu_op_start_file(g, t);
-        g->substate.state = SUBSTATE_MAINMENU_FADE_IN;
+        title_op_start_file(g, t);
+        g->substate.state = SUBSTATE_TITLE_FADE_IN;
         return;
     }
 
     if (inp_just_pressed(INP_B)) { // back or abort
-        mainmenu_pressed_B(t);
+        title_pressed_B(t);
         return;
     }
 
     if (inp_just_pressed(INP_A)) { // select or confirm
-        mainmenu_pressed_A(g, t);
+        title_pressed_A(g, t);
         return;
     }
 
@@ -92,43 +92,43 @@ void mainmenu_update(game_s *g, mainmenu_s *t)
     if (inp_just_pressed(INP_DPAD_D)) dy = +1;
 
     if (dx != 0 || dy != 0) {
-        mainmenu_navigate(g, t, dx, dy);
+        title_navigate(g, t, dx, dy);
     }
 }
 
-static void cb_mainmenu_to_press_start(void *arg)
+static void cb_title_to_press_start(void *arg)
 {
-    mainmenu_s *t  = (mainmenu_s *)arg;
-    t->state       = MAINMENU_ST_PRESS_START;
+    title_s *t     = (title_s *)arg;
+    t->state       = TITLE_ST_PRESS_START;
     t->title_blink = 0;
 }
 
-static void mainmenu_pressed_A(game_s *g, mainmenu_s *t)
+static void title_pressed_A(game_s *g, title_s *t)
 {
     switch (t->state) {
-    case MAINMENU_ST_PRESS_START:
-        mainmenu_play_sound(MAINMENU_SOUND_BUTTON);
-        mainmenu_op_start_file(g, t);
+    case TITLE_ST_PRESS_START:
+        title_play_sound(TITLE_SOUND_BUTTON);
+        title_op_start_file(g, t);
         break;
     }
 }
 
-static void mainmenu_pressed_B(mainmenu_s *t)
+static void title_pressed_B(title_s *t)
 {
     switch (t->state) {
-    case MAINMENU_ST_PRESS_START:
+    case TITLE_ST_PRESS_START:
         break;
     default:
-        mainmenu_play_sound(MAINMENU_SOUND_ABORT);
+        title_play_sound(TITLE_SOUND_ABORT);
         t->option = 0;
         break;
     }
 }
 
-static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy)
+static void title_navigate(game_s *g, title_s *t, int dx, int dy)
 {
     switch (t->state) {
-    case MAINMENU_ST_PRESS_START:
+    case TITLE_ST_PRESS_START:
         break;
     default:
         BAD_PATH
@@ -136,22 +136,22 @@ static void mainmenu_navigate(game_s *g, mainmenu_s *t, int dx, int dy)
     }
 }
 
-static void mainmenu_op_start_file(game_s *g, mainmenu_s *t)
+static void title_op_start_file(game_s *g, title_s *t)
 {
-    mainmenu_play_sound(MAINMENU_SOUND_START);
+    title_play_sound(TITLE_SOUND_START);
     game_load_savefile(g);
 
     g->state = GAMESTATE_GAMEPLAY;
 }
 
-static void mainmenu_play_sound(int soundID)
+static void title_play_sound(int soundID)
 {
 }
 
-void mainmenu_render(mainmenu_s *t)
+void title_render(title_s *t)
 {
     gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-    tex_clr(asset_tex(0), TEX_CLR_WHITE);
+    tex_clr(asset_tex(0), GFX_COL_WHITE);
     int fade_i = 100;
     ctx.pat    = gfx_pattern_interpolate(fade_i, 100);
 
@@ -163,7 +163,7 @@ void mainmenu_render(mainmenu_s *t)
 
         int fade_anim = fade_i;
         fade_anim     = max_i(fade_anim, 10);
-        if (t->state != MAINMENU_ST_PRESS_START) {
+        if (t->state != TITLE_ST_PRESS_START) {
             fade_anim = min_i(fade_anim, 10);
         }
 
@@ -178,15 +178,15 @@ void mainmenu_render(mainmenu_s *t)
     }
 
     fnt_s font = asset_fnt(FNTID_LARGE);
-    if (t->state != MAINMENU_ST_PRESS_START) {
+    if (t->state != TITLE_ST_PRESS_START) {
         gfx_rec_fill(ctx, (rec_i32){5, t->option * 20 + 25, 10, 10}, PRIM_MODE_BLACK);
     }
 
-    texrec_s tbutton = asset_texrec(TEXID_MAINMENU, 0, 0, 64, 64);
+    texrec_s tbutton = asset_texrec(TEXID_TITLE, 0, 0, 64, 64);
     int      mode    = SPR_MODE_BLACK;
 
     switch (t->state) {
-    case MAINMENU_ST_PRESS_START: {
+    case TITLE_ST_PRESS_START: {
 #define PRESS_START_TICKS 40
 
         int b = t->title_blink % (PRESS_START_TICKS * 2);

@@ -7,10 +7,10 @@
 #include "core/inp.h"
 #include "core/spm.h"
 #include "game.h"
+#include "render/render.h"
 #include "sys/sys.h"
 
-game_s     GAME;
-mainmenu_s MAINMENU;
+game_s GAME;
 
 static void app_load_tex();
 static void app_load_fnt();
@@ -21,7 +21,24 @@ void menu_cb_inventory(void *arg)
 {
     assert(arg);
     game_s *g = (game_s *)arg;
-    inventory_open(g, &g->inventory);
+    if (!menu_screen_active(&g->menu_screen)) {
+        menu_screen_open(g, &g->menu_screen);
+    }
+}
+
+void menu_cb_item(void *arg)
+{
+    assert(arg);
+    game_s *g = (game_s *)arg;
+
+    int val = sys_menu_value(1);
+    sys_printf("I: %i\n", val);
+    if (val == 0) {
+        g->item.selected = HERO_ITEM_HOOK;
+    }
+    if (val == 1) {
+        g->item.selected = HERO_ITEM_WEAPON;
+    }
 }
 
 static void app_load_game()
@@ -44,7 +61,7 @@ static void app_load_game()
 
     sys_printf("size save: %u bytes\n", (uint)(sizeof(save_s)));
 
-    mainmenu_init(&g->mainmenu);
+    title_init(&g->title);
     game_init(g);
 }
 
@@ -62,19 +79,22 @@ void app_init()
     assets_export();
 #endif
     app_load_game();
+
+    game_s *g = &GAME;
+    sys_menu_clr();
+    sys_menu_item_add(0, "Map", menu_cb_inventory, g);
 }
 
 void app_tick()
 {
     inp_update();
-    sys_menu_clr();
+
     game_s *g = &GAME;
     switch (g->state) {
     case GAMESTATE_MAINMENU:
-        mainmenu_update(g, &g->mainmenu);
+        title_update(g, &g->title);
         break;
     case GAMESTATE_GAMEPLAY:
-        sys_menu_item_add(0, "Inventory", menu_cb_inventory, g);
         game_tick(g);
         break;
     }
@@ -86,7 +106,7 @@ void app_draw()
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
     game_s *g = &GAME;
     switch (g->state) {
-    case GAMESTATE_MAINMENU: mainmenu_render(&g->mainmenu); break;
+    case GAMESTATE_MAINMENU: title_render(&g->title); break;
     case GAMESTATE_GAMEPLAY: game_draw(g); break;
     }
 }
@@ -117,9 +137,6 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg", NULL);
 
-    tex_s tex_propbg = asset_tex(TEXID_TILESET_PROPS_BG);
-    // RR tex_outline(tex_propbg, 352, 0, 256, 256, 0, 1);
-
 #if defined(SYS_DEBUG) && 0
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
     asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
@@ -141,19 +158,29 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_CRUMBLE, "crumbleblock", NULL);
 
     asset_tex_loadID(TEXID_UI, "ui", NULL);
+    asset_tex_putID(TEXID_PAUSE_TEX, tex_create_opaque(400, 240, asset_allocator));
     asset_tex_loadID(TEXID_UI_ITEMS, "items", NULL);
+
     tex_s texswitch;
     asset_tex_loadID(TEXID_SWITCH, "switch", &texswitch);
     tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
-
     asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox", NULL);
     asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants", NULL);
+    asset_tex_loadID(TEXID_WIGGLE_DECO, "wiggle_deco", NULL);
 
-    asset_tex_loadID(TEXID_SHROOMY, "shroomy", NULL);
-    tex_s tshroomy = asset_tex(TEXID_SHROOMY);
+    tex_s tcharger;
+    asset_tex_loadID(TEXID_CHARGER, "charger", &tcharger);
+    for (int y = 0; y < 3; y++) {
+        for (int x = 0; x < 4; x++) {
+            tex_outline(tcharger, x * 128, y * 64, 128, 64, 1, 1);
+        }
+    }
+
+    tex_s tshroomy;
+    asset_tex_loadID(TEXID_SHROOMY, "shroomy", &tshroomy);
     for (int y = 0; y < 4; y++) {
         for (int x = 0; x < 8; x++) {
             tex_outline(tshroomy, x * 64, y * 48, 64, 48, 1, 1);
@@ -179,39 +206,54 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_BG_DEEP_FOREST, "bg_deep_forest", NULL);
     asset_tex_loadID(TEXID_BG_CAVE_DEEP, "bg_cave_deep", NULL);
 
-    asset_tex_loadID(TEXID_MISCOBJ, "miscobj", NULL);
-    tex_s tmisc = asset_tex(TEXID_MISCOBJ);
+    tex_s tskeleton;
+    asset_tex_loadID(TEXID_SKELETON, "skeleton", &tskeleton);
+    for (int y = 0; y < 2; y++) {
+        for (int x = 0; x < 4; x++) {
+            tex_outline(tskeleton, x * 64, y * 64, 64, 64, 1, 1);
+        }
+    }
+
+    tex_s tmisc;
+    asset_tex_loadID(TEXID_MISCOBJ, "miscobj", &tmisc);
+
     tex_outline(tmisc, 0, 192, 64 * 2, 64, 1, 1);
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
-    tex_outline(texhero, 0, 768, 768, 256, 1, 1);
-    for (int y = 0; y < 9; y++) {
-        for (int x = 0; x < 5; x++) {
+    for (int y = 0; y < 11; y++) {
+        for (int x = 0; x < 6; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
 
     // prerender 16 rotations
-    asset_tex_loadID(TEXID_HOOK, "hook", NULL);
-    {
-        texrec_s  thook    = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
-        gfx_ctx_s ctx_hook = gfx_ctx_default(thook.t);
+    tex_s thook;
+    asset_tex_loadID(TEXID_HOOK, "hook", &thook);
+    texrec_s  trhook   = {thook, {0, 0, 32, 32}};
+    gfx_ctx_s ctx_hook = gfx_ctx_default(thook);
 
-        for (int i = 1; i < 16; i++) {
-            v2_i32 origin = {16, 16};
-            v2_i32 pp     = {0, i * 32};
-            f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
-            gfx_spr_rotscl(ctx_hook, thook, pp, origin, -ang, 1.f, 1.f);
-        }
-        tex_outline(thook.t, 0, 0, thook.t.w / 2, thook.t.h, 1, 1);
+    for (int i = 1; i < 16; i++) {
+        v2_i32 origin = {16, 16};
+        v2_i32 pp     = {0, i * 32};
+        f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
+        gfx_spr_rotscl(ctx_hook, trhook, pp, origin, -ang, 1.f, 1.f);
     }
+    tex_outline(thook, 0, 0, thook.w / 2, thook.h, 1, 1);
 
-    asset_tex_loadID(TEXID_NPC, "npc", NULL);
-    tex_s tnpc = asset_tex(TEXID_NPC);
+    tex_s tnpc;
+    asset_tex_loadID(TEXID_NPC, "npc", &tnpc);
     for (int y = 0; y < 5; y++) {
         for (int x = 0; x < 16; x++) {
             tex_outline(tnpc, x * 64, y * 64, 64, 64, 1, 1);
+        }
+    }
+
+    tex_s tflyer;
+    asset_tex_loadID(TEXID_FLYER, "flyer", &tflyer);
+    for (int y = 0; y < 1; y++) {
+        for (int x = 0; x < 4; x++) {
+            tex_outline(tflyer, x * 128, y * 96, 128, 96, 1, 1);
         }
     }
 

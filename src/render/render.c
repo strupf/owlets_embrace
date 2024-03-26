@@ -18,6 +18,11 @@ static int  cmp_obj_render_priority(const void *a, const void *b);
 
 void game_draw(game_s *g)
 {
+    if (menu_screen_active(&g->menu_screen)) {
+        menu_screen_draw(g, &g->menu_screen);
+        return;
+    }
+
     rec_i32 camrec_raw    = cam_rec_px(g, &g->cam);
     v2_i32  camoffset_raw = {-camrec_raw.x, -camrec_raw.y};
     rec_i32 camrec        = camrec_raw;
@@ -38,9 +43,16 @@ void game_draw(game_s *g)
     bounds_2D_s tilebounds = game_tilebounds_rec(g, camrec);
     ocean_calc_spans(g, camrec);
     area_draw_bg(g, &g->area, camoffset_raw, camoffset);
+    area_draw_mg(g, &g->area, camoffset_raw, camoffset);
     render_water_background(g, camoffset, tilebounds);
     render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
+
+    for (int n = 0; n < g->n_wiggle_deco; n++) {
+        wiggle_deco_s *wd     = &g->wiggle_deco[n];
+        v2_i32         wd_pos = {wd->r.x + wd->offs.x, wd->r.y + wd->offs.y};
+        gfx_spr(ctx, wd->tr, v2_add(wd_pos, camoffset), 0, 0);
+    }
 
     if (g->objrender_dirty) {
         g->objrender_dirty = 0;
@@ -127,13 +139,6 @@ void game_draw(game_s *g)
         obj_draw(ctx, g, o, camoffset);
     }
 
-    for (int n = 0; n < g->n_sprite_decals; n++) {
-        sprite_decal_s sd     = g->sprite_decals[n];
-        texrec_s       sd_tr  = {sd.tex, {sd.x, sd.y, sd.w, sd.h}};
-        gfx_ctx_s      sd_ctx = ctx;
-        gfx_spr(sd_ctx, sd_tr, v2_add(sd.pos, camoffset), 0, 0);
-    }
-
     texrec_s trgrass;
     trgrass.t = asset_tex(TEXID_PLANTS);
     for (int n = 0; n < g->n_grass; n++) {
@@ -181,13 +186,18 @@ void game_draw(game_s *g)
         spm_pop();
     }
 
-    if (inventory_active(&g->inventory)) {
-        inventory_draw(g, &g->inventory);
-    }
-
     if (!substate_finished(&g->substate)) {
         substate_draw(g, &g->substate, camoffset);
     }
+
+#if 0
+    static int map_scl = 16;
+
+    map_scl += inp_dpad_y();
+
+    map_scl = max_i(map_scl, 12);
+    render_map(g, ctx, map_scl);
+#endif
 }
 
 static int cmp_obj_render_priority(const void *a, const void *b)
@@ -341,7 +351,7 @@ void render_water_and_terrain(game_s *g, bounds_2D_s bounds, v2_i32 camoffset)
 
             if (rt.u == 0) continue;
             v2_i32 tp = {p.x - 8, p.y - 8};
-            gfx_spr_tile(ctx, tset, rt.tx, (rt.ty % 80) + 40, 5, tp);
+            gfx_spr_tile(ctx, tset, rt.tx, rt.ty, 5, tp);
 #if defined(SYS_DEBUG) && 0
             int t1 = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t1 && t1 < NUM_TILE_BLOCKS)) continue;

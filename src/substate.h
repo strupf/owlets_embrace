@@ -15,8 +15,7 @@ enum {
     SUBSTATE_TRANSITION,
     SUBSTATE_TEXTBOX,
     SUBSTATE_SHOP,
-    SUBSTATE_MAINMENU_FADE_IN,
-    SUBSTATE_FREEZE,
+    SUBSTATE_TITLE_FADE_IN,
 };
 
 typedef struct {
@@ -50,7 +49,6 @@ typedef struct {
     respawn_s    respawn;
     textbox_s    textbox;
     i32          mainmenu_tick;
-    i32          freeze_tick;
 } substate_s;
 
 bool32 substate_blocks_gameplay(substate_s *st);
@@ -63,6 +61,5 @@ bool32 substate_transition_try_hero_slide(game_s *g, substate_s *st);
 void   substate_upgrade_collected(game_s *g, substate_s *st, int upgrade);
 void   substate_respawn(game_s *g, substate_s *st);
 void   substate_load_textbox(game_s *g, substate_s *st, const char *filename);
-void   substate_freeze(substate_s *st, int ticks);
 
 #endif

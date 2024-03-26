@@ -32,14 +32,17 @@
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
 
-#define LEN_HERO_NAME           16
-#define LEN_AREA_FILENAME       64
-#define GAME_NUM_TILECOLLIDERS  32
-#define FADETICKS_MM_GAME       40
-#define FADETICKS_MM_GAME_BLACK 20
-#define FADETICKS_GAME_IN       40
-#define FADETICKS_AREALABEL     150
-#define RENDER_PRIO_HERO        0x100
+#define LEN_HERO_NAME             16
+#define LEN_AREA_FILENAME         64
+#define GAME_NUM_TILECOLLIDERS    32
+#define FADETICKS_MM_GAME         40
+#define FADETICKS_MM_GAME_BLACK   20
+#define FADETICKS_GAME_IN         40
+#define FADETICKS_AREALABEL       150
+#define RENDER_PRIO_HERO          0x100
+#define ITEM_SWAP_DOUBLETAP_TICKS 15
+#define NUM_WORLD_ROOMS           64
+#define NUM_WORLD_ROOM_TILES      256
 
 enum {
     DIRECTION_NONE,
@@ -59,9 +62,15 @@ static int direction_nearest(int dir, bool32 cw)
     return ((dir + (cw ? 0 : 6)) & 7) + 1;
 }
 
-static u32 time_now()
+static i32 time_now()
 {
-    return sys_tick();
+    return (i32)sys_tick();
+}
+
+static i32 time_since(i32 t)
+{
+    i32 time = time_now();
+    return (time - t);
 }
 
 enum {

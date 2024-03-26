@@ -7,9 +7,7 @@
 
 #include "sys/sys_types.h"
 
-static u32 RNG_seed = 213;
-
-// [0, 4294967296]
+// [0, 4294967295]
 static inline u32 rngn_u32(u32 u)
 {
     u32 x = u;
@@ -19,12 +17,19 @@ static inline u32 rngn_u32(u32 u)
     return x;
 }
 
-// [0, 4294967296]
+// [0, 4294967295]
 static u32 rngs_u32(u32 *seed)
 {
     u32 x = rngn_u32(*seed);
     *seed = x;
     return x;
+}
+
+// [0, 4294967295]
+static u32 rng_u32()
+{
+    static u32 RNG_seed = 213;
+    return rngs_u32(&RNG_seed);
 }
 
 static inline i32 rngs_i32(u32 *seed)
@@ -41,19 +46,13 @@ static f32 rngs_f32(u32 *seed)
 // [0, 1]
 static f32 rng_f32()
 {
-    return rngs_f32(&RNG_seed);
+    return (rng_u32() / (f32)0xFFFFFFFFU);
 }
 
-// [0, 4294967296]
-static u32 rng_u32()
-{
-    return rngs_u32(&RNG_seed);
-}
-
-// [0, 4294967296]
+// [0, 4294967295]
 static i32 rng_i32()
 {
-    return (i32)rng_u32(&RNG_seed);
+    return (i32)rng_u32();
 }
 
 // [lo, hi]

@@ -12,18 +12,10 @@
 #define HERO_BREATH_TICKS 200
 
 enum {
-    HERO_HOOK_START_AIMING   = 1,
-    HERO_HOOK_AIMING         = 2,
-    HERO_HOOK_JUST_THROWN    = 3,
-    HERO_HOOK_JUST_DESTROYED = 4,
-};
-
-enum {
     HERO_STATE_GROUND,
     HERO_STATE_AIR,
     HERO_STATE_LADDER,
     HERO_STATE_SWIMMING,
-    HERO_STATE_AIR_HOOK,
     HERO_STATE_DEAD,
 };
 
@@ -41,6 +33,11 @@ enum {
     HERO_UPGRADE_AIR_JUMP_3,
     //
     NUM_HERO_UPGRADES = 32
+};
+
+enum {
+    HERO_ITEM_HOOK,
+    HERO_ITEM_WEAPON,
 };
 
 typedef struct {
@@ -75,30 +72,33 @@ typedef struct {
     i32          n_obj_following;
     obj_handle_s obj_following[16];
     hook_pt_s    hookpt[ROPE_VERLET_N];
-
-    i32    sprint_ticks;
-    bool32 sprinting;
-    i32    walljumpticks;
-    i32    runup_tick;
-    i32    hook_aiming_ticks;
-    bool32 diving;
-    i32    breath_ticks;
-    i32    ropewalljump_dir;
-    bool32 carrying;
-    i32    swimticks;
-    bool32 gliding;
-    bool32 sliding;
-    i32    walking_ticks;
-    i32    ground_impact_ticks;
-    i32    attackbuffer;
-    i32    jump_btn_buffer;
-    i32    airjumps_left;
-    i32    jump_index; // index into jump parameter table
-    i32    jumpticks;
-    i32    edgeticks;
-    bool32 onladder;
-    i32    ladderx;
-    v2_i32 jumped_at;
+    //
+    int          attack_hold_tick;
+    int          attack_flipflop;
+    i32          attack_tick;
+    i32          sprint_ticks;
+    bool32       sprinting;
+    i32          walljumpticks;
+    i32          runup_tick;
+    i32          hook_aiming_ticks;
+    bool32       diving;
+    i32          breath_ticks;
+    i32          ropewalljump_dir;
+    bool32       carrying;
+    i32          swimticks;
+    bool32       gliding;
+    bool32       sliding;
+    i32          walking_ticks;
+    i32          ground_impact_ticks;
+    i32          attackbuffer;
+    i32          jump_btn_buffer;
+    i32          airjumps_left;
+    i32          jump_index; // index into jump parameter table
+    i32          jumpticks;
+    i32          edgeticks;
+    bool32       onladder;
+    i32          ladderx;
+    v2_i32       jumped_at;
 } hero_s;
 
 obj_s *hero_create(game_s *g);

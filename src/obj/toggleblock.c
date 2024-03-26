@@ -17,25 +17,10 @@ static void toggleblock_set_state(game_s *g, obj_s *o, int state)
     o->timer = 0;
     int b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
 
-    int tx = o->pos.x >> 4;
-    int ty = o->pos.y >> 4;
-    int nx = o->w >> 4;
-    int ny = o->h >> 4;
-
-    for (int y = 0; y < ny; y++) {
-        for (int x = 0; x < nx; x++) {
-            tile_s *t    = &g->tiles[x + tx + (y + ty) * g->tiles_x];
-            t->collision = b;
-            t->type      = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
-        }
-    }
-
-    if (b == TILE_BLOCK) {
-        game_on_solid_appear(g);
-    }
+    game_set_collision_tiles(g, obj_aabb(o), b, b == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }
 
-obj_s *toggleblock_create(game_s *g)
+void toggleblock_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_TOGGLEBLOCK;
@@ -44,12 +29,6 @@ obj_s *toggleblock_create(game_s *g)
     o->h               = 16;
     o->state           = 0;
     o->timer           = TOGGLEBLOCK_TICKS;
-    return o;
-}
-
-void toggleblock_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = toggleblock_create(g);
 
     obj_toggleblock_s *ot  = (obj_toggleblock_s *)o->mem;
     o->pos.x               = mo->x;

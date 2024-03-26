@@ -21,6 +21,7 @@ typedef struct {
     v2_f32 offs_shake;
     i32    mode;
 
+    i32    look_tick;
     i32    shake_ticks;
     i32    shake_ticks_max;
     i32    shake_str;

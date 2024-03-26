@@ -9,9 +9,10 @@
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
     obj_handle_s h = {0};
-    h.o            = o;
-    if (o)
-        h.UID = o->UID;
+    if (o) {
+        h.o   = o;
+        h.GID = o->GID;
+    }
     return h;
 }
 
@@ -29,7 +30,7 @@ bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
 
 bool32 obj_handle_valid(obj_handle_s h)
 {
-    return (h.o && h.o->UID.u == h.UID.u);
+    return (h.o && h.o->GID.u == h.GID.u);
 }
 
 obj_s *obj_create(game_s *g)
@@ -45,9 +46,9 @@ obj_s *obj_create(game_s *g)
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
 
-    obj_UID_s UID = o->UID;
+    obj_GID_s GID = o->GID;
     *o            = (obj_s){0};
-    o->UID        = UID;
+    o->GID        = GID;
 #ifdef SYS_DEBUG
     o->magic = OBJ_MAGIC;
 #endif
@@ -61,7 +62,7 @@ void obj_delete(game_s *g, obj_s *o)
     if (!o) return;
     if (ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0) {
         g->obj_to_delete[g->obj_ndelete++] = o;
-        o->UID.gen++; // increase gen to devalidate existing handles
+        o->GID.gen++; // increase gen to devalidate existing handles
     } else {
         sys_printf("already deleted\n");
     }
@@ -569,4 +570,24 @@ enemy_s enemy_default()
     e.sndID_die  = SNDID_ENEMY_DIE;
     e.sndID_hurt = SNDID_ENEMY_HURT;
     return e;
+}
+
+void game_set_collision_tiles(game_s *g, rec_i32 r, int shape, int type)
+{
+    int tx = r.x >> 4;
+    int ty = r.y >> 4;
+    int nx = r.w >> 4;
+    int ny = r.h >> 4;
+
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            tile_s *t    = &g->tiles[x + tx + (y + ty) * g->tiles_x];
+            t->collision = shape;
+            t->type      = type;
+        }
+    }
+
+    if (shape != TILE_EMPTY) {
+        game_on_solid_appear(g);
+    }
 }

@@ -35,7 +35,6 @@ obj_s *shroomy_create(game_s *g)
     o->h               = 16;
     o->moverflags =
         OBJ_MOVER_SLOPES |
-        OBJ_MOVER_ONE_WAY_PLAT |
         OBJ_MOVER_GLUE_GROUND;
 
     o->n_sprites         = 1;

@@ -22,7 +22,7 @@ static void water_step(waterparticle_s *particles, int num, int steps);
 void water_prerender_tiles()
 {
     tex_s wtex = tex_create(32, NUM_WATER_TILES * 16, asset_allocator);
-    tex_clr(wtex, TEX_CLR_TRANSPARENT);
+    tex_clr(wtex, GFX_COL_CLEAR);
     asset_tex_putID(TEXID_WATER_PRERENDER, wtex);
 
     spm_push();

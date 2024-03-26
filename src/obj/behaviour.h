@@ -13,7 +13,6 @@ void   boat_load(game_s *g, map_obj_s *mo);
 void   boat_on_update(game_s *g, obj_s *o);
 void   boat_on_animate(game_s *g, obj_s *o);
 //
-obj_s *clockpulse_create(game_s *g);
 void   clockpulse_load(game_s *g, map_obj_s *mo);
 void   clockpulse_on_update(game_s *g, obj_s *o);
 void   clockpulse_on_trigger(game_s *g, obj_s *o, int trigger);
@@ -29,7 +28,6 @@ void   switch_load(game_s *g, map_obj_s *mo);
 void   switch_on_animate(game_s *g, obj_s *o);
 void   switch_on_interact(game_s *g, obj_s *o);
 //
-obj_s *toggleblock_create(game_s *g);
 void   toggleblock_load(game_s *g, map_obj_s *mo);
 void   toggleblock_on_animate(game_s *g, obj_s *o);
 void   toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
@@ -41,7 +39,6 @@ void   shroomy_bounced_on(obj_s *o);
 void   shroomy_on_update(game_s *g, obj_s *o);
 void   shroomy_on_animate(game_s *g, obj_s *o);
 //
-obj_s *crawler_create(game_s *g, int ID);
 void   crawler_load(game_s *g, map_obj_s *mo);
 void   crawler_caterpillar_load(game_s *g, map_obj_s *mo);
 void   crawler_on_update(game_s *g, obj_s *o);
@@ -63,7 +60,6 @@ void   movingplatform_load(game_s *g, map_obj_s *mo);
 void   movingplatform_on_update(game_s *g, obj_s *o);
 void   movingplatform_on_trigger(game_s *g, obj_s *o, int trigger);
 //
-obj_s *npc_create(game_s *g);
 void   npc_load(game_s *g, map_obj_s *mo);
 void   npc_on_update(game_s *g, obj_s *o);
 void   npc_on_interact(game_s *g, obj_s *o);
@@ -82,7 +78,6 @@ obj_s *sign_create(game_s *g);
 void   sign_load(game_s *g, map_obj_s *mo);
 void   sign_on_interact(game_s *g, obj_s *o);
 //
-obj_s *swingdoor_create(game_s *g);
 void   swingdoor_load(game_s *g, map_obj_s *mo);
 void   swingdoor_on_update(game_s *g, obj_s *o);
 void   swingdoor_on_interact(game_s *g, obj_s *o);
@@ -98,17 +93,16 @@ void   juggernaut_load(game_s *g, map_obj_s *mo);
 void   juggernaut_on_update(game_s *g, obj_s *o);
 void   juggernaut_on_animate(game_s *g, obj_s *o);
 //
-obj_s *stalactite_create(game_s *g);
 void   stalactite_load(game_s *g, map_obj_s *mo);
 void   stalactite_on_update(game_s *g, obj_s *o);
 //
-obj_s *walker_create(game_s *g);
 void   walker_load(game_s *g, map_obj_s *mo);
 void   walker_on_update(game_s *g, obj_s *o);
+void   walker_on_animate(game_s *g, obj_s *o);
 //
-obj_s *flyer_create(game_s *g);
 void   flyer_load(game_s *g, map_obj_s *mo);
 void   flyer_on_update(game_s *g, obj_s *o);
+void   flyer_on_animate(game_s *g, obj_s *o);
 //
 void   triggerarea_load(game_s *g, map_obj_s *mo);
 void   triggerarea_update(game_s *g, obj_s *o);
@@ -124,4 +118,8 @@ void   spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 void   hooklever_load(game_s *g, map_obj_s *mo);
 void   hooklever_on_update(game_s *g, obj_s *o);
 void   hooklever_on_animate(game_s *g, obj_s *o);
+//
+obj_s *spritedecal_create(game_s *g, i32 render_priority, v2_i32 pos,
+                          i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames);
+void   spritedecal_on_update(game_s *g, obj_s *o);
 #endif

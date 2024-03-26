@@ -74,8 +74,10 @@ enum {                     // pd_api.h:
 #define sys_file_remove backend_file_remove
 //
 sys_display_s sys_display();
+sys_display_s sys_display_buffer();
 u32           sys_tick();
 void          sys_set_menu_image(void *px, int h, int wbyte);
+void          sys_display_flush();
 void          sys_display_update_rows(int a, int b);
 void          sys_display_inv(int i);
 void          sys_log(const char *str);
@@ -86,7 +88,9 @@ int           sys_key(int k);
 void          sys_set_FPS(int fps);
 void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg);
 void          sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg);
-bool32        sys_menu_checkmark(int ID);
+int           sys_menu_value(int ID);
+void          sys_menu_options_add(int ID, const char *title, const char **options,
+                                   int count, void (*cb)(void *arg), void *arg);
 void          sys_menu_clr();
 void          sys_set_volume(f32 vol); // only works in SDL
 

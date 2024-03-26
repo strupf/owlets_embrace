@@ -29,7 +29,7 @@ typedef struct {
     i32 bounce_angle_q12;    // in turns
 } obj_crawler_s;
 
-obj_s *crawler_create(game_s *g, int ID)
+static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
 {
     assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
@@ -57,12 +57,6 @@ obj_s *crawler_create(game_s *g, int ID)
     spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
     spr->offs.x          = o->w / 2 - 32;
     spr->offs.y          = o->h / 2 - 48 + 10;
-    return o;
-}
-
-static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
-{
-    obj_s *o = crawler_create(g, ID);
 
     // difference between tilesize and object dimension
     for (int y = 0; y <= 1; y++) {

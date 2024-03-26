@@ -28,15 +28,15 @@
 #error "sys_types.h: More than one platform defined"
 #endif
 
-#define SYS_SIZE_CL 32
-#define align_CL    alignas(SYS_SIZE_CL) // align on cache line boundaries
-
 #include <math.h>
 #include <stdalign.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#define SYS_SIZE_CL 32
+#define align_CL    alignas(SYS_SIZE_CL) // align on PD cache line boundaries
 
 #ifdef SYS_PD_HW // assertions don't work on hardware - disable
 #undef assert
@@ -75,6 +75,7 @@ PlaydateAPI *PD;
 
 extern int (*PD_format_str)(char **ret, const char *format, ...);
 extern void *(*PD_realloc)(void *ptr, size_t size);
+extern void (*PD_log)(const char *format, ...);
 void sys_log(const char *str);
 
 #ifdef SYS_PD_HW
@@ -86,7 +87,6 @@ void sys_log(const char *str);
         PD_realloc(strret, 0);               \
     }
 #else
-extern void (*PD_log)(const char *format, ...);
 #define sys_printf(...)                      \
     {                                        \
         char *strret;                        \
@@ -205,15 +205,21 @@ typedef struct {
     i32 x, y;
 } v2_i32;
 
+typedef struct {
+    f32 x, y;
+} v2_f32;
+
 static inline v2_i32 v2_i32_from_i16(v2_i16 a)
 {
     v2_i32 r = {a.x, a.y};
     return r;
 }
 
-typedef struct {
-    f32 x, y;
-} v2_f32;
+static inline v2_f32 v2_f32_from_i32(v2_i32 a)
+{
+    v2_f32 r = {(f32)a.x, (f32)a.y};
+    return r;
+}
 
 typedef struct {
     v2_i32 p[3];

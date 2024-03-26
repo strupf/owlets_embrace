@@ -13,22 +13,6 @@ enum {
 #define CRUMBLE_TICKS_BREAK   75
 #define CRUMBLE_TICKS_RESPAWN 100
 
-static void crumbleblock_set_block(game_s *g, obj_s *o, int b)
-{
-    int tx = o->pos.x >> 4;
-    int ty = o->pos.y >> 4;
-    int n  = o->w >> 4;
-    for (int i = 0; i < n; i++) {
-        tile_s *t    = &g->tiles[tx + i + ty * g->tiles_x];
-        t->collision = b;
-        t->type      = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
-    }
-
-    if (b == TILE_BLOCK) {
-        game_on_solid_appear(g);
-    }
-}
-
 obj_s *crumbleblock_create(game_s *g)
 {
     obj_s *o           = obj_create(g);
@@ -50,7 +34,7 @@ void crumbleblock_load(game_s *g, map_obj_s *mo)
     int n       = o->w >> 4;
     o->substate = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
 
-    crumbleblock_set_block(g, o, o->substate);
+    game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }
 
 static void crumbleblock_start_breaking(obj_s *o)
@@ -85,7 +69,7 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
         o->timer--;
         if (0 < o->timer) break;
         snd_play_ext(SNDID_SWITCH, 0.5f, 0.7f);
-        crumbleblock_set_block(g, o, TILE_EMPTY);
+        game_set_collision_tiles(g, obj_aabb(o), 0, 0);
         o->flags &= ~OBJ_FLAG_SPRITE;
         o->state = CRUMBLE_STATE_RESPAWNING;
         o->timer = CRUMBLE_TICKS_RESPAWN;
@@ -97,7 +81,7 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
         snd_play_ext(SNDID_SPEAK, 1.f, 0.7f);
         o->state = CRUMBLE_STATE_IDLE;
         o->flags |= OBJ_FLAG_SPRITE;
-        crumbleblock_set_block(g, o, o->substate);
+        game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
         game_on_solid_appear(g);
         break;
     }

@@ -13,16 +13,10 @@ typedef struct {
     int trigger_on_disable;
 } clockpulse_s;
 
-obj_s *clockpulse_create(game_s *g)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_CLOCKPULSE;
-    return o;
-}
-
 void clockpulse_load(game_s *g, map_obj_s *mo)
 {
-    obj_s        *o         = clockpulse_create(g);
+    obj_s *o                = obj_create(g);
+    o->ID                   = OBJ_ID_CLOCKPULSE;
     clockpulse_s *cp        = (clockpulse_s *)o->mem;
     int           period_ms = map_obj_i32(mo, "Period");
     o->state                = map_obj_bool(mo, "enabled");

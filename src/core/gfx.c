@@ -377,7 +377,7 @@ void tex_clr(tex_s dst, int col)
     int  N = dst.wword * dst.h;
     u32 *p = dst.px;
     switch (col) {
-    case TEX_CLR_BLACK:
+    case GFX_COL_BLACK:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
             for (int n = 0; n < N; n++) {
@@ -392,7 +392,7 @@ void tex_clr(tex_s dst, int col)
             break;
         }
         break;
-    case TEX_CLR_WHITE:
+    case GFX_COL_WHITE:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
             for (int n = 0; n < N; n++) {
@@ -407,7 +407,7 @@ void tex_clr(tex_s dst, int col)
             break;
         }
         break;
-    case TEX_CLR_TRANSPARENT:
+    case GFX_COL_CLEAR:
         if (dst.fmt == TEX_FMT_OPAQUE) break;
         for (int n = 0; n < N; n++) {
             *p++ = 0;
@@ -756,7 +756,7 @@ void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
     gfx_lin_thick(ctx, a, b, mode, 1);
 }
 
-void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r)
+void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d)
 {
 #if 1
     int    dx = +abs_i(b.x - a.x);
@@ -767,7 +767,7 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r)
     v2_i32 pi = a;
 
     while (1) {
-        gfx_cir_fill(ctx, pi, r, mode);
+        gfx_cir_fill(ctx, pi, d, mode);
 
         if (pi.x == b.x && pi.y == b.y) break;
         int e2 = er << 1;

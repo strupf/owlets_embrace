@@ -19,17 +19,17 @@ typedef struct {
 
 typedef struct {
     i32             ID;
-    i32             tick;
     //
     area_mountain_s mountain;
     area_cave_s     cave;
     //
     struct {
-        areafx_clouds_s clouds;
-        areafx_wind_s   wind;
-        areafx_rain_s   rain;
-        areafx_heat_s   heat;
-        areafx_leaves_s leaves;
+        areafx_clouds_s         clouds;
+        areafx_wind_s           wind;
+        areafx_rain_s           rain;
+        areafx_heat_s           heat;
+        areafx_leaves_s         leaves;
+        areafx_particles_calm_s particles_calm;
     } fx;
 } area_s;
 

@@ -88,6 +88,11 @@ static inline i32 sgn_i32(i32 a)
     return 0;
 }
 
+static inline i32 mul_ratio(i32 x, ratio_s r)
+{
+    return ((x * r.num) / r.den);
+}
+
 static inline u32 pow_u32(u32 v, i32 power)
 {
     u32 r = v;
@@ -136,6 +141,58 @@ static inline int log2_u32(u32 v)
 static inline bool32 is_pow2_u32(u32 v)
 {
     return ((v & (v - 1)) == 0);
+}
+
+#ifndef SYS_PD_HW
+#define DIV_U32_CHECK_DEN
+#endif
+
+typedef struct {
+#ifdef DIV_U32_CHECK_DEN
+    u32 den;
+#endif
+    u32 mul;
+    u32 add;
+    u32 rsh;
+} div_u32;
+
+static div_u32 div_u32_gen(u32 den)
+{
+    div_u32 d = {0};
+#ifdef DIV_U32_CHECK_DEN
+    d.den = den;
+#endif
+
+    if (den == 0) return d;
+
+    const i32 l = log2_u32(den);
+    if (den & (den - 1)) {
+        const u64 m = (u64)1 << (l + 32);
+        d.mul       = (u32)(m / den);
+        d.rsh       = l;
+
+        if ((den - ((u32)m - d.mul * den)) < (1U << l)) {
+            d.mul++;
+        } else {
+            d.add = d.mul;
+        }
+    } else if (den == 1U) {
+        d.mul = U32_MAX;
+        d.add = U32_MAX;
+    } else {
+        d.mul = 0x80000000U;
+        d.rsh = l - 1;
+    }
+    return d;
+}
+
+static inline u32 div_u32_do(u32 num, div_u32 d)
+{
+    u32 r = (u32)(((u64)num * d.mul + d.add) >> 32) >> d.rsh;
+#ifdef DIV_U32_CHECK_DEN
+    assert(r == (num / d.den));
+#endif
+    return r;
 }
 
 // rounded division - stackoverflow.com/a/18067292

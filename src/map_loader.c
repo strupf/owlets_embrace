@@ -166,6 +166,21 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         triggerarea_load(g, o);
     } else if (str_eq_nc(o->name, "Hooklever")) {
         hooklever_load(g, o);
+    } else if (str_contains(o->name, "Wiggle")) {
+        wiggle_deco_s *wd = &g->wiggle_deco[g->n_wiggle_deco++];
+        *wd               = (wiggle_deco_s){0};
+        if (str_eq_nc(o->name, "Wiggle2")) {
+            wd->tr     = asset_texrec(TEXID_WIGGLE_DECO, 0, 64, 64, 64);
+            wd->r      = (rec_i32){o->x - o->w / 2, o->y - o->h, o->w, o->h};
+            wd->offs.x = -16;
+            wd->offs.y = -48;
+        } else if (str_eq_nc(o->name, "Wiggle1")) {
+            wd->tr     = asset_texrec(TEXID_WIGGLE_DECO, 0, 0, 64, 64);
+            wd->r      = (rec_i32){o->x - o->w / 2, o->y - o->h, o->w, o->h};
+            wd->offs.x = -16;
+            wd->offs.y = -48;
+        }
+
     } else if (str_eq_nc(o->name, "Cam_Attractor")) {
         v2_i32 p                                 = {o->x, o->y};
         g->cam.attractors[g->cam.n_attractors++] = p;
@@ -208,8 +223,8 @@ void game_load_map(game_s *g, const char *mapfile)
 
     for (int n = 0; n < NUM_OBJ; n++) {
         obj_s *o         = &g->obj_raw[n];
-        o->UID.index     = n;
-        o->UID.gen       = 1;
+        o->GID.index     = n;
+        o->GID.gen       = 1;
         o->next          = g->obj_head_free;
         g->obj_head_free = o;
     }
@@ -222,8 +237,8 @@ void game_load_map(game_s *g, const char *mapfile)
     g->particles.n          = 0;
     g->ocean.active         = 0;
     g->n_coinparticles      = 0;
-    g->n_sprite_decals      = 0;
     g->n_enemy_decals       = 0;
+    g->n_wiggle_deco        = 0;
     g->cam.locked_x         = 0;
     g->cam.locked_y         = 0;
     g->cam.n_attractors     = 0;
@@ -254,6 +269,8 @@ void game_load_map(game_s *g, const char *mapfile)
     g->tiles_y  = h;
     g->pixel_x  = w << 4;
     g->pixel_y  = h << 4;
+    assert((w * h) <= NUM_TILES);
+    sys_printf("num tiles: %i\n", w * h);
 
     // PROPERTIES ==============================================================
     spm_push();
@@ -500,28 +517,6 @@ static void map_at_background(game_s *g, tilelayer_bg_s tiles, int x, int y)
     rtile->ty       = (tile * 8) + (coords >> 4);
 }
 
-static const int altc_17[3] = {(7) | (3 << 4),
-                               (7) | (4 << 4),
-                               (7) | (6 << 4)};
-static const int altc_31[3] = {(0) | (4 << 4),
-                               (0) | (5 << 4),
-                               (5) | (3 << 4)};
-static const int altc199[3] = {(4) | (2 << 4),
-                               (1) | (6 << 4),
-                               (3) | (6 << 4)};
-static const int altc241[3] = {(6) | (1 << 4),
-                               (6) | (3 << 4),
-                               (2) | (4 << 4)};
-static const int altc_68[3] = {(3) | (7 << 4),
-                               (4) | (7 << 4),
-                               (6) | (7 << 4)};
-static const int altc124[3] = {(4) | (0 << 4),
-                               (5) | (0 << 4),
-                               (3) | (5 << 4)};
-static const int altc255[3] = {(4) | (1 << 4),
-                               (1) | (4 << 4),
-                               (5) | (1 << 4)};
-
 static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 {
     int               index = x + y * tiles.w;
@@ -545,35 +540,56 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
     int xcoord = 0;
-    int ycoord = ((int)tile.type - 2) * 8;
-    ycoord     = 1280;
+    int ycoord = ((int)tile.type - 2) << 3;
     int coords = g_autotilemarch[march];
 
     switch (tile.shape) {
     case TILE_BLOCK: {
+
         int n_vari = 2; // number of variations in that tileset
         int vari   = rngr_i32(0, n_vari);
-        switch (march) {
-        case 17: { // vertical
-            coords = altc_17[vari];
+        switch (march) { // coordinates of variation tiles
+        case 17: {       // vertical
+            static const i32 altc_17[3] = {(7) | (3 << 4),
+                                           (7) | (4 << 4),
+                                           (7) | (6 << 4)};
+            coords                      = altc_17[vari];
         } break;
         case 31: { // left border
-            coords = altc_31[vari];
+            static const i32 altc_31[3] = {(0) | (4 << 4),
+                                           (0) | (5 << 4),
+                                           (5) | (3 << 4)};
+            coords                      = altc_31[vari];
         } break;
         case 199: { // bot border
-            coords = altc199[vari];
+            static const i32 altc199[3] = {(4) | (2 << 4),
+                                           (1) | (6 << 4),
+                                           (3) | (6 << 4)};
+            coords                      = altc199[vari];
         } break;
         case 241: { // right border
-            coords = altc241[vari];
+            static const i32 altc241[3] = {(6) | (1 << 4),
+                                           (6) | (3 << 4),
+                                           (2) | (4 << 4)};
+            coords                      = altc241[vari];
         } break;
         case 68: { // horizontal
-            coords = altc_68[vari];
+            static const i32 altc_68[3] = {(3) | (7 << 4),
+                                           (4) | (7 << 4),
+                                           (6) | (7 << 4)};
+            coords                      = altc_68[vari];
         } break;
         case 124: { // top border
-            coords = altc124[vari];
+            static const i32 altc124[3] = {(4) | (0 << 4),
+                                           (5) | (0 << 4),
+                                           (3) | (5 << 4)};
+            coords                      = altc124[vari];
         } break;
         case 255: { // mid
-            coords = altc255[vari];
+            static const i32 altc255[3] = {(4) | (1 << 4),
+                                           (1) | (4 << 4),
+                                           (5) | (1 << 4)};
+            coords                      = altc255[vari];
         } break;
         }
 
@@ -752,7 +768,7 @@ void map_world_load(map_world_s *world, const char *worldfile)
 
 map_worldroom_s *map_world_overlapped_room(map_world_s *world, map_worldroom_s *cur, rec_i32 r)
 {
-    for (int i = 0; i < world->n_rooms; i++) {
+    for (u32 i = 0; i < world->n_rooms; i++) {
         map_worldroom_s *room = &world->rooms[i];
         if (room == cur) continue;
         rec_i32 rr = {room->x, room->y, room->w, room->h};
@@ -764,12 +780,20 @@ map_worldroom_s *map_world_overlapped_room(map_world_s *world, map_worldroom_s *
 
 map_worldroom_s *map_world_find_room(map_world_s *world, const char *mapfile)
 {
-    for (int i = 0; i < world->n_rooms; i++) {
+    for (u32 i = 0; i < world->n_rooms; i++) {
         map_worldroom_s *room = &world->rooms[i];
         if (str_eq(room->filename, mapfile))
             return room;
     }
     return NULL;
+}
+
+map_worldroom_s *map_worldroom_by_objID(map_world_s *world, u32 objID)
+{
+    int i = (objID >> 8) - 1;
+    sys_printf("get room %i\n", i);
+    map_worldroom_s *r = &world->rooms[i];
+    return r;
 }
 
 // exported from autotiles_marching.xlsx

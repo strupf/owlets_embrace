@@ -9,7 +9,7 @@ void game_init(game_s *g)
 {
 #ifdef SYS_SDL
     aud_mute(0);
-    sys_set_volume(0.9f);
+    sys_set_volume(0.0f);
 #endif
     mus_set_trg_vol_q8(32);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
@@ -19,7 +19,6 @@ void game_init(game_s *g)
 
 static void gameplay_tick(game_s *g, inp_s inp)
 {
-    item_selector_update(&g->item_selector);
     g->events_frame          = 0;
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
@@ -90,7 +89,9 @@ static void gameplay_tick(game_s *g, inp_s inp)
                 rec_i32 rs = obj_aabb(o);
                 rec_i32 ri;
                 if (!intersect_rec(heroaabb, rs, &ri)) break;
-                if (0 < ohero->vel_q8.y && heroaabb.y + heroaabb.h < rs.y + rs.h) {
+                if (0 < ohero->vel_q8.y &&
+                    (heroaabb.y + heroaabb.h) < (rs.y + rs.h) &&
+                    ohero->posprev.y < ohero->pos.y) {
                     ohero->vel_q8.y = -2000;
                     ohero->tomove.y -= ri.h;
                     shroomy_bounced_on(o);
@@ -105,7 +106,7 @@ static void gameplay_tick(game_s *g, inp_s inp)
         // touched hurting things?
         if (ohero->invincible_tick <= 0) {
             v2_i32 hcenter        = obj_pos_center(ohero);
-            int    hero_dmg       = 0;
+            i32    hero_dmg       = 0;
             v2_i32 hero_knockback = {0};
 
             for (obj_each(g, o)) {
@@ -134,6 +135,13 @@ static void gameplay_tick(game_s *g, inp_s inp)
                 g->events_frame |= EVENT_HERO_DAMAGE;
             }
         }
+
+        if (0 < ohero->health) {
+            v2_i32 hcenter   = obj_pos_center(ohero);
+            i32    roomtilex = hcenter.x / 400;
+            i32    roomtiley = hcenter.y / 240;
+            hero_set_visited_tile(g, g->map_worldroom, roomtilex, roomtiley);
+        }
     }
 
 #ifdef SYS_DEBUG
@@ -142,22 +150,19 @@ static void gameplay_tick(game_s *g, inp_s inp)
     }
 #endif
 
-    int to_freeze = 0;
     if (g->events_frame & EVENT_HIT_ENEMY) {
-        to_freeze = max_i(to_freeze, 2);
+        g->freeze_tick = max_i(g->freeze_tick, 2);
     }
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        to_freeze = max_i(to_freeze, 4);
+        g->freeze_tick = max_i(g->freeze_tick, 4);
     }
 
     // possibly enter new substates
     if (ohero) {
-        obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
         if (ohero->health <= 0) {
             if (substate_finished(&g->substate))
                 substate_respawn(g, &g->substate);
         } else if (substate_finished(&g->substate)) {
-
             bool32        collected_upgrade = 0;
             const rec_i32 heroaabb          = obj_aabb(ohero);
             for (obj_each(g, o)) {
@@ -173,11 +178,10 @@ static void gameplay_tick(game_s *g, inp_s inp)
             if (!collected_upgrade) {
                 bool32 t = substate_transition_try_hero_slide(g, &g->substate);
                 if (t == 0) { // nothing happended
+                    obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
                     if (interactable && inp_just_pressed(INP_DPAD_U)) {
                         obj_game_interact(g, interactable);
                         g->hero_mem.interactable = obj_handle_from_obj(NULL);
-                    } else if (to_freeze) {
-                        substate_freeze(&g->substate, to_freeze);
                     }
                 }
             }
@@ -189,6 +193,7 @@ static void gameplay_tick(game_s *g, inp_s inp)
 
 void game_tick(game_s *g)
 {
+
     const inp_s inp             = inp_state();
     bool32      update_gameplay = 1;
 
@@ -198,9 +203,28 @@ void game_tick(game_s *g)
     } else if (shop_active(g)) {
         shop_update(g);
         update_gameplay = 0;
-    } else if (inventory_active(&g->inventory)) {
-        inventory_update(g, &g->inventory);
-        update_gameplay = !inventory_active(&g->inventory);
+    } else if (menu_screen_active(&g->menu_screen)) {
+        menu_screen_update(g, &g->menu_screen);
+        update_gameplay = 0;
+    }
+
+    if (update_gameplay) {
+        if (g->item.doubletap_timer) {
+            g->item.doubletap_timer--;
+        }
+
+        if (inp_just_pressed(INP_DPAD_D)) {
+            if (g->item.doubletap_timer) {
+                g->item.selected = 1 - g->item.selected;
+                sys_printf("swap\n");
+            }
+            g->item.doubletap_timer = ITEM_SWAP_DOUBLETAP_TICKS;
+        }
+    }
+
+    if (0 < g->freeze_tick) {
+        g->freeze_tick--;
+        update_gameplay = 0;
     }
 
     if (update_gameplay) {
@@ -210,17 +234,31 @@ void game_tick(game_s *g)
             obj_game_animate(g, o);
         }
 
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        if (ohero) {
+            const rec_i32 heroaabb = obj_aabb(ohero);
+            for (int n = 0; n < g->n_wiggle_deco; n++) {
+                wiggle_deco_s *wd = &g->wiggle_deco[n];
+                if (wd->t) {
+                    wd->t--;
+                    wd->tr.r.x = 64 * ((wd->t >> 2) & 3);
+                }
+
+                if (overlap_rec(wd->r, heroaabb)) {
+                    if (!wd->overlaps) {
+                        wd->overlaps = 1;
+                        wd->t        = 20;
+                    }
+                } else {
+                    wd->overlaps = 0;
+                }
+            }
+        }
+
         for (int n = g->n_enemy_decals - 1; 0 <= n; n--) {
             g->enemy_decals[n].tick--;
             if (g->enemy_decals[n].tick <= 0) {
                 g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
-            }
-        }
-
-        for (int n = g->n_sprite_decals - 1; 0 <= n; n--) {
-            g->sprite_decals[n].t--;
-            if (g->sprite_decals[n].t <= 0) {
-                g->sprite_decals[n] = g->sprite_decals[--g->n_sprite_decals];
             }
         }
     }
@@ -244,14 +282,11 @@ void game_tick(game_s *g)
 
 void game_resume(game_s *g)
 {
-    g->item_selector.decoupled = 0;
 }
 
 void game_paused(game_s *g)
 {
-
     if (g->state == GAMESTATE_GAMEPLAY) {
-        g->item_selector.decoupled = 1;
         render_pause(g);
     }
 }
@@ -267,9 +302,11 @@ bool32 game_load_savefile(game_s *g)
     save_s *hs      = &g->save;
     int     bread   = sys_file_read(f, hs, sizeof(save_s));
     int     eclosed = sys_file_close(f);
-    bool32  success = (bread == sizeof(save_s) && eclosed == 0);
+    bool32  success = (bread == (int)sizeof(save_s) && eclosed == 0);
     if (!success) {
         sys_printf("+++ Error loading savefile!\n");
+        BAD_PATH
+        return 0;
     }
 
     game_load_map(g, hs->hero_mapfile);
@@ -295,7 +332,7 @@ bool32 game_save_savefile(game_s *g)
     sys_printf("SAVED!\n");
     int bwritten = sys_file_write(f, (const void *)hs, sizeof(save_s));
     int eclosed  = sys_file_close(f);
-    return (bwritten == sizeof(save_s) && eclosed == 0);
+    return (bwritten == (int)sizeof(save_s) && eclosed == 0);
 }
 
 void game_on_trigger(game_s *g, int trigger)
@@ -304,15 +341,6 @@ void game_on_trigger(game_s *g, int trigger)
     for (obj_each(g, o)) {
         obj_game_trigger(g, o, trigger);
     }
-}
-
-sprite_decal_s *sprite_decal_create(game_s *g)
-{
-    if (ARRLEN(g->sprite_decals) <= g->n_sprite_decals) return NULL;
-
-    sprite_decal_s *s = &g->sprite_decals[g->n_sprite_decals++];
-    *s                = (sprite_decal_s){0};
-    return s;
 }
 
 void game_put_grass(game_s *g, int tx, int ty)
@@ -540,56 +568,6 @@ void game_on_solid_appear(game_s *g)
         if (o->flags & OBJ_FLAG_ACTOR) {
             actor_try_wiggle(g, o);
         }
-    }
-}
-
-#define ITEM_SELECTOR_CRANK_THRESHOLD 0x80
-void item_selector_update(item_selector_s *s)
-{
-    if (s->decoupled) return;
-
-    int p_q12 = inp_prev_crank_q12();
-    int c_q12 = inp_crank_q12();
-    int dt    = inp_crank_calc_dt_q12(p_q12, c_q12);
-    int dtp   = inp_crank_calc_dt_q12(p_q12, s->angle);
-    int dtc   = inp_crank_calc_dt_q12(s->angle, c_q12);
-
-    // turn item barrel, snaps into crank angle for small angles
-    int angle_old = s->angle;
-    if ((dt > 0 && dtp >= 0 && dtc >= 0) || (dt < 0 && dtp <= 0 && dtc <= 0)) {
-        s->angle = c_q12;
-    } else if (abs_i(dtc) < ITEM_SELECTOR_CRANK_THRESHOLD) {
-        int d = sgn_i(dtc) * (ITEM_SELECTOR_CRANK_THRESHOLD - abs_i(dtc)) / 10;
-        if (sgn_i(d) == sgn_i(dtc) && abs_i(d) > abs_i(dtc)) {
-            d = dtc;
-        }
-
-        s->angle = (s->angle + d + 0x1000) & 0xFFF;
-    }
-
-    // item selection based on new item barrel angle
-    // check if the barrel "flipped over" the 180 deg position
-    // -> select next/prev item
-    int change = inp_crank_calc_dt_q12(angle_old, s->angle);
-    if (change > 0 && angle_old < 0x800 && s->angle >= 0x800) {
-#if 0
-        do {
-            is->item += 1;
-            is->item %= NUM_HERO_ITEMS;
-        } while (!(h->aquired_items & (1 << is->item)));
-#else
-        s->item = 1 - s->item;
-
-#endif
-    } else if (change < 0 && angle_old >= 0x800 && s->angle < 0x800) {
-#if 0
-        do {
-            is->item += NUM_HERO_ITEMS - 1;
-            is->item %= NUM_HERO_ITEMS;
-        } while (!(h->aquired_items & (1 << is->item)));
-#else
-        s->item = 1 - s->item;
-#endif
     }
 }
 

@@ -12,7 +12,7 @@ void lighting_do(tex_s tex, light_s *lights, int n_l, wall_s *walls, int n_w)
     spm_push();
 
     tex_s shadowmap = tex_create_opaque(tex.w, tex.h, spm_allocator);
-    tex_clr(shadowmap, TEX_CLR_BLACK);
+    tex_clr(shadowmap, GFX_COL_BLACK);
 
     for (int n = 0; n < n_l; n++) {
         light_do(shadowmap, lights[n], walls, n_w);
@@ -33,7 +33,7 @@ static void light_do(tex_s sm, light_s light, wall_s *walls, int n_w)
     spm_push();
 
     tex_s shadowmap_l = tex_create_opaque(sm.w, sm.h, spm_allocator);
-    tex_clr(shadowmap_l, TEX_CLR_BLACK);
+    tex_clr(shadowmap_l, GFX_COL_BLACK);
 
     gfx_ctx_s ctx  = gfx_ctx_default(shadowmap_l);
     gfx_ctx_s ctx1 = gfx_ctx_default(shadowmap_l);

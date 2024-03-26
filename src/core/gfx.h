@@ -15,6 +15,12 @@ enum {
     TEX_FMT_MASK,   // color and mask interlaced in words
 };
 
+enum {
+    GFX_COL_BLACK,
+    GFX_COL_WHITE,
+    GFX_COL_CLEAR,
+};
+
 typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     u16  wword;
@@ -81,11 +87,13 @@ enum {
     PRIM_MODE_INV,         // inverts canvas, pattern holes are transparent
 };
 
-enum {
-    TEX_CLR_WHITE,
-    TEX_CLR_BLACK,
-    TEX_CLR_TRANSPARENT,
-};
+#define gfx_pattern_100()   gfx_pattern_bayer_4x4(16)
+#define gfx_pattern_75()    gfx_pattern_bayer_4x4(12)
+#define gfx_pattern_50()    gfx_pattern_bayer_4x4(8)
+#define gfx_pattern_25()    gfx_pattern_bayer_4x4(4)
+#define gfx_pattern_0()     gfx_pattern_bayer_4x4(0)
+#define gfx_pattern_white() gfx_pattern_100()
+#define gfx_pattern_black() gfx_pattern_0()
 
 fnt_s         fnt_load(const char *filename, alloc_s ma);
 tex_s         tex_framebuffer();
@@ -131,7 +139,7 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode);
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode);
 void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode);
-void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int r);
+void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d);
 void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
 void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);

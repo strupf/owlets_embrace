@@ -28,6 +28,7 @@ void obj_game_update(game_s *g, obj_s *o, inp_s inp)
     case OBJ_ID_PUSHABLEBOX: pushablebox_update(g, o); break;
     case OBJ_ID_BOAT: boat_on_update(g, o); break;
     case OBJ_ID_HOOKLEVER: hooklever_on_update(g, o); break;
+    case OBJ_ID_SPRITEDECAL: spritedecal_on_update(g, o); break;
     }
 }
 
@@ -49,6 +50,8 @@ void obj_game_animate(game_s *g, obj_s *o)
     case OBJ_ID_SPIKES: spikes_on_animate(g, o); break;
     case OBJ_ID_BOAT: boat_on_animate(g, o); break;
     case OBJ_ID_HOOKLEVER: hooklever_on_animate(g, o); break;
+    case OBJ_ID_WALKER: walker_on_animate(g, o); break;
+    case OBJ_ID_FLYER: flyer_on_animate(g, o); break;
     }
 }
 

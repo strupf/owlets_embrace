@@ -13,7 +13,7 @@
 #define SYS_UPS_DT_TEST 0.0195f // 1 / ~51
 #define SYS_UPS_DT_CAP  0.0600f // 3 /  50
 
-#ifdef SYS_PD_HW
+#if defined(SYS_PD_HW) && 0
 #define SYS_LOOP_HW 1 // use natural 50 FPS cap of the Playdate display
 #else
 #define SYS_LOOP_HW 0
@@ -26,7 +26,7 @@ static const u32 sys_consolefont[512];
 #endif
 #if SYS_SHOW_CONSOLE
 #define SYS_CONSOLE_LINE_CHARS 50
-#define SYS_CONSOLE_LINES      40
+#define SYS_CONSOLE_LINES      20
 #define SYS_CONSOLE_TICKS      (SYS_UPS * 6)
 
 static void sys_draw_console();
@@ -191,9 +191,25 @@ sys_display_s sys_display()
     return s;
 }
 
+sys_display_s sys_display_buffer()
+{
+    sys_display_s s;
+    s.px    = backend_display_buffer();
+    s.w     = SYS_DISPLAY_W;
+    s.h     = SYS_DISPLAY_H;
+    s.wbyte = SYS_DISPLAY_WBYTES;
+    s.wword = SYS_DISPLAY_WWORDS;
+    return s;
+}
+
 u32 sys_tick()
 {
     return SYS.tick;
+}
+
+void sys_display_flush()
+{
+    backend_display_flush();
 }
 
 void sys_display_update_rows(int a, int b)
@@ -244,9 +260,16 @@ void sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void 
     SYS.menu_items[ID] = mi;
 }
 
-bool32 sys_menu_checkmark(int ID)
+void sys_menu_options_add(int ID, const char *title, const char **options,
+                          int count, void (*cb)(void *arg), void *arg)
 {
-    return backend_menu_checkmark(SYS.menu_items[ID]);
+    void *mi           = backend_menu_options_add(title, options, count, cb, arg);
+    SYS.menu_items[ID] = mi;
+}
+
+int sys_menu_value(int ID)
+{
+    return backend_menu_value(SYS.menu_items[ID]);
 }
 
 void sys_menu_clr()

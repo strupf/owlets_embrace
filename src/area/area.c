@@ -20,9 +20,9 @@ enum {
 
 static flags32 g_areafx[NUM_AREA_ID] = {
     0,                     // none
-    0,                     // white
+    AFX_PARTICLES_CALM,    // white
     0,                     // black
-    AFX_CLOUDS,            // mountain
+    AFX_CLOUDS | AFX_WIND, // mountain
     AFX_CLOUDS | AFX_RAIN, // mountain rainy
     0,                     // cave
     AFX_WIND,              // forest
@@ -39,7 +39,7 @@ void area_setup(game_s *g, area_s *a, int ID)
 {
     *a    = (area_s){0};
     a->ID = ID;
-    a->ID = AREA_ID_CAVE;
+    sys_printf("area ID: %i\n", ID);
 
     if (g_areafx[a->ID] & AFX_RAIN) {
         areafx_rain_setup(g, &a->fx.rain);
@@ -56,12 +56,13 @@ void area_setup(game_s *g, area_s *a, int ID)
     if ((g_areafx[a->ID] & AFX_LEAVES)) {
         areafx_leaves_setup(g, &a->fx.leaves);
     }
+    if ((g_areafx[a->ID] & AFX_PARTICLES_CALM)) {
+        areafx_particles_calm_setup(g, &a->fx.particles_calm);
+    }
 }
 
 void area_update(game_s *g, area_s *a)
 {
-    a->tick++;
-
     if ((g_areafx[a->ID] & AFX_RAIN)) {
 
         areafx_rain_update(g, &a->fx.rain);
@@ -70,12 +71,15 @@ void area_update(game_s *g, area_s *a)
         areafx_wind_update(g, &a->fx.wind);
     }
 
-    if (a->tick & 1) {
+    if (sys_tick() & 1) {
         if ((g_areafx[a->ID] & AFX_HEAT)) {
             areafx_heat_update(g, &a->fx.heat);
         }
         if ((g_areafx[a->ID] & AFX_CLOUDS)) {
             areafx_clouds_update(g, &a->fx.clouds);
+        }
+        if ((g_areafx[a->ID] & AFX_PARTICLES_CALM)) {
+            areafx_particles_calm_update(g, &a->fx.particles_calm);
         }
     } else {
     }
@@ -90,19 +94,15 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 
     switch (a->ID) {
     case AREA_ID_CAVE:
-    case AREA_ID_BLACK: {
-        gfx_pattern_s pat = gfx_pattern_bayer_4x4(0);
-        gfx_fill_rows(tdisplay, pat, 0, clip_y2);
+    case AREA_ID_BLACK:
+        gfx_fill_rows(tdisplay, gfx_pattern_black(), 0, clip_y2);
         break;
-    }
     case AREA_ID_MOUNTAIN:
     case AREA_ID_MOUNTAIN_RAINY:
     case AREA_ID_WHITE:
-    default: {
-        gfx_pattern_s pat = gfx_pattern_bayer_4x4(GFX_PATTERN_MAX);
-        gfx_fill_rows(tdisplay, pat, 0, clip_y2);
+    default:
+        gfx_fill_rows(tdisplay, gfx_pattern_white(), 0, clip_y2);
         break;
-    }
     }
 
     if (g_areafx[a->ID] & AFX_CLOUDS) {
@@ -164,5 +164,11 @@ void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 
     if (g_areafx[a->ID] & AFX_HEAT) {
         areafx_heat_draw(g, &a->fx.heat, cam);
+    }
+    if (g_areafx[a->ID] & AFX_WIND) {
+        areafx_wind_draw(g, &a->fx.wind, cam);
+    }
+    if ((g_areafx[a->ID] & AFX_PARTICLES_CALM)) {
+        areafx_particles_calm_draw(g, &a->fx.particles_calm, cam);
     }
 }

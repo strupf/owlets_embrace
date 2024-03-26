@@ -66,6 +66,9 @@ void cam_update(game_s *g, cam_s *c)
     v2_f32 ppos   = c->pos;
     v2_f32 padd   = {0};
     v2_f32 lahead = {0};
+    int    dpad_y = inp_dpad_y();
+
+    const i32 look_tickp = c->look_tick;
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
         hero_s *h     = (hero_s *)hero->mem;
         v2_i32  herop = obj_pos_bottom_center(hero);
@@ -82,8 +85,10 @@ void cam_update(game_s *g, cam_s *c)
             // move camera upwards if hero landed on new platform
             // "new base height"
             padd.y = (f32)(target_y - c->pos.y) * .05f;
-            if (inp_pressed(INP_DPAD_D)) {
-                lahead.y = 50.f;
+            if (abs_i(hero->vel_q8.x) < 64 && dpad_y) {
+                if (20 <= ++c->look_tick) {
+                    lahead.y = (f32)(dpad_y * 50);
+                }
             }
         }
 
@@ -92,7 +97,11 @@ void cam_update(game_s *g, cam_s *c)
         }
 
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
-        lahead.x = (f32)hero->facing * 50.f;
+        lahead.x = (f32)hero->facing * 50.f + (f32)hero->vel_q8.x * 0.05f;
+    }
+
+    if (c->look_tick == look_tickp) {
+        c->look_tick = 0;
     }
 
     if (g->substate.state == SUBSTATE_TEXTBOX || shop_active(g)) {

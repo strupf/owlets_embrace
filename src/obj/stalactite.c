@@ -15,7 +15,7 @@ typedef struct {
     rec_i32 checkr;
 } stalactite_s;
 
-obj_s *stalactite_create(game_s *g)
+void stalactite_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_STALACTITE;
@@ -31,14 +31,8 @@ obj_s *stalactite_create(game_s *g)
     o->gravity_q8.y      = 30;
     o->drag_q8.y         = 254;
     spr->trec            = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
-    return o;
-}
-
-void stalactite_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = stalactite_create(g);
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
+    o->pos.x             = mo->x;
+    o->pos.y             = mo->y;
 
     stalactite_s *s = (stalactite_s *)o->mem;
 

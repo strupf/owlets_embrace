@@ -37,7 +37,7 @@ obj_s *charger_create(game_s *g)
                OBJ_FLAG_PLATFORM | OBJ_FLAG_PLATFORM_HERO_ONLY |
 #endif
                OBJ_FLAG_KILL_OFFSCREEN;
-    o->w                 = 32;
+    o->w                 = 48;
     o->h                 = 32;
     o->gravity_q8.y      = 80;
     o->drag_q8.y         = 255;
@@ -50,8 +50,8 @@ obj_s *charger_create(game_s *g)
     o->enemy             = enemy_default();
     o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_MISCOBJ, 336, 16, 80, 64);
-    spr->offs.x          = -30;
+    spr->trec            = asset_texrec(TEXID_CHARGER, 0, 0, 128, 64);
+    spr->offs.x          = -40;
     spr->offs.y          = o->h - spr->trec.r.h;
     return o;
 }
@@ -120,8 +120,8 @@ static void charger_update_charging(game_s *g, obj_s *o)
         snd_play_ext(SNDID_CRUMBLE, 0.5f, 2.f);
         cam_screenshake(&g->cam, 10, 5);
         o->vel_q8.x = 0;
-        if (!obj_grounded(g, o)) {
-            o->vel_q8.y = -400;
+        if (obj_grounded(g, o)) {
+            o->vel_q8.y = -700;
         }
         if (bflags & OBJ_BUMPED_X_NEG) o->vel_q8.x = +150;
         if (bflags & OBJ_BUMPED_X_POS) o->vel_q8.x = -150;
@@ -182,9 +182,14 @@ void charger_on_update(game_s *g, obj_s *o)
 void charger_on_animate(game_s *g, obj_s *o)
 {
     sprite_simple_s *spr = &o->sprites[0];
-    spr->flip            = o->facing == 1 ? SPR_FLIP_X : 0;
+    spr->flip            = o->facing == 1 ? 0 : SPR_FLIP_X;
+    int animID           = 0;
+    int frameID          = 0;
+
     switch (o->state) {
     case CHARGER_STATE_NORMAL: {
+        animID  = 0;
+        frameID = (o->subtimer >> 4) & 3;
         if (o->subtimer < CHARGER_TICKS_STATE_CHANGE) {
 
         } else {
@@ -192,9 +197,14 @@ void charger_on_animate(game_s *g, obj_s *o)
     } break;
     case CHARGER_STATE_CHARGING: {
         if (o->subtimer < CHARGER_TICKS_STATE_CHANGE) {
-
+            animID  = 1;
+            frameID = min_i((o->subtimer >> 5), 1);
         } else {
+            animID  = 2;
+            frameID = (o->subtimer >> 2) & 3;
         }
     } break;
     }
+
+    spr->trec = asset_texrec(TEXID_CHARGER, frameID * 128, animID * 64, 128, 64);
 }

@@ -8,22 +8,24 @@
 #include "gamedef.h"
 
 typedef struct {
-    i32  ID;
-    i32  x;
-    i32  y;
-    u16  w;
-    u16  h;
+    i32 ID; // 1...
+    i32 x;
+    i32 y;
+    u16 w;
+    u16 h;
+
     char filename[64];
+    u8   room_walls[NUM_WORLD_ROOM_TILES];
 } map_worldroom_s;
 
 typedef struct {
-    i32             n_rooms;
-    map_worldroom_s rooms[64];
+    u32             n_rooms;
+    map_worldroom_s rooms[NUM_WORLD_ROOMS];
 } map_world_s;
 
 typedef struct {
-    u16  bytes; // total size in bytes
-    u16  ID;
+    u32  bytes; // total size in bytes
+    u32  ID;
     i16  x;
     i16  y;
     u16  w;
@@ -45,5 +47,6 @@ void             game_prepare_new_map(game_s *g);
 void             map_world_load(map_world_s *world, const char *mapfile);
 map_worldroom_s *map_world_overlapped_room(map_world_s *world, map_worldroom_s *cur, rec_i32 r);
 map_worldroom_s *map_world_find_room(map_world_s *world, const char *mapfile);
+map_worldroom_s *map_worldroom_by_objID(map_world_s *world, u32 objID);
 
 #endif

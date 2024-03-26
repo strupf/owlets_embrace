@@ -84,6 +84,7 @@ __declspec(dllexport)
     case kEventResume:
         sys_resume();
         break;
+    default: break;
     }
     return 0;
 }
@@ -115,6 +116,11 @@ void backend_display_row_updated(int a, int b)
     PD_markUpdatedRows(a, b);
 }
 
+void backend_display_flush()
+{
+    PD->graphics->display();
+}
+
 f32 backend_seconds()
 {
     return PD_seconds();
@@ -123,6 +129,15 @@ f32 backend_seconds()
 u32 *backend_framebuffer()
 {
     return (u32 *)PD->graphics->getFrame();
+}
+
+u32 *backend_display_buffer()
+{
+    // void      *buf = PD->graphics->getDisplayFrame();
+    u32       *buf;
+    LCDBitmap *dsp = PD->graphics->getDisplayBufferBitmap();
+    PD->graphics->getBitmapData(dsp, NULL, NULL, NULL, NULL, &buf);
+    return (u32 *)buf;
 }
 
 void *backend_file_open(const char *path, int mode)
@@ -167,6 +182,10 @@ int backend_debug_space()
 
 void backend_set_menu_image(void *px, int h, int wbyte)
 {
+    if (!px) {
+        PD->system->setMenuImage(NULL, 0);
+        return;
+    }
     int wid, hei, byt;
     u8 *p;
     PD->graphics->getBitmapData(PD_menu_bm, &wid, &hei, &byt, NULL, &p);
@@ -198,9 +217,16 @@ void *backend_menu_checkmark_add(const char *title, int val, void (*cb)(void *ar
     return mi;
 }
 
-bool32 backend_menu_checkmark(void *ptr)
+void *backend_menu_options_add(const char *title, const char **options,
+                               int count, void (*cb)(void *arg), void *arg)
 {
-    return PD->system->getMenuItemValue((PDMenuItem *)ptr);
+    PDMenuItem *mi = PD->system->addOptionsMenuItem(title, options, count, cb, arg);
+    return mi;
+}
+
+int backend_menu_value(void *ptr)
+{
+    return (ptr ? PD->system->getMenuItemValue((PDMenuItem *)ptr) : 0);
 }
 
 void backend_menu_clr()

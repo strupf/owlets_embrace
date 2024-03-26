@@ -68,3 +68,17 @@ bool32 saveID_has(game_s *g, u32 ID)
     }
     return 0;
 }
+
+bool32 hero_visited_tile(game_s *g, map_worldroom_s *room, int x, int y)
+{
+    u32 w = max_i((room->w / 400) >> 3, 1);
+    u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
+    return (*b & (1 << (x & 7)));
+}
+
+void hero_set_visited_tile(game_s *g, map_worldroom_s *room, int x, int y)
+{
+    u32 w = max_i((room->w / 400) >> 3, 1);
+    u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
+    *b |= 1 << (x & 7);
+}

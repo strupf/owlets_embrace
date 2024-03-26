@@ -9,11 +9,12 @@
 #include "gamedef.h"
 
 enum {
-    AFX_CLOUDS = 1 << 0,
-    AFX_RAIN   = 1 << 1,
-    AFX_WIND   = 1 << 2,
-    AFX_HEAT   = 1 << 3,
-    AFX_LEAVES = 1 << 4,
+    AFX_CLOUDS         = 1 << 0,
+    AFX_RAIN           = 1 << 1,
+    AFX_WIND           = 1 << 2,
+    AFX_HEAT           = 1 << 3,
+    AFX_LEAVES         = 1 << 4,
+    AFX_PARTICLES_CALM = 1 << 5,
 };
 
 #define AREAFX_CLOUDS_TYPES 3
@@ -80,6 +81,21 @@ typedef struct {
     int x;
 } areafx_leaves_s;
 
+#define AREAFX_PT_CALM_N 96
+#define PT_CALM_VRNG     16
+#define PT_CALM_VCAP     128
+#define PT_CALM_X_RANGE  512
+#define PT_CALM_Y_RANGE  512
+
+typedef struct {
+    v2_i32 pos;
+    v2_i32 vel;
+} areafx_particle_calm_s;
+
+typedef struct {
+    areafx_particle_calm_s p[AREAFX_PT_CALM_N];
+} areafx_particles_calm_s;
+
 void areafx_clouds_setup(game_s *g, areafx_clouds_s *fx);
 void areafx_clouds_update(game_s *g, areafx_clouds_s *fx);
 void areafx_clouds_draw(game_s *g, areafx_clouds_s *fx, v2_i32 cam);
@@ -99,5 +115,9 @@ void areafx_heat_draw(game_s *g, areafx_heat_s *fx, v2_i32 cam);
 void areafx_leaves_setup(game_s *g, areafx_leaves_s *fx);
 void areafx_leaves_update(game_s *g, areafx_leaves_s *fx);
 void areafx_leaves_draw(game_s *g, areafx_leaves_s *fx, v2_i32 cam);
+//
+void areafx_particles_calm_setup(game_s *g, areafx_particles_calm_s *fx);
+void areafx_particles_calm_update(game_s *g, areafx_particles_calm_s *fx);
+void areafx_particles_calm_draw(game_s *g, areafx_particles_calm_s *fx, v2_i32 cam);
 
 #endif

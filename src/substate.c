@@ -41,8 +41,7 @@ bool32 substate_blocks_gameplay(substate_s *st)
     case SUBSTATE_UPGRADE:
         return !upgrade_finished(&st->upgrade);
     case SUBSTATE_TEXTBOX: return 1;
-    case SUBSTATE_MAINMENU_FADE_IN: return 0;
-    case SUBSTATE_FREEZE: return 1;
+    case SUBSTATE_TITLE_FADE_IN: return 0;
     }
     return 0;
 }
@@ -58,8 +57,7 @@ bool32 substate_finished(substate_s *st)
         return upgrade_finished(&st->upgrade);
     case SUBSTATE_TEXTBOX:
         return textbox_finished(&st->textbox);
-    case SUBSTATE_MAINMENU_FADE_IN: return 0;
-    case SUBSTATE_FREEZE: return (st->freeze_tick <= 0);
+    case SUBSTATE_TITLE_FADE_IN: return 0;
     }
     return 1;
 }
@@ -79,14 +77,13 @@ void substate_update(game_s *g, substate_s *st, inp_s inp)
     case SUBSTATE_TEXTBOX:
         textbox_update(g, &st->textbox, inp);
         break;
-    case SUBSTATE_MAINMENU_FADE_IN:
+    case SUBSTATE_TITLE_FADE_IN:
         st->mainmenu_tick++;
         if (FADETICKS_GAME_IN <= st->mainmenu_tick) {
             st->mainmenu_tick = 0;
             st->state         = 0;
         }
         break;
-    case SUBSTATE_FREEZE: st->freeze_tick--; break;
     }
 
     if (substate_finished(st)) {
@@ -109,7 +106,7 @@ void substate_draw(game_s *g, substate_s *st, v2_i32 cam)
     case SUBSTATE_TEXTBOX:
         textbox_draw(&st->textbox, cam);
         break;
-    case SUBSTATE_MAINMENU_FADE_IN: {
+    case SUBSTATE_TITLE_FADE_IN: {
         gfx_ctx_s ctx = gfx_ctx_display();
         int       t   = FADETICKS_GAME_IN - st->mainmenu_tick;
         ctx.pat       = gfx_pattern_interpolate(t, FADETICKS_GAME_IN);
@@ -159,14 +156,6 @@ void substate_load_textbox(game_s *g, substate_s *st, const char *filename)
 {
     st->state = SUBSTATE_TEXTBOX;
     textbox_load_dialog(g, &st->textbox, filename);
-}
-
-void substate_freeze(substate_s *st, int ticks)
-{
-    if (st->state == 0 && 0 < ticks) {
-        st->state       = SUBSTATE_FREEZE;
-        st->freeze_tick = ticks;
-    }
 }
 
 // RESPAWN =====================================================================

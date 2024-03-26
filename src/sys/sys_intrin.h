@@ -12,7 +12,7 @@
 
 static inline u32 clz32(u32 v)
 {
-    i32 r;
+    u32 r;
     __asm("clz %0, %1"
           : "=r"(r)
           : "r"(v));

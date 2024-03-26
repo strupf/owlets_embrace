@@ -23,7 +23,7 @@ typedef struct {
     v2_i32 key_open_origin;
 } swingdoor_s;
 
-obj_s *swingdoor_create(game_s *g)
+void swingdoor_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_DOOR_SWING;
@@ -36,28 +36,7 @@ obj_s *swingdoor_create(game_s *g)
     sprite_simple_s *spr = &o->sprites[0];
     spr->trec            = asset_texrec(TEXID_MISCOBJ, 0, 112, 64, 32);
     spr->offs.x          = -16;
-    return o;
-}
 
-static void swingdoor_set_blocks(game_s *g, obj_s *o)
-{
-    int tx     = o->pos.x >> 4;
-    int ty     = o->pos.y >> 4;
-    int ny     = o->h >> 4;
-    int to_set = o->state == SWINGDOOR_CLOSED ? TILE_BLOCK : TILE_EMPTY;
-
-    for (int k = 0; k < ny; k++) {
-        g->tiles[tx + (ty + k) * g->tiles_x].collision = to_set;
-    }
-
-    if (o->state == SWINGDOOR_CLOSED) {
-        game_on_solid_appear(g);
-    }
-}
-
-void swingdoor_load(game_s *g, map_obj_s *mo)
-{
-    obj_s       *o  = swingdoor_create(g);
     swingdoor_s *od = (swingdoor_s *)o->mem;
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
@@ -69,7 +48,7 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
         o->state = SWINGDOOR_OPEN;
     } else {
         o->state = SWINGDOOR_CLOSED;
-        swingdoor_set_blocks(g, o);
+        game_set_collision_tiles(g, obj_aabb(o), TILE_BLOCK, 0);
     }
 
     if (map_obj_bool(mo, "Interactable")) {
@@ -83,9 +62,10 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
 void swingdoor_toggle(game_s *g, obj_s *o)
 {
     snd_play_ext(SNDID_DOOR_SQUEEK, 1.f, rngr_f32(0.4f, 0.6f));
-    o->timer = 0;
-    o->state = 1 - o->state;
-    swingdoor_set_blocks(g, o);
+    o->timer   = 0;
+    o->state   = 1 - o->state;
+    int to_set = o->state == SWINGDOOR_CLOSED ? TILE_BLOCK : TILE_EMPTY;
+    game_set_collision_tiles(g, obj_aabb(o), to_set, 0);
 }
 
 void swingdoor_on_update(game_s *g, obj_s *o)

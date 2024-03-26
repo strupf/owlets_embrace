@@ -26,45 +26,34 @@ static int npc_get_state(game_s *g, obj_s *o)
     return NPC_GROUNDED;
 }
 
-obj_s *npc_create(game_s *g)
+void npc_load(game_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-
-    npc_s *npc    = (npc_s *)o->mem;
-    npc->movement = NPC_MOVEMENT_WANDER;
+    obj_s           *o   = obj_create(g);
+    npc_s           *npc = (npc_s *)o->mem;
+    sprite_simple_s *spr = &o->sprites[0];
 
     o->ID    = OBJ_ID_NPC;
     o->flags = OBJ_FLAG_SPRITE |
                OBJ_FLAG_ACTOR |
                OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_MOVER;
-
     o->moverflags = OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_SLOPES;
-    o->render_priority   = 1;
-    o->w                 = 16;
-    o->h                 = 20;
-    o->gravity_q8.y      = 50;
-    o->drag_q8.x         = 256;
-    o->drag_q8.y         = 255;
-    o->vel_cap_q8.x      = 96; // don't move faster than 1 pixel per frame -> falls down
-    o->facing            = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    o->n_sprites         = 1;
-    spr->trec            = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
-    spr->offs.x          = (o->w - spr->trec.r.w) / 2;
-    spr->offs.y          = o->h - spr->trec.r.h;
-
-    return o;
-}
-
-void npc_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o   = npc_create(g);
-    npc_s *npc = (npc_s *)o->mem;
-    o->pos.x   = mo->x;
-    o->pos.y   = mo->y + mo->h - o->h;
+    o->render_priority = 1;
+    o->w               = 16;
+    o->h               = 20;
+    o->pos.x           = mo->x;
+    o->pos.y           = mo->y + mo->h - o->h;
+    o->gravity_q8.y    = 50;
+    o->drag_q8.x       = 256;
+    o->drag_q8.y       = 255;
+    o->vel_cap_q8.x    = 96; // don't move faster than 1 pixel per frame -> falls down
+    o->facing          = 1;
+    o->n_sprites       = 1;
+    spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
+    spr->offs.x        = (o->w - spr->trec.r.w) / 2;
+    spr->offs.y        = o->h - spr->trec.r.h;
 
     map_obj_strs(mo, "Dialogfile", o->filename);
     npc->movement          = map_obj_i32(mo, "Movement");
