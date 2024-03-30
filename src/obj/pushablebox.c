@@ -8,24 +8,7 @@ typedef struct {
     i32 x;
 } pushablebox_s;
 
-void pushablebox_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_PUSHABLEBOX;
-    o->flags = OBJ_FLAG_SOLID |
-               OBJ_FLAG_RENDER_AABB;
-    pushablebox_s *box = (pushablebox_s *)o->mem;
-    o->moverflags      = OBJ_MOVER_GLUE_GROUND;
-    o->gravity_q8.y    = 70;
-    o->drag_q8.x       = 250;
-    o->drag_q8.y       = 256;
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y;
-    o->w               = mo->w;
-    o->h               = mo->h;
-}
-
-void pushablebox_update(game_s *g, obj_s *o)
+void pushablebox_on_update(game_s *g, obj_s *o)
 {
     pushablebox_s *box = (pushablebox_s *)o->mem;
 
@@ -58,4 +41,22 @@ void pushablebox_update(game_s *g, obj_s *o)
         break;
     }
     }
+}
+
+void pushablebox_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_PUSHABLEBOX;
+    o->flags = OBJ_FLAG_SOLID |
+               OBJ_FLAG_RENDER_AABB;
+    o->on_update       = pushablebox_on_update;
+    pushablebox_s *box = (pushablebox_s *)o->mem;
+    o->moverflags      = OBJ_MOVER_GLUE_GROUND;
+    o->gravity_q8.y    = 70;
+    o->drag_q8.x       = 250;
+    o->drag_q8.y       = 256;
+    o->pos.x           = mo->x;
+    o->pos.y           = mo->y;
+    o->w               = mo->w;
+    o->h               = mo->h;
 }

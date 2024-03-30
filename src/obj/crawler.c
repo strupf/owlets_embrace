@@ -29,57 +29,6 @@ typedef struct {
     i32 bounce_angle_q12;    // in turns
 } obj_crawler_s;
 
-static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
-{
-    assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
-    obj_s *o = obj_create(g);
-    o->ID    = ID;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_MOVER |
-               OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_SPRITE |
-#if GAME_JUMP_ATTACK
-               OBJ_FLAG_PLATFORM | OBJ_FLAG_PLATFORM_HERO_ONLY |
-#endif
-               OBJ_FLAG_HURT_ON_TOUCH |
-               OBJ_FLAG_ENEMY;
-    o->render_priority   = 1;
-    o->gravity_q8.y      = 30;
-    o->drag_q8.y         = 255;
-    o->drag_q8.x         = 255;
-    o->w                 = 15;
-    o->h                 = 15;
-    o->health_max        = ID == OBJ_ID_CRAWLER ? 2 : 1;
-    o->health            = o->health_max;
-    o->enemy             = enemy_default();
-    sprite_simple_s *spr = &o->sprites[0];
-    o->n_sprites         = 1;
-    spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
-    spr->offs.x          = o->w / 2 - 32;
-    spr->offs.y          = o->h / 2 - 48 + 10;
-
-    // difference between tilesize and object dimension
-    for (int y = 0; y <= 1; y++) {
-        for (int x = 0; x <= 1; x++) {
-            o->pos.x = mo->x + x - mo->w / 2;
-            o->pos.y = mo->y + y - mo->h;
-            if (crawler_find_crawl_direction(g, o, 0)) {
-                return;
-            }
-        }
-    }
-}
-
-void crawler_load(game_s *g, map_obj_s *mo)
-{
-    crawler_load_i(g, mo, OBJ_ID_CRAWLER);
-}
-
-void crawler_caterpillar_load(game_s *g, map_obj_s *mo)
-{
-    crawler_load_i(g, mo, OBJ_ID_CRAWLER_CATERPILLAR);
-}
-
 static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
 {
     v2_i32  cp = direction_v2(dir);
@@ -325,6 +274,56 @@ void crawler_on_animate(game_s *g, obj_s *o)
     }
 
     spr->trec.r.y = imgy * 64;
+}
+
+static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
+{
+    assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
+    obj_s *o = obj_create(g);
+    o->ID    = ID;
+    o->flags = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_MOVER |
+               OBJ_FLAG_KILL_OFFSCREEN |
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_HURT_ON_TOUCH |
+               OBJ_FLAG_ENEMY;
+    o->on_update         = crawler_on_update;
+    o->on_animate        = crawler_on_animate;
+    o->render_priority   = 1;
+    o->gravity_q8.y      = 30;
+    o->drag_q8.y         = 255;
+    o->drag_q8.x         = 255;
+    o->w                 = 15;
+    o->h                 = 15;
+    o->health_max        = ID == OBJ_ID_CRAWLER ? 2 : 1;
+    o->health            = o->health_max;
+    o->enemy             = enemy_default();
+    sprite_simple_s *spr = &o->sprites[0];
+    o->n_sprites         = 1;
+    spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
+    spr->offs.x          = o->w / 2 - 32;
+    spr->offs.y          = o->h / 2 - 48 + 10;
+
+    // difference between tilesize and object dimension
+    for (int y = 0; y <= 1; y++) {
+        for (int x = 0; x <= 1; x++) {
+            o->pos.x = mo->x + x - mo->w / 2;
+            o->pos.y = mo->y + y - mo->h;
+            if (crawler_find_crawl_direction(g, o, 0)) {
+                return;
+            }
+        }
+    }
+}
+
+void crawler_load(game_s *g, map_obj_s *mo)
+{
+    crawler_load_i(g, mo, OBJ_ID_CRAWLER);
+}
+
+void crawler_caterpillar_load(game_s *g, map_obj_s *mo)
+{
+    crawler_load_i(g, mo, OBJ_ID_CRAWLER_CATERPILLAR);
 }
 
 void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)

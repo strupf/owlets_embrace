@@ -104,20 +104,20 @@ void cam_update(game_s *g, cam_s *c)
         c->look_tick = 0;
     }
 
-    if (g->substate.state == SUBSTATE_TEXTBOX || shop_active(g)) {
-        c->look_ahead.y = 60.f;
+    if (g->substate == SUBSTATE_TEXTBOX || shop_active(g)) {
+        lahead.y = 60.f;
     }
 
     if (ABS(c->look_ahead.x - lahead.x) < 0.75f) {
         c->look_ahead.x = lahead.x;
     } else {
-        c->look_ahead.x = lerp_f32(c->look_ahead.x, lahead.x, 0.015f);
+        c->look_ahead.x = lerp_f32(c->look_ahead.x, lahead.x, 0.025f);
     }
 
     if (ABS(c->look_ahead.y - lahead.y) < 0.75f) {
         c->look_ahead.y = lahead.y;
     } else {
-        c->look_ahead.y = lerp_f32(c->look_ahead.y, lahead.y, 0.150f);
+        c->look_ahead.y = lerp_f32(c->look_ahead.y, lahead.y, 0.125f);
     }
 
     v2_f32 dtca = {0};

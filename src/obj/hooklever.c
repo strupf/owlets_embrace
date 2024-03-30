@@ -11,33 +11,6 @@ typedef struct {
 
 #define HOOKLEVER_TICKS 30
 
-void hooklever_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o   = obj_create(g);
-    o->ID      = OBJ_ID_HOOKLEVER;
-    o->save_ID = mo->ID;
-    o->flags   = OBJ_FLAG_HOOKABLE |
-               OBJ_FLAG_SOLID |
-               OBJ_FLAG_RENDER_AABB |
-               OBJ_FLAG_SPRITE;
-    o->pos.x        = mo->x;
-    o->pos.y        = mo->y;
-    hooklever_s *hl = (hooklever_s *)o->mem;
-    hl->pos_og      = o->pos;
-    o->w            = 32;
-    o->h            = 32;
-    o->trigger      = map_obj_i32(mo, "trigger");
-    o->state        = 0;
-
-    sprite_simple_s *spr = &o->sprites[0];
-    o->n_sprites         = 1;
-
-    if (saveID_has(g, o->save_ID)) {
-        o->pos.y += 16;
-        o->state = 1;
-    }
-}
-
 void hooklever_on_update(game_s *g, obj_s *o)
 {
     const int subt = o->subtimer;
@@ -81,10 +54,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
     if (subt == o->subtimer) {
         o->subtimer = 0;
     }
-}
 
-void hooklever_on_animate(game_s *g, obj_s *o)
-{
     sprite_simple_s *spr = &o->sprites[0];
 
     switch (o->state) {
@@ -95,5 +65,33 @@ void hooklever_on_animate(game_s *g, obj_s *o)
         int dy = (30 * min_i(o->timer, HOOKLEVER_TICKS)) / HOOKLEVER_TICKS;
         break;
     }
+    }
+}
+
+void hooklever_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o   = obj_create(g);
+    o->ID      = OBJ_ID_HOOKLEVER;
+    o->save_ID = mo->ID;
+    o->flags   = OBJ_FLAG_HOOKABLE |
+               OBJ_FLAG_SOLID |
+               OBJ_FLAG_RENDER_AABB |
+               OBJ_FLAG_SPRITE;
+    o->on_update    = hooklever_on_update;
+    o->pos.x        = mo->x;
+    o->pos.y        = mo->y;
+    hooklever_s *hl = (hooklever_s *)o->mem;
+    hl->pos_og      = o->pos;
+    o->w            = 32;
+    o->h            = 32;
+    o->trigger      = map_obj_i32(mo, "trigger");
+    o->state        = 0;
+
+    sprite_simple_s *spr = &o->sprites[0];
+    o->n_sprites         = 1;
+
+    if (saveID_has(g, o->save_ID)) {
+        o->pos.y += 16;
+        o->state = 1;
     }
 }

@@ -4,19 +4,7 @@
 
 #include "game.h"
 
-void triggerarea_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o   = obj_create(g);
-    o->ID      = OBJ_ID_TRIGGERAREA;
-    o->pos.x   = mo->x;
-    o->pos.y   = mo->y;
-    o->w       = mo->w;
-    o->h       = mo->h;
-    o->trigger = map_obj_i32(mo, "trigger");
-    o->state   = map_obj_bool(mo, "once");
-}
-
-void triggerarea_update(game_s *g, obj_s *o)
+void triggerarea_on_update(game_s *g, obj_s *o)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!ohero) return;
@@ -27,4 +15,17 @@ void triggerarea_update(game_s *g, obj_s *o)
             obj_delete(g, o);
         }
     }
+}
+
+void triggerarea_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o     = obj_create(g);
+    o->ID        = OBJ_ID_TRIGGERAREA;
+    o->on_update = triggerarea_on_update;
+    o->pos.x     = mo->x;
+    o->pos.y     = mo->y;
+    o->w         = mo->w;
+    o->h         = mo->h;
+    o->trigger   = map_obj_i32(mo, "trigger");
+    o->state     = map_obj_bool(mo, "once");
 }

@@ -65,6 +65,9 @@ static int g_heropow    = 1;
 static int HERO_GRAVITY = 80;
 #endif
 
+void          hero_on_update(game_s *g, obj_s *o);
+void          hero_on_animate(game_s *g, obj_s *o);
+//
 static int    hero_max_rope_len_q4(game_s *g);
 static void   hero_start_jump(game_s *g, obj_s *o, int ID);
 static void   hero_item_usage(game_s *g, obj_s *o, inp_s inp, int state);
@@ -118,6 +121,8 @@ obj_s *hero_create(game_s *g)
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HERO;
     obj_tag(g, o, OBJ_TAG_HERO);
+    o->on_update       = hero_on_update;
+    o->on_animate      = hero_on_animate;
     o->render_priority = 1000;
 
     o->flags = OBJ_FLAG_MOVER |
@@ -236,8 +241,9 @@ void hero_on_animate(game_s *g, obj_s *o)
             if (h->attack_tick <= 15) {
                 frameID = lerp_i32(0, 5, h->attack_tick, 15);
             } else {
-                frameID = 5;
+                frameID = 4;
             }
+            frameID = min_i(frameID, 4);
         }
     }
 
@@ -258,6 +264,12 @@ void hero_on_animate(game_s *g, obj_s *o)
             frameID = (o->animation / 4000) & 3;
             if (frameID_prev != frameID && (frameID & 1) == 0) {
                 // snd_play_ext(SNDID_STEP, 0.5f, 1.f);
+                v2_i32 posc = obj_pos_bottom_center(o);
+                posc.x -= 16 + sgn_i(o->vel_q8.x) * 4;
+                posc.y -= 30;
+                rec_i32 trp = {0, 284, 32, 32};
+                spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, posc, TEXID_MISCOBJ,
+                                   trp, 12, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
             }
             break;
         }
@@ -472,24 +484,12 @@ static void hero_start_jump(game_s *g, obj_s *o, int ID)
     h->jumpticks       = jv.ticks;
 
     if (ID == HERO_JUMP_GROUND) {
-        particle_desc_s prt = {0};
-        v2_i32          bc  = obj_pos_bottom_center(o);
-        bc.y -= 1;
-        prt.p.p_q8      = v2_shl(bc, 8);
-        prt.p.v_q8.x    = o->vel_q8.x;
-        prt.p.v_q8.y    = -rngr_i32(100, 300);
-        prt.p.a_q8.y    = 10;
-        prt.p.size      = 2;
-        prt.p.ticks_max = 70;
-        prt.ticksr      = 20;
-        prt.pr_q8.x     = 2000;
-        prt.pr_q8.y     = 1000;
-        prt.vr_q8.x     = 100;
-        prt.vr_q8.y     = 100;
-        prt.ar_q8.y     = 4;
-        prt.sizer       = 3;
-        prt.p.gfx       = PARTICLE_GFX_CIR;
-        particles_spawn(g, &g->particles, prt, 20);
+        v2_i32 posc = obj_pos_bottom_center(o);
+        posc.x -= 16;
+        posc.y -= 32;
+        rec_i32 trp = {0, 284, 32, 32};
+        spritedecal_create(g, RENDER_PRIO_HERO + 1, NULL, posc, TEXID_MISCOBJ,
+                           trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
     }
 }
 
@@ -586,10 +586,25 @@ static void hero_item_usage(game_s *g, obj_s *o, inp_s inp, int state)
                     hb.r.x = o->pos.x - hb.r.w;
                 }
                 obj_game_player_attackbox(g, hb);
+                rec_i32 rslash = {0, 384, 64, 64};
+                v2_i32  dcpos  = {0, -40};
+                int     flip   = 0;
+
+                if (o->facing == 1) {
+
+                } else {
+                    flip    = SPR_FLIP_X;
+                    dcpos.x = -40;
+                }
+
+                if (h->attack_flipflop) {
+                    rslash.y += 64;
+                }
+                spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_MISCOBJ, rslash, 12, 5, flip);
             } else {
                 h->attack_hold_tick++;
             }
-        } else if (h->attack_tick == 0 || 10 <= h->attack_tick) {
+        } else if (h->attack_tick == 0 || 2 <= h->attack_tick) {
             if (inps_just_pressed(inp, INP_B)) {
                 h->attack_hold_tick = 1;
             }
@@ -604,8 +619,9 @@ static bool32 hero_is_sprinting(hero_s *h)
     return (HERO_SPRINT_TICKS <= abs_i(h->sprint_ticks));
 }
 
-void hero_on_update(game_s *g, obj_s *o, inp_s inp)
+void hero_on_update(game_s *g, obj_s *o)
 {
+    inp_s   inp  = inp_state();
     hero_s *hero = &g->hero_mem;
 
 #if !GAME_JUMP_ATTACK && 0
@@ -697,25 +713,12 @@ void hero_on_update(game_s *g, obj_s *o, inp_s inp)
 
             if (250 <= o->vel_q8.y) {
                 hero->ground_impact_ticks = min_i(o->vel_q8.y >> 8, 6);
-
-                particle_desc_s prt = {0};
-                v2_i32          bc  = obj_pos_bottom_center(o);
-                bc.y -= 1;
-                prt.p.p_q8      = v2_shl(bc, 8);
-                prt.p.v_q8.x    = rngr_sym_i32(300);
-                prt.p.v_q8.y    = -rngr_i32(100, 300);
-                prt.p.a_q8.y    = 10;
-                prt.p.size      = 3;
-                prt.p.ticks_max = 60;
-                prt.ticksr      = 10;
-                prt.pr_q8.x     = 4000;
-                prt.pr_q8.y     = 1000;
-                prt.vr_q8.x     = 100;
-                prt.vr_q8.y     = 100;
-                prt.ar_q8.y     = 4;
-                prt.sizer       = 1;
-                prt.p.gfx       = PARTICLE_GFX_CIR;
-                particles_spawn(g, &g->particles, prt, 20);
+                v2_i32 posc               = obj_pos_bottom_center(o);
+                posc.x -= 16;
+                posc.y -= 32;
+                rec_i32 trp = {0, 284, 32, 32};
+                spritedecal_create(g, RENDER_PRIO_HERO + 1, NULL, posc, TEXID_MISCOBJ,
+                                   trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
             }
 
             o->vel_q8.y = (o->bumpflags & OBJ_BUMPED_ON_HEAD ? -1000 : 0);
@@ -1177,10 +1180,18 @@ static void hero_update_air(game_s *g, obj_s *o, inp_s inp, bool32 rope_stretche
             h->walljumpticks = 12;
             hero_start_jump(g, o, HERO_JUMP_WALL);
         } else if (jump_midair) {
-            int jumpindex = 2 + h->n_airjumps - h->airjumps_left;
+            int jumpindex = HERO_JUMP_AIR_1 + h->n_airjumps - h->airjumps_left;
             h->airjumps_left--;
             h->sprint_ticks = 0;
             hero_start_jump(g, o, jumpindex);
+
+            rec_i32 rwind = {0, 0, 64, 64};
+            v2_i32  dcpos = obj_pos_center(o);
+            dcpos.x -= 32;
+            dcpos.y += 0;
+            int flip = rngr_i32(0, 1) ? 0 : SPR_FLIP_X;
+
+            spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, dcpos, TEXID_WINDGUSH, rwind, 18, 6, flip);
         }
     }
 }
@@ -1196,10 +1207,13 @@ typedef struct {
 
 static_assert(sizeof(herohook_s) <= 256, "M");
 
+void hook_on_animate(game_s *g, obj_s *o);
+
 static obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_HOOK;
+    obj_s *o      = obj_create(g);
+    o->ID         = OBJ_ID_HOOK;
+    o->on_animate = hook_on_animate;
     obj_tag(g, o, OBJ_TAG_HOOK);
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_SPRITE;
@@ -1238,27 +1252,23 @@ static obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
 static void hook_verlet_sim(game_s *g, obj_s *o, rope_s *r)
 {
     typedef struct {
-        i32 i;
-        v2i p;
+        i32    i;
+        v2_i32 p;
     } verlet_pos_s;
 
-    hero_s      *hd             = &g->hero_mem;
-    verlet_pos_s vpos[64]       = {0};
-    int          n_vpos         = 0;
-    u32          ropelen_max_q8 = r->len_max_q4 << 4;
-    u32          ropelen_q8     = 1; // avoid div 0
-    u32          dista          = 0;
+    hero_s *hd = &g->hero_mem;
 
-    for (ropenode_s *r1 = r->head, *r2 = r1->next; r2; r1 = r2, r2 = r2->next) {
-        ropelen_q8 += v2_len(v2_shl(v2_sub(r1->p, r2->p), 8));
-    }
+    // calculated current length in Q8
+    u32          ropelen_q8 = 1 + (rope_length_q4(g, r) << 4); // +1 to avoid div 0
+    i32          n_vpos     = 0;
+    verlet_pos_s vpos[64]   = {0};
+    verlet_pos_s vp_beg     = {0, v2_shl(r->tail->p, 8)};
+    vpos[n_vpos++]          = vp_beg;
 
-    verlet_pos_s vp_beg = {0, v2_shl(r->tail->p, 8)};
-    vpos[n_vpos++]      = vp_beg;
-
+    u32 dista = 0;
     for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
         dista += v2_len(v2_shl(v2_sub(r1->p, r2->p), 8));
-        int i = (dista * ROPE_VERLET_N) / ropelen_q8;
+        i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
         if (1 <= i && i < ROPE_VERLET_N - 1) {
             verlet_pos_s vp = {i, v2_shl(r2->p, 8)};
             vpos[n_vpos++]  = vp;
@@ -1268,32 +1278,28 @@ static void hook_verlet_sim(game_s *g, obj_s *o, rope_s *r)
     verlet_pos_s vp_end = {ROPE_VERLET_N - 1, v2_shl(r->head->p, 8)};
     vpos[n_vpos++]      = vp_end;
 
-    // factor for constraint -> artificially shorten segment distance when getting tighter
-    f32 k_len = min_f(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
-    k_len     = k_len * k_len * k_len;
-    k_len     = 0.75f + 0.25f * (1.f - k_len);
-
-    int ll_q8 = (int)((f32)ropelen_max_q8 * k_len) / ROPE_VERLET_N;
+    u32 ropelen_max_q8 = r->len_max_q4 << 4;
+    f32 len_ratio      = min_f(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
+    int ll_q8          = (i32)((f32)ropelen_max_q8 * len_ratio) / ROPE_VERLET_N;
 
     for (int n = 1; n < ROPE_VERLET_N - 1; n++) {
         hook_pt_s *pt  = &hd->hookpt[n];
-        v2i        tmp = pt->p;
+        v2_i32     tmp = pt->p;
         pt->p.x += (pt->p.x - pt->pp.x);
         pt->p.y += (pt->p.y - pt->pp.y) + ROPE_VERLET_GRAV;
         pt->pp = tmp;
-    }
-    for (int n = n_vpos - 1; 0 <= n; n--) {
-        hd->hookpt[vpos[n].i].p = vpos[n].p;
     }
 
     for (int k = 0; k < ROPE_VERLET_IT; k++) {
         for (int n = 1; n < ROPE_VERLET_N; n++) {
             hook_pt_s *p1 = &hd->hookpt[n - 1];
             hook_pt_s *p2 = &hd->hookpt[n];
-            v2i        dt = v2_sub(p1->p, p2->p);
-            v2f        df = {(f32)dt.x, (f32)dt.y};
-            f32        dl = v2f_len(df);
-            i32        dd = (i32)(dl + .5f) - ll_q8;
+
+            v2i dt = v2_sub(p1->p, p2->p);
+            v2f df = {(f32)dt.x, (f32)dt.y};
+            f32 dl = v2f_len(df);
+            i32 dd = (i32)(dl + .5f) - ll_q8;
+
             if (dd <= 1) continue;
             dt    = v2_setlenl(dt, dl, dd >> 1);
             p1->p = v2_sub(p1->p, dt);
@@ -1303,6 +1309,42 @@ static void hook_verlet_sim(game_s *g, obj_s *o, rope_s *r)
         for (int n = n_vpos - 1; 0 <= n; n--) {
             hd->hookpt[vpos[n].i].p = vpos[n].p;
         }
+    }
+
+    if (0.95f <= len_ratio) { // straighten rope
+        for (int n = 1; n < ROPE_VERLET_N - 1; n++) {
+            bool32 contained = 0;
+            for (int i = 0; i < n_vpos; i++) {
+                if (vpos[i].i == n) {
+                    contained = 1; // is fixed to corner already
+                    break;
+                }
+            }
+            if (contained) continue;
+
+            // figure out previous and next corner of verlet particle
+            verlet_pos_s prev_vp = {-1};
+            verlet_pos_s next_vp = {ROPE_VERLET_N};
+
+            for (int i = 0; i < n_vpos; i++) {
+                verlet_pos_s vp = vpos[i];
+                if (prev_vp.i < vp.i && vp.i < n) {
+                    prev_vp = vpos[i];
+                }
+                if (vp.i < next_vp.i && n < vp.i) {
+                    next_vp = vpos[i];
+                }
+            }
+
+            if (!(0 <= prev_vp.i && next_vp.i < ROPE_VERLET_N)) continue;
+
+            // lerp position of particle towards straight line between corners
+            v2_i32 ptarget  = v2_lerp(prev_vp.p, next_vp.p,
+                                      n - prev_vp.i,
+                                      next_vp.i - prev_vp.i);
+            hd->hookpt[n].p = v2_lerp(hd->hookpt[n].p, ptarget, 1, 4);
+        }
+        return;
     }
 }
 

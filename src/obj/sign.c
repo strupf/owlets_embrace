@@ -61,6 +61,11 @@ void sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     fnt_draw_ascii(ctx, fnt, v2_add(pos, cam), NULL, 0);
 }
 
+void sign_on_interact(game_s *g, obj_s *o)
+{
+    textbox_load_dialog(g, &g->textbox, o->filename);
+}
+
 // interactable sign
 
 obj_s *sign_create(game_s *g)
@@ -69,6 +74,7 @@ obj_s *sign_create(game_s *g)
     o->ID    = OBJ_ID_SIGN;
     o->flags = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
+    o->on_interact       = sign_on_interact;
     o->render_priority   = -10;
     o->n_sprites         = 1;
     sprite_simple_s *spr = &o->sprites[0];
@@ -87,9 +93,4 @@ void sign_load(game_s *g, map_obj_s *mo)
     o->pos.x = mo->x;
     o->pos.y = mo->y;
     map_obj_strs(mo, "Dialogfile", o->filename);
-}
-
-void sign_on_interact(game_s *g, obj_s *o)
-{
-    substate_load_textbox(g, &g->substate, o->filename);
 }

@@ -7,6 +7,8 @@
 
 #include "gamedef.h"
 
+#define MAPVIEW_SCL_DEFAULT 24 // default size of map: pixels per room tile
+
 enum {
     MENU_SCREEN_TAB_MAP,
     MENU_SCREEN_TAB_INVENTORY,
@@ -19,25 +21,22 @@ enum {
     MAP_MODE_PIN_SELECT,
 };
 
-enum {
-    MAP_PIN_TYPE_CROSS,
-    MAP_PIN_TYPE_SKULL,
-    //
-    NUM_MAP_PIN_TYPES
-};
+#define NUM_MAP_PIN_TYPES 5
 
 typedef struct {
-    bool32 active;
     i32    tab;
     bool32 tab_selected;
     i32    tab_ticks;
 
     struct {
-        i32    mode;
-        i32    pin_type;
-        v2_i32 pos;
-        i32    scl_q12;
-        i32    cursoranimtick;
+        i32        mode;
+        i32        pin_type;
+        v2_i32     pos;
+        i32        scl_q12;
+        i32        cursoranimtick;
+        i32        fade_tick;
+        i32        pin_delete_tick;
+        map_pin_s *pin;
     } map;
 
     struct {
@@ -46,7 +45,7 @@ typedef struct {
     } inventory;
 } menu_screen_s;
 
-bool32 menu_screen_active(menu_screen_s *m);
+v2_i32 mapview_hero_world_q8(game_s *g);
 void   menu_screen_update(game_s *g, menu_screen_s *m);
 void   menu_screen_draw(game_s *g, menu_screen_s *m);
 void   menu_screen_open(game_s *g, menu_screen_s *m);

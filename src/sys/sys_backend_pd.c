@@ -180,11 +180,11 @@ int backend_debug_space()
     return 0;
 }
 
-void backend_set_menu_image(void *px, int h, int wbyte)
+bool32 backend_set_menu_image(void *px, int h, int wbyte)
 {
     if (!px) {
         PD->system->setMenuImage(NULL, 0);
-        return;
+        return 0;
     }
     int wid, hei, byt;
     u8 *p;
@@ -197,6 +197,7 @@ void backend_set_menu_image(void *px, int h, int wbyte)
         }
     }
     PD->system->setMenuImage(PD_menu_bm, 0);
+    return 1;
 }
 
 void backend_set_FPS(int fps)

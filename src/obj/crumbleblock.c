@@ -13,30 +13,6 @@ enum {
 #define CRUMBLE_TICKS_BREAK   75
 #define CRUMBLE_TICKS_RESPAWN 100
 
-obj_s *crumbleblock_create(game_s *g)
-{
-    obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_CRUMBLEBLOCK;
-    o->render_priority = 0;
-    o->w               = 16;
-    o->state           = CRUMBLE_STATE_IDLE;
-    o->substate        = TILE_BLOCK;
-    return o;
-}
-
-void crumbleblock_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o    = crumbleblock_create(g);
-    o->pos.x    = mo->x;
-    o->pos.y    = mo->y;
-    o->w        = mo->w;
-    o->h        = mo->h;
-    int n       = o->w >> 4;
-    o->substate = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
-
-    game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
-}
-
 static void crumbleblock_start_breaking(obj_s *o)
 {
     if (o->state == CRUMBLE_STATE_IDLE) {
@@ -118,4 +94,24 @@ void crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
         tr.r.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
     }
+}
+
+void crumbleblock_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o           = obj_create(g);
+    o->ID              = OBJ_ID_CRUMBLEBLOCK;
+    o->on_update       = crumbleblock_on_update;
+    o->on_draw         = crumbleblock_on_draw;
+    o->render_priority = 0;
+    o->w               = 16;
+    o->state           = CRUMBLE_STATE_IDLE;
+    o->substate        = TILE_BLOCK;
+    o->pos.x           = mo->x;
+    o->pos.y           = mo->y;
+    o->w               = mo->w;
+    o->h               = mo->h;
+    int n              = o->w >> 4;
+    o->substate        = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
+
+    game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }

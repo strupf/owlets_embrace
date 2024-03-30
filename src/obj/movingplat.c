@@ -25,74 +25,6 @@ typedef struct {
     v2_i16 path[16];
 } movingplatform_s;
 
-obj_s *movingplatform_create(game_s *g)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_MOVINGPLATFORM;
-    o->flags = OBJ_FLAG_RENDER_AABB;
-    o->w     = 64;
-    o->h     = 16;
-
-    movingplatform_s *plat = (movingplatform_s *)o->mem;
-    plat->i0               = 0;
-    plat->i1               = 1;
-    return o;
-}
-
-void movingplatform_load(game_s *g, map_obj_s *mo)
-{
-    obj_s            *o    = movingplatform_create(g);
-    movingplatform_s *plat = (movingplatform_s *)o->mem;
-    o->pos.x               = mo->x;
-    o->pos.y               = mo->y;
-    o->w                   = mo->w;
-    o->h                   = mo->h;
-
-    o->trigger     = map_obj_i32(mo, "Trigger_Move");
-    plat->v_trg_q4 = map_obj_i32(mo, "V");
-    if (map_obj_bool(mo, "Solid")) {
-        o->flags |= OBJ_FLAG_SOLID;
-    } else {
-        o->flags |= OBJ_FLAG_PLATFORM;
-    }
-
-    if (!o->trigger) {
-        plat->v_q4 = plat->v_trg_q4;
-    }
-
-    int     num_lin = 0;
-    int     num_cir = 0;
-    v2_i16 *pts_lin = (v2_i16 *)map_obj_arr(mo, "Path_Linear", &num_lin);
-    v2_i16 *pts_cir = (v2_i16 *)map_obj_arr(mo, "Path_Circular", &num_cir);
-    v2_i16 *pts     = NULL;
-    int     num     = 0;
-
-    o->substate = map_obj_i32(mo, "Moving_Platform_Stop");
-
-    if (pts_lin && num_lin) {
-        pts      = pts_lin;
-        num      = num_lin;
-        o->state = MOVPL_TYPE_PINGPONG;
-    }
-    if (pts_cir && num_cir) {
-        pts      = pts_cir;
-        num      = num_cir;
-        o->state = MOVPL_TYPE_CIRCLE;
-    }
-
-    plat->path[0].x = o->pos.x;
-    plat->path[0].y = o->pos.y;
-    plat->n_path    = 1;
-    if (pts && num) {
-        for (int n = 0; n < num; n++) {
-            v2_i16 v = pts[n];
-            v.x <<= 4;
-            v.y <<= 4;
-            plat->path[plat->n_path++] = v;
-        }
-    }
-}
-
 void movingplatform_on_update(game_s *g, obj_s *o)
 {
     movingplatform_s *plat = (movingplatform_s *)o->mem;
@@ -170,10 +102,71 @@ void movingplatform_on_update(game_s *g, obj_s *o)
     o->tomove  = v2_sub(pi, o->pos);
 }
 
-void movingplatform_on_trigger(game_s *g, obj_s *o, int trigger)
+void movingplatform_on_trigger(game_s *g, obj_s *o, i32 trigger)
 {
     if (o->trigger != trigger) return;
     movingplatform_s *plat = (movingplatform_s *)o->mem;
     if (plat->v_q4) return;
     plat->v_q4 = plat->v_trg_q4;
+}
+
+void movingplatform_load(game_s *g, map_obj_s *mo)
+{
+    obj_s            *o    = obj_create(g);
+    movingplatform_s *plat = (movingplatform_s *)o->mem;
+    o->ID                  = OBJ_ID_MOVINGPLATFORM;
+    o->flags               = OBJ_FLAG_RENDER_AABB;
+    o->on_trigger          = movingplatform_on_trigger;
+    if (map_obj_bool(mo, "Solid")) {
+        o->flags |= OBJ_FLAG_SOLID;
+    } else {
+        o->flags |= OBJ_FLAG_PLATFORM;
+    }
+    o->on_update   = movingplatform_on_update;
+    o->w           = 64;
+    o->h           = 16;
+    o->pos.x       = mo->x;
+    o->pos.y       = mo->y;
+    o->w           = mo->w;
+    o->h           = mo->h;
+    o->trigger     = map_obj_i32(mo, "Trigger_Move");
+    plat->i0       = 0;
+    plat->i1       = 1;
+    plat->v_trg_q4 = map_obj_i32(mo, "V");
+
+    if (!o->trigger) {
+        plat->v_q4 = plat->v_trg_q4;
+    }
+
+    int     num_lin = 0;
+    int     num_cir = 0;
+    v2_i16 *pts_lin = (v2_i16 *)map_obj_arr(mo, "Path_Linear", &num_lin);
+    v2_i16 *pts_cir = (v2_i16 *)map_obj_arr(mo, "Path_Circular", &num_cir);
+    v2_i16 *pts     = NULL;
+    int     num     = 0;
+
+    o->substate = map_obj_i32(mo, "Moving_Platform_Stop");
+
+    if (pts_lin && num_lin) {
+        pts      = pts_lin;
+        num      = num_lin;
+        o->state = MOVPL_TYPE_PINGPONG;
+    }
+    if (pts_cir && num_cir) {
+        pts      = pts_cir;
+        num      = num_cir;
+        o->state = MOVPL_TYPE_CIRCLE;
+    }
+
+    plat->path[0].x = o->pos.x;
+    plat->path[0].y = o->pos.y;
+    plat->n_path    = 1;
+    if (pts && num) {
+        for (int n = 0; n < num; n++) {
+            v2_i16 v = pts[n];
+            v.x <<= 4;
+            v.y <<= 4;
+            plat->path[plat->n_path++] = v;
+        }
+    }
 }

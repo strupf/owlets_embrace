@@ -53,6 +53,26 @@ int hero_inv_count_of(game_s *g, int ID)
     return hs->items[ID].n;
 }
 
+void hero_coins_change(game_s *g, i32 n)
+{
+    if (n == 0) return;
+
+    i32 ct = g->save.coins + g->coins_added + n;
+    if (ct < 0) return;
+
+    if (g->coins_added == 0 || g->coins_added_ticks) {
+        g->coins_added_ticks = 100;
+    }
+    g->coins_added += n;
+}
+
+i32 hero_coins(game_s *g)
+{
+    i32 c = g->save.coins + g->coins_added;
+    assert(0 <= c);
+    return c;
+}
+
 void saveID_put(game_s *g, u32 ID)
 {
     save_s *hs = &g->save;
@@ -71,14 +91,14 @@ bool32 saveID_has(game_s *g, u32 ID)
 
 bool32 hero_visited_tile(game_s *g, map_worldroom_s *room, int x, int y)
 {
-    u32 w = max_i((room->w / 400) >> 3, 1);
+    u32 w = max_i((room->w / SYS_DISPLAY_W) >> 3, 1);
     u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
     return (*b & (1 << (x & 7)));
 }
 
 void hero_set_visited_tile(game_s *g, map_worldroom_s *room, int x, int y)
 {
-    u32 w = max_i((room->w / 400) >> 3, 1);
+    u32 w = max_i((room->w / SYS_DISPLAY_W) >> 3, 1);
     u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
     *b |= 1 << (x & 7);
 }

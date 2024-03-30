@@ -9,8 +9,11 @@
 #include "cam.h"
 #include "coinparticle.h"
 #include "gamedef.h"
+#include "gameover.h"
+#include "heroupgrade.h"
 #include "lighting.h"
 #include "map_loader.h"
+#include "maptransition.h"
 #include "menu_screen.h"
 #include "obj/behaviour.h"
 #include "obj/hero.h"
@@ -19,21 +22,22 @@
 #include "rope.h"
 #include "save.h"
 #include "shop.h"
-#include "substate.h"
+#include "textbox.h"
 #include "title.h"
 #include "water.h"
 
-#define NUM_TILES         0x40000
-#define INTERACTABLE_DIST 32
-#define NUM_DECALS        256
-#define NUM_WATER         16
-#define ENEMY_DECAL_TICK  20
-#define NUM_RESPAWNS      8
-
-#define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
-#define OCEAN_W_PX      SYS_DISPLAY_W
-#define OCEAN_H_PX      SYS_DISPLAY_H
-#define OCEAN_NUM_SPANS 512
+#define NUM_TILES           0x40000
+#define INTERACTABLE_DIST   32
+#define NUM_DECALS          256
+#define NUM_WATER           16
+#define ENEMY_DECAL_TICK    20
+#define NUM_RESPAWNS        8
+#define OCEAN_W_WORDS       SYS_DISPLAY_WWORDS
+#define OCEAN_W_PX          SYS_DISPLAY_W
+#define OCEAN_H_PX          SYS_DISPLAY_H
+#define OCEAN_NUM_SPANS     512
+#define SAVE_TICKS          100
+#define SAVE_TICKS_FADE_OUT 80
 
 typedef struct {
     i16 y;
@@ -115,56 +119,76 @@ enum {
     IT;                           \
     IT = IT->next
 
+enum {
+    SUBSTATE_NONE,
+    SUBSTATE_TEXTBOX,
+    SUBSTATE_MAPTRANSITION,
+    SUBSTATE_GAMEOVER,
+    SUBSTATE_HEROUPGRADE,
+    SUBSTATE_MENUSCREEN,
+    SUBSTATE_FREEZE,
+};
+
 struct game_s {
     title_s          title;
     i32              state;
     //
     map_world_s      map_world; // layout of all map files globally
     map_worldroom_s *map_worldroom;
-
-    shop_s     shop;
-    area_s     area;
-    substate_s substate;
+    area_s           area;
     //
-    cam_s      cam;
-    flags32    events_frame;
-    int        freeze_tick;
+    shop_s           shop;
+    gameover_s       gameover;
+    heroupgrade_s    heroupgrade;
+    maptransition_s  maptransition;
+    textbox_s        textbox;
+    menu_screen_s    menu_screen;
+    u16              freeze_tick;
+    u16              substate;
     //
-    i32        n_respawns;
-    v2_i32     respawns[8];
+    cam_s            cam;
+    flags32          events_frame;
     //
-    tile_s     tiles[NUM_TILES];
-    rtile_s    rtiles[NUM_TILELAYER][NUM_TILES];
-    i32        tiles_x;
-    i32        tiles_y;
-    i32        pixel_x;
-    i32        pixel_y;
-    i32        obj_ndelete;
-    i32        n_objrender;
-    bool32     objrender_dirty;
-    obj_s     *obj_head_busy; // linked list
-    obj_s     *obj_head_free; // linked list
-    obj_s     *obj_tag[NUM_OBJ_TAGS];
-    obj_s     *obj_to_delete[NUM_OBJ];
-    obj_s     *obj_render[NUM_OBJ]; // sorted render array
-    obj_s      obj_raw[NUM_OBJ];
 
-    menu_screen_s menu_screen;
-    i32           n_enemy_decals;
-    enemy_decal_s enemy_decals[16];
-
-    i32           n_wiggle_deco;
-    wiggle_deco_s wiggle_deco[64];
-
-    i32            n_coinparticles;
+    //
+    tile_s         tiles[NUM_TILES];
+    rtile_s        rtiles[NUM_TILELAYER][NUM_TILES];
+    i32            tiles_x;
+    i32            tiles_y;
+    i32            pixel_x;
+    i32            pixel_y;
+    u16            obj_ndelete;
+    u16            n_objrender;
+    bool32         objrender_dirty;
+    obj_s         *obj_head_busy; // linked list
+    obj_s         *obj_head_free; // linked list
+    obj_s         *obj_tag[NUM_OBJ_TAGS];
+    obj_s         *obj_to_delete[NUM_OBJ];
+    obj_s         *obj_render[NUM_OBJ]; // sorted render array
+    obj_s          obj_raw[NUM_OBJ];
+    //
+    i16            coins_added;
+    u16            coins_added_ticks;
+    u16            save_ticks;
+    u16            n_grass;
+    u16            n_enemy_decals;
+    u16            n_wiggle_deco;
+    u16            n_coinparticles;
+    u16            n_respawns;
+    grass_s        grass[256];
+    enemy_decal_s  enemy_decals[16];
+    wiggle_deco_s  wiggle_deco[64];
     coinparticle_s coinparticles[NUM_COINPARTICLE];
+    v2_i32         respawns[8];
+    save_s         save;
+    hero_s         hero_mem;
+    particles_s    particles;
+    ocean_s        ocean;
 
-    hero_s hero_mem;
     struct {
         int selected;
         int doubletap_timer;
     } item;
-    save_s save;
 
     struct {
         char filename[LEN_AREA_FILENAME];
@@ -172,16 +196,11 @@ struct game_s {
         i32  fadeticks;
     } areaname;
 
-    i32         n_grass;
-    grass_s     grass[256];
-    particles_s particles;
-
-    ocean_s              ocean;
     marena_s             arena;
     align_CL mkilobyte_s mem[256];
 };
 
-extern const int g_pxmask_tab[32 * 16];
+extern const u32 g_pxmask_tab[32 * 16];
 extern const i32 tilecolliders[GAME_NUM_TILECOLLIDERS * 6]; // triangles
 
 void    game_init(game_s *g);
@@ -192,7 +211,7 @@ void    game_paused(game_s *g);
 //
 bool32  game_load_savefile(game_s *g);
 bool32  game_save_savefile(game_s *g);
-void    game_on_trigger(game_s *g, int trigger);
+void    game_on_trigger(game_s *g, i32 trigger);
 bool32  tiles_hookable(game_s *g, rec_i32 r);
 bool32  tiles_solid(game_s *g, rec_i32 r);
 bool32  tiles_solid_pt(game_s *g, int x, int y);
@@ -201,10 +220,6 @@ bool32  game_traversable(game_s *g, rec_i32 r);
 bool32  game_traversable_pt(game_s *g, int x, int y);
 void    game_on_solid_appear(game_s *g);
 void    game_put_grass(game_s *g, int tx, int ty);
-void    obj_game_update(game_s *g, obj_s *o, inp_s inp);
-void    obj_game_animate(game_s *g, obj_s *o);
-void    obj_game_trigger(game_s *g, obj_s *o, int trigger);
-void    obj_game_interact(game_s *g, obj_s *o);
 void    obj_game_player_attackbox(game_s *g, hitbox_s box);
 bool32  ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos);
 //

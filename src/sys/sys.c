@@ -33,13 +33,14 @@ static void sys_draw_console();
 #endif
 
 static struct {
-    void *menu_items[8];
-    u32   tick;
-    f32   lasttime;
-    f32   ups_timeacc;
-    f32   fps_timeacc;
-    i32   fps_counter;
-    i32   fps; // updates per second
+    void  *menu_items[8];
+    u32    tick;
+    f32    lasttime;
+    f32    ups_timeacc;
+    f32    fps_timeacc;
+    i32    fps_counter;
+    i32    fps; // updates per second
+    bool32 menu_image;
 #if SYS_SHOW_CONSOLE
     char console_out[SYS_CONSOLE_LINES * SYS_CONSOLE_LINE_CHARS];
     i32  console_x;
@@ -121,7 +122,7 @@ int sys_step(void *arg)
         SYS.ups_timeacc -= SYS_UPS_DT;
 #if defined(SYS_SDL) && defined(SYS_DEBUG)
         static int slowtick;
-        if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 31))
+        if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 7))
             continue;
 #endif
         n_upd++;
@@ -238,9 +239,20 @@ int sys_crank_docked()
     return backend_crank_docked();
 }
 
-void sys_set_menu_image(void *px, int h, int wbyte)
+bool32 sys_set_menu_image(void *px, int h, int wbyte)
 {
-    backend_set_menu_image(px, h, wbyte);
+    SYS.menu_image = backend_set_menu_image(px, h, wbyte);
+    return SYS.menu_image;
+}
+
+void sys_del_menu_image()
+{
+    SYS.menu_image = sys_set_menu_image(NULL, 0, 0);
+}
+
+bool32 sys_has_menu_image()
+{
+    return SYS.menu_image;
 }
 
 void sys_set_FPS(int fps)

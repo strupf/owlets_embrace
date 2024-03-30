@@ -12,18 +12,28 @@
 
 game_s GAME;
 
+typedef struct {
+    i32 x;
+} app_s;
+
+static app_s APP;
+
 static void app_load_tex();
 static void app_load_fnt();
 static void app_load_snd();
 static void app_load_game();
 
-void menu_cb_inventory(void *arg)
+void menu_cb_map(void *arg)
 {
-    assert(arg);
     game_s *g = (game_s *)arg;
-    if (!menu_screen_active(&g->menu_screen)) {
+    if (g->substate == 0) {
         menu_screen_open(g, &g->menu_screen);
     }
+}
+
+void menu_cb_equipment(void *arg)
+{
+    game_s *g = (game_s *)arg;
 }
 
 void menu_cb_item(void *arg)
@@ -32,13 +42,25 @@ void menu_cb_item(void *arg)
     game_s *g = (game_s *)arg;
 
     int val = sys_menu_value(1);
-    sys_printf("I: %i\n", val);
     if (val == 0) {
         g->item.selected = HERO_ITEM_HOOK;
     }
     if (val == 1) {
         g->item.selected = HERO_ITEM_WEAPON;
     }
+}
+
+void app_set_menu_gameplay()
+{
+    game_s *g = &GAME;
+    sys_menu_clr();
+    sys_menu_item_add(0, "Map", menu_cb_map, g);
+    sys_menu_item_add(0, "Equipment", menu_cb_equipment, g);
+}
+
+void app_set_menu_title()
+{
+    sys_menu_clr();
 }
 
 static void app_load_game()
@@ -70,7 +92,7 @@ void app_init()
     spm_init();
     assets_init();
     aud_init();
-#if defined(SYS_PD_HW) || 0
+#if defined(SYS_PD)
     assets_import();
 #else
     app_load_tex();
@@ -79,10 +101,7 @@ void app_init()
     assets_export();
 #endif
     app_load_game();
-
-    game_s *g = &GAME;
-    sys_menu_clr();
-    sys_menu_item_add(0, "Map", menu_cb_inventory, g);
+    app_set_menu_title();
 }
 
 void app_tick()
@@ -91,10 +110,10 @@ void app_tick()
 
     game_s *g = &GAME;
     switch (g->state) {
-    case GAMESTATE_MAINMENU:
+    case APP_STATE_TITLE:
         title_update(g, &g->title);
         break;
-    case GAMESTATE_GAMEPLAY:
+    case APP_STATE_GAME:
         game_tick(g);
         break;
     }
@@ -106,8 +125,12 @@ void app_draw()
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
     game_s *g = &GAME;
     switch (g->state) {
-    case GAMESTATE_MAINMENU: title_render(&g->title); break;
-    case GAMESTATE_GAMEPLAY: game_draw(g); break;
+    case APP_STATE_TITLE:
+        title_render(&g->title);
+        break;
+    case APP_STATE_GAME:
+        game_draw(g);
+        break;
     }
 }
 
@@ -216,12 +239,13 @@ static void app_load_tex()
 
     tex_s tmisc;
     asset_tex_loadID(TEXID_MISCOBJ, "miscobj", &tmisc);
-
     tex_outline(tmisc, 0, 192, 64 * 2, 64, 1, 1);
+    tex_outline(tmisc, 0, 384, 64 * 6, 128, 0, 1);
+    tex_outline(tmisc, 0, 384, 64 * 6, 128, 0, 1);
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
-    for (int y = 0; y < 11; y++) {
+    for (int y = 0; y < 13; y++) {
         for (int x = 0; x < 6; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
@@ -274,6 +298,7 @@ static void app_load_tex()
         }
         tex_outline(trcrawler.t, 0, 0, trcrawler.t.w, trcrawler.t.h, 1, 1);
     }
+    asset_tex_loadID(TEXID_WINDGUSH, "windgush", NULL);
 
     water_prerender_tiles();
 }

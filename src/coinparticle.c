@@ -23,7 +23,7 @@ void coinparticle_update(game_s *g)
     for (int n = g->n_coinparticles - 1; 0 <= n; n--) {
         coinparticle_s *c = &g->coinparticles[n];
         if (ohero && v2_distancesq(heropos, c->pos) < COINPARTICLE_COLLECT_DISTSQ) {
-            hero_inv_add(g, INVENTORY_ID_GOLD, 1);
+            hero_coins_change(g, 1);
             snd_play_ext(SNDID_COIN, 1.f, 1.f);
             *c = g->coinparticles[--g->n_coinparticles];
             continue;
@@ -51,13 +51,20 @@ void coinparticle_update(game_s *g)
             }
             c->pos.x = x;
         }
+
+        bool32 collided_bot = 0;
         for (int m = abs_i(dy), s = sgn_i(dy); 0 < m; m--) {
             i32 y = c->pos.y + s;
             if (!game_traversable_pt(g, c->pos.x, y)) {
-                c->vel_q8.y = -((c->vel_q8.y * 220) >> 8);
+                c->vel_q8.y  = -((c->vel_q8.y * 220) >> 8);
+                collided_bot = (0 < dy);
                 break;
             }
             c->pos.y = y;
+        }
+
+        if (collided_bot && -100 <= c->vel_q8.y) {
+            c->vel_q8.x = 0;
         }
     }
 }

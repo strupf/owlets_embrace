@@ -5,11 +5,6 @@
 #include "textbox.h"
 #include "game.h"
 
-bool32 textbox_finished(textbox_s *tb)
-{
-    return (tb->state == TEXTBOX_STATE_INACTIVE);
-}
-
 static int textbox_text_length(fnt_s f, textbox_char_s *chars, int n_chars)
 {
     int len = 0;
@@ -121,6 +116,7 @@ void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename)
             }
         }
     }
+    g->substate = SUBSTATE_TEXTBOX;
 DIALOG_ERR:
     spm_pop();
 }
@@ -137,9 +133,10 @@ static void select_tbblock(textbox_s *tb)
     }
 }
 
-void textbox_update(game_s *g, textbox_s *tb, inp_s inp)
+void textbox_update(game_s *g)
 {
-    if (tb->state == TEXTBOX_STATE_INACTIVE) return;
+    textbox_s *tb  = &g->textbox;
+    inp_s      inp = inp_state();
     tb->tick++;
 
     if (tb->fade_in) {
@@ -155,8 +152,8 @@ void textbox_update(game_s *g, textbox_s *tb, inp_s inp)
         if (TEXTBOX_FADE_TICKS <= tb->fade_out) {
             tb->fade_out = 0;
             tb->state    = TEXTBOX_STATE_INACTIVE;
+            g->substate  = 0;
         }
-        return;
     }
 
     switch (tb->state) {
@@ -209,7 +206,8 @@ void textbox_update(game_s *g, textbox_s *tb, inp_s inp)
             tb->curchoice = clamp_i(tb->curchoice, 0, b->n_choices - 1);
             snd_play_ext(SNDID_MENU_NEXT_ITEM, 1.f, 1.f);
         }
-    } break;
+        break;
+    }
     case TEXTBOX_STATE_WRITE: {
         textbox_block_s *b = &tb->blocks[tb->block];
         assert(tb->n < b->n_chars);
@@ -233,12 +231,14 @@ void textbox_update(game_s *g, textbox_s *tb, inp_s inp)
                 snd_play_ext(SNDID_SPEAK, 0.2f, rngr_f32(.5f, .7f));
             }
         }
-    } break;
+        break;
+    }
     }
 }
 
-void textbox_draw(textbox_s *tb, v2_i32 camoffset)
+void textbox_draw(game_s *g, v2_i32 camoffset)
 {
+    textbox_s *tb = &g->textbox;
     if (tb->state == TEXTBOX_STATE_INACTIVE) return;
 
     textbox_block_s *b   = &tb->blocks[tb->block];
@@ -246,6 +246,7 @@ void textbox_draw(textbox_s *tb, v2_i32 camoffset)
 
 #define TB_LINE_SPACING 26
     int num = TEXTBOX_FADE_TICKS;
+
     if (tb->fade_in) {
         num = tb->fade_in;
     }

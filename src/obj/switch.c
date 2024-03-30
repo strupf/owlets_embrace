@@ -23,33 +23,6 @@ static void switch_set_sprite(obj_s *o)
     o->sprites[0].flip     = o->state ? SPR_FLIP_X : 0;
 }
 
-obj_s *switch_create(game_s *g)
-{
-    obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_SWITCH;
-    o->render_priority = RENDER_PRIO_HERO - 1;
-    o->flags           = OBJ_FLAG_INTERACTABLE |
-               OBJ_FLAG_SPRITE;
-    o->n_sprites         = 1;
-    o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);
-    o->sprites[0].offs.x = -32;
-    o->sprites[0].offs.y = -64;
-    switch_set_sprite(o);
-    return o;
-}
-
-void switch_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = switch_create(g);
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
-
-    obj_switch_s *os       = (obj_switch_s *)o->mem;
-    os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");
-    os->trigger_on_disable = map_obj_i32(mo, "Trigger_disable");
-    os->once               = map_obj_bool(mo, "Once");
-}
-
 void switch_on_animate(game_s *g, obj_s *o)
 {
     if (0 < o->timer)
@@ -78,4 +51,27 @@ void switch_on_interact(game_s *g, obj_s *o)
 
     o->state = 1 - o->state;
     o->timer = SWITCH_ANIMATE_TICKS;
+}
+
+void switch_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o           = obj_create(g);
+    o->ID              = OBJ_ID_SWITCH;
+    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->flags           = OBJ_FLAG_INTERACTABLE |
+               OBJ_FLAG_SPRITE;
+    o->on_animate        = switch_on_animate;
+    o->on_interact       = switch_on_interact;
+    o->n_sprites         = 1;
+    o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);
+    o->sprites[0].offs.x = -32;
+    o->sprites[0].offs.y = -64;
+    switch_set_sprite(o);
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+
+    obj_switch_s *os       = (obj_switch_s *)o->mem;
+    os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");
+    os->trigger_on_disable = map_obj_i32(mo, "Trigger_disable");
+    os->once               = map_obj_bool(mo, "Once");
 }

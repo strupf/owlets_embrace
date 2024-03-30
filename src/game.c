@@ -8,8 +8,7 @@
 void game_init(game_s *g)
 {
 #ifdef SYS_SDL
-    aud_mute(0);
-    sys_set_volume(0.0f);
+    sys_set_volume(0.25f);
 #endif
     mus_set_trg_vol_q8(32);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
@@ -32,7 +31,10 @@ static void gameplay_tick(game_s *g, inp_s inp)
             o->enemy.invincible--;
         }
 
-        obj_game_update(g, o, inp);
+        if (o->on_update) {
+            o->on_update(g, o);
+        }
+
         o->posprev = posprev;
 #ifdef SYS_DEBUG
         assert(o->magic == OBJ_MAGIC);
@@ -101,8 +103,6 @@ static void gameplay_tick(game_s *g, inp_s inp)
             }
         }
 
-        hero_check_rope_intact(g, ohero);
-
         // touched hurting things?
         if (ohero->invincible_tick <= 0) {
             v2_i32 hcenter        = obj_pos_center(ohero);
@@ -138,8 +138,8 @@ static void gameplay_tick(game_s *g, inp_s inp)
 
         if (0 < ohero->health) {
             v2_i32 hcenter   = obj_pos_center(ohero);
-            i32    roomtilex = hcenter.x / 400;
-            i32    roomtiley = hcenter.y / 240;
+            i32    roomtilex = hcenter.x / SYS_DISPLAY_W;
+            i32    roomtiley = hcenter.y / SYS_DISPLAY_H;
             hero_set_visited_tile(g, g->map_worldroom, roomtilex, roomtiley);
         }
     }
@@ -149,20 +149,12 @@ static void gameplay_tick(game_s *g, inp_s inp)
         assert(o->magic == OBJ_MAGIC);
     }
 #endif
-
-    if (g->events_frame & EVENT_HIT_ENEMY) {
-        g->freeze_tick = max_i(g->freeze_tick, 2);
-    }
-    if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick = max_i(g->freeze_tick, 4);
-    }
-
     // possibly enter new substates
     if (ohero) {
+        hero_check_rope_intact(g, ohero);
         if (ohero->health <= 0) {
-            if (substate_finished(&g->substate))
-                substate_respawn(g, &g->substate);
-        } else if (substate_finished(&g->substate)) {
+            gameover_start(g);
+        } else {
             bool32        collected_upgrade = 0;
             const rec_i32 heroaabb          = obj_aabb(ohero);
             for (obj_each(g, o)) {
@@ -176,36 +168,69 @@ static void gameplay_tick(game_s *g, inp_s inp)
             }
 
             if (!collected_upgrade) {
-                bool32 t = substate_transition_try_hero_slide(g, &g->substate);
-                if (t == 0) { // nothing happended
+                bool32 t = maptransition_try_hero_slide(g);
+                if (t == 0 && inp_just_pressed(INP_DPAD_U)) { // nothing happended
                     obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
-                    if (interactable && inp_just_pressed(INP_DPAD_U)) {
-                        obj_game_interact(g, interactable);
+                    if (interactable && interactable->on_interact) {
+                        interactable->on_interact(g, interactable);
                         g->hero_mem.interactable = obj_handle_from_obj(NULL);
                     }
                 }
             }
         }
     }
+
+    if (!g->substate) {
+        if (g->events_frame & EVENT_HERO_DAMAGE) {
+            g->freeze_tick            = 4;
+            g->hero_mem.was_hit_ticks = 30;
+        } else if (g->events_frame & EVENT_HIT_ENEMY) {
+            g->freeze_tick = 2;
+        }
+        if (g->freeze_tick) {
+            g->substate = SUBSTATE_FREEZE;
+        }
+    }
+
+    if (g->hero_mem.was_hit_ticks) {
+        g->hero_mem.was_hit_ticks--;
+        aud_set_lowpass(((g->hero_mem.was_hit_ticks * 12) / 30));
+    }
+
     objs_cull_to_delete(g);
     particles_update(g, &g->particles);
+
+    if (g->coins_added) {
+        if (g->coins_added_ticks) {
+            g->coins_added_ticks--;
+        } else {
+            i32 to_add = clamp_i(g->coins_added, -2, +2);
+            g->save.coins += to_add;
+            g->coins_added -= to_add;
+        }
+    }
 }
 
 void game_tick(game_s *g)
 {
 
     const inp_s inp             = inp_state();
-    bool32      update_gameplay = 1;
-
-    if (!substate_finished(&g->substate)) {
-        substate_update(g, &g->substate, inp);
-        update_gameplay = !substate_blocks_gameplay(&g->substate);
-    } else if (shop_active(g)) {
-        shop_update(g);
-        update_gameplay = 0;
-    } else if (menu_screen_active(&g->menu_screen)) {
+    bool32      update_gameplay = 0;
+    switch (g->substate) {
+    case SUBSTATE_GAMEOVER: gameover_update(g); break;
+    case SUBSTATE_TEXTBOX: textbox_update(g); break;
+    case SUBSTATE_MAPTRANSITION: maptransition_update(g); break;
+    case SUBSTATE_HEROUPGRADE: heroupgrade_update(g); break;
+    case SUBSTATE_MENUSCREEN:
         menu_screen_update(g, &g->menu_screen);
-        update_gameplay = 0;
+        break;
+    case SUBSTATE_FREEZE:
+        g->freeze_tick--;
+        if (g->freeze_tick <= 0) {
+            g->substate = 0;
+        }
+        break;
+    default: update_gameplay = 1; break;
     }
 
     if (update_gameplay) {
@@ -220,18 +245,13 @@ void game_tick(game_s *g)
             }
             g->item.doubletap_timer = ITEM_SWAP_DOUBLETAP_TICKS;
         }
-    }
 
-    if (0 < g->freeze_tick) {
-        g->freeze_tick--;
-        update_gameplay = 0;
-    }
-
-    if (update_gameplay) {
         gameplay_tick(g, inp);
 
         for (obj_each(g, o)) {
-            obj_game_animate(g, o);
+            if (o->on_animate) {
+                o->on_animate(g, o);
+            }
         }
 
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -271,6 +291,13 @@ void game_tick(game_s *g)
         }
     }
 
+    if (g->save_ticks) {
+        g->save_ticks++;
+        if (SAVE_TICKS <= g->save_ticks) {
+            g->save_ticks = 0;
+        }
+    }
+
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
     if (sys_tick() & 1) {
@@ -286,7 +313,7 @@ void game_resume(game_s *g)
 
 void game_paused(game_s *g)
 {
-    if (g->state == GAMESTATE_GAMEPLAY) {
+    if (g->state == APP_STATE_GAME) {
         render_pause(g);
     }
 }
@@ -330,16 +357,19 @@ bool32 game_save_savefile(game_s *g)
         return 0;
     }
     sys_printf("SAVED!\n");
-    int bwritten = sys_file_write(f, (const void *)hs, sizeof(save_s));
-    int eclosed  = sys_file_close(f);
+    g->save_ticks = 1;
+    int bwritten  = sys_file_write(f, (const void *)hs, sizeof(save_s));
+    int eclosed   = sys_file_close(f);
     return (bwritten == (int)sizeof(save_s) && eclosed == 0);
 }
 
-void game_on_trigger(game_s *g, int trigger)
+void game_on_trigger(game_s *g, i32 trigger)
 {
     if (!trigger) return;
     for (obj_each(g, o)) {
-        obj_game_trigger(g, o, trigger);
+        if (o->on_trigger) {
+            o->on_trigger(g, o, trigger);
+        }
     }
 }
 
@@ -629,7 +659,7 @@ void backforeground_animate_grass(game_s *g)
 
 // operate on 16x16 tiles
 // these are the collision masks per pixel row of a tile
-const int g_pxmask_tab[32 * 16] = {
+const u32 g_pxmask_tab[32 * 16] = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, // empty
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, // block
     0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF, // SLOPES 45

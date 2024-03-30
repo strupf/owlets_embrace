@@ -76,7 +76,9 @@ enum {                     // pd_api.h:
 sys_display_s sys_display();
 sys_display_s sys_display_buffer();
 u32           sys_tick();
-void          sys_set_menu_image(void *px, int h, int wbyte);
+bool32        sys_set_menu_image(void *px, int h, int wbyte);
+void          sys_del_menu_image();
+bool32        sys_has_menu_image();
 void          sys_display_flush();
 void          sys_display_update_rows(int a, int b);
 void          sys_display_inv(int i);

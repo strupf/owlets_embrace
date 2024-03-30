@@ -47,7 +47,6 @@ typedef struct {
 } muschannel_s;
 
 typedef struct {
-    bool32       mute;
     i32          mus_fade_ticks;
     i32          mus_fade_ticks_max;
     i32          mus_fade_in;
@@ -56,13 +55,15 @@ typedef struct {
     muschannel_s muschannel;
     sndchannel_s sndchannel[NUM_SNDCHANNEL];
     bool32       snd_playing_disabled;
+    i32          lowpass;
+    i32          lowpass_acc;
 } AUD_s;
 
 extern AUD_s AUD;
 
 void   aud_init();
 void   aud_update();
-void   aud_mute(bool32 mute);
+void   aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
 void   aud_audio(i16 *buf, int len);
 void   aud_allow_playing_new_snd(bool32 enabled);
 snd_s  snd_load(const char *pathname, alloc_s ma);

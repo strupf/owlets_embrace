@@ -18,7 +18,7 @@ static int  cmp_obj_render_priority(const void *a, const void *b);
 
 void game_draw(game_s *g)
 {
-    if (menu_screen_active(&g->menu_screen)) {
+    if (g->substate == SUBSTATE_MENUSCREEN) {
         menu_screen_draw(g, &g->menu_screen);
         return;
     }
@@ -65,6 +65,9 @@ void game_draw(game_s *g)
         obj_s *o = g->obj_render[n_obj_render];
         if (0 <= o->render_priority) break;
         obj_draw(ctx, g, o, camoffset);
+        if (o->on_draw) {
+            o->on_draw(g, o, camoffset);
+        }
     }
 
     obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -186,18 +189,12 @@ void game_draw(game_s *g)
         spm_pop();
     }
 
-    if (!substate_finished(&g->substate)) {
-        substate_draw(g, &g->substate, camoffset);
+    switch (g->substate) {
+    case SUBSTATE_GAMEOVER: gameover_draw(g, camoffset); break;
+    case SUBSTATE_TEXTBOX: textbox_draw(g, camoffset); break;
+    case SUBSTATE_MAPTRANSITION: maptransition_draw(g, camoffset); break;
+    case SUBSTATE_HEROUPGRADE: heroupgrade_draw(g, camoffset); break;
     }
-
-#if 0
-    static int map_scl = 16;
-
-    map_scl += inp_dpad_y();
-
-    map_scl = max_i(map_scl, 12);
-    render_map(g, ctx, map_scl);
-#endif
 }
 
 static int cmp_obj_render_priority(const void *a, const void *b)

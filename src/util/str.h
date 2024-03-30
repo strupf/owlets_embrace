@@ -260,6 +260,36 @@ u32 u32_from_str(const char *str)
     return res;
 }
 
+#define strs_from_u32(V, BUF) str_from_u32(V, BUF, sizeof(BUF))
+static int str_from_u32(u32 v, char *buf, usize bufsize)
+{
+    if (!buf || !bufsize) return 0;
+    u32  x     = v;
+    int  n     = 0;
+    char b[16] = {0};
+
+    while (1) {
+        u32 u = x % 10;
+        x /= 10;
+        b[n] = '0' + u;
+        n++;
+        if (bufsize <= (usize)n) {
+            break;
+        }
+        if (x == 0) {
+            break;
+        }
+    }
+
+    int len = --n;
+    while (0 <= n) {
+        buf[len - n] = b[n];
+        n--;
+    }
+    buf[len + 1] = '\0';
+    return len + 1;
+}
+
 // string float to fixed point integer parsing
 static int QX_gen(const char *str, int q)
 {

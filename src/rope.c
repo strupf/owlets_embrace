@@ -60,10 +60,13 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
 {
     assert((a->next == b && b->prev == a) ||
            (b->next == a && a->prev == b));
-    assert(r->pool);
     ropenode_s *rn = r->pool;
-    r->pool        = rn->next;
-    rn->p          = p;
+    if (!rn) {
+        BAD_PATH
+        return NULL;
+    }
+    r->pool = rn->next;
+    rn->p   = p;
     if (a->next == b && b->prev == a) {
         a->next  = rn;
         b->prev  = rn;
@@ -75,7 +78,7 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
         rn->prev = b;
         rn->next = a;
     } else {
-        assert(0);
+        BAD_PATH
     }
     r->pmin = v2_min(r->pmin, p);
     r->pmax = v2_max(r->pmax, p);
@@ -87,6 +90,10 @@ void ropenode_delete(rope_s *r, ropenode_s *rn)
     ropenode_s *prev = rn->prev;
     ropenode_s *next = rn->next;
     assert(prev && next); // can only delete nodes in the middle
+    if (!prev || !next) {
+        BAD_PATH
+        return;
+    }
     assert(prev->next == rn && next->prev == rn);
     prev->next = next;
     next->prev = prev;

@@ -73,8 +73,9 @@ typedef struct {
     obj_handle_s obj_following[16];
     hook_pt_s    hookpt[ROPE_VERLET_N];
     //
-    int          attack_hold_tick;
-    int          attack_flipflop;
+    i32          was_hit_ticks;
+    i32          attack_hold_tick;
+    i32          attack_flipflop;
     i32          attack_tick;
     i32          sprint_ticks;
     bool32       sprinting;
@@ -102,9 +103,7 @@ typedef struct {
 } hero_s;
 
 obj_s *hero_create(game_s *g);
-void   hero_on_update(game_s *g, obj_s *o, inp_s inp);
 void   hero_on_squish(game_s *g, obj_s *o);
-void   hero_on_animate(game_s *g, obj_s *o);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, int damage);
 void   hero_kill(game_s *g, obj_s *o);
@@ -112,7 +111,6 @@ int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
 bool32 hero_is_submerged(game_s *g, obj_s *o, int *water_depth);
 int    hero_breath_tick(game_s *g);
 //
-void   hook_on_animate(game_s *g, obj_s *o);
 void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 
 #endif

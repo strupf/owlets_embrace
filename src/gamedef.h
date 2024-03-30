@@ -32,6 +32,19 @@
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
 
+enum {
+    APP_STATE_TITLE,
+    APP_STATE_GAME,
+};
+
+enum {
+    GAME_STATE_PLAY,
+    GAME_STATE_DIALOG,
+    GAME_STATE_MENU,
+    GAME_STATE_SETTINGS,
+    GAME_STATE_GAMEOVER,
+};
+
 #define LEN_HERO_NAME             16
 #define LEN_AREA_FILENAME         64
 #define GAME_NUM_TILECOLLIDERS    32
@@ -84,11 +97,6 @@ enum {
 enum {
     MENUITEM_GAME_INVENTORY,
     MENUITEM_REDUCE_FLICKER,
-};
-
-enum {
-    GAMESTATE_MAINMENU,
-    GAMESTATE_GAMEPLAY,
 };
 
 enum {
@@ -148,27 +156,27 @@ enum {
     TILE_SPIKES,
 };
 
-static int ticks_from_seconds(f32 s)
+static i32 ticks_from_seconds(f32 s)
 {
-    return (int)(s * (f32)SYS_UPS + .5f);
+    return (i32)(s * (f32)SYS_UPS + .5f);
 }
 
-static f32 seconds_from_ticks(int ticks)
+static f32 seconds_from_ticks(i32 ticks)
 {
     return ((f32)ticks / (f32)SYS_UPS);
 }
 
-static int ticks_from_ms(int ms)
+static i32 ticks_from_ms(i32 ms)
 {
     return (ms * SYS_UPS + 500) / 1000;
 }
 
-static int ms_from_ticks(int ticks)
+static i32 ms_from_ticks(i32 ticks)
 {
     return (ticks * 1000) / SYS_UPS;
 }
 
-static v2_i32 direction_v2(int dir)
+static v2_i32 direction_v2(i32 dir)
 {
     v2_i32 v = {0};
     switch (dir) {
@@ -180,14 +188,15 @@ static v2_i32 direction_v2(int dir)
     case DIRECTION_SE: v.y = +1, v.x = +1; break;
     case DIRECTION_NW: v.y = -1, v.x = -1; break;
     case DIRECTION_SW: v.y = +1, v.x = -1; break;
+    default: break;
     }
     return v;
 }
 
-static int ptr_index_in_arr(void *arr, void *p, int len)
+static i32 ptr_index_in_arr(void *arr, void *p, i32 len)
 {
     void **a = (void **)arr;
-    for (int i = 0; i < len; i++) {
+    for (i32 i = 0; i < len; i++) {
         if (*a++ == p) return i;
     }
     return -1;
@@ -206,5 +215,14 @@ typedef struct {
     int     flags;
     v2_i16  force_q8;
 } hitbox_s;
+
+typedef struct {
+    u32    type;
+    v2_i32 pos;
+} map_pin_s;
+
+typedef struct {
+    i32 x;
+} settings_s;
 
 #endif

@@ -128,6 +128,8 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         boat_load(g, o);
     } else if (str_eq_nc(o->name, "NPC")) {
         npc_load(g, o);
+    } else if (str_eq_nc(o->name, "Floater")) {
+        floater_load(g, o);
     } else if (str_eq_nc(o->name, "Crawler")) {
         crawler_load(g, o);
     } else if (str_eq_nc(o->name, "Caterpillar")) {
@@ -215,6 +217,9 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
 
 void game_load_map(game_s *g, const char *mapfile)
 {
+    g->save.coins += g->coins_added;
+    g->coins_added         = 0;
+    g->coins_added_ticks   = 0;
     g->obj_ndelete         = 0;
     g->n_objrender         = 0;
     g->obj_head_busy       = NULL;
@@ -414,7 +419,9 @@ void game_prepare_new_map(game_s *g)
 {
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     for (obj_each(g, o)) {
-        obj_game_animate(g, o); // just setting initial sprites for obj
+        if (o->on_animate) { // just setting initial sprites for obj
+            o->on_animate(g, o);
+        }
     }
     aud_allow_playing_new_snd(1);
     cam_init_level(g, &g->cam);

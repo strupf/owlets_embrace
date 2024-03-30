@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "title.h"
+#include "app.h"
 #include "game.h"
 #include "sys/sys.h"
 
@@ -70,7 +71,6 @@ void title_update(game_s *g, title_s *t)
         if (t->fade_to_game < (FADETICKS_MM_GAME + FADETICKS_MM_GAME_BLACK)) return;
         t->fade_to_game = 0;
         title_op_start_file(g, t);
-        g->substate.state = SUBSTATE_TITLE_FADE_IN;
         return;
     }
 
@@ -140,8 +140,8 @@ static void title_op_start_file(game_s *g, title_s *t)
 {
     title_play_sound(TITLE_SOUND_START);
     game_load_savefile(g);
-
-    g->state = GAMESTATE_GAMEPLAY;
+    g->state = APP_STATE_GAME;
+    app_set_menu_gameplay();
 }
 
 static void title_play_sound(int soundID)
@@ -197,7 +197,8 @@ void title_render(title_s *t)
         fade_j     = min_i(fade_j * 2, 100);
         ctx.pat    = gfx_pattern_interpolate(pow2_i32(fade_j), pow2_i32(100));
 
-        fnt_draw_ascii(ctx, font, (v2_i32){140, 200}, "Press Start", mode);
+        i32 strl = fnt_length_px(font, "Press Start");
+        fnt_draw_ascii(ctx, font, (v2_i32){200 - strl / 2, 200}, "Press Start", mode);
     } break;
     default:
         BAD_PATH

@@ -147,6 +147,8 @@ void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode);
 void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, int y1, int y2);
 //
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
+void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode, int spacing);
 int  fnt_length_px(fnt_s fnt, const char *txt);
+int  fnt_length_px_mono(fnt_s fnt, const char *txt, int spacing);
 
 #endif

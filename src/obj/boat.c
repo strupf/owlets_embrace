@@ -4,19 +4,6 @@
 
 #include "game.h"
 
-void boat_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_BOAT;
-    o->flags = OBJ_FLAG_SOLID |
-               OBJ_FLAG_RENDER_AABB |
-               OBJ_FLAG_SPRITE;
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
-    o->w     = 64;
-    o->h     = 32;
-}
-
 void boat_on_update(game_s *g, obj_s *o)
 {
     int x1 = o->pos.x;
@@ -36,4 +23,19 @@ void boat_on_update(game_s *g, obj_s *o)
 
 void boat_on_animate(game_s *g, obj_s *o)
 {
+}
+
+void boat_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_BOAT;
+    o->flags = OBJ_FLAG_SOLID |
+               OBJ_FLAG_RENDER_AABB |
+               OBJ_FLAG_SPRITE;
+    o->on_update  = boat_on_update;
+    o->on_animate = boat_on_animate;
+    o->pos.x      = mo->x;
+    o->pos.y      = mo->y;
+    o->w          = 64;
+    o->h          = 32;
 }

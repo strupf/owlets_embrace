@@ -26,40 +26,6 @@ static int npc_get_state(game_s *g, obj_s *o)
     return NPC_GROUNDED;
 }
 
-void npc_load(game_s *g, map_obj_s *mo)
-{
-    obj_s           *o   = obj_create(g);
-    npc_s           *npc = (npc_s *)o->mem;
-    sprite_simple_s *spr = &o->sprites[0];
-
-    o->ID    = OBJ_ID_NPC;
-    o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_ACTOR |
-               OBJ_FLAG_INTERACTABLE |
-               OBJ_FLAG_MOVER;
-    o->moverflags = OBJ_MOVER_GLUE_GROUND |
-                    OBJ_MOVER_ONE_WAY_PLAT |
-                    OBJ_MOVER_SLOPES;
-    o->render_priority = 1;
-    o->w               = 16;
-    o->h               = 20;
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y + mo->h - o->h;
-    o->gravity_q8.y    = 50;
-    o->drag_q8.x       = 256;
-    o->drag_q8.y       = 255;
-    o->vel_cap_q8.x    = 96; // don't move faster than 1 pixel per frame -> falls down
-    o->facing          = 1;
-    o->n_sprites       = 1;
-    spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
-    spr->offs.x        = (o->w - spr->trec.r.w) / 2;
-    spr->offs.y        = o->h - spr->trec.r.h;
-
-    map_obj_strs(mo, "Dialogfile", o->filename);
-    npc->movement          = map_obj_i32(mo, "Movement");
-    o->sprites[0].trec.r.y = map_obj_i32(mo, "Model") * 48;
-}
-
 void npc_on_update(game_s *g, obj_s *o)
 {
     bool32 bumpedx = o->bumpflags & OBJ_BUMPED_X;
@@ -109,17 +75,6 @@ void npc_on_update(game_s *g, obj_s *o)
     }
 }
 
-void npc_on_interact(game_s *g, obj_s *o)
-{
-    npc_s *npc   = (npc_s *)o->mem;
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero) {
-        o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
-    }
-    o->vel_q8.x = 0;
-    substate_load_textbox(g, &g->substate, o->filename);
-}
-
 void npc_on_animate(game_s *g, obj_s *o)
 {
     sprite_simple_s *spr   = &o->sprites[0];
@@ -145,4 +100,52 @@ void npc_on_animate(game_s *g, obj_s *o)
 
     spr->trec.r.x = frame * 64;
     spr->flip     = o->facing == 1 ? 0 : SPR_FLIP_X;
+}
+
+void npc_on_interact(game_s *g, obj_s *o)
+{
+    npc_s *npc   = (npc_s *)o->mem;
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero) {
+        o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
+    }
+    o->vel_q8.x = 0;
+    textbox_load_dialog(g, &g->textbox, o->filename);
+}
+
+void npc_load(game_s *g, map_obj_s *mo)
+{
+    obj_s           *o   = obj_create(g);
+    npc_s           *npc = (npc_s *)o->mem;
+    sprite_simple_s *spr = &o->sprites[0];
+
+    o->ID    = OBJ_ID_NPC;
+    o->flags = OBJ_FLAG_SPRITE |
+               OBJ_FLAG_ACTOR |
+               OBJ_FLAG_INTERACTABLE |
+               OBJ_FLAG_MOVER;
+    o->moverflags = OBJ_MOVER_GLUE_GROUND |
+                    OBJ_MOVER_ONE_WAY_PLAT |
+                    OBJ_MOVER_SLOPES;
+    o->on_update       = npc_on_update;
+    o->on_animate      = npc_on_animate;
+    o->on_interact     = npc_on_interact;
+    o->render_priority = 1;
+    o->w               = 16;
+    o->h               = 20;
+    o->pos.x           = mo->x;
+    o->pos.y           = mo->y + mo->h - o->h;
+    o->gravity_q8.y    = 50;
+    o->drag_q8.x       = 256;
+    o->drag_q8.y       = 255;
+    o->vel_cap_q8.x    = 96; // don't move faster than 1 pixel per frame -> falls down
+    o->facing          = 1;
+    o->n_sprites       = 1;
+    spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
+    spr->offs.x        = (o->w - spr->trec.r.w) / 2;
+    spr->offs.y        = o->h - spr->trec.r.h;
+
+    map_obj_strs(mo, "Dialogfile", o->filename);
+    npc->movement          = map_obj_i32(mo, "Movement");
+    o->sprites[0].trec.r.y = map_obj_i32(mo, "Model") * 48;
 }

@@ -71,9 +71,8 @@ typedef struct {
     textbox_block_s blocks[TEXTBOX_NUM_BLOCKS]; // the whole dialog tree
 } textbox_s;
 
-bool32 textbox_finished(textbox_s *tb);
-void   textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename);
-void   textbox_update(game_s *g, textbox_s *tb, inp_s inp);
-void   textbox_draw(textbox_s *tb, v2_i32 camoffset);
+void textbox_load_dialog(game_s *g, textbox_s *tb, const char *filename);
+void textbox_update(game_s *g);
+void textbox_draw(game_s *g, v2_i32 camoffset);
 
 #endif

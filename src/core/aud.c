@@ -56,25 +56,27 @@ void aud_update()
     }
 }
 
-void aud_mute(bool32 mute)
+void aud_set_lowpass(i32 lp)
 {
-    AUD.mute = mute;
+    AUD.lowpass = (lp <= 0 ? 0 : lp);
 }
 
 void aud_audio(i16 *buf, int len)
 {
-#ifdef SYS_SDL
-    if (AUD.mute) {
-        memset(buf, 0, sizeof(i16) * len);
-        return;
-    }
-#endif
-
+    // muschannel sets buffer to music or to 0 if no music
     muschannel_stream(&AUD.muschannel, buf, len);
     for (int n = 0; n < NUM_SNDCHANNEL; n++) {
         sndchannel_s *ch = &AUD.sndchannel[n];
         if (ch->wavbuf) {
             sndchannel_play(ch, buf, len);
+        }
+    }
+
+    if (AUD.lowpass) {
+        i16 *b = buf;
+        for (int n = 0; n < len; n++) {
+            AUD.lowpass_acc += ((i32)*b - AUD.lowpass_acc) >> AUD.lowpass;
+            *b++ = (i16)AUD.lowpass_acc;
         }
     }
 }

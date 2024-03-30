@@ -689,11 +689,51 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int 
     fnt_draw_str(ctx, fnt, pos, str, mode);
 }
 
+void fnt_draw_str_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, int mode, int spacing)
+{
+    v2_i32   p = pos;
+    texrec_s t;
+    t.t   = fnt.t;
+    t.r.w = fnt.grid_w;
+    t.r.h = fnt.grid_h;
+    int s = spacing ? spacing : fnt.grid_w;
+    for (int n = 0; n < str.n; n++) {
+        int ci = str.buf[n];
+        t.r.x  = (ci & 31) * fnt.grid_w;
+        t.r.y  = (ci >> 5) * fnt.grid_h;
+        gfx_spr(ctx, t, p, 0, mode);
+        p.x += s;
+    }
+}
+
+void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode, int spacing)
+{
+    fntstr_s str      = {0};
+    u8       buf[256] = {0};
+    str.buf           = buf;
+    str.cap           = ARRLEN(buf);
+    for (const char *c = text; *c != '\0'; c++) {
+        if (str.n == str.cap) break;
+        str.buf[str.n++] = (u8)*c;
+    }
+    fnt_draw_str_mono(ctx, fnt, pos, str, mode, spacing);
+}
+
 int fnt_length_px(fnt_s fnt, const char *txt)
 {
     int l = 0;
     for (const char *c = txt; *c != '\0'; c++) {
         l += fnt.widths[(uint)*c];
+    }
+    return l;
+}
+
+int fnt_length_px_mono(fnt_s fnt, const char *txt, int spacing)
+{
+    int l = 0;
+    int s = spacing ? spacing : fnt.grid_w;
+    for (const char *c = txt; *c != '\0'; c++) {
+        l += s;
     }
     return l;
 }

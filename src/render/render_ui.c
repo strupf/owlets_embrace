@@ -14,12 +14,12 @@
 
 void render_ui(game_s *g, v2_i32 camoff)
 {
-    const gfx_ctx_s ctx_ui = gfx_ctx_display();
+    const gfx_ctx_s ctx    = gfx_ctx_display();
     obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
     fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
 
     if (g->areaname.fadeticks) {
-        gfx_ctx_s ctx_af = ctx_ui;
+        gfx_ctx_s ctx_af = ctx;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
 
         int p1 = (FADETICKS_AREALABEL * 1) / 8;
@@ -36,6 +36,25 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
+#define COIN_MONO_SPACING 8
+#define COIN_POS_END_X    60
+    fnt_s font_c      = asset_fnt(FNTID_SMALL);
+    char  coins_l[16] = {0};
+    strs_from_u32(g->save.coins, coins_l);
+    int    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
+    v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 15};
+    fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+    if (g->coins_added) {
+        char coins_add_l[16] = {0};
+        strs_from_u32(abs_i32(g->coins_added), coins_add_l);
+        int    coinastrl = fnt_length_px_mono(font_c, coins_add_l, COIN_MONO_SPACING);
+        v2_i32 coinposa  = {COIN_POS_END_X - coinastrl, 30};
+        fnt_draw_ascii_mono(ctx, font_c, coinposa, coins_add_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+        v2_i32      coinposplus = {10, coinposa.y};
+        const char *strsig      = 0 < g->coins_added ? "+" : "-";
+        fnt_draw_ascii_mono(ctx, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
+    }
+
     obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
     if (interactable) {
         v2_i32 posi = obj_pos_center(interactable);
@@ -44,7 +63,23 @@ void render_ui(game_s *g, v2_i32 camoff)
         posi.x -= 32;
         int      btn_frame = (sys_tick() >> 5) & 1;
         texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
-        gfx_spr(ctx_ui, tui, posi, 0, 0);
+        gfx_spr(ctx, tui, posi, 0, 0);
+    }
+
+    if (g->save_ticks) {
+        i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
+        gfx_ctx_s ctx_save  = ctx;
+        if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
+            saveframe = 0;
+            i32 t0    = g->save_ticks - SAVE_TICKS_FADE_OUT;
+            if (0 <= t0) {
+                i32 t1       = SAVE_TICKS - SAVE_TICKS_FADE_OUT;
+                ctx_save.pat = gfx_pattern_interpolate(t1 - t0, t1);
+            }
+        }
+
+        texrec_s trsave = asset_texrec(TEXID_MISCOBJ, 512 + saveframe, 0, 32, 32);
+        gfx_spr(ctx_save, trsave, (v2_i32){16, 200}, 0, 0);
     }
 
     if (shop_active(g)) {
@@ -52,17 +87,32 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 
     if (ohero) {
-        texrec_s healthbar = asset_texrec(TEXID_UI, 0, 64, 8, 16);
-        gfx_rec_fill(ctx_ui, (rec_i32){0, 0, ohero->health_max * 6 + 2, 16},
-                     PRIM_MODE_BLACK);
-        int bars = ohero->health;
-        for (int i = 0; i < bars; i++) {
-            v2_i32 barpos = {i * 6, 0};
-            gfx_spr(ctx_ui, healthbar, barpos, 0, 0);
+        v2_i32 hctr = v2_add(camoff, obj_pos_center(ohero));
+
+        if (ohero->health < ohero->health_max) {
+            gfx_ctx_s health_ctx = ctx;
+            health_ctx.pat       = gfx_pattern_75();
+            i32 health_r         = 150 + (ohero->health * 100) / ohero->health_max;
+            i32 health_flicker   = 12 - (ohero->health * 12) / ohero->health_max;
+            for (int y = 0; y < SYS_DISPLAY_H; y++) {
+                i32 yy    = (hctr.y - y);
+                i32 xx_sq = pow2_i32(health_r) - pow2_i32(yy);
+                i32 offs  = rngr_sym_i32(health_flicker);
+                if (0 < xx_sq) {
+                    i32     xx  = sqrt_i32(xx_sq);
+                    rec_i32 rr1 = {0, y, hctr.x - xx + offs, 1};
+                    rec_i32 rr2 = {hctr.x + xx + offs, y, 400, 1};
+                    gfx_rec_fill(health_ctx, rr1, GFX_COL_BLACK);
+                    gfx_rec_fill(health_ctx, rr2, GFX_COL_BLACK);
+                } else {
+                    rec_i32 rr = {0, y, SYS_DISPLAY_H, 1};
+                    gfx_rec_fill(health_ctx, rr, GFX_COL_BLACK);
+                }
+            }
         }
 
         texrec_s titem = asset_texrec(TEXID_UI, 240, 80 + g->item.selected * 32, 32, 32);
-        gfx_spr(ctx_ui, titem, (v2_i32){400 - 32, 0}, 0, 0);
+        gfx_spr(ctx, titem, (v2_i32){400 - 32, 0}, 0, 0);
     }
 }
 
@@ -100,96 +150,108 @@ v2_i32 mapview_screen_from_world_q8(v2_i32 wpos_q8, v2_i32 ctr_wpos_q8, i32 w, i
     return p;
 }
 
-void render_map(game_s *g, gfx_ctx_s ctx, i32 w, i32 h, i32 scl_q8, v2_i32 wctr_q8)
+void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, v2_i32 c_q8)
 {
-    gfx_ctx_s ctx_stripes = ctx;
-    ctx_stripes.pat       = gfx_pattern_4x4(B4(0001),
-                                            B4(0010),
-                                            B4(0100),
-                                            B4(1000));
 
     rec_i32 rfill = {0, 0, ctx.dst.w, ctx.dst.h};
-    gfx_rec_fill(ctx, rfill, 0);
+    gfx_rec_fill(ctx, rfill, PRIM_MODE_BLACK);
+    v2_i32 offs = {x, y};
 
-    // room walls
-    for (int i = 0; i < g->map_world.n_rooms; i++) {
-        map_worldroom_s *room = &g->map_world.rooms[i];
-        int              xx   = room->x / WORLD_GRID_W;
-        int              yy   = room->y / WORLD_GRID_H;
-        int              ww   = room->w / WORLD_GRID_W;
-        int              hh   = room->h / WORLD_GRID_H;
+    enum {
+        MAPVIEW_PASS_BACKGROUND = 0,
+        MAPVIEW_PASS_WALLS      = 1,
+        //
+        NUM_MAPVIEW_PASSES
+    };
 
-        // walls
-        for (int y = 0; y < hh; y++) {
-            for (int x = 0; x < ww; x++) {
-                // if (!hero_visited_tile(g, room, x, y)) continue;
-                v2_i32 p1_q8 = {(xx + x + 0) << 8, (yy + y + 0) << 8};
-                v2_i32 p2_q8 = {(xx + x + 1) << 8, (yy + y + 1) << 8};
-                v2_i32 d1    = mapview_screen_from_world_q8(p1_q8, wctr_q8, w, h, scl_q8);
-                v2_i32 d2    = mapview_screen_from_world_q8(p2_q8, wctr_q8, w, h, scl_q8);
-                i32    dw    = d2.x - d1.x;
-                i32    dh    = d2.y - d1.y;
+    for (int pass = 0; pass < NUM_MAPVIEW_PASSES; pass++) {
+        i32 wallcol  = (pass == MAPVIEW_PASS_BACKGROUND ? GFX_COL_BLACK : GFX_COL_WHITE);
+        i32 wallhalf = (pass == MAPVIEW_PASS_BACKGROUND ? 4 : 2);
+        i32 wallsize = wallhalf * 2;
 
-                rec_i32 rfill = {d1.x, d1.y, dw, dh};
-                gfx_rec_fill(ctx_stripes, rfill, PRIM_MODE_WHITE_BLACK);
+        for (int i = 0; i < g->map_world.n_rooms; i++) {
+            map_worldroom_s *room = &g->map_world.rooms[i];
+            int              xx   = room->x / WORLD_GRID_W;
+            int              yy   = room->y / WORLD_GRID_H;
+            int              ww   = room->w / WORLD_GRID_W;
+            int              hh   = room->h / WORLD_GRID_H;
 
-                if (!(x == 0 || y == 0 || x == ww - 1 || y == hh - 1)) continue; // no walls
-                int walls = room->room_walls[x + y * ww];
+            gfx_ctx_s ctxfill = ctx;
+            ctxfill.pat       = g->map_worldroom == room ? gfx_pattern_50() : gfx_pattern_75();
 
-                if (walls & 1) { // left wall
-                    rec_i32 rwall = {d1.x - 2, d1.y - 2, 4, dh + 4};
-                    gfx_rec_fill(ctx, rwall, PRIM_MODE_WHITE);
-                }
-                if (walls & 2) { // right wall
-                    rec_i32 rwall = {d2.x - 2, d1.y - 2, 4, dh + 4};
-                    gfx_rec_fill(ctx, rwall, PRIM_MODE_WHITE);
-                }
-                if (walls & 4) { // up wall
-                    rec_i32 rwall = {d1.x - 2, d1.y - 2, dw + 4, 4};
-                    gfx_rec_fill(ctx, rwall, PRIM_MODE_WHITE);
-                }
-                if (walls & 8) { // bot wall
-                    rec_i32 rwall = {d1.x - 2, d2.y - 2, dw + 4, 4};
-                    gfx_rec_fill(ctx, rwall, PRIM_MODE_WHITE);
+            for (int ty = 0; ty < hh; ty++) {
+                for (int tx = 0; tx < ww; tx++) {
+                    if (!hero_visited_tile(g, room, tx, ty)) continue;
+
+                    v2_i32 p1 = {(xx + tx + 0) << 8, (yy + ty + 0) << 8};
+                    v2_i32 p2 = {(xx + tx + 1) << 8, (yy + ty + 1) << 8};
+                    v2_i32 d1 = v2_add(offs, mapview_screen_from_world_q8(p1, c_q8, w, h, s_q8));
+                    v2_i32 d2 = v2_add(offs, mapview_screen_from_world_q8(p2, c_q8, w, h, s_q8));
+                    i32    dw = d2.x - d1.x;
+                    i32    dh = d2.y - d1.y;
+
+                    if (pass == MAPVIEW_PASS_BACKGROUND) { // fill room background
+                        i32     rx1   = d1.x + 2 * (tx == 0);
+                        i32     ry1   = d1.y + 2 * (ty == 0);
+                        i32     rx2   = d2.x - 2 * (tx == ww - 1);
+                        i32     ry2   = d2.y - 2 * (ty == hh - 1);
+                        rec_i32 rfill = {rx1, ry1, rx2 - rx1, ry2 - ry1};
+                        gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK_WHITE);
+                    }
+
+                    if (!(tx == 0 || ty == 0 || tx == ww - 1 || ty == hh - 1)) continue; // no walls
+
+                    // draw walls
+                    i32 walls = room->room_walls[tx + ty * ww];
+                    if (walls & 1) { // left wall
+                        rec_i32 rwall = {d1.x - wallhalf, d1.y - wallhalf, wallsize, dh + wallsize};
+                        gfx_rec_fill(ctx, rwall, wallcol);
+                    }
+                    if (walls & 2) { // right wall
+                        rec_i32 rwall = {d2.x - wallhalf, d1.y - wallhalf, wallsize, dh + wallsize};
+                        gfx_rec_fill(ctx, rwall, wallcol);
+                    }
+                    if (walls & 4) { // up wall
+                        rec_i32 rwall = {d1.x - wallhalf, d1.y - wallhalf, dw + wallsize, wallsize};
+                        gfx_rec_fill(ctx, rwall, wallcol);
+                    }
+                    if (walls & 8) { // bot wall
+                        rec_i32 rwall = {d1.x - wallhalf, d2.y - wallhalf, dw + wallsize, wallsize};
+                        gfx_rec_fill(ctx, rwall, wallcol);
+                    }
                 }
             }
         }
     }
 
-#if 1
-    v2_i32 origin = {0, 0};
-    origin        = mapview_screen_from_world_q8(origin, wctr_q8, w, h, scl_q8);
-    gfx_cir_fill(ctx, origin, 15, PRIM_MODE_WHITE);
-
     for (int n = 0; n < g->save.n_map_pins; n++) {
         map_pin_s p      = g->save.map_pins[n];
         texrec_s  tpin   = asset_texrec(TEXID_UI, 256 + p.type * 32, 192, 32, 32);
-        v2_i32    pinpos = mapview_screen_from_world_q8(p.pos, wctr_q8, w, h, scl_q8);
+        v2_i32    pinpos = v2_add(offs, mapview_screen_from_world_q8(p.pos, c_q8, w, h, s_q8));
         pinpos.x -= 16;
         pinpos.y -= 16;
         gfx_spr(ctx, tpin, pinpos, 0, 0);
     }
-#endif
 }
 
 void render_pause(game_s *g)
 {
-    if (menu_screen_active(&g->menu_screen)) {
-        sys_set_menu_image(NULL, 0, 0);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+
+    if (g->substate == SUBSTATE_MENUSCREEN || !ohero) {
+        sys_del_menu_image();
     } else {
-        tex_s     tex = asset_tex(TEXID_PAUSE_TEX);
-        gfx_ctx_s ctx = gfx_ctx_default(tex);
-        tex_clr(tex, GFX_COL_BLACK);
+        tex_s            tex      = asset_tex(TEXID_PAUSE_TEX);
+        gfx_ctx_s        ctx      = gfx_ctx_default(tex);
+        i32              scl_q8   = MAPVIEW_SCL_DEFAULT << 8;
+        map_worldroom_s *room     = g->map_worldroom;
+        v2_i32           hero_pos = mapview_hero_world_q8(g);
+        render_map(g, ctx, 0, 0, SYS_DISPLAY_W / 2, SYS_DISPLAY_H, scl_q8, hero_pos);
 
-        i32    scl_q8   = 32 << 8;
-        v2_i32 hero_pos = {
-            ((g->map_worldroom->x + g->map_worldroom->w / 2) << 8) / SYS_DISPLAY_W,
-            ((g->map_worldroom->y + g->map_worldroom->h / 2) << 8) / SYS_DISPLAY_H};
-        render_map(g, ctx, SYS_DISPLAY_W / 2, SYS_DISPLAY_H, scl_q8, hero_pos);
+        v2_i32   pheropin = {SYS_DISPLAY_W / 4 - 16, SYS_DISPLAY_H / 2 - 16};
+        texrec_s theropin = asset_texrec(TEXID_UI, 320, 160, 32, 32);
+        gfx_spr(ctx, theropin, pheropin, 0, 0);
 
-        v2_i32 cirpos = mapview_screen_from_world_q8(hero_pos, hero_pos,
-                                                     SYS_DISPLAY_W / 2, SYS_DISPLAY_H, scl_q8);
-        gfx_cir_fill(ctx, cirpos, scl_q8 >> 9, PRIM_MODE_WHITE);
         tex_s tdisplay = asset_tex(0);
         for (int n = 0; n < tex.wword * tex.h; n++) {
             tdisplay.px[n] = tex.px[n];

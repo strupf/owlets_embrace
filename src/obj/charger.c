@@ -22,47 +22,6 @@ static void charger_update_normal(game_s *g, obj_s *o);
 static void charger_update_charging(game_s *g, obj_s *o);
 static void charger_update_stunned(game_s *g, obj_s *o);
 
-obj_s *charger_create(game_s *g)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_CHARGER;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_MOVER |
-               OBJ_FLAG_SPRITE |
-               OBJ_FLAG_HURT_ON_TOUCH |
-               OBJ_FLAG_ENEMY |
-               // OBJ_FLAG_RENDER_AABB |
-               OBJ_FLAG_CLAMP_ROOM_X |
-#if GAME_JUMP_ATTACK
-               OBJ_FLAG_PLATFORM | OBJ_FLAG_PLATFORM_HERO_ONLY |
-#endif
-               OBJ_FLAG_KILL_OFFSCREEN;
-    o->w                 = 48;
-    o->h                 = 32;
-    o->gravity_q8.y      = 80;
-    o->drag_q8.y         = 255;
-    o->drag_q8.x         = 256;
-    o->moverflags        = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLOPES;
-    o->vel_cap_q8.x      = 2000;
-    o->facing            = -1;
-    o->health_max        = 3;
-    o->health            = o->health_max;
-    o->enemy             = enemy_default();
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_CHARGER, 0, 0, 128, 64);
-    spr->offs.x          = -40;
-    spr->offs.y          = o->h - spr->trec.r.h;
-    return o;
-}
-
-void charger_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = charger_create(g);
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
-}
-
 static void charger_update_normal(game_s *g, obj_s *o)
 {
     bool32 bumpedx = (o->bumpflags & OBJ_BUMPED_X);
@@ -207,4 +166,38 @@ void charger_on_animate(game_s *g, obj_s *o)
     }
 
     spr->trec = asset_texrec(TEXID_CHARGER, frameID * 128, animID * 64, 128, 64);
+}
+
+void charger_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_CHARGER;
+    o->flags = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_MOVER |
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_HURT_ON_TOUCH |
+               OBJ_FLAG_ENEMY |
+               // OBJ_FLAG_RENDER_AABB |
+               OBJ_FLAG_CLAMP_ROOM_X |
+               OBJ_FLAG_KILL_OFFSCREEN;
+    o->on_update         = charger_on_update;
+    o->on_animate        = charger_on_animate;
+    o->w                 = 48;
+    o->h                 = 32;
+    o->gravity_q8.y      = 80;
+    o->drag_q8.y         = 255;
+    o->drag_q8.x         = 256;
+    o->moverflags        = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLOPES;
+    o->vel_cap_q8.x      = 2000;
+    o->facing            = -1;
+    o->health_max        = 3;
+    o->health            = o->health_max;
+    o->enemy             = enemy_default();
+    o->n_sprites         = 1;
+    sprite_simple_s *spr = &o->sprites[0];
+    spr->trec            = asset_texrec(TEXID_CHARGER, 0, 0, 128, 64);
+    spr->offs.x          = -40;
+    spr->offs.y          = o->h - spr->trec.r.h;
+    o->pos.x             = mo->x;
+    o->pos.y             = mo->y;
 }

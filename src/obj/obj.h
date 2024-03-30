@@ -59,6 +59,7 @@ enum {
     OBJ_ID_BOAT,
     OBJ_ID_HOOKLEVER,
     OBJ_ID_SPRITEDECAL,
+    OBJ_ID_FLOATER,
 };
 
 enum {
@@ -151,57 +152,69 @@ static inline u32 save_ID_gen(int roomID, int objID)
     return save_ID;
 }
 
+typedef void (*obj_on_update_f)(game_s *g, obj_s *o);
+typedef void (*obj_on_animate_f)(game_s *g, obj_s *o);
+typedef void (*obj_on_draw_f)(game_s *g, obj_s *o, v2_i32 cam);
+typedef void (*obj_on_trigger_f)(game_s *g, obj_s *o, i32 trigger);
+typedef void (*obj_on_interact_f)(game_s *g, obj_s *o);
+
 #define OBJ_MAGIC 0xDEADBEEFU
 struct obj_s {
-    obj_s          *next; // linked list
+    obj_s            *next; // linked list
     //
-    obj_GID_s       GID;
-    u32             ID;      // type of object
-    u32             save_ID; // used to register save events
-    flags64         flags;
-    flags32         tags;
+    obj_GID_s         GID;
+    u32               ID;      // type of object
+    u32               save_ID; // used to register save events
+    flags64           flags;
+    flags32           tags;
     //
-    i32             render_priority;
-    flags32         bumpflags; // has to be cleared manually
-    flags32         moverflags;
-    i32             w;
-    i32             h;
-    v2_i32          posprev;
-    v2_i32          pos; // position in pixels
-    v2_i32          subpos_q8;
-    v2_i32          vel_q8;
-    v2_i32          vel_prev_q8;
-    v2_i32          vel_cap_q8;
-    v2_i32          drag_q8;
-    v2_i32          gravity_q8;
-    v2_i32          tomove;
+    obj_on_update_f   on_update;
+    obj_on_animate_f  on_animate;
+    obj_on_draw_f     on_draw;
+    obj_on_trigger_f  on_trigger;
+    obj_on_interact_f on_interact;
+    //
+    i32               render_priority;
+    flags32           bumpflags; // has to be cleared manually
+    flags32           moverflags;
+    i32               w;
+    i32               h;
+    v2_i32            posprev;
+    v2_i32            pos; // position in pixels
+    v2_i32            subpos_q8;
+    v2_i32            vel_q8;
+    v2_i32            vel_prev_q8;
+    v2_i32            vel_cap_q8;
+    v2_i32            drag_q8;
+    v2_i32            gravity_q8;
+    v2_i32            tomove;
     // some generic behaviour fields
-    bool16          facing_locked;
-    i16             facing; // -1 left, +1 right
-    i32             trigger;
-    i32             action;
-    i32             subaction;
-    i32             state;
-    i32             animation;
-    i32             timer;
-    i32             subtimer;
-    i32             substate;
+    bool16            facing_locked;
+    i16               facing; // -1 left, +1 right
+    i32               trigger;
+    i32               action;
+    i32               subaction;
+    i32               state;
+    u32               animation;
+    u32               timer;
+    u32               subtimer;
+    i32               substate;
     //
-    i32             collectible_type;
-    i32             collectible_amount;
-    i32             health;
-    i32             health_max;
-    i32             invincible_tick;
-    enemy_s         enemy;
+    i32               collectible_type;
+    i32               collectible_amount;
+    i32               health;
+    i32               health_max;
+    i32               invincible_tick;
+    enemy_s           enemy;
     //
-    ropenode_s     *ropenode;
-    rope_s         *rope;
-    obj_handle_s    linked_solid;
-    obj_handle_s    obj_handles[4];
+    ropenode_s       *ropenode;
+    rope_s           *rope;
+    obj_handle_s      linked_solid;
+    obj_handle_s      obj_handles[4];
     //
-    i32             n_sprites;
-    sprite_simple_s sprites[4];
-    char            filename[64];
+    i32               n_sprites;
+    sprite_simple_s   sprites[4];
+    char              filename[64];
     //
     alignas(4) char mem[256];
     u32 magic;

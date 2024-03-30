@@ -447,10 +447,10 @@ int backend_debug_space()
     return (keys[SDL_SCANCODE_SPACE]);
 }
 
-void backend_set_menu_image(void *px, int h, int wbyte)
+bool32 backend_set_menu_image(void *px, int h, int wbyte)
 {
     if (!px) {
-        return;
+        return 0;
     }
     int y2 = SYS_DISPLAY_H < h ? SYS_DISPLAY_H : h;
     int b2 = SYS_DISPLAY_WBYTES < wbyte ? SYS_DISPLAY_WBYTES : wbyte;
@@ -463,6 +463,7 @@ void backend_set_menu_image(void *px, int h, int wbyte)
         }
     }
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+    return 1;
 }
 
 void backend_display_flush()
