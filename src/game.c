@@ -82,6 +82,7 @@ static void gameplay_tick(game_s *g, inp_s inp)
 
     // hero touching other objects
     if (ohero && 0 < ohero->health) {
+        hero_s       *hero         = &g->hero_mem;
         const rec_i32 heroaabb     = obj_aabb(ohero);
         bool32        herogrounded = obj_grounded(g, ohero);
         for (obj_each(g, o)) {
@@ -112,6 +113,12 @@ static void gameplay_tick(game_s *g, inp_s inp)
             for (obj_each(g, o)) {
                 if (!(o->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
                 if (!overlap_rec(heroaabb, obj_aabb(o))) continue;
+                if (hero->thrusting) {
+                    hero->thrusting = 0;
+                    ohero->vel_q8.y = -2000;
+                    continue;
+                }
+                continue;
                 v2_i32 ocenter   = obj_pos_center(o);
                 v2_i32 dt        = v2_sub(hcenter, ocenter);
                 hero_knockback.x = sgn_i(dt.x) * 1000;

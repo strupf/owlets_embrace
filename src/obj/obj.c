@@ -224,6 +224,21 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
                     }
                 }
             }
+            if ((o->moverflags & OBJ_MOVER_GLUE_TOP)) {
+                r.y--;
+                if (game_traversable(g, r)) {
+                    r.y--;
+                    if (game_traversable(g, r)) {
+                        r.y--;
+                        if (!game_traversable(g, r)) {
+                            v.y = -2;
+                            m--; // don't go down too fast
+                        }
+                    } else {
+                        v.y = -1;
+                    }
+                }
+            }
         } else if (o->moverflags & OBJ_MOVER_SLOPES) {
             r.y--;
             v.y = -1;
@@ -239,6 +254,12 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
                 } else {
                     DO_BUMP_X;
                 }
+            }
+        } else if (o->moverflags & OBJ_MOVER_SLOPES_TOP) {
+            r.y++;
+            v.y = +1;
+            if (!game_traversable(g, r)) {
+                DO_BUMP_X;
             }
         } else {
             DO_BUMP_X;

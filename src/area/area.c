@@ -20,7 +20,7 @@ enum {
 
 static flags32 g_areafx[NUM_AREA_ID] = {
     0,                     // none
-    AFX_PARTICLES_CALM,    // white
+    AFX_WIND,              // white
     0,                     // black
     AFX_CLOUDS | AFX_WIND, // mountain
     AFX_CLOUDS | AFX_RAIN, // mountain rainy

@@ -245,8 +245,8 @@ static void app_load_tex()
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
-    for (int y = 0; y < 13; y++) {
-        for (int x = 0; x < 6; x++) {
+    for (int y = 0; y < 20; y++) {
+        for (int x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }

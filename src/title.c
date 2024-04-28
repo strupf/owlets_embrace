@@ -35,6 +35,7 @@ void title_init(title_s *t)
     hs.upgrades[HERO_UPGRADE_GLIDE]      = 1;
     hs.upgrades[HERO_UPGRADE_LONG_HOOK]  = 1;
     hs.upgrades[HERO_UPGRADE_WHIP]       = 1;
+    hs.upgrades[HERO_STATE_SWIMMING]     = 1;
     hs.health                            = 3;
 
     strcpy(hs.hero_mapfile, "Level_0");

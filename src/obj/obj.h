@@ -60,6 +60,7 @@ enum {
     OBJ_ID_HOOKLEVER,
     OBJ_ID_SPRITEDECAL,
     OBJ_ID_FLOATER,
+    OBJ_ID_POT,
 };
 
 enum {
@@ -111,6 +112,8 @@ enum {
     OBJ_MOVER_GLUE_GROUND    = 1 << 2,
     OBJ_MOVER_AVOID_HEADBUMP = 1 << 3,
     OBJ_MOVER_ONE_WAY_PLAT   = 1 << 4,
+    OBJ_MOVER_SLOPES_TOP     = 1 << 5,
+    OBJ_MOVER_GLUE_TOP       = 1 << 6,
 };
 
 typedef void (*obj_action_s)(game_s *g, obj_s *o);

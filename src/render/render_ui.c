@@ -22,9 +22,9 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_ctx_s ctx_af = ctx;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
 
-        int p1 = (FADETICKS_AREALABEL * 1) / 8;
-        int p2 = (FADETICKS_AREALABEL * 6) / 8;
-        int ft = g->areaname.fadeticks;
+        i32 p1 = (FADETICKS_AREALABEL * 1) / 8;
+        i32 p2 = (FADETICKS_AREALABEL * 6) / 8;
+        i32 ft = g->areaname.fadeticks;
         if (ft <= p1) {
             ctx_af.pat = gfx_pattern_interpolate(ft, p1);
         } else if (p2 <= ft) {
@@ -43,7 +43,7 @@ void render_ui(game_s *g, v2_i32 camoff)
     strs_from_u32(g->save.coins, coins_l);
     int    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
     v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 15};
-    fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+    // fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
     if (g->coins_added) {
         char coins_add_l[16] = {0};
         strs_from_u32(abs_i32(g->coins_added), coins_add_l);
@@ -112,7 +112,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         }
 
         texrec_s titem = asset_texrec(TEXID_UI, 240, 80 + g->item.selected * 32, 32, 32);
-        gfx_spr(ctx, titem, (v2_i32){400 - 32, 0}, 0, 0);
+        // gfx_spr(ctx, titem, (v2_i32){400 - 32, 0}, 0, 0);
     }
 }
 

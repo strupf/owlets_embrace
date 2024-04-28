@@ -606,7 +606,9 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 
         if (0 < y) {
             map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
-            if ((tile.type == AUTOTILE_TYPE_DIRT) && above.type == 0) {
+            if ((tile.type == AUTOTILE_TYPE_DIRT ||
+                 tile.type == AUTOTILE_TYPE_BRICK) &&
+                above.type == 0) {
                 game_put_grass(g, x, y - 1);
             }
         }

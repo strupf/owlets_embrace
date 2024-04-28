@@ -79,13 +79,22 @@ typedef struct {
     i32          attack_tick;
     i32          sprint_ticks;
     bool32       sprinting;
+    i32          grabbingp;
+    i32          grabbing;
+    bool32       carrying;
+    obj_handle_s carried;
+    bool32       thrustingp;
+    bool32       thrusting;
+    bool32       trys_lifting;
     i32          walljumpticks;
+    i32          idle_ticks;
+    bool32       is_idle;
+    i32          idle_anim;
     i32          runup_tick;
     i32          hook_aiming_ticks;
     bool32       diving;
     i32          breath_ticks;
     i32          ropewalljump_dir;
-    bool32       carrying;
     i32          swimticks;
     bool32       gliding;
     bool32       sliding;
@@ -100,6 +109,8 @@ typedef struct {
     bool32       onladder;
     i32          ladderx;
     v2_i32       jumped_at;
+    bool32       reel_in;
+    i32          reel_in_dtap;
 } hero_s;
 
 obj_s *hero_create(game_s *g);

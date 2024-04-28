@@ -223,6 +223,11 @@ void hero_on_animate(game_s *g, obj_s *o)
     int     frameID         = 0;
     int     state           = hero_determine_state(g, o, h);
 
+    const bool32 was_idle   = h->is_idle;
+    const i32    idle_animp = h->idle_anim;
+    h->idle_anim            = 0;
+    h->is_idle              = 0;
+
     if (h->sliding) {
         state = -1; // override other states
         sprite->offs.y -= 16;
@@ -250,18 +255,23 @@ void hero_on_animate(game_s *g, obj_s *o)
     switch (state) {
     case HERO_STATE_GROUND: {
         if (0 < h->ground_impact_ticks && !h->carrying) {
-            animID  = 2; // "oof"
-            frameID = 4;
+            animID  = 6; // "oof"
+            frameID = 5;
             break;
         }
 
         sprite->offs.y -= 16;
 
         if (o->vel_q8.x != 0) {
+            if (was_idle) {
+                animID  = 2;
+                frameID = 3;
+                break;
+            }
             animID           = h->carrying ? 8 : 0; // "carrying/walking"
-            int frameID_prev = (o->animation / 4000) & 3;
+            int frameID_prev = (o->animation / 2000) & 7;
             o->animation += abs_i(o->vel_q8.x);
-            frameID = (o->animation / 4000) & 3;
+            frameID = (o->animation / 2000) & 7;
             if (frameID_prev != frameID && (frameID & 1) == 0) {
                 // snd_play_ext(SNDID_STEP, 0.5f, 1.f);
                 v2_i32 posc = obj_pos_bottom_center(o);
@@ -273,31 +283,61 @@ void hero_on_animate(game_s *g, obj_s *o)
             }
             break;
         }
-        animID = h->carrying ? 7 : 1; // "carrying/idle"
-        if (o->vel_prev_q8.x != 0) {
-            o->animation = 0; // just got idle
-        } else {
-            o->animation += 100;
-            frameID = (o->animation / 4000) & 1;
+        animID     = h->carrying ? 7 : 1; // "carrying/idle"
+        h->is_idle = 1;
+        h->idle_ticks++;
+        if (!was_idle) {
+            h->idle_ticks = 0;
         }
+
+        if (idle_animp) {
+            h->idle_anim = idle_animp + 1;
+        } else if (80 <= h->idle_ticks && rngr_i32(0, 4) == 0) {
+            h->idle_anim = 1;
+        }
+
+#define HERO_TICKS_IDLE_SIT 60
+        if (h->idle_anim) {
+            animID = 2;
+            if (HERO_TICKS_IDLE_SIT <= h->idle_anim) {
+                frameID = 12 + (((h->idle_anim - HERO_TICKS_IDLE_SIT) >> 6) & 1);
+            } else {
+                frameID = lerp_i32(0, 13, h->idle_anim, HERO_TICKS_IDLE_SIT);
+                frameID = clamp_i32(frameID, 0, 12);
+            }
+
+        } else {
+            if (o->vel_prev_q8.x != 0) {
+                o->animation = 0; // just got idle
+            } else {
+                o->animation += 100;
+                frameID = (o->animation / 1500) & 3;
+            }
+        }
+
         break;
     }
 
     case HERO_STATE_LADDER: {
-        animID       = 4; // "ladder"
+        animID       = 8; // "ladder"
         frameID      = 0;
         sprite->flip = ((o->animation >> 3) & 1) ? SPR_FLIP_X : 0;
         break;
     }
     case HERO_STATE_SWIMMING: { // repurpose jumping animation for swimming
-        animID   = 2;           // "air"
-        int swim = ((o->animation >> 4) & 7);
-        if (swim <= 1) {
-            sprite->offs.y += swim == 0 ? 0 : -4;
-            frameID = 1;
+        if (inp_dpad_x()) {
+            animID  = 9; // swim
+            frameID = ((o->animation >> 3) % 6);
         } else {
-            sprite->offs.y += swim - 2;
-            frameID = 2 + (swim & 1);
+            animID   = 6; // "air"
+            int swim = ((o->animation >> 4) & 7);
+            if (swim <= 1) {
+                sprite->offs.y += swim == 0 ? 0 : -2;
+                frameID = 2;
+            } else {
+                sprite->offs.y += swim - 2;
+                frameID = 2 + ((swim - 2) % 3);
+            }
         }
         break;
     }
@@ -314,12 +354,14 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
-        animID = 2; // "air"
+        animID = 6; // "air"
         if (0 < h->ground_impact_ticks) {
             frameID = 0;
         } else if (h->gliding) {
             frameID = 2 + (8 <= (o->animation & 63));
-        } else if (+300 <= o->vel_q8.y) {
+        } else if (+600 <= o->vel_q8.y) {
+            frameID = 4;
+        } else if (-10 <= o->vel_q8.y) {
             frameID = 3;
         } else if (-300 <= o->vel_q8.y) {
             frameID = 2;
@@ -507,16 +549,17 @@ static void hero_use_hook(game_s *g, obj_s *o, inp_s inp)
     }
 
     v2_i32 center  = obj_pos_center(o);
-    v2_i32 vlaunch = {dirx * 2100, diry * 1700};
+    v2_i32 vlaunch = {dirx * 3000, diry * 2300};
 
     if (diry < 0) {
         vlaunch.y = (vlaunch.y * 5) / 4;
     } else if (diry == 0) {
-        vlaunch.y = -500;
+        vlaunch.y = -600;
         vlaunch.x = (vlaunch.x * 5) / 4;
     }
 
     h->rope_active       = 1;
+    h->reel_in           = 0;
     rope_s *rope         = &h->rope;
     obj_s  *hook         = hook_create(g, rope, center, vlaunch);
     o->obj_handles[0]    = obj_handle_from_obj(hook);
@@ -535,7 +578,8 @@ static void hero_use_hook(game_s *g, obj_s *o, inp_s inp)
 
 static void hero_item_usage(game_s *g, obj_s *o, inp_s inp, int state)
 {
-    hero_s *h = &g->hero_mem;
+    hero_s *h      = &g->hero_mem;
+    i32     dpad_x = inps_dpad_x(inp);
 
     if (state == HERO_STATE_SWIMMING) {
         h->attack_tick = 0;
@@ -544,9 +588,78 @@ static void hero_item_usage(game_s *g, obj_s *o, inp_s inp, int state)
 
     if (state == HERO_STATE_LADDER || state == HERO_STATE_SWIMMING) return;
 
+    if (h->carrying && inps_just_pressed(inp, INP_B)) {
+        // throw
+        h->carrying     = 0;
+        obj_s *ocarried = obj_from_obj_handle(h->carried);
+        h->carried      = obj_handle_from_obj(NULL);
+        if (ocarried) {
+            pot_on_throw(g, ocarried, o->facing);
+        }
+        return;
+    }
+
+    bool32 grab_state = !h->carrying &&
+                        state == HERO_STATE_GROUND &&
+                        !o->rope &&
+                        inp_pressed(INP_B);
+    i32 grab_dir = (h->grabbingp ? h->grabbingp : dpad_x);
+
+    if (grab_state && grab_dir) {
+        rec_i32 grabrec = (0 < grab_dir ? obj_rec_right(o) : obj_rec_left(o));
+        grabrec.h -= 2;
+
+        if (!game_traversable(g, grabrec)) {
+            // is grabbing
+            if (h->grabbingp) {
+                h->grabbing        = h->grabbingp;
+                obj_s *obj_to_lift = NULL;
+                for (obj_each(g, it)) {
+                    if (it->ID != OBJ_ID_POT) continue;
+
+                    if (overlap_rec(grabrec, obj_aabb(it))) {
+                        obj_to_lift = it;
+                        break;
+                    }
+                }
+
+                if (dpad_x == -h->grabbingp) {
+                    if (obj_to_lift) {
+                        h->grabbing  = 0;
+                        h->grabbingp = 0;
+                        // TODO: Picking up and moving with solids / other objects!
+                        h->carrying  = 1;
+                        h->carried   = obj_handle_from_obj(obj_to_lift);
+                        pot_on_pickup(g, obj_to_lift, o);
+                        sys_printf("lift!\n");
+                    } else {
+                        h->trys_lifting = 1;
+                    }
+                }
+            } else {
+                assert(dpad_x);
+                h->grabbing = dpad_x;
+            }
+            return;
+        }
+    }
+
     switch (g->item.selected) {
     case HERO_ITEM_HOOK: {
         assert(hero_has_upgrade(g, HERO_UPGRADE_HOOK));
+
+        if (o->rope && h->reel_in) {
+            ropenode_s *rnode = ropenode_neighbour(o->rope, o->ropenode);
+            v2_i32      dtr   = v2_sub(rnode->p, o->pos);
+            dtr               = v2_setlen(dtr, 600);
+            o->gravity_q8.y   = 0;
+            o->vel_q8         = v2_add(o->vel_q8, dtr);
+            i32 rlen          = rope_length_q4(g, o->rope);
+            rlen              = clamp_i(rlen,
+                                        HERO_ROPE_LEN_MIN,
+                                        rlen);
+            rope_set_len_max_q4(o->rope, rlen);
+        }
 
         if (inps_just_pressed(inp, INP_B)) {
             if (o->rope) {
@@ -554,6 +667,15 @@ static void hero_item_usage(game_s *g, obj_s *o, inp_s inp, int state)
             } else {
                 hero_use_hook(g, o, inp);
             }
+            break;
+        }
+
+        if (inps_just_pressed(inp, INP_DPAD_U) && o->rope) {
+            i32 time = time_now();
+            if ((time - h->reel_in_dtap) <= 10) {
+                h->reel_in = 1;
+            }
+            h->reel_in_dtap = time;
             break;
         }
 
@@ -621,9 +743,8 @@ static bool32 hero_is_sprinting(hero_s *h)
 
 void hero_on_update(game_s *g, obj_s *o)
 {
-    inp_s   inp  = inp_state();
-    hero_s *hero = &g->hero_mem;
-
+    inp_s   inp = inp_state();
+    hero_s *h   = &g->hero_mem;
 #if !GAME_JUMP_ATTACK && 0
     if (g->item_selector.item != 0 && herodata->rope_active &&
         g->herodata.upgrades[HERO_UPGRADE_WHIP]) {
@@ -632,7 +753,7 @@ void hero_on_update(game_s *g, obj_s *o)
 #endif
 
     const v2_i32 v_og   = o->vel_q8;
-    int          state  = hero_determine_state(g, o, hero);
+    int          state  = hero_determine_state(g, o, h);
     int          dpad_x = inps_dpad_x(inp);
     int          dpad_y = inps_dpad_y(inp);
     if (state == HERO_STATE_DEAD) {
@@ -644,58 +765,69 @@ void hero_on_update(game_s *g, obj_s *o)
     o->drag_q8.y = HERO_DRAG_Y;
     o->flags |= OBJ_FLAG_MOVER;
     o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+    o->moverflags |= OBJ_MOVER_SLOPES;
+    o->moverflags &= ~OBJ_MOVER_GLUE_TOP;
+    o->moverflags &= ~OBJ_MOVER_SLOPES_TOP;
+
     o->gravity_q8.y = HERO_GRAVITY;
+    h->grabbingp    = h->grabbing;
+    h->grabbing     = 0;
+    h->trys_lifting = 0;
+    h->thrustingp   = h->thrusting;
+    h->thrusting    = 0;
     bool32 sliding  = (0 < dpad_y &&
-                      hero->sliding &&
+                      h->sliding &&
                       (state == HERO_STATE_AIR || state == HERO_STATE_GROUND));
     if (sliding) {
         o->drag_q8.x = HERO_DRAG_SLIDING;
     } else {
-        hero->sliding = 0;
+        h->sliding = 0;
     }
 
-    if (hero->walljumpticks) {
-        hero->walljumpticks--;
+    if (h->walljumpticks) {
+        h->walljumpticks--;
     }
 
-    if (hero->attack_tick) {
-        hero->attack_tick++;
-        if (HERO_ATTACK_TICKS <= hero->attack_tick) {
-            hero->attack_tick = 0;
+    if (h->attack_tick) {
+        h->attack_tick++;
+        if (HERO_ATTACK_TICKS <= h->attack_tick) {
+            h->attack_tick = 0;
         }
     }
 
-    hero->jump_btn_buffer--;
-    hero->ground_impact_ticks--;
+    h->jump_btn_buffer--;
+    h->ground_impact_ticks--;
 
     if (!inps_pressed(inp, INP_A) || state != HERO_STATE_AIR) {
-        hero->gliding = 0;
+        h->gliding = 0;
     }
 
-    if ((state != HERO_STATE_DEAD) && (state != HERO_STATE_SWIMMING || !hero->diving)) {
-        hero->breath_ticks -= HERO_BREATH_TICKS_REG;
-        hero->breath_ticks = max_i(hero->breath_ticks, 0);
+    if ((state != HERO_STATE_DEAD) && (state != HERO_STATE_SWIMMING || !h->diving)) {
+        h->breath_ticks -= HERO_BREATH_TICKS_REG;
+        h->breath_ticks = max_i(h->breath_ticks, 0);
     }
 
     if (state != HERO_STATE_AIR && state != HERO_STATE_GROUND) {
-        hero->sprint_ticks = 0;
-        hero->edgeticks    = 0;
+        h->sprint_ticks = 0;
+        h->edgeticks    = 0;
     }
 
-    o->facing_locked = 0;
-    if (hero->attack_tick) {
+    bool32 grabbing = h->grabbingp || h->trys_lifting;
+
+    o->facing_locked = grabbing;
+    if (h->attack_tick) {
         o->facing_locked = 1;
     }
 
     if (!o->facing_locked) {
-        if (hero->sliding) {
+        if (h->sliding) {
             o->facing = o->vel_q8.x ? sgn_i(o->vel_q8.x) : o->facing;
         } else if (dpad_x) {
             o->facing = dpad_x;
         }
     }
     if (!dpad_x) {
-        hero->sprinting = 0;
+        h->sprinting = 0;
     }
 
     hero_item_usage(g, o, inp, state);
@@ -712,8 +844,8 @@ void hero_on_update(game_s *g, obj_s *o)
             }
 
             if (250 <= o->vel_q8.y) {
-                hero->ground_impact_ticks = min_i(o->vel_q8.y >> 8, 6);
-                v2_i32 posc               = obj_pos_bottom_center(o);
+                h->ground_impact_ticks = min_i(o->vel_q8.y >> 8, 6);
+                v2_i32 posc            = obj_pos_bottom_center(o);
                 posc.x -= 16;
                 posc.y -= 32;
                 rec_i32 trp = {0, 284, 32, 32};
@@ -726,8 +858,8 @@ void hero_on_update(game_s *g, obj_s *o)
     }
 
     if (o->bumpflags & OBJ_BUMPED_X) {
-        hero->sprint_ticks = 0;
-        if (hero->sliding) {
+        h->sprint_ticks = 0;
+        if (h->sliding) {
             o->vel_q8.x = -(o->vel_q8.x >> 2);
         } else if (state == HERO_STATE_AIR && rope_stretched) {
             if (dpad_x == sgn_i(o->vel_q8.x) || abs_i(o->vel_q8.x) < 600) {
@@ -750,20 +882,20 @@ void hero_on_update(game_s *g, obj_s *o)
 
         switch (state) {
         case HERO_STATE_AIR:
-            if (!hero->runup_tick && may_wallrun) {
+            if (!h->runup_tick && may_wallrun) {
                 int vlen = v2_lensq(v_og);
                 if (200000 <= vlen && v_og.y <= 300)
-                    hero->runup_tick = min_i(vlen / 10000, HERO_RUNUP_TICKS);
+                    h->runup_tick = min_i(vlen / 10000, HERO_RUNUP_TICKS);
             }
 
-            if (hero->runup_tick && may_wallrun) {
-                hero->runup_tick--;
-                o->vel_q8.y = -hero->runup_tick * 20;
+            if (h->runup_tick && may_wallrun) {
+                h->runup_tick--;
+                o->vel_q8.y = -h->runup_tick * 20;
             } else {
                 if (may_wallrun) {
                     o->drag_q8.y = 210;
                 }
-                hero->runup_tick = 0;
+                h->runup_tick = 0;
             }
             break;
         }
@@ -780,7 +912,7 @@ void hero_on_update(game_s *g, obj_s *o)
     }
     case HERO_STATE_LADDER:
         o->flags &= ~OBJ_FLAG_MOVER;
-        hero->sprinting = 0;
+        h->sprinting = 0;
         break;
     }
 
@@ -798,6 +930,7 @@ void hero_on_update(game_s *g, obj_s *o)
 
     switch (state) {
     case HERO_STATE_GROUND:
+        if (h->trys_lifting) break;
         o->drag_q8.x = 250;
         hero_update_ground(g, o, inp);
         break;
@@ -879,7 +1012,7 @@ bool32 hero_is_submerged(game_s *g, obj_s *o, int *water_depth)
     if (water_depth) {
         *water_depth = wd;
     }
-    return (o->h <= wd);
+    return (o->h + 10 <= wd);
 }
 
 int hero_breath_tick(game_s *g)
@@ -915,7 +1048,7 @@ static void hero_update_swimming(game_s *g, obj_s *o, inp_s inp)
     } else {
         o->drag_q8.y = 230;
         h->swimticks--; // swim ticks are reset when grounded later on
-
+        h->swimticks = 2;
         if (0 < h->swimticks || hero_has_upgrade(g, HERO_UPGRADE_SWIM)) {
             int i0 = pow_i32(min_i(water_depth, 70), 2);
             int i1 = pow_i32(70, 2);
@@ -947,6 +1080,10 @@ static void hero_update_swimming(game_s *g, obj_s *o, inp_s inp)
         int i0 = (dpad_x == sgn_i(o->vel_q8.x) ? abs_i(o->vel_q8.x) : 0);
         int ax = (max_i(512 - i0, 0) * 32) >> 8;
         o->vel_q8.x += ax * dpad_x;
+    }
+
+    if (submerged) {
+        sys_printf("submerged\n");
     }
 
     if (submerged && h->diving) {
@@ -1027,7 +1164,6 @@ static void hero_update_ground(game_s *g, obj_s *o, inp_s inp)
     }
 
     if (!h->sliding) {
-
         if (dpad_x != sgn_i(o->vel_q8.x)) {
             o->vel_q8.x /= 2;
         }
@@ -1063,10 +1199,6 @@ static void hero_update_ground(game_s *g, obj_s *o, inp_s inp)
             h->sprint_ticks = 0;
         }
     }
-
-    if (inps_just_pressed(inp, INP_A) && !h->sliding && h->jump_btn_buffer <= 0) {
-        // h->carrying = 1;
-    }
 }
 
 static void hero_update_air(game_s *g, obj_s *o, inp_s inp, bool32 rope_stretched)
@@ -1077,6 +1209,50 @@ static void hero_update_air(game_s *g, obj_s *o, inp_s inp, bool32 rope_stretche
     bool32  usinghook = o->rope != NULL;
     o->animation++;
     h->edgeticks--;
+
+    rec_i32 rec_l = obj_rec_left(o);
+    rec_i32 rec_r = obj_rec_right(o);
+    rec_l.h -= 8;
+    rec_r.h -= 8;
+    rec_l.y += 4;
+    rec_r.y += 4;
+
+#if 0
+    bool32 touch_l = !game_traversable(g, rec_l);
+    bool32 touch_r = !game_traversable(g, rec_r);
+    bool32 touch_t = !game_traversable(g, obj_rec_top(o));
+    bool32 touch_s = touch_l || touch_r;
+
+    touch_t = 0;
+
+    if (touch_s || touch_t) {
+        // o->moverflags |= OBJ_MOVER_GLUE_TOP;
+        // o->moverflags |= OBJ_MOVER_SLOPES_TOP;
+        o->moverflags &= ~OBJ_MOVER_SLOPES;
+        o->gravity_q8.y = 0;
+        o->vel_q8.x     = 0;
+        o->vel_q8.y     = 0;
+
+        if (touch_s) {
+            if (inps_just_pressed(inp, INP_A)) {
+                hero_start_jump(g, o, HERO_JUMP_WALL);
+                i32 dir     = touch_r ? -1 : +1;
+                o->vel_q8.x = dir * 1000;
+            } else {
+                o->tomove.y += dpad_y * 3;
+            }
+        }
+        if (touch_t) {
+            o->tomove.x += dpad_x * 2;
+            if (inps_just_pressed(inp, INP_A)) {
+                o->tomove.y = +1;
+            }
+        }
+    }
+#else
+    bool32 touch_t = 0;
+    bool32 touch_s = 0;
+#endif
 
     if (rope_stretched) {
         o->drag_q8.x = 253;
@@ -1107,7 +1283,7 @@ static void hero_update_air(game_s *g, obj_s *o, inp_s inp, bool32 rope_stretche
                 o->vel_q8.x += 15 * dpad_x;
             }
         }
-    } else {
+    } else if (!touch_s && !touch_t) {
         o->drag_q8.x = h->sliding ? 253 : 240;
 
         // dynamic jump height
@@ -1150,6 +1326,16 @@ static void hero_update_air(game_s *g, obj_s *o, inp_s inp, bool32 rope_stretche
 
         if (dpad_x != sgn_i(h->sprint_ticks)) {
             h->sprint_ticks = 0;
+        }
+    }
+
+    if (!usinghook && 0 < dpad_y) {
+        if (inps_just_pressed(inp, INP_DPAD_D)) {
+            o->vel_q8.y  = max_i(o->vel_q8.y, 500);
+            h->thrusting = 1;
+        } else if (h->thrustingp) {
+            o->vel_q8.y += 70;
+            h->thrusting = 1;
         }
     }
 
@@ -1433,7 +1619,7 @@ void hook_update(game_s *g, obj_s *h, obj_s *hook)
 
             int herostate = hero_determine_state(g, h, (hero_s *)h->mem);
             if (herostate == HERO_STATE_AIR) {
-                clen_q4 = (clen_q4 * 240) >> 8;
+                clen_q4 = (clen_q4 * 230) >> 8;
             }
             int newlen_q4 = clamp_i(clen_q4, HERO_ROPE_LEN_MIN_JUST_HOOKED, mlen_q4);
             rope_set_len_max_q4(r, newlen_q4);
