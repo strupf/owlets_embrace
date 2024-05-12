@@ -7,11 +7,9 @@
 
 #include "area/area.h"
 #include "cam.h"
-#include "coinparticle.h"
 #include "gamedef.h"
 #include "gameover.h"
 #include "heroupgrade.h"
-#include "lighting.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"

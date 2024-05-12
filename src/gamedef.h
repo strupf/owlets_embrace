@@ -5,8 +5,15 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
-#define GAME_VERSION_MAJ 0
-#define GAME_VERSION_MIN 1
+// game version - important once released
+// year
+// month
+// day
+#define GAME_VERSION_GEN(Y, M, D) (((u32)(Y) << 9) | \
+                                   ((u32)(M) << 5) | \
+                                   ((u32)(D)))
+
+#define GAME_VERSION GAME_VERSION_GEN(2024, 05, 01)
 
 #include "core/assets.h"
 #include "core/aud.h"

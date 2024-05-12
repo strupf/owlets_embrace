@@ -83,6 +83,7 @@ typedef struct {
     i32          grabbing;
     bool32       carrying;
     obj_handle_s carried;
+    bool32       was_diving;
     bool32       thrustingp;
     bool32       thrusting;
     bool32       trys_lifting;
@@ -111,6 +112,7 @@ typedef struct {
     v2_i32       jumped_at;
     bool32       reel_in;
     i32          reel_in_dtap;
+    i32          jump_boost_tick;
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -121,6 +123,7 @@ void   hero_kill(game_s *g, obj_s *o);
 int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
 bool32 hero_is_submerged(game_s *g, obj_s *o, int *water_depth);
 int    hero_breath_tick(game_s *g);
+int    hero_breath_tick_max(game_s *g);
 //
 void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 

@@ -13,34 +13,17 @@
 
 static const i32 cos_table[256];
 
-static inline int clamp_i(int x, int lo, int hi)
-{
-    if (x < lo) return lo;
-    if (x > hi) return hi;
-    return x;
-}
+#define clamp_i clamp_i32
+#define sgn_i   sgn_i32
+#define max_i   max_i32
+#define min_i   min_i32
+#define abs_i   abs_i32
 
-static inline int min_i(int a, int b)
-{
-    return (a < b ? a : b);
-}
-
-static inline int max_i(int a, int b)
-{
-    return (a > b ? a : b);
-}
-
-static inline int abs_i(int a)
-{
-    return (a < 0 ? -a : a);
-}
-
-static inline int sgn_i(int a)
-{
-    if (a < 0) return -1;
-    if (a > 0) return +1;
-    return 0;
-}
+#define clamp_f clamp_f32
+#define sgn_f   sgn_f32
+#define max_f   max_f32
+#define min_f   min_f32
+#define abs_f   abs_f32
 
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
 {
@@ -49,24 +32,19 @@ static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
     return x;
 }
 
-static inline f32 clamp_f(f32 x, f32 lo, f32 hi)
+static inline f32 clamp_f32(f32 x, f32 lo, f32 hi)
 {
     if (x < lo) return lo;
     if (x > hi) return hi;
     return x;
 }
 
-static inline f32 min_f(f32 a, f32 b)
+static inline i32 min_i32(i32 a, i32 b)
 {
     return (a < b ? a : b);
 }
 
-static inline f32 max_f(f32 a, f32 b)
-{
-    return (a > b ? a : b);
-}
-
-static inline i32 min_i32(i32 a, i32 b)
+static inline f32 min_f32(f32 a, f32 b)
 {
     return (a < b ? a : b);
 }
@@ -76,9 +54,19 @@ static inline i32 max_i32(i32 a, i32 b)
     return (a > b ? a : b);
 }
 
+static inline f32 max_f32(f32 a, f32 b)
+{
+    return (a > b ? a : b);
+}
+
 static inline i32 abs_i32(i32 a)
 {
     return (a < 0 ? -a : a);
+}
+
+static inline f32 abs_f32(f32 a)
+{
+    return (a < 0.f ? -a : a);
 }
 
 static inline i32 sgn_i32(i32 a)
@@ -86,6 +74,13 @@ static inline i32 sgn_i32(i32 a)
     if (a < 0) return -1;
     if (a > 0) return +1;
     return 0;
+}
+
+static inline f32 sgn_f32(f32 a)
+{
+    if (a < 0.f) return -1.f;
+    if (a > 0.f) return +1.f;
+    return 0.f;
 }
 
 static inline i32 mul_ratio(i32 x, ratio_s r)
@@ -96,7 +91,7 @@ static inline i32 mul_ratio(i32 x, ratio_s r)
 static inline u32 pow_u32(u32 v, i32 power)
 {
     u32 r = v;
-    for (int n = 1; n < power; n++) {
+    for (i32 n = 1; n < power; n++) {
         r *= v;
     }
     return r;

@@ -133,11 +133,7 @@ u32 *backend_framebuffer()
 
 u32 *backend_display_buffer()
 {
-    // void      *buf = PD->graphics->getDisplayFrame();
-    u32       *buf;
-    LCDBitmap *dsp = PD->graphics->getDisplayBufferBitmap();
-    PD->graphics->getBitmapData(dsp, NULL, NULL, NULL, NULL, &buf);
-    return (u32 *)buf;
+    return (u32 *)PD->graphics->getDisplayFrame();
 }
 
 void *backend_file_open(const char *path, int mode)
@@ -242,4 +238,13 @@ void backend_set_volume(f32 vol)
 void backend_display_inv(int i)
 {
     PD->display->setInverted(i);
+}
+
+void sys_gfx_set_px(i32 x, i32 y, u32 col)
+{
+}
+
+u32 sys_gfx_get_px(i32 x, i32 y)
+{
+    return 0;
 }

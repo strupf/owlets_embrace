@@ -14,6 +14,7 @@ void game_init(game_s *g)
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
+    sys_printf("GAME VERSION %u\n", GAME_VERSION);
 }
 
 static void gameplay_tick(game_s *g, inp_s inp)
@@ -51,6 +52,7 @@ static void gameplay_tick(game_s *g, inp_s inp)
 
     for (obj_each(g, o)) { // move objects by tomove
         if (!(o->flags & OBJ_FLAG_SOLID)) continue;
+        if (o->flags & OBJ_FLAG_IS_CARRIED) continue;
         solid_move(g, o, o->tomove);
         o->tomove.x = 0, o->tomove.y = 0;
     }
@@ -118,7 +120,7 @@ static void gameplay_tick(game_s *g, inp_s inp)
                     ohero->vel_q8.y = -2000;
                     continue;
                 }
-                continue;
+                continue; // disable
                 v2_i32 ocenter   = obj_pos_center(o);
                 v2_i32 dt        = v2_sub(hcenter, ocenter);
                 hero_knockback.x = sgn_i(dt.x) * 1000;

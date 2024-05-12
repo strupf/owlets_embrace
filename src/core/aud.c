@@ -145,7 +145,7 @@ static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len)
 
     i16 *buf = lbuf;
     for (int n = 0; n < l; n++) {
-        int i = (int)(ch->wavpos++ * ipitch);
+        u32 i = (u32)(ch->wavpos++ * ipitch);
         assert(i < ch->wavlen);
         i32 v = (i32)*buf + ((i32)ch->wavbuf[i] * ch->vol_q8); // i8 * Q8 -> i16
 #if AUD_CLAMP

@@ -164,23 +164,23 @@ void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, 
         NUM_MAPVIEW_PASSES
     };
 
-    for (int pass = 0; pass < NUM_MAPVIEW_PASSES; pass++) {
+    for (i32 pass = 0; pass < NUM_MAPVIEW_PASSES; pass++) {
         i32 wallcol  = (pass == MAPVIEW_PASS_BACKGROUND ? GFX_COL_BLACK : GFX_COL_WHITE);
         i32 wallhalf = (pass == MAPVIEW_PASS_BACKGROUND ? 4 : 2);
         i32 wallsize = wallhalf * 2;
 
-        for (int i = 0; i < g->map_world.n_rooms; i++) {
+        for (i32 i = 0; i < (i32)g->map_world.n_rooms; i++) {
             map_worldroom_s *room = &g->map_world.rooms[i];
-            int              xx   = room->x / WORLD_GRID_W;
-            int              yy   = room->y / WORLD_GRID_H;
-            int              ww   = room->w / WORLD_GRID_W;
-            int              hh   = room->h / WORLD_GRID_H;
+            i32              xx   = room->x / WORLD_GRID_W;
+            i32              yy   = room->y / WORLD_GRID_H;
+            i32              ww   = room->w / WORLD_GRID_W;
+            i32              hh   = room->h / WORLD_GRID_H;
 
             gfx_ctx_s ctxfill = ctx;
             ctxfill.pat       = g->map_worldroom == room ? gfx_pattern_50() : gfx_pattern_75();
 
-            for (int ty = 0; ty < hh; ty++) {
-                for (int tx = 0; tx < ww; tx++) {
+            for (i32 ty = 0; ty < hh; ty++) {
+                for (i32 tx = 0; tx < ww; tx++) {
                     if (!hero_visited_tile(g, room, tx, ty)) continue;
 
                     v2_i32 p1 = {(xx + tx + 0) << 8, (yy + ty + 0) << 8};

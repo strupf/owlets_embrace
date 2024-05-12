@@ -169,8 +169,8 @@ void game_draw(game_s *g)
 
     render_ui(g, camoffset);
 
-    int hero_breath_t = hero_breath_tick(g);
-    if (hero_breath_t) {
+    i32 breath_t = hero_breath_tick(g);
+    if (breath_t) {
         spm_push();
         tex_s     drowntex  = tex_create_opaque(SYS_DISPLAY_W, SYS_DISPLAY_H, spm_allocator);
         gfx_ctx_s ctx_drown = gfx_ctx_default(drowntex);
@@ -179,7 +179,8 @@ void game_draw(game_s *g)
         v2_i32 herop = v2_add(camoffset, obj_pos_center(ohero));
         gfx_rec_fill(ctx_drown, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
         ctx_drown.pat = gfx_pattern_interpolate(1, 1);
-        int cird      = ease_out_quad(700, 0, hero_breath_t, HERO_BREATH_TICKS);
+        i32 breath_tm = hero_breath_tick_max(g);
+        int cird      = ease_out_quad(700, 0, breath_t, breath_tm);
         gfx_cir_fill(ctx_drown, herop, cird, PRIM_MODE_WHITE);
 
         int N = SYS_DISPLAY_H * SYS_DISPLAY_WWORDS;

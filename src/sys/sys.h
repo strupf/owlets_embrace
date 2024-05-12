@@ -103,6 +103,9 @@ size_t        sys_fread(void *buf, size_t size, size_t count, sys_file_s *f);
 size_t        sys_fwrite(const void *buf, size_t size, size_t count, sys_file_s *f);
 int           sys_ftell(sys_file_s *f);
 int           sys_fseek(sys_file_s *f, int pos, int origin);
+//
+void          sys_gfx_set_px(i32 x, i32 y, u32 col);
+u32           sys_gfx_get_px(i32 x, i32 y);
 
 // copied SDL_SCANCODE_X
 enum {

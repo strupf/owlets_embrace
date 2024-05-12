@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-int  water_tile_get(int x, int y, int tick);
+i32  water_tile_get(i32 x, i32 y, i32 tick);
 void water_prerender_tiles();
 
 #endif

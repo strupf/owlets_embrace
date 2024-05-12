@@ -30,6 +30,13 @@ typedef struct {
     char  title[32];
 } SDL_menu_item_s;
 
+typedef union {
+    struct {
+        u8 r, g, b, a;
+    };
+    u32 u;
+} SDL_col_s;
+
 static struct {
     bool32            running;
     Uint64            timeorigin;
@@ -40,6 +47,7 @@ static struct {
     i32               n_menu_items;
     SDL_menu_item_s   menu_items[8];
     //
+    SDL_col_s         framebuffer_col[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H]; // rgba
     u8                framebuffer[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
     u8                menuimg[SYS_DISPLAY_WBYTES * SYS_DISPLAY_H];
     u8                update_row[SYS_DISPLAY_H];
@@ -205,11 +213,12 @@ int main(int argc, char **argv)
                     if (!OS_SDL.update_row[y]) continue;
                     OS_SDL.update_row[y] = 0;
                     for (int x = 0; x < SYS_DISPLAY_W; x++) {
-                        int i     = (x >> 3) + y * SYS_DISPLAY_WBYTES;
-                        int k     = x + y * SYS_DISPLAY_W;
-                        int byt   = OS_SDL.framebuffer[i];
-                        int bit   = !!(byt & (0x80 >> (x & 7)));
-                        pixels[k] = pal[OS_SDL.inv ? !bit : bit];
+                        int    i   = (x >> 3) + y * SYS_DISPLAY_WBYTES;
+                        int    k   = x + y * SYS_DISPLAY_W;
+                        int    byt = OS_SDL.framebuffer[i];
+                        int    bit = !!(byt & (0x80 >> (x & 7)));
+                        Uint32 c   = pal[OS_SDL.inv ? !bit : bit];
+                        pixels[k]  = *((Uint32 *)&c);
                     }
                     if (!OS_SDL.paused) continue;
                     continue;
@@ -537,4 +546,18 @@ void backend_set_volume(f32 vol)
 void backend_display_inv(int i)
 {
     OS_SDL.inv = i;
+}
+
+void sys_gfx_set_px(i32 x, i32 y, u32 col)
+{
+    if (x < 0 || SYS_DISPLAY_W <= x) return;
+    if (y < 0 || SYS_DISPLAY_H <= y) return;
+    OS_SDL.framebuffer_col[x + y * SYS_DISPLAY_W].u = col;
+}
+
+u32 sys_gfx_get_px(i32 x, i32 y)
+{
+    if (x < 0 || SYS_DISPLAY_W <= x) return 0;
+    if (y < 0 || SYS_DISPLAY_H <= y) return 0;
+    return OS_SDL.framebuffer_col[x + y * SYS_DISPLAY_W].u;
 }

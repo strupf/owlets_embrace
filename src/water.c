@@ -7,7 +7,7 @@
 
 #define NUM_WATER_TILES 128
 
-int water_tile_get(int x, int y, int tick)
+i32 water_tile_get(i32 x, i32 y, i32 tick)
 {
     return ((x + (tick >> 1)) & (NUM_WATER_TILES - 1));
 }

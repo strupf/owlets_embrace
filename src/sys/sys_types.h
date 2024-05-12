@@ -121,7 +121,7 @@ typedef double         f64;
 typedef size_t         usize;
 typedef uintptr_t      uptr;
 typedef intptr_t       iptr;
-typedef u32            u16x2;
+typedef u32            u16x2; // Cortex small simd types
 typedef i32            i16x2;
 typedef u32            u8x4;
 typedef i32            i8x4;
@@ -275,8 +275,8 @@ static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
     assert(s <= sizeof(m));
     assert(lo < hi);
 
-    int   i = lo;
-    int   j = hi;
+    i32   i = lo;
+    i32   j = hi;
     char *a = (char *)base + i * s;
     char *b = (char *)base + j * s;
     char *p = (char *)base + ((lo + hi) >> 1) * s;
@@ -299,7 +299,7 @@ static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
     } while (i < j); // -> moved to end because we know that lo/i is < hi/j
 
     if (lo < j) _quicksort(base, lo, j, s, cmp);
-    if (i < hi) _quicksort(base, i, hi, s, cmp);
+    if (hi > i) _quicksort(base, i, hi, s, cmp);
 }
 
 // =============================================================================

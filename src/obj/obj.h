@@ -85,6 +85,7 @@ enum {
 #define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
 #define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
 #define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
+#define OBJ_FLAG_IS_CARRIED         ((u64)1 << 14)
 #define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
 #define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
 #define OBJ_FLAG_BOSS               ((u64)1 << 17)
@@ -198,9 +199,9 @@ struct obj_s {
     i32               action;
     i32               subaction;
     i32               state;
-    u32               animation;
-    u32               timer;
-    u32               subtimer;
+    i32               animation;
+    i32               timer;
+    i32               subtimer;
     i32               substate;
     //
     i32               collectible_type;
@@ -258,6 +259,8 @@ bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on 
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 void         game_set_collision_tiles(game_s *g, rec_i32 r, int shape, int type);
+bool32       carryable_is_liftable(game_s *g, obj_s *o);
+void         carryable_lift(obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

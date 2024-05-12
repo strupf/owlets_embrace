@@ -17,6 +17,7 @@ typedef struct {
 } inventory_item_s;
 
 typedef struct {
+    u32              game_version;
     i32              health;
     bool8            upgrades[32];
     char             name[32];

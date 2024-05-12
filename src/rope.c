@@ -12,8 +12,8 @@ typedef struct {
 } convex_vertex_s;
 
 typedef struct {
-    v2_i32 pt[64];
     i32    n;
+    v2_i32 pt[64];
 } ropepts_s;
 
 static int ropepts_find(ropepts_s *pts, v2_i32 p)
