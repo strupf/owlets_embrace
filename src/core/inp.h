@@ -43,29 +43,29 @@ void   inp_update();
 void   inp_on_resume();
 inp_s  inp_state();
 //
-bool32 inps_pressed(inp_s i, int b);
-bool32 inps_was_pressed(inp_s i, int b);
-bool32 inps_just_pressed(inp_s i, int b);
-bool32 inps_just_released(inp_s i, int b);
-int    inps_dpad_x(inp_s i);
-int    inps_dpad_y(inp_s i);
+bool32 inps_pressed(inp_s i, i32 b);
+bool32 inps_was_pressed(inp_s i, i32 b);
+bool32 inps_just_pressed(inp_s i, i32 b);
+bool32 inps_just_released(inp_s i, i32 b);
+i32    inps_dpad_x(inp_s i);
+i32    inps_dpad_y(inp_s i);
 
 //
-bool32 inp_pressed(int b);
-bool32 inp_was_pressed(int b);
-bool32 inp_just_pressed(int b);
-bool32 inp_just_released(int b);
-int    inp_dpad_x();
-int    inp_dpad_y();
-int    inp_dpad_dir();
-int    inp_crank_q12();
-int    inp_prev_crank_q12();
-int    inp_crank_dt_q12();
-int    inp_crank_calc_dt_q12(int ang_from, int ang_to);
-int    inp_crank_docked();
-int    inp_crank_was_docked();
-int    inp_crank_just_docked();
-int    inp_crank_just_undocked();
-int    inp_debug_space();
+bool32 inp_pressed(i32 b);
+bool32 inp_was_pressed(i32 b);
+bool32 inp_just_pressed(i32 b);
+bool32 inp_just_released(i32 b);
+i32    inp_dpad_x();
+i32    inp_dpad_y();
+i32    inp_dpad_dir();
+i32    inp_crank_q12();
+i32    inp_prev_crank_q12();
+i32    inp_crank_dt_q12();
+i32    inp_crank_calc_dt_q12(i32 ang_from, i32 ang_to);
+i32    inp_crank_docked();
+i32    inp_crank_was_docked();
+i32    inp_crank_just_docked();
+i32    inp_crank_just_undocked();
+i32    inp_debug_space();
 
 #endif

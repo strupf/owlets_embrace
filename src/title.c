@@ -26,18 +26,22 @@ static void title_play_sound(int soundID);
 void title_init(title_s *t)
 {
 #if 1
-    save_s hs                            = {0};
-    hs.game_version                      = GAME_VERSION;
+    save_s hs       = {0};
+    hs.game_version = GAME_VERSION;
+#if 1
     hs.upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
     hs.upgrades[HERO_UPGRADE_AIR_JUMP_2] = 1;
-    hs.upgrades[HERO_UPGRADE_HOOK]       = 1;
-    hs.upgrades[HERO_UPGRADE_WALLJUMP]   = 0;
-    hs.upgrades[HERO_UPGRADE_GLIDE]      = 1;
-    hs.upgrades[HERO_UPGRADE_LONG_HOOK]  = 1;
-    hs.upgrades[HERO_UPGRADE_WHIP]       = 1;
-    hs.upgrades[HERO_UPGRADE_SWIM]       = 1;
-    hs.upgrades[HERO_UPGRADE_DIVE]       = 1;
-    hs.health                            = 3;
+    hs.upgrades[HERO_UPGRADE_AIR_JUMP_3] = 1;
+#endif
+    hs.upgrades[HERO_UPGRADE_HOOK]      = 1;
+    hs.upgrades[HERO_UPGRADE_WALLJUMP]  = 0;
+    hs.upgrades[HERO_UPGRADE_GLIDE]     = 1;
+    hs.upgrades[HERO_UPGRADE_HOOK_LONG] = 1;
+    hs.upgrades[HERO_UPGRADE_WHIP]      = 1;
+    hs.upgrades[HERO_UPGRADE_SWIM]      = 1;
+    hs.upgrades[HERO_UPGRADE_DIVE]      = 1;
+    hs.upgrades[HERO_UPGRADE_SPRINT]    = 1;
+    hs.health                           = 3;
 
     strcpy(hs.hero_mapfile, "Level_0");
     hs.hero_pos.x = 50;

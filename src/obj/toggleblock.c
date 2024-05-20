@@ -68,7 +68,7 @@ static void toggleblock_set_state(game_s *g, obj_s *o, int state)
     o->timer = 0;
     int b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
 
-    game_set_collision_tiles(g, obj_aabb(o), b, b == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
+    tile_map_set_collision(g, obj_aabb(o), b, b == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }
 
 void toggleblock_on_trigger(game_s *g, obj_s *o, i32 trigger)

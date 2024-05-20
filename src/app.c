@@ -7,7 +7,7 @@
 #include "core/inp.h"
 #include "core/spm.h"
 #include "game.h"
-#include "render/render.h"
+#include "render.h"
 #include "sys/sys.h"
 
 game_s GAME;
@@ -36,20 +36,6 @@ void menu_cb_equipment(void *arg)
     game_s *g = (game_s *)arg;
 }
 
-void menu_cb_item(void *arg)
-{
-    assert(arg);
-    game_s *g = (game_s *)arg;
-
-    int val = sys_menu_value(1);
-    if (val == 0) {
-        g->item.selected = HERO_ITEM_HOOK;
-    }
-    if (val == 1) {
-        g->item.selected = HERO_ITEM_WEAPON;
-    }
-}
-
 void app_set_menu_gameplay()
 {
     game_s *g = &GAME;
@@ -68,8 +54,8 @@ static void app_load_game()
     game_s *g = &GAME;
 
     sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
-    usize size_tabs = sizeof(g_pxmask_tab) +
-                      sizeof(tilecolliders) +
+    usize size_tabs = sizeof(g_tile_px) +
+                      sizeof(g_tile_tris) +
                       sizeof(AUD_s);
     sys_printf("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
     sys_printf("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
@@ -123,6 +109,15 @@ void app_tick()
 void app_draw()
 {
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+    tex_clr(asset_tex(0), GFX_COL_WHITE);
+#if 0
+    for (i32 n = 2; n < 22; n++) {
+        texrec_s tr = asset_texrec(TEXID_COLLISION_TILES, 0, n * 16, 16, 16);
+        i32      ny = ((n - 2) % 4);
+        i32      nx = ((n - 2) / 4);
+        gfx_spr(gfx_ctx_display(), tr, (v2_i32){nx * 18, ny * 18}, 0, 0);
+    }
+#else
     game_s *g = &GAME;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -132,6 +127,7 @@ void app_draw()
         game_draw(g);
         break;
     }
+#endif
 }
 
 void app_close()
@@ -160,14 +156,14 @@ static void app_load_tex()
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg", NULL);
 
-#if defined(SYS_DEBUG) && 0
+#if defined(SYS_DEBUG) && 1
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
     asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
     gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
     for (int t = 0; t < 22; t++) {
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
-                if (g_pxmask_tab[t * 16 + i] & (0x8000 >> j)) {
+                if (g_tile_px[t][i] & (0x8000 >> j)) {
                     rec_i32 pr = {j, i + t * 16, 1, 1};
                     gfx_rec_fill(ctxcoll, pr, PRIM_MODE_BLACK);
                 }
@@ -299,7 +295,6 @@ static void app_load_tex()
         tex_outline(trcrawler.t, 0, 0, trcrawler.t.w, trcrawler.t.h, 1, 1);
     }
     asset_tex_loadID(TEXID_WINDGUSH, "windgush", NULL);
-
     water_prerender_tiles();
 }
 

@@ -112,9 +112,11 @@ static void crawler_do_normal(game_s *g, obj_s *o)
             } break;
             }
 
+#if 0
             bool32 can_be_hurt      = !((o->substate == CRAWLER_SUBSTATE_CURLED &&
                                     CRAWLER_TICKS_TO_CURL <= o->subtimer));
             o->enemy.cannot_be_hurt = !can_be_hurt;
+#endif
 
             // if curled: don't move
             if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
@@ -170,6 +172,7 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
 // to continue crawling.
 void crawler_on_update(game_s *g, obj_s *o)
 {
+#if 0
     o->enemy.cannot_be_hurt = 0;
     o->drag_q8.y            = 255;
     o->drag_q8.x            = 255;
@@ -180,6 +183,7 @@ void crawler_on_update(game_s *g, obj_s *o)
     } else {
         crawler_do_normal(g, o);
     }
+#endif
 }
 
 void crawler_on_animate(game_s *g, obj_s *o)

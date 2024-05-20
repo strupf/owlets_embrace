@@ -7,19 +7,13 @@
 #include "sys_types.h"
 
 #define SYS_SHOW_CONSOLE 0 // enable or display hardware console
-#define SYS_SHOW_FPS     0 // enable fps/ups counter
+#define SYS_SHOW_FPS     1 // enable fps/ups counter
 
 #define SYS_UPS_DT      0.0200f // 1 /  50
 #define SYS_UPS_DT_TEST 0.0195f // 1 / ~51
 #define SYS_UPS_DT_CAP  0.0600f // 3 /  50
 
-#if defined(SYS_PD_HW) && 0
-#define SYS_LOOP_HW 1 // use natural 50 FPS cap of the Playdate display
-#else
-#define SYS_LOOP_HW 0
-#endif
-#define SYS_NEEDS_TIMER (SYS_SHOW_FPS || !SYS_LOOP_HW)
-#define SYS_NEEDS_FONT  (SYS_SHOW_CONSOLE || SYS_SHOW_FPS)
+#define SYS_NEEDS_FONT (SYS_SHOW_CONSOLE || SYS_SHOW_FPS)
 
 #if SYS_NEEDS_FONT
 static const u32 sys_consolefont[512];
@@ -97,31 +91,19 @@ static void sys_update_fps(f32 timedt)
 // https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75
 int sys_step(void *arg)
 {
-#if SYS_NEEDS_TIMER
     f32 time     = backend_seconds();
     f32 timedt   = time - SYS.lasttime;
     SYS.lasttime = time;
-#endif
-
-#if SYS_LOOP_HW
-    sys_tick_();
-    sys_draw_();
-#if SYS_SHOW_FPS
-    sys_update_fps(timedt);
-#endif
-    return 1;
-
-#else // sys_loop_hw
     SYS.ups_timeacc += timedt;
     if (SYS_UPS_DT_CAP < SYS.ups_timeacc) {
         SYS.ups_timeacc = SYS_UPS_DT_CAP;
     }
 
-    int n_upd = 0;
+    i32 n_upd = 0;
     while (SYS_UPS_DT_TEST <= SYS.ups_timeacc) {
         SYS.ups_timeacc -= SYS_UPS_DT;
 #if defined(SYS_SDL) && defined(SYS_DEBUG)
-        static int slowtick;
+        static i32 slowtick;
         if (sys_key(SYS_KEY_LSHIFT) && (slowtick++ & 7))
             continue;
 #endif
@@ -137,7 +119,6 @@ int sys_step(void *arg)
     sys_update_fps(timedt);
 #endif
     return (n_upd);
-#endif // sys_loop_hw
 }
 
 void sys_close()

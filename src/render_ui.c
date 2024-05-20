@@ -89,6 +89,8 @@ void render_ui(game_s *g, v2_i32 camoff)
     if (ohero) {
         v2_i32 hctr = v2_add(camoff, obj_pos_center(ohero));
 
+        render_jump_ui(g, ohero, camoff);
+
         if (ohero->health < ohero->health_max) {
             gfx_ctx_s health_ctx = ctx;
             health_ctx.pat       = gfx_pattern_75();
@@ -110,9 +112,39 @@ void render_ui(game_s *g, v2_i32 camoff)
                 }
             }
         }
+    }
+}
 
-        texrec_s titem = asset_texrec(TEXID_UI, 240, 80 + g->item.selected * 32, 32, 32);
-        // gfx_spr(ctx, titem, (v2_i32){400 - 32, 0}, 0, 0);
+void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
+{
+    i32 airjumps_max  = hero_airjumps_max(g);
+    i32 airjumps_left = hero_airjumps_left(g);
+
+    if (airjumps_max <= 1) return;
+
+    hero_jump_ui_s *jui = &g->jump_ui;
+    jui->n_max          = airjumps_max;
+    v2_i32 p            = v2_add(o->pos, camoff);
+
+    if (airjumps_left < airjumps_max && !jui->out_of_water) {
+        jui->n    = airjumps_left;
+        jui->tick = min_i32(jui->tick + 1, 10);
+    } else if (0 < jui->tick) {
+        jui->tick--;
+    }
+
+    if (jui->tick == 0) return;
+
+    gfx_ctx_s ctx = gfx_ctx_display();
+    i32       pat = lerp_i32(0, GFX_PATTERN_MAX, jui->tick, 10);
+    ctx.pat       = gfx_pattern_bayer_4x4(pat);
+    for (i32 n = 1; n <= jui->n_max; n++) {
+        v2_i32 cpos = {p.x - 10 + (n - 1) * 15, p.y - 20};
+        gfx_cir_fill(ctx, cpos, 12, PRIM_MODE_WHITE);
+        gfx_cir_fill(ctx, cpos, 10, PRIM_MODE_BLACK);
+        if (n <= jui->n) {
+            gfx_cir_fill(ctx, cpos, 8, PRIM_MODE_WHITE);
+        }
     }
 }
 

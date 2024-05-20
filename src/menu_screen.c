@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "render/render.h"
+#include "render.h"
 
 #define MAP_PIN_DELETE_TICKS 25
 

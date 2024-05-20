@@ -44,6 +44,11 @@ static inline i32 min_i32(i32 a, i32 b)
     return (a < b ? a : b);
 }
 
+static inline i32 min3_i32(i32 a, i32 b, i32 c)
+{
+    return min_i32(a, min_i32(b, c));
+}
+
 static inline f32 min_f32(f32 a, f32 b)
 {
     return (a < b ? a : b);
@@ -52,6 +57,11 @@ static inline f32 min_f32(f32 a, f32 b)
 static inline i32 max_i32(i32 a, i32 b)
 {
     return (a > b ? a : b);
+}
+
+static inline i32 max3_i32(i32 a, i32 b, i32 c)
+{
+    return max_i32(a, max_i32(b, c));
 }
 
 static inline f32 max_f32(f32 a, f32 b)

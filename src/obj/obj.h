@@ -71,40 +71,45 @@ enum {
     NUM_OBJ_TAGS
 };
 
-#define OBJ_FLAG_MOVER              ((u64)1 << 0)
-#define OBJ_FLAG_TILE_COLLISION     ((u64)1 << 1)
-#define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
-#define OBJ_FLAG_ACTOR              ((u64)1 << 3)
-#define OBJ_FLAG_SOLID              ((u64)1 << 4)
-#define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
-#define OBJ_FLAG_PLATFORM_HERO_ONLY ((u64)1 << 6) // only acts as a platform for the hero
-#define OBJ_FLAG_KILL_OFFSCREEN     ((u64)1 << 7)
-#define OBJ_FLAG_HOOKABLE           ((u64)1 << 8)
-#define OBJ_FLAG_SPRITE             ((u64)1 << 9)
-#define OBJ_FLAG_ENEMY              ((u64)1 << 10)
-#define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
-#define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
-#define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
-#define OBJ_FLAG_IS_CARRIED         ((u64)1 << 14)
-#define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
-#define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
-#define OBJ_FLAG_BOSS               ((u64)1 << 17)
-#define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
+#define OBJ_FLAG_MOVER                 ((u64)1 << 0)
+#define OBJ_FLAG_TILE_COLLISION        ((u64)1 << 1)
+#define OBJ_FLAG_INTERACTABLE          ((u64)1 << 2)
+#define OBJ_FLAG_ACTOR                 ((u64)1 << 3)
+#define OBJ_FLAG_SOLID                 ((u64)1 << 4)
+#define OBJ_FLAG_PLATFORM              ((u64)1 << 5)
+#define OBJ_FLAG_PLATFORM_HERO_ONLY    ((u64)1 << 6) // only acts as a platform for the hero
+#define OBJ_FLAG_KILL_OFFSCREEN        ((u64)1 << 7)
+#define OBJ_FLAG_HOOKABLE              ((u64)1 << 8)
+#define OBJ_FLAG_SPRITE                ((u64)1 << 9)
+#define OBJ_FLAG_ENEMY                 ((u64)1 << 10)
+#define OBJ_FLAG_COLLECTIBLE           ((u64)1 << 11)
+#define OBJ_FLAG_HURT_ON_TOUCH         ((u64)1 << 12)
+#define OBJ_FLAG_CARRYABLE             ((u64)1 << 13)
+#define OBJ_FLAG_IS_CARRIED            ((u64)1 << 14)
+#define OBJ_FLAG_CLAMP_ROOM_X          ((u64)1 << 15)
+#define OBJ_FLAG_CLAMP_ROOM_Y          ((u64)1 << 16)
+#define OBJ_FLAG_BOSS                  ((u64)1 << 17)
+#define OBJ_FLAG_SOLID_LEVEL_COLLISION ((u64)1 << 18)
+#define OBJ_FLAG_HOVER_TEXT            ((u64)1 << 19)
+#define OBJ_FLAG_CAN_BE_JUMPED_ON      ((u64)1 << 20)
+#define OBJ_FLAG_KINDA_SOLID           ((u64)1 << 21)
+#define OBJ_FLAG_RENDER_AABB           ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 #define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
 
 enum {
-    OBJ_BUMPED_X_NEG    = 1 << 0,
-    OBJ_BUMPED_X_POS    = 1 << 1,
-    OBJ_BUMPED_Y_NEG    = 1 << 2,
-    OBJ_BUMPED_Y_POS    = 1 << 3,
-    OBJ_BUMPED_SQUISH   = 1 << 4,
-    OBJ_BUMPED_ON_HEAD  = 1 << 5,
-    OBJ_BUMPED_X_BOUNDS = 1 << 6,
-    OBJ_BUMPED_Y_BOUNDS = 1 << 7,
-    OBJ_BUMPED_X        = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
-    OBJ_BUMPED_Y        = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
+    OBJ_BUMPED_X_NEG     = 1 << 0,
+    OBJ_BUMPED_X_POS     = 1 << 1,
+    OBJ_BUMPED_Y_NEG     = 1 << 2,
+    OBJ_BUMPED_Y_POS     = 1 << 3,
+    OBJ_BUMPED_SQUISH    = 1 << 4,
+    OBJ_BUMPED_ON_HEAD   = 1 << 5,
+    OBJ_BUMPED_X_BOUNDS  = 1 << 6,
+    OBJ_BUMPED_Y_BOUNDS  = 1 << 7,
+    OBJ_BUMPED_JUMPED_ON = 1 << 8,
+    OBJ_BUMPED_X         = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
+    OBJ_BUMPED_Y         = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
 };
 
 enum {
@@ -117,6 +122,7 @@ enum {
     OBJ_MOVER_GLUE_TOP       = 1 << 6,
 };
 
+#define OBJ_HOVER_TEXT_TICKS 20
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
 
 typedef union {
@@ -143,14 +149,13 @@ typedef struct {
 } sprite_simple_s;
 
 typedef struct {
-    i16    sndID_hurt;
-    i16    sndID_die;
-    i32    drops;
-    i32    invincible;
-    bool32 cannot_be_hurt;
+    i16 sndID_hurt;
+    i16 sndID_die;
+    i32 drops;
+    i32 hurt_tick;
 } enemy_s;
 
-static inline u32 save_ID_gen(int roomID, int objID)
+static inline u32 save_ID_gen(i32 roomID, i32 objID)
 {
     u32 save_ID = ((u32)roomID << 16) | ((u32)objID);
     return save_ID;
@@ -211,6 +216,9 @@ struct obj_s {
     i32               invincible_tick;
     enemy_s           enemy;
     //
+    i32               hover_text_tick;
+    char              hover_text[2][64];
+    //
     ropenode_s       *ropenode;
     rope_s           *rope;
     obj_handle_s      linked_solid;
@@ -250,6 +258,7 @@ v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
 bool32       actor_try_wiggle(game_s *g, obj_s *o);
 void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
+void         actor_move_by_internal(game_s *g, obj_s *o, v2_i32 dt);
 void         platform_move(game_s *g, obj_s *o, v2_i32 dt);
 void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_on_squish(game_s *g, obj_s *o);
@@ -258,7 +267,6 @@ bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
-void         game_set_collision_tiles(game_s *g, rec_i32 r, int shape, int type);
 bool32       carryable_is_liftable(game_s *g, obj_s *o);
 void         carryable_lift(obj_s *o);
 

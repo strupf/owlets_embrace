@@ -111,7 +111,8 @@ bool32 maptransition_try_hero_slide(game_s *g)
 
     maptransition_init(g, nextroom->filename,
                        MAPTRANSITION_TYPE_SLIDE, feet, hvel, o->facing);
-    mt->dir = touchedbounds;
+    mt->dir           = touchedbounds;
+    mt->airjumps_left = g->hero_mem.airjumps_left;
     return 1;
 }
 
@@ -134,18 +135,15 @@ void maptransition_update(game_s *g)
     }
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
-    hero_s h = *((hero_s *)obj_get_tagged(g, OBJ_TAG_HERO)->mem);
-
     game_load_map(g, mt->to_load);
-    obj_s  *hero     = hero_create(g);
-    hero_s *hh       = (hero_s *)hero->mem;
-    hero->pos.x      = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y      = mt->hero_feet.y - hero->h;
-    hero->facing     = mt->hero_face;
-    hero->vel_q8     = mt->hero_v;
-    hh->sprinting    = h.sprinting;
-    hh->sprint_ticks = h.sprint_ticks;
-    v2_i32 hpos      = obj_pos_center(hero);
+    obj_s  *hero      = hero_create(g);
+    hero_s *hh        = (hero_s *)&g->hero_mem;
+    hero->pos.x       = mt->hero_feet.x - hero->w / 2;
+    hero->pos.y       = mt->hero_feet.y - hero->h;
+    hero->facing      = mt->hero_face;
+    hero->vel_q8      = mt->hero_v;
+    hh->airjumps_left = mt->airjumps_left;
+    v2_i32 hpos       = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
     v2_i32 *resp_closest = NULL;

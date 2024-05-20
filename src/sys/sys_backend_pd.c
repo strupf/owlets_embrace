@@ -11,20 +11,6 @@
 
 #include "PD/pd_api.h"
 
-static_assert(SYS_FILE_R == (kFileRead | kFileReadData), "file mode");
-static_assert(SYS_FILE_W == (kFileWrite), "file mode");
-
-static_assert(SYS_FILE_SEEK_SET == SEEK_SET, "seek");
-static_assert(SYS_FILE_SEEK_CUR == SEEK_CUR, "seek");
-static_assert(SYS_FILE_SEEK_END == SEEK_END, "seek");
-
-static_assert(SYS_INP_A == kButtonA, "input button mask A");
-static_assert(SYS_INP_B == kButtonB, "input button mask B");
-static_assert(SYS_INP_DPAD_L == kButtonLeft, "input button mask Dpad");
-static_assert(SYS_INP_DPAD_R == kButtonRight, "input button mask Dpad");
-static_assert(SYS_INP_DPAD_U == kButtonUp, "input button mask Dpad");
-static_assert(SYS_INP_DPAD_D == kButtonDown, "input button mask Dpad");
-
 PlaydateAPI      *PD;
 static LCDBitmap *PD_menu_bm;
 int (*PD_format_str)(char **ret, const char *format, ...);

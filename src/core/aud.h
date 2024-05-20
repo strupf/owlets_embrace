@@ -72,6 +72,7 @@ void   mus_fade_to(const char *pathname, int ticks_out, int ticks_in);
 void   mus_stop();
 bool32 mus_play(const char *filename);
 bool32 mus_playing();
-void   mus_set_vol(int vol_q8);
-void   mus_set_trg_vol_q8(int vol_q8);
+void   mus_set_vol_q8(i32 vol_q8);
+void   mus_set_vol(f32 vol);
+void   mus_set_trg_vol(f32 vol);
 #endif

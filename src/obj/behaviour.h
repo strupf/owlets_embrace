@@ -17,11 +17,13 @@ void   clockpulse_load(game_s *g, map_obj_s *mo);
 //
 void   crumbleblock_load(game_s *g, map_obj_s *mo);
 void   crumbleblock_on_hooked(obj_s *o);
+void   crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 void   switch_load(game_s *g, map_obj_s *mo);
 void   switch_on_interact(game_s *g, obj_s *o);
 //
 void   toggleblock_load(game_s *g, map_obj_s *mo);
+void   toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 void   shroomy_load(game_s *g, map_obj_s *mo);
 void   shroomy_bounced_on(obj_s *o);
@@ -34,6 +36,7 @@ void   carrier_load(game_s *g, map_obj_s *mo);
 //
 void   heroupgrade_load(game_s *g, map_obj_s *mo);
 void   heroupgrade_on_collect(game_s *g, obj_s *o);
+void   heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 void   movingplatform_load(game_s *g, map_obj_s *mo);
 //
@@ -65,6 +68,7 @@ void   triggerarea_load(game_s *g, map_obj_s *mo);
 void   pushablebox_load(game_s *g, map_obj_s *mo);
 //
 void   spikes_load(game_s *g, map_obj_s *mo);
+void   spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 void   hooklever_load(game_s *g, map_obj_s *mo);
 //

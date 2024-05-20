@@ -45,7 +45,7 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
         o->timer--;
         if (0 < o->timer) break;
         snd_play_ext(SNDID_SWITCH, 0.5f, 0.7f);
-        game_set_collision_tiles(g, obj_aabb(o), 0, 0);
+        tile_map_set_collision(g, obj_aabb(o), 0, 0);
         o->flags &= ~OBJ_FLAG_SPRITE;
         o->state = CRUMBLE_STATE_RESPAWNING;
         o->timer = CRUMBLE_TICKS_RESPAWN;
@@ -57,7 +57,7 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
         snd_play_ext(SNDID_SPEAK, 1.f, 0.7f);
         o->state = CRUMBLE_STATE_IDLE;
         o->flags |= OBJ_FLAG_SPRITE;
-        game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
+        tile_map_set_collision(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
         game_on_solid_appear(g);
         break;
     }
@@ -113,5 +113,5 @@ void crumbleblock_load(game_s *g, map_obj_s *mo)
     int n              = o->w >> 4;
     o->substate        = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
 
-    game_set_collision_tiles(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
+    tile_map_set_collision(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }

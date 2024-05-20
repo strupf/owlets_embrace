@@ -773,6 +773,71 @@ void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
     }
 }
 
+// triangle pixels in Q2 - subpixel accuracy!
+// naive per pixel loop from my own software renderer
+// whole spans for playdate
+void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], int mode)
+{
+    v2_i32 vv[3] = {0};
+    for (i32 n = 0; n < 3; n++) {
+        vv[n].x = tri[n].x;
+        vv[n].y = tri[n].y;
+    }
+
+    v2_i32 v12 = v2_sub(vv[2], vv[1]);
+    v2_i32 v20 = v2_sub(vv[0], vv[2]);
+    v2_i32 v01 = v2_sub(vv[1], vv[0]);
+    i32    den = v2_crs(v01, v20); // den is max: (w * subpx) * (h * subpx)
+
+    if (den == 0) return; // invalid triangle
+    if (den < 0) {
+        den = -den;
+        v12 = v2_inv(v12);
+        v20 = v2_inv(v20);
+        v01 = v2_inv(v01);
+    }
+
+    i32     xa  = max_i32(min3_i32(v20.x, v12.x, v01.x) >> 2, 0);           // screen x1
+    i32     ya  = max_i32(min3_i32(v20.y, v12.y, v01.y) >> 2, 0);           // screen y1
+    i32     xb  = min_i32(max3_i32(v20.x, v12.x, v01.x) >> 2, ctx.clip_x2); // screen x2
+    i32     yb  = min_i32(max3_i32(v20.y, v12.y, v01.y) >> 2, ctx.clip_y2); // screen y2
+    i32     xm  = (xa << 2) + 2;                                            // mid point top left
+    i32     ym  = (ya << 2) + 2;
+    i32     u0  = v12.y * (xm - vv[1].x) - v12.x * (ym - vv[1].y); // midpoint for subpixel sampling
+    i32     v0  = v20.y * (xm - vv[2].x) - v20.x * (ym - vv[2].y);
+    i32     w0  = v01.y * (xm - vv[0].x) - v01.x * (ym - vv[0].y);
+    i32     ux  = v12.y << 2;
+    i32     uy  = v12.x << 2;
+    i32     vx  = v20.y << 2;
+    i32     vy  = v20.x << 2;
+    i32     wx  = v01.y << 2;
+    i32     wy  = v01.x << 2;
+    div_u32 div = div_u32_gen(den);
+
+    for (i32 y = ya; y <= yb; y++) {
+        i32 u  = u0;
+        i32 v  = v0;
+        i32 w  = w0;
+        i32 x1 = 0xFFFF;
+        i32 x2 = 0;
+        for (i32 x = xa; x <= xb; x++) {
+            if (0 <= (u | v | w)) {
+                x1 = min_i32(x1, x);
+                x2 = max_i32(x2, x);
+            }
+            u += ux;
+            v += vx;
+            w += wx;
+        }
+
+        span_blit_s i = span_blit_gen(ctx, y, x1, x2, mode);
+        prim_blit_span(i);
+        u0 -= uy;
+        v0 -= vy;
+        w0 -= wy;
+    }
+}
+
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
 {
     if (d <= 0) return;
@@ -799,18 +864,18 @@ void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d)
 {
 #if 1
-    int    dx = +abs_i(b.x - a.x);
-    int    dy = -abs_i(b.y - a.y);
-    int    sx = a.x < b.x ? +1 : -1;
-    int    sy = a.y < b.y ? +1 : -1;
-    int    er = dx + dy;
+    i32    dx = +abs_i32(b.x - a.x);
+    i32    dy = -abs_i32(b.y - a.y);
+    i32    sx = a.x < b.x ? +1 : -1;
+    i32    sy = a.y < b.y ? +1 : -1;
+    i32    er = dx + dy;
     v2_i32 pi = a;
 
     while (1) {
         gfx_cir_fill(ctx, pi, d, mode);
 
         if (pi.x == b.x && pi.y == b.y) break;
-        int e2 = er << 1;
+        i32 e2 = er << 1;
         if (e2 >= dy) { er += dy, pi.x += sx; }
         if (e2 <= dx) { er += dx, pi.y += sy; }
     }

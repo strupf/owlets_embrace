@@ -29,7 +29,7 @@ void swingdoor_toggle(game_s *g, obj_s *o)
     o->timer   = 0;
     o->state   = 1 - o->state;
     int to_set = o->state == SWINGDOOR_CLOSED ? TILE_BLOCK : TILE_EMPTY;
-    game_set_collision_tiles(g, obj_aabb(o), to_set, 0);
+    tile_map_set_collision(g, obj_aabb(o), to_set, 0);
 }
 
 void swingdoor_on_update(game_s *g, obj_s *o)
@@ -141,7 +141,7 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
         o->state = SWINGDOOR_OPEN;
     } else {
         o->state = SWINGDOOR_CLOSED;
-        game_set_collision_tiles(g, obj_aabb(o), TILE_BLOCK, 0);
+        tile_map_set_collision(g, obj_aabb(o), TILE_BLOCK, 0);
     }
 
     if (map_obj_bool(mo, "Interactable")) {

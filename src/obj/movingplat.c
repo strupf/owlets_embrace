@@ -138,12 +138,12 @@ void movingplatform_load(game_s *g, map_obj_s *mo)
         plat->v_q4 = plat->v_trg_q4;
     }
 
-    int     num_lin = 0;
-    int     num_cir = 0;
+    i32     num_lin = 0;
+    i32     num_cir = 0;
     v2_i16 *pts_lin = (v2_i16 *)map_obj_arr(mo, "Path_Linear", &num_lin);
     v2_i16 *pts_cir = (v2_i16 *)map_obj_arr(mo, "Path_Circular", &num_cir);
     v2_i16 *pts     = NULL;
-    int     num     = 0;
+    i32     num     = 0;
 
     o->substate = map_obj_i32(mo, "Moving_Platform_Stop");
 

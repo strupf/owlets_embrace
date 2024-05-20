@@ -54,7 +54,7 @@ void cam_set_pos_px(cam_s *c, int x, int y)
 
 void cam_init_level(game_s *g, cam_s *c)
 {
-    for (int n = 0; n < 128; n++) {
+    for (i32 n = 0; n < 128; n++) {
         cam_update(g, c);
     }
 }
@@ -66,17 +66,17 @@ void cam_update(game_s *g, cam_s *c)
     v2_f32 ppos   = c->pos;
     v2_f32 padd   = {0};
     v2_f32 lahead = {0};
-    int    dpad_y = inp_dpad_y();
+    i32    dpad_y = inp_dpad_y();
 
     const i32 look_tickp = c->look_tick;
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
         hero_s *h     = (hero_s *)hero->mem;
         v2_i32  herop = obj_pos_bottom_center(hero);
 
-        int    py_bot       = herop.y - 60;
-        int    py_top       = herop.y + 20;
-        int    target_x     = herop.x;
-        int    target_y     = py_bot;
+        i32    py_bot       = herop.y - 60;
+        i32    py_top       = herop.y + 20;
+        i32    target_x     = herop.x;
+        i32    target_y     = py_bot;
         bool32 herogrounded = obj_grounded(g, hero);
 
         padd.x = (f32)(target_x - c->pos.x) * .1f;
@@ -108,21 +108,21 @@ void cam_update(game_s *g, cam_s *c)
         lahead.y = 60.f;
     }
 
-    if (ABS(c->look_ahead.x - lahead.x) < 0.75f) {
+    if (abs_f(c->look_ahead.x - lahead.x) < 0.75f) {
         c->look_ahead.x = lahead.x;
     } else {
         c->look_ahead.x = lerp_f32(c->look_ahead.x, lahead.x, 0.025f);
     }
 
-    if (ABS(c->look_ahead.y - lahead.y) < 0.75f) {
+    if (abs_f(c->look_ahead.y - lahead.y) < 0.75f) {
         c->look_ahead.y = lahead.y;
     } else {
         c->look_ahead.y = lerp_f32(c->look_ahead.y, lahead.y, 0.125f);
     }
 
     v2_f32 dtca = {0};
-    int    nc   = 0;
-    for (int n = 0; n < c->n_attractors; n++) {
+    i32    nc   = 0;
+    for (i32 n = 0; n < c->n_attractors; n++) {
         v2_i32 ca  = c->attractors[n];
         v2_f32 dc  = v2f_sub((v2_f32){(f32)ca.x, (f32)ca.y}, c->pos);
         f32    lsq = v2f_lensq(dc);
@@ -145,7 +145,7 @@ void cam_update(game_s *g, cam_s *c)
     c->offs_shake.x = 0.f;
     c->offs_shake.y = 0.f;
     if (0 < c->shake_ticks) {
-        int s = (c->shake_str * c->shake_ticks--) / c->shake_ticks_max;
+        i32 s = (c->shake_str * c->shake_ticks--) / c->shake_ticks_max;
 
         c->offs_shake.x = (f32)rngr_sym_i32(s);
         c->offs_shake.y = (f32)rngr_sym_i32(s);

@@ -4,7 +4,7 @@
 
 #include "area.h"
 #include "game.h"
-#include "render/render.h"
+#include "render.h"
 
 enum {
     AREA_ID_NONE,
@@ -126,7 +126,7 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         texrec_s tr_mid   = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 512, 1024, 512);
         texrec_s tr_near  = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 0, 1024, 512);
         v2_i32   pos_far  = area_parallax(cam, 25, 0, 3, 3);
-        v2_i32   pos_mid  = area_parallax(cam, 75, 0, 1, 1);
+        v2_i32   pos_mid  = area_parallax(cam, 75, 0, 3, 3);
         v2_i32   pos_near = area_parallax(cam, 100, 0, 1, 1);
         gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);

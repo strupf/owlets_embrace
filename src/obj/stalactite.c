@@ -108,7 +108,7 @@ void stalactite_load(game_s *g, map_obj_s *mo)
     s->checkr.h = 16;
     for (int ty = (o->pos.y >> 4) + 1; ty < g->tiles_y; ty++) {
         int t = g->tiles[tx + ty * g->tiles_x].collision;
-        if ((TILE_BLOCK <= t && t < NUM_TILE_BLOCKS)) break;
+        if ((TILE_BLOCK <= t && t < NUM_TILE_SHAPES)) break;
         s->checkr.h += 16;
     }
 }

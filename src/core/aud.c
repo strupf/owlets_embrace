@@ -31,7 +31,7 @@ void aud_update()
         break;
     case MUS_FADE_OUT: {
         AUD.mus_fade_ticks--;
-        mus_set_vol((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max);
+        mus_set_vol_q8((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max);
         if (AUD.mus_fade_ticks > 0) break;
 
         if (!mus_play(AUD.mus_new)) {
@@ -45,11 +45,11 @@ void aud_update()
     }
     case MUS_FADE_IN: {
         AUD.mus_fade_ticks--;
-        mus_set_vol(AUD.muschannel.trg_vol_q8 - ((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max));
+        mus_set_vol_q8(AUD.muschannel.trg_vol_q8 - ((AUD.mus_fade_ticks * AUD.muschannel.trg_vol_q8) / AUD.mus_fade_ticks_max));
 
         if (AUD.mus_fade_ticks > 0) break;
 
-        mus_set_vol(AUD.muschannel.trg_vol_q8);
+        mus_set_vol_q8(AUD.muschannel.trg_vol_q8);
         AUD.mus_fade = MUS_FADE_NONE;
         break;
     }
@@ -74,7 +74,7 @@ void aud_audio(i16 *buf, int len)
 
     if (AUD.lowpass) {
         i16 *b = buf;
-        for (int n = 0; n < len; n++) {
+        for (i32 n = 0; n < len; n++) {
             AUD.lowpass_acc += ((i32)*b - AUD.lowpass_acc) >> AUD.lowpass;
             *b++ = (i16)AUD.lowpass_acc;
         }
@@ -211,14 +211,19 @@ bool32 mus_playing()
     return (AUD.muschannel.stream != NULL);
 }
 
-void mus_set_vol(int vol_q8)
+void mus_set_vol_q8(i32 vol_q8)
 {
     AUD.muschannel.vol_q8 = vol_q8;
 }
 
-void mus_set_trg_vol_q8(int vol_q8)
+void mus_set_vol(f32 vol)
 {
-    AUD.muschannel.trg_vol_q8 = vol_q8;
+    mus_set_vol_q8((i32)(256.f * vol));
+}
+
+void mus_set_trg_vol(f32 vol)
+{
+    AUD.muschannel.trg_vol_q8 = (i32)(256.f * vol);
 }
 
 static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)

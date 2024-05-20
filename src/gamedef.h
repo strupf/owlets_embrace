@@ -9,11 +9,14 @@
 // year
 // month
 // day
-#define GAME_VERSION_GEN(Y, M, D) (((u32)(Y) << 9) | \
-                                   ((u32)(M) << 5) | \
-                                   ((u32)(D)))
+#define GAME_VERSION_GEN(P, Y, M, D) (P##Y##M##D)
+#define GAME_VERSION_CUR(P)          GAME_VERSION_GEN(P, 2024, 05, 01)
 
-#define GAME_VERSION GAME_VERSION_GEN(2024, 05, 01)
+#if defined(SYS_PD)
+#define GAME_VERSION GAME_VERSION_CUR(1) // 1: PLAYDATE
+#elif defined(SYS_SDL)
+#define GAME_VERSION GAME_VERSION_CUR(2) // 2: SDL
+#endif
 
 #include "core/assets.h"
 #include "core/aud.h"
@@ -54,7 +57,6 @@ enum {
 
 #define LEN_HERO_NAME             16
 #define LEN_AREA_FILENAME         64
-#define GAME_NUM_TILECOLLIDERS    32
 #define FADETICKS_MM_GAME         40
 #define FADETICKS_MM_GAME_BLACK   20
 #define FADETICKS_GAME_IN         40
@@ -94,73 +96,8 @@ static i32 time_since(i32 t)
 }
 
 enum {
-    TILELAYER_BG,
-    TILELAYER_PROP_BG,
-    TILELAYER_PROP_FG,
-    //
-    NUM_TILELAYER
-};
-
-enum {
     MENUITEM_GAME_INVENTORY,
     MENUITEM_REDUCE_FLICKER,
-};
-
-enum {
-    TILE_TYPE_NONE,
-    TILE_TYPE_FAKE_1,
-    TILE_TYPE_FAKE_2,
-    //
-    TILE_TYPE_CLEAN       = 3,
-    TILE_TYPE_BRICK       = 4,
-    TILE_TYPE_BRICK_SMALL = 5,
-    TILE_TYPE_DIRT        = 6,
-    TILE_TYPE_STONE       = 7,
-    TILE_TYPE_1           = 8,
-    TILE_TYPE_2           = 9,
-    TILE_TYPE_3           = 10,
-    TILE_TYPE_DIRT_DARK   = 11,
-    //
-    NUM_TILE_TYPES
-};
-
-enum {
-    TILE_EMPTY,
-    TILE_BLOCK,
-    //
-    TILE_SLOPE_45,
-    TILE_SLOPE_45_0 = TILE_SLOPE_45,
-    TILE_SLOPE_45_1,
-    TILE_SLOPE_45_2,
-    TILE_SLOPE_45_3,
-    //
-    TILE_SLOPE_LO,
-    TILE_SLOPE_LO_0 = TILE_SLOPE_LO,
-    TILE_SLOPE_LO_1,
-    TILE_SLOPE_LO_2,
-    TILE_SLOPE_LO_3,
-    TILE_SLOPE_LO_4,
-    TILE_SLOPE_LO_5,
-    TILE_SLOPE_LO_6,
-    TILE_SLOPE_LO_7,
-
-    //
-    TILE_SLOPE_HI,
-    TILE_SLOPE_HI_0 = TILE_SLOPE_HI,
-    TILE_SLOPE_HI_1,
-    TILE_SLOPE_HI_2,
-    TILE_SLOPE_HI_3,
-    TILE_SLOPE_HI_4,
-    TILE_SLOPE_HI_5,
-    TILE_SLOPE_HI_6,
-    TILE_SLOPE_HI_7,
-    //
-    NUM_TILE_BLOCKS,
-    //
-    TILE_LADDER = NUM_TILE_BLOCKS,
-    TILE_LADDER_ONE_WAY,
-    TILE_ONE_WAY,
-    TILE_SPIKES,
 };
 
 static i32 ticks_from_seconds(f32 s)

@@ -171,7 +171,7 @@ void squish_delete(game_s *g, obj_s *o)
     obj_delete(g, o);
 }
 
-static void actor_move_by(game_s *g, obj_s *o, v2_i32 dt)
+void actor_move_by_internal(game_s *g, obj_s *o, v2_i32 dt)
 {
     assert(o->flags & OBJ_FLAG_ACTOR);
 
@@ -183,6 +183,26 @@ static void actor_move_by(game_s *g, obj_s *o, v2_i32 dt)
 
     if (o->ropenode) {
         ropenode_move(g, o->rope, o->ropenode, dt);
+    }
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (!ohero) return;
+
+    rec_i32 rhero = obj_rec_bottom(ohero);
+    if (ohero == o && 0 < dt.y) {
+        for (obj_each(g, it)) {
+            if (!(it->flags & OBJ_FLAG_CAN_BE_JUMPED_ON)) continue;
+            rec_i32 ro = {it->pos.x, it->pos.y, it->w, 1};
+            if (!overlap_rec(rhero, ro)) continue;
+            it->bumpflags |= OBJ_BUMPED_JUMPED_ON;
+            ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+        }
+    } else if ((o->flags & OBJ_FLAG_CAN_BE_JUMPED_ON) && dt.y < 0) {
+        rec_i32 ro = {o->pos.x, o->pos.y, o->w, 1};
+        if (overlap_rec(rhero, ro)) {
+            o->bumpflags |= OBJ_BUMPED_JUMPED_ON;
+            ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+        }
     }
 }
 
@@ -265,7 +285,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
             DO_BUMP_X;
         }
 
-        actor_move_by(g, o, v);
+        actor_move_by_internal(g, o, v);
     }
 
     for (int m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
@@ -283,7 +303,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         bool32  collide_plat = 0;
 
         if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
-            collide_plat = (orec.y & 15) == 0 && tile_one_way(g, orec);
+            collide_plat = (orec.y & 15) == 0 && tile_map_one_way(g, orec);
             for (obj_each(g, a)) {
                 if (o == a) continue;
                 if (!(a->flags & OBJ_FLAG_PLATFORM)) continue;
@@ -297,7 +317,7 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
         }
 
         if (!collide_plat && game_traversable(g, orec)) {
-            actor_move_by(g, o, v);
+            actor_move_by_internal(g, o, v);
         } else if ((o->moverflags & OBJ_MOVER_AVOID_HEADBUMP) && sy < 0) {
             // jump corner correction
             // https://twitter.com/MaddyThorson/status/1238338578310000642
@@ -305,11 +325,11 @@ void actor_move(game_s *g, obj_s *o, v2_i32 dt)
                 rec_i32 recr = {r.x + k, r.y, r.w, r.h};
                 rec_i32 recl = {r.x - k, r.y, r.w, r.h};
                 if (game_traversable(g, recr)) {
-                    actor_move_by(g, o, (v2_i32){+k, v.y});
+                    actor_move_by_internal(g, o, (v2_i32){+k, v.y});
                     goto CONTINUE_Y;
                 }
                 if (game_traversable(g, recl)) {
-                    actor_move_by(g, o, (v2_i32){-k, v.y});
+                    actor_move_by_internal(g, o, (v2_i32){-k, v.y});
                     goto CONTINUE_Y;
                 }
             }
@@ -364,15 +384,26 @@ static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
 {
     assert(v2_lensq(dt) == 1);
 
-    if (g->hero_mem.rope_active) {
-        o->flags &= ~OBJ_FLAG_SOLID;
-        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
-        o->flags |= OBJ_FLAG_SOLID;
+    o->flags &= ~OBJ_FLAG_SOLID;
+
+    rec_i32 aabbog      = obj_aabb(o);
+    bool32  traversable = 1;
+    if (o->flags & OBJ_FLAG_SOLID_LEVEL_COLLISION) {
+        rec_i32 r_new = {aabbog.x + dt.x, aabbog.y + dt.y, aabbog.w, aabbog.h};
+        traversable   = game_traversable(g, r_new);
+    }
+    o->flags |= OBJ_FLAG_SOLID;
+
+    if (!traversable) {
+        return;
     }
 
-    rec_i32 aabbog = obj_aabb(o);
-    o->pos         = v2_add(o->pos, dt);
-    rec_i32 aabb   = obj_aabb(o);
+    if (g->hero_mem.rope_active) {
+        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
+    }
+
+    o->pos       = v2_add(o->pos, dt);
+    rec_i32 aabb = obj_aabb(o);
 
     for (obj_each(g, a)) {
         if (!(a->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM))) continue;
@@ -508,7 +539,7 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rbot.y += offs.y;
     if (!game_traversable(g, rbot)) return 1;
     if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
-        if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_one_way(g, rbot))
+        if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_map_one_way(g, rbot))
             return 1;
         for (obj_each(g, k)) {
             if (k == o) continue;
@@ -591,24 +622,4 @@ enemy_s enemy_default()
     e.sndID_die  = SNDID_ENEMY_DIE;
     e.sndID_hurt = SNDID_ENEMY_HURT;
     return e;
-}
-
-void game_set_collision_tiles(game_s *g, rec_i32 r, int shape, int type)
-{
-    int tx = r.x >> 4;
-    int ty = r.y >> 4;
-    int nx = r.w >> 4;
-    int ny = r.h >> 4;
-
-    for (int y = 0; y < ny; y++) {
-        for (int x = 0; x < nx; x++) {
-            tile_s *t    = &g->tiles[x + tx + (y + ty) * g->tiles_x];
-            t->collision = shape;
-            t->type      = type;
-        }
-    }
-
-    if (shape != TILE_EMPTY) {
-        game_on_solid_appear(g);
-    }
 }

@@ -23,14 +23,17 @@ enum {
     HERO_UPGRADE_WHIP,
     HERO_UPGRADE_SWIM,
     HERO_UPGRADE_HOOK,
-    HERO_UPGRADE_LONG_HOOK,
+    HERO_UPGRADE_HOOK_LONG,
     HERO_UPGRADE_SPRINT,
     HERO_UPGRADE_DIVE,
     HERO_UPGRADE_GLIDE,
     HERO_UPGRADE_WALLJUMP,
+    HERO_UPGRADE_WALLCLIMB,
     HERO_UPGRADE_AIR_JUMP_1,
     HERO_UPGRADE_AIR_JUMP_2,
     HERO_UPGRADE_AIR_JUMP_3,
+    HERO_UPGRADE_LAMP,
+    HERO_UPGRADE_SHIELD,
     //
     NUM_HERO_UPGRADES = 32
 };
@@ -78,7 +81,7 @@ typedef struct {
     i32          attack_flipflop;
     i32          attack_tick;
     i32          sprint_ticks;
-    bool32       sprinting;
+    i32          sprint_dtap;
     i32          grabbingp;
     i32          grabbing;
     bool32       carrying;
@@ -113,17 +116,30 @@ typedef struct {
     bool32       reel_in;
     i32          reel_in_dtap;
     i32          jump_boost_tick;
+    i32          airjump_indicator_tick;
 } hero_s;
+
+typedef struct {
+    i32    n;
+    i32    n_max;
+    bool32 out_of_water;
+    i32    tick;
+} hero_jump_ui_s;
 
 obj_s *hero_create(game_s *g);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
-void   hero_hurt(game_s *g, obj_s *o, int damage);
+void   hero_hurt(game_s *g, obj_s *o, i32 damage);
 void   hero_kill(game_s *g, obj_s *o);
-int    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
-bool32 hero_is_submerged(game_s *g, obj_s *o, int *water_depth);
-int    hero_breath_tick(game_s *g);
-int    hero_breath_tick_max(game_s *g);
+i32    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
+bool32 hero_is_submerged(game_s *g, obj_s *o, i32 *water_depth);
+i32    hero_breath_tick(game_s *g);
+i32    hero_breath_tick_max(game_s *g);
+i32    hero_airjumps_max(game_s *g);
+i32    hero_airjumps_left(game_s *g);
+bool32 hero_unhook(game_s *g, obj_s *o);
+i32    hero_max_rope_len_q4(game_s *g);
+void   hero_post_update(game_s *g, obj_s *o);
 //
 void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
 

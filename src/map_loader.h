@@ -40,7 +40,7 @@ i32    map_obj_i32(map_obj_s *mo, const char *name);
 f32    map_obj_f32(map_obj_s *mo, const char *name);
 bool32 map_obj_bool(map_obj_s *mo, const char *name);
 v2_i16 map_obj_pt(map_obj_s *mo, const char *name);
-void  *map_obj_arr(map_obj_s *mo, const char *name, int *num);
+void  *map_obj_arr(map_obj_s *mo, const char *name, i32 *num);
 
 void             game_load_map(game_s *g, const char *worldfile);
 void             game_prepare_new_map(game_s *g);

@@ -36,7 +36,7 @@ void heroupgrade_on_collect(game_s *g, obj_s *o)
 {
     hero_add_upgrade(g, o->state);
     if (o->state == HERO_UPGRADE_HOOK) {
-        hero_add_upgrade(g, HERO_UPGRADE_LONG_HOOK);
+        hero_add_upgrade(g, HERO_UPGRADE_HOOK_LONG);
     }
     // substate_upgrade_collected(g, &g->substate, o->state);
     NOT_IMPLEMENTED

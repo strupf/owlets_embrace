@@ -12,6 +12,7 @@ typedef struct {
     i32    fade_tick;
     i32    type;
     i32    hero_face;
+    i32    airjumps_left;
     v2_i32 hero_v;
     v2_i32 hero_feet;
     i32    teleport_ID;

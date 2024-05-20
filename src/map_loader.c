@@ -4,7 +4,7 @@
 
 #include "map_loader.h"
 #include "game.h"
-#include "render/render.h"
+#include "render.h"
 #include "util/str.h"
 
 enum {
@@ -623,12 +623,12 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
                                           AT_W, AT_S, AT_SW,
                                           AT_W, AT_N, AT_NW};
 
-        const int *nm = &nmasks[(tile.shape - TILE_SLOPE_45) * 3];
+        const int *nm = &nmasks[(tile.shape - TILE_SLOPE_45_0) * 3];
         int        xn = (march & nm[0]) != 0;                      // x neighbour
         int        yn = (march & nm[1]) != 0;                      // y neighbour
         int        cn = (march & nm[2]) != 0;                      // diagonal neighbour
         xcoord        = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_45);
+        ycoord += (tile.shape - TILE_SLOPE_45_0);
 
         rtile->collision = tile.shape;
     } break;
@@ -641,7 +641,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     case TILE_SLOPE_LO_6:
     case TILE_SLOPE_LO_7: {
         xcoord = 17; // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_LO);
+        ycoord += (tile.shape - TILE_SLOPE_LO_0);
         rtile->collision = tile.shape;
     } break;
     case TILE_SLOPE_HI_0:
@@ -653,7 +653,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     case TILE_SLOPE_HI_6:
     case TILE_SLOPE_HI_7: {
         xcoord = 23; // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_HI);
+        ycoord += (tile.shape - TILE_SLOPE_HI_0);
         rtile->collision = tile.shape;
     } break;
     }
@@ -757,7 +757,7 @@ v2_i16 map_obj_pt(map_obj_s *mo, const char *name)
     return map_prop_pt(map_obj_properties(mo), name);
 }
 
-void *map_obj_arr(map_obj_s *mo, const char *name, int *num)
+void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
 {
     map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
     if (prop == NULL || prop->type != MAP_PROP_ARRAY) return NULL;

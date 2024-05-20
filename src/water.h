@@ -7,7 +7,30 @@
 
 #include "gamedef.h"
 
-i32  water_tile_get(i32 x, i32 y, i32 tick);
+#define NUM_WATER       16
+#define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
+#define OCEAN_W_PX      SYS_DISPLAY_W
+#define OCEAN_H_PX      SYS_DISPLAY_H
+#define OCEAN_NUM_SPANS 512
+
+typedef struct {
+    i16 y;
+    i16 w;
+} ocean_span_s;
+
+typedef struct {
+    bool32       active;
+    i32          y;
+    i32          y_min; // boundaries of affected wave area
+    i32          y_max;
+    i32          n_spans;
+    ocean_span_s spans[OCEAN_NUM_SPANS];
+} ocean_s;
+
 void water_prerender_tiles();
+i32  water_tile_get(i32 x, i32 y, i32 tick);
+i32  water_depth_rec(game_s *g, rec_i32 r);
+i32  ocean_height(game_s *g, i32 pixel_x);
+i32  ocean_render_height(game_s *g, i32 pixel_x);
 
 #endif

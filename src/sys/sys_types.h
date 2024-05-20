@@ -8,7 +8,7 @@
 #define SYS_CONFIG_EDIT_PD        0 // allow editing of Playdate specific stuff inside VS
 #define SYS_CONFIG_ONLY_BACKEND   0 // only barebones engine stuff
 #define SYS_CONFIG_DEBUG          1
-#define SYS_CONFIG_USE_SDL_ASSERT 1
+#define SYS_CONFIG_USE_SDL_ASSERT 0
 
 #if SYS_CONFIG_DEBUG
 #define SYS_DEBUG
@@ -39,10 +39,9 @@
 #define align_CL    alignas(SYS_SIZE_CL) // align on PD cache line boundaries
 
 #ifdef SYS_PD_HW // assertions don't work on hardware - disable
+#include <assert.h>
 #undef assert
-#undef static_assert
 #define assert(X)
-#define static_assert(A, B)
 #elif defined(SYS_SDL) && SYS_CONFIG_USE_SDL_ASSERT
 #include "SDL2/SDL_assert.h"
 #undef assert
@@ -151,16 +150,17 @@ typedef struct {
 #define U8_MIN  0
 
 // clang-format off
-#define POW2(X)          ((X) * (X))
-#define GLUE2(A, B)      A##B
-#define GLUE(A, B)       GLUE2(A, B)
-#define ARRLEN(A)        (sizeof(A) / sizeof(A[0]))
-#define MAX(A, B)        ((A) >= (B) ? (A) : (B))
-#define MIN(A, B)        ((A) <= (B) ? (A) : (B))
-#define ABS(A)           ((A) >= 0 ? (A) : -(A))
-#define SGN(A)           ((0 < (A)) - (0 > (A)))
-#define CLAMP(X, LO, HI) ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
-#define SWAP(T, a, b)    do { T tmp_ = a; a = b; b = tmp_; } while (0)
+#define typedef_struct(NAME) typedef struct NAME NAME
+#define POW2(X)              ((X) * (X))
+#define GLUE2(A, B)          A##B
+#define GLUE(A, B)           GLUE2(A, B)
+#define ARRLEN(A)            (sizeof(A) / sizeof(A[0]))
+#define MAX(A, B)            ((A) >= (B) ? (A) : (B))
+#define MIN(A, B)            ((A) <= (B) ? (A) : (B))
+#define ABS(A)               ((A) >= 0 ? (A) : -(A))
+#define SGN(A)               ((0 < (A)) - (0 > (A)))
+#define CLAMP(X, LO, HI)     ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
+#define SWAP(T, a, b)        do { T tmp_ = a; a = b; b = tmp_; } while (0)
 
 #ifndef SYS_PD_HW
 #define FILE_AND_LINE__(A, B) A "|" #B
@@ -255,51 +255,106 @@ typedef rec_i32  recti;
 typedef tri_i32  trianglei;
 typedef line_i32 linei;
 
+static inline v2_i32 v2_i32_from_v2_i8(v2_i8 v)
+{
+    v2_i32 r = {v.x, v.y};
+    return r;
+}
+
+static inline v2_i32 v2_i32_from_v2_i16(v2_i16 v)
+{
+    v2_i32 r = {v.x, v.y};
+    return r;
+}
+
+#define SORT_ARRAY_DEF(TYPE, NAME, CMPF)                     \
+    static void _sort_##NAME(TYPE *arr, TYPE *lo, TYPE *hi); \
+                                                             \
+    static void sort_##NAME(TYPE *arr, i32 num)              \
+    {                                                        \
+        if (num <= 1) return;                                \
+        assert(arr);                                         \
+        _sort_##NAME(arr, &arr[0], &arr[num - 1]);           \
+    }                                                        \
+                                                             \
+    static void _sort_##NAME(TYPE *arr, TYPE *lo, TYPE *hi)  \
+    {                                                        \
+        assert(lo < hi);                                     \
+                                                             \
+        TYPE  p = arr[((lo - arr) + (hi - arr)) >> 1];       \
+        TYPE *i = lo;                                        \
+        TYPE *j = hi;                                        \
+                                                             \
+        do {                                                 \
+            while (CMPF(i, &p) < 0) {                        \
+                i++;                                         \
+            }                                                \
+            while (CMPF(j, &p) > 0) {                        \
+                j--;                                         \
+            }                                                \
+                                                             \
+            if (i > j) break;                                \
+            TYPE tp = *i;                                    \
+            *i      = *j;                                    \
+            *j      = tp;                                    \
+                                                             \
+            i++;                                             \
+            j--;                                             \
+        } while (i <= j);                                    \
+                                                             \
+        if (lo < j) _sort_##NAME(arr, lo, j);                \
+        if (hi > i) _sort_##NAME(arr, i, hi);                \
+    }
+
 // int (*cmp)(const void *a, const void *b)
 // -: a goes before b | b goes after a
 // 0: equivalent
 // +: a goes after b | b goes before a
 typedef int (*cmp_f)(const void *a, const void *b);
-static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp);
 
-static void sort_array(void *base, int num, usize s, cmp_f cmp)
+static void _sort(char *arr, char *lo, char *hi, usize s, cmp_f cmp);
+
+static void sort_array(void *arr, i32 num, usize s, cmp_f cmp)
 {
     if (num <= 1) return;
-    assert(base && s && cmp);
-    _quicksort(base, 0, num - 1, s, cmp);
+    assert(arr && s && cmp);
+    _sort((char *)arr, (char *)arr, (char *)arr + (num - 1) * s, s, cmp);
 }
 
-static void _quicksort(void *base, int lo, int hi, usize s, cmp_f cmp)
+// quicksort
+static void _sort(char *arr, char *lo, char *hi, usize s, cmp_f cmp)
 {
     static char m[1024];
-    assert(s <= sizeof(m));
+
+    assert(s * 2 <= sizeof(m));
     assert(lo < hi);
 
-    i32   i = lo;
-    i32   j = hi;
-    char *a = (char *)base + i * s;
-    char *b = (char *)base + j * s;
-    char *p = (char *)base + ((lo + hi) >> 1) * s;
+    char *i = lo;
+    char *j = hi;
+    char *p = &m[s];
+
+    memcpy(p, arr + (((lo - arr) + (hi - arr)) / (s * 2)) * s, s);
+
     do {
-        while (cmp((const void *)a, (const void *)p) < 0) {
-            a += s, i++;
+        while (cmp((const void *)i, (const void *)p) < 0) {
+            i += s;
         }
-        while (cmp((const void *)b, (const void *)p) > 0) {
-            b -= s, j--;
-        }
-
-        if (i != j) {
-            memcpy(m, (const void *)a, s);
-            memcpy(a, (const void *)b, s);
-            memcpy(b, (const void *)m, s);
+        while (cmp((const void *)j, (const void *)p) > 0) {
+            j -= s;
         }
 
-        a += s, i++;
-        b -= s, j--;
-    } while (i < j); // -> moved to end because we know that lo/i is < hi/j
+        if (i > j) break;
 
-    if (lo < j) _quicksort(base, lo, j, s, cmp);
-    if (hi > i) _quicksort(base, i, hi, s, cmp);
+        memcpy(m, (const void *)i, s);
+        memcpy(i, (const void *)j, s);
+        memcpy(j, (const void *)m, s);
+
+        i += s;
+        j -= s;
+    } while (i <= j);
+
+    if (lo < j) _sort(arr, lo, j, s, cmp);
+    if (hi > i) _sort(arr, i, hi, s, cmp);
 }
 
 // =============================================================================
