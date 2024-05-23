@@ -254,24 +254,12 @@ void game_draw(game_s *g)
     case SUBSTATE_MAPTRANSITION: maptransition_draw(g, camoffset); break;
     case SUBSTATE_HEROUPGRADE: heroupgrade_draw(g, camoffset); break;
     }
-
-#if 0
-    v2_i32 pt_tri[3] = {
-        {0 * 4 + 1, 1 * 4 + 2},
-        {100 * 4 + 2, 0 * 4 + 1},
-        {2 * 4 + 2, 200 * 4 + 2}};
-    gfx_tri_fill_uvw(ctx, pt_tri, PRIM_MODE_BLACK);
-
-    v2_i32 pt_tri2[3] = {
-        {10 * 4 + 2, 1 * 4 + 1},
-        {990 * 4 + 3, 8 * 4 + 3},
-        {2 * 4 + 2, 40 * 4 + 2}};
-    gfx_tri_fill_uvw(ctx, pt_tri2, PRIM_MODE_BLACK);
-#endif
     item_select_draw(&g->item_select);
-
+#if LIGHTING_ENABLED
     g->lighting.lights[0].p = ohero->pos;
-    // lighting_do(g, &g->lighting, camoffset);
+    g->lighting.lights[0].r = 150;
+    lighting_do(g, &g->lighting, camoffset);
+#endif
 }
 
 static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
@@ -287,7 +275,7 @@ static void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
 
     if (o->flags & OBJ_FLAG_SPRITE) {
         for (int n = 0; n < o->n_sprites; n++) {
-            sprite_simple_s sprite = o->sprites[n];
+            obj_sprite_s sprite = o->sprites[n];
             if (sprite.trec.t.px == NULL) continue;
             v2_i32 sprpos = v2_add(ppos, sprite.offs);
             int    mode   = sprite.mode;

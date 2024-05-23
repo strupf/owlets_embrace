@@ -17,7 +17,7 @@ typedef struct {
 
 void stalactite_on_update(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr = &o->sprites[0];
+    obj_sprite_s *spr = &o->sprites[0];
 
     o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
     o->flags &= ~OBJ_FLAG_MOVER;
@@ -86,18 +86,18 @@ void stalactite_load(game_s *g, map_obj_s *mo)
     o->flags = OBJ_FLAG_SPRITE |
                OBJ_FLAG_ACTOR_PLATFORM |
                OBJ_FLAG_KILL_OFFSCREEN;
-    o->on_update         = stalactite_on_update;
-    sprite_simple_s *spr = &o->sprites[0];
-    o->render_priority   = -1;
-    o->moverflags        = OBJ_MOVER_ONE_WAY_PLAT;
-    o->n_sprites         = 1;
-    o->w                 = 32;
-    o->h                 = 16;
-    o->gravity_q8.y      = 30;
-    o->drag_q8.y         = 254;
-    spr->trec            = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
-    o->pos.x             = mo->x;
-    o->pos.y             = mo->y;
+    o->on_update       = stalactite_on_update;
+    obj_sprite_s *spr  = &o->sprites[0];
+    o->render_priority = -1;
+    o->moverflags      = OBJ_MOVER_ONE_WAY_PLAT;
+    o->n_sprites       = 1;
+    o->w               = 32;
+    o->h               = 16;
+    o->gravity_q8.y    = 30;
+    o->drag_q8.y       = 254;
+    spr->trec          = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
+    o->pos.x           = mo->x;
+    o->pos.y           = mo->y;
 
     stalactite_s *s = (stalactite_s *)o->mem;
 

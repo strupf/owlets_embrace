@@ -30,7 +30,7 @@ bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
 
 bool32 obj_handle_valid(obj_handle_s h)
 {
-    return (h.o && h.o->GID.u == h.GID.u);
+    return (h.o && h.o->GID == h.GID);
 }
 
 obj_s *obj_create(game_s *g)
@@ -46,9 +46,9 @@ obj_s *obj_create(game_s *g)
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
 
-    obj_GID_s GID = o->GID;
-    *o            = (obj_s){0};
-    o->GID        = GID;
+    u32 GID = o->GID;
+    *o      = (obj_s){0};
+    o->GID  = GID;
 #ifdef SYS_DEBUG
     o->magic = OBJ_MAGIC;
 #endif
@@ -62,13 +62,14 @@ void obj_delete(game_s *g, obj_s *o)
     if (!o) return;
     if (ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0) {
         g->obj_to_delete[g->obj_ndelete++] = o;
-        o->GID.gen++; // increase gen to devalidate existing handles
+
+        o->GID = obj_GID_incr_gen(o->GID); // increase gen to devalidate existing handles
     } else {
         sys_printf("already deleted\n");
     }
 }
 
-bool32 obj_tag(game_s *g, obj_s *o, int tag)
+bool32 obj_tag(game_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag]) return 0;
     o->tags |= (flags32)1 << tag;
@@ -76,7 +77,7 @@ bool32 obj_tag(game_s *g, obj_s *o, int tag)
     return 1;
 }
 
-bool32 obj_untag(game_s *g, obj_s *o, int tag)
+bool32 obj_untag(game_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag] != o) return 0;
     o->tags &= ~((flags32)1 << tag);
@@ -84,7 +85,7 @@ bool32 obj_untag(game_s *g, obj_s *o, int tag)
     return 1;
 }
 
-obj_s *obj_get_tagged(game_s *g, int tag)
+obj_s *obj_get_tagged(game_s *g, i32 tag)
 {
     return g->obj_tag[tag];
 }
@@ -92,14 +93,14 @@ obj_s *obj_get_tagged(game_s *g, int tag)
 void objs_cull_to_delete(game_s *g)
 {
     if (g->obj_ndelete <= 0) return;
-    for (int n = 0; n < g->obj_ndelete; n++) {
+    for (i32 n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
 
-        for (int k = 0; k < NUM_OBJ_TAGS; k++) {
+        for (i32 k = 0; k < NUM_OBJ_TAGS; k++) {
             if (g->obj_tag[k] == o)
                 g->obj_tag[k] = NULL;
         }
-        for (int k = 0; k < g->n_objrender; k++) {
+        for (i32 k = 0; k < g->n_objrender; k++) {
             if (g->obj_render[k] == o) {
                 g->obj_render[k] = g->obj_render[--g->n_objrender];
                 break;
@@ -129,10 +130,10 @@ bool32 actor_try_wiggle(game_s *g, obj_s *o)
     rec_i32 r = obj_aabb(o);
     if (game_traversable(g, r)) return 1;
 
-    int wiggle = o->ID == OBJ_ID_HERO ? 16 : 4;
+    i32 wiggle = o->ID == OBJ_ID_HERO ? 16 : 4;
 
-    for (int y = -wiggle; y <= +wiggle; y++) {
-        for (int x = -wiggle; x <= +wiggle; x++) {
+    for (i32 y = -wiggle; y <= +wiggle; y++) {
+        for (i32 x = -wiggle; x <= +wiggle; x++) {
             rec_i32 rr = {r.x + x, r.y + y, r.w, r.h};
             if (game_traversable(g, rr)) {
                 o->pos.x += x;
@@ -171,292 +172,265 @@ void squish_delete(game_s *g, obj_s *o)
     obj_delete(g, o);
 }
 
-void actor_move_by_internal(game_s *g, obj_s *o, v2_i32 dt)
+static bool32 map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m)
 {
-    assert(o->flags & OBJ_FLAG_ACTOR);
+    for (obj_each(g, it)) {
+        if (it == o) continue;
+        if (it->mass == 0) continue;
+        if (m <= it->mass && overlap_rec(r, obj_aabb(it))) {
+            obj_s *ocarry = (o && o->ID == OBJ_ID_HERO) ? carryable_present(g) : NULL;
+            if (ocarry == it) continue;
+            return 1;
+        }
+    }
+    return 0;
+}
 
-    if (o->flags & OBJ_FLAG_PLATFORM) {
-        platform_move(g, o, dt);
+static bool32 map_blocked_by_any_solid(game_s *g, rec_i32 r)
+{
+    for (obj_each(g, it)) {
+        if (it->mass == 0) continue;
+        if (overlap_rec(r, obj_aabb(it))) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static bool32 map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y)
+{
+    v2_i32 pt = {x, y};
+    for (obj_each(g, it)) {
+        if (it->mass == 0) continue;
+        if (overlap_rec_pnt(obj_aabb(it), pt)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+bool32 map_blocked(game_s *g, obj_s *o, rec_i32 r, i32 m)
+{
+    if (tile_map_solid(g, r)) return 1;
+    return (map_blocked_by_solid(g, o, r, m));
+}
+
+bool32 map_blocked_pt(game_s *g, obj_s *o, i32 x, i32 y, i32 m)
+{
+    if (tile_map_solid_pt(g, x, y)) return 0;
+    rec_i32 r = {x, y, 1, 1};
+    return (map_blocked_by_solid(g, NULL, r, 0));
+}
+
+bool32 game_traversable(game_s *g, rec_i32 r)
+{
+    if (tile_map_solid(g, r)) return 0;
+    if (map_blocked_by_any_solid(g, r)) return 0;
+    return 1;
+}
+
+bool32 game_traversable_pt(game_s *g, i32 x, i32 y)
+{
+    if (tile_map_solid_pt(g, x, y)) return 0;
+    if (map_blocked_by_any_solid_pt(g, x, y)) return 0;
+    return 1;
+}
+
+bool32 solid_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m)
+{
+    return map_blocked(g, NULL, r, m);
+}
+
+bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
+{
+    v2_i32 dt = {dx, dy};
+    if (0 < o->mass && g->hero_mem.rope_active) {
+        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
+    }
+
+    rec_i32 cr     = obj_aabb(o);
+    obj_s  *ocarry = (o->ID == OBJ_ID_HERO ? carryable_present(g) : NULL);
+    if (ocarry) {     // actively move the hero, and move the solid with it
+        if (dy < 0) { // upwards -> move solid first
+            if (!obj_step_y(g, ocarry, -1, 0, ocarry->mass + 1)) {
+                o->bumpflags |= OBJ_BUMPED_Y_NEG;
+                return 0;
+            }
+            o->pos.y--;
+        }
+        if (dy > 0) { // downwards -> move hero first
+            o->pos.y++;
+            if (!obj_step_y(g, ocarry, +1, 0, 0)) {
+                return 0;
+            }
+        }
+
+        if (dx) {
+            if (!obj_step_x(g, ocarry, dx, 0, 0)) {
+                o->bumpflags |= (0 < dx ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG);
+                return 0;
+            }
+            o->pos.x += dx;
+        }
     } else {
-        o->pos = v2_add(o->pos, dt);
+        o->pos.x += dx;
+        o->pos.y += dy;
     }
 
     if (o->ropenode) {
         ropenode_move(g, o->rope, o->ropenode, dt);
     }
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (!ohero) return;
+    if (o->mass <= 0) return 1;
 
-    rec_i32 rhero = obj_rec_bottom(ohero);
-    if (ohero == o && 0 < dt.y) {
-        for (obj_each(g, it)) {
-            if (!(it->flags & OBJ_FLAG_CAN_BE_JUMPED_ON)) continue;
-            rec_i32 ro = {it->pos.x, it->pos.y, it->w, 1};
-            if (!overlap_rec(rhero, ro)) continue;
-            it->bumpflags |= OBJ_BUMPED_JUMPED_ON;
-            ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
-        }
-    } else if ((o->flags & OBJ_FLAG_CAN_BE_JUMPED_ON) && dt.y < 0) {
-        rec_i32 ro = {o->pos.x, o->pos.y, o->w, 1};
-        if (overlap_rec(rhero, ro)) {
-            o->bumpflags |= OBJ_BUMPED_JUMPED_ON;
-            ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
-        }
-    }
-}
+    // solid pushing
+    const rec_i32 oaabb = obj_aabb(o);
+    for (obj_each(g, it)) {
+        if (o == it) continue;
+        bool32 linked  = 0;
+        bool32 pushed  = 0;
+        bool32 carried = 0;
 
-void actor_move(game_s *g, obj_s *o, v2_i32 dt)
-{
-    assert(o->flags & OBJ_FLAG_ACTOR);
-
-#define DO_BUMP_X                                                 \
-    o->bumpflags |= 0 < sx ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG; \
-    break
-#define DO_BUMP_Y                                                 \
-    o->bumpflags |= 0 < sy ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG; \
-    break
-
-    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); 0 < m; m--) {
-        rec_i32 r = obj_aabb(o);
-        v2_i32  v = {sx, 0};
-        r.x += sx;
-
-        if ((o->flags & OBJ_FLAG_CLAMP_ROOM_X) &&
-            (r.x + r.w > g->pixel_x || r.x < 0)) {
-            o->bumpflags |= OBJ_BUMPED_X_BOUNDS;
-            DO_BUMP_X;
-        }
-
-        if (game_traversable(g, r)) {
-            if ((o->moverflags & OBJ_MOVER_GLUE_GROUND) && 0 <= o->vel_q8.y) {
-                r.h++;
-                if (game_traversable(g, r)) {
-                    r.h++;
-                    if (game_traversable(g, r)) {
-                        r.h++;
-                        if (!game_traversable(g, r)) {
-                            v.y = 2;
-                            m--; // don't go down too fast
-                        }
-                    } else {
-                        v.y = 1;
-                    }
-                }
-            }
-            if ((o->moverflags & OBJ_MOVER_GLUE_TOP)) {
-                r.y--;
-                if (game_traversable(g, r)) {
-                    r.y--;
-                    if (game_traversable(g, r)) {
-                        r.y--;
-                        if (!game_traversable(g, r)) {
-                            v.y = -2;
-                            m--; // don't go down too fast
-                        }
-                    } else {
-                        v.y = -1;
-                    }
-                }
-            }
-        } else if (o->moverflags & OBJ_MOVER_SLOPES) {
-            r.y--;
-            v.y = -1;
-            if (!game_traversable(g, r)) {
-                if (o->moverflags & OBJ_MOVER_SLOPES_HI) {
-                    r.y--;
-                    v.y = -2;
-                    if (game_traversable(g, r)) {
-                        m--; // don't go up too fast
-                    } else {
-                        DO_BUMP_X;
-                    }
-                } else {
-                    DO_BUMP_X;
-                }
-            }
-        } else if (o->moverflags & OBJ_MOVER_SLOPES_TOP) {
-            r.y++;
-            v.y = +1;
-            if (!game_traversable(g, r)) {
-                DO_BUMP_X;
-            }
-        } else {
-            DO_BUMP_X;
-        }
-
-        actor_move_by_internal(g, o, v);
-    }
-
-    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
-        rec_i32 r = obj_aabb(o);
-        v2_i32  v = {0, sy};
-        r.y += sy;
-
-        if ((o->flags & OBJ_FLAG_CLAMP_ROOM_Y) &&
-            (r.y + r.h > g->pixel_y || r.y < 0)) {
-            o->bumpflags |= OBJ_BUMPED_Y_BOUNDS;
-            DO_BUMP_Y;
-        }
-
-        rec_i32 orec         = 0 < sy ? obj_rec_bottom(o) : obj_rec_top(o);
-        bool32  collide_plat = 0;
-
-        if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) && 0 < sy) {
-            collide_plat = (orec.y & 15) == 0 && tile_map_one_way(g, orec);
-            for (obj_each(g, a)) {
-                if (o == a) continue;
-                if (!(a->flags & OBJ_FLAG_PLATFORM)) continue;
-                if ((a->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) && o->ID != OBJ_ID_HERO) continue;
-                rec_i32 rplat = {a->pos.x, a->pos.y, a->w, 1};
-                if (overlap_rec(orec, rplat)) {
-                    collide_plat = 1;
-                    break;
-                }
-            }
-        }
-
-        if (!collide_plat && game_traversable(g, orec)) {
-            actor_move_by_internal(g, o, v);
-        } else if ((o->moverflags & OBJ_MOVER_AVOID_HEADBUMP) && sy < 0) {
-            // jump corner correction
-            // https://twitter.com/MaddyThorson/status/1238338578310000642
-            for (int k = 1; k <= 4; k++) {
-                rec_i32 recr = {r.x + k, r.y, r.w, r.h};
-                rec_i32 recl = {r.x - k, r.y, r.w, r.h};
-                if (game_traversable(g, recr)) {
-                    actor_move_by_internal(g, o, (v2_i32){+k, v.y});
-                    goto CONTINUE_Y;
-                }
-                if (game_traversable(g, recl)) {
-                    actor_move_by_internal(g, o, (v2_i32){-k, v.y});
-                    goto CONTINUE_Y;
-                }
-            }
-            DO_BUMP_Y;
-        } else {
-            DO_BUMP_Y;
-        }
-    CONTINUE_Y:;
-    }
-}
-
-static void platform_movestep(game_s *g, obj_s *o, v2_i32 dt)
-{
-    assert(v2_lensq(dt) == 1);
-
-    rec_i32 rplat = {o->pos.x, o->pos.y, o->w, 1};
-    o->pos        = v2_add(o->pos, dt);
-
-    for (obj_each(g, a)) {
-        if (a == o) continue;
-        if (!(a->flags & OBJ_FLAG_ACTOR)) continue;
-        if (!(a->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) continue;
-        if ((o->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) && a->ID != OBJ_ID_HERO) continue;
-        bool32 linked = (obj_from_obj_handle(a->linked_solid) == o);
-
-        rec_i32 feet = obj_rec_bottom(a);
-        if (overlap_rec(feet, rplat))
-            linked = 1;
-
-        if (linked) {
-            actor_move(g, a, dt);
-        }
-    }
-}
-
-void platform_move(game_s *g, obj_s *o, v2_i32 dt)
-{
-    assert(o->flags & OBJ_FLAG_PLATFORM);
-
-    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); m; m--) {
-        v2_i32 dtx = {sx, 0};
-        platform_movestep(g, o, dtx);
-    }
-
-    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); m; m--) {
-        v2_i32 dty = {0, sy};
-        platform_movestep(g, o, dty);
-    }
-}
-
-static void solid_movestep(game_s *g, obj_s *o, v2_i32 dt)
-{
-    assert(v2_lensq(dt) == 1);
-
-    o->flags &= ~OBJ_FLAG_SOLID;
-
-    rec_i32 aabbog      = obj_aabb(o);
-    bool32  traversable = 1;
-    if (o->flags & OBJ_FLAG_SOLID_LEVEL_COLLISION) {
-        rec_i32 r_new = {aabbog.x + dt.x, aabbog.y + dt.y, aabbog.w, aabbog.h};
-        traversable   = game_traversable(g, r_new);
-    }
-    o->flags |= OBJ_FLAG_SOLID;
-
-    if (!traversable) {
-        return;
-    }
-
-    if (g->hero_mem.rope_active) {
-        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
-    }
-
-    o->pos       = v2_add(o->pos, dt);
-    rec_i32 aabb = obj_aabb(o);
-
-    for (obj_each(g, a)) {
-        if (!(a->flags & (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM))) continue;
-        rec_i32 body   = obj_aabb(a);
-        bool32  linked = (obj_from_obj_handle(a->linked_solid) == o);
-
-        switch (a->ID) {
+        switch (it->ID) {
         case OBJ_ID_CRAWLER_CATERPILLAR:
         case OBJ_ID_CRAWLER:
-            if (overlap_rec_touch(body, aabbog))
+            if (overlap_rec_touch(obj_aabb(it), cr))
                 linked = 1;
             break;
-        default: {
-            rec_i32 feet = obj_rec_bottom(a);
-
-            if (o->flags & OBJ_FLAG_SOLID) {
-                if (overlap_rec(feet, aabbog))
-                    linked = 1;
-            }
-            assert(!(o->flags & OBJ_FLAG_PLATFORM));
-            // TOdo
-            if (o->flags & OBJ_FLAG_PLATFORM) {
-                rec_i32 rplat = {aabbog.x, aabbog.y, aabbog.w, 1};
-                if (overlap_rec(feet, rplat))
-                    linked = 1;
-            }
-
-        } break;
         }
 
-        if (overlap_rec(body, aabb) || linked) {
-            if (a->flags & OBJ_FLAG_PLATFORM)
-                platform_move(g, a, dt);
-            else
-                actor_move(g, a, dt);
+        if (it->mass < o->mass) {
+            pushed = overlap_rec(oaabb, obj_aabb(it));
+        }
+        if (it->mass <= o->mass) {
+            carried = overlap_rec(cr, obj_rec_bottom(it));
+        }
+        if (linked || pushed || carried) {
+            obj_step_x(g, it, dx, 1, pushed ? m : 0);
+            obj_step_y(g, it, dy, 1, pushed ? m : 0);
         }
     }
+    return 1;
 }
 
-void solid_move(game_s *g, obj_s *o, v2_i32 dt)
+bool32 obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush)
 {
-    assert(o->flags & OBJ_FLAG_SOLID);
+    if (dx == 0) return 0;
+    i32 m = (0 < o->mass && mpush) ? mpush : o->mass;
 
-    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); m; m--) {
-        v2_i32 dtx = {sx, 0};
-        solid_movestep(g, o, dtx);
+    rec_i32 checkr = dx == 1 ? obj_rec_right(o) : obj_rec_left(o);
+
+    // try side stepping
+    if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
+        if (!slide) {
+            o->bumpflags |= dx == 1 ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG;
+            return 0;
+        }
+
+        rec_i32 r1       = {o->pos.x + dx, o->pos.y - 1, o->w, o->h};
+        rec_i32 r2       = {o->pos.x + dx, o->pos.y + 1, o->w, o->h};
+        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_Y_NEG) && !map_blocked(g, o, r1, m);
+        bool32  could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_Y_POS) && !map_blocked(g, o, r2, m);
+
+        if (!(could_r1 && obj_step_y(g, o, -1, 0, m)) &&
+            !(could_r2 && obj_step_y(g, o, +1, 0, m))) {
+            o->bumpflags |= dx == 1 ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG;
+            return 0;
+        }
     }
 
-    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); m; m--) {
-        v2_i32 dty = {0, sy};
-        solid_movestep(g, o, dty);
+    checkr = dx == 1 ? obj_rec_right(o) : obj_rec_left(o);
+
+    if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
+        o->bumpflags |= dx == 1 ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG;
+        return 0;
+    }
+
+    if (!obj_step_internal(g, o, dx, 0, m)) return 0;
+
+    if (o->moverflags & OBJ_MOVER_GLUE_GROUND) {
+        rec_i32 rg1 = obj_rec_bottom(o);
+        rec_i32 rg2 = {rg1.x, rg1.y + 1, rg1.w, rg1.h};
+        if (!map_blocked(g, o, rg1, o->mass) && map_blocked(g, o, rg2, o->mass)) {
+            obj_step_y(g, o, +1, 0, 0);
+        }
+    }
+
+    return 1;
+}
+
+bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
+{
+    if (dy == 0) return 0;
+    i32 m = (0 < o->mass && mpush) ? mpush : o->mass;
+
+    rec_i32 checkr = dy == 1 ? obj_rec_bottom(o) : obj_rec_top(o);
+
+    if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
+        if (!slide) {
+            o->bumpflags |= dy == 1 ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG;
+            return 0;
+        }
+        rec_i32 r1       = {o->pos.x - 1, o->pos.y + dy, o->w, o->h};
+        rec_i32 r2       = {o->pos.x + 1, o->pos.y + dy, o->w, o->h};
+        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_X_NEG) && !map_blocked(g, o, r1, m);
+        bool32  could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_X_POS) && !map_blocked(g, o, r2, m);
+
+        if (!(could_r1 && obj_step_x(g, o, -1, 0, m)) &&
+            !(could_r2 && obj_step_x(g, o, +1, 0, m))) {
+            o->bumpflags |= dy == 1 ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG;
+            return 0;
+        }
+    }
+
+    checkr = dy == 1 ? obj_rec_bottom(o) : obj_rec_top(o);
+
+    if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
+        o->bumpflags |= dy == 1 ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG;
+        return 0;
+    }
+
+    if (!obj_step_internal(g, o, 0, dy, m)) return 0;
+
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (ohero) {
+        rec_i32 rhero = obj_rec_bottom(ohero);
+        if (ohero == o && 0 < dy) {
+            for (obj_each(g, it)) {
+                if (!(it->flags & OBJ_FLAG_CAN_BE_JUMPED_ON)) continue;
+                rec_i32 ro = {it->pos.x, it->pos.y, it->w, 1};
+                if (!overlap_rec(rhero, ro)) continue;
+                it->bumpflags |= OBJ_BUMPED_JUMPED_ON;
+                ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+            }
+        } else if ((o->flags & OBJ_FLAG_CAN_BE_JUMPED_ON) && dy < 0) {
+            rec_i32 ro = {o->pos.x, o->pos.y, o->w, 1};
+            if (overlap_rec(rhero, ro)) {
+                o->bumpflags |= OBJ_BUMPED_JUMPED_ON;
+                ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+            }
+        }
+    }
+
+    return 1;
+}
+
+void obj_move(game_s *g, obj_s *o, v2_i32 dt)
+{
+    for (i32 m = abs_i(dt.x), sx = sgn_i(dt.x); 0 < m; m--) {
+        obj_step_x(g, o, sx, 1, 0);
+    }
+
+    for (i32 m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
+        obj_step_y(g, o, sy, 1, 0);
     }
 }
+
+enum {
+    ACTOR_MOVE_SUCCESS,
+    ACTOR_MOVE_BUMPED = 1 << 0,
+    ACTOR_MOVE_DECR_M = 1 << 1,
+};
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
@@ -537,7 +511,8 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rec_i32 rbot = obj_rec_bottom(o);
     rbot.x += offs.x;
     rbot.y += offs.y;
-    if (!game_traversable(g, rbot)) return 1;
+
+    if (map_blocked(g, o, rbot, o->mass)) return 1;
     if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_map_one_way(g, rbot))
             return 1;
@@ -554,7 +529,7 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     return 0;
 }
 
-bool32 obj_would_fall_down_next(game_s *g, obj_s *o, int xdir)
+bool32 obj_would_fall_down_next(game_s *g, obj_s *o, i32 xdir)
 {
     if (!obj_grounded(g, o)) return 0;
 
@@ -622,4 +597,85 @@ enemy_s enemy_default()
     e.sndID_die  = SNDID_ENEMY_DIE;
     e.sndID_hurt = SNDID_ENEMY_HURT;
     return e;
+}
+
+obj_s *carryable_present(game_s *g)
+{
+    obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *ocarry = obj_get_tagged(g, OBJ_TAG_CARRIED);
+    if (!ohero || !ocarry) return 0;
+
+    v2_i32 pos = carryable_pos_on_hero(ohero, ocarry, NULL);
+    if (v2_eq(pos, ocarry->pos)) return ocarry;
+    carryable_on_drop(g, ocarry);
+    return NULL;
+}
+
+v2_i32 carryable_pos_on_hero(obj_s *ohero, obj_s *ocarry, rec_i32 *rlift)
+{
+    rec_i32 rhero = obj_aabb(ohero);
+    v2_i32  pos   = {rhero.x + rhero.w / 2 - ocarry->w / 2,
+                     rhero.y - ocarry->h};
+    if (rlift) {
+        rec_i32 rcarr = {pos.x, pos.y, ocarry->w, ocarry->h};
+        *rlift        = rcarr;
+    }
+    return pos;
+}
+
+void carryable_on_lift(game_s *g, obj_s *o)
+{
+    assert(o->flags & OBJ_FLAG_CARRYABLE);
+
+    o->flags &= ~OBJ_FLAG_CARRYABLE;
+    o->flags &= ~OBJ_FLAG_MOVER;
+    o->tomove.x   = 0;
+    o->tomove.y   = 0;
+    o->carry.tick = 1;
+    o->carry.time = 1;
+
+    switch (o->ID) {
+    case 1000: {
+        box_on_lift(g, o);
+        break;
+    }
+    }
+}
+
+void carryable_on_drop(game_s *g, obj_s *o)
+{
+    assert(!(o->flags & OBJ_FLAG_CARRYABLE));
+    obj_untag(g, o, OBJ_TAG_CARRIED);
+    hero_s *h   = &g->hero_mem;
+    h->carrying = 0;
+    o->flags |= OBJ_FLAG_CARRYABLE;
+    o->flags |= OBJ_FLAG_MOVER;
+
+    switch (o->ID) {
+    case 1000: {
+        box_on_drop(g, o);
+        break;
+    }
+    }
+}
+
+#define CARRYABLE_PICKUP_TICKS 4 // half the time
+
+v2_i32 carryable_animate_spr_offset(obj_s *o)
+{
+    v2_i32 vz = {0};
+    if (o->carry.tick) {
+        o->carry.tick++;
+        if ((CARRYABLE_PICKUP_TICKS << 1) <= o->carry.tick) {
+            o->carry.tick = 0;
+            return vz;
+        }
+        v2_i32 p1 = {o->carry.offs.x, o->carry.offs.y >> 2};
+        if (o->carry.tick <= CARRYABLE_PICKUP_TICKS) {
+            return v2_lerp(o->carry.offs, p1, o->carry.tick, CARRYABLE_PICKUP_TICKS);
+        } else {
+            return v2_lerp(p1, vz, o->carry.tick - CARRYABLE_PICKUP_TICKS, CARRYABLE_PICKUP_TICKS);
+        }
+    }
+    return vz;
 }

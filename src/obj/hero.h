@@ -65,7 +65,7 @@ typedef struct {
 } inventory_item_desc_s;
 // extern const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS];
 
-typedef struct {
+typedef struct hero_s {
     rope_s       rope;
     bool32       rope_active;
     i32          n_airjumps;
@@ -85,7 +85,6 @@ typedef struct {
     i32          grabbingp;
     i32          grabbing;
     bool32       carrying;
-    obj_handle_s carried;
     bool32       was_diving;
     bool32       thrustingp;
     bool32       thrusting;

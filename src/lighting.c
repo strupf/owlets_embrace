@@ -7,135 +7,106 @@
 
 void lighting_init(lighting_s *lig)
 {
-    lig->tex = tex_create_opaque(400, 240, asset_allocator);
 }
 
-#if 0 // shadowcasting
+// naive raycasting
 void lighting_apply_light(game_s *g, lighting_s *lig, l_light_s l, v2_i32 cam);
 
 void lighting_do(game_s *g, lighting_s *lig, v2_i32 cam)
 {
-    tex_clr(lig->tex, GFX_COL_BLACK);
-
-    for (int n = 0; n < lig->n_lights; n++) {
-        lighting_apply_light(g, lig, lig->lights[n], cam);
-    }
-
-    tex_s tex = asset_tex(0);
-    u32  *tx  = tex.px;
-    u32  *sm  = lig->tex.px;
-    i32   N   = tex.h * tex.wword;
-    for (i32 n = 0; n < N; n++) {
-        *tx++ &= *sm++;
-    }
-}
-
-void lighting_apply_light(game_s *g, lighting_s *lig, l_light_s l, v2_i32 cam)
-{
-    spm_push();
-
-    tex_s shadowmap_l = tex_create_opaque(lig->tex.w, lig->tex.h, spm_allocator);
-    tex_clr(shadowmap_l, GFX_COL_BLACK);
-
-    gfx_ctx_s ctx = gfx_ctx_default(shadowmap_l);
-
-    u32 rsq = l.r * l.r;
-
-    gfx_cir_fill(ctx, v2_add(l.p, cam), l.r << 1, PRIM_MODE_WHITE);
-
-    rec_i32           rlig   = {l.p.x - l.r - 1, l.p.y - l.r - 1, l.r * 2 + 1, l.r * 2 + 1};
-    tile_map_bounds_s bounds = tile_map_bounds_rec(g, rlig);
-
-    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
-        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-            i32 coll = g->tiles[x + y * g->tiles_x].collision;
-            if (!TILE_IS_SHAPE(coll)) continue;
-            tile_corners_s corners = g_tile_corners[coll];
-            v2_i32         ptile   = {x << 4, y << 4};
-
-            for (i32 n = 0; n < corners.n; n++) {
-                v2_i32 a  = v2_i32_from_v2_i8(corners.c[(n)]);
-                v2_i32 b  = v2_i32_from_v2_i8(corners.c[(n + 1) % corners.n]);
-                a         = v2_add(a, ptile);
-                b         = v2_add(b, ptile);
-                v2_i32 da = v2_sub(a, l.p);
-                v2_i32 db = v2_sub(b, l.p);
-
-                if (rsq <= v2_lensq(da) && rsq <= v2_lensq(db)) continue;
-
-                da             = v2_shl(da, 8);
-                db             = v2_shl(db, 8);
-                a              = v2_add(a, cam);
-                b              = v2_add(b, cam);
-                v2_i32 poly[4] = {a, b, v2_add(b, db), v2_add(a, da)};
-                gfx_poly_fill(ctx, poly, 4, PRIM_MODE_BLACK);
-            }
-        }
-    }
-
-    u32 *sp = lig->tex.px;
-    u32 *sl = shadowmap_l.px;
-    i32  N  = lig->tex.h * lig->tex.wword;
-    for (i32 n = 0; n < N; n++) {
-        *sp++ |= *sl++;
-    }
-
-    spm_pop();
-}
-#else // naive raycasting
-void lighting_apply_light(game_s *g, lighting_s *lig, l_light_s l, v2_i32 cam);
-
-void lighting_do(game_s *g, lighting_s *lig, v2_i32 cam)
-{
-
-    // memset(lig->l, 0, sizeof(lig->l));
-    tex_clr(lig->tex, GFX_COL_BLACK);
+    memset(lig->l, 0, sizeof(lig->l));
+    memset(lig->l3, 0, sizeof(lig->l3));
 
     for (i32 n = 0; n < lig->n_lights; n++) {
         lighting_apply_light(g, lig, lig->lights[n], cam);
     }
 
+    for (i32 y = 0; y < LIGHTING_H2; y++) {
+        for (i32 x = 0; x < LIGHTING_W2; x++) {
+            i32 ll = lig->l3[x + y * LIGHTING_W2];
+            i32 u1 = ((x << 3) + (cam.x & 7));
+            i32 v1 = ((y << 3) + (cam.y & 7));
+            for (i32 yy = 0; yy < 8; yy++) {
+                for (i32 xx = 0; xx < 8; xx++) {
+                    lig->l[(u1 + xx) + (v1 + yy) * LIGHTING_W] = ll;
+                }
+            }
+        }
+    }
+
+#if 0 // smoothing
+    for (i32 y = 2; y < LIGHTING_H - 2; y++) {
+        for (i32 x = 2; x < LIGHTING_W - 2; x++) {
+            u32 sum = (5 * 5) - 1;
+            for (i32 yi = -2; yi <= +2; yi++) {
+                for (i32 xi = -2; xi <= +2; xi++) {
+                    i32 xx = x + xi;
+                    i32 yy = y + yi;
+                    sum += lig->l2[xx + yy * LIGHTING_W];
+                }
+            }
+            lig->l[x + y * LIGHTING_W] = sum / (5 * 5);
+        }
+    }
+#endif
+
+    // dither
     u32 *p1 = ((u32 *)asset_tex(0).px);
-    u32 *p2 = ((u32 *)lig->tex.px);
     for (i32 y = 0; y < 240; y++) {
+        i32 yl = (y + 8);
+        i32 j  = yl & 3;
         for (i32 x = 0; x < 13; x++) {
-            *p1++ &= *p2++;
+            u32 p = 0;
+            for (i32 b = 0; b < 32; b++) {
+                i32 xl  = (x << 5) + b + 8;
+                i32 col = lig->l[xl + yl * LIGHTING_W];
+                i32 i   = xl & 3;
+
+                static const i32 MM[4][4] = {{0, 8, 2, 10},
+                                             {12, 4, 14, 6},
+                                             {3, 11, 1, 9},
+                                             {15, 7, 13, 5}};
+                if (col > MM[i][j]) {
+                    p |= 0x80000000U >> b;
+                }
+            }
+            *p1++ &= bswap32(p);
         }
     }
 }
 
-void lighting_ray(game_s *g, lighting_s *lig, v2_i32 p1, v2_i32 p2, i32 ls, v2_i32 cam)
+void lighting_ray(game_s *g, lighting_s *lig, v2_i32 p1, v2_i32 p2, u32 ls, v2_i32 cam)
 {
-    i32       dx    = +abs_i32(p2.x - p1.x);
-    i32       dy    = -abs_i32(p2.y - p1.y);
-    i32       sx    = p1.x < p2.x ? +1 : -1;
-    i32       sy    = p1.y < p2.y ? +1 : -1;
-    i32       er    = dx + dy;
-    i32       xa    = 1;
-    i32       ya    = 1;
-    i32       l     = 0;
-    i32       x     = p1.x;
-    i32       y     = p1.y;
-    i32       steps = 0;
-    gfx_ctx_s ctx   = gfx_ctx_default(lig->tex);
+    i32 dx    = +abs_i32(p2.x - p1.x);
+    i32 dy    = -abs_i32(p2.y - p1.y);
+    i32 sx    = p1.x < p2.x ? +1 : -1;
+    i32 sy    = p1.y < p2.y ? +1 : -1;
+    i32 er    = dx + dy;
+    i32 xa    = 1;
+    i32 ya    = 1;
+    u32 l     = 0;
+    i32 x     = p1.x;
+    i32 y     = p1.y;
+    i32 steps = 0;
 
-    while (1) {
-        i32 tx = (x << 2) + cam.x;
-        i32 ty = (y << 2) + cam.y;
-        gfx_rec_fill(ctx, (rec_i32){tx, ty, 4, 4}, GFX_COL_WHITE);
+    while (l < ls) {
+        i32 tx = x + cam.x; // display coordinates
+        i32 ty = y + cam.y;
 
-        rec_i32 rr = {(x << 2), (y << 2), 4, 4};
+        if (0 <= tx && tx < LIGHTING_W2 && 0 <= ty && ty < LIGHTING_H2) {
+            lig->l3[tx + ty * LIGHTING_W2] = (u32)((ls - l) << 4) / ls;
+        }
 
         if (steps) {
             if (--steps == 0) break;
         } else {
-            bool32 px = game_traversable(g, rr);
-            if (!game_traversable(g, rr)) {
-                steps = 4;
+            rec_i32 rr = {(x << 3) - 4, (y << 3) - 4, 8, 8};
+            bool32  px = game_traversable(g, rr);
+            if (!px) {
+                steps = 3;
             }
         }
 
-        if (ls <= l) break;
         i32 e2 = er << 1;
         if (e2 >= dy) { er += dy, x += sx, l += xa, xa += 2; }
         if (e2 <= dx) { er += dx, y += sy, l += ya, ya += 2; }
@@ -144,27 +115,26 @@ void lighting_ray(game_s *g, lighting_s *lig, v2_i32 p1, v2_i32 p2, i32 ls, v2_i
 
 void lighting_apply_light(game_s *g, lighting_s *lig, l_light_s l, v2_i32 cam)
 {
-    // cam.x &= ~3;
-    // cam.y &= ~3;
-    i32 x1 = (l.p.x - l.r - 1) >> 2;
-    i32 y1 = (l.p.y - l.r - 1) >> 2;
-    i32 x2 = (l.p.x + l.r + 1) >> 2;
-    i32 y2 = (l.p.y + l.r + 1) >> 2;
+    i32 rr = l.r;
+    i32 x1 = ((l.p.x - rr - 1) >> 3);
+    i32 y1 = ((l.p.y - rr - 1) >> 3);
+    i32 x2 = ((l.p.x + rr + 1) >> 3);
+    i32 y2 = ((l.p.y + rr + 1) >> 3);
 
-    i32    ls = (l.r * l.r) / 16;
-    v2_i32 pp = v2_shr(l.p, 2);
+    i32    ls = (rr * rr) >> (3 * 2);
+    v2_i32 pp = {(l.p.x + 4) >> 3, (l.p.y + 4) >> 3};
+    v2_i32 cm = v2_shr(cam, 3);
 
     for (i32 y = y1; y <= y2; y++) {
         v2_i32 pl = {x1, y};
         v2_i32 pr = {x2, y};
-        lighting_ray(g, lig, pp, pl, ls, cam);
-        lighting_ray(g, lig, pp, pr, ls, cam);
+        lighting_ray(g, lig, pp, pl, ls, cm);
+        lighting_ray(g, lig, pp, pr, ls, cm);
     }
     for (i32 x = x1; x <= x2; x++) {
         v2_i32 pu = {x, y1};
         v2_i32 pd = {x, y2};
-        lighting_ray(g, lig, pp, pu, ls, cam);
-        lighting_ray(g, lig, pp, pd, ls, cam);
+        lighting_ray(g, lig, pp, pu, ls, cm);
+        lighting_ray(g, lig, pp, pd, ls, cm);
     }
 }
-#endif

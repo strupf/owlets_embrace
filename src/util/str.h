@@ -12,7 +12,7 @@
     str_cpy(NAME, PATHNAME);                   \
     str_append(NAME, FILENAME)
 
-static int char_is_any(char c, const char *chars)
+static bool32 char_is_any(char c, const char *chars)
 {
     if (!chars) return 0;
     for (const char *a = chars; *a != '\0'; a++) {
@@ -21,17 +21,13 @@ static int char_is_any(char c, const char *chars)
     return 0;
 }
 
-static int str_eq(const char *a, const char *b)
+static inline bool32 str_eq(const char *a, const char *b)
 {
-    for (const char *x = a, *y = b;; x++, y++) {
-        if (*x != *y) return 0;
-        if (*x == '\0') break;
-    }
-    return 1;
+    return (strcmp(a, b) == 0);
 }
 
 // ignore lower/upper case when comparing
-static int str_eq_nc(const char *a, const char *b)
+static bool32 str_eq_nc(const char *a, const char *b)
 {
     for (const char *x = a, *y = b;; x++, y++) {
         if (((uint)(*x) & B8(11011111)) != ((uint)(*y) & B8(11011111)))
@@ -41,33 +37,20 @@ static int str_eq_nc(const char *a, const char *b)
     return 1;
 }
 
-static int str_contains(const char *str, const char *sequence)
+static inline bool32 str_contains(const char *str, const char *sequence)
 {
-    for (const char *x = str; *x != '\0'; x++) {
-        for (const char *a = x, *b = sequence;; a++, b++) {
-            if (*a == '\0' && *b != '\0') break;
-            if (*b == '\0') return 1;
-            if (*a != *b) break;
-        }
-    }
-    return 0;
+    return (strstr(str, sequence) != NULL);
 }
 
 // number of characters excluding null-char
-static int str_len(const char *a)
+static inline i32 str_len(const char *a)
 {
-    for (int l = 0;; l++)
-        if (a[l] == '\0') return l;
-    return 0;
+    return (i32)strlen(a);
 }
 
-static void str_cpy(char *dst, const char *src)
+static inline void str_cpy(char *dst, const char *src)
 {
-    char       *d = dst;
-    const char *s = src;
-    while (*s != '\0')
-        *d++ = *s++;
-    *d = '\0';
+    strcpy(dst, src);
 }
 
 static void str_cpys(char *dst, usize dstsize, const char *src)
@@ -78,8 +61,6 @@ static void str_cpys(char *dst, usize dstsize, const char *src)
         *d++ = *s++;
     *d = '\0';
 }
-
-#define str_cpysb(DST, SRC) str_cpys(DST, (usize)sizeof(DST), SRC)
 
 // assets/tex/file.png -> file.png
 static void str_extract_filename(const char *src, char *buf, usize bufsize)
@@ -98,13 +79,13 @@ static void str_extract_filename(const char *src, char *buf, usize bufsize)
 }
 
 // appends string b -> overwrites null-char and places a new null-char
-static void str_append(char *dst, const char *src)
+static inline void str_append(char *dst, const char *src)
 {
-    str_cpy(&dst[str_len(dst)], src);
+    strcat(dst, src);
 }
 
 // appends string b -> overwrites null-char and places a new null-char
-static void str_append_i(char *dst, int i)
+static void str_append_i(char *dst, i32 i)
 {
     if (i == 0) {
         str_append(dst, "0");
@@ -112,19 +93,19 @@ static void str_append_i(char *dst, int i)
     }
     char b1[16] = {0};
     char b2[16] = {0};
-    int  l      = 0;
-    int  j      = i >= 0 ? i : -i;
+    i32  l      = 0;
+    i32  j      = i >= 0 ? i : -i;
     while (j > 0) {
         b1[l++] = '0' + (j % 10);
         j /= 10;
     }
 
-    int k1 = 0;
+    i32 k1 = 0;
     if (i < 0) {
         k1    = 1;
         b2[0] = '-';
     }
-    for (int k = 0; k < l; k++)
+    for (i32 k = 0; k < l; k++)
         b2[k + k1] = b1[l - k - 1];
     str_append(dst, &b2[0]);
 }
@@ -137,17 +118,7 @@ static char *str_find_char(const char *str, char c)
     return NULL;
 }
 
-static int char_to_lower(int c)
-{
-    return (65 <= c && c <= 90 ? (c | 32) : c);
-}
-
-static int char_to_upper(int c)
-{
-    return (97 <= c && c <= 122 ? (c & ~32) : c);
-}
-
-static int char_hex_to_int(int c)
+static i32 char_hex_to_int(int c)
 {
     switch (c) {
     case '0': return 0;
@@ -178,33 +149,10 @@ static int char_hex_to_int(int c)
 
 #define char_int_from_hex char_hex_to_int
 
-static int char_is_digit(int c)
-{
-    return ('0' <= c && c <= '9');
-}
-
-static int char_is_xdigit(int c)
-{
-    return (char_hex_to_int(c) >= 0);
-}
-
-static int char_is_ws(int c)
-{
-    switch (c) {
-    case ' ':
-    case '\t':
-    case '\n':
-    case '\v':
-    case '\f':
-    case '\r': return 1;
-    }
-    return 0;
-}
-
-f32 f32_from_str(const char *str)
+static f32 f32_from_str(const char *str)
 {
     const char *c = str;
-    while (char_is_ws(*c))
+    while (isspace((int)*c))
         c++;
 
     f32 res  = 0.f;
@@ -214,10 +162,10 @@ f32 f32_from_str(const char *str)
         c++;
     }
 
-    for (int pt = 0;; c++) {
+    for (i32 pt = 0;; c++) {
         if (*c == '.') {
             pt = 1;
-        } else if (char_is_digit(*c)) {
+        } else if (isdigit((int)*c)) {
             if (pt) fact *= .1f;
             res = res * 10.f + (f32)char_int_from_hex(*c);
         } else {
@@ -227,13 +175,13 @@ f32 f32_from_str(const char *str)
     return res * fact;
 }
 
-i32 i32_from_str(const char *str)
+static i32 i32_from_str(const char *str)
 {
     const char *c = str;
-    while (char_is_ws(*c))
+    while (isspace((int)*c))
         c++;
     i32 res = 0;
-    int s   = +1;
+    i32 s   = +1;
     if (*c == '-') {
         s = -1;
         c++;
@@ -246,10 +194,10 @@ i32 i32_from_str(const char *str)
     return (res * s);
 }
 
-u32 u32_from_str(const char *str)
+static u32 u32_from_str(const char *str)
 {
     const char *c = str;
-    while (char_is_ws(*c))
+    while (isspace((int)*c))
         c++;
     u32 res = 0;
     while ('0' <= *c && *c <= '9') {
@@ -261,11 +209,11 @@ u32 u32_from_str(const char *str)
 }
 
 #define strs_from_u32(V, BUF) str_from_u32(V, BUF, sizeof(BUF))
-static int str_from_u32(u32 v, char *buf, usize bufsize)
+static i32 str_from_u32(u32 v, char *buf, usize bufsize)
 {
     if (!buf || !bufsize) return 0;
     u32  x     = v;
-    int  n     = 0;
+    i32  n     = 0;
     char b[16] = {0};
 
     while (1) {
@@ -281,7 +229,7 @@ static int str_from_u32(u32 v, char *buf, usize bufsize)
         }
     }
 
-    int len = --n;
+    i32 len = --n;
     while (0 <= n) {
         buf[len - n] = b[n];
         n--;

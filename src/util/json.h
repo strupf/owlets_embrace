@@ -39,29 +39,29 @@ typedef struct {
     json_s tok;
 } json_it_s;
 
-int   txt_load_buf(const char *filename, char *buf, usize bufsize);
-int   txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out);
+i32    txt_load_buf(const char *filename, char *buf, usize bufsize);
+i32    txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out);
 //
-int   json_root(const char *txt, json_s *tok_out);
-int   json_type(json_s j);
-int   json_depth(json_s j);
-int   json_next(json_s tok, json_s *tok_out);
-int   json_fchild(json_s tok, json_s *tok_out);
-int   json_sibling(json_s tok, json_s *tok_out);
-int   json_num_children(json_s tok);
-int   json_key(json_s tok, const char *key, json_s *tok_out);
-i32   json_i32(json_s tok);
-u32   json_u32(json_s tok);
-f32   json_f32(json_s tok);
-int   json_bool(json_s tok);
-char *json_str(json_s tok, char *buf, usize bufsize);
-char *json_strp(json_s tok, int *len);
-i32   jsonk_i32(json_s tok, const char *key);
-u32   jsonk_u32(json_s tok, const char *key);
-f32   jsonk_f32(json_s tok, const char *key);
-int   jsonk_bool(json_s tok, const char *key);
-char *jsonk_str(json_s tok, const char *key, char *buf, usize bufsize);
-char *jsonk_strp(json_s tok, const char *key, int *len);
+i32    json_root(const char *txt, json_s *tok_out);
+i32    json_type(json_s j);
+i32    json_depth(json_s j);
+i32    json_next(json_s tok, json_s *tok_out);
+i32    json_fchild(json_s tok, json_s *tok_out);
+i32    json_sibling(json_s tok, json_s *tok_out);
+i32    json_num_children(json_s tok);
+i32    json_key(json_s tok, const char *key, json_s *tok_out);
+i32    json_i32(json_s tok);
+u32    json_u32(json_s tok);
+f32    json_f32(json_s tok);
+bool32 json_bool(json_s tok);
+char  *json_str(json_s tok, char *buf, usize bufsize);
+char  *json_strp(json_s tok, int *len);
+i32    jsonk_i32(json_s tok, const char *key);
+u32    jsonk_u32(json_s tok, const char *key);
+f32    jsonk_f32(json_s tok, const char *key);
+bool32 jsonk_bool(json_s tok, const char *key);
+char  *jsonk_str(json_s tok, const char *key, char *buf, usize bufsize);
+char  *jsonk_strp(json_s tok, const char *key, int *len);
 
 #define jsonk_strs(JTOK, KEY, BUF) jsonk_str(JTOK, KEY, BUF, sizeof(BUF))
 
@@ -72,7 +72,7 @@ static json_s json_for_init(json_s tok, const char *key)
     return j;
 }
 
-static int json_for_valid(json_s *it, json_s *jit)
+static i32 json_for_valid(json_s *it, json_s *jit)
 {
     if (it->c0 == NULL) return 0;
     if (json_type(*it) == JSON_TYPE_ARR && json_fchild(*it, it) != JSON_SUCCESS)

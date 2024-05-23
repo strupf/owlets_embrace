@@ -164,23 +164,12 @@ void sys_log(const char *str)
 
 sys_display_s sys_display()
 {
-    sys_display_s s;
-    s.px    = backend_framebuffer();
-    s.w     = SYS_DISPLAY_W;
-    s.h     = SYS_DISPLAY_H;
-    s.wbyte = SYS_DISPLAY_WBYTES;
-    s.wword = SYS_DISPLAY_WWORDS;
-    return s;
-}
-
-sys_display_s sys_display_buffer()
-{
-    sys_display_s s;
-    s.px    = backend_display_buffer();
-    s.w     = SYS_DISPLAY_W;
-    s.h     = SYS_DISPLAY_H;
-    s.wbyte = SYS_DISPLAY_WBYTES;
-    s.wword = SYS_DISPLAY_WWORDS;
+    sys_display_s s = {0};
+    s.px            = backend_framebuffer();
+    s.w             = SYS_DISPLAY_W;
+    s.h             = SYS_DISPLAY_H;
+    s.wbyte         = SYS_DISPLAY_WBYTES;
+    s.wword         = SYS_DISPLAY_WWORDS;
     return s;
 }
 
@@ -194,18 +183,18 @@ void sys_display_flush()
     backend_display_flush();
 }
 
-void sys_display_update_rows(int a, int b)
+void sys_display_update_rows(i32 a, i32 b)
 {
     assert(0 <= a && b < SYS_DISPLAY_H);
     backend_display_row_updated(a, b);
 }
 
-int sys_inp()
+u32 sys_inp()
 {
     return backend_inp();
 }
 
-int sys_key(int k)
+bool32 sys_key(i32 k)
 {
     return backend_key(k);
 }
@@ -215,7 +204,7 @@ f32 sys_crank()
     return backend_crank();
 }
 
-int sys_crank_docked()
+bool32 sys_crank_docked()
 {
     return backend_crank_docked();
 }
@@ -271,38 +260,38 @@ void sys_menu_clr()
     memset(SYS.menu_items, 0, sizeof(SYS.menu_items));
 }
 
-sys_file_s *sys_fopen(const char *path, const char *mode)
+void *sys_fopen(const char *path, const char *mode)
 {
     switch (mode[0]) {
-    case 'r': return (sys_file_s *)backend_file_open(path, SYS_FILE_R);
-    case 'w': return (sys_file_s *)backend_file_open(path, SYS_FILE_W);
+    case 'r': return backend_file_open(path, SYS_FILE_R);
+    case 'w': return backend_file_open(path, SYS_FILE_W);
     }
     return NULL;
 }
 
-int sys_fclose(sys_file_s *f)
+i32 sys_fclose(void *f)
 {
     return backend_file_close(f);
 }
 
-size_t sys_fread(void *buf, size_t size, size_t count, sys_file_s *f)
+usize sys_fread(void *buf, usize size, usize count, void *f)
 {
     int i = backend_file_read(f, buf, size * count);
     return (i * count);
 }
 
-size_t sys_fwrite(const void *buf, size_t size, size_t count, sys_file_s *f)
+usize sys_fwrite(const void *buf, usize size, usize count, void *f)
 {
     int i = backend_file_write(f, buf, size * count);
     return (i * count);
 }
 
-int sys_ftell(sys_file_s *f)
+i32 sys_ftell(void *f)
 {
     return backend_file_tell(f);
 }
 
-int sys_fseek(sys_file_s *f, int pos, int origin)
+i32 sys_fseek(void *f, i32 pos, i32 origin)
 {
     return backend_file_seek(f, pos, origin);
 }

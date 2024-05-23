@@ -64,11 +64,11 @@ void carrier_load(game_s *g, map_obj_s *mo)
     o->gravity_q8.y    = 60;
     o->render_priority = 2;
 
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_CARRIER, 0, 0, 96, 48);
-    spr->offs.y          = o->h - 48;
-    spr->offs.x          = -24;
-    o->pos.x             = mo->x;
-    o->pos.y             = mo->y - o->h;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec         = asset_texrec(TEXID_CARRIER, 0, 0, 96, 48);
+    spr->offs.y       = o->h - 48;
+    spr->offs.x       = -24;
+    o->pos.x          = mo->x;
+    o->pos.y          = mo->y - o->h;
 }

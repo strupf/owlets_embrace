@@ -122,6 +122,8 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
     if (0) {
     } else if (str_eq_nc(o->name, "Switch")) {
         switch_load(g, o);
+    } else if (str_eq_nc(o->name, "Box")) {
+        box_load(g, o);
     } else if (str_eq_nc(o->name, "Heroupgrade")) {
         heroupgrade_load(g, o);
     } else if (str_eq_nc(o->name, "Boat")) {
@@ -228,8 +230,7 @@ void game_load_map(game_s *g, const char *mapfile)
 
     for (int n = 0; n < NUM_OBJ; n++) {
         obj_s *o         = &g->obj_raw[n];
-        o->GID.index     = n;
-        o->GID.gen       = 1;
+        o->GID           = obj_GID_set(n, 1);
         o->next          = g->obj_head_free;
         g->obj_head_free = o;
     }
@@ -254,8 +255,9 @@ void game_load_map(game_s *g, const char *mapfile)
     memset(g->rtiles, 0, sizeof(g->rtiles));
     g->areaname.fadeticks = 1;
 
-    strcpy(g->areaname.filename, mapfile);
+    str_cpy(g->areaname.filename, mapfile);
     g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
+    assert(g->map_worldroom);
     sys_printf("%s | %s\n", g->map_worldroom->filename, mapfile);
 
     spm_push();
@@ -285,9 +287,7 @@ void game_load_map(game_s *g, const char *mapfile)
     sys_file_read(mapf, mp.p, header.bytes_prop);
     map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
-
     area_setup(g, &g->area, map_prop_i32(mp, "Area_ID"));
-
     char musname[64] = {0};
     map_prop_strs(mp, "Music", musname);
     char muspath[128] = {0};
@@ -445,8 +445,8 @@ static int autotile_bg_is(tilelayer_bg_s tiles, int x, int y, int sx, int sy)
 
 static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, int sy)
 {
-    int u = x + sx;
-    int v = y + sy;
+    i32 u = x + sx;
+    i32 v = y + sy;
     if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
 
     map_terraintile_s a = tiles.tiles[x + y * tiles.w];
@@ -467,22 +467,6 @@ static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, 
     case TILE_SLOPE_45_3: return ((sx == +1 && sy == +0) ||
                                   (sx == +0 && sy == +1) ||
                                   (sx == +1 && sy == +1));
-    case TILE_SLOPE_LO_0: return (sy == -1 && sx <= 0);
-    case TILE_SLOPE_LO_2: return (sy == -1 && sx >= 0);
-    case TILE_SLOPE_LO_1: return (sy == +1 && sx <= 0);
-    case TILE_SLOPE_LO_3: return (sy == +1 && sx >= 0);
-    case TILE_SLOPE_LO_4: return (sx == -1 && sy <= 0);
-    case TILE_SLOPE_LO_6: return (sx == +1 && sy <= 0);
-    case TILE_SLOPE_LO_5: return (sx == -1 && sy >= 0);
-    case TILE_SLOPE_LO_7: return (sx == +1 && sy >= 0);
-    case TILE_SLOPE_HI_0: return (sy <= 0);
-    case TILE_SLOPE_HI_2: return (sy <= 0);
-    case TILE_SLOPE_HI_1: return (sy >= 0);
-    case TILE_SLOPE_HI_3: return (sy >= 0);
-    case TILE_SLOPE_HI_4: return (sx <= 0);
-    case TILE_SLOPE_HI_6: return (sx >= 0);
-    case TILE_SLOPE_HI_5: return (sx <= 0);
-    case TILE_SLOPE_HI_7: return (sx >= 0);
     }
     return 0;
 }
@@ -526,7 +510,8 @@ static void map_at_background(game_s *g, tilelayer_bg_s tiles, int x, int y)
 
 static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
 {
-    int               index = x + y * tiles.w;
+    i32 index = x + y * tiles.w;
+
     map_terraintile_s tile  = tiles.tiles[index];
     tile_s           *rtile = &g->tiles[index];
     if (tile.type == 0) return;
@@ -546,15 +531,15 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     if (autotile_terrain_is(tiles, x, y, -1, +1)) march |= AT_SW;
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
-    int xcoord = 0;
-    int ycoord = ((int)tile.type - 2) << 3;
-    int coords = g_autotilemarch[march];
+    i32 xcoord = 0;
+    i32 ycoord = ((i32)tile.type - 2) << 3;
+    i32 coords = g_autotilemarch[march];
 
     switch (tile.shape) {
     case TILE_BLOCK: {
 
-        int n_vari = 2; // number of variations in that tileset
-        int vari   = rngr_i32(0, n_vari);
+        i32 n_vari = 2; // number of variations in that tileset
+        i32 vari   = rngr_i32(0, n_vari);
         switch (march) { // coordinates of variation tiles
         case 17: {       // vertical
             static const i32 altc_17[3] = {(7) | (3 << 4),
@@ -599,7 +584,6 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
             coords                      = altc255[vari];
         } break;
         }
-
         xcoord = coords & 15;
         ycoord += coords >> 4;
         rtile->collision = TILE_BLOCK;
@@ -618,48 +602,25 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, int x, int y)
     case TILE_SLOPE_45_1:
     case TILE_SLOPE_45_2:
     case TILE_SLOPE_45_3: {
-        static const int nmasks[4 * 3] = {AT_E, AT_S, AT_SE, // masks for checking neighbours: SHAPE - X | Y | DIAGONAL
+        static const i32 nmasks[4 * 3] = {AT_E, AT_S, AT_SE, // masks for checking neighbours: SHAPE - X | Y | DIAGONAL
                                           AT_E, AT_N, AT_NE,
                                           AT_W, AT_S, AT_SW,
                                           AT_W, AT_N, AT_NW};
 
-        const int *nm = &nmasks[(tile.shape - TILE_SLOPE_45_0) * 3];
+        const i32 *nm = &nmasks[(tile.shape - TILE_SLOPE_45_0) * 3];
         int        xn = (march & nm[0]) != 0;                      // x neighbour
-        int        yn = (march & nm[1]) != 0;                      // y neighbour
-        int        cn = (march & nm[2]) != 0;                      // diagonal neighbour
+        i32        yn = (march & nm[1]) != 0;                      // y neighbour
+        i32        cn = (march & nm[2]) != 0;                      // diagonal neighbour
         xcoord        = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
         ycoord += (tile.shape - TILE_SLOPE_45_0);
 
         rtile->collision = tile.shape;
-    } break;
-    case TILE_SLOPE_LO_0:
-    case TILE_SLOPE_LO_1:
-    case TILE_SLOPE_LO_2:
-    case TILE_SLOPE_LO_3:
-    case TILE_SLOPE_LO_4:
-    case TILE_SLOPE_LO_5:
-    case TILE_SLOPE_LO_6:
-    case TILE_SLOPE_LO_7: {
-        xcoord = 17; // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_LO_0);
-        rtile->collision = tile.shape;
-    } break;
-    case TILE_SLOPE_HI_0:
-    case TILE_SLOPE_HI_1:
-    case TILE_SLOPE_HI_2:
-    case TILE_SLOPE_HI_3:
-    case TILE_SLOPE_HI_4:
-    case TILE_SLOPE_HI_5:
-    case TILE_SLOPE_HI_6:
-    case TILE_SLOPE_HI_7: {
-        xcoord = 23; // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_HI_0);
-        rtile->collision = tile.shape;
-    } break;
+        break;
+    }
     }
 
-    rtile->tx = xcoord;
-    rtile->ty = ycoord;
+    rtile->tx = (u8)xcoord;
+    rtile->ty = (u8)ycoord;
 }
 
 static map_prop_s *map_prop_get(map_properties_s p, const char *name)

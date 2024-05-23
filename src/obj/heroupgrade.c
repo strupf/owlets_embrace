@@ -22,14 +22,14 @@ void heroupgrade_load(game_s *g, map_obj_s *mo)
     o->w = 16;
     o->h = 16;
 
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_MISCOBJ, 0, 0, 32, 32);
-    spr->offs.x          = -8;
-    spr->offs.y          = -8;
-    o->pos.x             = mo->x;
-    o->pos.y             = mo->y;
-    o->state             = upgrade;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec         = asset_texrec(TEXID_MISCOBJ, 0, 0, 32, 32);
+    spr->offs.x       = -8;
+    spr->offs.y       = -8;
+    o->pos.x          = mo->x;
+    o->pos.y          = mo->y;
+    o->state          = upgrade;
 }
 
 void heroupgrade_on_collect(game_s *g, obj_s *o)

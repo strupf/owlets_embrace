@@ -43,7 +43,7 @@ void title_init(title_s *t)
     hs.upgrades[HERO_UPGRADE_SPRINT]    = 1;
     hs.health                           = 3;
 
-    strcpy(hs.hero_mapfile, "Level_0");
+    str_cpy(hs.hero_mapfile, "Level_0");
     hs.hero_pos.x = 50;
     hs.hero_pos.y = 100;
 

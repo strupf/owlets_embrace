@@ -192,32 +192,6 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
                 try_add_point_in_tri(v1, t1, t2, pts);
                 try_add_point_in_tri(v2, t1, t2, pts);
             }
-            if (TILE_IS_SLOPE_LO(t)) {
-                tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
-                v2_i32 *p  = tr.p;
-
-                convex_vertex_s v0 = {p[0], p[1], p[2]};
-                convex_vertex_s v1 = {p[1], p[2], p[0]};
-                convex_vertex_s v2 = {p[2], p[0], p[1]};
-                try_add_point_in_tri(v0, t1, t2, pts);
-                try_add_point_in_tri(v1, t1, t2, pts);
-                try_add_point_in_tri(v2, t1, t2, pts);
-            }
-            if (TILE_IS_SLOPE_HI(t)) {
-                v2_i32 *quadbase = &((v2_i32 *)g_tile_tris)[TILE_SLOPE_HI_0 * 3];
-                v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI_0) * 6];
-                v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
-                                    v2_add(quad[2], pos), v2_add(quad[3], pos)};
-
-                convex_vertex_s v0 = {p[0], p[1], p[3]};
-                convex_vertex_s v1 = {p[1], p[2], p[0]};
-                convex_vertex_s v2 = {p[2], p[1], p[3]};
-                convex_vertex_s v3 = {p[3], p[0], p[2]};
-                try_add_point_in_tri(v0, t1, t2, pts);
-                try_add_point_in_tri(v1, t1, t2, pts);
-                try_add_point_in_tri(v2, t1, t2, pts);
-                try_add_point_in_tri(v3, t1, t2, pts);
-            }
         }
     }
 
@@ -506,25 +480,6 @@ void tighten_ropesegment(game_s *g, rope_s *r,
                     rope_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
                     return;
             }
-            if (TILE_IS_SLOPE_LO(t)) {
-                tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
-                v2_i32 *p  = tr.p;
-                if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
-                    return;
-            }
-            if (TILE_IS_SLOPE_HI(t)) {
-                v2_i32 *quadbase = &((v2_i32 *)g_tile_tris)[TILE_SLOPE_HI_0 * 3];
-                v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI_0) * 6];
-                v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
-                                    v2_add(quad[2], pos), v2_add(quad[3], pos)};
-                if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
-                    return;
-            }
         }
     }
 
@@ -633,24 +588,6 @@ bool32 rope_intact(game_s *g, rope_s *r)
                 if (TILE_IS_SLOPE_45(t)) {
                     tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
                     if (overlap_tri_lineseg_excl(tr, ls)) {
-                        return 0;
-                    }
-                }
-                if (TILE_IS_SLOPE_LO(t)) {
-                    tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
-                    if (overlap_tri_lineseg_excl(tr, ls)) {
-                        return 0;
-                    }
-                }
-                if (TILE_IS_SLOPE_HI(t)) {
-                    v2_i32 *quadbase = &((v2_i32 *)g_tile_tris)[TILE_SLOPE_HI_0 * 3];
-                    v2_i32 *quad     = &quadbase[(t - TILE_SLOPE_HI_0) * 6];
-                    v2_i32  p[4]     = {v2_add(quad[0], pos), v2_add(quad[1], pos),
-                                        v2_add(quad[2], pos), v2_add(quad[3], pos)};
-                    tri_i32 tr1      = {{p[0], p[1], p[3]}};
-                    tri_i32 tr2      = {{p[2], p[1], p[3]}};
-                    if (overlap_tri_lineseg_excl(tr1, ls) ||
-                        overlap_tri_lineseg_excl(tr2, ls)) {
                         return 0;
                     }
                 }

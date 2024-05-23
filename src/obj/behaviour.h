@@ -13,6 +13,10 @@ void   floater_load(game_s *g, map_obj_s *mo);
 //
 void   boat_load(game_s *g, map_obj_s *mo);
 //
+void   box_load(game_s *g, map_obj_s *mo);
+void   box_on_lift(game_s *g, obj_s *o);
+void   box_on_drop(game_s *g, obj_s *o);
+//
 void   clockpulse_load(game_s *g, map_obj_s *mo);
 //
 void   crumbleblock_load(game_s *g, map_obj_s *mo);
@@ -74,8 +78,4 @@ void   hooklever_load(game_s *g, map_obj_s *mo);
 //
 obj_s *spritedecal_create(game_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                           i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, int flip);
-//
-void   pot_load(game_s *g, map_obj_s *mo);
-void   pot_on_pickup(game_s *g, obj_s *o, obj_s *ohero);
-void   pot_on_throw(game_s *g, obj_s *o, i32 dir_x);
 #endif

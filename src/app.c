@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "app.h"
+#include "collider.h"
 #include "core/assets.h"
 #include "core/inp.h"
 #include "core/spm.h"
@@ -15,6 +16,8 @@ game_s GAME;
 typedef struct {
     i32 x;
 } app_s;
+
+collider_game_s CGAME;
 
 static app_s APP;
 
@@ -71,6 +74,30 @@ static void app_load_game()
 
     title_init(&g->title);
     game_init(g);
+
+    // cgame init
+    u8 tiles[8 * 8] = {1, 1, 1, 1, 1, 1, 1, 1,
+                       1, 0, 0, 0, 0, 0, 0, 1,
+                       1, 0, 0, 0, 0, 0, 0, 1,
+                       1, 0, 0, 0, 0, 0, 0, 1,
+                       1, 0, 0, 0, 0, 0, 0, 1,
+                       1, 0, 2, 0, 0, 4, 0, 1,
+                       1, 0, 0, 0, 0, 0, 0, 1,
+                       1, 1, 1, 1, 1, 1, 1, 1};
+    memcpy(CGAME.tiles, tiles, sizeof(tiles));
+    CGAME.tiles_x = 8;
+    CGAME.tiles_y = 8;
+    CGAME.pixel_x = 8 * 16;
+    CGAME.pixel_y = 8 * 16;
+
+    collider_s c1                = {{16, 16, 16, 16}, 10, 7 | 8, 0};
+    CGAME.colls[CGAME.n_colls++] = c1;
+
+    collider_s c2                = {{40, 40, 16, 16}, 6, 7, 0};
+    CGAME.colls[CGAME.n_colls++] = c2;
+
+    collider_s c3                = {{40, 60, 16, 16}, 1, 7, 0};
+    CGAME.colls[CGAME.n_colls++] = c3;
 }
 
 void app_init()
@@ -93,7 +120,16 @@ void app_init()
 void app_tick()
 {
     inp_update();
-
+#if 0
+    i32 dx = inp_dpad_x();
+    i32 dy = inp_dpad_y();
+    if (dx) {
+        collider_move_x(&CGAME, &CGAME.colls[0], dx, 1, 0);
+    }
+    if (dy) {
+        collider_move_y(&CGAME, &CGAME.colls[0], dy, 1, 0);
+    }
+#else
     game_s *g = &GAME;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -103,13 +139,30 @@ void app_tick()
         game_tick(g);
         break;
     }
+
     aud_update();
+#endif
 }
 
 void app_draw()
 {
     sys_display_update_rows(0, SYS_DISPLAY_H - 1);
     tex_clr(asset_tex(0), GFX_COL_WHITE);
+#if 0
+    gfx_ctx_s ctx = gfx_ctx_display();
+    for (i32 y = 0; y < 8; y++) {
+        for (i32 x = 0; x < 8; x++) {
+            i32      t  = CGAME.tiles[x + y * 8];
+            texrec_s tr = asset_texrec(TEXID_COLLISION_TILES, 0, t * 16, 16, 16);
+            gfx_spr(ctx, tr, (v2_i32){x * 16, y * 16}, 0, 0);
+        }
+    }
+
+    for (i32 n = 0; n < CGAME.n_colls; n++) {
+        gfx_rec_fill(ctx, CGAME.colls[n].r, GFX_COL_BLACK);
+    }
+#else
+
 #if 0
     for (i32 n = 2; n < 22; n++) {
         texrec_s tr = asset_texrec(TEXID_COLLISION_TILES, 0, n * 16, 16, 16);
@@ -127,6 +180,7 @@ void app_draw()
         game_draw(g);
         break;
     }
+#endif
 #endif
 }
 

@@ -79,15 +79,15 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
         fr = 2 - fr;
     }
 
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec.r.x        = 64 * fr;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec.r.x     = 64 * fr;
 
     swingdoor_s *od = (swingdoor_s *)o->mem;
     if (od->key_opener_ticks == 0) return;
-    o->n_sprites          = 2;
-    sprite_simple_s *sprk = &o->sprites[1];
-    sprk->trec            = asset_texrec(TEXID_MISCOBJ, 224, 64, 16, 32);
+    o->n_sprites       = 2;
+    obj_sprite_s *sprk = &o->sprites[1];
+    sprk->trec         = asset_texrec(TEXID_MISCOBJ, 224, 64, 16, 32);
 
     int    i0   = od->key_opener_ticks;
     int    i1   = SWINGDOOR_KEY_OPEN_TICKS;
@@ -125,10 +125,10 @@ void swingdoor_load(game_s *g, map_obj_s *mo)
     o->w               = 16;
     o->h               = 32;
 
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_MISCOBJ, 0, 112, 64, 32);
-    spr->offs.x          = -16;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec         = asset_texrec(TEXID_MISCOBJ, 0, 112, 64, 32);
+    spr->offs.x       = -16;
 
     swingdoor_s *od = (swingdoor_s *)o->mem;
     o->pos.x        = mo->x;

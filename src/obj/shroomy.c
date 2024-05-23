@@ -28,6 +28,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
         obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
+
     o->bumpflags = 0;
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -84,8 +85,8 @@ void shroomy_on_update(game_s *g, obj_s *o)
 
 void shroomy_on_animate(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->flip            = o->facing == 1 ? SPR_FLIP_X : 0;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->flip         = o->facing == 1 ? SPR_FLIP_X : 0;
 
     const int H = spr->trec.r.h;
     const int W = spr->trec.r.w;
@@ -125,7 +126,8 @@ void shroomy_load(game_s *g, map_obj_s *mo)
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_SPRITE;
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_CAN_BE_JUMPED_ON;
     o->on_update       = shroomy_on_update;
     o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;
@@ -139,8 +141,8 @@ void shroomy_load(game_s *g, map_obj_s *mo)
         OBJ_MOVER_SLOPES |
         OBJ_MOVER_GLUE_GROUND;
 
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
 
     spr->trec   = asset_texrec(TEXID_SHROOMY, 0, 0, 64, 48);
     spr->offs.x = -(spr->trec.r.w - o->w) / 2;

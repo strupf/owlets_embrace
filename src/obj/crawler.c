@@ -188,10 +188,10 @@ void crawler_on_update(game_s *g, obj_s *o)
 
 void crawler_on_animate(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr     = &o->sprites[0];
-    obj_crawler_s   *crawler = (obj_crawler_s *)o->mem;
-    spr->flip                = 0;
-    int imgy                 = 0;
+    obj_sprite_s  *spr     = &o->sprites[0];
+    obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
+    spr->flip              = 0;
+    int imgy               = 0;
 
     if (o->state == CRAWLER_STATE_CRAWLING) {
         switch (o->action) {
@@ -291,22 +291,22 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY;
-    o->on_update         = crawler_on_update;
-    o->on_animate        = crawler_on_animate;
-    o->render_priority   = 1;
-    o->gravity_q8.y      = 30;
-    o->drag_q8.y         = 255;
-    o->drag_q8.x         = 255;
-    o->w                 = 15;
-    o->h                 = 15;
-    o->health_max        = ID == OBJ_ID_CRAWLER ? 2 : 1;
-    o->health            = o->health_max;
-    o->enemy             = enemy_default();
-    sprite_simple_s *spr = &o->sprites[0];
-    o->n_sprites         = 1;
-    spr->trec            = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
-    spr->offs.x          = o->w / 2 - 32;
-    spr->offs.y          = o->h / 2 - 48 + 10;
+    o->on_update       = crawler_on_update;
+    o->on_animate      = crawler_on_animate;
+    o->render_priority = 1;
+    o->gravity_q8.y    = 30;
+    o->drag_q8.y       = 255;
+    o->drag_q8.x       = 255;
+    o->w               = 15;
+    o->h               = 15;
+    o->health_max      = ID == OBJ_ID_CRAWLER ? 2 : 1;
+    o->health          = o->health_max;
+    o->enemy           = enemy_default();
+    obj_sprite_s *spr  = &o->sprites[0];
+    o->n_sprites       = 1;
+    spr->trec          = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
+    spr->offs.x        = o->w / 2 - 32;
+    spr->offs.y        = o->h / 2 - 48 + 10;
 
     // difference between tilesize and object dimension
     for (int y = 0; y <= 1; y++) {

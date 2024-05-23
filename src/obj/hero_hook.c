@@ -18,11 +18,11 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     obj_tag(g, o, OBJ_TAG_HOOK);
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_SPRITE;
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
-    spr->offs.x          = -16 + 4;
-    spr->offs.y          = -16 + 4;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec         = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
+    spr->offs.x       = -16 + 4;
+    spr->offs.y       = -16 + 4;
 
     o->w            = 8;
     o->h            = 8;
@@ -210,7 +210,7 @@ bool32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
             return hook_can_attach(g, r, ohook);
         }
 
-        actor_move_by_internal(g, o, v);
+        obj_step_x(g, o, sx, 0, 0);
         rec_i32 hookr = {r.x - 1, r.y - 1, r.w + 2, r.h + 2};
         if (hook_can_attach(g, hookr, ohook)) {
             return 1;
@@ -227,7 +227,7 @@ bool32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
             return hook_can_attach(g, r, ohook);
         }
 
-        actor_move_by_internal(g, o, v);
+        obj_step_y(g, o, sy, 0, 0);
         rec_i32 hookr = {r.x - 1, r.y - 1, r.w + 2, r.h + 2};
         if (hook_can_attach(g, hookr, ohook)) {
             return 1;

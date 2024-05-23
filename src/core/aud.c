@@ -169,7 +169,7 @@ bool32 mus_play(const char *filename)
     if (!f) {
         return 0;
     }
-    strcpy(ch->filename, filename);
+    str_cpy(ch->filename, filename);
     u32 audlen;
     sys_file_read(f, &audlen, sizeof(u32));
 
@@ -193,7 +193,7 @@ void mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
         AUD.mus_fade_ticks_max = 1;
     }
     AUD.mus_fade_ticks = AUD.mus_fade_ticks_max;
-    str_cpys(AUD.mus_new, sizeof(AUD.mus_new), pathname);
+    str_cpy(AUD.mus_new, pathname);
 }
 
 void mus_stop()

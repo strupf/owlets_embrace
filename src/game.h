@@ -158,11 +158,11 @@ i32     gameplay_time_since(game_s *g, i32 t);
 bool32  game_load_savefile(game_s *g);
 bool32  game_save_savefile(game_s *g);
 void    game_on_trigger(game_s *g, i32 trigger);
-bool32  game_traversable(game_s *g, rec_i32 r);
-bool32  game_traversable_pt(game_s *g, int x, int y);
 void    game_on_solid_appear(game_s *g);
-void    game_put_grass(game_s *g, int tx, int ty);
+void    game_put_grass(game_s *g, i32 tx, i32 ty);
 void    obj_game_player_attackbox(game_s *g, hitbox_s box);
+bool32  game_traversable(game_s *g, rec_i32 r);
+bool32  game_traversable_pt(game_s *g, i32 x, i32 y);
 //
 alloc_s game_allocator(game_s *g);
 void    backforeground_animate_grass(game_s *g);
@@ -170,7 +170,7 @@ void    backforeground_animate_grass(game_s *g);
 // returns a number [0, n_frames-1]
 // tick is the time variable
 // freqticks is how many ticks are needed for one loop
-int    tick_to_index_freq(int tick, int n_frames, int freqticks);
+i32    tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks);
 obj_s *obj_closest_interactable(game_s *g, v2_i32 pos);
 
 #define NUM_FRAME_TICKS 64

@@ -2,17 +2,19 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef LIGHTING_H
-#define LIGHTING_H
+#ifndef LIGHTING_H_
+#define LIGHTING_H_
 
 #include "gamedef.h"
 
+#define LIGHTING_ENABLED    0
 #define NUM_LIGHTING_LIGHTS 16
 
-typedef struct {
-    v2_i32 a;
-    v2_i32 b;
-} l_wall_s;
+#define LIGHTING_W 420
+#define LIGHTING_H 260
+
+#define LIGHTING_W2 (416 >> 3)
+#define LIGHTING_H2 (256 >> 3)
 
 typedef struct {
     v2_i32 p;
@@ -20,10 +22,12 @@ typedef struct {
 } l_light_s;
 
 typedef struct {
-    tex_s     tex;
     i32       n_lights;
     l_light_s lights[NUM_LIGHTING_LIGHTS];
-    u8        l[SYS_DISPLAY_W * SYS_DISPLAY_H / 4];
+
+    u8 l3[LIGHTING_W2 * LIGHTING_W2];
+    u8 l2[LIGHTING_W * LIGHTING_H];
+    u8 l[LIGHTING_W * LIGHTING_H];
 } lighting_s;
 
 void lighting_init(lighting_s *lig);

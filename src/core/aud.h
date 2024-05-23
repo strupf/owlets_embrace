@@ -43,7 +43,10 @@ typedef struct {
     i32    fade_in_ticks;
     i32    fade_in_ticks_og;
     //
-    alignas(8) i8 chunk[MUSCHUNK_SAMPLES];
+    union {
+        i8    chunk[MUSCHUNK_SAMPLES];
+        void *chunkalign;
+    };
 } muschannel_s;
 
 typedef struct {

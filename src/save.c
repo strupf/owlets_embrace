@@ -25,7 +25,7 @@ void hero_rem_upgrade(game_s *g, int ID)
 void hero_set_name(game_s *g, const char *name)
 {
     save_s *hs = &g->save;
-    str_cpysb(hs->name, name);
+    str_cpy(hs->name, name);
 }
 
 char *hero_get_name(game_s *g)

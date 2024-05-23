@@ -69,8 +69,8 @@ tex_s tex_framebuffer()
 tex_s tex_create_(int w, int h, bool32 mask, alloc_s ma)
 {
     tex_s t        = {0};
-    int   waligned = (w + 31) & ~31;
-    int   wword    = (waligned / 32) << (0 < mask);
+    i32   waligned = (w + 31) & ~31;
+    i32   wword    = (waligned / 32) << (0 < mask);
     usize size     = sizeof(u32) * wword * h;
     void *mem      = ma.allocf(ma.ctx, size); // * 2 bc of mask pixels
     if (!mem) return t;
@@ -376,6 +376,7 @@ void tex_clr(tex_s dst, int col)
 {
     int  N = dst.wword * dst.h;
     u32 *p = dst.px;
+    assert(p);
     switch (col) {
     case GFX_COL_BLACK:
         switch (dst.fmt) {
@@ -748,26 +749,37 @@ void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode)
     if (t1.y > t2.y) SWAP(v2_i32, t1, t2);
     int th = t2.y - t0.y;
     if (th == 0) return;
-    int h1 = t1.y - t0.y + 1;
-    int h2 = t2.y - t1.y + 1;
-    i32 d0 = t2.x - t0.x;
-    i32 d1 = t1.x - t0.x;
-    i32 d2 = t2.x - t1.x;
-    i32 y0 = max_i(ctx.clip_y1, t0.y);
-    i32 y1 = min_i(ctx.clip_y2, t1.y);
-    i32 y2 = min_i(ctx.clip_y2, t2.y);
-    for (int y = y0; y <= y1; y++) {
+    int h1  = t1.y - t0.y + 1;
+    int h2  = t2.y - t1.y + 1;
+    i32 d0  = t2.x - t0.x;
+    i32 d1  = t1.x - t0.x;
+    i32 d2  = t2.x - t1.x;
+    i32 ya0 = max_i32(ctx.clip_y1, t0.y);
+    i32 ya1 = min_i32(ctx.clip_y2, t1.y);
+
+    for (int y = ya0; y <= ya1; y++) {
+        assert(ctx.clip_y1 <= y && y <= ctx.clip_y2);
         i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
         i32 x2 = t0.x + (d1 * (y - t0.y)) / h1;
         if (x2 < x1) SWAP(i32, x1, x2);
+        x1 = max_i32(x1, ctx.clip_x1);
+        x2 = min_i32(x2, ctx.clip_x2);
+        if (x2 < x1) continue;
         span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
         prim_blit_span(info);
     }
 
-    for (int y = y1; y <= y2; y++) {
+    i32 yb0 = max_i32(ctx.clip_y1, t1.y);
+    i32 yb1 = min_i32(ctx.clip_y2, t2.y);
+
+    for (int y = yb0; y <= yb1; y++) {
+        assert(ctx.clip_y1 <= y && y <= ctx.clip_y2);
         i32 x1 = t0.x + (d0 * (y - t0.y)) / th;
         i32 x2 = t1.x + (d2 * (y - t1.y)) / h2;
         if (x2 < x1) SWAP(i32, x1, x2);
+        x1 = max_i32(x1, ctx.clip_x1);
+        x2 = min_i32(x2, ctx.clip_x2);
+        if (x2 < x1) continue;
         span_blit_s info = span_blit_gen(ctx, y, x1, x2, mode);
         prim_blit_span(info);
     }
@@ -841,15 +853,15 @@ void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], int mode)
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
 {
     if (d <= 0) return;
-    int y1 = max_i(p.y - (d >> 1), ctx.clip_y1);
-    int y2 = min_i(y1 + d, ctx.clip_y2);
-    int r2 = d * d + 1; // radius doubled^2
-    for (int y = y1; y <= y2; y++) {
-        int rd = r2 - pow2_i32((y - p.y) << 1);
+    i32 y1 = max_i32(p.y - (d >> 1), ctx.clip_y1);
+    i32 y2 = min_i32(y1 + d, ctx.clip_y2);
+    i32 r2 = d * d + 1; // radius doubled^2
+    for (i32 y = y1; y <= y2; y++) {
+        i32 rd = r2 - pow2_i32((y - p.y) << 1);
         if (rd < 0) continue;
-        int xx = sqrt_i32(rd) >> 1;
-        int x1 = max_i(p.x - xx, ctx.clip_x1);
-        int x2 = min_i(p.x + xx, ctx.clip_x2);
+        i32 xx = sqrt_i32(rd) >> 1;
+        i32 x1 = max_i32(p.x - xx, ctx.clip_x1);
+        i32 x2 = min_i32(p.x + xx, ctx.clip_x2);
         if (x2 < x1) continue;
         span_blit_s i = span_blit_gen(ctx, y, x1, x2, mode);
         prim_blit_span(i);

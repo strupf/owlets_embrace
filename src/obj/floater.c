@@ -44,7 +44,7 @@ void floater_on_update(game_s *g, obj_s *o)
 
 void floater_on_animate(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr = &o->sprites[0];
+    obj_sprite_s *spr = &o->sprites[0];
     switch (o->substate) {
     case OBJ_BUMPED_X_POS: {
         break;

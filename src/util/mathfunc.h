@@ -14,15 +14,14 @@
 static const i32 cos_table[256];
 
 #define clamp_i clamp_i32
-#define sgn_i   sgn_i32
-#define max_i   max_i32
-#define min_i   min_i32
-#define abs_i   abs_i32
-
 #define clamp_f clamp_f32
+#define sgn_i   sgn_i32
 #define sgn_f   sgn_f32
+#define max_i   max_i32
 #define max_f   max_f32
+#define min_i   min_i32
 #define min_f   min_f32
+#define abs_i   abs_i32
 #define abs_f   abs_f32
 
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
@@ -126,7 +125,7 @@ static inline i32 pow2_i32(i32 v)
 static inline i32 pow_i32(i32 v, i32 power)
 {
     i32 r = v;
-    for (int n = 1; n < power; n++) {
+    for (i32 n = 1; n < power; n++) {
         r *= v;
     }
     return r;
@@ -138,9 +137,9 @@ static inline i32 pow4_i32(i32 v)
     return (v2 * v2);
 }
 
-static inline int log2_u32(u32 v)
+static inline i32 log2_u32(u32 v)
 {
-    return (31 - (int)clz32(v));
+    return (31 - clz32(v));
 }
 
 static inline bool32 is_pow2_u32(u32 v)
@@ -280,8 +279,8 @@ static i32 turn_q18_calc(i32 num, i32 den)
 // output: [-65536, 65536] = [-1; +1]
 static i32 cos_q16(i32 turn_q18)
 {
-    int i   = (uint)(turn_q18 >> 8) & 0x3FF;
-    int neg = 0;
+    i32 i   = (u32)(turn_q18 >> 8) & 0x3FF;
+    i32 neg = 0;
     switch (i & 0x300) {                       // [0, 256)
     case 0x100: i = 0x200 - i, neg = 1; break; // [256, 512)
     case 0x200: i = i - 0x200, neg = 1; break; // [512, 768)

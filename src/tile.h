@@ -16,24 +16,6 @@ enum {
     TILE_SLOPE_45_2,
     TILE_SLOPE_45_3,
     //
-    TILE_SLOPE_LO_0,
-    TILE_SLOPE_LO_1,
-    TILE_SLOPE_LO_2,
-    TILE_SLOPE_LO_3,
-    TILE_SLOPE_LO_4,
-    TILE_SLOPE_LO_5,
-    TILE_SLOPE_LO_6,
-    TILE_SLOPE_LO_7,
-    //
-    TILE_SLOPE_HI_0,
-    TILE_SLOPE_HI_1,
-    TILE_SLOPE_HI_2,
-    TILE_SLOPE_HI_3,
-    TILE_SLOPE_HI_4,
-    TILE_SLOPE_HI_5,
-    TILE_SLOPE_HI_6,
-    TILE_SLOPE_HI_7,
-    //
     NUM_TILE_SHAPES,
     //
     TILE_LADDER = NUM_TILE_SHAPES,
@@ -44,8 +26,6 @@ enum {
 
 #define TILE_IS_BLOCK(X)    (TILE_BLOCK == (X))
 #define TILE_IS_SLOPE_45(X) (TILE_SLOPE_45_0 <= (X) && (X) <= TILE_SLOPE_45_3)
-#define TILE_IS_SLOPE_LO(X) (TILE_SLOPE_LO_0 <= (X) && (X) <= TILE_SLOPE_LO_7)
-#define TILE_IS_SLOPE_HI(X) (TILE_SLOPE_HI_0 <= (X) && (X) <= TILE_SLOPE_HI_7)
 #define TILE_IS_SHAPE(X)    (1 <= (X) && (X) < NUM_TILE_SHAPES)
 
 typedef struct {

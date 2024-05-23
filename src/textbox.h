@@ -7,6 +7,43 @@
 
 #include "gamedef.h"
 
+#define NUM_TEXTBOX_DIALOG_FRAMES 64
+#define NUM_TEXTBOX_CHOICES       4
+#define NUM_TEXTBOX_FRAME_CHARS   256
+#define NUM_TEXTBOX_CHOICE_CHARS  64
+
+typedef_struct(textbox_dialog_char_s);
+typedef_struct(textbox_dialog_s);
+typedef_struct(textbox_dialog_frame_s);
+typedef_struct(textbox_dialog_choice_s);
+
+struct textbox_dialog_char_s {
+    u8 c;
+    u8 fx;
+    u8 tick_q2; // ticks per character (q2 -> 4 for 1 tick)
+};
+
+struct textbox_dialog_choice_s {
+    i32 trigger;
+    i32 ID_frame;
+    u16 ID_choice;
+    u16 n_chars;
+    u8  chars[NUM_TEXTBOX_CHOICE_CHARS];
+};
+
+struct textbox_dialog_frame_s {
+    i32                     ID;
+    u16                     n_choices;
+    u16                     n_chars;
+    textbox_dialog_char_s   chars[NUM_TEXTBOX_FRAME_CHARS];
+    textbox_dialog_choice_s choices[NUM_TEXTBOX_CHOICES];
+};
+
+struct textbox_dialog_s {
+    i32                    n_frames;
+    textbox_dialog_frame_s frames[NUM_TEXTBOX_DIALOG_FRAMES];
+};
+
 enum {
     TEXTBOX_STATE_INACTIVE,
     TEXTBOX_STATE_WAIT,

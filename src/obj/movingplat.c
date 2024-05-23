@@ -122,6 +122,7 @@ void movingplatform_load(game_s *g, map_obj_s *mo)
     } else {
         o->flags |= OBJ_FLAG_PLATFORM;
     }
+    o->mass        = 1;
     o->on_update   = movingplatform_on_update;
     o->w           = 64;
     o->h           = 16;

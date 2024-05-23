@@ -6,7 +6,7 @@
 #include "str.h"
 #include "sys/sys.h"
 
-int txt_load_buf(const char *filename, char *buf, usize bufsize)
+i32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 {
     void *f = sys_file_open(filename, SYS_FILE_R);
     if (!f) {
@@ -14,19 +14,19 @@ int txt_load_buf(const char *filename, char *buf, usize bufsize)
         return TXT_ERR;
     }
     sys_file_seek(f, 0, SYS_FILE_SEEK_END);
-    int size = sys_file_tell(f);
+    i32 size = sys_file_tell(f);
     sys_file_seek(f, 0, SYS_FILE_SEEK_SET);
     if ((usize)size + 1 >= bufsize) {
         sys_printf("+++ txt buf too small %s\n", filename);
         return TXT_ERR;
     }
-    int read = sys_file_read(f, buf, size);
+    i32 read = sys_file_read(f, buf, size);
     sys_file_close(f);
     buf[read] = '\0';
     return TXT_SUCCESS;
 }
 
-int txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
+i32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
 {
     void *f = sys_file_open(filename, SYS_FILE_R);
     if (!f) {
@@ -34,7 +34,7 @@ int txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
         return TXT_ERR;
     }
     sys_file_seek(f, 0, SYS_FILE_SEEK_END);
-    int size = sys_file_tell(f);
+    i32 size = sys_file_tell(f);
     sys_file_seek(f, 0, SYS_FILE_SEEK_SET);
     char *buf = (char *)allocfunc((usize)size + 1);
     if (!buf) {
@@ -42,14 +42,14 @@ int txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
         sys_printf("+++ err loading %s\n", filename);
         return TXT_ERR;
     }
-    int read = sys_file_read(f, buf, size);
+    i32 read = sys_file_read(f, buf, size);
     sys_file_close(f);
     buf[read] = '\0';
     *txt_out  = (char *)buf;
     return TXT_SUCCESS;
 }
 
-int json_root(const char *txt, json_s *tok_out)
+i32 json_root(const char *txt, json_s *tok_out)
 {
     if (!txt) return JSON_ERR;
     for (const char *c = txt; *c != '\0'; c++) {
@@ -75,7 +75,7 @@ int json_root(const char *txt, json_s *tok_out)
     return JSON_ERR;
 }
 
-int json_type(json_s j)
+i32 json_type(json_s j)
 {
     if (!j.c0) return JSON_ERR;
     switch (*j.c0) {
@@ -100,13 +100,13 @@ int json_type(json_s j)
     return JSON_ERR;
 }
 
-int json_depth(json_s j)
+i32 json_depth(json_s j)
 {
     // depth of obj and array is one lower
     return (j.c1 ? j.nstack : j.nstack - 1);
 }
 
-int json_next(json_s tok, json_s *tok_out)
+i32 json_next(json_s tok, json_s *tok_out)
 {
     json_s j = tok;
     if (0 < j.nstack && (j.stack & (1U << (j.nstack - 1)))) // was key-value
@@ -197,7 +197,7 @@ int json_next(json_s tok, json_s *tok_out)
     return JSON_ERR;
 }
 
-int json_fchild(json_s tok, json_s *tok_out)
+i32 json_fchild(json_s tok, json_s *tok_out)
 {
     json_s j;
     if (json_next(tok, &j) != JSON_SUCCESS) return JSON_ERR;
@@ -207,14 +207,14 @@ int json_fchild(json_s tok, json_s *tok_out)
     return JSON_SUCCESS;
 }
 
-int json_sibling(json_s tok, json_s *tok_out)
+i32 json_sibling(json_s tok, json_s *tok_out)
 {
     if (tok_out)
         *tok_out = (json_s){0};
-    int    d = json_depth(tok);
+    i32    d = json_depth(tok);
     json_s a = tok;
     while (json_next(a, &a) == JSON_SUCCESS) {
-        int t = json_depth(a);
+        i32 t = json_depth(a);
         if (t < d) return JSON_ERR;
         if (t == d) {
             if (tok_out)
@@ -225,18 +225,18 @@ int json_sibling(json_s tok, json_s *tok_out)
     return JSON_ERR;
 }
 
-int json_num_children(json_s tok)
+i32 json_num_children(json_s tok)
 {
     json_s j;
     if (json_fchild(tok, &j) != JSON_SUCCESS) return 0;
-    int n = 1;
+    i32 n = 1;
     while (json_sibling(j, &j) == JSON_SUCCESS) {
         n++;
     }
     return n;
 }
 
-int json_key(json_s tok, const char *key, json_s *tok_out)
+i32 json_key(json_s tok, const char *key, json_s *tok_out)
 {
     if (json_type(tok) != JSON_TYPE_OBJ) return JSON_ERR;
 
@@ -276,7 +276,7 @@ i32 json_i32(json_s tok)
     if (!(('0' <= *c && *c <= '9') || *c == '-')) return 0;
 
     i32 res = 0;
-    int s   = +1;
+    i32 s   = +1;
     if (*c == '-') {
         s = -1;
         c++;
@@ -327,7 +327,7 @@ f32 json_f32(json_s j)
     return res * fact;
 }
 
-int json_bool(json_s tok)
+bool32 json_bool(json_s tok)
 {
     return (*tok.c0 == 't' ? 1 : 0);
 }
@@ -339,7 +339,7 @@ char *json_str(json_s tok, char *buf, usize bufsize)
         return NULL;
     }
 
-    int i = 0;
+    i32 i = 0;
     for (char *c = tok.c0 + 1; c < tok.c1; c++) {
         buf[i++] = *c;
         if ((usize)(i + 1) == bufsize) break;
@@ -352,7 +352,7 @@ char *json_str(json_s tok, char *buf, usize bufsize)
 char *json_strp(json_s tok, int *len)
 {
     if (json_type(tok) == JSON_TYPE_STR) {
-        if (len) *len = (int)(tok.c1 - tok.c0 - 1);
+        if (len) *len = (i32)(tok.c1 - tok.c0 - 1);
         return tok.c0 + 1;
     }
     if (len) *len = 0;
@@ -380,7 +380,7 @@ f32 jsonk_f32(json_s tok, const char *key)
     return json_f32(j);
 }
 
-int jsonk_bool(json_s tok, const char *key)
+bool32 jsonk_bool(json_s tok, const char *key)
 {
     json_s j;
     if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;

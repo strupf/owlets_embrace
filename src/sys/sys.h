@@ -39,9 +39,14 @@ void app_resume();
 void app_pause();
 void app_audio(i16 *buf, int len); // mono
 
-enum {                  // pd_api.h:
-    SYS_FILE_R = 1 | 2, // kFileRead | kFileReadData
-    SYS_FILE_W = 4,     // kFileWrite
+enum { // pd_api.h:
+#ifdef SYS_PD
+    SYS_FILE_R = kFileRead | kFileReadData,
+    SYS_FILE_W = kFileWrite,
+#else
+    SYS_FILE_R     = 1 | 2,
+    SYS_FILE_W     = 4,
+#endif
 };
 
 enum {
@@ -56,13 +61,22 @@ enum {
     SYS_SEEK_END = SYS_FILE_SEEK_END,
 };
 
-enum {                     // pd_api.h:
+enum {
+#ifdef SYS_PD
+    SYS_INP_DPAD_L = kButtonLeft, // pd_api.h
+    SYS_INP_DPAD_R = kButtonRight,
+    SYS_INP_DPAD_U = kButtonUp,
+    SYS_INP_DPAD_D = kButtonDown,
+    SYS_INP_B      = kButtonB,
+    SYS_INP_A      = kButtonA,
+#else
     SYS_INP_DPAD_L = 0x01, // kButtonLeft
     SYS_INP_DPAD_R = 0x02, // kButtonRight
     SYS_INP_DPAD_U = 0x04, // kButtonUp
     SYS_INP_DPAD_D = 0x08, // kButtonDown
     SYS_INP_B      = 0x10, // kButtonB
     SYS_INP_A      = 0x20, // kButtonA
+#endif
 };
 
 #define sys_file_open   backend_file_open
@@ -74,19 +88,18 @@ enum {                     // pd_api.h:
 #define sys_file_remove backend_file_remove
 //
 sys_display_s sys_display();
-sys_display_s sys_display_buffer();
 u32           sys_tick();
 bool32        sys_set_menu_image(void *px, int h, int wbyte);
 void          sys_del_menu_image();
 bool32        sys_has_menu_image();
 void          sys_display_flush();
-void          sys_display_update_rows(int a, int b);
+void          sys_display_update_rows(i32 a, i32 b);
 void          sys_display_inv(int i);
 void          sys_log(const char *str);
-int           sys_inp();   // bitmask
+u32           sys_inp();   // bitmask
 f32           sys_crank(); // [0, 1]
-int           sys_crank_docked();
-int           sys_key(int k);
+bool32        sys_crank_docked();
+bool32        sys_key(i32 k);
 void          sys_set_FPS(int fps);
 void          sys_menu_item_add(int ID, const char *title, void (*cb)(void *arg), void *arg);
 void          sys_menu_checkmark_add(int ID, const char *title, int val, void (*cb)(void *arg), void *arg);
@@ -96,16 +109,15 @@ void          sys_menu_options_add(int ID, const char *title, const char **optio
 void          sys_menu_clr();
 void          sys_set_volume(f32 vol); // only works in SDL
 
-typedef void *sys_file_s;
-sys_file_s   *sys_fopen(const char *path, const char *mode);
-int           sys_fclose(sys_file_s *f);
-size_t        sys_fread(void *buf, size_t size, size_t count, sys_file_s *f);
-size_t        sys_fwrite(const void *buf, size_t size, size_t count, sys_file_s *f);
-int           sys_ftell(sys_file_s *f);
-int           sys_fseek(sys_file_s *f, int pos, int origin);
+void *sys_fopen(const char *path, const char *mode);
+i32   sys_fclose(void *f);
+usize sys_fread(void *buf, usize size, usize count, void *f);
+usize sys_fwrite(const void *buf, usize size, usize count, void *f);
+i32   sys_ftell(void *f);
+i32   sys_fseek(void *f, i32 pos, i32 origin);
 //
-void          sys_gfx_set_px(i32 x, i32 y, u32 col);
-u32           sys_gfx_get_px(i32 x, i32 y);
+void  sys_gfx_set_px(i32 x, i32 y, u32 col);
+u32   sys_gfx_get_px(i32 x, i32 y);
 
 // copied SDL_SCANCODE_X
 enum {

@@ -10,11 +10,11 @@ void juggernaut_on_update(game_s *g, obj_s *o)
 
 void juggernaut_on_animate(game_s *g, obj_s *o)
 {
-    o->n_sprites         = 1;
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->trec            = asset_texrec(TEXID_JUGGERNAUT, 0, 0, 96, 96);
-    spr->offs.x          = -32;
-    spr->offs.y          = -48;
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->trec         = asset_texrec(TEXID_JUGGERNAUT, 0, 0, 96, 96);
+    spr->offs.x       = -32;
+    spr->offs.y       = -48;
 }
 
 void juggernaut_load(game_s *g, map_obj_s *mo)

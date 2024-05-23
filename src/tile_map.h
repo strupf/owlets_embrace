@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-#define NUM_TILES        131072
+#define NUM_TILES        (2 * 131072)
 #define NUM_STATIC_WALLS (NUM_TILES)
 
 #define TILE_WATER_MASK 0x80

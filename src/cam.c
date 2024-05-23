@@ -12,7 +12,7 @@
 
 static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center);
 
-void cam_screenshake(cam_s *c, int ticks, int str)
+void cam_screenshake(cam_s *c, i32 ticks, i32 str)
 {
     c->shake_ticks     = ticks;
     c->shake_ticks_max = ticks;
@@ -46,7 +46,7 @@ rec_i32 cam_rec_px(game_s *g, cam_s *c)
     return r;
 }
 
-void cam_set_pos_px(cam_s *c, int x, int y)
+void cam_set_pos_px(cam_s *c, i32 x, i32 y)
 {
     c->pos.x = (f32)x;
     c->pos.y = (f32)y;
@@ -92,7 +92,7 @@ void cam_update(game_s *g, cam_s *c)
             }
         }
 
-        if (0.05f <= v2f_lensq(padd)) {
+        if (0.5f <= v2f_lensq(padd)) {
             c->pos = v2f_add(c->pos, padd);
         }
 

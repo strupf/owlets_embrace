@@ -76,6 +76,7 @@ bool32 tile_map_solid(game_s *g, rec_i32 r)
     }
     return 0;
 }
+
 bool32 tile_map_solid_pt(game_s *g, i32 x, i32 y)
 {
     if (!(0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y)) return 0;

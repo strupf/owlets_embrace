@@ -20,10 +20,10 @@ void flyer_on_update(game_s *g, obj_s *o)
 
 void flyer_on_animate(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr = &o->sprites[0];
-    int              fr  = ((o->timer >> 1) & 3) * 128;
-    spr->trec            = asset_texrec(TEXID_FLYER, fr, 0, 128, 96);
-    spr->flip            = o->facing == 1 ? SPR_FLIP_X : 0;
+    obj_sprite_s *spr = &o->sprites[0];
+    int           fr  = ((o->timer >> 1) & 3) * 128;
+    spr->trec         = asset_texrec(TEXID_FLYER, fr, 0, 128, 96);
+    spr->flip         = o->facing == 1 ? SPR_FLIP_X : 0;
 }
 
 void flyer_load(game_s *g, map_obj_s *mo)
@@ -52,7 +52,7 @@ void flyer_load(game_s *g, map_obj_s *mo)
     f->p1.x       = p1.x << 4;
     f->p1.y       = p1.y << 4;
 
-    sprite_simple_s *spr = &o->sprites[0];
-    spr->offs.x          = -48;
-    spr->offs.y          = -40;
+    obj_sprite_s *spr = &o->sprites[0];
+    spr->offs.x       = -48;
+    spr->offs.y       = -40;
 }

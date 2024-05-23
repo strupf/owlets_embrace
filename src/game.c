@@ -5,6 +5,10 @@
 #include "game.h"
 #include "render.h"
 
+void game_tick_gameplay(game_s *g);
+void game_objs_update(game_s *g);
+void game_objs_move(game_s *g);
+
 void game_init(game_s *g)
 {
 #ifdef SYS_SDL
@@ -17,60 +21,99 @@ void game_init(game_s *g)
     lighting_init(&g->lighting);
     g->lighting.n_lights    = 1;
     g->lighting.lights[0].r = 100;
+
     sys_printf("GAME VERSION %u\n", GAME_VERSION);
 }
 
-static void gameplay_tick(game_s *g, inp_s inp)
+void game_tick(game_s *g)
+{
+    bool32 update_gameplay = 0;
+    switch (g->substate) {
+    case SUBSTATE_GAMEOVER: gameover_update(g); break;
+    case SUBSTATE_TEXTBOX: textbox_update(g); break;
+    case SUBSTATE_MAPTRANSITION: maptransition_update(g); break;
+    case SUBSTATE_HEROUPGRADE: heroupgrade_update(g); break;
+    case SUBSTATE_MENUSCREEN: menu_screen_update(g, &g->menu_screen); break;
+    case SUBSTATE_FREEZE: g->freeze_tick = max_i32(g->freeze_tick - 1, 0); break;
+    default: update_gameplay = 1; break;
+    }
+
+    if (!update_gameplay) {
+        g->item_select.docked = 0;
+    }
+
+    if (update_gameplay) {
+        g->gameplay_tick++;
+        game_tick_gameplay(g);
+
+        for (obj_each(g, o)) {
+            if (o->on_animate) {
+                o->on_animate(g, o);
+            }
+        }
+
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        if (ohero) {
+            const rec_i32 heroaabb = obj_aabb(ohero);
+            for (int n = 0; n < g->n_wiggle_deco; n++) {
+                wiggle_deco_s *wd = &g->wiggle_deco[n];
+                if (wd->t) {
+                    wd->t--;
+                    wd->tr.r.x = 64 * ((wd->t >> 2) & 3);
+                }
+
+                if (overlap_rec(wd->r, heroaabb)) {
+                    if (!wd->overlaps) {
+                        wd->overlaps = 1;
+                        wd->t        = 20;
+                    }
+                } else {
+                    wd->overlaps = 0;
+                }
+            }
+        }
+
+        for (int n = g->n_enemy_decals - 1; 0 <= n; n--) {
+            g->enemy_decals[n].tick--;
+            if (g->enemy_decals[n].tick <= 0) {
+                g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
+            }
+        }
+    }
+
+    cam_update(g, &g->cam);
+    if (g->areaname.fadeticks) {
+        g->areaname.fadeticks++;
+        if (FADETICKS_AREALABEL <= g->areaname.fadeticks) {
+            g->areaname.fadeticks = 0;
+        }
+    }
+
+    if (g->save_ticks) {
+        g->save_ticks++;
+        if (SAVE_TICKS <= g->save_ticks) {
+            g->save_ticks = 0;
+        }
+    }
+
+    // every other tick to save some CPU cycles;
+    // split between even and uneven frames
+    if (sys_tick() & 1) {
+        backforeground_animate_grass(g);
+    } else {
+    }
+
+    area_update(g, &g->area);
+}
+
+void game_tick_gameplay(game_s *g)
 {
     item_select_update(&g->item_select);
     g->events_frame          = 0;
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
-    for (obj_each(g, o)) {
-        const v2_i32 posprev = o->pos;
-
-        if (o->on_update) {
-            o->on_update(g, o);
-        }
-
-        o->posprev = posprev;
-
-        if (0 < o->invincible_tick) {
-            o->invincible_tick--;
-        }
-#ifdef SYS_DEBUG
-        assert(o->magic == OBJ_MAGIC);
-        assert((o->flags & (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID)) !=
-               (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID));
-#endif
-    }
-
-    // apply movement
-    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
-        if (o->flags & OBJ_FLAG_MOVER) {
-            obj_apply_movement(o);
-        }
-    }
-
-    // solid movement
-    for (obj_each(g, o)) { // move objects by tomove
-        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
-        if (o->flags & OBJ_FLAG_IS_CARRIED) continue;
-        solid_move(g, o, o->tomove);
-        o->tomove.x = 0, o->tomove.y = 0;
-    }
-
-    // actor movement
-    for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_ACTOR_PLATFORM)) continue;
-        if ((o->flags & OBJ_FLAG_ACTOR_PLATFORM) == OBJ_FLAG_PLATFORM) {
-            platform_move(g, o, o->tomove);
-        } else if (actor_try_wiggle(g, o)) {
-            actor_move(g, o, o->tomove);
-        }
-
-        o->tomove.x = 0, o->tomove.y = 0;
-    }
+    game_objs_update(g);
+    game_objs_move(g);
 
     // out of bounds deletion
     const rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
@@ -130,86 +173,43 @@ static void gameplay_tick(game_s *g, inp_s inp)
     }
 }
 
-void game_tick(game_s *g)
+void game_objs_update(game_s *g)
 {
+    for (obj_each(g, o)) {
+        const v2_i32 posprev = o->pos;
 
-    const inp_s inp             = inp_state();
-    bool32      update_gameplay = 0;
-    switch (g->substate) {
-    case SUBSTATE_GAMEOVER: gameover_update(g); break;
-    case SUBSTATE_TEXTBOX: textbox_update(g); break;
-    case SUBSTATE_MAPTRANSITION: maptransition_update(g); break;
-    case SUBSTATE_HEROUPGRADE: heroupgrade_update(g); break;
-    case SUBSTATE_MENUSCREEN: menu_screen_update(g, &g->menu_screen); break;
-    case SUBSTATE_FREEZE: g->freeze_tick = max_i32(g->freeze_tick - 1, 0); break;
-    default: update_gameplay = 1; break;
-    }
-
-    if (!update_gameplay) {
-        g->item_select.docked = 0;
-    }
-
-    if (update_gameplay) {
-        g->gameplay_tick++;
-        gameplay_tick(g, inp);
-
-        for (obj_each(g, o)) {
-            if (o->on_animate) {
-                o->on_animate(g, o);
-            }
+        if (o->on_update) {
+            o->on_update(g, o);
         }
 
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-        if (ohero) {
-            const rec_i32 heroaabb = obj_aabb(ohero);
-            for (int n = 0; n < g->n_wiggle_deco; n++) {
-                wiggle_deco_s *wd = &g->wiggle_deco[n];
-                if (wd->t) {
-                    wd->t--;
-                    wd->tr.r.x = 64 * ((wd->t >> 2) & 3);
-                }
+        o->posprev = posprev;
 
-                if (overlap_rec(wd->r, heroaabb)) {
-                    if (!wd->overlaps) {
-                        wd->overlaps = 1;
-                        wd->t        = 20;
-                    }
-                } else {
-                    wd->overlaps = 0;
-                }
-            }
+        if (0 < o->invincible_tick) {
+            o->invincible_tick--;
         }
 
-        for (int n = g->n_enemy_decals - 1; 0 <= n; n--) {
-            g->enemy_decals[n].tick--;
-            if (g->enemy_decals[n].tick <= 0) {
-                g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
-            }
+#ifdef SYS_DEBUG
+        assert(o->magic == OBJ_MAGIC);
+        assert((o->flags & (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID)) !=
+               (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID));
+#endif
+    }
+}
+
+void game_objs_move(game_s *g)
+{
+    // apply movement
+    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
+        if (o->flags & OBJ_FLAG_MOVER) {
+            obj_apply_movement(o);
         }
     }
 
-    cam_update(g, &g->cam);
-    if (g->areaname.fadeticks) {
-        g->areaname.fadeticks++;
-        if (FADETICKS_AREALABEL <= g->areaname.fadeticks) {
-            g->areaname.fadeticks = 0;
-        }
+    for (obj_each(g, o)) {
+        o->moverflags |= OBJ_MOVER_MAP;
+        obj_move(g, o, o->tomove);
+        o->tomove.x = 0, o->tomove.y = 0;
     }
-
-    if (g->save_ticks) {
-        g->save_ticks++;
-        if (SAVE_TICKS <= g->save_ticks) {
-            g->save_ticks = 0;
-        }
-    }
-
-    // every other tick to save some CPU cycles;
-    // split between even and uneven frames
-    if (sys_tick() & 1) {
-        backforeground_animate_grass(g);
-    }
-
-    area_update(g, &g->area);
 }
 
 void game_resume(game_s *g)
@@ -237,15 +237,17 @@ i32 gameplay_time_since(game_s *g, i32 t)
 bool32 game_load_savefile(game_s *g)
 {
     void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_R);
+
     if (!f) {
         sys_printf("New game\n");
         return 1;
     }
 
-    save_s *hs      = &g->save;
-    int     bread   = sys_file_read(f, hs, sizeof(save_s));
-    int     eclosed = sys_file_close(f);
-    bool32  success = (bread == (int)sizeof(save_s) && eclosed == 0);
+    save_s *hs = &g->save;
+
+    i32    bread   = sys_file_read(f, hs, sizeof(save_s));
+    i32    eclosed = sys_file_close(f);
+    bool32 success = (bread == (i32)sizeof(save_s) && eclosed == 0);
     if (!success) {
         sys_printf("+++ Error loading savefile!\n");
         BAD_PATH
@@ -253,7 +255,6 @@ bool32 game_load_savefile(game_s *g)
     }
 
     game_load_map(g, hs->hero_mapfile);
-
     obj_s  *oh   = hero_create(g);
     hero_s *hero = &g->hero_mem;
 
@@ -274,9 +275,9 @@ bool32 game_save_savefile(game_s *g)
     }
     sys_printf("SAVED!\n");
     g->save_ticks = 1;
-    int bwritten  = sys_file_write(f, (const void *)hs, sizeof(save_s));
-    int eclosed   = sys_file_close(f);
-    return (bwritten == (int)sizeof(save_s) && eclosed == 0);
+    i32 bwritten  = sys_file_write(f, (const void *)hs, sizeof(save_s));
+    i32 eclosed   = sys_file_close(f);
+    return (bwritten == (i32)sizeof(save_s) && eclosed == 0);
 }
 
 void game_on_trigger(game_s *g, i32 trigger)
@@ -289,7 +290,7 @@ void game_on_trigger(game_s *g, i32 trigger)
     }
 }
 
-void game_put_grass(game_s *g, int tx, int ty)
+void game_put_grass(game_s *g, i32 tx, i32 ty)
 {
     if (g->n_grass >= ARRLEN(g->grass)) return;
     grass_s *gr = &g->grass[g->n_grass++];
@@ -299,32 +300,9 @@ void game_put_grass(game_s *g, int tx, int ty)
     gr->type    = rngr_i32(0, 2);
 }
 
-bool32 game_traversable(game_s *g, rec_i32 r)
+i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks)
 {
-    if (tile_map_solid(g, r)) return 0;
-
-    for (obj_each(g, o)) {
-        if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(o)))
-            return 0;
-    }
-    return 1;
-}
-
-bool32 game_traversable_pt(game_s *g, int x, int y)
-{
-    if (tile_map_solid_pt(g, x, y)) return 0;
-
-    v2_i32 p = {x, y};
-    for (obj_each(g, o)) {
-        if ((o->flags & OBJ_FLAG_SOLID) && overlap_rec_pnt(obj_aabb(o), p))
-            return 0;
-    }
-    return 1;
-}
-
-int tick_to_index_freq(int tick, int n_frames, int freqticks)
-{
-    int i = ((tick * n_frames) / freqticks) % n_frames;
+    i32 i = ((tick * n_frames) / freqticks) % n_frames;
     assert(0 <= i && i < n_frames);
     return i;
 }
@@ -343,6 +321,24 @@ void game_on_solid_appear(game_s *g)
     }
 }
 
+void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
+
+void obj_game_player_attackbox(game_s *g, hitbox_s box)
+{
+    for (obj_each(g, o)) {
+        rec_i32 aabb = obj_aabb(o);
+        if (!overlap_rec(aabb, box.r)) continue;
+        obj_game_player_attackbox_o(g, o, box);
+    }
+}
+
+void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
+{
+    switch (o->ID) {
+    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
+    }
+}
+
 static void *game_alloc_ctx(void *ctx, usize s)
 {
     NOT_IMPLEMENTED
@@ -358,7 +354,7 @@ alloc_s game_allocator(game_s *g)
 
 void backforeground_animate_grass(game_s *g)
 {
-    for (int n = 0; n < g->n_grass; n++) {
+    for (i32 n = 0; n < g->n_grass; n++) {
         grass_s *gr = &g->grass[n];
         rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
 
@@ -370,7 +366,7 @@ void backforeground_animate_grass(game_s *g)
 
         gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);
         gr->x_q8 += gr->v_q8;
-        gr->x_q8 = clamp_i(gr->x_q8, -256, +256);
+        gr->x_q8 = clamp_i32(gr->x_q8, -256, +256);
         gr->v_q8 = (gr->v_q8 * 230) >> 8;
     }
 }

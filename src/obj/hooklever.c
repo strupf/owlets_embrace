@@ -28,7 +28,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
         if (!overlap_rec(rhook, obj_aabb(o))) break;
 
         rope_s *r = ohook->rope;
-        assert(r);
+        if (!r) break;
 
         if (!rope_stretched(g, r)) break;
 
@@ -55,7 +55,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
         o->subtimer = 0;
     }
 
-    sprite_simple_s *spr = &o->sprites[0];
+    obj_sprite_s *spr = &o->sprites[0];
 
     switch (o->state) {
     case 0: {
@@ -87,8 +87,8 @@ void hooklever_load(game_s *g, map_obj_s *mo)
     o->trigger      = map_obj_i32(mo, "trigger");
     o->state        = 0;
 
-    sprite_simple_s *spr = &o->sprites[0];
-    o->n_sprites         = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+    o->n_sprites      = 1;
 
     if (saveID_has(g, o->save_ID)) {
         o->pos.y += 16;

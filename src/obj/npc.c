@@ -77,8 +77,8 @@ void npc_on_update(game_s *g, obj_s *o)
 
 void npc_on_animate(game_s *g, obj_s *o)
 {
-    sprite_simple_s *spr   = &o->sprites[0];
-    int              frame = 0;
+    obj_sprite_s *spr   = &o->sprites[0];
+    int           frame = 0;
 
     switch (npc_get_state(g, o)) {
     case NPC_GROUNDED: {
@@ -115,9 +115,9 @@ void npc_on_interact(game_s *g, obj_s *o)
 
 void npc_load(game_s *g, map_obj_s *mo)
 {
-    obj_s           *o   = obj_create(g);
-    npc_s           *npc = (npc_s *)o->mem;
-    sprite_simple_s *spr = &o->sprites[0];
+    obj_s        *o   = obj_create(g);
+    npc_s        *npc = (npc_s *)o->mem;
+    obj_sprite_s *spr = &o->sprites[0];
 
     o->ID    = OBJ_ID_NPC;
     o->flags = OBJ_FLAG_SPRITE |

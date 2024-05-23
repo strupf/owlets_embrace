@@ -740,7 +740,7 @@ size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t size);
 #define SDL_memcmp memcmp
 #define SDL_strlcpy strlcpy
 #define SDL_strlcat strlcat
-#define SDL_strlen strlen
+#define SDL_strlen str_len
 #define SDL_wcslen wcslen
 #define SDL_wcslcpy wcslcpy
 #define SDL_wcslcat wcslcat
@@ -748,7 +748,7 @@ size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t size);
 #define SDL_wcsdup wcsdup
 #define SDL_strchr strchr
 #define SDL_strrchr strrchr
-#define SDL_strstr strstr
+#define SDL_strstr str_contains
 #define SDL_wcsstr wcsstr
 #define SDL_strtokr strtok_r
 #define SDL_strcmp strcmp

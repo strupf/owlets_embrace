@@ -8,21 +8,29 @@
 #include "gamedef.h"
 #include "rope.h"
 
-#define NUM_OBJ 1024
+#define NUM_OBJ_POW_2 (8)
+#define NUM_OBJ       (1 << NUM_OBJ_POW_2)
 
-static inline void obj_GID_decode(u32 slot, i32 *index, i32 *gen)
+static inline u32 obj_GID_incr_gen(u32 gid)
 {
-    if (index) {
-        *index = (i32)(slot & 0xFFFFU);
-    }
-    if (gen) {
-        *gen = (i32)(slot >> 16);
-    }
+    return (gid + (1U << NUM_OBJ_POW_2));
 }
 
-static inline u32 obj_GID_incr_gen(u32 slot)
+static inline i32 obj_GID_gen(u32 gid)
 {
-    return (slot + 0x10000U);
+    return (gid >> NUM_OBJ_POW_2);
+}
+
+static inline i32 obj_GID_index(u32 gid)
+{
+    return (gid & (0xFFFFFFFFU >> (32 - NUM_OBJ_POW_2)));
+}
+
+static inline u32 obj_GID_set(i32 index, i32 gen)
+{
+    assert(0 <= index && index < NUM_OBJ);
+    u32 gid = ((u32)index) | ((u32)gen << NUM_OBJ_POW_2);
+    return gid;
 }
 
 enum {
@@ -66,7 +74,7 @@ enum {
 enum {
     OBJ_TAG_HERO,
     OBJ_TAG_HOOK,
-    OBJ_TAG_CAM_ATTRACTOR,
+    OBJ_TAG_CARRIED,
     //
     NUM_OBJ_TAGS
 };
@@ -114,31 +122,27 @@ enum {
 
 enum {
     OBJ_MOVER_SLOPES         = 1 << 0,
-    OBJ_MOVER_SLOPES_HI      = 1 << 1,
     OBJ_MOVER_GLUE_GROUND    = 1 << 2,
     OBJ_MOVER_AVOID_HEADBUMP = 1 << 3,
     OBJ_MOVER_ONE_WAY_PLAT   = 1 << 4,
     OBJ_MOVER_SLOPES_TOP     = 1 << 5,
     OBJ_MOVER_GLUE_TOP       = 1 << 6,
+    OBJ_MOVER_SLIDE_Y_POS    = 1 << 8,
+    OBJ_MOVER_SLIDE_Y_NEG    = 1 << 9,
+    OBJ_MOVER_SLIDE_X_POS    = 1 << 10,
+    OBJ_MOVER_SLIDE_X_NEG    = 1 << 11,
+    OBJ_MOVER_MAP            = 1 << 12,
 };
 
 #define OBJ_HOVER_TEXT_TICKS 20
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
 
-typedef union {
-    struct {
-        u16 index;
-        u16 gen;
-    };
-    u32 u;
-} obj_GID_s;
-
 // handle to an object
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
 typedef struct {
-    obj_s    *o;
-    obj_GID_s GID;
+    obj_s *o;
+    u32    GID;
 } obj_handle_s;
 
 typedef struct {
@@ -146,7 +150,7 @@ typedef struct {
     v2_i32   offs;
     i16      flip;
     i16      mode;
-} sprite_simple_s;
+} obj_sprite_s;
 
 typedef struct {
     i16 sndID_hurt;
@@ -154,6 +158,12 @@ typedef struct {
     i32 drops;
     i32 hurt_tick;
 } enemy_s;
+
+typedef struct {
+    v2_i32 offs;
+    i32    tick;
+    i32    time;
+} obj_carry_s;
 
 static inline u32 save_ID_gen(i32 roomID, i32 objID)
 {
@@ -171,7 +181,7 @@ typedef void (*obj_on_interact_f)(game_s *g, obj_s *o);
 struct obj_s {
     obj_s            *next; // linked list
     //
-    obj_GID_s         GID;
+    u32               GID;     // generational index
     u32               ID;      // type of object
     u32               save_ID; // used to register save events
     flags64           flags;
@@ -186,10 +196,11 @@ struct obj_s {
     i32               render_priority;
     flags32           bumpflags; // has to be cleared manually
     flags32           moverflags;
+    i32               mass; // mass, for solid movement
     i32               w;
     i32               h;
-    v2_i32            posprev;
     v2_i32            pos; // position in pixels
+    v2_i32            posprev;
     v2_i32            subpos_q8;
     v2_i32            vel_q8;
     v2_i32            vel_prev_q8;
@@ -223,12 +234,17 @@ struct obj_s {
     rope_s           *rope;
     obj_handle_s      linked_solid;
     obj_handle_s      obj_handles[4];
+    obj_carry_s       carry;
     //
     i32               n_sprites;
-    sprite_simple_s   sprites[4];
+    obj_sprite_s      sprites[4];
     char              filename[64];
     //
-    alignas(4) char mem[256];
+    union {
+        char  mem[256];
+        void *_memalign;
+    };
+
     u32 magic;
 };
 
@@ -244,9 +260,9 @@ bool32       obj_handle_valid(obj_handle_s h);
 //
 obj_s       *obj_create(game_s *g);
 void         obj_delete(game_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
-bool32       obj_tag(game_s *g, obj_s *o, int tag);
-bool32       obj_untag(game_s *g, obj_s *o, int tag);
-obj_s       *obj_get_tagged(game_s *g, int tag);
+bool32       obj_tag(game_s *g, obj_s *o, i32 tag);
+bool32       obj_untag(game_s *g, obj_s *o, i32 tag);
+obj_s       *obj_get_tagged(game_s *g, i32 tag);
 void         objs_cull_to_delete(game_s *g); // removes all flagged objects
 bool32       overlap_obj(obj_s *a, obj_s *b);
 rec_i32      obj_aabb(obj_s *o);
@@ -256,19 +272,24 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
+bool32       map_blocked(game_s *g, obj_s *o, rec_i32 r, i32 m);
+bool32       map_blocked_pt(game_s *g, obj_s *o, i32 x, i32 y, i32 m);
+bool32       solid_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m);
+bool32       obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush);
+bool32       obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush);
+void         obj_move(game_s *g, obj_s *o, v2_i32 dt);
 bool32       actor_try_wiggle(game_s *g, obj_s *o);
-void         actor_move(game_s *g, obj_s *o, v2_i32 dt);
-void         actor_move_by_internal(game_s *g, obj_s *o, v2_i32 dt);
-void         platform_move(game_s *g, obj_s *o, v2_i32 dt);
-void         solid_move(game_s *g, obj_s *o, v2_i32 dt);
 void         obj_on_squish(game_s *g, obj_s *o);
 bool32       obj_grounded(game_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
-bool32       obj_would_fall_down_next(game_s *g, obj_s *o, int xdir); // not on ground returns false
+bool32       obj_would_fall_down_next(game_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
-bool32       carryable_is_liftable(game_s *g, obj_s *o);
-void         carryable_lift(obj_s *o);
+obj_s       *carryable_present(game_s *g);
+v2_i32       carryable_pos_on_hero(obj_s *ohero, obj_s *ocarry, rec_i32 *rlift);
+void         carryable_on_lift(game_s *g, obj_s *o);
+void         carryable_on_drop(game_s *g, obj_s *o);
+v2_i32       carryable_animate_spr_offset(obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
@@ -276,4 +297,5 @@ void         carryable_lift(obj_s *o);
 // the goal is to move a whole pixel left or right
 void    obj_apply_movement(obj_s *o);
 enemy_s enemy_default();
+
 #endif

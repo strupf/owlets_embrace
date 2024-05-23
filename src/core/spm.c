@@ -24,11 +24,13 @@ void spm_init()
 
 void spm_push()
 {
+
     SPM.stack[SPM.n_stack++] = marena_state(&SPM.m);
 }
 
 void spm_pop()
 {
+    assert(0 < SPM.n_stack);
     void *p = SPM.stack[--SPM.n_stack];
     marena_reset_to(&SPM.m, p);
 }
@@ -36,6 +38,7 @@ void spm_pop()
 void *spm_alloc(usize s)
 {
     void *mem = marena_alloc(&SPM.m, s);
+    assert(mem);
 #ifdef SYS_DEBUG
     usize rem = marena_size_rem(&SPM.m);
     if (rem < SPM.lowestleft) {

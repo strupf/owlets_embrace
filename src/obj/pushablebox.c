@@ -33,7 +33,7 @@ void pushablebox_on_update(game_s *g, obj_s *o)
         bool32 boxcouldmove  = game_traversable(g, pushrb);
         o->flags |= OBJ_FLAG_SOLID;
         if (!herocouldmove || !boxcouldmove) break;
-        solid_move(g, o, (v2_i32){dpx, 0});
+        obj_move(g, o, (v2_i32){dpx, 0});
 
         break;
     }
