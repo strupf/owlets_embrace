@@ -3,101 +3,41 @@
 // =============================================================================
 
 #include "app.h"
-#include "collider.h"
 #include "core/assets.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "game.h"
 #include "render.h"
-#include "sys/sys.h"
 
 game_s GAME;
 
-typedef struct {
-    i32 x;
-} app_s;
+void app_load_tex();
+void app_load_fnt();
+void app_load_snd();
+void app_load_game();
 
-collider_game_s CGAME;
-
-static app_s APP;
-
-static void app_load_tex();
-static void app_load_fnt();
-static void app_load_snd();
-static void app_load_game();
-
-void menu_cb_map(void *arg)
-{
-    game_s *g = (game_s *)arg;
-    if (g->substate == 0) {
-        menu_screen_open(g, &g->menu_screen);
-    }
-}
-
-void menu_cb_equipment(void *arg)
-{
-    game_s *g = (game_s *)arg;
-}
-
-void app_set_menu_gameplay()
-{
-    game_s *g = &GAME;
-    sys_menu_clr();
-    sys_menu_item_add(0, "Map", menu_cb_map, g);
-    sys_menu_item_add(0, "Equipment", menu_cb_equipment, g);
-}
-
-void app_set_menu_title()
-{
-    sys_menu_clr();
-}
-
-static void app_load_game()
+void app_load_game()
 {
     game_s *g = &GAME;
 
-    sys_printf("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
-    usize size_tabs = sizeof(g_tile_px) +
+    pltf_log("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
+    usize size_tabs = sizeof(g_tile_corners) +
                       sizeof(g_tile_tris) +
                       sizeof(AUD_s);
-    sys_printf("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
-    sys_printf("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
-    sys_printf("size GAM: %u kb\n", (uint)sizeof(game_s) / 1024);
-    sys_printf("size TAB: %u kb\n", (uint)(size_tabs / 1024));
-    sys_printf("  = %u kb\n\n", (uint)(sizeof(ASSETS_s) +
-                                       sizeof(SPM_s) +
-                                       sizeof(game_s) +
-                                       size_tabs) /
-                                    1024);
+    pltf_log("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
+    pltf_log("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
+    pltf_log("size GAM: %u kb\n", (uint)sizeof(game_s) / 1024);
+    pltf_log("size TAB: %u kb\n", (uint)(size_tabs / 1024));
+    pltf_log("  = %u kb\n\n", (uint)(sizeof(ASSETS_s) +
+                                     sizeof(SPM_s) +
+                                     sizeof(game_s) +
+                                     size_tabs) /
+                                  1024);
 
-    sys_printf("size save: %u bytes\n", (uint)(sizeof(save_s)));
+    pltf_log("size save: %u bytes\n", (uint)(sizeof(save_s)));
 
     title_init(&g->title);
     game_init(g);
-
-    // cgame init
-    u8 tiles[8 * 8] = {1, 1, 1, 1, 1, 1, 1, 1,
-                       1, 0, 0, 0, 0, 0, 0, 1,
-                       1, 0, 0, 0, 0, 0, 0, 1,
-                       1, 0, 0, 0, 0, 0, 0, 1,
-                       1, 0, 0, 0, 0, 0, 0, 1,
-                       1, 0, 2, 0, 0, 4, 0, 1,
-                       1, 0, 0, 0, 0, 0, 0, 1,
-                       1, 1, 1, 1, 1, 1, 1, 1};
-    memcpy(CGAME.tiles, tiles, sizeof(tiles));
-    CGAME.tiles_x = 8;
-    CGAME.tiles_y = 8;
-    CGAME.pixel_x = 8 * 16;
-    CGAME.pixel_y = 8 * 16;
-
-    collider_s c1                = {{16, 16, 16, 16}, 10, 7 | 8, 0};
-    CGAME.colls[CGAME.n_colls++] = c1;
-
-    collider_s c2                = {{40, 40, 16, 16}, 6, 7, 0};
-    CGAME.colls[CGAME.n_colls++] = c2;
-
-    collider_s c3                = {{40, 60, 16, 16}, 1, 7, 0};
-    CGAME.colls[CGAME.n_colls++] = c3;
 }
 
 void app_init()
@@ -105,7 +45,7 @@ void app_init()
     spm_init();
     assets_init();
     aud_init();
-#if defined(SYS_PD)
+#ifdef PLTF_PD
     assets_import();
 #else
     app_load_tex();
@@ -114,22 +54,11 @@ void app_init()
     assets_export();
 #endif
     app_load_game();
-    app_set_menu_title();
 }
 
 void app_tick()
 {
     inp_update();
-#if 0
-    i32 dx = inp_dpad_x();
-    i32 dy = inp_dpad_y();
-    if (dx) {
-        collider_move_x(&CGAME, &CGAME.colls[0], dx, 1, 0);
-    }
-    if (dy) {
-        collider_move_y(&CGAME, &CGAME.colls[0], dy, 1, 0);
-    }
-#else
     game_s *g = &GAME;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -141,36 +70,15 @@ void app_tick()
     }
 
     aud_update();
-#endif
 }
 
 void app_draw()
 {
-    sys_display_update_rows(0, SYS_DISPLAY_H - 1);
+#ifdef PLTF_PD
+    pltf_pd_update_rows(0, 239);
+#endif
+
     tex_clr(asset_tex(0), GFX_COL_WHITE);
-#if 0
-    gfx_ctx_s ctx = gfx_ctx_display();
-    for (i32 y = 0; y < 8; y++) {
-        for (i32 x = 0; x < 8; x++) {
-            i32      t  = CGAME.tiles[x + y * 8];
-            texrec_s tr = asset_texrec(TEXID_COLLISION_TILES, 0, t * 16, 16, 16);
-            gfx_spr(ctx, tr, (v2_i32){x * 16, y * 16}, 0, 0);
-        }
-    }
-
-    for (i32 n = 0; n < CGAME.n_colls; n++) {
-        gfx_rec_fill(ctx, CGAME.colls[n].r, GFX_COL_BLACK);
-    }
-#else
-
-#if 0
-    for (i32 n = 2; n < 22; n++) {
-        texrec_s tr = asset_texrec(TEXID_COLLISION_TILES, 0, n * 16, 16, 16);
-        i32      ny = ((n - 2) % 4);
-        i32      nx = ((n - 2) / 4);
-        gfx_spr(gfx_ctx_display(), tr, (v2_i32){nx * 18, ny * 18}, 0, 0);
-    }
-#else
     game_s *g = &GAME;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -180,8 +88,6 @@ void app_draw()
         game_draw(g);
         break;
     }
-#endif
-#endif
 }
 
 void app_close()
@@ -199,25 +105,33 @@ void app_pause()
     game_paused(&GAME);
 }
 
-void app_audio(i16 *buf, int len)
+void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
-    aud_audio(buf, len);
+    aud_audio(lbuf, rbuf, len);
 }
 
-static void app_load_tex()
+void app_load_tex()
 {
-    asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset", NULL);
+    tex_s ttileset;
+    asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset", &ttileset);
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg", NULL);
 
-#if defined(SYS_DEBUG) && 1
+    // overlay dither
+    gfx_ctx_s ctxts     = gfx_ctx_default(ttileset);
+    texrec_s  tr_dither = {ttileset, {0, 256, 512, 256}};
+    for (i32 n = 0; n < 16; n++) {
+        gfx_spr(ctxts, tr_dither, (v2_i32){0, (2 + n) * 256}, 0, 0);
+    }
+
+#if defined(PLTF_DEBUG) && 0
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
     asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
     gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
-    for (int t = 0; t < 22; t++) {
+    for (int t = 0; t < NUM_TILE_SHAPES; t++) {
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
-                if (g_tile_px[t][i] & (0x8000 >> j)) {
+                if (tile_solid_pt(t, i, j)) {
                     rec_i32 pr = {j, i + t * 16, 1, 1};
                     gfx_rec_fill(ctxcoll, pr, PRIM_MODE_BLACK);
                 }
@@ -352,7 +266,7 @@ static void app_load_tex()
     water_prerender_tiles();
 }
 
-static void app_load_snd()
+void app_load_snd()
 {
     asset_snd_loadID(SNDID_ENEMY_DIE, "enemy_die", NULL);
     asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt", NULL);
@@ -382,7 +296,7 @@ static void app_load_snd()
     asset_snd_loadID(SNDID_HOOK_THROW, "throw_hook", NULL);
 }
 
-static void app_load_fnt()
+void app_load_fnt()
 {
     asset_fnt_loadID(FNTID_SMALL, "font_small", NULL);
     asset_fnt_loadID(FNTID_MEDIUM, "font_med", NULL);

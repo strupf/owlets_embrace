@@ -4,7 +4,6 @@
 
 #include "core/aud.h"
 #include "gamedef.h"
-#include "sys/sys.h"
 
 enum {
     MUS_FADE_NONE,
@@ -14,10 +13,10 @@ enum {
 
 AUD_s AUD;
 
-static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len);
-static void muschannel_update_chunk(muschannel_s *ch, int samples);
-static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len);
-static void muschannel_stream(muschannel_s *ch, i16 *buf, int len);
+void sndchannel_play(sndchannel_s *ch, i16 *lbuf, i32 len);
+void muschannel_update_chunk(muschannel_s *ch, i32 samples);
+void muschannel_fillbuf(muschannel_s *ch, i16 *buf, i32 len);
+void muschannel_stream(muschannel_s *ch, i16 *buf, i32 len);
 
 void aud_init()
 {
@@ -61,19 +60,19 @@ void aud_set_lowpass(i32 lp)
     AUD.lowpass = (lp <= 0 ? 0 : lp);
 }
 
-void aud_audio(i16 *buf, int len)
+void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
     // muschannel sets buffer to music or to 0 if no music
-    muschannel_stream(&AUD.muschannel, buf, len);
-    for (int n = 0; n < NUM_SNDCHANNEL; n++) {
+    muschannel_stream(&AUD.muschannel, lbuf, len);
+    for (i32 n = 0; n < NUM_SNDCHANNEL; n++) {
         sndchannel_s *ch = &AUD.sndchannel[n];
         if (ch->wavbuf) {
-            sndchannel_play(ch, buf, len);
+            sndchannel_play(ch, lbuf, len);
         }
     }
 
     if (AUD.lowpass) {
-        i16 *b = buf;
+        i16 *b = lbuf;
         for (i32 n = 0; n < len; n++) {
             AUD.lowpass_acc += ((i32)*b - AUD.lowpass_acc) >> AUD.lowpass;
             *b++ = (i16)AUD.lowpass_acc;
@@ -91,24 +90,24 @@ snd_s snd_load(const char *pathname, alloc_s ma)
 {
     snd_s snd = {0};
 
-    void *f = sys_file_open(pathname, SYS_FILE_R);
+    void *f = pltf_file_open(pathname, PLTF_FILE_R);
     if (!f) {
-        sys_printf("+++ ERR: can't open file for snd %s\n", pathname);
+        pltf_log("+++ ERR: can't open file for snd %s\n", pathname);
         return snd;
     }
 
     u32 audlen;
-    sys_file_read(f, &audlen, sizeof(audlen));
+    pltf_file_r(f, &audlen, sizeof(audlen));
 
     void *buf = ma.allocf(ma.ctx, audlen);
     if (!buf) {
-        sys_printf("+++ ERR: can't allocate memory for snd %s\n", pathname);
-        sys_file_close(f);
+        pltf_log("+++ ERR: can't allocate memory for snd %s\n", pathname);
+        pltf_file_close(f);
         return snd;
     }
 
-    sys_file_read(f, buf, audlen);
-    sys_file_close(f);
+    pltf_file_r(f, buf, audlen);
+    pltf_file_close(f);
 
     snd.buf = (i8 *)buf;
     snd.len = audlen;
@@ -117,39 +116,42 @@ snd_s snd_load(const char *pathname, alloc_s ma)
 
 void snd_play(snd_s s, f32 vol, f32 pitch)
 {
-#ifdef SYS_SDL
+#ifdef PLTF_SDL
     if (AUD.snd_playing_disabled) return;
 #endif
     if (!s.buf || s.len == 0 || vol < .05f) return;
 
-    for (int i = 0; i < NUM_SNDCHANNEL; i++) {
+    for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
         sndchannel_s *ch = &AUD.sndchannel[i];
         if (ch->wavbuf) continue;
-        ch->wavbuf = s.buf;
-        ch->wavlen = s.len;
-        ch->pitch  = pitch;
-        ch->vol_q8 = (int)(vol * 256.f);
-        ch->wavpos = 0;
+#ifdef PLTF_SDL
+        pltf_sdl_audio_lock();
+#endif
+        ch->wavbuf         = s.buf;
+        ch->wavlen         = s.len;
+        ch->vol_q8         = (i32)(vol * 256.f);
+        ch->wavpos         = 0;
+        ch->wavlen_pitched = (u32)((f32)s.len * pitch);
+        ch->ipitch_q8      = (i32)(256.f / pitch);
+#ifdef PLTF_SDL
+        pltf_sdl_audio_unlock();
+#endif
         break;
     }
 }
 
-static void sndchannel_play(sndchannel_s *ch, i16 *lbuf, int len)
+void sndchannel_play(sndchannel_s *ch, i16 *lbuf, i32 len)
 {
-    f32 pitch  = ch->pitch;
-    f32 ipitch = 1.f / pitch;
-
-    int len_pitched = (int)((f32)ch->wavlen * pitch);
-    int lmax        = len_pitched - ch->wavpos;
-    int l           = min_i(len, lmax);
+    i32 lmax = ch->wavlen_pitched - ch->wavpos;
+    i32 l    = min_i32(len, lmax);
 
     i16 *buf = lbuf;
-    for (int n = 0; n < l; n++) {
-        u32 i = (u32)(ch->wavpos++ * ipitch);
+    for (i32 n = 0; n < l; n++) {
+        u32 i = (u32)((ch->wavpos++ * ch->ipitch_q8) >> 8);
         assert(i < ch->wavlen);
         i32 v = (i32)*buf + ((i32)ch->wavbuf[i] * ch->vol_q8); // i8 * Q8 -> i16
 #if AUD_CLAMP
-        v = clamp_i32(v, I16_MIN, I16_MAX);
+        v = i16_sat(v);
 #endif
         *buf++ = v;
     }
@@ -165,24 +167,30 @@ bool32 mus_play(const char *filename)
     mus_stop();
 
     // loading a custom 8-bit 44100Hz mono wav file format
-    void *f = sys_file_open(filename, SYS_FILE_R);
+    void *f = pltf_file_open(filename, PLTF_FILE_R);
     if (!f) {
         return 0;
     }
+#ifdef PLTF_SDL
+    pltf_sdl_audio_lock();
+#endif
     str_cpy(ch->filename, filename);
     u32 audlen;
-    sys_file_read(f, &audlen, sizeof(u32));
+    pltf_file_r(f, &audlen, sizeof(u32));
 
     ch->stream    = f;
-    ch->datapos   = sys_file_tell(f);
+    ch->datapos   = pltf_file_tell(f);
     ch->streamlen = audlen;
     ch->streampos = 0;
     ch->looping   = 1;
     muschannel_update_chunk(ch, 0);
+#ifdef PLTF_SDL
+    pltf_sdl_audio_unlock();
+#endif
     return 1;
 }
 
-void mus_fade_to(const char *pathname, int ticks_out, int ticks_in)
+void mus_fade_to(const char *pathname, i32 ticks_out, i32 ticks_in)
 {
     if (mus_playing() && str_eq(AUD.muschannel.filename, pathname)) return;
     AUD.mus_fade_in = ticks_in;
@@ -200,9 +208,15 @@ void mus_stop()
 {
     muschannel_s *ch = &AUD.muschannel;
     if (ch->stream) {
-        sys_file_close(ch->stream);
+#ifdef PLTF_SDL
+        pltf_sdl_audio_lock();
+#endif
+        pltf_file_close(ch->stream);
         ch->stream = NULL;
         memset(ch->filename, 0, sizeof(ch->filename));
+#ifdef PLTF_SDL
+        pltf_sdl_audio_unlock();
+#endif
     }
 }
 
@@ -226,7 +240,7 @@ void mus_set_trg_vol(f32 vol)
     AUD.muschannel.trg_vol_q8 = (i32)(256.f * vol);
 }
 
-static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)
+void muschannel_stream(muschannel_s *ch, i16 *buf, i32 len)
 {
     if (!ch->stream) {
         memset(buf, 0, sizeof(i16) * len);
@@ -237,16 +251,16 @@ static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)
     if (pitch == 0.f) return;
     f32 ipitch = 1.f / pitch;
 
-    int len_pitched = (int)((f32)ch->streamlen * pitch);
-    int lmax        = len_pitched - ch->streampos;
-    int l           = min_i(len, lmax);
+    i32 len_pitched = (i32)((f32)ch->streamlen * pitch);
+    i32 lmax        = len_pitched - ch->streampos;
+    i32 l           = min_i(len, lmax);
 
     muschannel_update_chunk(ch, len);
     muschannel_fillbuf(ch, buf, l);
 
     ch->streampos += l;
     if (ch->streampos >= ch->streamlen) { // at the end of the song
-        int samples_left = len - l;
+        i32 samples_left = len - l;
         if (ch->looping) { // fill remainder of buffer and restart
             ch->streampos = samples_left;
             muschannel_update_chunk(ch, 0);
@@ -259,29 +273,29 @@ static void muschannel_stream(muschannel_s *ch, i16 *buf, int len)
 }
 
 // update loaded music chunk if we are running out of samples
-static void muschannel_update_chunk(muschannel_s *ch, int samples)
+void muschannel_update_chunk(muschannel_s *ch, i32 samples)
 {
-    int samples_chunked = MUSCHUNK_SAMPLES - ch->chunkpos;
+    i32 samples_chunked = MUSCHUNK_SAMPLES - ch->chunkpos;
     if (0 < samples && samples <= samples_chunked) return;
 
     // refill music buffer from file
     // place chunk beginning right at streampos
-    sys_file_seek(ch->stream,
-                  ch->datapos + ch->streampos * sizeof(i8),
-                  SYS_FILE_SEEK_SET);
-    int samples_left    = ch->streamlen - ch->streampos;
-    int samples_to_read = min_i(MUSCHUNK_SAMPLES, samples_left);
+    pltf_file_seek(ch->stream,
+                   ch->datapos + ch->streampos * sizeof(i8),
+                   PLTF_FILE_SEEK_SET);
+    i32 samples_left    = ch->streamlen - ch->streampos;
+    i32 samples_to_read = min_i(MUSCHUNK_SAMPLES, samples_left);
 
-    sys_file_read(ch->stream, ch->chunk, sizeof(i8) * samples_to_read);
+    pltf_file_r(ch->stream, ch->chunk, sizeof(i8) * samples_to_read);
     ch->chunkpos = 0;
 }
 
-static void muschannel_fillbuf(muschannel_s *ch, i16 *buf, int len)
+void muschannel_fillbuf(muschannel_s *ch, i16 *buf, i32 len)
 {
     i16 *b = buf;
     i8  *c = &ch->chunk[ch->chunkpos];
     ch->chunkpos += len;
-    for (int n = 0; n < len; n++) {
+    for (i32 n = 0; n < len; n++) {
         i32 vv = (i32)*c++ * ch->vol_q8; // i8 * Q8 -> Q16
         *b++   = vv;
     }

@@ -38,18 +38,18 @@ typedef struct {
     u8               visited_tiles[NUM_WORLD_ROOMS][NUM_WORLD_ROOM_TILES >> 3]; // bitset
 } save_s;
 
-bool32 hero_has_upgrade(game_s *g, int ID);
-void   hero_add_upgrade(game_s *g, int ID);
-void   hero_rem_upgrade(game_s *g, int ID);
+bool32 hero_has_upgrade(game_s *g, i32 ID);
+void   hero_add_upgrade(game_s *g, i32 ID);
+void   hero_rem_upgrade(game_s *g, i32 ID);
 void   hero_set_name(game_s *g, const char *name);
 char  *hero_get_name(game_s *g);
-void   hero_inv_add(game_s *g, int ID, int n);
-void   hero_inv_rem(game_s *g, int ID, int n);
-int    hero_inv_count_of(game_s *g, int ID);
+void   hero_inv_add(game_s *g, i32 ID, i32 n);
+void   hero_inv_rem(game_s *g, i32 ID, i32 n);
+i32    hero_inv_count_of(game_s *g, i32 ID);
 void   hero_coins_change(game_s *g, i32 n);
 i32    hero_coins(game_s *g);
-bool32 hero_visited_tile(game_s *g, map_worldroom_s *room, int x, int y);
-void   hero_set_visited_tile(game_s *g, map_worldroom_s *room, int x, int y);
+bool32 hero_visited_tile(game_s *g, map_worldroom_s *room, i32 x, i32 y);
+void   hero_set_visited_tile(game_s *g, map_worldroom_s *room, i32 x, i32 y);
 void   saveID_put(game_s *g, u32 ID);
 bool32 saveID_has(game_s *g, u32 ID);
 

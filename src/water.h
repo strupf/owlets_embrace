@@ -8,9 +8,9 @@
 #include "gamedef.h"
 
 #define NUM_WATER       16
-#define OCEAN_W_WORDS   SYS_DISPLAY_WWORDS
-#define OCEAN_W_PX      SYS_DISPLAY_W
-#define OCEAN_H_PX      SYS_DISPLAY_H
+#define OCEAN_W_WORDS   PLTF_DISPLAY_WWORDS
+#define OCEAN_W_PX      PLTF_DISPLAY_W
+#define OCEAN_H_PX      PLTF_DISPLAY_H
 #define OCEAN_NUM_SPANS 512
 
 typedef struct {

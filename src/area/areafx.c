@@ -216,7 +216,7 @@ void areafx_wind_update(game_s *g, areafx_wind_s *fx)
         }
 
         if (0 < p->circticks) { // run through circle but keep slowly moving forward
-            i32 a     = (0x400 * (p->ticks - p->circticks)) / p->ticks;
+            i32 a     = ((p->ticks - p->circticks) << 18) / p->ticks;
             p->p_q8.x = p->circc.x + ((sin_q16(a) * AREAFX_WIND_R) >> 16);
             p->p_q8.y = p->circc.y + ((cos_q16(a) * AREAFX_WIND_R) >> 16);
             p->circc.x += 200;
@@ -261,7 +261,7 @@ void areafx_wind_draw(game_s *g, areafx_wind_s *fx, v2_i32 cam)
             v2_i32 p2 = v2_shr(p.pos_q8[k], 8);
             p2.y      = h1 + (p2.y - y1);
 
-            gfx_lin_thick(ctx, p1, p2, PRIM_MODE_BLACK, 1);
+            gfx_lin_thick(ctx, p1, p2, GFX_COL_BLACK, 1);
             p1 = p2;
         }
     }

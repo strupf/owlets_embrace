@@ -163,7 +163,7 @@ void movingplatform_load(game_s *g, map_obj_s *mo)
     plat->path[0].y = o->pos.y;
     plat->n_path    = 1;
     if (pts && num) {
-        for (int n = 0; n < num; n++) {
+        for (i32 n = 0; n < num; n++) {
             v2_i16 v = pts[n];
             v.x <<= 4;
             v.y <<= 4;

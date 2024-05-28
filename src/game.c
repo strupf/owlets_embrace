@@ -6,79 +6,46 @@
 #include "render.h"
 
 void game_tick_gameplay(game_s *g);
-void game_objs_update(game_s *g);
-void game_objs_move(game_s *g);
 
 void game_init(game_s *g)
 {
-#ifdef SYS_SDL
-    sys_set_volume(0.25f);
-#endif
     mus_set_trg_vol(0.1f);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
+#if LIGHTING_ENABLED
     lighting_init(&g->lighting);
     g->lighting.n_lights    = 1;
     g->lighting.lights[0].r = 100;
-
-    sys_printf("GAME VERSION %u\n", GAME_VERSION);
+#endif
+    pltf_log("GAME VERSION %u\n", GAME_VERSION);
 }
 
 void game_tick(game_s *g)
 {
     bool32 update_gameplay = 0;
-    switch (g->substate) {
-    case SUBSTATE_GAMEOVER: gameover_update(g); break;
-    case SUBSTATE_TEXTBOX: textbox_update(g); break;
-    case SUBSTATE_MAPTRANSITION: maptransition_update(g); break;
-    case SUBSTATE_HEROUPGRADE: heroupgrade_update(g); break;
-    case SUBSTATE_MENUSCREEN: menu_screen_update(g, &g->menu_screen); break;
-    case SUBSTATE_FREEZE: g->freeze_tick = max_i32(g->freeze_tick - 1, 0); break;
-    default: update_gameplay = 1; break;
-    }
 
-    if (!update_gameplay) {
+    if (g->substate) {
+        g->freeze_tick        = 0;
         g->item_select.docked = 0;
+    } else {
+        if (0 < g->freeze_tick) {
+            g->freeze_tick--;
+        } else {
+            game_tick_gameplay(g);
+        }
     }
 
-    if (update_gameplay) {
-        g->gameplay_tick++;
-        game_tick_gameplay(g);
-
-        for (obj_each(g, o)) {
-            if (o->on_animate) {
-                o->on_animate(g, o);
-            }
-        }
-
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-        if (ohero) {
-            const rec_i32 heroaabb = obj_aabb(ohero);
-            for (int n = 0; n < g->n_wiggle_deco; n++) {
-                wiggle_deco_s *wd = &g->wiggle_deco[n];
-                if (wd->t) {
-                    wd->t--;
-                    wd->tr.r.x = 64 * ((wd->t >> 2) & 3);
-                }
-
-                if (overlap_rec(wd->r, heroaabb)) {
-                    if (!wd->overlaps) {
-                        wd->overlaps = 1;
-                        wd->t        = 20;
-                    }
-                } else {
-                    wd->overlaps = 0;
-                }
-            }
-        }
-
-        for (int n = g->n_enemy_decals - 1; 0 <= n; n--) {
-            g->enemy_decals[n].tick--;
-            if (g->enemy_decals[n].tick <= 0) {
-                g->enemy_decals[n] = g->enemy_decals[--g->n_enemy_decals];
-            }
-        }
+    switch (g->substate) {
+    case SUBSTATE_TEXTBOX:
+        textbox_update(g);
+        break;
+    case SUBSTATE_MAPTRANSITION:
+        maptransition_update(g);
+        break;
+    case SUBSTATE_GAMEOVER:
+        gameover_update(g);
+        break;
     }
 
     cam_update(g, &g->cam);
@@ -89,6 +56,7 @@ void game_tick(game_s *g)
         }
     }
 
+    // save animation
     if (g->save_ticks) {
         g->save_ticks++;
         if (SAVE_TICKS <= g->save_ticks) {
@@ -96,10 +64,12 @@ void game_tick(game_s *g)
         }
     }
 
+    wiggle_animate(g);
+
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
-    if (sys_tick() & 1) {
-        backforeground_animate_grass(g);
+    if (g->gameplay_tick & 1) {
+        grass_animate(g);
     } else {
     }
 
@@ -108,12 +78,37 @@ void game_tick(game_s *g)
 
 void game_tick_gameplay(game_s *g)
 {
+    g->gameplay_tick++;
     item_select_update(&g->item_select);
     g->events_frame          = 0;
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
-    game_objs_update(g);
-    game_objs_move(g);
+    for (obj_each(g, o)) {
+        const v2_i32 posprev = o->pos;
+
+        if (o->on_update) {
+            o->on_update(g, o);
+        }
+
+        o->posprev = posprev;
+
+        if (0 < o->invincible_tick) {
+            o->invincible_tick--;
+        }
+    }
+
+    // apply movement
+    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
+        if (o->flags & OBJ_FLAG_MOVER) {
+            obj_apply_movement(o);
+        }
+    }
+
+    for (obj_each(g, o)) {
+        o->moverflags |= OBJ_MOVER_MAP;
+        obj_move(g, o, o->tomove);
+        o->tomove.x = 0, o->tomove.y = 0;
+    }
 
     // out of bounds deletion
     const rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
@@ -124,6 +119,12 @@ void game_tick_gameplay(game_s *g)
             obj_delete(g, o);
         }
     }
+
+#ifdef PLTF_SDL
+    if (pltf_sdl_key(SDL_SCANCODE_SPACE)) {
+        hero_kill(g, obj_get_tagged(g, OBJ_TAG_HERO));
+    }
+#endif
 
     objs_cull_to_delete(g);
     coinparticle_update(g);
@@ -136,7 +137,7 @@ void game_tick_gameplay(game_s *g)
         }
     }
 
-#ifdef SYS_DEBUG
+#ifdef PLTF_DEBUG
     for (obj_each(g, o)) {
         assert(o->magic == OBJ_MAGIC);
     }
@@ -148,9 +149,6 @@ void game_tick_gameplay(game_s *g)
             g->hero_mem.was_hit_ticks = 30;
         } else if (g->events_frame & EVENT_HIT_ENEMY) {
             g->freeze_tick = 2;
-        }
-        if (g->freeze_tick) {
-            g->substate = SUBSTATE_FREEZE;
         }
     }
 
@@ -171,44 +169,11 @@ void game_tick_gameplay(game_s *g)
             g->coins_added -= to_add;
         }
     }
-}
-
-void game_objs_update(game_s *g)
-{
-    for (obj_each(g, o)) {
-        const v2_i32 posprev = o->pos;
-
-        if (o->on_update) {
-            o->on_update(g, o);
-        }
-
-        o->posprev = posprev;
-
-        if (0 < o->invincible_tick) {
-            o->invincible_tick--;
-        }
-
-#ifdef SYS_DEBUG
-        assert(o->magic == OBJ_MAGIC);
-        assert((o->flags & (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID)) !=
-               (OBJ_FLAG_PLATFORM | OBJ_FLAG_SOLID));
-#endif
-    }
-}
-
-void game_objs_move(game_s *g)
-{
-    // apply movement
-    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
-        if (o->flags & OBJ_FLAG_MOVER) {
-            obj_apply_movement(o);
-        }
-    }
 
     for (obj_each(g, o)) {
-        o->moverflags |= OBJ_MOVER_MAP;
-        obj_move(g, o, o->tomove);
-        o->tomove.x = 0, o->tomove.y = 0;
+        if (o->on_animate) {
+            o->on_animate(g, o);
+        }
     }
 }
 
@@ -219,9 +184,6 @@ void game_resume(game_s *g)
 
 void game_paused(game_s *g)
 {
-    if (g->state == APP_STATE_GAME) {
-        render_pause(g);
-    }
 }
 
 i32 gameplay_time(game_s *g)
@@ -236,20 +198,20 @@ i32 gameplay_time_since(game_s *g, i32 t)
 
 bool32 game_load_savefile(game_s *g)
 {
-    void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_R);
+    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_R);
 
     if (!f) {
-        sys_printf("New game\n");
+        pltf_log("New game\n");
         return 1;
     }
 
     save_s *hs = &g->save;
 
-    i32    bread   = sys_file_read(f, hs, sizeof(save_s));
-    i32    eclosed = sys_file_close(f);
-    bool32 success = (bread == (i32)sizeof(save_s) && eclosed == 0);
+    i32    bytes_r = pltf_file_r(f, hs, sizeof(save_s));
+    bool32 closed  = pltf_file_close(f);
+    bool32 success = (bytes_r == isizeof(save_s) && closed);
     if (!success) {
-        sys_printf("+++ Error loading savefile!\n");
+        pltf_log("+++ Error loading savefile!\n");
         BAD_PATH
         return 0;
     }
@@ -268,16 +230,16 @@ bool32 game_save_savefile(game_s *g)
 {
     save_s *hs = &g->save;
 
-    void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_W);
+    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_W);
     if (!f) {
-        sys_printf("+++ Can't write savefile!\n");
+        pltf_log("+++ Can't write savefile!\n");
         return 0;
     }
-    sys_printf("SAVED!\n");
-    g->save_ticks = 1;
-    i32 bwritten  = sys_file_write(f, (const void *)hs, sizeof(save_s));
-    i32 eclosed   = sys_file_close(f);
-    return (bwritten == (i32)sizeof(save_s) && eclosed == 0);
+    pltf_log("SAVED!\n");
+    g->save_ticks  = 1;
+    i32    bytes_w = pltf_file_w(f, (const void *)hs, sizeof(save_s));
+    bool32 closed  = pltf_file_close(f);
+    return (bytes_w == isizeof(save_s) && closed);
 }
 
 void game_on_trigger(game_s *g, i32 trigger)
@@ -288,16 +250,6 @@ void game_on_trigger(game_s *g, i32 trigger)
             o->on_trigger(g, o, trigger);
         }
     }
-}
-
-void game_put_grass(game_s *g, i32 tx, i32 ty)
-{
-    if (g->n_grass >= ARRLEN(g->grass)) return;
-    grass_s *gr = &g->grass[g->n_grass++];
-    *gr         = (grass_s){0};
-    gr->pos.x   = tx * 16;
-    gr->pos.y   = ty * 16;
-    gr->type    = rngr_i32(0, 2);
 }
 
 i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks)
@@ -323,13 +275,30 @@ void game_on_solid_appear(game_s *g)
 
 void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
 
-void obj_game_player_attackbox(game_s *g, hitbox_s box)
+void obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
 {
     for (obj_each(g, o)) {
         rec_i32 aabb = obj_aabb(o);
-        if (!overlap_rec(aabb, box.r)) continue;
-        obj_game_player_attackbox_o(g, o, box);
+
+        i32 strongest = -1;
+        for (i32 n = 0; n < nb; n++) {
+            hitbox_s hb = boxes[n];
+            if (!overlap_rec(aabb, hb.r)) continue;
+
+            if (strongest < 0 || boxes[strongest].damage < hb.damage) {
+                strongest = n;
+            }
+        }
+
+        if (0 <= strongest) {
+            obj_game_player_attackbox_o(g, o, boxes[strongest]);
+        }
     }
+}
+
+void obj_game_player_attackbox(game_s *g, hitbox_s box)
+{
+    obj_game_player_attackboxes(g, &box, 1);
 }
 
 void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
@@ -337,36 +306,13 @@ void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
     switch (o->ID) {
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     }
-}
 
-static void *game_alloc_ctx(void *ctx, usize s)
-{
-    NOT_IMPLEMENTED
-    game_s *g = (game_s *)ctx;
-    return NULL;
-}
-
-alloc_s game_allocator(game_s *g)
-{
-    alloc_s a = {game_alloc_ctx, (void *)g};
-    return a;
-}
-
-void backforeground_animate_grass(game_s *g)
-{
-    for (i32 n = 0; n < g->n_grass; n++) {
-        grass_s *gr = &g->grass[n];
-        rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
-
-        for (obj_each(g, o)) {
-            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
-                gr->v_q8 += o->vel_q8.x >> 4;
-            }
+    if ((o->flags & OBJ_FLAG_ENEMY) && !o->enemy.invincible) {
+        o->health -= box.damage;
+        if (o->health <= 0) {
+            obj_delete(g, o);
+        } else {
+            o->enemy.hurt_tick = ENEMY_HURT_TICKS;
         }
-
-        gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);
-        gr->x_q8 += gr->v_q8;
-        gr->x_q8 = clamp_i32(gr->x_q8, -256, +256);
-        gr->v_q8 = (gr->v_q8 * 230) >> 8;
     }
 }

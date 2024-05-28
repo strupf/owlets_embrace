@@ -42,7 +42,7 @@ void shop_update(game_s *g)
         return;
     }
 
-    if (inp_just_pressed(INP_B)) {
+    if (inp_action_jp(INP_B)) {
         shop->fade_out = 1;
         return;
     }
@@ -50,7 +50,7 @@ void shop_update(game_s *g)
     shop->show_interpolator_q8 >>= 1;
 
     if (shop->buyticks) {
-        if (inp_pressed(INP_A)) {
+        if (inp_action(INP_A)) {
             shop->buyticks++;
             if (SHOP_TICKS_BUY <= shop->buyticks) {
                 snd_play_ext(SNDID_SELECT, 1.f, 1.f);
@@ -65,18 +65,18 @@ void shop_update(game_s *g)
         return;
     }
 
-    if (inp_just_pressed(INP_A) && shop->items[shop->selected].count) {
+    if (inp_action_jp(INP_A) && shop->items[shop->selected].count) {
         shop->buyticks = 1;
         return;
     }
 
-    if (inp_just_pressed(INP_DPAD_D) || inp_just_pressed(INP_DPAD_U)) {
+    if (inp_action_jp(INP_DD) || inp_action_jp(INP_DU)) {
         int tmp = shop->selected;
-        shop->selected += inp_dpad_y();
+        shop->selected += inp_y();
         shop->selected = clamp_i(shop->selected, 0, shop->n_items - 1);
         if (shop->selected == tmp) {
             snd_play_ext(SNDID_MENU_NONEXT_ITEM, 1.f, 1.f);
-            shop->show_interpolator_q8 = inp_dpad_y() * 24;
+            shop->show_interpolator_q8 = inp_y() * 24;
         } else {
             snd_play_ext(SNDID_MENU_NEXT_ITEM, 1.f, 1.f);
             if (shop->selected < shop->shows_i1) {
@@ -96,7 +96,7 @@ static void shop_draw_item(gfx_ctx_s ctxf, shop_s *shop, int n, int offs)
     v2_i32 pos = {40,
                   40 + n * SHOP_Y_SPACING + offs};
     if (0 < n) {
-        gfx_rec_fill(ctxf, (rec_i32){32, pos.y - 10, SYS_DISPLAY_W - 64, 2}, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctxf, (rec_i32){32, pos.y - 10, PLTF_DISPLAY_W - 64, 2}, PRIM_MODE_BLACK);
     }
     fnt_s fnt_l = asset_fnt(FNTID_LARGE);
 
@@ -106,7 +106,7 @@ static void shop_draw_item(gfx_ctx_s ctxf, shop_s *shop, int n, int offs)
     }
 
     if (shop->selected == n) {
-        gfx_rec_fill(ctxf, (rec_i32){32, pos.y - 6, SYS_DISPLAY_W - 64, SHOP_Y_SPACING - 8}, PRIM_MODE_BLACK);
+        gfx_rec_fill(ctxf, (rec_i32){32, pos.y - 6, PLTF_DISPLAY_W - 64, SHOP_Y_SPACING - 8}, PRIM_MODE_BLACK);
         int dd = (shop->buyticks * 20) / SHOP_TICKS_BUY;
         gfx_cir_fill(ctxf, (v2_i32){pos.x - 10, pos.y}, dd, PRIM_MODE_INV);
     }
@@ -130,7 +130,7 @@ void shop_draw(game_s *g)
     texrec_s tshop = asset_texrec(TEXID_UI, 0, 304, 384, 240);
     gfx_spr(ctxd, tshop, (v2_i32){0, 0}, 0, 0);
 
-    gfx_ctx_s ctxf = gfx_ctx_clip(ctxd, 0, 32, SYS_DISPLAY_W, SYS_DISPLAY_H - 32);
+    gfx_ctx_s ctxf = gfx_ctx_clip(ctxd, 0, 32, PLTF_DISPLAY_W, PLTF_DISPLAY_H - 32);
 
     int offs = shop->shows_i1 * SHOP_Y_SPACING + ((shop->show_interpolator_q8 * SHOP_Y_SPACING) >> 8);
     for (int n = 0; n < shop->n_items; n++) {

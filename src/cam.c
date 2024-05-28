@@ -5,10 +5,10 @@
 #include "cam.h"
 #include "game.h"
 
-#define CAM_W  SYS_DISPLAY_W
-#define CAM_H  SYS_DISPLAY_H
-#define CAM_WH (SYS_DISPLAY_W >> 1)
-#define CAM_HH (SYS_DISPLAY_H >> 1)
+#define CAM_W  PLTF_DISPLAY_W
+#define CAM_H  PLTF_DISPLAY_H
+#define CAM_WH (PLTF_DISPLAY_W >> 1)
+#define CAM_HH (PLTF_DISPLAY_H >> 1)
 
 static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center);
 
@@ -66,7 +66,7 @@ void cam_update(game_s *g, cam_s *c)
     v2_f32 ppos   = c->pos;
     v2_f32 padd   = {0};
     v2_f32 lahead = {0};
-    i32    dpad_y = inp_dpad_y();
+    i32    dpad_y = inp_y();
 
     const i32 look_tickp = c->look_tick;
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {

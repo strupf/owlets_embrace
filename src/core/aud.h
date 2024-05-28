@@ -5,7 +5,7 @@
 #ifndef AUD_H
 #define AUD_H
 
-#include "sys/sys.h"
+#include "pltf/pltf.h"
 
 #define AUD_CLAMP        1
 #define MUSCHUNK_MEM     0x1000 // 4 KB
@@ -21,9 +21,10 @@ typedef struct {
 typedef struct {
     i8 *wavbuf;
     u32 wavlen;
+    u32 wavlen_pitched;
     u32 wavpos;
     i32 vol_q8;
-    f32 pitch;
+    i32 ipitch_q8;
 } sndchannel_s;
 
 typedef struct {
@@ -67,11 +68,11 @@ extern AUD_s AUD;
 void   aud_init();
 void   aud_update();
 void   aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
-void   aud_audio(i16 *buf, int len);
+void   aud_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   aud_allow_playing_new_snd(bool32 enabled);
 snd_s  snd_load(const char *pathname, alloc_s ma);
 void   snd_play(snd_s s, f32 vol, f32 pitch);
-void   mus_fade_to(const char *pathname, int ticks_out, int ticks_in);
+void   mus_fade_to(const char *pathname, i32 ticks_out, i32 ticks_in);
 void   mus_stop();
 bool32 mus_play(const char *filename);
 bool32 mus_playing();

@@ -46,6 +46,9 @@ enum {
     TEXID_CHARGER,
     TEXID_FLYER,
     TEXID_WINDGUSH,
+    TEXID_WIGGLE_SMALL, // grass, plants etc.
+    TEXID_WIGGLE_MEDIUM,
+    TEXID_WIGGLE_LARGE,
 //
 #ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
@@ -53,7 +56,7 @@ enum {
     //
     NUM_TEXID_EXPLICIT,
     //
-    NUM_TEXID = 128
+    NUM_TEXID = 64
 };
 
 enum {
@@ -95,7 +98,7 @@ enum {
     SNDID_CRUMBLE,
     SNDID_HOOK_THROW,
     //
-    NUM_SNDID = 256
+    NUM_SNDID
 };
 
 typedef struct {
@@ -122,25 +125,24 @@ typedef struct {
 extern ASSETS_s      ASSETS;
 extern const alloc_s asset_allocator;
 
-void  assets_init();
-void  assets_export();
-void  assets_import();
+void     assets_init();
+void     assets_export();
+void     assets_import();
 //
-void *assetmem_alloc(usize s);
-tex_s asset_tex(int ID);
-snd_s asset_snd(int ID);
-fnt_s asset_fnt(int ID);
-int   asset_tex_load(const char *filename, tex_s *tex);
-int   asset_tex_loadID(int ID, const char *filename, tex_s *tex);
-int   asset_snd_loadID(int ID, const char *filename, snd_s *snd);
-int   asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt);
-int   asset_tex_put(tex_s t);
-tex_s asset_tex_putID(int ID, tex_s t);
+void    *assetmem_alloc(usize s);
+tex_s    asset_tex(i32 ID);
+snd_s    asset_snd(i32 ID);
+fnt_s    asset_fnt(i32 ID);
+i32      asset_tex_load(const char *filename, tex_s *tex);
+i32      asset_tex_loadID(i32 ID, const char *filename, tex_s *tex);
+i32      asset_snd_loadID(i32 ID, const char *filename, snd_s *snd);
+i32      asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt);
+i32      asset_tex_put(tex_s t);
+tex_s    asset_tex_putID(i32 ID, tex_s t);
+texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
 
-texrec_s asset_texrec(int ID, int x, int y, int w, int h);
-
-void   snd_play_ext(int ID, f32 vol, f32 pitch);
-void   mus_fade_to(const char *filename, int ticks_out, int ticks_in);
+void   snd_play_ext(i32 ID, f32 vol, f32 pitch);
+void   mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in);
 void   mus_stop();
 bool32 mus_playing();
 

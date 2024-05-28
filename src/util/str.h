@@ -5,18 +5,18 @@
 #ifndef STR_H
 #define STR_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 
 #define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
     char NAME[128];                            \
     str_cpy(NAME, PATHNAME);                   \
     str_append(NAME, FILENAME)
 
-static bool32 char_is_any(char c, const char *chars)
+static bool32 char_is_any(int c, const char *chars)
 {
     if (!chars) return 0;
     for (const char *a = chars; *a != '\0'; a++) {
-        if (c == *a) return 1;
+        if (c == (int)*a) return 1;
     }
     return 0;
 }
@@ -94,10 +94,8 @@ static void str_append_i(char *dst, i32 i)
     char b1[16] = {0};
     char b2[16] = {0};
     i32  l      = 0;
-    i32  j      = i >= 0 ? i : -i;
-    while (j > 0) {
+    for (i32 j = 0 <= i ? +i : -i; 0 < j; j /= 10) {
         b1[l++] = '0' + (j % 10);
-        j /= 10;
     }
 
     i32 k1 = 0;
@@ -105,17 +103,10 @@ static void str_append_i(char *dst, i32 i)
         k1    = 1;
         b2[0] = '-';
     }
-    for (i32 k = 0; k < l; k++)
+    for (i32 k = 0; k < l; k++) {
         b2[k + k1] = b1[l - k - 1];
-    str_append(dst, &b2[0]);
-}
-
-static char *str_find_char(const char *str, char c)
-{
-    for (const char *it = str; *it != '\0'; it++) {
-        if (*it == c) return (char *)it;
     }
-    return NULL;
+    str_append(dst, &b2[0]);
 }
 
 static i32 char_hex_to_int(int c)
@@ -212,21 +203,12 @@ static u32 u32_from_str(const char *str)
 static i32 str_from_u32(u32 v, char *buf, usize bufsize)
 {
     if (!buf || !bufsize) return 0;
-    u32  x     = v;
     i32  n     = 0;
     char b[16] = {0};
 
-    while (1) {
-        u32 u = x % 10;
-        x /= 10;
-        b[n] = '0' + u;
-        n++;
-        if (bufsize <= (usize)n) {
-            break;
-        }
-        if (x == 0) {
-            break;
-        }
+    for (u32 x = v; x && (usize)n < bufsize; x /= 10) {
+        u32 u  = x % 10;
+        b[n++] = '0' + u;
     }
 
     i32 len = --n;

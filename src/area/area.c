@@ -39,7 +39,7 @@ void area_setup(game_s *g, area_s *a, int ID)
 {
     *a    = (area_s){0};
     a->ID = ID;
-    sys_printf("area ID: %i\n", ID);
+    pltf_log("area ID: %i\n", ID);
 
     if (g_areafx[a->ID] & AFX_RAIN) {
         areafx_rain_setup(g, &a->fx.rain);
@@ -71,7 +71,7 @@ void area_update(game_s *g, area_s *a)
         areafx_wind_update(g, &a->fx.wind);
     }
 
-    if (sys_tick() & 1) {
+    if (g->gameplay_tick & 1) {
         if ((g_areafx[a->ID] & AFX_HEAT)) {
             areafx_heat_update(g, &a->fx.heat);
         }
@@ -156,7 +156,7 @@ void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         texrec_s tr_far  = asset_texrec(TEXID_MISCOBJ, 448, 0, 32, 80);
         v2_i32   pos_far = area_parallax(cc, 300, 300, 1, 1);
         pos_far.x += 400;
-        pos_far.y += SYS_DISPLAY_H - tr_far.r.h;
+        pos_far.y += PLTF_DISPLAY_H - tr_far.r.h;
         // gfx_spr_tiled(ctx, tr_far, pos_far, 0, 0, 100, 0);
         break;
     }

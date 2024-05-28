@@ -137,9 +137,8 @@ void shroomy_load(game_s *g, map_obj_s *mo)
     o->drag_q8.x       = 200;
     o->w               = 16;
     o->h               = 16;
-    o->moverflags =
-        OBJ_MOVER_SLOPES |
-        OBJ_MOVER_GLUE_GROUND;
+    o->moverflags      = OBJ_MOVER_SLIDE_Y_NEG |
+                    OBJ_MOVER_GLUE_GROUND;
 
     o->n_sprites      = 1;
     obj_sprite_s *spr = &o->sprites[0];

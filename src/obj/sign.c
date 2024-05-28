@@ -63,7 +63,7 @@ void sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam)
 
 void sign_on_interact(game_s *g, obj_s *o)
 {
-    textbox_load_dialog(g, &g->textbox, o->filename);
+    textbox_load_dialog(g, o->filename);
 }
 
 // interactable sign

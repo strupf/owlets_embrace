@@ -187,7 +187,7 @@ void charger_load(game_s *g, map_obj_s *mo)
     o->gravity_q8.y   = 80;
     o->drag_q8.y      = 255;
     o->drag_q8.x      = 256;
-    o->moverflags     = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLOPES;
+    o->moverflags     = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLIDE_Y_NEG;
     o->vel_cap_q8.x   = 2000;
     o->facing         = -1;
     o->health_max     = 3;

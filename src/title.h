@@ -6,7 +6,6 @@
 #define TITLE_H
 
 #include "gamedef.h"
-#include "sys/sys_types.h"
 
 #define TITLE_SKIP_TO_GAME 1
 

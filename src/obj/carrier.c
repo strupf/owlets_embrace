@@ -52,9 +52,8 @@ void carrier_load(game_s *g, map_obj_s *mo)
                OBJ_FLAG_SPRITE;
 
     o->moverflags = OBJ_MOVER_ONE_WAY_PLAT |
-                    OBJ_MOVER_SLOPES |
-                    OBJ_MOVER_GLUE_GROUND |
-                    OBJ_MOVER_AVOID_HEADBUMP;
+                    OBJ_MOVER_SLIDE_Y_NEG |
+                    OBJ_MOVER_GLUE_GROUND;
     o->on_update       = carrier_on_update;
     o->on_animate      = carrier_on_animate;
     o->w               = 40;

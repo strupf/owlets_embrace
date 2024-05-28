@@ -33,16 +33,16 @@ static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
 {
     v2_i32  cp = direction_v2(dir);
     rec_i32 rr = translate_rec(aabb, cp);
-    if (!game_traversable(g, rr)) return 0;        // direction blocked
+    if (!map_traversable(g, rr)) return 0;        // direction blocked
     rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h}; // check if there is a solid surface on the side
     rec_i32 r2 = {rr.x, rr.y - 1, rr.w, rr.h + 2};
-    return !(game_traversable(g, r1) && game_traversable(g, r2));
+    return !(map_traversable(g, r1) && map_traversable(g, r2));
 }
 
 static int crawler_find_crawl_direction(game_s *g, obj_s *o, int dir)
 {
     const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
-    if (game_traversable(g, rbounds)) // check if any surface nearby
+    if (map_traversable(g, rbounds)) // check if any surface nearby
         return 0;
 
     int           dr   = rngr_i32(1, 8);
@@ -197,16 +197,16 @@ void crawler_on_animate(game_s *g, obj_s *o)
         switch (o->action) {
         case DIRECTION_S: {
             imgy = 2;
-            if (!game_traversable(g, obj_rec_right(o)))
+            if (!map_traversable(g, obj_rec_right(o)))
                 spr->flip = SPR_FLIP_X;
         } break;
         case DIRECTION_N: {
             imgy = 6;
-            if (!game_traversable(g, obj_rec_left(o)))
+            if (!map_traversable(g, obj_rec_left(o)))
                 spr->flip = SPR_FLIP_X;
         } break;
         case DIRECTION_E: {
-            if (!game_traversable(g, obj_rec_top(o))) {
+            if (!map_traversable(g, obj_rec_top(o))) {
                 imgy      = 4;
                 spr->flip = SPR_FLIP_X;
             } else {
@@ -214,7 +214,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
             }
         } break;
         case DIRECTION_W: {
-            if (!game_traversable(g, obj_rec_bottom(o))) {
+            if (!map_traversable(g, obj_rec_bottom(o))) {
                 imgy      = 0;
                 spr->flip = SPR_FLIP_X;
             } else {
@@ -223,7 +223,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
         } break;
         case DIRECTION_SE: {
             rec_i32 rr = {o->pos.x - 1, o->pos.y, o->w + 1, o->h + 1};
-            if (!game_traversable(g, rr)) {
+            if (!map_traversable(g, rr)) {
                 imgy = 1;
             } else {
                 imgy      = 3;
@@ -232,7 +232,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
         } break;
         case DIRECTION_SW: {
             rec_i32 rr = {o->pos.x - 1, o->pos.y - 1, o->w + 1, o->h + 1};
-            if (!game_traversable(g, rr)) {
+            if (!map_traversable(g, rr)) {
                 imgy = 3;
             } else {
                 imgy      = 1;
@@ -241,7 +241,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
         } break;
         case DIRECTION_NE: {
             rec_i32 rr = {o->pos.x, o->pos.y, o->w + 1, o->h + 1};
-            if (!game_traversable(g, rr)) {
+            if (!map_traversable(g, rr)) {
                 imgy = 7;
             } else {
                 imgy      = 5;
@@ -250,7 +250,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
         } break;
         case DIRECTION_NW: {
             rec_i32 rr = {o->pos.x, o->pos.y - 1, o->w + 1, o->h + 1};
-            if (!game_traversable(g, rr)) {
+            if (!map_traversable(g, rr)) {
                 imgy = 5;
             } else {
                 imgy      = 7;

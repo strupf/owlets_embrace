@@ -129,14 +129,14 @@ static inline i32 ocean_height_logic_q6(i32 p, i32 t)
 
 i32 ocean_height(game_s *g, i32 pixel_x)
 {
-    i32 h = ocean_height_logic_q6(pixel_x, sys_tick());
+    i32 h = ocean_height_logic_q6(pixel_x, gameplay_time(g));
     return (h >> 6) + g->ocean.y;
 }
 
 i32 ocean_render_height(game_s *g, i32 pixel_x)
 {
     i32 p = pixel_x;
-    i32 t = sys_tick();
+    i32 t = gameplay_time(g);
     i32 y = ocean_height_logic_q6(p, t) +
             (sin_q6((p << 2) + (t << 4) + 0x20) << 1) +
             (sin_q6((p << 4) - (t << 5) + 0x04) << 0) +

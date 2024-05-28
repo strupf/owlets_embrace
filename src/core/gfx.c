@@ -3,8 +3,8 @@
 // =============================================================================
 
 #include "gfx.h"
+#include "pltf/pltf.h"
 #include "spm.h"
-#include "sys/sys.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
 #include "util/mem.h"
@@ -16,14 +16,14 @@ fnt_s fnt_load(const char *filename, alloc_s ma)
 
     fnt_s f = {0};
     char *txt;
-    if (txt_load(filename, spm_alloc, &txt) != TXT_SUCCESS) {
-        sys_printf("+++ error loading font txt\n");
+    if (!txt_load(filename, spm_alloc, &txt)) {
+        pltf_log("+++ error loading font txt\n");
         return f;
     }
 
     f.widths = (u8 *)ma.allocf(ma.ctx, sizeof(u8) * 256);
     if (!f.widths) {
-        sys_printf("+++ allocating font memory\n");
+        pltf_log("+++ allocating font memory\n");
         spm_pop();
         return f;
     }
@@ -38,7 +38,7 @@ fnt_s fnt_load(const char *filename, alloc_s ma)
     assert(str_eq(fp, ".json"));
     str_cpy(fp, ".tex");
 
-    sys_printf("  loading fnt tex: %s\n", filename_tex);
+    pltf_log("  loading fnt tex: %s\n", filename_tex);
     f.t      = tex_load(filename_tex, ma);
     f.grid_w = jsonk_u32(j, "gridwidth");
     f.grid_h = jsonk_u32(j, "gridheight");
@@ -56,13 +56,12 @@ fnt_s fnt_load(const char *filename, alloc_s ma)
 
 tex_s tex_framebuffer()
 {
-    sys_display_s d = sys_display();
-    tex_s         t = {0};
-    t.fmt           = TEX_FMT_OPAQUE;
-    t.px            = d.px;
-    t.w             = d.w;
-    t.h             = d.h;
-    t.wword         = d.wword;
+    tex_s t = {0};
+    t.fmt   = TEX_FMT_OPAQUE;
+    t.px    = (u32 *)pltf_1bit_buffer();
+    t.w     = PLTF_DISPLAY_W;
+    t.h     = PLTF_DISPLAY_H;
+    t.wword = PLTF_DISPLAY_WWORDS;
     return t;
 }
 
@@ -94,23 +93,23 @@ tex_s tex_create_opaque(int w, int h, alloc_s ma)
 
 tex_s tex_load(const char *path, alloc_s ma)
 {
-    void *f = sys_file_open(path, SYS_FILE_R);
+    void *f = pltf_file_open(path, PLTF_FILE_R);
     if (!f) {
-        sys_printf("Can't load tex: %s\n", path);
+        pltf_log("Can't load tex: %s\n", path);
         tex_s t0 = {0};
         return t0;
     }
 
     uint w;
     uint h;
-    sys_file_read(f, &w, sizeof(uint));
-    sys_file_read(f, &h, sizeof(uint));
+    pltf_file_r(f, &w, sizeof(uint));
+    pltf_file_r(f, &h, sizeof(uint));
 
     usize s = ((w * h) * 2) / 8;
-    sys_printf("tex size: %u kb\n", (uint)(s / 1024));
+    pltf_log("tex size: %u kb\n", (uint)(s / 1024));
     tex_s t = tex_create(w, h, ma);
-    sys_file_read(f, t.px, s);
-    sys_file_close(f);
+    pltf_file_r(f, t.px, s);
+    pltf_file_close(f);
     return t;
 }
 
@@ -374,19 +373,19 @@ gfx_pattern_s gfx_pattern_interpolatec(int num, int den,
 
 void tex_clr(tex_s dst, int col)
 {
-    int  N = dst.wword * dst.h;
+    i32  N = dst.wword * dst.h;
     u32 *p = dst.px;
-    assert(p);
+    if (!p) return;
     switch (col) {
     case GFX_COL_BLACK:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
-            for (int n = 0; n < N; n++) {
+            for (i32 n = 0; n < N; n++) {
                 *p++ = 0U;
             }
             break;
         case TEX_FMT_MASK:
-            for (int n = 0; n < N; n += 2) {
+            for (i32 n = 0; n < N; n += 2) {
                 *p++ = 0U;          // data
                 *p++ = 0xFFFFFFFFU; // mask
             }
@@ -396,12 +395,12 @@ void tex_clr(tex_s dst, int col)
     case GFX_COL_WHITE:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
-            for (int n = 0; n < N; n++) {
+            for (i32 n = 0; n < N; n++) {
                 *p++ = 0xFFFFFFFFU;
             }
             break;
         case TEX_FMT_MASK:
-            for (int n = 0; n < N; n += 2) {
+            for (i32 n = 0; n < N; n += 2) {
                 *p++ = 0xFFFFFFFFU; // data
                 *p++ = 0xFFFFFFFFU; // mask
             }
@@ -410,7 +409,7 @@ void tex_clr(tex_s dst, int col)
         break;
     case GFX_COL_CLEAR:
         if (dst.fmt == TEX_FMT_OPAQUE) break;
-        for (int n = 0; n < N; n++) {
+        for (i32 n = 0; n < N; n++) {
             *p++ = 0;
         }
         break;
@@ -419,38 +418,21 @@ void tex_clr(tex_s dst, int col)
 
 // used for simple sprites
 typedef struct {
-    int           dmax; // count of dst words -1
+    i32           dmax; // count of dst words -1
     u32           ml;   // boundary mask left
     u32           mr;   // boundary mask right
-    int           mode; // drawing mode
-    int           doff; // bitoffset of first dst bit
+    i32           mode; // drawing mode
+    i32           doff; // bitoffset of first dst bit
     u32          *dp;   // pixel
-    int           y;
+    i32           y;
     gfx_pattern_s pat;
-    int           dadd;
+    i32           dadd;
 } span_blit_s;
-
-static void apply_spr_mode(u32 *restrict dp, u32 *restrict dm, u32 sp, u32 sm, int mode)
-{
-    switch (mode) {
-    case SPR_MODE_INV: sp = ~sp; // fallthrough
-    case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
-    case SPR_MODE_XOR: sp = ~sp; // fallthrough
-    case SPR_MODE_NXOR: *dp = (*dp & ~sm) | ((*dp ^ sp) & sm); break;
-    case SPR_MODE_WHITE_ONLY: sm &= sp; // fallthrough
-    case SPR_MODE_WHITE: *dp |= sm; break;
-    case SPR_MODE_BLACK_ONLY: sm &= ~sp; // fallthrough
-    case SPR_MODE_BLACK: *dp &= ~sm; break;
-    }
-
-    if (dm) *dm |= sm;
-}
 
 span_blit_s span_blit_gen(gfx_ctx_s ctx, int y, int x1, int x2, int mode)
 {
-    int nbit = (x2 + 1) - x1; // number of bits in a row to blit
-
-    int         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
+    i32         nbit = (x2 + 1) - x1; // number of bits in a row to blit
+    i32         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
     span_blit_s info = {0};
     info.y           = y;
     info.doff        = x1 & 31;
@@ -553,7 +535,7 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
             default: BAD_PATH
             }
 
-            apply_spr_mode(dp, dm, bswap32(sp), bswap32(sm) & pat, 0);
+            spr_blit(dp, dm, bswap32(sp), bswap32(sm) & pat, 0);
         }
     }
 }
@@ -809,22 +791,21 @@ void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], int mode)
         v01 = v2_inv(v01);
     }
 
-    i32     xa  = max_i32(min3_i32(v20.x, v12.x, v01.x) >> 2, 0);           // screen x1
-    i32     ya  = max_i32(min3_i32(v20.y, v12.y, v01.y) >> 2, 0);           // screen y1
-    i32     xb  = min_i32(max3_i32(v20.x, v12.x, v01.x) >> 2, ctx.clip_x2); // screen x2
-    i32     yb  = min_i32(max3_i32(v20.y, v12.y, v01.y) >> 2, ctx.clip_y2); // screen y2
-    i32     xm  = (xa << 2) + 2;                                            // mid point top left
-    i32     ym  = (ya << 2) + 2;
-    i32     u0  = v12.y * (xm - vv[1].x) - v12.x * (ym - vv[1].y); // midpoint for subpixel sampling
-    i32     v0  = v20.y * (xm - vv[2].x) - v20.x * (ym - vv[2].y);
-    i32     w0  = v01.y * (xm - vv[0].x) - v01.x * (ym - vv[0].y);
-    i32     ux  = v12.y << 2;
-    i32     uy  = v12.x << 2;
-    i32     vx  = v20.y << 2;
-    i32     vy  = v20.x << 2;
-    i32     wx  = v01.y << 2;
-    i32     wy  = v01.x << 2;
-    div_u32 div = div_u32_gen(den);
+    i32 xa = max_i32(min3_i32(v20.x, v12.x, v01.x) >> 2, 0);           // screen x1
+    i32 ya = max_i32(min3_i32(v20.y, v12.y, v01.y) >> 2, 0);           // screen y1
+    i32 xb = min_i32(max3_i32(v20.x, v12.x, v01.x) >> 2, ctx.clip_x2); // screen x2
+    i32 yb = min_i32(max3_i32(v20.y, v12.y, v01.y) >> 2, ctx.clip_y2); // screen y2
+    i32 xm = (xa << 2) + 2;                                            // mid point top left
+    i32 ym = (ya << 2) + 2;
+    i32 u0 = v12.y * (xm - vv[1].x) - v12.x * (ym - vv[1].y); // midpoint for subpixel sampling
+    i32 v0 = v20.y * (xm - vv[2].x) - v20.x * (ym - vv[2].y);
+    i32 w0 = v01.y * (xm - vv[0].x) - v01.x * (ym - vv[0].y);
+    i32 ux = v12.y << 2;
+    i32 uy = v12.x << 2;
+    i32 vx = v20.y << 2;
+    i32 vy = v20.x << 2;
+    i32 wx = v01.y << 2;
+    i32 wy = v01.x << 2;
 
     for (i32 y = ya; y <= yb; y++) {
         i32 u  = u0;
@@ -853,19 +834,53 @@ void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], int mode)
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode)
 {
     if (d <= 0) return;
-    i32 y1 = max_i32(p.y - (d >> 1), ctx.clip_y1);
-    i32 y2 = min_i32(y1 + d, ctx.clip_y2);
-    i32 r2 = d * d + 1; // radius doubled^2
-    for (i32 y = y1; y <= y2; y++) {
-        i32 rd = r2 - pow2_i32((y - p.y) << 1);
-        if (rd < 0) continue;
-        i32 xx = sqrt_i32(rd) >> 1;
-        i32 x1 = max_i32(p.x - xx, ctx.clip_x1);
-        i32 x2 = min_i32(p.x + xx, ctx.clip_x2);
-        if (x2 < x1) continue;
-        span_blit_s i = span_blit_gen(ctx, y, x1, x2, mode);
-        prim_blit_span(i);
+    if (d == 1) {
+        gfx_rec_fill(ctx, (rec_i32){p.x, p.y, 1, 1}, mode);
+        return;
     }
+    if (d == 2) {
+        gfx_rec_fill(ctx, (rec_i32){p.x - 1, p.y - 1, 2, 2}, mode);
+        return;
+    }
+
+    // Jesko's Method, shameless copy
+    // https://schwarzers.com/algorithms/
+    i32 r = d >> 1;
+    i32 x = r;
+    i32 y = 0;
+    i32 t = r >> 4;
+
+    do {
+        i32 x1 = max_i32(p.x - x, ctx.clip_x1);
+        i32 x2 = min_i32(p.x + x, ctx.clip_x2);
+        i32 x3 = max_i32(p.x - y, ctx.clip_x1);
+        i32 x4 = min_i32(p.x + y, ctx.clip_x2);
+        i32 y4 = p.y - x; // ordered in y
+        i32 y2 = p.y - y;
+        i32 y1 = p.y + y;
+        i32 y3 = p.y + x;
+
+        if (ctx.clip_y1 <= y4 && y4 <= ctx.clip_y2 && x3 <= x4) {
+            prim_blit_span(span_blit_gen(ctx, y4, x3, x4, mode));
+        }
+        if (ctx.clip_y1 <= y2 && y2 <= ctx.clip_y2 && x1 <= x2) {
+            prim_blit_span(span_blit_gen(ctx, y2, x1, x2, mode));
+        }
+        if (ctx.clip_y1 <= y1 && y1 <= ctx.clip_y2 && x1 <= x2 && y != 0) {
+            prim_blit_span(span_blit_gen(ctx, y1, x1, x2, mode));
+        }
+        if (ctx.clip_y1 <= y3 && y3 <= ctx.clip_y2 && x3 <= x4) {
+            prim_blit_span(span_blit_gen(ctx, y3, x3, x4, mode));
+        }
+
+        y++;
+        t += y;
+        i32 k = t - x;
+        if (0 <= k) {
+            t = k;
+            x--;
+        }
+    } while (y <= x);
 }
 
 void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
@@ -875,7 +890,6 @@ void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode)
 
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d)
 {
-#if 1
     i32    dx = +abs_i32(b.x - a.x);
     i32    dy = -abs_i32(b.y - a.y);
     i32    sx = a.x < b.x ? +1 : -1;
@@ -886,43 +900,11 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d)
     while (1) {
         gfx_cir_fill(ctx, pi, d, mode);
 
-        if (pi.x == b.x && pi.y == b.y) break;
+        if (v2_eq(pi, b)) break;
         i32 e2 = er << 1;
         if (e2 >= dy) { er += dy, pi.x += sx; }
         if (e2 <= dx) { er += dx, pi.y += sy; }
     }
-
-#else
-    line_i32 l0 = {a, b};
-
-    v2_i32 ldt = v2_sub(a, b);
-
-    if (ldt.y == 0) {
-        gfx_lin(ctx, a, b, mode);
-        return;
-    }
-
-    ldt        = v2_shl(ldt, 8);
-    v2_i32 odt = {ldt.y, -ldt.x};
-    odt        = v2_setlen(odt, r << 8);
-
-    v2_i32 c = v2_add(v2_shl(a, 8), odt);
-    v2_i32 d = v2_add(v2_shl(b, 8), odt);
-
-    v2_i32 e = v2_sub(v2_shl(a, 8), odt);
-    v2_i32 f = v2_sub(v2_shl(b, 8), odt);
-
-    c = v2_shr(c, 8);
-    d = v2_shr(d, 8);
-    e = v2_shr(e, 8);
-    f = v2_shr(f, 8);
-
-    tri_i32 t1 = {c, d, e};
-    tri_i32 t2 = {c, e, f};
-    gfx_tri_fill(ctx, t1, mode);
-    gfx_tri_fill(ctx, t2, mode);
-
-#endif
 }
 
 void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode)
@@ -989,4 +971,213 @@ void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode)
             prim_blit_span(s);
         }
     }
+}
+
+void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
+{
+    // area bounds on canvas [x1/y1, x2/y2)
+    i32 x1 = max_i32(pos.x, ctx.clip_x1);               // inclusive
+    i32 y1 = max_i32(pos.y, ctx.clip_y1);               // inclusive
+    i32 x2 = min_i32(pos.x + src.r.w - 1, ctx.clip_x2); // inclusive
+    i32 y2 = min_i32(pos.y + src.r.h - 1, ctx.clip_y2); // inclusive
+    if (x2 < x1) return;
+
+    tex_s  dtex    = ctx.dst;
+    tex_s  stex    = src.t;
+    bool32 fx      = (flip & SPR_FLIP_X) != 0;                              // flipped x
+    bool32 fy      = (flip & SPR_FLIP_Y) != 0;                              // flipped y
+    i32    sy      = fy ? -1 : +1;                                          // sign flip x
+    i32    sx      = fx ? -1 : +1;                                          // sign flip y
+    i32    nb      = (x2 + 1) - x1;                                         // number of bits in a row
+    i32    od      = x1 & 31;                                               // bitoffset in dst
+    i32    dm      = (od + nb - 1) >> 5;                                    // number of touched dst words -1
+    u32    ml      = bswap32(0xFFFFFFFFU >> (31 & od));                     // mask to cut off boundary left
+    u32    mr      = bswap32(0xFFFFFFFFU << (31 & (u32)(-od - nb)));        // mask to cut off boundary right
+    i32    u1      = src.r.x - sx * pos.x + (fx ? src.r.w - (x2 + 1) : x1); // first bit index in src row
+    i32    os      = (u32)(sx * u1 - fx * nb) & 31;                         // bitoffset in src
+    i32    da      = 1 + (dtex.fmt == TEX_FMT_MASK);                        // number of words to next logical pixel word in dst
+    i32    sa      = 1 + (stex.fmt == TEX_FMT_MASK);                        // number of words to next logical pixel word in src
+    i32    sm      = ((os + nb - 1) >> 5) * sa;                             // number of touched src words -1
+    i32    of      = os - od;                                               // alignment difference
+    i32    l       = of & 31;                                               // word left shift amount
+    i32    r       = 32 - l;                                                // word rght shift amound
+    i32    src_wy1 = src.r.y + sy * (y1 - pos.y) + fy * (src.r.h - 1);
+    u32   *dst_p   = &dtex.px[(x1 >> 5) * da + dtex.wword * y1];      // dst pixel words
+    u32   *src_p   = &stex.px[(u1 >> 5) * sa + stex.wword * src_wy1]; // src pixel words
+    i32    incr_sp = stex.wword * sy;
+    i32    incr_dp = dtex.wword;
+
+    for (i32 y = y1; y <= y2; y++, src_p += incr_sp, dst_p += incr_dp) {
+        u32 pt = ctx.pat.p[y & 7];
+        if (pt == 0) continue;
+
+        u32 *restrict dp        = dst_p;
+        const u32 *restrict sp1 = src_p;
+        const u32 *restrict sp2 = src_p + sm;
+        u32 p                   = 0;
+        u32 m                   = 0;
+
+        if (fx) {
+            const u32 *restrict sp = sp2;
+            if (l == 0) { // same alignment, fast path
+                p = brev32(*sp);
+                m = ml;
+                if (sa == 2) {
+                    m &= brev32(*(sp + 1));
+                }
+                sp -= sa;
+                for (i32 i = 0; i < dm; i++) {
+                    spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+                    p = brev32(*sp);
+                    m = 0xFFFFFFFFU;
+                    if (sa == 2) {
+                        m = brev32(*(sp + 1));
+                    }
+                    sp -= sa;
+                    dp += da;
+                }
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+                continue;
+            }
+            if (0 < of) { // first word
+                p = brev32(bswap32(*sp)) << l;
+                m = 0xFFFFFFFFU;
+                if (sa == 2) {
+                    m = brev32(bswap32(*(sp + 1))) << l;
+                }
+                if (0 < sm) {
+                    sp -= sa;
+                }
+            }
+
+            p = bswap32(p | (brev32(bswap32(*sp)) >> r));
+            if (sa == 2) {
+                m = bswap32(m | (brev32(bswap32(*(sp + 1))) >> r)) & ml;
+            } else {
+                m = ml;
+            }
+            if (dm == 0) {
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+                continue; // only one word long
+            }
+
+            spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+            dp += da;
+
+            for (i32 i = 1; i < dm; i++) { // middle words
+                p = brev32(bswap32(*sp)) << l;
+                p = bswap32(p | (brev32(bswap32(*(sp - sa))) >> r));
+                m = 0xFFFFFFFFU;
+                if (sa == 2) {
+                    m = brev32(bswap32(*(sp + 1))) << l;
+                    m = bswap32(m | (brev32(bswap32(*(sp - 1))) >> r));
+                }
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+                sp -= sa;
+                dp += da;
+            }
+
+            p = brev32(bswap32(*sp)) << l; // last word
+            m = 0xFFFFFFFFU;
+            if (sa == 2) {
+                m = brev32(bswap32(*(sp + 1))) << l;
+            }
+            if (sp > sp1) {
+                sp -= sa;
+                p |= brev32(bswap32(*sp)) >> r;
+                if (sa == 2) {
+                    m |= brev32(bswap32(*(sp + 1))) >> r;
+                }
+            }
+            p = bswap32(p);
+            m = bswap32(m);
+            spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+        } else {
+            const u32 *restrict sp = sp1;
+            if (l == 0) { // same alignment, fast path
+                p = *sp;
+                m = ml;
+                if (sa == 2) {
+                    m &= *(sp + 1);
+                }
+                sp += sa;
+                for (i32 i = 0; i < dm; i++) {
+                    spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+                    p = *sp;
+                    m = 0xFFFFFFFFU;
+                    if (sa == 2) {
+                        m = *(sp + 1);
+                    }
+                    sp += sa;
+                    dp += da;
+                }
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+                continue;
+            }
+
+            if (0 < of) { // first word
+                p = bswap32(*sp) << l;
+                m = 0xFFFFFFFFU;
+                if (sa == 2) {
+                    m = bswap32(*(sp + 1)) << l;
+                }
+                if (0 < sm) {
+                    sp += sa;
+                }
+            }
+
+            p = bswap32(p | (bswap32(*sp) >> r));
+            if (sa == 2) {
+                m = bswap32(m | (bswap32(*(sp + 1)) >> r)) & ml;
+            } else {
+                m = ml;
+            }
+            if (dm == 0) {
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+                continue; // only one word long
+            }
+
+            spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+            dp += da;
+
+            for (i32 i = 1; i < dm; i++) { // middle words
+                p = bswap32(*sp) << l;
+                p = bswap32(p | (bswap32(*(sp + sa)) >> r));
+                m = 0xFFFFFFFFU;
+                if (sa == 2) {
+                    m = bswap32(*(sp + 1)) << l;
+                    m = bswap32(m | (bswap32(*(sp + 3)) >> r));
+                }
+                spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
+                sp += sa;
+                dp += da;
+            }
+
+            p = bswap32(*sp) << l; // last word
+            m = 0xFFFFFFFFU;
+            if (sa == 2) {
+                m = bswap32(*(sp + 1)) << l;
+            }
+            if (sp < sp2) { // this is different for reversed blitting!
+                sp += sa;
+                p |= bswap32(*sp) >> r;
+                if (sa == 2) {
+                    m |= bswap32(*(sp + 1)) >> r;
+                }
+            }
+            p = bswap32(p);
+            m = bswap32(m);
+            spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & (pt & mr), mode);
+        }
+    }
+}
+
+// special case: drawing tiles equal or smaller than 32x32 to an opaque target texture
+// no XY flipping supported
+void gfx_spr_tile(gfx_ctx_s ctx, tex_s stex, i32 tx, i32 ty, i32 ts, v2_i32 pos)
+{
+    assert(ctx.dst.fmt == TEX_FMT_OPAQUE);
+    assert(stex.fmt == TEX_FMT_MASK);
+    assert(ts <= 5);
+    gfx_spr(ctx, (texrec_s){stex, {tx << ts, ty << ts, 1 << ts, 1 << ts}}, pos, 0, 0);
 }

@@ -5,7 +5,7 @@
 #ifndef GFX_H
 #define GFX_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 #include "util/mem.h"
 
 #define GFX_MEM_KB 1024
@@ -122,8 +122,8 @@ gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, in
 gfx_pattern_s gfx_pattern_bayer_4x4(int i);
 gfx_pattern_s gfx_pattern_interpolate(int num, int den);
 gfx_pattern_s gfx_pattern_interpolatec(int num, int den, int (*ease)(int a, int b, int num, int den));
-void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode);
-void          gfx_spr_tile(gfx_ctx_s ctx, tex_s tex, int tx, int ty, int ts, v2_i32 pos);
+void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode);
+void          gfx_spr_tile(gfx_ctx_s ctx, tex_s tex, i32 tx, i32 ty, i32 ts, v2_i32 pos);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                              f32 sclx, f32 scly);
@@ -151,5 +151,22 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int 
 void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode, int spacing);
 int  fnt_length_px(fnt_s fnt, const char *txt);
 int  fnt_length_px_mono(fnt_s fnt, const char *txt, int spacing);
+
+static void spr_blit(u32 *restrict dp, u32 *restrict dm,
+                     u32 sp, u32 sm, i32 mode)
+{
+    switch (mode) {
+    case SPR_MODE_INV: sp = ~sp; // fallthrough
+    case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
+    case SPR_MODE_XOR: sp = ~sp; // fallthrough
+    case SPR_MODE_NXOR: *dp = (*dp & ~sm) | ((*dp ^ sp) & sm); break;
+    case SPR_MODE_WHITE_ONLY: sm &= sp; // fallthrough
+    case SPR_MODE_WHITE: *dp |= sm; break;
+    case SPR_MODE_BLACK_ONLY: sm &= ~sp; // fallthrough
+    case SPR_MODE_BLACK: *dp &= ~sm; break;
+    }
+
+    if (dm) *dm |= sm;
+}
 
 #endif

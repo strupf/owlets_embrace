@@ -12,9 +12,9 @@
 #define GAME_VERSION_GEN(P, Y, M, D) (P##Y##M##D)
 #define GAME_VERSION_CUR(P)          GAME_VERSION_GEN(P, 2024, 05, 01)
 
-#if defined(SYS_PD)
+#if defined(PLTF_PD)
 #define GAME_VERSION GAME_VERSION_CUR(1) // 1: PLAYDATE
-#elif defined(SYS_SDL)
+#elif defined(PLTF_SDL)
 #define GAME_VERSION GAME_VERSION_CUR(2) // 2: SDL
 #endif
 
@@ -23,7 +23,7 @@
 #include "core/gfx.h"
 #include "core/inp.h"
 #include "core/spm.h"
-#include "sys/sys.h"
+#include "pltf/pltf.h"
 #include "util/easing.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
@@ -86,7 +86,7 @@ static int direction_nearest(int dir, bool32 cw)
 
 static i32 time_now()
 {
-    return (i32)sys_tick();
+    return (i32)0;
 }
 
 static i32 time_since(i32 t)
@@ -102,22 +102,22 @@ enum {
 
 static i32 ticks_from_seconds(f32 s)
 {
-    return (i32)(s * (f32)SYS_UPS + .5f);
+    return (i32)(s * (f32)PLTF_UPS + .5f);
 }
 
 static f32 seconds_from_ticks(i32 ticks)
 {
-    return ((f32)ticks / (f32)SYS_UPS);
+    return ((f32)ticks / (f32)PLTF_UPS);
 }
 
 static i32 ticks_from_ms(i32 ms)
 {
-    return (ms * SYS_UPS + 500) / 1000;
+    return (ms * PLTF_UPS + 500) / 1000;
 }
 
 static i32 ms_from_ticks(i32 ticks)
 {
-    return (ticks * 1000) / SYS_UPS;
+    return (ticks * 1000) / PLTF_UPS;
 }
 
 static v2_i32 direction_v2(i32 dir)
@@ -164,9 +164,5 @@ typedef struct {
     u32    type;
     v2_i32 pos;
 } map_pin_s;
-
-typedef struct {
-    i32 x;
-} settings_s;
 
 #endif

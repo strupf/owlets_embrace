@@ -43,6 +43,7 @@ typedef struct {
 
 void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n);
 void particles_update(game_s *g, particles_s *pr);
+void particles_draw(game_s *g, particles_s *pr, v2_i32 cam);
 
 #define NUM_COINPARTICLE            256
 #define COINPARTICLE_COLLECT_DISTSQ 350

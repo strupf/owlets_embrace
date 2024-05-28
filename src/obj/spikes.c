@@ -17,10 +17,9 @@ typedef struct {
     i32 trigger_off;
 } spikes_s;
 
+// only for dynamic spikes
 void spikes_on_trigger(game_s *g, obj_s *o, i32 trigger)
 {
-    if (o->state != SPIKES_DYNAMIC) return;
-
     spikes_s *sp = (spikes_s *)o->mem;
 
     switch (o->substate) {
@@ -63,7 +62,6 @@ void spikes_load(game_s *g, map_obj_s *mo)
     o->flags      = OBJ_FLAG_RENDER_AABB;
     o->on_animate = spikes_on_animate;
     o->on_draw    = spikes_on_draw;
-    o->on_trigger = spikes_on_trigger;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->w          = mo->w;
@@ -91,6 +89,10 @@ void spikes_load(game_s *g, map_obj_s *mo)
     o->state        = t_on || t_off ? SPIKES_DYNAMIC : SPIKES_STATIC;
     sp->trigger_off = t_off;
     sp->trigger_on  = t_on;
+
+    if (o->state == SPIKES_DYNAMIC) {
+        o->on_trigger = spikes_on_trigger;
+    }
 
     if (o->state == SPIKES_STATIC || o->substate) {
         o->flags |= OBJ_FLAG_HURT_ON_TOUCH;

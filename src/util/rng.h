@@ -5,7 +5,7 @@
 #ifndef RNG_H
 #define RNG_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 
 // [0, 4294967295]
 static inline u32 rngn_u32(u32 u)
@@ -65,6 +65,12 @@ static u32 rngr_u32(u32 lo, u32 hi)
 static i32 rngr_i32(i32 lo, i32 hi)
 {
     return lo + (rng_u32() % (hi - lo + 1));
+}
+
+// [lo, hi]
+static i32 rngsr_i32(u32 *seed, i32 lo, i32 hi)
+{
+    return lo + (rngs_u32(seed) % (hi - lo + 1));
 }
 
 static f32 rngr_f32(f32 lo, f32 hi)

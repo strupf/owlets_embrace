@@ -6,7 +6,6 @@
 #define BEHAVIOUR_H
 
 #include "gamedef.h"
-#include "hero.h"
 #include "map_loader.h"
 
 void   floater_load(game_s *g, map_obj_s *mo);
@@ -59,8 +58,6 @@ void   swingdoor_load(game_s *g, map_obj_s *mo);
 //
 void   teleport_load(game_s *g, map_obj_s *mo);
 //
-void   juggernaut_load(game_s *g, map_obj_s *mo);
-//
 void   stalactite_load(game_s *g, map_obj_s *mo);
 //
 void   walker_load(game_s *g, map_obj_s *mo);
@@ -72,10 +69,13 @@ void   triggerarea_load(game_s *g, map_obj_s *mo);
 void   pushablebox_load(game_s *g, map_obj_s *mo);
 //
 void   spikes_load(game_s *g, map_obj_s *mo);
-void   spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
 //
 void   hooklever_load(game_s *g, map_obj_s *mo);
 //
 obj_s *spritedecal_create(game_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                           i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, int flip);
+//
+void   wallworm_load(game_s *g, map_obj_s *mo);
+//
+void   hookplant_load(game_s *g, map_obj_s *mo);
 #endif

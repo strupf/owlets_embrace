@@ -5,7 +5,7 @@
 #ifndef MEM_H
 #define MEM_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 
 #define MKILOBYTE(X) ((X)*1024)
 #define MMEGABYTE(X) ((X)*1024 * 1024)

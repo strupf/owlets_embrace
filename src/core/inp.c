@@ -3,107 +3,141 @@
 // =============================================================================
 
 #include "inp.h"
+#include "util/mathfunc.h"
 
 static struct {
-    inp_state_s curr;
-    inp_state_s prev;
+    inp_new_s curri;
+    inp_new_s previ;
 } INP;
 
 void inp_update()
 {
-    INP.prev           = INP.curr;
-    //
-    INP.curr.crank_q12 = (i32)(sys_crank() * 4096.f) & 0xFFF;
-    INP.curr.btn       = sys_inp();
-    INP.curr.btn |= sys_crank_docked() ? INP_CRANK_DOCKED : 0;
+    INP.previ = INP.curri;
+    INP.curri = (inp_new_s){0};
+#ifdef PLTF_PD
+    INP.curri.actions = pltf_pd_btn() & B8(00111111);
+    if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
+
+    INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
+#elif PLTF_SDL_EMULATE_SIM
+    if (pltf_sdl_key(SDL_SCANCODE_W)) INP.curri.actions |= INP_DU;
+    if (pltf_sdl_key(SDL_SCANCODE_S)) INP.curri.actions |= INP_DD;
+    if (pltf_sdl_key(SDL_SCANCODE_A)) INP.curri.actions |= INP_DL;
+    if (pltf_sdl_key(SDL_SCANCODE_D)) INP.curri.actions |= INP_DR;
+    if (pltf_sdl_key(SDL_SCANCODE_COMMA)) INP.curri.actions |= INP_B;
+    if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) INP.curri.actions |= INP_A;
+    INP.curri.actions |= INP_CRANK_DOCK;
+#else
+#endif
+}
+
+i32 inp_x()
+{
+    if (inp_action(INP_DL)) return -1;
+    if (inp_action(INP_DR)) return +1;
+    return 0;
+}
+
+i32 inp_y()
+{
+    if (inp_action(INP_DU)) return -1;
+    if (inp_action(INP_DD)) return +1;
+    return 0;
+}
+
+i32 inp_xp()
+{
+    if (inp_actionp(INP_DL)) return -1;
+    if (inp_actionp(INP_DR)) return +1;
+    return 0;
+}
+
+i32 inp_yp()
+{
+    if (inp_actionp(INP_DU)) return -1;
+    if (inp_actionp(INP_DD)) return +1;
+    return 0;
+}
+
+v2_i32 inp_dir()
+{
+    v2_i32 v = {inp_x(), inp_y()};
+    return v;
+}
+
+v2_i32 inp_dirp()
+{
+    v2_i32 v = {inp_xp(), inp_yp()};
+    return v;
+}
+
+bool32 inp_action(i32 b)
+{
+    return (INP.curri.actions & b);
+}
+
+bool32 inp_actionp(i32 b)
+{
+    return (INP.previ.actions & b);
+}
+
+bool32 inp_action_jp(i32 b)
+{
+    return (inp_action(b) && !inp_actionp(b));
+}
+
+bool32 inp_action_jr(i32 b)
+{
+    return (!inp_action(b) && inp_actionp(b));
+}
+
+i32 inp_crank_q16()
+{
+    return INP.curri.crank_q16;
+}
+
+i32 inp_crankp_q16()
+{
+    return INP.previ.crank_q16;
+}
+
+i32 inp_crank_qx(i32 q)
+{
+    return q_convert_i32(inp_crank_q16(), 16, q);
+}
+
+i32 inp_crankp_qx(i32 q)
+{
+    return q_convert_i32(inp_crankp_q16(), 16, q);
+}
+
+i32 inp_crank_dt_q16()
+{
+    return inp_crank_calc_dt_qx(16, inp_crankp_q16(), inp_crank_q16());
+}
+
+i32 inp_crank_calc_dt_q16(i32 ang_from, i32 ang_to)
+{
+    return inp_crank_calc_dt_qx(16, ang_from, ang_to);
+}
+
+i32 inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to)
+{
+    i32 dt = ang_to - ang_from;
+    if (dt <= -(1 << (q - 1))) return (dt + (1 << q));
+    if (dt >= +(1 << (q - 1))) return (dt - (1 << q));
+    return dt;
 }
 
 void inp_on_resume()
 {
     inp_update();
-    INP.prev = INP.curr;
-}
-
-inp_s inp_state()
-{
-    inp_s i = {0};
-    i.curr  = INP.curr;
-    i.prev  = INP.prev;
-    return i;
-}
-
-bool32 inps_pressed(inp_s i, i32 b)
-{
-    return (i.curr.btn & b);
-}
-
-bool32 inps_was_pressed(inp_s i, i32 b)
-{
-    return (i.prev.btn & b);
-}
-
-bool32 inps_just_pressed(inp_s i, i32 b)
-{
-    return ((i.curr.btn & b) && !(i.prev.btn & b));
-}
-
-bool32 inps_just_released(inp_s i, i32 b)
-{
-    return (!(i.curr.btn & b) && (i.prev.btn & b));
-}
-
-i32 inps_dpad_x(inp_s i)
-{
-    if (inps_pressed(i, INP_DPAD_L)) return -1;
-    if (inps_pressed(i, INP_DPAD_R)) return +1;
-    return 0;
-}
-
-i32 inps_dpad_y(inp_s i)
-{
-    if (inps_pressed(i, INP_DPAD_U)) return -1;
-    if (inps_pressed(i, INP_DPAD_D)) return +1;
-    return 0;
-}
-
-bool32 inp_pressed(i32 b)
-{
-    return (INP.curr.btn & b);
-}
-
-bool32 inp_was_pressed(i32 b)
-{
-    return (INP.prev.btn & b);
-}
-
-bool32 inp_just_pressed(i32 b)
-{
-    return inp_pressed(b) && !inp_was_pressed(b);
-}
-
-bool32 inp_just_released(i32 b)
-{
-    return !inp_pressed(b) && inp_was_pressed(b);
-}
-
-i32 inp_dpad_x()
-{
-    if (inp_pressed(INP_DPAD_L)) return -1;
-    if (inp_pressed(INP_DPAD_R)) return +1;
-    return 0;
-}
-
-i32 inp_dpad_y()
-{
-    if (inp_pressed(INP_DPAD_U)) return -1;
-    if (inp_pressed(INP_DPAD_D)) return +1;
-    return 0;
 }
 
 i32 inp_dpad_dir()
 {
-    i32 x = inp_dpad_x();
-    i32 y = inp_dpad_y();
+    i32 x = inp_x();
+    i32 y = inp_y();
     i32 d = ((y + 1) << 2) | (x + 1);
     switch (d) {
     case 1: return INP_DPAD_DIR_N;
@@ -116,52 +150,4 @@ i32 inp_dpad_dir()
     case 2: return INP_DPAD_DIR_NE;
     }
     return INP_DPAD_DIR_NONE;
-}
-
-i32 inp_crank_q12()
-{
-    return INP.curr.crank_q12;
-}
-
-i32 inp_prev_crank_q12()
-{
-    return INP.prev.crank_q12;
-}
-
-i32 inp_crank_dt_q12()
-{
-    return inp_crank_calc_dt_q12(INP.prev.crank_q12, INP.curr.crank_q12);
-}
-
-i32 inp_crank_calc_dt_q12(i32 ang_from, i32 ang_to)
-{
-    i32 dt = ang_to - ang_from;
-    if (dt <= -2048) return (dt + 4096);
-    if (dt >= +2048) return (dt - 4096);
-    return dt;
-}
-
-i32 inp_crank_docked()
-{
-    return (INP.curr.btn & INP_CRANK_DOCKED);
-}
-
-i32 inp_crank_was_docked()
-{
-    return (INP.prev.btn & INP_CRANK_DOCKED);
-}
-
-i32 inp_crank_just_docked()
-{
-    return inp_crank_docked() && !inp_crank_was_docked();
-}
-
-i32 inp_crank_just_undocked()
-{
-    return !inp_crank_docked() && inp_crank_was_docked();
-}
-
-i32 inp_debug_space()
-{
-    return backend_debug_space();
 }

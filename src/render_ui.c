@@ -30,7 +30,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         } else if (p2 <= ft) {
             ctx_af.pat = gfx_pattern_interpolate(FADETICKS_AREALABEL - ft, FADETICKS_AREALABEL - p2);
         }
-        int    strl = fnt_length_px(font_1, g->areaname.label);
+        i32    strl = fnt_length_px(font_1, g->areaname.label);
         v2_i32 loc  = {(ctx_af.dst.w - strl) >> 1, 10};
 
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
@@ -41,13 +41,13 @@ void render_ui(game_s *g, v2_i32 camoff)
     fnt_s font_c      = asset_fnt(FNTID_SMALL);
     char  coins_l[16] = {0};
     strs_from_u32(g->save.coins, coins_l);
-    int    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
+    i32    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
     v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 15};
     // fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
     if (g->coins_added) {
         char coins_add_l[16] = {0};
         strs_from_u32(abs_i32(g->coins_added), coins_add_l);
-        int    coinastrl = fnt_length_px_mono(font_c, coins_add_l, COIN_MONO_SPACING);
+        i32    coinastrl = fnt_length_px_mono(font_c, coins_add_l, COIN_MONO_SPACING);
         v2_i32 coinposa  = {COIN_POS_END_X - coinastrl, 30};
         fnt_draw_ascii_mono(ctx, font_c, coinposa, coins_add_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
         v2_i32      coinposplus = {10, coinposa.y};
@@ -61,7 +61,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         posi        = v2_add(posi, camoff);
         posi.y -= 64 + 16;
         posi.x -= 32;
-        int      btn_frame = (sys_tick() >> 5) & 1;
+        i32      btn_frame = (g->gameplay_tick >> 5) & 1;
         texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
         gfx_spr(ctx, tui, posi, 0, 0);
     }
@@ -87,31 +87,7 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 
     if (ohero) {
-        v2_i32 hctr = v2_add(camoff, obj_pos_center(ohero));
-
         render_jump_ui(g, ohero, camoff);
-
-        if (ohero->health < ohero->health_max) {
-            gfx_ctx_s health_ctx = ctx;
-            health_ctx.pat       = gfx_pattern_75();
-            i32 health_r         = 150 + (ohero->health * 100) / ohero->health_max;
-            i32 health_flicker   = 12 - (ohero->health * 12) / ohero->health_max;
-            for (int y = 0; y < SYS_DISPLAY_H; y++) {
-                i32 yy    = (hctr.y - y);
-                i32 xx_sq = pow2_i32(health_r) - pow2_i32(yy);
-                i32 offs  = rngr_sym_i32(health_flicker);
-                if (0 < xx_sq) {
-                    i32     xx  = sqrt_i32(xx_sq);
-                    rec_i32 rr1 = {0, y, hctr.x - xx + offs, 1};
-                    rec_i32 rr2 = {hctr.x + xx + offs, y, 400, 1};
-                    gfx_rec_fill(health_ctx, rr1, GFX_COL_BLACK);
-                    gfx_rec_fill(health_ctx, rr2, GFX_COL_BLACK);
-                } else {
-                    rec_i32 rr = {0, y, SYS_DISPLAY_H, 1};
-                    gfx_rec_fill(health_ctx, rr, GFX_COL_BLACK);
-                }
-            }
-        }
     }
 }
 
@@ -165,8 +141,8 @@ void prerender_area_label(game_s *g)
     fnt_draw_ascii(ctx, font_1, loc, label, SPR_MODE_BLACK);
 }
 
-#define WORLD_GRID_W SYS_DISPLAY_W
-#define WORLD_GRID_H SYS_DISPLAY_H
+#define WORLD_GRID_W PLTF_DISPLAY_W
+#define WORLD_GRID_H PLTF_DISPLAY_H
 
 v2_i32 mapview_world_q8_from_screen(v2_i32 pxpos, v2_i32 ctr_wpos_q8, i32 w, i32 h, i32 scl_q8)
 {
@@ -271,16 +247,16 @@ void render_pause(game_s *g)
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     if (g->substate == SUBSTATE_MENUSCREEN || !ohero) {
-        sys_del_menu_image();
+        // sys_del_menu_image();
     } else {
         tex_s            tex      = asset_tex(TEXID_PAUSE_TEX);
         gfx_ctx_s        ctx      = gfx_ctx_default(tex);
         i32              scl_q8   = MAPVIEW_SCL_DEFAULT << 8;
         map_worldroom_s *room     = g->map_worldroom;
         v2_i32           hero_pos = mapview_hero_world_q8(g);
-        render_map(g, ctx, 0, 0, SYS_DISPLAY_W / 2, SYS_DISPLAY_H, scl_q8, hero_pos);
+        render_map(g, ctx, 0, 0, PLTF_DISPLAY_W / 2, PLTF_DISPLAY_H, scl_q8, hero_pos);
 
-        v2_i32   pheropin = {SYS_DISPLAY_W / 4 - 16, SYS_DISPLAY_H / 2 - 16};
+        v2_i32   pheropin = {PLTF_DISPLAY_W / 4 - 16, PLTF_DISPLAY_H / 2 - 16};
         texrec_s theropin = asset_texrec(TEXID_UI, 320, 160, 32, 32);
         gfx_spr(ctx, theropin, pheropin, 0, 0);
 
@@ -288,6 +264,6 @@ void render_pause(game_s *g)
         for (int n = 0; n < tex.wword * tex.h; n++) {
             tdisplay.px[n] = tex.px[n];
         }
-        sys_set_menu_image(tex.px, tex.h, tex.wword << 2);
+        // sys_set_menu_image(tex.px, tex.h, tex.wword << 2);
     }
 }

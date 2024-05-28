@@ -14,8 +14,8 @@ void pushablebox_on_update(game_s *g, obj_s *o)
 
     switch (o->state) {
     case 0: { // static
-        if (sys_tick() & 1) break;
-        int dpx = inp_dpad_x();
+        // if (sys_tick() & 1) break;
+        int dpx = inp_x();
 
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero || !dpx) {
@@ -29,8 +29,8 @@ void pushablebox_on_update(game_s *g, obj_s *o)
         }
 
         o->flags &= ~OBJ_FLAG_SOLID;
-        bool32 herocouldmove = game_traversable(g, pushrh);
-        bool32 boxcouldmove  = game_traversable(g, pushrb);
+        bool32 herocouldmove = map_traversable(g, pushrh);
+        bool32 boxcouldmove  = map_traversable(g, pushrb);
         o->flags |= OBJ_FLAG_SOLID;
         if (!herocouldmove || !boxcouldmove) break;
         obj_move(g, o, (v2_i32){dpx, 0});

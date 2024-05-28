@@ -110,7 +110,7 @@ void npc_on_interact(game_s *g, obj_s *o)
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }
     o->vel_q8.x = 0;
-    textbox_load_dialog(g, &g->textbox, o->filename);
+    textbox_load_dialog(g, o->filename);
 }
 
 void npc_load(game_s *g, map_obj_s *mo)
@@ -127,7 +127,7 @@ void npc_load(game_s *g, map_obj_s *mo)
                OBJ_FLAG_CAN_BE_JUMPED_ON;
     o->moverflags = OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
-                    OBJ_MOVER_SLOPES;
+                    OBJ_MOVER_SLIDE_Y_NEG;
 
     o->on_update       = npc_on_update;
     o->on_animate      = npc_on_animate;

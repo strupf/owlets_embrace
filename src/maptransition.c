@@ -17,17 +17,13 @@ enum {
     NUM_MAPTRANSITION_PHASES
 };
 
-static int maptransition_ticks(maptransition_s *mt)
-{
-    static const int g_ticks[NUM_MAPTRANSITION_PHASES] = {
-        0,
-        15,
-        30};
-    return g_ticks[mt->fade_phase];
-}
+const i32 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
+    0,
+    15,
+    30};
 
-static void maptransition_init(game_s *g, const char *file,
-                               i32 type, v2_i32 hero_feet, v2_i32 hero_v, i32 facing)
+void maptransition_init(game_s *g, const char *file,
+                        i32 type, v2_i32 hero_feet, v2_i32 hero_v, i32 facing)
 {
     maptransition_s *mt = &g->maptransition;
     str_cpy(mt->to_load, file);
@@ -79,7 +75,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
     map_worldroom_s *nextroom = map_world_overlapped_room(&g->map_world, g->map_worldroom, aabb);
 
     if (!nextroom) {
-        sys_printf("no room\n");
+        pltf_log("no room\n");
         nextroom = map_world_overlapped_room(&g->map_world, g->map_worldroom, aabb);
         return 0;
     }
@@ -121,7 +117,7 @@ void maptransition_update(game_s *g)
     maptransition_s *mt = &g->maptransition;
     if (!mt->fade_phase) return;
 
-    const int ticks = maptransition_ticks(mt);
+    const i32 ticks = maptransition_phase[mt->fade_phase];
     mt->fade_tick++;
     if (mt->fade_tick < ticks) return;
 
@@ -168,9 +164,9 @@ void maptransition_draw(game_s *g, v2_i32 cam)
 {
     maptransition_s *mt = &g->maptransition;
 
-    const int ticks  = maptransition_ticks(mt);
-    const int ticksh = ticks >> 1;
-    const int ft     = mt->fade_tick - ticksh;
+    const i32 ticks  = maptransition_phase[mt->fade_phase];
+    const i32 ticksh = ticks >> 1;
+    const i32 ft     = mt->fade_tick - ticksh;
 
     gfx_pattern_s pat = {0};
 
@@ -204,13 +200,13 @@ void maptransition_draw(game_s *g, v2_i32 cam)
         gfx_ctx_s ctxc = gfx_ctx_default(tmp);
         v2_i32    cpos = v2_add(obj_pos_center(ohero), cam);
         ctxc.pat       = gfx_pattern_interpolate(ft, ticksh);
-        int cird       = ease_out_quad(0, 200, ft, ticksh);
+        i32 cird       = ease_out_quad(0, 200, ft, ticksh);
         gfx_cir_fill(ctxc, cpos, cird, PRIM_MODE_WHITE);
     }
 
-    for (int y = 0; y < tmp.h; y++) {
-        for (int x = 0; x < tmp.wword; x++) {
-            int i = x + y * tmp.wword;
+    for (i32 y = 0; y < tmp.h; y++) {
+        for (i32 x = 0; x < tmp.wword; x++) {
+            i32 i = x + y * tmp.wword;
             display.px[i] &= tmp.px[i];
         }
     }

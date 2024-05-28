@@ -5,7 +5,6 @@
 #include "title.h"
 #include "app.h"
 #include "game.h"
-#include "sys/sys.h"
 
 enum {
     TITLE_SOUND_BUTTON,
@@ -47,10 +46,10 @@ void title_init(title_s *t)
     hs.hero_pos.x = 50;
     hs.hero_pos.y = 100;
 
-    void *f = sys_file_open(SAVEFILE_NAME, SYS_FILE_W);
+    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_W);
     if (f) {
-        sys_file_write(f, (const void *)&hs, sizeof(save_s));
-        sys_file_close(f);
+        pltf_file_w(f, (const void *)&hs, sizeof(save_s));
+        pltf_file_close(f);
     }
 #endif
 }
@@ -80,22 +79,22 @@ void title_update(game_s *g, title_s *t)
         return;
     }
 
-    if (inp_just_pressed(INP_B)) { // back or abort
+    if (inp_action_jp(INP_B)) { // back or abort
         title_pressed_B(t);
         return;
     }
 
-    if (inp_just_pressed(INP_A)) { // select or confirm
+    if (inp_action_jp(INP_A)) { // select or confirm
         title_pressed_A(g, t);
         return;
     }
 
     int dx = 0;
     int dy = 0;
-    if (inp_just_pressed(INP_DPAD_L)) dx = -1;
-    if (inp_just_pressed(INP_DPAD_R)) dx = +1;
-    if (inp_just_pressed(INP_DPAD_U)) dy = -1;
-    if (inp_just_pressed(INP_DPAD_D)) dy = +1;
+    if (inp_action_jp(INP_DL)) dx = -1;
+    if (inp_action_jp(INP_DR)) dx = +1;
+    if (inp_action_jp(INP_DU)) dy = -1;
+    if (inp_action_jp(INP_DD)) dy = +1;
 
     if (dx != 0 || dy != 0) {
         title_navigate(g, t, dx, dy);
@@ -147,7 +146,7 @@ static void title_op_start_file(game_s *g, title_s *t)
     title_play_sound(TITLE_SOUND_START);
     game_load_savefile(g);
     g->state = APP_STATE_GAME;
-    app_set_menu_gameplay();
+    // app_set_menu_gameplay();
 }
 
 static void title_play_sound(int soundID)
@@ -215,5 +214,5 @@ void title_render(title_s *t)
 
     gfx_ctx_s ctxfill = gfx_ctx_display();
     ctxfill.pat       = gfx_pattern_interpolate(t->fade_to_game, FADETICKS_MM_GAME);
-    gfx_rec_fill(ctxfill, (rec_i32){0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H}, PRIM_MODE_BLACK);
+    gfx_rec_fill(ctxfill, (rec_i32){0, 0, PLTF_DISPLAY_W, PLTF_DISPLAY_H}, PRIM_MODE_BLACK);
 }

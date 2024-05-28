@@ -14,16 +14,16 @@ v2_i32 mapview_hero_world_q8(game_s *g)
     if (!ohero) return vres;
 
     v2_i32 hc    = obj_pos_center(ohero);
-    i32    rposx = (hc.x / SYS_DISPLAY_W) * SYS_DISPLAY_W + SYS_DISPLAY_W / 2;
-    i32    rposy = (hc.y / SYS_DISPLAY_H) * SYS_DISPLAY_H + SYS_DISPLAY_H / 2;
-    vres.x       = ((g->map_worldroom->x + rposx) << 8) / SYS_DISPLAY_W;
-    vres.y       = ((g->map_worldroom->y + rposy) << 8) / SYS_DISPLAY_H;
+    i32    rposx = (hc.x / PLTF_DISPLAY_W) * PLTF_DISPLAY_W + PLTF_DISPLAY_W / 2;
+    i32    rposy = (hc.y / PLTF_DISPLAY_H) * PLTF_DISPLAY_H + PLTF_DISPLAY_H / 2;
+    vres.x       = ((g->map_worldroom->x + rposx) << 8) / PLTF_DISPLAY_W;
+    vres.y       = ((g->map_worldroom->y + rposy) << 8) / PLTF_DISPLAY_H;
     return vres;
 }
 
 void menu_screen_update(game_s *g, menu_screen_s *m)
 {
-    if (inp_just_pressed(INP_B)) {
+    if (inp_action_jp(INP_B)) {
         g->substate = 0;
         return;
     }
@@ -58,13 +58,13 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
     }
 #endif
 
-    v2_i32 ctr_screen = {SYS_DISPLAY_W / 2, SYS_DISPLAY_H / 2};
+    v2_i32 ctr_screen = {PLTF_DISPLAY_W / 2, PLTF_DISPLAY_H / 2};
 
     switch (m->tab) {
     case MENU_SCREEN_TAB_MAP: {
         switch (m->map.mode) {
         case MAP_MODE_SCROLL: {
-            if (inp_pressed(INP_A) && m->map.pin_delete_tick && m->map.pin) {
+            if (inp_action(INP_A) && m->map.pin_delete_tick && m->map.pin) {
                 m->map.pin_delete_tick++;
                 if (MAP_PIN_DELETE_TICKS <= m->map.pin_delete_tick) {
                     *m->map.pin            = g->save.map_pins[--g->save.n_map_pins];
@@ -87,10 +87,10 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
                 }
             }
 
-            m->map.scl_q12 += inp_crank_dt_q12() << 5;
+            m->map.scl_q12 += inp_crank_dt_q16() << 1;
             m->map.scl_q12  = max_i(m->map.scl_q12, 12 << 8);
-            int    dpadx    = inp_dpad_x();
-            int    dpady    = inp_dpad_y();
+            int    dpadx    = inp_x();
+            int    dpady    = inp_y();
             bool32 pin_snap = (closest_dist < 5);
 
             if (m->map.pin && (dpadx | dpady) == 0) {
@@ -106,7 +106,7 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
                 m->map.pos.y += dpady << 4;
             }
 
-            if (inp_just_pressed(INP_A)) {
+            if (inp_action_jp(INP_A)) {
 
                 if (m->map.pin && pin_snap) {
                     m->map.pin_delete_tick = 1; // start holding A
@@ -121,12 +121,12 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
         case MAP_MODE_PIN_SELECT: {
             m->map.pin_delete_tick = 0;
             m->map.cursoranimtick++;
-            if (inp_just_pressed(INP_B)) {
+            if (inp_action_jp(INP_B)) {
                 m->map.mode           = MAP_MODE_SCROLL;
                 m->map.cursoranimtick = 0;
                 break;
             }
-            if (inp_just_pressed(INP_A)) {
+            if (inp_action_jp(INP_A)) {
                 map_pin_s *pin = &g->save.map_pins[g->save.n_map_pins++];
 
                 pin->pos    = mapview_world_q8_from_screen(ctr_screen, m->map.pos,
@@ -136,11 +136,11 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
                 break;
             }
 
-            if (inp_just_pressed(INP_DPAD_L)) {
+            if (inp_action_jp(INP_DL)) {
                 m->map.pin_type--;
                 m->map.pin_type = max_i(m->map.pin_type, 0);
             }
-            if (inp_just_pressed(INP_DPAD_R)) {
+            if (inp_action_jp(INP_DR)) {
                 m->map.pin_type++;
                 m->map.pin_type = min_i(m->map.pin_type, NUM_MAP_PIN_TYPES - 1);
             }
@@ -165,10 +165,10 @@ void menu_screen_draw(game_s *g, menu_screen_s *m)
     switch (m->tab) {
     case MENU_SCREEN_TAB_MAP: {
         i32 scl_q8 = m->map.scl_q12 >> 4;
-        render_map(g, ctx, 0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H, scl_q8, m->map.pos);
+        render_map(g, ctx, 0, 0, PLTF_DISPLAY_W, PLTF_DISPLAY_H, scl_q8, m->map.pos);
         v2_i32 herop_world  = mapview_hero_world_q8(g);
         v2_i32 herop_screen = mapview_screen_from_world_q8(herop_world, m->map.pos,
-                                                           SYS_DISPLAY_W, SYS_DISPLAY_H, scl_q8);
+                                                           PLTF_DISPLAY_W, PLTF_DISPLAY_H, scl_q8);
 
         gfx_ctx_s ctx_cir = ctx;
         ctx_cir.pat       = gfx_pattern_interpolate(sin_q16(time_now() << 13) + 65526, 65536 * 2);
@@ -177,12 +177,12 @@ void menu_screen_draw(game_s *g, menu_screen_s *m)
         texrec_s theropin = asset_texrec(TEXID_UI, 320, 160, 32, 32);
         gfx_spr(ctx_cir, theropin, herop_screen, 0, 0);
 
-        v2_i32 cursorpos = {SYS_DISPLAY_W / 2 - 16, SYS_DISPLAY_H / 2 - 16};
+        v2_i32 cursorpos = {PLTF_DISPLAY_W / 2 - 16, PLTF_DISPLAY_H / 2 - 16};
         if (m->map.mode == MAP_MODE_PIN_SELECT) {
             texrec_s tpinselected = asset_texrec(TEXID_UI, 256 + m->map.pin_type * 32, 192, 32, 32);
             gfx_spr(ctx, tpinselected, cursorpos, 0, 0);
 
-            i32     pinoffsetx = SYS_DISPLAY_W / 2 - (NUM_MAP_PIN_TYPES * 32) / 2;
+            i32     pinoffsetx = PLTF_DISPLAY_W / 2 - (NUM_MAP_PIN_TYPES * 32) / 2;
             i32     pinoffsety = 200;
             rec_i32 rselected  = {pinoffsetx + m->map.pin_type * 32, pinoffsety, 32, 32};
             gfx_rec_fill(ctx, rselected, PRIM_MODE_WHITE);

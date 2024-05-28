@@ -8,11 +8,11 @@
 void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
 {
     if (pr->n == PARTICLE_NUM) return;
-    for (int i = 0; i < n; i++) {
+    for (i32 i = 0; i < n; i++) {
         v2_i32 pos = desc.p.p_q8;
         pos.x += rngr_sym_i32(desc.pr_q8.x);
         pos.y += rngr_sym_i32(desc.pr_q8.y);
-        if (game_traversable_pt(g, pos.x >> 8, pos.y >> 8)) {
+        if (map_traversable_pt(g, pos.x >> 8, pos.y >> 8)) {
             particle_s *p = &pr->particles[pr->n++];
             *p            = desc.p;
             p->p_q8       = pos;
@@ -30,10 +30,10 @@ void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
 
 void particles_update(game_s *g, particles_s *pr)
 {
-    for (int i = pr->n - 1; 0 <= i; i--) {
+    for (i32 i = pr->n - 1; 0 <= i; i--) {
         particle_s *p  = &pr->particles[i];
         v2_i32      p0 = v2_shr(p->p_q8, 8);
-        if (--p->ticks <= 0 || !game_traversable_pt(g, p0.x, p0.y)) {
+        if (--p->ticks <= 0 || !map_traversable_pt(g, p0.x, p0.y)) {
             *p = pr->particles[--pr->n];
             continue;
         }
@@ -42,8 +42,8 @@ void particles_update(game_s *g, particles_s *pr)
         v2_i32 pp = v2_add(p->p_q8, p->v_q8);  // proposed new position
         v2_i32 pd = v2_sub(v2_shr(pp, 8), p0); // delta in pixels
 
-        for (int m = abs_i(pd.x), s = sgn_i(pd.x); m; m--) {
-            if (game_traversable_pt(g, p0.x + s, p0.y)) {
+        for (i32 m = abs_i(pd.x), s = sgn_i(pd.x); m; m--) {
+            if (map_traversable_pt(g, p0.x + s, p0.y)) {
                 p0.x += s;
             } else {
                 p->v_q8.x = -(p->v_q8.x >> 1); // bounce off
@@ -52,8 +52,8 @@ void particles_update(game_s *g, particles_s *pr)
             }
         }
 
-        for (int m = abs_i(pd.y), s = sgn_i(pd.y); m; m--) {
-            if (game_traversable_pt(g, p0.x, p0.y + s)) {
+        for (i32 m = abs_i(pd.y), s = sgn_i(pd.y); m; m--) {
+            if (map_traversable_pt(g, p0.x, p0.y + s)) {
                 p0.y += s;
             } else {
                 p->v_q8.y = -(p->v_q8.y >> 1); // bounce off
@@ -64,6 +64,30 @@ void particles_update(game_s *g, particles_s *pr)
         }
 
         p->p_q8 = pp;
+    }
+}
+
+void particles_draw(game_s *g, particles_s *pr, v2_i32 cam)
+{
+    gfx_ctx_s ctx = gfx_ctx_display();
+    for (i32 i = 0; i < pr->n; i++) {
+        particle_s *p           = &pr->particles[i];
+        v2_i32      ppos        = v2_add(v2_shr(p->p_q8, 8), cam);
+        gfx_ctx_s   ctxparticle = ctx;
+        ctxparticle.pat         = gfx_pattern_interpolate(p->ticks, p->ticks_max);
+
+        switch (p->gfx) {
+        case PARTICLE_GFX_CIR: {
+            gfx_cir_fill(ctxparticle, ppos, p->size, PRIM_MODE_BLACK);
+        } break;
+        case PARTICLE_GFX_REC: {
+            rec_i32 rr = {ppos.x, ppos.y, p->size, p->size};
+            gfx_rec_fill(ctxparticle, rr, PRIM_MODE_BLACK);
+        } break;
+        case PARTICLE_GFX_SPR: {
+            gfx_spr(ctxparticle, p->texrec, ppos, 0, 0);
+        } break;
+        }
     }
 }
 
@@ -91,7 +115,7 @@ void coinparticle_update(game_s *g)
             continue;
         }
         c->tick--;
-        if (c->tick <= 0 || !game_traversable_pt(g, c->pos.x, c->pos.y)) {
+        if (c->tick <= 0 || !map_traversable_pt(g, c->pos.x, c->pos.y)) {
             *c = g->coinparticles[--g->n_coinparticles];
             continue;
         }
@@ -107,7 +131,7 @@ void coinparticle_update(game_s *g)
 
         for (int m = abs_i(dx), s = sgn_i(dx); 0 < m; m--) {
             i32 x = c->pos.x + s;
-            if (!game_traversable_pt(g, x, c->pos.y)) {
+            if (!map_traversable_pt(g, x, c->pos.y)) {
                 c->vel_q8.x = -((c->vel_q8.x * 230) >> 8);
                 break;
             }
@@ -115,9 +139,9 @@ void coinparticle_update(game_s *g)
         }
 
         bool32 collided_bot = 0;
-        for (int m = abs_i(dy), s = sgn_i(dy); 0 < m; m--) {
+        for (i32 m = abs_i(dy), s = sgn_i(dy); 0 < m; m--) {
             i32 y = c->pos.y + s;
-            if (!game_traversable_pt(g, c->pos.x, y)) {
+            if (!map_traversable_pt(g, c->pos.x, y)) {
                 c->vel_q8.y  = -((c->vel_q8.y * 220) >> 8);
                 collided_bot = (0 < dy);
                 break;
@@ -135,13 +159,13 @@ void coinparticle_draw(game_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_MISCOBJ, 0, 160, 16, 16);
-    for (int n = 0; n < g->n_coinparticles; n++) {
+    for (i32 n = 0; n < g->n_coinparticles; n++) {
         coinparticle_s *c = &g->coinparticles[n];
         v2_i32          p = v2_add(c->pos, cam);
-        tr.r.x            = (((sys_tick() + n) >> 2) % 6) * 16;
+        tr.r.x            = (((g->gameplay_tick + n) >> 2) % 6) * 16;
         p.y -= 16;
         p.x -= 8;
-        int mode = rngr_i32(0, 10) == 1 ? SPR_MODE_WHITE : 0;
+        i32 mode = rngr_i32(0, 10) == 1 ? SPR_MODE_WHITE : 0;
         gfx_spr(ctx, tr, p, 0, mode);
     }
 }

@@ -24,7 +24,7 @@ void box_load(game_s *g, map_obj_s *mo)
     o->moverflags = OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_MAP |
-                    OBJ_MOVER_SLOPES;
+                    OBJ_MOVER_SLIDE_Y_NEG;
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
     o->w            = mo->w;

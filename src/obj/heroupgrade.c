@@ -3,7 +3,6 @@
 // =============================================================================
 
 #include "game.h"
-#include "hero.h"
 
 void heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam)
 {

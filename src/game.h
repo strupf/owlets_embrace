@@ -9,53 +9,29 @@
 #include "cam.h"
 #include "gamedef.h"
 #include "gameover.h"
-#include "heroupgrade.h"
+#include "hero/hero.h"
 #include "item_select.h"
 #include "lighting.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"
+#include "obj.h"
 #include "obj/behaviour.h"
-#include "obj/hero.h"
-#include "obj/obj.h"
 #include "particle.h"
 #include "rope.h"
 #include "save.h"
+#include "settings.h"
 #include "shop.h"
 #include "textbox.h"
-#include "tile.h"
 #include "tile_map.h"
 #include "title.h"
 #include "water.h"
+#include "wiggle.h"
 
 #define INTERACTABLE_DIST   32
-#define NUM_DECALS          256
-#define ENEMY_DECAL_TICK    20
 #define NUM_RESPAWNS        8
 #define SAVE_TICKS          100
 #define SAVE_TICKS_FADE_OUT 80
-
-typedef struct {
-    v2_i32 pos;
-    i32    type;
-    i32    x_q8;
-    i32    v_q8;
-} grass_s;
-
-typedef struct {
-    texrec_s tr;
-    rec_i32  r;
-    i32      t;
-    v2_i32   offs;
-    bool32   overlaps;
-} wiggle_deco_s;
-
-// enemy defeated anim
-typedef struct {
-    v2_i32   pos;
-    texrec_s t;
-    i32      tick;
-} enemy_decal_s;
 
 enum {
     EVENT_HIT_ENEMY       = 1 << 0,
@@ -75,11 +51,11 @@ enum {
     SUBSTATE_GAMEOVER,
     SUBSTATE_HEROUPGRADE,
     SUBSTATE_MENUSCREEN,
-    SUBSTATE_FREEZE,
 };
 
 struct game_s {
     i32              gameplay_tick;
+    settings_s       settings;
     title_s          title;
     i32              state;
     //
@@ -89,7 +65,6 @@ struct game_s {
     //
     shop_s           shop;
     gameover_s       gameover;
-    heroupgrade_s    heroupgrade;
     maptransition_s  maptransition;
     textbox_s        textbox;
     menu_screen_s    menu_screen;
@@ -115,19 +90,22 @@ struct game_s {
     obj_s           *obj_render[NUM_OBJ]; // sorted render array
     obj_s            obj_raw[NUM_OBJ];
     //
-    i16              coins_added;
-    u16              coins_added_ticks;
-    u16              save_ticks;
-    u16              n_grass;
-    u16              n_enemy_decals;
-    u16              n_wiggle_deco;
-    u16              n_coinparticles;
-    u16              n_respawns;
-    grass_s          grass[256];
-    enemy_decal_s    enemy_decals[16];
-    wiggle_deco_s    wiggle_deco[64];
+    i32              coins_added;
+    i32              coins_added_ticks;
+    i32              save_ticks;
+    //
+    i32              n_respawns;
+    v2_i32           respawns[NUM_RESPAWNS];
+    //
+    i32              n_grass;
+    grass_s          grass[NUM_GRASS];
+    //
+    i32              n_wiggle_deco;
+    wiggle_deco_s    wiggle_deco[NUM_WIGGLE];
+    //
+    i32              n_coinparticles;
     coinparticle_s   coinparticles[NUM_COINPARTICLE];
-    v2_i32           respawns[8];
+    //
     save_s           save;
     hero_s           hero_mem;
     hero_jump_ui_s   jump_ui;
@@ -142,30 +120,22 @@ struct game_s {
         char label[64];
         i32  fadeticks;
     } areaname;
-
-    marena_s             arena;
-    align_CL mkilobyte_s mem[256];
 };
 
-void    game_init(game_s *g);
-void    game_tick(game_s *g);
-void    game_draw(game_s *g);
-void    game_resume(game_s *g);
-void    game_paused(game_s *g);
+void   game_init(game_s *g);
+void   game_tick(game_s *g);
+void   game_draw(game_s *g);
+void   game_resume(game_s *g);
+void   game_paused(game_s *g);
 //
-i32     gameplay_time(game_s *g);
-i32     gameplay_time_since(game_s *g, i32 t);
-bool32  game_load_savefile(game_s *g);
-bool32  game_save_savefile(game_s *g);
-void    game_on_trigger(game_s *g, i32 trigger);
-void    game_on_solid_appear(game_s *g);
-void    game_put_grass(game_s *g, i32 tx, i32 ty);
-void    obj_game_player_attackbox(game_s *g, hitbox_s box);
-bool32  game_traversable(game_s *g, rec_i32 r);
-bool32  game_traversable_pt(game_s *g, i32 x, i32 y);
-//
-alloc_s game_allocator(game_s *g);
-void    backforeground_animate_grass(game_s *g);
+i32    gameplay_time(game_s *g);
+i32    gameplay_time_since(game_s *g, i32 t);
+bool32 game_load_savefile(game_s *g);
+bool32 game_save_savefile(game_s *g);
+void   game_on_trigger(game_s *g, i32 trigger);
+void   game_on_solid_appear(game_s *g);
+void   obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
+void   obj_game_player_attackbox(game_s *g, hitbox_s box);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

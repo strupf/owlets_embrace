@@ -5,7 +5,7 @@
 #ifndef JSON_H
 #define JSON_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 
 enum {
     JSON_TYPE_NUL,
@@ -14,16 +14,6 @@ enum {
     JSON_TYPE_NUM,
     JSON_TYPE_STR,
     JSON_TYPE_BOL,
-};
-
-enum {
-    JSON_SUCCESS = 0,
-    JSON_ERR     = -1,
-};
-
-enum {
-    TXT_SUCCESS = 0,
-    TXT_ERR     = -1,
 };
 
 // contains start and end char pointers (inclusive) for the range of the token
@@ -39,15 +29,15 @@ typedef struct {
     json_s tok;
 } json_it_s;
 
-i32    txt_load_buf(const char *filename, char *buf, usize bufsize);
-i32    txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out);
+bool32 txt_load_buf(const char *filename, char *buf, usize bufsize);
+bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out);
 //
-i32    json_root(const char *txt, json_s *tok_out);
+bool32 json_root(const char *txt, json_s *tok_out);
 i32    json_type(json_s j);
 i32    json_depth(json_s j);
-i32    json_next(json_s tok, json_s *tok_out);
-i32    json_fchild(json_s tok, json_s *tok_out);
-i32    json_sibling(json_s tok, json_s *tok_out);
+bool32 json_next(json_s tok, json_s *tok_out);
+bool32 json_fchild(json_s tok, json_s *tok_out);
+bool32 json_sibling(json_s tok, json_s *tok_out);
 i32    json_num_children(json_s tok);
 i32    json_key(json_s tok, const char *key, json_s *tok_out);
 i32    json_i32(json_s tok);
@@ -72,10 +62,10 @@ static json_s json_for_init(json_s tok, const char *key)
     return j;
 }
 
-static i32 json_for_valid(json_s *it, json_s *jit)
+static bool32 json_for_valid(json_s *it, json_s *jit)
 {
     if (it->c0 == NULL) return 0;
-    if (json_type(*it) == JSON_TYPE_ARR && json_fchild(*it, it) != JSON_SUCCESS)
+    if (json_type(*it) == JSON_TYPE_ARR && !json_fchild(*it, it))
         return 0; // no first child
     json_sibling(*it, jit);
     return 1;

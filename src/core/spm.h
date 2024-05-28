@@ -5,7 +5,7 @@
 #ifndef SPM_H
 #define SPM_H
 
-#include "sys/sys_types.h"
+#include "pltf/pltf.h"
 #include "util/mem.h"
 
 typedef struct {

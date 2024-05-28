@@ -245,9 +245,9 @@ static int mhblock_loc(mheap_s *m, mhblock_s *b)
 
 void mheap_print(mheap_s *m)
 {
-    sys_printf("\n");
+    pltf_log("\n");
     for (mhblock_s *b = (mhblock_s *)m->buf; b; b = b->nextphys) {
-        sys_printf("%i (%i - %i) | pneigh %i | nneigh %i | n %i | p %i\n",
+        pltf_log("%i (%i - %i) | pneigh %i | nneigh %i | n %i | p %i\n",
                    mhblock_loc(m, b),
                    (int)mhblock_size(b),
                    mhblock_is_busy(b),

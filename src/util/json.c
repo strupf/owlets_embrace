@@ -4,54 +4,53 @@
 
 #include "json.h"
 #include "str.h"
-#include "sys/sys.h"
 
-i32 txt_load_buf(const char *filename, char *buf, usize bufsize)
+bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 {
-    void *f = sys_file_open(filename, SYS_FILE_R);
+    void *f = pltf_file_open(filename, PLTF_FILE_R);
     if (!f) {
-        sys_printf("+++ Can't open %s\n", filename);
-        return TXT_ERR;
+        pltf_log("+++ Can't open %s\n", filename);
+        return 0;
     }
-    sys_file_seek(f, 0, SYS_FILE_SEEK_END);
-    i32 size = sys_file_tell(f);
-    sys_file_seek(f, 0, SYS_FILE_SEEK_SET);
+    pltf_file_seek(f, 0, PLTF_FILE_SEEK_END);
+    i32 size = pltf_file_tell(f);
+    pltf_file_seek(f, 0, PLTF_FILE_SEEK_SET);
     if ((usize)size + 1 >= bufsize) {
-        sys_printf("+++ txt buf too small %s\n", filename);
-        return TXT_ERR;
+        pltf_log("+++ txt buf too small %s\n", filename);
+        return 0;
     }
-    i32 read = sys_file_read(f, buf, size);
-    sys_file_close(f);
-    buf[read] = '\0';
-    return TXT_SUCCESS;
+    pltf_file_r(f, buf, size);
+    pltf_file_close(f);
+    buf[size] = '\0';
+    return 1;
 }
 
-i32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
+bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
 {
-    void *f = sys_file_open(filename, SYS_FILE_R);
+    void *f = pltf_file_open(filename, PLTF_FILE_R);
     if (!f) {
-        sys_printf("+++ Can't open %s\n", filename);
-        return TXT_ERR;
+        pltf_log("+++ Can't open %s\n", filename);
+        return 0;
     }
-    sys_file_seek(f, 0, SYS_FILE_SEEK_END);
-    i32 size = sys_file_tell(f);
-    sys_file_seek(f, 0, SYS_FILE_SEEK_SET);
+    pltf_file_seek(f, 0, PLTF_FILE_SEEK_END);
+    i32 size = pltf_file_tell(f);
+    pltf_file_seek(f, 0, PLTF_FILE_SEEK_SET);
     char *buf = (char *)allocfunc((usize)size + 1);
     if (!buf) {
-        sys_file_close(f);
-        sys_printf("+++ err loading %s\n", filename);
-        return TXT_ERR;
+        pltf_file_close(f);
+        pltf_log("+++ err loading %s\n", filename);
+        return 0;
     }
-    i32 read = sys_file_read(f, buf, size);
-    sys_file_close(f);
-    buf[read] = '\0';
+    pltf_file_r(f, buf, size);
+    pltf_file_close(f);
+    buf[size] = '\0';
     *txt_out  = (char *)buf;
-    return TXT_SUCCESS;
+    return 1;
 }
 
-i32 json_root(const char *txt, json_s *tok_out)
+bool32 json_root(const char *txt, json_s *tok_out)
 {
-    if (!txt) return JSON_ERR;
+    if (!txt) return 0;
     for (const char *c = txt; *c != '\0'; c++) {
         switch (*c) {
         case ' ':
@@ -68,16 +67,16 @@ i32 json_root(const char *txt, json_s *tok_out)
                 j.stack  = 0;
                 *tok_out = j;
             }
-            return JSON_SUCCESS;
-        default: return JSON_ERR;
+            return 1;
+        default: return 0;
         }
     }
-    return JSON_ERR;
+    return 0;
 }
 
 i32 json_type(json_s j)
 {
-    if (!j.c0) return JSON_ERR;
+    if (!j.c0) return -1;
     switch (*j.c0) {
     case '\"': return JSON_TYPE_STR;
     case '{': return JSON_TYPE_OBJ;
@@ -97,7 +96,7 @@ i32 json_type(json_s j)
     case '8':
     case '9': return JSON_TYPE_NUM;
     }
-    return JSON_ERR;
+    return -1;
 }
 
 i32 json_depth(json_s j)
@@ -106,7 +105,7 @@ i32 json_depth(json_s j)
     return (j.c1 ? j.nstack : j.nstack - 1);
 }
 
-i32 json_next(json_s tok, json_s *tok_out)
+bool32 json_next(json_s tok, json_s *tok_out)
 {
     json_s j = tok;
     if (0 < j.nstack && (j.stack & (1U << (j.nstack - 1)))) // was key-value
@@ -134,12 +133,12 @@ i32 json_next(json_s tok, json_s *tok_out)
             j.c1 = j.c0 + 3;
             if (tok_out)
                 *tok_out = j;
-            return JSON_SUCCESS;
+            return 1;
         case 'f':
             j.c1 = j.c0 + 4;
             if (tok_out)
                 *tok_out = j;
-            return JSON_SUCCESS;
+            return 1;
         case '-':
         case '0':
         case '1':
@@ -165,7 +164,7 @@ i32 json_next(json_s tok, json_s *tok_out)
                     j.c1--;
                     if (tok_out)
                         *tok_out = j;
-                    return JSON_SUCCESS;
+                    return 1;
                 }
             }
             break;
@@ -178,7 +177,7 @@ i32 json_next(json_s tok, json_s *tok_out)
                     if (e == 0) {
                         if (tok_out)
                             *tok_out = j;
-                        return JSON_SUCCESS;
+                        return 1;
                     }
                     // fallthrough
                 default: e = 0; break;
@@ -191,66 +190,66 @@ i32 json_next(json_s tok, json_s *tok_out)
             j.stack &= ~(1U << j.nstack++);
             if (tok_out)
                 *tok_out = j;
-            return JSON_SUCCESS;
+            return 1;
         }
     }
-    return JSON_ERR;
+    return 0;
 }
 
-i32 json_fchild(json_s tok, json_s *tok_out)
+bool32 json_fchild(json_s tok, json_s *tok_out)
 {
     json_s j;
-    if (json_next(tok, &j) != JSON_SUCCESS) return JSON_ERR;
-    if (json_depth(j) <= json_depth(tok)) return JSON_ERR;
+    if (!json_next(tok, &j)) return 0;
+    if (json_depth(j) <= json_depth(tok)) return 0;
     if (tok_out)
         *tok_out = j;
-    return JSON_SUCCESS;
+    return 1;
 }
 
-i32 json_sibling(json_s tok, json_s *tok_out)
+bool32 json_sibling(json_s tok, json_s *tok_out)
 {
     if (tok_out)
         *tok_out = (json_s){0};
     i32    d = json_depth(tok);
     json_s a = tok;
-    while (json_next(a, &a) == JSON_SUCCESS) {
+    while (json_next(a, &a)) {
         i32 t = json_depth(a);
-        if (t < d) return JSON_ERR;
+        if (t < d) return 0;
         if (t == d) {
             if (tok_out)
                 *tok_out = a;
-            return JSON_SUCCESS;
+            return 1;
         }
     }
-    return JSON_ERR;
+    return 0;
 }
 
 i32 json_num_children(json_s tok)
 {
     json_s j;
-    if (json_fchild(tok, &j) != JSON_SUCCESS) return 0;
+    if (!json_fchild(tok, &j)) return 0;
     i32 n = 1;
-    while (json_sibling(j, &j) == JSON_SUCCESS) {
+    while (json_sibling(j, &j)) {
         n++;
     }
     return n;
 }
 
-i32 json_key(json_s tok, const char *key, json_s *tok_out)
+bool32 json_key(json_s tok, const char *key, json_s *tok_out)
 {
-    if (json_type(tok) != JSON_TYPE_OBJ) return JSON_ERR;
+    if (json_type(tok) != JSON_TYPE_OBJ) return 0;
 
     json_s a;
-    if (json_fchild(tok, &a) != JSON_SUCCESS) {
+    if (!json_fchild(tok, &a)) {
         if (tok_out)
             *tok_out = (json_s){0};
-        return JSON_ERR;
+        return 0;
     }
 
     do {
         if (*a.c0 != '\"') continue;
         json_s b;
-        if (json_fchild(a, &b) != JSON_SUCCESS) continue;
+        if (!json_fchild(a, &b)) continue;
 
         char       *ca = a.c0 + 1;
         const char *cb = key;
@@ -258,16 +257,16 @@ i32 json_key(json_s tok, const char *key, json_s *tok_out)
             if (*cb == '\0') {
                 if (tok_out)
                     *tok_out = b;
-                return JSON_SUCCESS;
+                return 1;
             }
 
             if (*ca++ != *cb++) break;
         }
-    } while (json_sibling(a, &a) == JSON_SUCCESS);
+    } while (json_sibling(a, &a));
 
     if (tok_out)
         *tok_out = (json_s){0};
-    return JSON_ERR;
+    return 0;
 }
 
 i32 json_i32(json_s tok)
@@ -362,41 +361,41 @@ char *json_strp(json_s tok, int *len)
 i32 jsonk_i32(json_s tok, const char *key)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_i32(j);
 }
 
 u32 jsonk_u32(json_s tok, const char *key)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_u32(j);
 }
 
 f32 jsonk_f32(json_s tok, const char *key)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_f32(j);
 }
 
 bool32 jsonk_bool(json_s tok, const char *key)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_bool(j);
 }
 
 char *jsonk_str(json_s tok, const char *key, char *buf, usize bufsize)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_str(j, buf, bufsize);
 }
 
 char *jsonk_strp(json_s tok, const char *key, int *len)
 {
     json_s j;
-    if (json_key(tok, key, &j) != JSON_SUCCESS) return 0;
+    if (!json_key(tok, key, &j)) return 0;
     return json_strp(j, len);
 }

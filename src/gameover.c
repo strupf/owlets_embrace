@@ -17,21 +17,16 @@ enum {
     NUM_GAMEOVER_PHASES
 };
 
-static int gameover_ticks(gameover_s *go)
-{
-    static int phase_ticks[NUM_GAMEOVER_PHASES] = {
-        0,
-        30, // dying
-        20, // fade gameover
-        80, // gameover
-        10, // gameover input
-        10, // fade gameover
-        10, // black
-        25  // fade
-    };
-    assert(0 <= go->phase && go->phase < NUM_GAMEOVER_PHASES);
-    return phase_ticks[go->phase];
-}
+const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
+    0,
+    30, // dying
+    20, // fade gameover
+    80, // gameover
+    10, // gameover input
+    10, // fade gameover
+    10, // black
+    25  // fade
+};
 
 void gameover_start(game_s *g)
 {
@@ -46,12 +41,12 @@ void gameover_update(game_s *g)
     gameover_s *go = &g->gameover;
 
     if (go->phase == GAMEOVER_GAMEOVER_INPUT) {
-        if (!(inp_just_pressed(INP_A) || 1)) return;
-        go->tick = gameover_ticks(go);
+        if (!(inp_action_jp(INP_A) || 1)) return;
+        go->tick = gameover_phase[go->phase];
     }
 
     go->tick++;
-    if (go->tick < gameover_ticks(go)) return;
+    if (go->tick < gameover_phase[go->phase]) return;
 
     go->tick = 0;
     go->phase++;
@@ -72,8 +67,8 @@ void gameover_draw(game_s *g, v2_i32 cam)
 
     assert(0 <= go->phase && go->phase < NUM_GAMEOVER_PHASES);
     const gfx_ctx_s ctx      = gfx_ctx_display();
-    const int       ticks    = gameover_ticks(go);
-    const rec_i32   rdisplay = {0, 0, SYS_DISPLAY_W, SYS_DISPLAY_H};
+    const int       ticks    = gameover_phase[go->phase];
+    const rec_i32   rdisplay = {0, 0, PLTF_DISPLAY_W, PLTF_DISPLAY_H};
 
     gfx_ctx_s ctx_r      = ctx;
     int       p_gameover = 12;

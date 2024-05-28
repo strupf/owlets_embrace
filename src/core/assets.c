@@ -8,8 +8,8 @@
 
 ASSETS_s ASSETS;
 
-static int    assets_gen_texID();
-static void  *assetmem_alloc_ctx(void *arg, usize s);
+i32           assets_gen_texID();
+void         *assetmem_alloc_ctx(void *arg, usize s);
 const alloc_s asset_allocator = {assetmem_alloc_ctx, NULL};
 
 void assets_init()
@@ -33,9 +33,9 @@ typedef struct {
 
 typedef struct {
     u32 offs;
-    u32 texID;
-    u16 grid_w;
-    u16 grid_h;
+    u16 texID;
+    u8  grid_w;
+    u8  grid_h;
 } exp_fnt_s;
 
 typedef struct {
@@ -48,32 +48,35 @@ typedef struct {
 
 void assets_export()
 {
-    asset_collection_s coll = {0};
-    const char        *mbeg = (const char *)&ASSETS.mem[0];
-    coll.size               = (u32)((const char *)ASSETS.marena.p - mbeg);
+    spm_push();
+    asset_collection_s *coll = (asset_collection_s *)spm_alloc(
+        sizeof(asset_collection_s));
+    *coll      = (asset_collection_s){0};
+    char *mbeg = (char *)&ASSETS.mem[0];
+    coll->size = (u32)((char *)ASSETS.marena.p - mbeg);
 
-    for (int n = 1; n < NUM_TEXID; n++) { // exclude display
+    for (i32 n = 1; n < NUM_TEXID; n++) { // exclude display
         tex_s      t  = ASSETS.tex[n].tex;
-        exp_tex_s *et = &coll.tex[n];
-        et->offs      = (u32)((const char *)t.px - mbeg);
+        exp_tex_s *et = &coll->tex[n];
+        et->offs      = (u32)((char *)t.px - mbeg);
         et->w         = t.w;
         et->h         = t.h;
         et->wword     = t.wword;
         et->fmt       = t.fmt;
     }
-    for (int n = 0; n < NUM_SNDID; n++) {
+    for (i32 n = 0; n < NUM_SNDID; n++) {
         snd_s      s  = ASSETS.snd[n].snd;
-        exp_snd_s *es = &coll.snd[n];
-        es->offs      = (u32)((const char *)s.buf - mbeg);
+        exp_snd_s *es = &coll->snd[n];
+        es->offs      = (u32)((char *)s.buf - mbeg);
         es->len       = s.len;
     }
-    for (int n = 0; n < NUM_FNTID; n++) {
+    for (i32 n = 0; n < NUM_FNTID; n++) {
         fnt_s      f  = ASSETS.fnt[n].fnt;
-        exp_fnt_s *ef = &coll.fnt[n];
-        ef->offs      = (u32)((const char *)f.widths - mbeg);
-        ef->grid_w    = f.grid_w;
-        ef->grid_h    = f.grid_h;
-        for (int i = 0; i < NUM_TEXID; i++) {
+        exp_fnt_s *ef = &coll->fnt[n];
+        ef->offs      = (u32)((char *)f.widths - mbeg);
+        ef->grid_w    = (u8)f.grid_w;
+        ef->grid_h    = (u8)f.grid_h;
+        for (i32 i = 0; i < NUM_TEXID; i++) {
             tex_s t = ASSETS.tex[i].tex;
             if (t.px == f.t.px) {
                 ef->texID = i;
@@ -82,54 +85,58 @@ void assets_export()
         }
     }
 
-    sys_file_remove(ASSET_FILENAME);
-    void *fil = sys_file_open(ASSET_FILENAME, SYS_FILE_W);
+    pltf_file_del(ASSET_FILENAME);
+    void *fil = pltf_file_open(ASSET_FILENAME, PLTF_FILE_W);
     if (!fil) {
-        sys_printf("COULD NOT CREATE ASSET FILE\n");
+        pltf_log("COULD NOT CREATE ASSET FILE\n");
         return;
     }
-    sys_file_write(fil, &coll, sizeof(coll));
-    sys_file_write(fil, mbeg, coll.size);
-    sys_file_close(fil);
-    sys_printf("Wrote %i kb asset file!\n", (int)(coll.size / 1024));
+    pltf_file_w(fil, coll, sizeof(asset_collection_s));
+    pltf_file_w(fil, mbeg, coll->size);
+    pltf_file_close(fil);
+    pltf_log("Wrote %i kb asset file!\n", (int)(coll->size / 1024));
+    spm_pop();
 }
 
 void assets_import()
 {
-    asset_collection_s coll = {0};
-    char              *mbeg = (char *)&ASSETS.mem[0];
+    spm_push();
+    asset_collection_s *coll = (asset_collection_s *)spm_alloc(
+        sizeof(asset_collection_s));
+    char *mbeg = (char *)&ASSETS.mem[0];
 
-    void *fil = sys_file_open(ASSET_FILENAME, SYS_FILE_R);
-    sys_file_read(fil, &coll, sizeof(coll));
-    sys_file_read(fil, mbeg, coll.size);
-    sys_file_close(fil);
+    void *fil = pltf_file_open(ASSET_FILENAME, PLTF_FILE_R);
+    pltf_file_r(fil, coll, sizeof(asset_collection_s));
+    pltf_file_r(fil, mbeg, coll->size);
+    pltf_file_close(fil);
 
-    for (int n = 1; n < NUM_TEXID; n++) { // exclude display
+    for (i32 n = 1; n < NUM_TEXID; n++) { // exclude display
         tex_s    *t  = &ASSETS.tex[n].tex;
-        exp_tex_s et = coll.tex[n];
+        exp_tex_s et = coll->tex[n];
         t->px        = (u32 *)(mbeg + et.offs);
         t->fmt       = et.fmt;
         t->w         = et.w;
         t->h         = et.h;
         t->wword     = et.wword;
     }
-    for (int n = 0; n < NUM_SNDID; n++) {
+    for (i32 n = 0; n < NUM_SNDID; n++) {
         snd_s    *s  = &ASSETS.snd[n].snd;
-        exp_snd_s es = coll.snd[n];
+        exp_snd_s es = coll->snd[n];
         s->buf       = (i8 *)(mbeg + es.offs);
         s->len       = es.len;
     }
-    for (int n = 0; n < NUM_FNTID; n++) {
+    for (i32 n = 0; n < NUM_FNTID; n++) {
         fnt_s    *f  = &ASSETS.fnt[n].fnt;
-        exp_fnt_s ef = coll.fnt[n];
+        exp_fnt_s ef = coll->fnt[n];
         f->t         = ASSETS.tex[ef.texID].tex;
         f->widths    = (u8 *)(mbeg + ef.offs);
         f->grid_w    = ef.grid_w;
         f->grid_h    = ef.grid_h;
     }
+    spm_pop();
 }
 
-static void *assetmem_alloc_ctx(void *arg, usize s)
+void *assetmem_alloc_ctx(void *arg, usize s)
 {
     return assetmem_alloc(s);
 }
@@ -138,55 +145,53 @@ void *assetmem_alloc(usize s)
 {
     void *mem = marena_alloc(&ASSETS.marena, s);
     if (!mem) {
-        sys_printf("+++ ran out of asset mem!\n");
+        pltf_log("+++ ran out of asset mem!\n");
         BAD_PATH
     }
     return mem;
 }
 
-tex_s asset_tex(int ID)
+tex_s asset_tex(i32 ID)
 {
     assert(0 <= ID && ID < NUM_TEXID);
     return ASSETS.tex[ID].tex;
 }
 
-snd_s asset_snd(int ID)
+snd_s asset_snd(i32 ID)
 {
     assert(0 <= ID && ID < NUM_SNDID);
     return ASSETS.snd[ID].snd;
 }
 
-fnt_s asset_fnt(int ID)
+fnt_s asset_fnt(i32 ID)
 {
     assert(0 <= ID && ID < NUM_FNTID);
     return ASSETS.fnt[ID].fnt;
 }
 
-int asset_tex_load(const char *filename, tex_s *tex)
+i32 asset_tex_load(const char *filename, tex_s *tex)
 {
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
     str_append(pathname, ".tex");
-    sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
-
+    pltf_log("LOAD TEX: %s (%s)\n", filename, pathname);
     tex_s t = tex_load(pathname, asset_allocator);
-    if (t.px != NULL) {
-        int ID             = assets_gen_texID();
+    if (t.px) {
+        i32 ID             = assets_gen_texID();
         ASSETS.tex[ID].tex = t;
         if (tex) *tex = t;
         return ID;
     }
-    sys_printf("Loading Tex FAILED\n");
+    pltf_log("Loading Tex FAILED\n");
     return -1;
 }
 
-int asset_tex_loadID(int ID, const char *filename, tex_s *tex)
+i32 asset_tex_loadID(i32 ID, const char *filename, tex_s *tex)
 {
     assert(0 <= ID && ID < NUM_TEXID);
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
     str_append(pathname, ".tex");
-    sys_printf("LOAD TEX: %s (%s)\n", filename, pathname);
-    usize memprev = ASSETS.marena.rem;
-    tex_s t       = tex_load(pathname, asset_allocator);
+    pltf_log("LOAD TEX: %s (%s)\n", filename, pathname);
+    tex_s t = tex_load(pathname, asset_allocator);
 
     ASSETS.tex[ID].tex = t;
     if (t.px) {
@@ -196,14 +201,13 @@ int asset_tex_loadID(int ID, const char *filename, tex_s *tex)
     return -1;
 }
 
-int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
+i32 asset_snd_loadID(i32 ID, const char *filename, snd_s *snd)
 {
     assert(0 <= ID && ID < NUM_SNDID);
     FILEPATH_GEN(pathname, FILEPATH_SND, filename);
     str_append(pathname, ".aud");
 
-    sys_printf("LOAD SND: %s (%s)\n", filename, pathname);
-    usize memprev      = ASSETS.marena.rem;
+    pltf_log("LOAD SND: %s (%s)\n", filename, pathname);
     snd_s s            = snd_load(pathname, asset_allocator);
     ASSETS.snd[ID].snd = s;
     if (s.buf) {
@@ -213,14 +217,14 @@ int asset_snd_loadID(int ID, const char *filename, snd_s *snd)
     return -1;
 }
 
-int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
+i32 asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt)
 {
     assert(0 <= ID && ID < NUM_FNTID);
 
     FILEPATH_GEN(pathname, FILEPATH_FNT, filename);
     str_append(pathname, ".json");
 
-    sys_printf("LOAD FNT: %s (%s)\n", filename, pathname);
+    pltf_log("LOAD FNT: %s (%s)\n", filename, pathname);
 
     asset_fnt_s af = {0};
     af.fnt         = fnt_load(pathname, asset_allocator);
@@ -233,21 +237,21 @@ int asset_fnt_loadID(int ID, const char *filename, fnt_s *fnt)
     return -1;
 }
 
-int asset_tex_put(tex_s t)
+i32 asset_tex_put(tex_s t)
 {
-    int ID = assets_gen_texID();
+    i32 ID = assets_gen_texID();
     asset_tex_putID(ID, t);
     return ID;
 }
 
-tex_s asset_tex_putID(int ID, tex_s t)
+tex_s asset_tex_putID(i32 ID, tex_s t)
 {
     assert(0 <= ID && ID < NUM_TEXID);
     ASSETS.tex[ID].tex = t;
     return t;
 }
 
-texrec_s asset_texrec(int ID, int x, int y, int w, int h)
+texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h)
 {
     texrec_s tr = {0};
     tr.t        = asset_tex(ID);
@@ -258,20 +262,21 @@ texrec_s asset_texrec(int ID, int x, int y, int w, int h)
     return tr;
 }
 
-void snd_play_ext(int ID, f32 vol, f32 pitch)
+void snd_play_ext(i32 ID, f32 vol, f32 pitch)
 {
     snd_play(asset_snd(ID), vol, pitch);
 }
 
-void asset_mus_fade_to(const char *filename, int ticks_out, int ticks_in)
+void asset_mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in)
 {
     FILEPATH_GEN(path, FILEPATH_MUS, filename);
     mus_fade_to(path, ticks_out, ticks_in);
 }
 
-static int assets_gen_texID()
+i32 assets_gen_texID()
 {
-    static int texID = 0;
-    int        ID    = NUM_TEXID_EXPLICIT + texID++;
+    static i32 texID = 0;
+    i32        ID    = NUM_TEXID_EXPLICIT + texID++;
+    assert(ID < NUM_TEXID);
     return ID;
 }

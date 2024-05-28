@@ -55,7 +55,7 @@ typedef struct {
     areafx_windpt_s p[AREAFX_WINDPT];
 } areafx_wind_s;
 
-#define AREAFX_HEAT_ROWS SYS_DISPLAY_H
+#define AREAFX_HEAT_ROWS PLTF_DISPLAY_H
 
 typedef struct {
     i8  offset[AREAFX_HEAT_ROWS];
