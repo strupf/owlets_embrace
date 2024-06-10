@@ -3,6 +3,47 @@
 // =============================================================================
 
 #include "game.h"
+#include "hero_hook.h"
+
+void hero_process_hurting_things(game_s *g, obj_s *o)
+{
+    v2_i32  hcenter        = obj_pos_center(o);
+    rec_i32 heroaabb       = obj_aabb(o);
+    i32     hero_dmg       = 0;
+    v2_i32  hero_knockback = {0};
+
+    for (obj_each(g, it)) {
+        if (!(it->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
+        if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
+
+        v2_i32 ocenter   = obj_pos_center(it);
+        v2_i32 dt        = v2_sub(hcenter, ocenter);
+        hero_knockback.x = +1000 * sgn_i32(dt.x);
+        hero_knockback.y = -1000;
+        hero_dmg         = max_i32(hero_dmg, 1);
+    }
+
+    tile_map_bounds_s bounds = tile_map_bounds_rec(g, heroaabb);
+    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+            if (g->tiles[x + y * g->tiles_x].collision != TILE_SPIKES)
+                continue;
+            v2_i32 ocenter   = {(x << 4) + 8, (y << 4) + 8};
+            v2_i32 dt        = v2_sub(hcenter, ocenter);
+            hero_knockback.x = +1000 * sgn_i32(dt.x);
+            hero_knockback.y = -1000;
+            hero_dmg         = max_i32(hero_dmg, 1);
+        }
+    }
+
+    if (hero_dmg) {
+        hero_hurt(g, o, hero_dmg);
+        snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
+        o->vel_q8 = hero_knockback;
+        o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+        g->events_frame |= EVENT_HERO_DAMAGE;
+    }
+}
 
 void hero_post_update(game_s *g, obj_s *o)
 {
@@ -35,45 +76,28 @@ void hero_post_update(game_s *g, obj_s *o)
     }
 
     // touched hurting things?
-    if (o->invincible_tick <= 0) {
-        i32    hero_dmg       = 0;
-        v2_i32 hero_knockback = {0};
-
-        for (obj_each(g, it)) {
-            if (!(it->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
-            if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
-            if (hero->thrusting) {
-                hero->thrusting = 0;
-                o->vel_q8.y     = -2000;
-                continue;
-            }
-            continue; // disable
-            v2_i32 ocenter   = obj_pos_center(it);
-            v2_i32 dt        = v2_sub(hcenter, ocenter);
-            hero_knockback.x = sgn_i(dt.x) * 1000;
-            hero_knockback.y = -1000;
-            hero_dmg         = max_i(hero_dmg, 1);
-
-            switch (it->ID) {
-            case OBJ_ID_CHARGER: {
-                int pushs        = sgn_i(hcenter.x - ocenter.x);
-                hero_knockback.x = pushs * 2000;
-                break;
-            }
-            }
-        }
-
-        if (hero_dmg) {
-            hero_hurt(g, o, hero_dmg);
-            snd_play_ext(SNDID_SWOOSH, 0.5f, 0.5f);
-            o->vel_q8 = hero_knockback;
-            o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
-            g->events_frame |= EVENT_HERO_DAMAGE;
-        }
+    if (!o->invincible_tick) {
+        hero_process_hurting_things(g, o);
     }
 
     // possibly enter new substates
     hero_check_rope_intact(g, o);
+    if (o->rope) {
+        obj_s *ohook = obj_from_obj_handle(hero->hook);
+        if (ohook) {
+
+            if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
+
+                ohook->vel_q8 = obj_constrain_to_rope(g, ohook);
+            } else {
+                o->vel_q8 = obj_constrain_to_rope(g, o);
+            }
+            if (!rope_intact(g, o->rope)) {
+                hero_unhook(g, ohook);
+                return;
+            }
+        }
+    }
     if (o->health <= 0) {
         gameover_start(g);
     } else {

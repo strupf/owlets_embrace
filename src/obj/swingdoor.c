@@ -93,7 +93,7 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
     int    i1   = SWINGDOOR_KEY_OPEN_TICKS;
     v2_i32 keyd = {ease_in_out_quad(od->key_open_origin.x, o->pos.x, i0, i1),
                    ease_in_out_quad(od->key_open_origin.y, o->pos.y, i0, i1)};
-    sprk->offs  = v2_sub(keyd, o->pos);
+    sprk->offs  = v2_i16_from_i32(v2_sub(keyd, o->pos), 0);
 }
 
 void swingdoor_on_trigger(game_s *g, obj_s *o, i32 trigger)

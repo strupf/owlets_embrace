@@ -6,11 +6,8 @@
 #define GAMEDEF_H
 
 // game version - important once released
-// year
-// month
-// day
-#define GAME_VERSION_GEN(P, Y, M, D) (P##Y##M##D)
-#define GAME_VERSION_CUR(P)          GAME_VERSION_GEN(P, 2024, 05, 01)
+#define GAME_VERSION_GEN(P, MAJ, MIN) (P##MAJ##MIN)
+#define GAME_VERSION_CUR(P)           GAME_VERSION_GEN(P, 0, 1)
 
 #if defined(PLTF_PD)
 #define GAME_VERSION GAME_VERSION_CUR(1) // 1: PLAYDATE
@@ -18,6 +15,7 @@
 #define GAME_VERSION GAME_VERSION_CUR(2) // 2: SDL
 #endif
 
+#include "app.h"
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
@@ -41,6 +39,14 @@
 
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
+
+// handle to an object
+// object pointer is valid (still exists) if:
+//   o != NULL && GID == o->GID
+typedef struct {
+    obj_s *o;
+    u32    GID;
+} obj_handle_s;
 
 enum {
     APP_STATE_TITLE,
@@ -78,7 +84,7 @@ enum {
     DIRECTION_NW,
 };
 
-static int direction_nearest(int dir, bool32 cw)
+static i32 direction_nearest(i32 dir, bool32 cw)
 {
     if (dir == DIRECTION_NONE) return 0;
     return ((dir + (cw ? 0 : 6)) & 7) + 1;

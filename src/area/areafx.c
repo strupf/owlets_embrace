@@ -12,8 +12,8 @@ static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
     *c                = (areafx_cloud_s){0};
     fx->dirty         = 1;
     c->t              = asset_texrec(TEXID_CLOUDS, 0, 0, 0, 0);
-    int roll          = rngr_i32(0, 100);
-    int size          = 0;
+    i32 roll          = rngr_i32(0, 100);
+    i32 size          = 0;
     if (roll <= 70) {
         size = 0;
     } else if (roll <= 90) {
@@ -23,13 +23,13 @@ static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
     }
     switch (size) {
     case 0: {
-        int t    = rngr_i32(0, 3);
+        i32 t    = rngr_i32(0, 3);
         c->t.r.x = 3 * t * 32;
         c->t.r.w = 3 * 32;
         c->t.r.h = 3 * 16;
     } break;
     case 1: {
-        int t    = rngr_i32(0, 1);
+        i32 t    = rngr_i32(0, 1);
         t        = 0;
         c->t.r.y = 3 * 16;
         c->t.r.x = 4 * t * 32 * 4;
@@ -37,7 +37,7 @@ static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
         c->t.r.h = 4 * 16;
     } break;
     case 2: {
-        int t    = rngr_i32(0, 1);
+        i32 t    = rngr_i32(0, 1);
         t        = 0;
         c->t.r.y = 7 * 16;
         c->t.r.x = t * 32 * 5;
@@ -56,8 +56,8 @@ static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
 void areafx_clouds_setup(game_s *g, areafx_clouds_s *fx)
 {
     fx->n = 0;
-    int N = rngr_i32(8, 16);
-    for (int n = 0; n < N; n++) {
+    i32 N = rngr_i32(8, 16);
+    for (i32 n = 0; n < N; n++) {
         areafx_cloud_s *c = areafx_cloud_create(fx);
         if (!c) break;
         c->p.x = rngr_i32(-100, 600);
@@ -67,7 +67,7 @@ void areafx_clouds_setup(game_s *g, areafx_clouds_s *fx)
 // called at 25 FPS (half frequency)
 void areafx_clouds_update(game_s *g, areafx_clouds_s *fx)
 {
-    for (int n = fx->n - 1; 0 <= n; n--) {
+    for (i32 n = fx->n - 1; 0 <= n; n--) {
         areafx_cloud_s *c = &fx->clouds[n];
 
         if ((c->vx_q8 < 0 && c->p.x < -200) &&
@@ -102,7 +102,7 @@ void areafx_clouds_draw(game_s *g, areafx_clouds_s *fx, v2_i32 cam)
         fx->dirty = 0;
         sort_array(fx->clouds, fx->n, sizeof(areafx_cloud_s), areafx_cloud_cmp);
     }
-    for (int n = 0; n < fx->n; n++) {
+    for (i32 n = 0; n < fx->n; n++) {
         areafx_cloud_s *c = &fx->clouds[n];
         v2_i32          p = {c->p.x + (cam.x * 1) / 16, c->p.y};
         p.x &= ~3;
@@ -115,7 +115,7 @@ void areafx_rain_setup(game_s *g, areafx_rain_s *fx)
 {
     fx->n_drops        = 0;
     fx->lightning_tick = 0;
-    for (int n = 0; n < 256; n++) {
+    for (i32 n = 0; n < 256; n++) {
         areafx_rain_update(g, fx);
     }
 }
@@ -130,7 +130,7 @@ void areafx_rain_update(game_s *g, areafx_rain_s *fx)
         fx->lightning_twice = rngr_i32(0, 4) == 0;
     }
 
-    for (int n = fx->n_drops - 1; 0 <= n; n--) {
+    for (i32 n = fx->n_drops - 1; 0 <= n; n--) {
         areafx_raindrop_s *drop = &fx->drops[n];
 
         drop->p.x += drop->v.x;
@@ -141,7 +141,7 @@ void areafx_rain_update(game_s *g, areafx_rain_s *fx)
         }
     }
 
-    for (int k = 0; k < 4; k++) {
+    for (i32 k = 0; k < 4; k++) {
         if (AREAFX_RAIN_DROPS <= fx->n_drops) break;
         areafx_raindrop_s *drop = &fx->drops[fx->n_drops++];
         drop->p.x               = rngr_i32(0, 512) << 8;
@@ -176,7 +176,7 @@ void areafx_rain_draw(game_s *g, areafx_rain_s *fx, v2_i32 cam)
                                         B4(1111),
                                         B4(0000),
                                         B4(1111));
-    for (int n = 0; n < fx->n_drops; n++) {
+    for (i32 n = 0; n < fx->n_drops; n++) {
         areafx_raindrop_s *drop = &fx->drops[n];
         v2_i32             pos  = v2_shr(drop->p, 8);
         pos.x += cam.x;
@@ -199,7 +199,7 @@ void areafx_wind_update(game_s *g, areafx_wind_s *fx)
 {
     // UPDATE PARTICLES
     // traverse backwards to avoid weird removal while iterating
-    for (int n = fx->n - 1; 0 <= n; n--) {
+    for (i32 n = fx->n - 1; 0 <= n; n--) {
         areafx_windpt_s *p = &fx->p[n];
         if (p->p_q8.x < 0 || AREAFX_WIND_SIZEY < (p->p_q8.x >> 8)) {
             fx->p[n] = fx->p[--fx->n];
@@ -239,7 +239,7 @@ void areafx_wind_update(game_s *g, areafx_wind_s *fx)
         p->p_q8.y          = rngr_i32(0, AREAFX_WIND_SIZEY << 8);
         p->v_q8.x          = rngr_i32(2000, 4000);
         p->circcooldown    = 10;
-        for (int i = 0; i < AREAFX_WINDPT_N; i++)
+        for (i32 i = 0; i < AREAFX_WINDPT_N; i++)
             p->pos_q8[i] = p->p_q8;
     }
 }
@@ -248,16 +248,16 @@ void areafx_wind_draw(game_s *g, areafx_wind_s *fx, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
 
-    for (int n = 0; n < fx->n; n++) {
+    for (i32 n = 0; n < fx->n; n++) {
         areafx_windpt_s p = fx->p[n];
 
         v2_i32    p1 = v2_shr(p.pos_q8[p.i], 8);
-        const int y1 = p1.y;
-        const int h1 = ((y1 + cam.y) % AREAFX_WIND_SIZEY + AREAFX_WIND_SIZEY) % AREAFX_WIND_SIZEY;
+        const i32 y1 = p1.y;
+        const i32 h1 = ((y1 + cam.y) % AREAFX_WIND_SIZEY + AREAFX_WIND_SIZEY) % AREAFX_WIND_SIZEY;
         p1.y         = h1;
 
-        for (int i = 1; i < AREAFX_WINDPT_N; i++) {
-            int    k  = (p.i + i) & (AREAFX_WINDPT_N - 1);
+        for (i32 i = 1; i < AREAFX_WINDPT_N; i++) {
+            i32    k  = (p.i + i) & (AREAFX_WINDPT_N - 1);
             v2_i32 p2 = v2_shr(p.pos_q8[k], 8);
             p2.y      = h1 + (p2.y - y1);
 
@@ -275,8 +275,8 @@ void areafx_heat_setup(game_s *g, areafx_heat_s *fx)
 void areafx_heat_update(game_s *g, areafx_heat_s *fx)
 {
     fx->tick += 2000;
-    for (int i = 0; i < AREAFX_HEAT_ROWS; i++) {
-        int s         = sin_q16(fx->tick + i * 3000);
+    for (i32 i = 0; i < AREAFX_HEAT_ROWS; i++) {
+        i32 s         = sin_q16(fx->tick + i * 3000);
         fx->offset[i] = (s * 3) >> 17;
     }
 }
@@ -285,24 +285,24 @@ void areafx_heat_draw(game_s *g, areafx_heat_s *fx, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     tex_s     t   = ctx.dst;
-    int       y2  = min_i(AREAFX_HEAT_ROWS, t.h);
+    i32       y2  = min_i(AREAFX_HEAT_ROWS, t.h);
 
-    for (int y = 0; y < y2; y++) {
-        int off = fx->offset[y];
+    for (i32 y = 0; y < y2; y++) {
+        i32 off = fx->offset[y];
 
         if (0 < off) {
-            int a = +off;
-            int b = 32 - off;
-            for (int x = t.wword - 1; 0 < x; x--) {
+            i32 a = +off;
+            i32 b = 32 - off;
+            for (i32 x = t.wword - 1; 0 < x; x--) {
                 u32 *p  = &t.px[x + y * t.wword];
                 u32  b1 = bswap32(*(p + 0));
                 u32  b2 = bswap32(*(p - 1));
                 *p      = bswap32((b1 >> a) | (b2 << b));
             }
         } else if (off < 0) {
-            int a = -off;
-            int b = 32 + off;
-            for (int x = 0; x < t.wword - 1; x++) {
+            i32 a = -off;
+            i32 b = 32 + off;
+            for (i32 x = 0; x < t.wword - 1; x++) {
                 u32 *p  = &t.px[x + y * t.wword];
                 u32  b1 = bswap32(*(p + 0));
                 u32  b2 = bswap32(*(p + 1));
@@ -326,7 +326,7 @@ void areafx_leaves_draw(game_s *g, areafx_leaves_s *fx, v2_i32 cam)
 
 void areafx_particles_calm_setup(game_s *g, areafx_particles_calm_s *fx)
 {
-    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+    for (i32 n = 0; n < AREAFX_PT_CALM_N; n++) {
         areafx_particle_calm_s *p = &fx->p[n];
 
         p->pos.x = rngr_i32(0, PT_CALM_X_RANGE << 8);
@@ -338,7 +338,7 @@ void areafx_particles_calm_setup(game_s *g, areafx_particles_calm_s *fx)
 
 void areafx_particles_calm_update(game_s *g, areafx_particles_calm_s *fx)
 {
-    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+    for (i32 n = 0; n < AREAFX_PT_CALM_N; n++) {
         areafx_particle_calm_s *p = &fx->p[n];
 
         p->pos = v2_add(p->pos, p->vel);
@@ -353,7 +353,7 @@ void areafx_particles_calm_draw(game_s *g, areafx_particles_calm_s *fx, v2_i32 c
 {
     const gfx_ctx_s ctx = gfx_ctx_display();
 
-    for (int n = 0; n < AREAFX_PT_CALM_N; n++) {
+    for (i32 n = 0; n < AREAFX_PT_CALM_N; n++) {
         areafx_particle_calm_s p = fx->p[n];
 
         v2_i32 pos = v2_add(v2_shr(p.pos, 8), cam);

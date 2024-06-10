@@ -22,13 +22,11 @@ void water_prerender_tiles()
 
     spm_push();
 
-#define WATER_RENDER_STEP   2
-#define WATER_NUM_PARTICLES 256
+#define WATER_RENDER_STEP 2
+#define WATER_NUM_P       256
 
-    usize            psize     = sizeof(waterparticle_s) * WATER_NUM_PARTICLES;
-    waterparticle_s *particles = (waterparticle_s *)spm_allocz(psize);
-
-    water_step(particles, WATER_NUM_PARTICLES, 256);
+    waterparticle_s *particles = spm_alloctz(waterparticle_s, WATER_NUM_P);
+    water_step(particles, WATER_NUM_P, 256);
 
     gfx_ctx_s wctx  = gfx_ctx_default(wtex);
     gfx_ctx_s wctx1 = gfx_ctx_default(wtex);
@@ -39,11 +37,11 @@ void water_prerender_tiles()
                                       B2(00));
 
     for (i32 n = 0; n < NUM_WATER_TILES; n++) {
-        water_step(particles, WATER_NUM_PARTICLES, 1);
+        water_step(particles, WATER_NUM_P, 1);
 
         for (i32 k = 0; k < 16; k += WATER_RENDER_STEP) {
 
-            i32 hh = particles[((k + WATER_NUM_PARTICLES) >> 1)].y_q12 >> 12;
+            i32 hh = particles[((k + WATER_NUM_P) >> 1)].y_q12 >> 12;
             hh     = clamp_i(hh, -4, +4);
             i32 yy = n * 16 + 4 + hh;
 

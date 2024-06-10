@@ -8,8 +8,8 @@
 #include "gamedef.h"
 
 typedef struct {
-    bool32 docked; // connection to crank
-    i32    n_items;
+    bool16 docked; // connection to crank
+    i16    n_items;
     i32    item;
     i32    ang_q16;
 } item_select_s;

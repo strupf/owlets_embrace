@@ -86,41 +86,25 @@ void render_ui(game_s *g, v2_i32 camoff)
         shop_draw(g);
     }
 
-    if (ohero) {
+    if (ohero && !g->hero_mem.jump_ui_water) {
         render_jump_ui(g, ohero, camoff);
     }
 }
 
 void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
 {
-    i32 airjumps_max  = hero_airjumps_max(g);
-    i32 airjumps_left = hero_airjumps_left(g);
-
-    if (airjumps_max <= 1) return;
-
-    hero_jump_ui_s *jui = &g->jump_ui;
-    jui->n_max          = airjumps_max;
-    v2_i32 p            = v2_add(o->pos, camoff);
-
-    if (airjumps_left < airjumps_max && !jui->out_of_water) {
-        jui->n    = airjumps_left;
-        jui->tick = min_i32(jui->tick + 1, 10);
-    } else if (0 < jui->tick) {
-        jui->tick--;
-    }
-
-    if (jui->tick == 0) return;
-
     gfx_ctx_s ctx = gfx_ctx_display();
-    i32       pat = lerp_i32(0, GFX_PATTERN_MAX, jui->tick, 10);
-    ctx.pat       = gfx_pattern_bayer_4x4(pat);
-    for (i32 n = 1; n <= jui->n_max; n++) {
-        v2_i32 cpos = {p.x - 10 + (n - 1) * 15, p.y - 20};
-        gfx_cir_fill(ctx, cpos, 12, PRIM_MODE_WHITE);
-        gfx_cir_fill(ctx, cpos, 10, PRIM_MODE_BLACK);
-        if (n <= jui->n) {
-            gfx_cir_fill(ctx, cpos, 8, PRIM_MODE_WHITE);
-        }
+    v2_i32    p   = v2_add(o->pos, camoff);
+
+    i32 ft0 = g->save.flytime;
+    i32 ft1 = g->hero_mem.flytime;
+    if (ft1 < ft0) {
+        rec_i32 rfly   = {p.x - 16, p.y - 32, 32, 8};
+        rec_i32 rfly_1 = {rfly.x - 1, rfly.y - 1, rfly.w + 2, rfly.h + 2};
+        rec_i32 rfly_2 = {rfly.x + 1, rfly.y + 1, (ft1 * (rfly.w - 2)) / ft0, rfly.h - 2};
+        gfx_rec_fill(ctx, rfly_1, GFX_COL_WHITE);
+        gfx_rec_fill(ctx, rfly, GFX_COL_BLACK);
+        gfx_rec_fill(ctx, rfly_2, GFX_COL_WHITE);
     }
 }
 
@@ -132,8 +116,8 @@ void prerender_area_label(game_s *g)
     char  *label = g->areaname.label;
     v2_i32 loc   = {2, 2};
 
-    for (int yy = -2; yy <= +2; yy++) {
-        for (int xx = -2; xx <= +2; xx++) {
+    for (i32 yy = -2; yy <= +2; yy++) {
+        for (i32 xx = -2; xx <= +2; xx++) {
             v2_i32 locbg = {loc.x + xx, loc.y + yy};
             fnt_draw_ascii(ctx, font_1, locbg, label, SPR_MODE_WHITE);
         }
@@ -232,7 +216,7 @@ void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, 
         }
     }
 
-    for (int n = 0; n < g->save.n_map_pins; n++) {
+    for (i32 n = 0; n < g->save.n_map_pins; n++) {
         map_pin_s p      = g->save.map_pins[n];
         texrec_s  tpin   = asset_texrec(TEXID_UI, 256 + p.type * 32, 192, 32, 32);
         v2_i32    pinpos = v2_add(offs, mapview_screen_from_world_q8(p.pos, c_q8, w, h, s_q8));
@@ -261,7 +245,7 @@ void render_pause(game_s *g)
         gfx_spr(ctx, theropin, pheropin, 0, 0);
 
         tex_s tdisplay = asset_tex(0);
-        for (int n = 0; n < tex.wword * tex.h; n++) {
+        for (i32 n = 0; n < tex.wword * tex.h; n++) {
             tdisplay.px[n] = tex.px[n];
         }
         // sys_set_menu_image(tex.px, tex.h, tex.wword << 2);

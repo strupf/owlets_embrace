@@ -8,7 +8,7 @@
 #include "gamedef.h"
 
 #define LIGHTING_ENABLED    0
-#define NUM_LIGHTING_LIGHTS 16
+#define NUM_LIGHTING_LIGHTS 8
 
 typedef struct {
     v2_i32 p;

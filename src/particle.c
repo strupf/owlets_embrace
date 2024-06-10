@@ -5,7 +5,7 @@
 #include "particle.h"
 #include "game.h"
 
-void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n)
+void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, i32 n)
 {
     if (pr->n == PARTICLE_NUM) return;
     for (i32 i = 0; i < n; i++) {
@@ -106,7 +106,7 @@ void coinparticle_update(game_s *g)
     if (ohero) {
         heropos = obj_pos_center(ohero);
     }
-    for (int n = g->n_coinparticles - 1; 0 <= n; n--) {
+    for (i32 n = g->n_coinparticles - 1; 0 <= n; n--) {
         coinparticle_s *c = &g->coinparticles[n];
         if (ohero && v2_distancesq(heropos, c->pos) < COINPARTICLE_COLLECT_DISTSQ) {
             hero_coins_change(g, 1);
@@ -129,7 +129,7 @@ void coinparticle_update(game_s *g)
         c->pos_q8.x &= 0xFF;
         c->pos_q8.y &= 0xFF;
 
-        for (int m = abs_i(dx), s = sgn_i(dx); 0 < m; m--) {
+        for (i32 m = abs_i(dx), s = sgn_i(dx); 0 < m; m--) {
             i32 x = c->pos.x + s;
             if (!map_traversable_pt(g, x, c->pos.y)) {
                 c->vel_q8.x = -((c->vel_q8.x * 230) >> 8);
@@ -159,7 +159,7 @@ void coinparticle_draw(game_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_MISCOBJ, 0, 160, 16, 16);
-    for (i32 n = 0; n < g->n_coinparticles; n++) {
+    for (u32 n = 0; n < g->n_coinparticles; n++) {
         coinparticle_s *c = &g->coinparticles[n];
         v2_i32          p = v2_add(c->pos, cam);
         tr.r.x            = (((g->gameplay_tick + n) >> 2) % 6) * 16;

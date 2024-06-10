@@ -18,23 +18,19 @@ typedef struct {
 
 typedef struct {
     u32              game_version;
-    i32              health;
-    bool8            upgrades[32];
+    i16              health;
+    i16              flytime;
+    flags32          upgrades;
     char             name[32];
-    i32              coins;
-    //
-    i32              n_items;
+    i16              coins;
+    i16              n_items;
+    i16              n_saveIDs;
+    i16              n_map_pins;
     inventory_item_s items[INVENTORY_NUM_ITEMS];
-    //
-    i32              n_saveIDs;
     u32              saveIDs[NUM_SAVEIDS]; // unlocked things or events already happened
-    //
     char             hero_mapfile[64];
     v2_i32           hero_pos;
-    //
-    i32              n_map_pins;
     map_pin_s        map_pins[NUM_MAP_PINS];
-    //
     u8               visited_tiles[NUM_WORLD_ROOMS][NUM_WORLD_ROOM_TILES >> 3]; // bitset
 } save_s;
 

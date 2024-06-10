@@ -19,10 +19,10 @@ typedef struct {
     v2_i32   p_q8;
     v2_i32   v_q8;
     v2_i32   a_q8;
-    i32      ticks;
-    i32      ticks_max;
-    i32      size;
-    i32      gfx;
+    i16      ticks;
+    i16      ticks_max;
+    i16      size;
+    i16      gfx;
     texrec_s texrec;
 } particle_s;
 
@@ -32,8 +32,8 @@ typedef struct {
     v2_i32 pr_q8;
     v2_i32 vr_q8;
     v2_i32 ar_q8;
-    i32    ticksr;
-    i32    sizer;
+    i16    ticksr;
+    i16    sizer;
 } particle_desc_s;
 
 typedef struct {
@@ -41,7 +41,7 @@ typedef struct {
     particle_s particles[PARTICLE_NUM];
 } particles_s;
 
-void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, int n);
+void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, i32 n);
 void particles_update(game_s *g, particles_s *pr);
 void particles_draw(game_s *g, particles_s *pr, v2_i32 cam);
 

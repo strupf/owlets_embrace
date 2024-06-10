@@ -166,13 +166,13 @@ static inline u32 q_convert_u32(u32 v, i32 qfrom, i32 qto)
 static inline i32 divr_i32(i32 n, i32 d)
 {
     i32 h = d / 2;
-    return ((n < 0 && d < 0) ? n + h : n - h) / d;
+    return ((n ^ d) < 0 ? (n - h) / d : (n + h) / d);
 }
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 {
     i32 i = (b - a) * num;
-#ifdef SYS_SDL
+#ifdef PLTF_SDL
     i64 j = (i64)(b - a) * (i64)num;
     assert((i64)i == j);
 #endif
@@ -218,17 +218,17 @@ static inline f32 sqrt_f32(f32 x)
 
 static inline u32 sqrt_u32(u32 x)
 {
-    return (u32)sqrtf((f32)x);
+    return (u32)sqrt_f32((f32)x + 0.5f);
 }
 
 static inline i32 sqrt_i32(i32 x)
 {
-#ifdef SYS_DEBUG
+#ifdef PLTF_DEBUG
     if (x < 0) {
         pltf_log("sqrt_warn: negative number!\n");
     }
 #endif
-    return (x <= 0 ? 0 : (i32)sqrtf((f32)x));
+    return (x <= 0 ? 0 : (i32)sqrt_f32((f32)x + 0.5f));
 }
 
 #define Q16_ANGLE_TURN 0x40000
@@ -284,7 +284,7 @@ static i32 atan_q16(i32 x)
     // taylor expansion works for x [0, 1]
     // for bigger x: atan(x) = PI/2 - atan(1/x)
     i32 add = 0, mul = +1;
-    u32 i = (u32)abs_i(x);
+    u32 i = (u32)abs_i32(x);
     if (i > 0x10000) {
         i   = 0xFFFFFFFFU / i;
         add = 0x10000;
@@ -316,7 +316,7 @@ static i32 asin_q16(i32 x)
     if (x == 0) return 0;
     if (x == +0x10000) return +0x10000;
     if (x == -0x10000) return -0x10000;
-    u32 i = (u32)abs_i(x);
+    u32 i = (u32)abs_i32(x);
     u32 r;
     r = 0x030D;
     r = 0x0C1A - ((r * i) >> 16);
@@ -334,19 +334,17 @@ static i32 acos_q16(i32 x)
     return 0x10000 - asin_q16(x);
 }
 
-static f32 sin_f(f32 x)
+static inline f32 sin_f(f32 x)
 {
-    f32 i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
-    return ((f32)sin_q16((i32)(i * (f32)Q16_ANGLE_TURN)) * .000015258789f);
+    return sinf(x);
 }
 
-static f32 cos_f(f32 x)
+static inline f32 cos_f(f32 x)
 {
-    f32 i = fmodf(x, PI2_FLOAT) / PI2_FLOAT;
-    return ((f32)cos_q16((i32)(i * (f32)Q16_ANGLE_TURN)) * .000015258789f);
+    return cosf(x);
 }
 
-static f32 atan2_f(f32 y, f32 x)
+static inline f32 atan2_f(f32 y, f32 x)
 {
     return atan2f(y, x);
 }
@@ -391,6 +389,12 @@ static inline v2_i32 v2_inv(v2_i32 a)
     return r;
 }
 
+static inline v2_i8 v2_i8_add(v2_i8 a, v2_i8 b)
+{
+    v2_i8 r = {a.x + b.x, a.y + b.y};
+    return r;
+}
+
 static inline v2_i32 v2_add(v2_i32 a, v2_i32 b)
 {
     v2_i32 r = {a.x + b.x, a.y + b.y};
@@ -403,13 +407,13 @@ static inline v2_i32 v2_sub(v2_i32 a, v2_i32 b)
     return r;
 }
 
-static inline v2_i32 v2_shr(v2_i32 a, int s)
+static inline v2_i32 v2_shr(v2_i32 a, i32 s)
 {
     v2_i32 r = {a.x >> s, a.y >> s};
     return r;
 }
 
-static inline v2_i32 v2_shl(v2_i32 a, int s)
+static inline v2_i32 v2_shl(v2_i32 a, i32 s)
 {
     v2_i32 r = {a.x << s, a.y << s};
     return r;
@@ -432,7 +436,7 @@ static inline v2_i32 v2_mulq(v2_i32 a, i32 n, i32 q)
     return v2_shr(v2_mul(a, n), q);
 }
 
-static inline int v2_eq(v2_i32 a, v2_i32 b)
+static inline i32 v2_eq(v2_i32 a, v2_i32 b)
 {
     return a.x == b.x && a.y == b.y;
 }
@@ -449,9 +453,9 @@ static inline i32 v2_crs(v2_i32 a, v2_i32 b)
 
 static inline u32 v2_lensq(v2_i32 a)
 {
-    u32 x = abs_i32(a.x);
-    u32 y = abs_i32(a.y);
-    return x * x + y * y;
+    u32 x = (u32)abs_i32(a.x);
+    u32 y = (u32)abs_i32(a.y);
+    return (x * x + y * y);
 }
 
 static inline f32 v2_lensq_f(v2_i32 v)
@@ -464,7 +468,7 @@ static inline i32 v2_len(v2_i32 v)
     return (i32)(sqrt_f32(v2_lensq_f(v)));
 }
 
-static inline f32 v2_len_f(v2_i32 v)
+static inline f32 v2_lenf(v2_i32 v)
 {
     return sqrt_f32(v2_lensq_f(v));
 }
@@ -481,7 +485,7 @@ static inline i32 v2_distance(v2_i32 a, v2_i32 b)
 
 static inline v2_i32 v2_setlenl(v2_i32 a, f32 l, i32 len)
 {
-    if (l == 0.f) {
+    if (abs_f32(l) < 0.1f) {
         v2_i32 r0 = {len, 0};
         return r0;
     }
@@ -492,15 +496,70 @@ static inline v2_i32 v2_setlenl(v2_i32 a, f32 l, i32 len)
 
 static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
 {
-    return v2_setlenl(a, v2_len_f(a), len);
+    return v2_setlenl(a, v2_lenf(a), len);
 }
 
-static inline v2_i32 v2_truncate(v2_i32 a, int l)
+static inline v2_i32 v2_truncate(v2_i32 a, i32 l)
 {
-    int ls = v2_lensq(a);
-    if (ls < l * l) return a;
+    u32 ls = v2_lensq(a);
+    if (ls <= (u32)l * (u32)l) return a;
     return v2_setlenl(a, sqrt_f32((f32)ls), l);
 }
+
+static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
+{
+    v2_i32 v = {lerp_i32(a.x, b.x, num, den),
+                lerp_i32(a.y, b.y, num, den)};
+    return v;
+}
+
+static v2_i32 v2_lerpl(v2_i32 a, v2_i32 b, i32 num, i32 den)
+{
+    v2_i32 v = {lerpl_i32(a.x, b.x, num, den),
+                lerpl_i32(a.y, b.y, num, den)};
+    return v;
+}
+
+// ============================================================================
+// V2 I16
+// ============================================================================
+
+static inline i32 v2_i16_dot(v2_i16 a, v2_i16 b)
+{
+    return i16x2_muad(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+}
+
+static inline i32 v2_i16_crs(v2_i16 a, v2_i16 b)
+{
+    return i16x2_musdx(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+}
+
+static inline i32 v2_i16_lensq(v2_i16 a)
+{
+    i16x2 x = i16x2_from_v2_i16(a);
+    return i16x2_muad(x, x);
+}
+
+static inline v2_i16 v2_i16_add(v2_i16 a, v2_i16 b)
+{
+    i16x2 r = i16x2_add(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+    return v2_i16_from_i16x2(r);
+}
+
+static inline v2_i16 v2_i16_sub(v2_i16 a, v2_i16 b)
+{
+    i16x2 r = i16x2_sub(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+    return v2_i16_from_i16x2(r);
+}
+
+static inline bool32 v2_i16_eq(v2_i16 a, v2_i16 b)
+{
+    return (a.x == b.x && a.y == b.y);
+}
+
+// ============================================================================
+// V2 F32
+// ============================================================================
 
 static inline v2_f32 v2f_sub(v2_f32 a, v2_f32 b)
 {
@@ -541,19 +600,7 @@ static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
     return r;
 }
 
-static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
-{
-    v2_i32 v = {lerp_i32(a.x, b.x, num, den),
-                lerp_i32(a.y, b.y, num, den)};
-    return v;
-}
-
-static v2_i32 v2_lerpl(v2_i32 a, v2_i32 b, i32 num, i32 den)
-{
-    v2_i32 v = {lerpl_i32(a.x, b.x, num, den),
-                lerpl_i32(a.y, b.y, num, den)};
-    return v;
-}
+// ============================================================================
 
 static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
 {
@@ -566,7 +613,7 @@ static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
     i32 rx2 = ax2 < bx2 ? ax2 : bx2; // x2/y2 is bot right
     i32 ry2 = ay2 < by2 ? ay2 : by2;
     if (rx2 <= rx1 || ry2 <= ry1) return 0;
-    if (r != NULL) {
+    if (r) {
         rec_i32 rec = {rx1, ry1, rx2 - rx1, ry2 - ry1};
         *r          = rec;
     }
@@ -910,7 +957,7 @@ static bool32 overlap_tri_excl_backup(tri_i32 tri1, tri_i32 tri2)
     lineseg_i32 lsa     = {pa, pb};
     lineseg_i32 lsb     = {pb, pc};
     lineseg_i32 lsc     = {pa, pc};
-    for (int n = 0; n < 3; n++) {
+    for (i32 n = 0; n < 3; n++) {
         lineseg_i32 lls = {pts1[n], pts1[n + 1]};
 
         if (overlap_lineseg_excl(lls, lsa) ||
@@ -954,7 +1001,7 @@ static m33_f32 m33_identity()
 static m33_f32 m33_add(m33_f32 a, m33_f32 b)
 {
     m33_f32 m;
-    for (int n = 0; n < 9; n++)
+    for (i32 n = 0; n < 9; n++)
         m.m[n] = a.m[n] + b.m[n];
     return m;
 }
@@ -962,7 +1009,7 @@ static m33_f32 m33_add(m33_f32 a, m33_f32 b)
 static m33_f32 m33_sub(m33_f32 a, m33_f32 b)
 {
     m33_f32 m;
-    for (int n = 0; n < 9; n++)
+    for (i32 n = 0; n < 9; n++)
         m.m[n] = a.m[n] - b.m[n];
     return m;
 }
@@ -970,8 +1017,8 @@ static m33_f32 m33_sub(m33_f32 a, m33_f32 b)
 static m33_f32 m33_mul(m33_f32 a, m33_f32 b)
 {
     m33_f32 m;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
+    for (i32 i = 0; i < 3; i++) {
+        for (i32 j = 0; j < 3; j++) {
             m.m[i + j * 3] = a.m[i + 0 * 3] * b.m[0 + j * 3] +
                              a.m[i + 1 * 3] * b.m[1 + j * 3] +
                              a.m[i + 2 * 3] * b.m[2 + j * 3];
@@ -980,17 +1027,17 @@ static m33_f32 m33_mul(m33_f32 a, m33_f32 b)
     return m;
 }
 
-static m33_f32 m33_rotate(float angle)
+static m33_f32 m33_rotate(f32 angle)
 {
-    float   si = sinf(angle);
-    float   co = cosf(angle);
+    f32     si = sinf(angle);
+    f32     co = cosf(angle);
     m33_f32 m  = {{+co, -si, 0.f,
                    +si, +co, 0.f,
                    0.f, 0.f, 1.f}};
     return m;
 }
 
-static m33_f32 m33_scale(float scx, float scy)
+static m33_f32 m33_scale(f32 scx, f32 scy)
 {
     m33_f32 m = {{scx, 0.f, 0.f,
                   0.f, scy, 0.f,
@@ -998,7 +1045,7 @@ static m33_f32 m33_scale(float scx, float scy)
     return m;
 }
 
-static m33_f32 m33_shear(float shx, float shy)
+static m33_f32 m33_shear(f32 shx, f32 shy)
 {
     m33_f32 m = {{1.f, shx, 0.f,
                   shy, 1.f, 0.f,
@@ -1006,7 +1053,7 @@ static m33_f32 m33_shear(float shx, float shy)
     return m;
 }
 
-static m33_f32 m33_offset(float x, float y)
+static m33_f32 m33_offset(f32 x, f32 y)
 {
     m33_f32 m = {{1.f, 0.f, x,
                   0.f, 1.f, y,
@@ -1014,24 +1061,24 @@ static m33_f32 m33_offset(float x, float y)
     return m;
 }
 
-static v2f v2f_lerp(v2f a, v2f b, f32 t)
+static v2_f32 v2f_lerp(v2_f32 a, v2_f32 b, f32 t)
 {
-    v2f r = {
+    v2_f32 r = {
         a.x + (b.x - a.x) * t,
         a.y + (b.y - a.y) * t};
     return r;
 }
 
-static v2f v2_spline(v2f x, v2f y, v2f x_tang, v2f y_tang, f32 t)
+static v2_f32 v2_spline(v2_f32 x, v2_f32 y, v2_f32 x_tang, v2_f32 y_tang, f32 t)
 {
-    v2f u = v2f_add(x, x_tang);
-    v2f v = v2f_add(y, y_tang);
-    v2f a = v2f_lerp(x, u, t);
-    v2f b = v2f_lerp(u, v, t);
-    v2f c = v2f_lerp(v, y, t);
-    v2f d = v2f_lerp(a, b, t);
-    v2f e = v2f_lerp(b, c, t);
-    v2f f = v2f_lerp(d, e, t);
+    v2_f32 u = v2f_add(x, x_tang);
+    v2_f32 v = v2f_add(y, y_tang);
+    v2_f32 a = v2f_lerp(x, u, t);
+    v2_f32 b = v2f_lerp(u, v, t);
+    v2_f32 c = v2f_lerp(v, y, t);
+    v2_f32 d = v2f_lerp(a, b, t);
+    v2_f32 e = v2f_lerp(b, c, t);
+    v2_f32 f = v2f_lerp(d, e, t);
     return f;
 }
 

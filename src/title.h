@@ -34,10 +34,8 @@ enum {
 
 typedef struct {
     i32 fade_to_game;
-
     i32 state;
     i32 option;
-
     i32 title_blink;
     i32 title_fade;
     f32 feather_time;

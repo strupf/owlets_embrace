@@ -38,7 +38,7 @@ void npc_on_update(game_s *g, obj_s *o)
     o->bumpflags = 0;
 
     o->flags &= ~OBJ_FLAG_INTERACTABLE;
-    int state = npc_get_state(g, o);
+    i32 state = npc_get_state(g, o);
     if (state == NPC_AIR) {
         return;
     }
@@ -78,7 +78,7 @@ void npc_on_update(game_s *g, obj_s *o)
 void npc_on_animate(game_s *g, obj_s *o)
 {
     obj_sprite_s *spr   = &o->sprites[0];
-    int           frame = 0;
+    i32           frame = 0;
 
     switch (npc_get_state(g, o)) {
     case NPC_GROUNDED: {

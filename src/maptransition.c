@@ -12,6 +12,7 @@ enum {
 enum {
     MAPTRANSITION_FADE_NONE,
     MAPTRANSITION_FADE_OUT,
+    MAPTRANSITION_FADE_BLACK,
     MAPTRANSITION_FADE_IN,
     //
     NUM_MAPTRANSITION_PHASES
@@ -20,6 +21,7 @@ enum {
 const i32 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     0,
     15,
+    1,
     30};
 
 void maptransition_init(game_s *g, const char *file,
@@ -55,7 +57,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
         return 0;
     }
 
-    int touchedbounds = 0;
+    i32 touchedbounds = 0;
     if (o->pos.x <= 0)
         touchedbounds = DIRECTION_W;
     if (g->pixel_x <= o->pos.x + o->w)
@@ -107,8 +109,8 @@ bool32 maptransition_try_hero_slide(game_s *g)
 
     maptransition_init(g, nextroom->filename,
                        MAPTRANSITION_TYPE_SLIDE, feet, hvel, o->facing);
-    mt->dir           = touchedbounds;
-    mt->airjumps_left = g->hero_mem.airjumps_left;
+    mt->dir     = touchedbounds;
+    mt->flytime = g->hero_mem.flytime;
     return 1;
 }
 
@@ -132,18 +134,18 @@ void maptransition_update(game_s *g)
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
     game_load_map(g, mt->to_load);
-    obj_s  *hero      = hero_create(g);
-    hero_s *hh        = (hero_s *)&g->hero_mem;
-    hero->pos.x       = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y       = mt->hero_feet.y - hero->h;
-    hero->facing      = mt->hero_face;
-    hero->vel_q8      = mt->hero_v;
-    hh->airjumps_left = mt->airjumps_left;
-    v2_i32 hpos       = obj_pos_center(hero);
+    obj_s  *hero = hero_create(g);
+    hero_s *hh   = (hero_s *)&g->hero_mem;
+    hero->pos.x  = mt->hero_feet.x - hero->w / 2;
+    hero->pos.y  = mt->hero_feet.y - hero->h;
+    hero->facing = mt->hero_face;
+    hero->vel_q8 = mt->hero_v;
+    hh->flytime  = mt->flytime;
+    v2_i32 hpos  = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
     v2_i32 *resp_closest = NULL;
-    for (int n = 0; n < g->n_respawns; n++) {
+    for (u32 n = 0; n < g->n_respawns; n++) {
         v2_i32 *rp = &g->respawns[n];
         u32     d  = v2_distancesq(hpos, *rp);
         if (d < respawn_d) {
@@ -162,11 +164,15 @@ void maptransition_update(game_s *g)
 
 void maptransition_draw(game_s *g, v2_i32 cam)
 {
-    maptransition_s *mt = &g->maptransition;
+    tex_s            display = asset_tex(0);
+    maptransition_s *mt      = &g->maptransition;
+    if (mt->fade_phase == MAPTRANSITION_FADE_BLACK) {
+        tex_clr(display, GFX_COL_BLACK);
+        return;
+    }
 
-    const i32 ticks  = maptransition_phase[mt->fade_phase];
-    const i32 ticksh = ticks >> 1;
-    const i32 ft     = mt->fade_tick - ticksh;
+    const i32 ticks = maptransition_phase[mt->fade_phase];
+    const i32 ft2   = mt->fade_tick * 2 - ticks;
 
     gfx_pattern_s pat = {0};
 
@@ -175,32 +181,30 @@ void maptransition_draw(game_s *g, v2_i32 cam)
         pat = gfx_pattern_interpolate(mt->fade_tick, ticks);
         break;
     case MAPTRANSITION_FADE_IN:
-        if (ft < 0) {
+        if (ft2 < 0) {
             pat = gfx_pattern_100();
         } else {
-            pat = gfx_pattern_interpolate(ticksh - ft, ticksh);
+            pat = gfx_pattern_interpolate(ticks - ft2, ticks);
         }
-
         break;
     }
 
     spm_push();
 
-    tex_s display = asset_tex(0);
-    tex_s tmp     = tex_create_opaque(display.w, display.h, spm_allocator);
-    for (int y = 0; y < tmp.h; y++) {
+    tex_s tmp = tex_create_opaque(display.w, display.h, spm_allocator);
+    for (i32 y = 0; y < tmp.h; y++) {
         u32 p = ~pat.p[y & 7];
-        for (int x = 0; x < tmp.wword; x++) {
+        for (i32 x = 0; x < tmp.wword; x++) {
             tmp.px[x + y * tmp.wword] = p;
         }
     }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero && 0 <= ft) {
+    if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero && 0 <= ft2) {
         gfx_ctx_s ctxc = gfx_ctx_default(tmp);
         v2_i32    cpos = v2_add(obj_pos_center(ohero), cam);
-        ctxc.pat       = gfx_pattern_interpolate(ft, ticksh);
-        i32 cird       = ease_out_quad(0, 200, ft, ticksh);
+        ctxc.pat       = gfx_pattern_interpolate(ft2, ticks);
+        i32 cird       = ease_out_quad(0, 200, ft2, ticks);
         gfx_cir_fill(ctxc, cpos, cird, PRIM_MODE_WHITE);
     }
 

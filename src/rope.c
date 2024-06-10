@@ -49,11 +49,10 @@ void rope_init(rope_s *r)
     rt->next       = NULL;
     r->head        = rh;
     r->tail        = rt;
-}
-
-void rope_set_len_max_q4(rope_s *r, i32 len_max_q4)
-{
-    r->len_max_q4 = len_max_q4;
+    //
+    r->o_head      = obj_handle_from_obj(NULL);
+    r->o_tail      = obj_handle_from_obj(NULL);
+    r->len_max_q4  = 0;
 }
 
 ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
@@ -141,7 +140,7 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
         !overlap_tri_lineseg_excl(t2, lv)) return;
 
     if (ropepts_find(pts, p.p) >= 0) return;
-    int k = rope_points_collinearity(pts, p.p);
+    i32 k = rope_points_collinearity(pts, p.p);
     // add or overwrite
     if (k == pts->n) {
         pts->pt[pts->n++] = p.p;
@@ -256,7 +255,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
 
     spm_push();
 
-    ropepts_s *pts = (ropepts_s *)spm_alloc(sizeof(ropepts_s));
+    ropepts_s *pts = spm_alloct(ropepts_s, 1);
     pts->n         = 2;
     pts->pt[0]     = p0;
     pts->pt[1]     = p2;
@@ -271,7 +270,7 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
 
     // at this point we have some obstacles
     // wrap the rope around them - build a convex hull
-    ropepts_s *hull = (ropepts_s *)spm_alloc(sizeof(ropepts_s));
+    ropepts_s *hull = spm_alloct(ropepts_s, 1);
     hull->n         = 0;
     rope_build_convex_hull(pts, p0, p2, dir, hull);
 
@@ -371,11 +370,10 @@ static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
  *    \|     and ends up being inside the solid
  *     o______
  */
-void rope_moved_by_solid(game_s *g, rope_s *r, obj_s *solid, v2_i32 dt)
+void rope_moved_by_aabb(game_s *g, rope_s *r, rec_i32 aabb, v2_i32 dt)
 {
     v2_i32  points_[4];
-    rec_i32 aabb = obj_aabb(solid);
-    rec_i32 rec  = aabb;
+    rec_i32 rec = aabb;
     points_from_rec(aabb, points_);
 
     // only consider the points moving "forward" of the solid
@@ -497,9 +495,9 @@ void tighten_ropesegment(game_s *g, rope_s *r,
     ropenode_delete(r, rc);
 
     spm_push();
-    ropepts_s *hull   = (ropepts_s *)spm_alloc(sizeof(ropepts_s));
+    ropepts_s *hull   = spm_alloct(ropepts_s, 1);
     hull->n           = 0;
-    ropepts_s *pts    = (ropepts_s *)spm_alloc(sizeof(ropepts_s));
+    ropepts_s *pts    = spm_alloct(ropepts_s, 1);
     pts->n            = 0;
     pts->pt[pts->n++] = pprev;
     pts->pt[pts->n++] = pnext;
@@ -546,7 +544,7 @@ void rope_update(game_s *g, rope_s *r)
     }
 }
 
-u32 rope_length_q4(game_s *g, rope_s *r)
+u32 rope_len_q4(game_s *g, rope_s *r)
 {
     rope_update(g, r);
     u32 len = 0;
@@ -555,13 +553,6 @@ u32 rope_length_q4(game_s *g, rope_s *r)
         len += v2_len(dt);
     }
     return len;
-}
-
-bool32 rope_stretched(game_s *g, rope_s *r)
-{
-    u32 len_q4     = rope_length_q4(g, r);
-    u32 len_max_q4 = r->len_max_q4;
-    return (len_max_q4 < len_q4);
 }
 
 bool32 rope_intact(game_s *g, rope_s *r)
@@ -608,4 +599,131 @@ ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn)
 {
     assert(rn == r->head || rn == r->tail);
     return (rn->next ? rn->next : rn->prev);
+}
+
+void rope_verletsim(game_s *g, rope_s *r)
+{
+    typedef struct {
+        i32    i;
+        v2_i32 p;
+    } verlet_pos_s;
+
+    // calculated current length in Q8
+    u32          ropelen_q8 = 1 + (rope_len_q4(g, r) << 4); // +1 to avoid div 0
+    i32          n_vpos     = 0;
+    verlet_pos_s vpos[64]   = {0};
+    verlet_pos_s vp_beg     = {0, v2_shl(r->tail->p, 8)};
+    vpos[n_vpos++]          = vp_beg;
+
+    u32 dista = 0;
+    for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
+        dista += v2_len(v2_shl(v2_sub(r1->p, r2->p), 8));
+        i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
+        if (1 <= i && i < ROPE_VERLET_N - 1) {
+            verlet_pos_s vp = {i, v2_shl(r2->p, 8)};
+            vpos[n_vpos++]  = vp;
+        }
+    }
+
+    verlet_pos_s vp_end = {ROPE_VERLET_N - 1, v2_shl(r->head->p, 8)};
+    vpos[n_vpos++]      = vp_end;
+
+    u32 ropelen_max_q8 = r->len_max_q4 << 4;
+    f32 len_ratio      = min_f(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
+    i32 ll_q8          = (i32)((f32)ropelen_max_q8 * len_ratio) / ROPE_VERLET_N;
+
+    for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {
+        rope_pt_s *pt  = &r->ropept[n];
+        v2_i32     tmp = pt->p;
+        pt->p.x += (pt->p.x - pt->pp.x);
+        pt->p.y += (pt->p.y - pt->pp.y) + ROPE_VERLET_GRAV;
+        pt->pp = tmp;
+    }
+
+    for (i32 k = 0; k < ROPE_VERLET_IT; k++) {
+        for (int n = 1; n < ROPE_VERLET_N; n++) {
+            rope_pt_s *p1 = &r->ropept[n - 1];
+            rope_pt_s *p2 = &r->ropept[n];
+
+            v2_i32 dt = v2_sub(p1->p, p2->p);
+            v2_f32 df = {(f32)dt.x, (f32)dt.y};
+            f32    dl = v2f_len(df);
+            i32    dd = (i32)(dl + .5f) - ll_q8;
+
+            if (dd <= 1) continue;
+            dt    = v2_setlenl(dt, dl, dd >> 1);
+            p1->p = v2_sub(p1->p, dt);
+            p2->p = v2_add(p2->p, dt);
+        }
+
+        for (int n = n_vpos - 1; 0 <= n; n--) {
+            r->ropept[vpos[n].i].p = vpos[n].p;
+        }
+    }
+
+    if (len_ratio < 0.95f) return;
+
+    // straighten rope
+    for (int n = 1; n < ROPE_VERLET_N - 1; n++) {
+        bool32 contained = 0;
+        for (int i = 0; i < n_vpos; i++) {
+            if (vpos[i].i == n) {
+                contained = 1; // is fixed to corner already
+                break;
+            }
+        }
+        if (contained) continue;
+
+        // figure out previous and next corner of verlet particle
+        verlet_pos_s prev_vp = {-1};
+        verlet_pos_s next_vp = {ROPE_VERLET_N};
+
+        for (int i = 0; i < n_vpos; i++) {
+            verlet_pos_s vp = vpos[i];
+            if (prev_vp.i < vp.i && vp.i < n) {
+                prev_vp = vpos[i];
+            }
+            if (vp.i < next_vp.i && n < vp.i) {
+                next_vp = vpos[i];
+            }
+        }
+
+        if (!(0 <= prev_vp.i && next_vp.i < ROPE_VERLET_N)) continue;
+
+        // lerp position of particle towards straight line between corners
+        v2_i32 ptarget = v2_lerp(prev_vp.p, next_vp.p,
+                                 n - prev_vp.i,
+                                 next_vp.i - prev_vp.i);
+        r->ropept[n].p = v2_lerp(r->ropept[n].p, ptarget, 1, 4);
+    }
+}
+
+i32 rope_stretch_q8(game_s *g, rope_s *r)
+{
+    u32 len_q4 = rope_len_q4(g, r);
+    return ((len_q4 << 8) / r->len_max_q4);
+}
+
+obj_s *rope_obj_connected_to(obj_s *o)
+{
+    rope_s     *r  = o->rope;
+    ropenode_s *rn = o->ropenode;
+    if (!r || !rn) return NULL;
+
+    obj_s *o1 = obj_from_obj_handle(r->o_head);
+    obj_s *o2 = obj_from_obj_handle(r->o_tail);
+    if (o1 == o) return o2;
+    if (o2 == o) return o1;
+    return NULL;
+}
+
+v2_i32 rope_obj_dt(obj_s *o)
+{
+    v2_i32      d  = {0};
+    rope_s     *r  = o->rope;
+    ropenode_s *rn = o->ropenode;
+    if (!r || !rn) return d;
+
+    ropenode_s *rno = ropenode_neighbour(r, rn);
+    return v2_sub(rno->p, rn->p);
 }

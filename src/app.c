@@ -11,13 +11,30 @@
 
 game_s GAME;
 
+typedef struct {
+    i32 slomorate;
+    i32 slomotick;
+} app_s;
+
+static app_s APP;
+
 void app_load_tex();
 void app_load_fnt();
 void app_load_snd();
-void app_load_game();
 
-void app_load_game()
+void app_init()
 {
+    spm_init();
+    assets_init();
+    aud_init();
+#ifdef PLTF_PD
+    assets_import();
+#else
+    app_load_tex();
+    app_load_fnt();
+    app_load_snd();
+    assets_export();
+#endif
     game_s *g = &GAME;
 
     pltf_log("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
@@ -40,26 +57,20 @@ void app_load_game()
     game_init(g);
 }
 
-void app_init()
-{
-    spm_init();
-    assets_init();
-    aud_init();
-#ifdef PLTF_PD
-    assets_import();
-#else
-    app_load_tex();
-    app_load_fnt();
-    app_load_snd();
-    assets_export();
-#endif
-    app_load_game();
-}
-
 void app_tick()
 {
+    aud_update();
+    aud_set_lowpass(0);
+
+    if (APP.slomorate) {
+        APP.slomotick++;
+        APP.slomotick %= APP.slomorate;
+        if (APP.slomotick) return;
+    }
+
     inp_update();
     game_s *g = &GAME;
+
     switch (g->state) {
     case APP_STATE_TITLE:
         title_update(g, &g->title);
@@ -68,8 +79,6 @@ void app_tick()
         game_tick(g);
         break;
     }
-
-    aud_update();
 }
 
 void app_draw()
@@ -112,25 +121,17 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 
 void app_load_tex()
 {
-    tex_s ttileset;
-    asset_tex_loadID(TEXID_TILESET_TERRAIN, "tileset", &ttileset);
-    asset_tex_loadID(TEXID_TILESET_PROPS_BG, "tileset_props_bg", NULL);
-    asset_tex_loadID(TEXID_TILESET_PROPS_FG, "tileset_props_fg", NULL);
+    asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", NULL);
+    asset_tex_loadID(TEXID_TILESET_PROPS_BG, "TILESET_BG", NULL);
+    asset_tex_loadID(TEXID_TILESET_PROPS_FG, "TILESET_FG", NULL);
 
-    // overlay dither
-    gfx_ctx_s ctxts     = gfx_ctx_default(ttileset);
-    texrec_s  tr_dither = {ttileset, {0, 256, 512, 256}};
-    for (i32 n = 0; n < 16; n++) {
-        gfx_spr(ctxts, tr_dither, (v2_i32){0, (2 + n) * 256}, 0, 0);
-    }
-
-#if defined(PLTF_DEBUG) && 0
+#if PLTF_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
     asset_tex_putID(TEXID_COLLISION_TILES, tcoll);
     gfx_ctx_s ctxcoll = gfx_ctx_default(tcoll);
-    for (int t = 0; t < NUM_TILE_SHAPES; t++) {
-        for (int i = 0; i < 16; i++) {
-            for (int j = 0; j < 16; j++) {
+    for (i32 t = 0; t < NUM_TILE_SHAPES; t++) {
+        for (i32 i = 0; i < 16; i++) {
+            for (i32 j = 0; j < 16; j++) {
                 if (tile_solid_pt(t, i, j)) {
                     rec_i32 pr = {j, i + t * 16, 1, 1};
                     gfx_rec_fill(ctxcoll, pr, PRIM_MODE_BLACK);
@@ -138,7 +139,6 @@ void app_load_tex()
             }
         }
     }
-
 #endif
 
     asset_tex_loadID(TEXID_MAINMENU, "mainmenu", NULL);
@@ -153,23 +153,22 @@ void app_load_tex()
     tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
-    asset_tex_loadID(TEXID_UI_TEXTBOX, "textbox", NULL);
     asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants", NULL);
     asset_tex_loadID(TEXID_WIGGLE_DECO, "wiggle_deco", NULL);
 
     tex_s tcharger;
     asset_tex_loadID(TEXID_CHARGER, "charger", &tcharger);
-    for (int y = 0; y < 3; y++) {
-        for (int x = 0; x < 4; x++) {
+    for (i32 y = 0; y < 3; y++) {
+        for (i32 x = 0; x < 4; x++) {
             tex_outline(tcharger, x * 128, y * 64, 128, 64, 1, 1);
         }
     }
 
     tex_s tshroomy;
     asset_tex_loadID(TEXID_SHROOMY, "shroomy", &tshroomy);
-    for (int y = 0; y < 4; y++) {
-        for (int x = 0; x < 8; x++) {
+    for (i32 y = 0; y < 4; y++) {
+        for (i32 x = 0; x < 8; x++) {
             tex_outline(tshroomy, x * 64, y * 48, 64, 48, 1, 1);
         }
     }
@@ -195,8 +194,8 @@ void app_load_tex()
 
     tex_s tskeleton;
     asset_tex_loadID(TEXID_SKELETON, "skeleton", &tskeleton);
-    for (int y = 0; y < 2; y++) {
-        for (int x = 0; x < 4; x++) {
+    for (i32 y = 0; y < 2; y++) {
+        for (i32 x = 0; x < 4; x++) {
             tex_outline(tskeleton, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
@@ -209,8 +208,8 @@ void app_load_tex()
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
-    for (int y = 0; y < 20; y++) {
-        for (int x = 0; x < 16; x++) {
+    for (i32 y = 0; y < 22; y++) {
+        for (i32 x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
@@ -221,7 +220,7 @@ void app_load_tex()
     texrec_s  trhook   = {thook, {0, 0, 32, 32}};
     gfx_ctx_s ctx_hook = gfx_ctx_default(thook);
 
-    for (int i = 1; i < 16; i++) {
+    for (i32 i = 1; i < 16; i++) {
         v2_i32 origin = {16, 16};
         v2_i32 pp     = {0, i * 32};
         f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
@@ -229,32 +228,70 @@ void app_load_tex()
     }
     tex_outline(thook, 0, 0, thook.w / 2, thook.h, 1, 1);
 
+    tex_s twallworm;
+    asset_tex_loadID(TEXID_WALLWORM, "wallworm", &twallworm);
+    texrec_s  trwallworm_1 = {twallworm, {0, 0, 512, 32}};
+    texrec_s  trwallworm   = {twallworm, {0, 0, 32, 32}};
+    gfx_ctx_s ctx_wallworm = gfx_ctx_default(twallworm);
+    gfx_spr(ctx_wallworm, trwallworm_1, (v2_i32){512, 0}, 0, SPR_MODE_BLACK);
+
+    for (i32 i = 1; i < 16; i++) {
+        v2_i32 origin = {16, 16};
+        f32    ang    = (PI_FLOAT * (f32)i * 0.125f);
+
+        for (i32 n = 0; n < 18; n++) {
+            v2_i32 pp      = {n * 32, i * 32};
+            trwallworm.r.x = n * 32;
+
+            gfx_spr_rotscl(ctx_wallworm, trwallworm, pp, origin, -ang, 1.f, 1.f);
+            trwallworm.r.x += 512;
+            pp.x += 512;
+            gfx_spr_rotscl(ctx_wallworm, trwallworm, pp, origin, -ang, 1.f, 1.f);
+        }
+    }
+
+    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
+    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
+
     tex_s tnpc;
     asset_tex_loadID(TEXID_NPC, "npc", &tnpc);
-    for (int y = 0; y < 5; y++) {
-        for (int x = 0; x < 16; x++) {
+    for (i32 y = 0; y < 5; y++) {
+        for (i32 x = 0; x < 16; x++) {
             tex_outline(tnpc, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
 
     tex_s tflyer;
     asset_tex_loadID(TEXID_FLYER, "flyer", &tflyer);
-    for (int y = 0; y < 1; y++) {
-        for (int x = 0; x < 4; x++) {
+    for (i32 y = 0; y < 1; y++) {
+        for (i32 x = 0; x < 4; x++) {
             tex_outline(tflyer, x * 128, y * 96, 128, 96, 1, 1);
         }
     }
+
+    tex_s tflyingbug;
+    asset_tex_loadID(TEXID_FLYING_BUG, "flyingbug", &tflyingbug);
+    gfx_ctx_s ctx_fbug = gfx_ctx_default(tflyingbug);
+    texrec_s  tfbug    = {tflyingbug, {0, 96, 96 * 6, 96}};
+    gfx_spr(ctx_fbug, tfbug, (v2_i32){0, 96 * 2}, 0, 0);
+    for (i32 y = 0; y < 2; y++) {
+        texrec_s tfbugwing = {tflyingbug, {y * 96, 0, 96, 96}};
+        for (i32 x = 0; x < 6; x++) {
+            gfx_spr(ctx_fbug, tfbugwing, (v2_i32){x * 96, (y + 1) * 96}, 0, 0);
+        }
+    }
+    tex_outline(tflyingbug, 0, 96, 96 * 6, 96 * 2, 1, 1);
 
     // prerender 8 rotations
     asset_tex_loadID(TEXID_CRAWLER, "crawler", NULL);
     {
         texrec_s  trcrawler   = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
         gfx_ctx_s ctx_crawler = gfx_ctx_default(trcrawler.t);
-        for (int k = 0; k < 8; k++) {
+        for (i32 k = 0; k < 8; k++) {
             v2_i32 origin = {32, 48 - 10};
             trcrawler.r.x = k * 64;
 
-            for (int i = 1; i < 8; i++) {
+            for (i32 i = 1; i < 8; i++) {
                 v2_i32 pp  = {k * 64, i * 64};
                 f32    ang = (PI_FLOAT * (f32)i * 0.25f);
                 gfx_spr_rotscl(ctx_crawler, trcrawler, pp, origin, -ang, 1.f, 1.f);
@@ -301,4 +338,16 @@ void app_load_fnt()
     asset_fnt_loadID(FNTID_SMALL, "font_small", NULL);
     asset_fnt_loadID(FNTID_MEDIUM, "font_med", NULL);
     asset_fnt_loadID(FNTID_LARGE, "font_large", NULL);
+}
+
+void app_slomo(i32 rate)
+{
+    if (rate == APP.slomorate) return;
+    APP.slomorate = rate;
+    APP.slomotick = 0;
+}
+
+i32 app_get_slomo()
+{
+    return APP.slomorate;
 }

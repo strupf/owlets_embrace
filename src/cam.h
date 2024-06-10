@@ -8,7 +8,7 @@
 #include "gamedef.h"
 
 #define CAM_ATTRACTOR_RADIUS   300.f
-#define CAM_ATTRACTOR_MAX_OFFS 50.f
+#define CAM_ATTRACTOR_MAX_OFFS 40.f
 
 enum {
     CAM_MODE_DIRECT,
@@ -19,15 +19,13 @@ enum {
 typedef struct {
     v2_f32 pos;
     v2_f32 offs_shake;
-    i32    mode;
-
-    i32    look_tick;
-    i32    shake_ticks;
-    i32    shake_ticks_max;
-    i32    shake_str;
-    bool32 locked_x;
-    bool32 locked_y;
-
+    i16    mode;
+    i16    look_tick;
+    i16    shake_ticks;
+    i16    shake_ticks_max;
+    i16    shake_str;
+    bool8  locked_x;
+    bool8  locked_y;
     v2_f32 look_ahead;
     v2_f32 camattr;
     i32    n_attractors;

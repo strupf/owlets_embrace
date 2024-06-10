@@ -20,7 +20,7 @@ enum {
 
 static flags32 g_areafx[NUM_AREA_ID] = {
     0,                     // none
-    AFX_WIND,              // white
+    0,                     // white
     0,                     // black
     AFX_CLOUDS | AFX_WIND, // mountain
     AFX_CLOUDS | AFX_RAIN, // mountain rainy
@@ -28,14 +28,14 @@ static flags32 g_areafx[NUM_AREA_ID] = {
     AFX_WIND,              // forest
 };
 
-static v2_i32 area_parallax(v2_i32 cam, int x_q8, int y_q8, int ax, int ay)
+static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 {
     v2_i32 p = {((cam.x * x_q8) >> 8) & ~ax,
                 ((cam.y * y_q8) >> 8) & ~ay};
     return p;
 }
 
-void area_setup(game_s *g, area_s *a, int ID)
+void area_setup(game_s *g, area_s *a, i32 ID)
 {
     *a    = (area_s){0};
     a->ID = ID;
@@ -88,7 +88,7 @@ void area_update(game_s *g, area_s *a)
 void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s tdisplay = asset_tex(0);
-    int   clip_y2  = min_i(g->ocean.y_max, tdisplay.h);
+    i32   clip_y2  = min_i(g->ocean.y_max, tdisplay.h);
 
     const gfx_ctx_s ctx = gfx_ctx_clip_bot(gfx_ctx_default(tdisplay), clip_y2);
 

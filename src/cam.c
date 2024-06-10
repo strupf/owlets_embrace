@@ -63,12 +63,12 @@ void cam_update(game_s *g, cam_s *c)
 {
     obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
 
-    v2_f32 ppos   = c->pos;
-    v2_f32 padd   = {0};
-    v2_f32 lahead = {0};
-    i32    dpad_y = inp_y();
+    v2_f32 ppos       = c->pos;
+    v2_f32 padd       = {0};
+    v2_f32 lahead     = {0};
+    i32    dpad_y     = inp_y();
+    i32    look_tickp = c->look_tick;
 
-    const i32 look_tickp = c->look_tick;
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
         hero_s *h     = (hero_s *)hero->mem;
         v2_i32  herop = obj_pos_bottom_center(hero);
@@ -79,12 +79,14 @@ void cam_update(game_s *g, cam_s *c)
         i32    target_y     = py_bot;
         bool32 herogrounded = obj_grounded(g, hero);
 
-        padd.x = (f32)(target_x - c->pos.x) * .1f;
+        f32 diffx = (f32)(target_x - c->pos.x);
+        f32 diffy = (f32)(target_y - c->pos.y);
+        padd.x    = diffx * .1f;
 
         if (herogrounded && 0 <= hero->vel_q8.y) {
             // move camera upwards if hero landed on new platform
             // "new base height"
-            padd.y = (f32)(target_y - c->pos.y) * .05f;
+            padd.y = diffy * .05f;
             if (abs_i(hero->vel_q8.x) < 64 && dpad_y) {
                 if (20 <= ++c->look_tick) {
                     lahead.y = (f32)(dpad_y * 50);
@@ -92,12 +94,19 @@ void cam_update(game_s *g, cam_s *c)
             }
         }
 
-        if (0.5f <= v2f_lensq(padd)) {
-            c->pos = v2f_add(c->pos, padd);
+        if (abs_f32(diffx) < 1.5f) {
+            c->pos.x = (f32)target_x;
+        } else {
+            c->pos.x += padd.x;
+        }
+        if (abs_f32(diffy) < 1.5f) {
+            c->pos.y = (f32)target_y;
+        } else {
+            c->pos.y += padd.y;
         }
 
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
-        lahead.x = (f32)hero->facing * 50.f + (f32)hero->vel_q8.x * 0.05f;
+        lahead.x = (f32)hero->facing * 50.f;
     }
 
     if (c->look_tick == look_tickp) {

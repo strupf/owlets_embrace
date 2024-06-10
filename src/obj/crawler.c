@@ -22,39 +22,39 @@ enum {
     CRAWLER_SUBSTATE_CURLED,
 };
 
-static int crawler_find_crawl_direction(game_s *g, obj_s *o, int dir);
+static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir);
 
 typedef struct {
     i32 bounce_rotation_q12; // in turns
     i32 bounce_angle_q12;    // in turns
 } obj_crawler_s;
 
-static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, int dir)
+static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, i32 dir)
 {
     v2_i32  cp = direction_v2(dir);
     rec_i32 rr = translate_rec(aabb, cp);
-    if (!map_traversable(g, rr)) return 0;        // direction blocked
+    if (!map_traversable(g, rr)) return 0;         // direction blocked
     rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h}; // check if there is a solid surface on the side
     rec_i32 r2 = {rr.x, rr.y - 1, rr.w, rr.h + 2};
     return !(map_traversable(g, r1) && map_traversable(g, r2));
 }
 
-static int crawler_find_crawl_direction(game_s *g, obj_s *o, int dir)
+static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir)
 {
     const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
     if (map_traversable(g, rbounds)) // check if any surface nearby
         return 0;
 
-    int           dr   = rngr_i32(1, 8);
-    int           d    = dir == 0 ? dr : dir; // choose a random preferred direction if not currently crawling
+    i32           dr   = rngr_i32(1, 8);
+    i32           d    = dir == 0 ? dr : dir; // choose a random preferred direction if not currently crawling
     const rec_i32 aabb = obj_aabb(o);
 
     if (crawler_can_crawl(g, o, aabb, d)) // try crawling in the same direction
         return d;
 
-    int dir_a = d; // otherwise: try crawling in the next nearest directions
-    int dir_b = d;
-    for (int k = 0; k < 4; k++) {
+    i32 dir_a = d; // otherwise: try crawling in the next nearest directions
+    i32 dir_b = d;
+    for (i32 k = 0; k < 4; k++) {
         dir_a = direction_nearest(dir_a, 0);
         dir_b = direction_nearest(dir_b, 1);
         if (crawler_can_crawl(g, o, aabb, dir_a))
@@ -83,7 +83,7 @@ static void crawler_do_normal(game_s *g, obj_s *o)
     }
 
     // returns a direction if still sticking to a wall
-    int dir_to_crawl = crawler_find_crawl_direction(g, o, o->action);
+    i32 dir_to_crawl = crawler_find_crawl_direction(g, o, o->action);
     o->action        = dir_to_crawl;
 
     if (dir_to_crawl) { // glued to wall
@@ -172,18 +172,14 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
 // to continue crawling.
 void crawler_on_update(game_s *g, obj_s *o)
 {
-#if 0
-    o->enemy.cannot_be_hurt = 0;
-    o->drag_q8.y            = 255;
-    o->drag_q8.x            = 255;
+    o->drag_q8.y = 255;
+    o->drag_q8.x = 255;
 
     if (o->state == CRAWLER_STATE_BOUNCING) {
-        o->enemy.cannot_be_hurt = 1;
         crawler_do_bounce(g, o);
     } else {
         crawler_do_normal(g, o);
     }
-#endif
 }
 
 void crawler_on_animate(game_s *g, obj_s *o)
@@ -191,7 +187,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
     obj_sprite_s  *spr     = &o->sprites[0];
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
     spr->flip              = 0;
-    int imgy               = 0;
+    i32 imgy               = 0;
 
     if (o->state == CRAWLER_STATE_CRAWLING) {
         switch (o->action) {
@@ -280,7 +276,7 @@ void crawler_on_animate(game_s *g, obj_s *o)
     spr->trec.r.y = imgy * 64;
 }
 
-static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
+static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
 {
     assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
@@ -309,8 +305,8 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, int ID)
     spr->offs.y        = o->h / 2 - 48 + 10;
 
     // difference between tilesize and object dimension
-    for (int y = 0; y <= 1; y++) {
-        for (int x = 0; x <= 1; x++) {
+    for (i32 y = 0; y <= 1; y++) {
+        for (i32 x = 0; x <= 1; x++) {
             o->pos.x = mo->x + x - mo->w / 2;
             o->pos.y = mo->y + y - mo->h;
             if (crawler_find_crawl_direction(g, o, 0)) {

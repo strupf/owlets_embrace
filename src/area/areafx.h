@@ -30,7 +30,7 @@ typedef struct {
 
 typedef struct {
     bool32         dirty;
-    int            n;
+    i32            n;
     areafx_cloud_s clouds[AREAFX_CLOUDS];
 } areafx_clouds_s;
 
@@ -58,8 +58,8 @@ typedef struct {
 #define AREAFX_HEAT_ROWS PLTF_DISPLAY_H
 
 typedef struct {
+    i32 tick;
     i8  offset[AREAFX_HEAT_ROWS];
-    int tick;
 } areafx_heat_s;
 
 #define AREAFX_RAIN_DROPS 512
@@ -70,15 +70,15 @@ typedef struct {
 } areafx_raindrop_s;
 
 typedef struct {
-    int lightning_tick;
-    int lightning_twice;
+    i32 lightning_tick;
+    i32 lightning_twice;
 
-    int               n_drops;
+    i32               n_drops;
     areafx_raindrop_s drops[AREAFX_RAIN_DROPS];
 } areafx_rain_s;
 
 typedef struct {
-    int x;
+    i32 x;
 } areafx_leaves_s;
 
 #define AREAFX_PT_CALM_N 96

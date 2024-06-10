@@ -14,5 +14,8 @@ void app_close();
 void app_resume();
 void app_pause();
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
+//
+void app_slomo(i32 rate); // higher is slower
+i32  app_get_slomo();
 
 #endif

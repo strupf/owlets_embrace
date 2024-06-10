@@ -11,9 +11,14 @@
 #define MMEGABYTE(X) ((X)*1024 * 1024)
 
 typedef union {
-    char  b[1024];
+    char  b[0x400];
     void *align_min;
 } mkilobyte_s;
+
+typedef union {
+    char  b[0x100000];
+    void *align_min;
+} mmegabyte_s;
 
 typedef struct {
     void *p;
@@ -30,11 +35,12 @@ typedef struct {
 
 typedef struct mhblock_s mhblock_s;
 struct mhblock_s {
-    align_CL mhblock_s *next;
-    mhblock_s          *prev;
-    mhblock_s          *nextphys;
-    mhblock_s          *prevphys;
-    usize               s;
+    ALIGNCL
+    mhblock_s *next;
+    mhblock_s *prev;
+    mhblock_s *nextphys;
+    mhblock_s *prevphys;
+    usize      s;
 };
 
 typedef struct {

@@ -59,8 +59,8 @@ typedef struct {
 
 typedef struct {
     u8 *buf;
-    int n;
-    int cap;
+    i32 n;
+    i32 cap;
 } fntstr_s;
 
 enum {
@@ -95,16 +95,15 @@ enum {
 #define gfx_pattern_white() gfx_pattern_100()
 #define gfx_pattern_black() gfx_pattern_0()
 
-fnt_s         fnt_load(const char *filename, alloc_s ma);
 tex_s         tex_framebuffer();
-tex_s         tex_create(int w, int h, alloc_s ma);
-tex_s         tex_create_opaque(int w, int h, alloc_s ma);
+tex_s         tex_create(i32 w, i32 h, alloc_s ma);
+tex_s         tex_create_opaque(i32 w, i32 h, alloc_s ma);
 tex_s         tex_load(const char *path, alloc_s ma);
-int           tex_px_at(tex_s tex, int x, int y);
-int           tex_mk_at(tex_s tex, int x, int y);
-void          tex_px(tex_s tex, int x, int y, int col);
-void          tex_mk(tex_s tex, int x, int y, int col);
-void          tex_outline(tex_s tex, int x, int y, int w, int h, int col, bool32 dia);
+i32           tex_px_at(tex_s tex, i32 x, i32 y);
+i32           tex_mk_at(tex_s tex, i32 x, i32 y);
+void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
+void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
+void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);
@@ -115,42 +114,41 @@ gfx_ctx_s     gfx_ctx_clip_left(gfx_ctx_s ctx, i32 x1);
 gfx_ctx_s     gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2);
 gfx_ctx_s     gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r);
 gfx_ctx_s     gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h);
-void          tex_clr(tex_s dst, int col);
-gfx_pattern_s gfx_pattern_2x2(int p0, int p1);
-gfx_pattern_s gfx_pattern_4x4(int p0, int p1, int p2, int p3);
-gfx_pattern_s gfx_pattern_8x8(int p0, int p1, int p2, int p3, int p4, int p5, int p6, int p7);
-gfx_pattern_s gfx_pattern_bayer_4x4(int i);
-gfx_pattern_s gfx_pattern_interpolate(int num, int den);
-gfx_pattern_s gfx_pattern_interpolatec(int num, int den, int (*ease)(int a, int b, int num, int den));
+void          tex_clr(tex_s dst, i32 col);
+gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
+gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
+gfx_pattern_s gfx_pattern_8x8(i32 p0, i32 p1, i32 p2, i32 p3, i32 p4, i32 p5, i32 p6, i32 p7);
+gfx_pattern_s gfx_pattern_bayer_4x4(i32 i);
+gfx_pattern_s gfx_pattern_interpolate(i32 num, i32 den);
+gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den, i32 (*ease)(i32 a, i32 b, i32 num, i32 den));
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode);
-void          gfx_spr_tile(gfx_ctx_s ctx, tex_s tex, i32 tx, i32 ty, i32 ts, v2_i32 pos);
+void          gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos);
 void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
 void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
                              f32 sclx, f32 scly);
 
 // tiles spr across screen with tile dimensions tx/ty (pass 0 if not tiled)
-void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, int tx, int ty);
+void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, i32 tx, i32 ty);
 
 // tiles spr across screen (true/false for x/y)
-void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, int flip, int mode, bool32 x, bool32 y);
+void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 x, bool32 y);
 //
-#define gfx_rec_fill_display(C, R, M) gfx_rec_fill(C, R, M)
-void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, int mode);
-void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, int mode);
-void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, int d, int mode);
-void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode);
-void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, int mode, int d);
-void gfx_rec(gfx_ctx_s ctx, rec_i32 r, int mode);
-void gfx_tri(gfx_ctx_s ctx, tri_i32 t, int mode);
-void gfx_cir(gfx_ctx_s ctx, v2_i32 p, int r, int mode);
-void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, int n_pt, int mode);
-void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, int y1, int y2);
-void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], int mode);
+void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, i32 mode);
+void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, i32 mode);
+void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode);
+void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode);
+void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d);
+void gfx_rec(gfx_ctx_s ctx, rec_i32 r, i32 mode);
+void gfx_tri(gfx_ctx_s ctx, tri_i32 t, i32 mode);
+void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode);
+void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, i32 n_pt, i32 mode);
+void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2);
+void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
 //
-void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode);
-void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, int mode, int spacing);
-int  fnt_length_px(fnt_s fnt, const char *txt);
-int  fnt_length_px_mono(fnt_s fnt, const char *txt, int spacing);
+void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode);
+void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode, i32 spacing);
+i32  fnt_length_px(fnt_s fnt, const char *txt);
+i32  fnt_length_px_mono(fnt_s fnt, const char *txt, i32 spacing);
 
 static void spr_blit(u32 *restrict dp, u32 *restrict dm,
                      u32 sp, u32 sm, i32 mode)
@@ -167,6 +165,38 @@ static void spr_blit(u32 *restrict dp, u32 *restrict dm,
     }
 
     if (dm) *dm |= sm;
+}
+
+static void spr_blit_p(u32 *restrict dp,
+                       u32 sp, u32 sm, i32 mode)
+{
+    switch (mode) {
+    case SPR_MODE_INV: sp = ~sp; // fallthrough
+    case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
+    case SPR_MODE_XOR: sp = ~sp; // fallthrough
+    case SPR_MODE_NXOR: *dp = (*dp & ~sm) | ((*dp ^ sp) & sm); break;
+    case SPR_MODE_WHITE_ONLY: sm &= sp; // fallthrough
+    case SPR_MODE_WHITE: *dp |= sm; break;
+    case SPR_MODE_BLACK_ONLY: sm &= ~sp; // fallthrough
+    case SPR_MODE_BLACK: *dp &= ~sm; break;
+    }
+}
+
+static void spr_blit_pm(u32 *restrict dp, u32 *restrict dm,
+                        u32 sp, u32 sm, i32 mode)
+{
+    switch (mode) {
+    case SPR_MODE_INV: sp = ~sp; // fallthrough
+    case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
+    case SPR_MODE_XOR: sp = ~sp; // fallthrough
+    case SPR_MODE_NXOR: *dp = (*dp & ~sm) | ((*dp ^ sp) & sm); break;
+    case SPR_MODE_WHITE_ONLY: sm &= sp; // fallthrough
+    case SPR_MODE_WHITE: *dp |= sm; break;
+    case SPR_MODE_BLACK_ONLY: sm &= ~sp; // fallthrough
+    case SPR_MODE_BLACK: *dp &= ~sm; break;
+    }
+
+    *dm |= sm;
 }
 
 #endif

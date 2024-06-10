@@ -26,7 +26,7 @@ typedef struct {
     dialog_char_s chars[DIALOG_NUM_CHARS_PER_LINE];
 } dialog_str_s;
 
-typedef struct dialog_choice_s {
+typedef struct {
     u16 action;
     u16 trigger;
     u8  frame_tag;
@@ -34,7 +34,7 @@ typedef struct dialog_choice_s {
     u8  chars[32];
 } dialog_choice_s;
 
-typedef struct dialog_frame_s {
+typedef struct {
     u16             tag;
     u8              n_choices;
     u8              n_lines;
@@ -69,17 +69,17 @@ enum {
 };
 
 typedef struct {
-    i32             state;
+    i16             state;
     // for drawing
-    i32             timer_fade;
-    i32             timer;
+    i16             timer_fade;
+    i16             timer;
     // for writing
-    i32             tick_q2; // tick accumulator for writing
-    i32             cur_frame;
-    i32             cur_line;
-    i32             cur_char;
-    i32             cur_choice;
-    bool32          fast_forward;
+    i16             tick_q2; // tick accumulator for writing
+    i16             cur_frame;
+    i16             cur_line;
+    i16             cur_char;
+    i16             cur_choice;
+    bool16          fast_forward;
     dialog_frame_s *frame;
     // data
     i32             n_frames;

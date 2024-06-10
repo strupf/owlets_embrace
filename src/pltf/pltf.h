@@ -8,6 +8,12 @@
 #include "pltf_intrin.h"
 #include "pltf_types.h"
 
+#if defined(PLTF_PD)
+#include "pltf_pd.h"
+#else
+#include "pltf_sdl.h"
+#endif
+
 #define PLTF_UPS            50 // ticks per second
 #define PLTF_DISPLAY_W      400
 #define PLTF_DISPLAY_H      240
@@ -28,40 +34,20 @@ void app_close();
 void app_pause();
 void app_resume();
 
-#if defined(PLTF_PD)
-#include "pltf_pd.h"
-
-enum {
-    PLTF_FILE_R = kFileRead | kFileReadData,
-    PLTF_FILE_W = kFileWrite,
-    PLTF_FILE_A = kFileAppend
-};
-
-#elif defined(PLTF_SDL)
-#include "pltf_sdl.h"
-
-enum {
-    PLTF_FILE_R,
-    PLTF_FILE_W,
-    PLTF_FILE_A
-};
-#endif
-
-enum {
-    PLTF_FILE_SEEK_SET = SEEK_SET,
-    PLTF_FILE_SEEK_CUR = SEEK_CUR,
-    PLTF_FILE_SEEK_END = SEEK_END
-};
-
 // to be implemented by platform
+void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
-void  *pltf_file_open(const char *path, i32 mode);
+void  *pltf_file_open_r(const char *path);
+void  *pltf_file_open_w(const char *path);
+void  *pltf_file_open_a(const char *path);
 bool32 pltf_file_close(void *f);
 bool32 pltf_file_del(const char *path);
 i32    pltf_file_tell(void *f);
-i32    pltf_file_seek(void *f, i32 pos, i32 origin);
+i32    pltf_file_seek_set(void *f, i32 pos);
+i32    pltf_file_seek_cur(void *f, i32 pos);
+i32    pltf_file_seek_end(void *f, i32 pos);
 i32    pltf_file_w(void *f, const void *buf, usize bsize);
 i32    pltf_file_r(void *f, void *buf, usize bsize);
 //

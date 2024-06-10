@@ -9,7 +9,7 @@ void game_tick_gameplay(game_s *g);
 
 void game_init(game_s *g)
 {
-    mus_set_trg_vol(0.1f);
+    mus_set_trg_vol(1.f);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
     map_world_load(&g->map_world, "world.world");
@@ -19,11 +19,30 @@ void game_init(game_s *g)
     g->lighting.lights[0].r = 100;
 #endif
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
+
+    g->n_deco_verlet = 1;
+    for (u32 k = 0; k < g->n_deco_verlet; k++) {
+        g->deco_verlet[k].n_pt     = 10;
+        g->deco_verlet[k].dist     = 128 << 2;
+        g->deco_verlet[k].n_it     = 3;
+        g->deco_verlet[k].grav.y   = 8 << 2;
+        g->deco_verlet[k].haspos_2 = 1;
+        g->deco_verlet[k].pos_2    = (v2_i16){64 << 6, 32};
+        g->deco_verlet[k].pos      = (v2_i32){64 + k * 16, 32};
+        for (u32 n = 0; n < g->deco_verlet[k].n_pt; n++) {
+            g->deco_verlet[k].pt[n].p  = (v2_i16){0};
+            g->deco_verlet[k].pt[n].pp = (v2_i16){0};
+        }
+    }
 }
 
 void game_tick(game_s *g)
 {
     bool32 update_gameplay = 0;
+    if (g->aud_lowpass) {
+        g->aud_lowpass--;
+        aud_set_lowpass(((g->aud_lowpass * 12) / 30));
+    }
 
     if (g->substate) {
         g->freeze_tick        = 0;
@@ -64,8 +83,6 @@ void game_tick(game_s *g)
         }
     }
 
-    wiggle_animate(g);
-
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
     if (g->gameplay_tick & 1) {
@@ -73,6 +90,7 @@ void game_tick(game_s *g)
     } else {
     }
 
+    deco_verlet_animate(g);
     area_update(g, &g->area);
 }
 
@@ -84,7 +102,7 @@ void game_tick_gameplay(game_s *g)
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
     for (obj_each(g, o)) {
-        const v2_i32 posprev = o->pos;
+        v2_i32 posprev = o->pos;
 
         if (o->on_update) {
             o->on_update(g, o);
@@ -95,9 +113,12 @@ void game_tick_gameplay(game_s *g)
         if (0 < o->invincible_tick) {
             o->invincible_tick--;
         }
+
+        if (o->enemy.hurt_tick) {
+            o->enemy.hurt_tick--;
+        }
     }
 
-    // apply movement
     for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
         if (o->flags & OBJ_FLAG_MOVER) {
             obj_apply_movement(o);
@@ -106,28 +127,27 @@ void game_tick_gameplay(game_s *g)
 
     for (obj_each(g, o)) {
         o->moverflags |= OBJ_MOVER_MAP;
+        if (!obj_try_wiggle(g, o)) continue;
         obj_move(g, o, o->tomove);
         o->tomove.x = 0, o->tomove.y = 0;
     }
 
     // out of bounds deletion
-    const rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
+    rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
     for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) &&
             !overlap_rec(obj_aabb(o), roombounds)) {
-            assert(o->ID != OBJ_ID_HERO);
             obj_delete(g, o);
         }
     }
 
-#ifdef PLTF_SDL
-    if (pltf_sdl_key(SDL_SCANCODE_SPACE)) {
-        hero_kill(g, obj_get_tagged(g, OBJ_TAG_HERO));
-    }
-#endif
-
     objs_cull_to_delete(g);
     coinparticle_update(g);
+
+    if (g->rope.active) {
+        rope_update(g, &g->rope);
+        rope_verletsim(g, &g->rope);
+    }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (ohero) {
@@ -143,18 +163,11 @@ void game_tick_gameplay(game_s *g)
     }
 #endif
 
-    if (!g->substate) {
-        if (g->events_frame & EVENT_HERO_DAMAGE) {
-            g->freeze_tick            = 4;
-            g->hero_mem.was_hit_ticks = 30;
-        } else if (g->events_frame & EVENT_HIT_ENEMY) {
-            g->freeze_tick = 2;
-        }
-    }
-
-    if (g->hero_mem.was_hit_ticks) {
-        g->hero_mem.was_hit_ticks--;
-        aud_set_lowpass(((g->hero_mem.was_hit_ticks * 12) / 30));
+    if (g->events_frame & EVENT_HERO_DAMAGE) {
+        g->freeze_tick = 4;
+        g->aud_lowpass = 30;
+    } else if (g->events_frame & EVENT_HIT_ENEMY) {
+        g->freeze_tick = 2;
     }
 
     objs_cull_to_delete(g);
@@ -198,7 +211,7 @@ i32 gameplay_time_since(game_s *g, i32 t)
 
 bool32 game_load_savefile(game_s *g)
 {
-    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_R);
+    void *f = pltf_file_open_r(SAVEFILE_NAME);
 
     if (!f) {
         pltf_log("New game\n");
@@ -230,7 +243,7 @@ bool32 game_save_savefile(game_s *g)
 {
     save_s *hs = &g->save;
 
-    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_W);
+    void *f = pltf_file_open_w(SAVEFILE_NAME);
     if (!f) {
         pltf_log("+++ Can't write savefile!\n");
         return 0;
@@ -267,9 +280,7 @@ void game_on_solid_appear(game_s *g)
     }
 
     for (obj_each(g, o)) {
-        if (o->flags & OBJ_FLAG_ACTOR) {
-            actor_try_wiggle(g, o);
-        }
+        obj_try_wiggle(g, o);
     }
 }
 

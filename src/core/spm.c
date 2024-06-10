@@ -17,9 +17,7 @@ static void *spm_alloc_ctx(void *ctx, usize s)
 void spm_init()
 {
     marena_init(&SPM.m, SPM.mem, sizeof(SPM.mem));
-#ifdef SYS_DEBUG
     SPM.lowestleft = sizeof(SPM.mem);
-#endif
 }
 
 void spm_push()
@@ -39,7 +37,7 @@ void *spm_alloc(usize s)
 {
     void *mem = marena_alloc(&SPM.m, s);
     assert(mem);
-#ifdef SYS_DEBUG
+#ifdef PLTF_DEBUG
     usize rem = marena_size_rem(&SPM.m);
     if (rem < SPM.lowestleft) {
         SPM.lowestleft = rem;
@@ -52,8 +50,9 @@ void *spm_alloc(usize s)
 void *spm_allocz(usize s)
 {
     void *mem = spm_alloc(s);
+    assert(mem);
     if (!mem) return NULL;
-    memset(mem, 0, s);
+    mset(mem, 0, s);
     return mem;
 }
 

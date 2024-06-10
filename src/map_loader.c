@@ -37,15 +37,25 @@ typedef struct {
     i32 h;
 } tilelayer_bg_s;
 
-typedef struct {
-    u8 type;
-    u8 shape;
-} map_terraintile_s;
+static inline i32 map_terrain_pack(i32 type, i32 shape)
+{
+    return ((type << 8) | shape);
+}
+
+static inline i32 map_terrain_type(u16 t)
+{
+    return (t >> 8);
+}
+
+static inline i32 map_terrain_shape(u16 t)
+{
+    return (t & B16(00000000, 11111111));
+}
 
 typedef struct {
-    map_terraintile_s *tiles;
-    i32                w;
-    i32                h;
+    u16 *tiles;
+    i32  w;
+    i32  h;
 } tilelayer_terrain_s;
 
 enum {
@@ -63,12 +73,12 @@ typedef struct {
     u16  type;
     char name[32];
     union {
-        i32    n; // array: num elements
-        i32    i;
-        f32    f;
-        u32    b;
-        u32    o;
-        v2_i16 p;
+        i32 n; // array: num elements
+        i32 i;
+        f32 f;
+        u32 b;
+        u32 o;
+        u32 p;
     } u;
 } map_prop_s;
 
@@ -87,7 +97,7 @@ enum {
     TILE_FLIP_X   = 1 << 2,
 };
 
-static const u8 g_autotilemarch[256];
+static const v2_i8 g_autotile_coords[256];
 
 static inline void map_proptile_decode(u16 t, i32 *tx, i32 *ty, i32 *f)
 {
@@ -101,7 +111,7 @@ static void             map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32
 static map_prop_s      *map_prop_get(map_properties_s p, const char *name);
 static map_properties_s map_obj_properties(map_obj_s *mo);
 //
-static bool32           at_types_blending(int a, int b);
+static bool32           at_types_blending(i32 a, i32 b);
 
 #define map_prop_strs(P, NAME, B) map_prop_str(P, NAME, B, sizeof(B))
 static void   map_prop_str(map_properties_s p, const char *name, void *b, usize bs);
@@ -135,8 +145,8 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         crawler_caterpillar_load(g, o);
     } else if (str_eq_nc(o->name, "Charger")) {
         charger_load(g, o);
-    } else if (str_eq_nc(o->name, "Pushable_Box")) {
-        pushablebox_load(g, o);
+    } else if (str_eq_nc(o->name, "Pushblock")) {
+        pushblock_load(g, o);
     } else if (str_eq_nc(o->name, "Sign")) {
         sign_load(g, o);
     } else if (str_eq_nc(o->name, "Shroomy")) {
@@ -167,8 +177,6 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         triggerarea_load(g, o);
     } else if (str_eq_nc(o->name, "Hooklever")) {
         hooklever_load(g, o);
-    } else if (str_contains(o->name, "Wiggle")) {
-        wiggle_add(g, o);
     } else if (str_eq_nc(o->name, "Cam_Attractor")) {
         v2_i32 p                                 = {o->x, o->y};
         g->cam.attractors[g->cam.n_attractors++] = p;
@@ -188,13 +196,13 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
             cam->pos.y = (f32)(o->y + PLTF_DISPLAY_H / 2);
         }
     } else if (str_eq_nc(o->name, "Water")) {
-        int x1 = (o->x) >> 4;
-        int y1 = (o->y) >> 4;
-        int x2 = (o->x + o->w - 1) >> 4;
-        int y2 = (o->y + o->h - 1) >> 4;
+        i32 x1 = (o->x) >> 4;
+        i32 y1 = (o->y) >> 4;
+        i32 x2 = (o->x + o->w - 1) >> 4;
+        i32 y2 = (o->y + o->h - 1) >> 4;
 
-        for (int y = y1; y <= y2; y++) {
-            for (int x = x1; x <= x2; x++) {
+        for (i32 y = y1; y <= y2; y++) {
+            for (i32 x = x1; x <= x2; x++) {
                 g->tiles[x + y * g->tiles_x].type |= TILE_WATER_MASK;
             }
         }
@@ -204,43 +212,41 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
 void game_load_map(game_s *g, const char *mapfile)
 {
     g->save.coins += g->coins_added;
-    g->coins_added         = 0;
-    g->coins_added_ticks   = 0;
-    g->obj_ndelete         = 0;
-    g->n_objrender         = 0;
-    g->obj_head_busy       = NULL;
-    g->obj_head_free       = &g->obj_raw[0];
-    g->obj_head_free->next = NULL;
+    g->coins_added       = 0;
+    g->coins_added_ticks = 0;
+    g->obj_ndelete       = 0;
+    g->n_objrender       = 0;
+    g->obj_head_busy     = NULL;
+    g->obj_head_free     = NULL;
 
-    for (int n = 0; n < NUM_OBJ; n++) {
+    for (i32 n = 0; n < NUM_OBJ; n++) {
         obj_s *o         = &g->obj_raw[n];
         o->GID           = obj_GID_set(n, 1);
         o->next          = g->obj_head_free;
         g->obj_head_free = o;
     }
 
-    for (int n = 0; n < NUM_OBJ_TAGS; n++) {
+    for (i32 n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
-    g->n_grass              = 0;
-    g->hero_mem.rope_active = 0;
-    g->particles.n          = 0;
-    g->ocean.active         = 0;
-    g->n_coinparticles      = 0;
-    g->n_wiggle_deco        = 0;
-    g->cam.locked_x         = 0;
-    g->cam.locked_y         = 0;
-    g->cam.n_attractors     = 0;
-    g->n_respawns           = 0;
-    g->hero_mem             = (hero_s){0};
-    memset(g->tiles, 0, sizeof(g->tiles));
-    memset(g->rtiles, 0, sizeof(g->rtiles));
+    g->n_grass          = 0;
+    g->n_deco_verlet    = 0;
+    g->rope.active      = 0;
+    g->particles.n      = 0;
+    g->ocean.active     = 0;
+    g->n_coinparticles  = 0;
+    g->cam.locked_x     = 0;
+    g->cam.locked_y     = 0;
+    g->cam.n_attractors = 0;
+    g->n_respawns       = 0;
+    g->hero_mem         = (hero_s){0};
+    mset(g->tiles, 0, sizeof(g->tiles));
+    mset(g->rtiles, 0, sizeof(g->rtiles));
     g->areaname.fadeticks = 1;
 
     str_cpy(g->areaname.filename, mapfile);
     g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
     assert(g->map_worldroom);
-    pltf_log("%s | %s\n", g->map_worldroom->filename, mapfile);
 
     spm_push();
 
@@ -249,17 +255,16 @@ void game_load_map(game_s *g, const char *mapfile)
 
     FILEPATH_GEN(filepath, FILEPATH_MAP, mapfile);
     str_append(filepath, ".map");
-    void *mapf = pltf_file_open(filepath, PLTF_FILE_R);
+    void *mapf = pltf_file_open_r(filepath);
     pltf_file_r(mapf, &header, sizeof(map_header_s));
 
-    const int w = header.w;
-    const int h = header.h;
+    const i32 w = header.w;
+    const i32 h = header.h;
     g->tiles_x  = w;
     g->tiles_y  = h;
     g->pixel_x  = w << 4;
     g->pixel_y  = h << 4;
     assert((w * h) <= NUM_TILES);
-    pltf_log("num tiles: %i\n", w * h);
 
     // PROPERTIES ==============================================================
     spm_push();
@@ -278,8 +283,8 @@ void game_load_map(game_s *g, const char *mapfile)
     str_append(muspath, ".aud");
     mus_fade_to(muspath, 50, 50);
 
-    int room_y1 = g->map_worldroom->y;
-    int room_y2 = g->map_worldroom->y + g->map_worldroom->h;
+    i32 room_y1 = g->map_worldroom->y;
+    i32 room_y2 = g->map_worldroom->y + g->map_worldroom->h;
     if (room_y1 < 0 && 0 < room_y2 && map_prop_bool(mp, "Ocean")) {
         g->ocean.y      = -room_y1;
         g->ocean.active = 1;
@@ -293,18 +298,23 @@ void game_load_map(game_s *g, const char *mapfile)
 
     layer_terrain.w     = w;
     layer_terrain.h     = h;
-    layer_terrain.tiles = (map_terraintile_s *)spm_alloc(header.bytes_tiles_terrain);
+    layer_terrain.tiles = (u16 *)spm_alloc(header.bytes_tiles_terrain);
     pltf_file_r(mapf, layer_terrain.tiles, header.bytes_tiles_terrain);
 
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int               k  = x + y * w;
-            map_terraintile_s tt = layer_terrain.tiles[k];
-            switch (tt.shape) {
+    for (i32 y = 0; y < h; y++) {
+        for (i32 x = 0; x < w; x++) {
+            i32 k       = x + y * w;
+            i32 tt      = layer_terrain.tiles[k];
+            i32 ttshape = map_terrain_shape(tt);
+            switch (ttshape) {
             case TILE_LADDER: {
-                g->tiles[k].collision              = TILE_LADDER;
-                g->rtiles[TILELAYER_PROP_BG][k].tx = 0;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
+                g->tiles[k].collision                  = TILE_LADDER;
+                g->rtiles[TILELAYER_PROP_BG][k].tx     = 1;
+                g->rtiles[TILELAYER_PROP_BG][k].ty     = 1;
+                g->rtiles[TILELAYER_PROP_BG][k - 1].tx = 0;
+                g->rtiles[TILELAYER_PROP_BG][k - 1].ty = 1;
+                g->rtiles[TILELAYER_PROP_BG][k + 1].tx = 2;
+                g->rtiles[TILELAYER_PROP_BG][k + 1].ty = 1;
             } break;
             case TILE_LADDER_ONE_WAY: {
                 g->tiles[k].collision              = TILE_LADDER_ONE_WAY;
@@ -334,8 +344,8 @@ void game_load_map(game_s *g, const char *mapfile)
     layer_bg.tiles = (u8 *)spm_alloc(header.bytes_tiles_bg);
     pltf_file_r(mapf, layer_bg.tiles, header.bytes_tiles_bg);
 
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
+    for (i32 y = 0; y < h; y++) {
+        for (i32 x = 0; x < w; x++) {
             map_at_background(g, layer_bg, x, y);
         }
     }
@@ -384,11 +394,9 @@ void game_load_map(game_s *g, const char *mapfile)
     char *op = (char *)spm_alloc(header.bytes_obj);
     pltf_file_r(mapf, op, header.bytes_obj);
 
-    for (int n = 0; n < header.n_obj; n++) {
+    for (i32 n = 0; n < header.n_obj; n++) {
         map_obj_s *o = (map_obj_s *)op;
-
         map_obj_parse(g, o);
-
         op += o->bytes;
     }
     spm_pop();
@@ -409,32 +417,32 @@ void game_prepare_new_map(game_s *g)
     cam_init_level(g, &g->cam);
 }
 
-static bool32 at_types_blending(int a, int b)
+static bool32 at_types_blending(i32 a, i32 b)
 {
     if (a == b) return 1;
     if (b == AUTOTILE_TYPE_FAKE_1) return 0;
     return 1;
 }
 
-static int autotile_bg_is(tilelayer_bg_s tiles, int x, int y, int sx, int sy)
-{
-    int u = x + sx;
-    int v = y + sy;
-    if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
-    return (0 < tiles.tiles[u + v * tiles.w]);
-}
-
-static int autotile_terrain_is(tilelayer_terrain_s tiles, int x, int y, int sx, int sy)
+static bool32 autotile_bg_is(tilelayer_bg_s tiles, i32 x, i32 y, i32 sx, i32 sy)
 {
     i32 u = x + sx;
     i32 v = y + sy;
-    if (u < 0 || tiles.w <= u || v < 0 || tiles.h <= v) return 1;
+    if (!(0 <= u && u < tiles.w && 0 <= v && v < tiles.h)) return 1;
+    return (0 < tiles.tiles[u + v * tiles.w]);
+}
 
-    map_terraintile_s a = tiles.tiles[x + y * tiles.w];
-    map_terraintile_s b = tiles.tiles[u + v * tiles.w];
-    if (!at_types_blending(a.type, b.type)) return 0;
+static bool32 autotile_terrain_is(tilelayer_terrain_s tiles, i32 x, i32 y, i32 sx, i32 sy)
+{
+    i32 u = x + sx;
+    i32 v = y + sy;
+    if (!(0 <= u && u < tiles.w && 0 <= v && v < tiles.h)) return 1;
 
-    switch (b.shape) {
+    i32 a = tiles.tiles[x + y * tiles.w];
+    i32 b = tiles.tiles[u + v * tiles.w];
+    if (!at_types_blending(map_terrain_type(a), map_terrain_type(b))) return 0;
+
+    switch (map_terrain_shape(b)) {
     case TILE_BLOCK: return 1;
     case TILE_SLOPE_45_0: return ((sx == -1 && sy == +0) ||
                                   (sx == +0 && sy == -1) ||
@@ -483,24 +491,17 @@ static void map_at_background(game_s *g, tilelayer_bg_s tiles, i32 x, i32 y)
     if (autotile_bg_is(tiles, x, y, -1, +1)) march |= AT_SW;
     if (autotile_bg_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
-    i32      coords = g_autotilemarch[march];
+    v2_i8    coords = g_autotile_coords[march];
     rtile_s *rtile  = &g->rtiles[TILELAYER_BG][index];
-    rtile->tx       = 32 + (coords & 15);
-    rtile->ty       = (tile * 8) + (coords >> 4);
+    rtile->tx       = coords.x + 32;
+    rtile->ty       = coords.y + tile * 8;
 }
 
-static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y)
+static flags32 map_marching_squares(tilelayer_terrain_s tiles, i32 x, i32 y)
 {
-    i32 index = x + y * tiles.w;
-
-    map_terraintile_s tile  = tiles.tiles[index];
-    tile_s           *rtile = &g->tiles[index];
-    if (tile.type == 0) return;
-    if (tile.type == 1 || tile.type == 2) {
-        rtile->collision = tile.shape;
-        return;
-    }
-    rtile->type = tile.type;
+    if (!(0 <= x && x < tiles.w && 0 <= y && y < tiles.h)) return 0xFF;
+    u16 tile = tiles.tiles[x + y * tiles.w];
+    if (map_terrain_type(tile) <= 3) return 0;
 
     flags32 march = 0;
     if (autotile_terrain_is(tiles, x, y, +0, -1)) march |= AT_N;
@@ -511,96 +512,151 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y)
     if (autotile_terrain_is(tiles, x, y, +1, +1)) march |= AT_SE;
     if (autotile_terrain_is(tiles, x, y, -1, +1)) march |= AT_SW;
     if (autotile_terrain_is(tiles, x, y, -1, -1)) march |= AT_NW;
+    return march;
+}
 
-    i32 xcoord = 0;
-    i32 ycoord = ((i32)tile.type - 2) << 3;
-    i32 coords = g_autotilemarch[march];
+static bool32 map_dual_border_tile(tilelayer_terrain_s tiles, i32 x, i32 y,
+                                   i32 type, flags32 march)
+{
+    if (!(0 <= x && x < tiles.w && 0 <= y && y < tiles.h)) return 0;
 
-    switch (tile.shape) {
+    i32 t = tiles.tiles[x + y * tiles.w];
+    if (map_terrain_type(t) != type) return 0;
+    if (map_terrain_shape(t) != TILE_BLOCK) return 0;
+    flags32 m = map_marching_squares(tiles, x, y);
+    if (m == march) return 1;
+    return 0;
+}
+
+static bool32 map_dual_border(tilelayer_terrain_s tiles, i32 x, i32 y,
+                              i32 sx, i32 sy,
+                              i32 type, flags32 march)
+{
+    i32 u = x + sx;
+    i32 v = y + sy;
+    if (!(0 <= u && u < tiles.w && 0 <= v && v < tiles.h)) return 0;
+
+    u32 r = ((x | u) + ((y | v)));
+    if (rngs_u32(&r) < 0x3FFFFFU) return 0;
+
+    i32 t = tiles.tiles[u + v * tiles.w];
+    if (t != map_terrain_pack(type, TILE_BLOCK)) return 0;
+    return (march == map_marching_squares(tiles, u, v));
+}
+
+static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y)
+{
+    i32     index     = x + y * tiles.w;
+    u16     tile      = tiles.tiles[index];
+    tile_s *rtile     = &g->tiles[index];
+    i32     tiletype  = map_terrain_type(tile);
+    i32     tileshape = map_terrain_shape(tile);
+    if (tiletype == 0) return;
+    if (tiletype == 1 || tiletype == 2) {
+        rtile->collision = tileshape;
+        return;
+    }
+    rtile->type = tiletype;
+
+    flags32 march  = map_marching_squares(tiles, x, y);
+    v2_i8   tcoord = {0, ((i32)tiletype - 2) << 3};
+    v2_i8   coords = g_autotile_coords[march];
+
+    switch (tileshape) {
     case TILE_BLOCK: {
-
-        i32 n_vari = 2; // number of variations in that tileset
-        i32 vari   = rngr_i32(0, n_vari);
+        rtile->collision = TILE_BLOCK;
+        i32 n_vari       = 3; // number of variations in that tileset
+        i32 vari         = rngr_i32(0, n_vari - 1);
         switch (march) { // coordinates of variation tiles
         case 17: {       // vertical
-            static const u16 altc_17[3] = {(7) | (3 << 4),
-                                           (7) | (4 << 4),
-                                           (7) | (6 << 4)};
-            coords                      = altc_17[vari];
+            static const v2_i8 altc_17[3] = {{7, 3}, {7, 4}, {7, 6}};
+            coords                        = altc_17[vari];
         } break;
         case 31: { // left border
-            static const u16 altc_31[3] = {(0) | (4 << 4),
-                                           (0) | (5 << 4),
-                                           (5) | (3 << 4)};
-            coords                      = altc_31[vari];
+            static const v2_i8 altc_31[3] = {{0, 4}, {0, 5}, {5, 3}};
+
+            if ((y & 1) == 0 && map_dual_border(tiles, x, y, 0, -1, tiletype, march)) {
+                coords = (v2_i8){9, 5};
+            } else if ((y & 1) == 1 && map_dual_border(tiles, x, y, 0, +1, tiletype, march)) {
+                coords = (v2_i8){8, 5};
+            } else {
+                coords = altc_31[vari];
+            }
         } break;
         case 199: { // bot border
-            static const u16 altc199[3] = {(4) | (2 << 4),
-                                           (1) | (6 << 4),
-                                           (3) | (6 << 4)};
-            coords                      = altc199[vari];
+            static const v2_i8 altc199[3] = {{4, 2}, {1, 6}, {3, 6}};
+
+            if ((x & 1) == 0 && map_dual_border(tiles, x, y, -1, 0, tiletype, march)) {
+                coords = (v2_i8){9, 7};
+            } else if ((x & 1) == 1 && map_dual_border(tiles, x, y, +1, 0, tiletype, march)) {
+                coords = (v2_i8){8, 7};
+            } else {
+                coords = altc199[vari];
+            }
         } break;
         case 241: { // right border
-            static const u16 altc241[3] = {(6) | (1 << 4),
-                                           (6) | (3 << 4),
-                                           (2) | (4 << 4)};
-            coords                      = altc241[vari];
+            static const v2_i8 altc241[3] = {{6, 1}, {6, 3}, {2, 4}};
+
+            if ((y & 1) == 0 && map_dual_border(tiles, x, y, 0, -1, tiletype, march)) {
+                coords = (v2_i8){9, 6};
+            } else if ((y & 1) == 1 && map_dual_border(tiles, x, y, 0, +1, tiletype, march)) {
+                coords = (v2_i8){8, 6};
+            } else {
+                coords = altc241[vari];
+            }
         } break;
         case 68: { // horizontal
-            static const u16 altc_68[3] = {(3) | (7 << 4),
-                                           (4) | (7 << 4),
-                                           (6) | (7 << 4)};
-            coords                      = altc_68[vari];
+            static const v2_i8 altc_68[3] = {{3, 7}, {4, 7}, {6, 7}};
+            coords                        = altc_68[vari];
         } break;
         case 124: { // top border
-            static const u16 altc124[3] = {(4) | (0 << 4),
-                                           (5) | (0 << 4),
-                                           (3) | (5 << 4)};
-            coords                      = altc124[vari];
+            static const v2_i8 altc124[3] = {{4, 0}, {5, 0}, {3, 5}};
+
+            if ((x & 1) == 0 && map_dual_border(tiles, x, y, -1, 0, tiletype, march)) {
+                coords = (v2_i8){9, 4};
+            } else if ((x & 1) == 1 && map_dual_border(tiles, x, y, +1, 0, tiletype, march)) {
+                coords = (v2_i8){8, 4};
+            } else {
+                coords = altc124[vari];
+            }
         } break;
         case 255: { // mid
-            static const u16 altc255[3] = {(4) | (1 << 4),
-                                           (1) | (4 << 4),
-                                           (5) | (1 << 4)};
-            coords                      = altc255[vari];
+            static const v2_i8 altc255[3] = {{4, 1}, {1, 4}, {5, 1}};
+            coords                        = altc255[vari];
         } break;
         }
-        xcoord = coords & 15;
-        ycoord += coords >> 4;
-        rtile->collision = TILE_BLOCK;
+        tcoord = v2_i8_add(tcoord, coords);
 
         if (0 < y) {
-            map_terraintile_s above = tiles.tiles[x + (y - 1) * tiles.w];
-            if ((tile.type == AUTOTILE_TYPE_DIRT) &&
-                above.type == 0) {
+            u16 above = tiles.tiles[x + (y - 1) * tiles.w];
+            if ((tiletype == AUTOTILE_TYPE_DIRT) &&
+                map_terrain_type(above) == 0) {
                 grass_put(g, x, y - 1);
             }
         }
-
     } break;
     case TILE_SLOPE_45_0:
     case TILE_SLOPE_45_1:
     case TILE_SLOPE_45_2:
     case TILE_SLOPE_45_3: {
-        static const u16 nmasks[4 * 3] = {AT_E, AT_S, AT_SE, // masks for checking neighbours: SHAPE - X | Y | DIAGONAL
+        static const u32 nmasks[4 * 3] = {AT_E, AT_S, AT_SE, // masks for checking neighbours: SHAPE - X | Y | DIAGONAL
                                           AT_E, AT_N, AT_NE,
                                           AT_W, AT_S, AT_SW,
                                           AT_W, AT_N, AT_NW};
 
-        const u16 *nm = &nmasks[(tile.shape - TILE_SLOPE_45_0) * 3];
-        i32        xn = (march & nm[0]) != 0;                      // x neighbour
-        i32        yn = (march & nm[1]) != 0;                      // y neighbour
-        i32        cn = (march & nm[2]) != 0;                      // diagonal neighbour
-        xcoord        = 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
-        ycoord += (tile.shape - TILE_SLOPE_45_0);
-
-        rtile->collision = tile.shape;
+        const u32 *nm = &nmasks[(tileshape - TILE_SLOPE_45_0) * 3];
+        i32        xn = (march & nm[0]) != 0;                  // x neighbour
+        i32        yn = (march & nm[1]) != 0;                  // y neighbour
+        i32        cn = (march & nm[2]) != 0;                  // diagonal neighbour
+        tcoord.x += 8 + (xn && yn && cn ? 4 : xn | (yn << 1)); // slope image index
+        tcoord.y += (tileshape - TILE_SLOPE_45_0);
+        rtile->collision = tileshape;
         break;
     }
     }
 
-    rtile->tx = (u8)xcoord;
-    rtile->ty = (u8)ycoord;
+    rtile->tx = tcoord.x;
+    rtile->ty = tcoord.y;
 }
 
 static map_prop_s *map_prop_get(map_properties_s p, const char *name)
@@ -661,7 +717,8 @@ static v2_i16 map_prop_pt(map_properties_s p, const char *name)
 {
     map_prop_s *prop = map_prop_get(p, name);
     if (prop == NULL || prop->type != MAP_PROP_POINT) return (v2_i16){0};
-    return prop->u.p;
+    v2_i16 pt = {(i16)(prop->u.p & 0xFFFFU), (i16)(prop->u.p >> 16)};
+    return pt;
 }
 
 static map_properties_s map_obj_properties(map_obj_s *mo)
@@ -710,7 +767,7 @@ void map_world_load(map_world_s *world, const char *worldfile)
     if (!world || !worldfile || worldfile[0] == '\0') return;
 
     FILEPATH_GEN(filepath, FILEPATH_MAP, worldfile);
-    void *f = pltf_file_open(filepath, PLTF_FILE_R);
+    void *f = pltf_file_open_r(filepath);
     pltf_file_r(f, world, sizeof(map_world_s));
     pltf_file_close(f);
 }
@@ -739,268 +796,44 @@ map_worldroom_s *map_world_find_room(map_world_s *world, const char *mapfile)
 
 map_worldroom_s *map_worldroom_by_objID(map_world_s *world, u32 objID)
 {
-    int i = (objID >> 8) - 1;
+    i32 i = (objID >> 8) - 1;
     pltf_log("get room %i\n", i);
     map_worldroom_s *r = &world->rooms[i];
     return r;
 }
 
-// exported from autotiles_marching.xlsx
-// maps marchID -> x + y * 16
-static const u8 g_autotilemarch[256] = {
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x11,
-    0x20,
-    0x11,
-    0x60,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x55,
-    0x30,
-    0x55,
-    0x35,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x11,
-    0x20,
-    0x11,
-    0x60,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x55,
-    0x30,
-    0x55,
-    0x35,
-    0x07,
-    0x77,
-    0x07,
-    0x77,
-    0x73,
-    0x75,
-    0x73,
-    0x45,
-    0x07,
-    0x77,
-    0x07,
-    0x77,
-    0x73,
-    0x75,
-    0x73,
-    0x45,
-    0x27,
-    0x57,
-    0x27,
-    0x57,
-    0x02,
-    0x12,
-    0x02,
-    0x65,
-    0x27,
-    0x57,
-    0x27,
-    0x57,
-    0x03,
-    0x21,
-    0x03,
-    0x13,
-    0x07,
-    0x77,
-    0x07,
-    0x77,
-    0x73,
-    0x75,
-    0x73,
-    0x45,
-    0x07,
-    0x77,
-    0x07,
-    0x77,
-    0x73,
-    0x75,
-    0x73,
-    0x45,
-    0x34,
-    0x54,
-    0x34,
-    0x54,
-    0x06,
-    0x56,
-    0x06,
-    0x23,
-    0x34,
-    0x54,
-    0x34,
-    0x54,
-    0x04,
-    0x22,
-    0x04,
-    0x31,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x11,
-    0x20,
-    0x11,
-    0x60,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x55,
-    0x30,
-    0x55,
-    0x35,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x17,
-    0x70,
-    0x17,
-    0x70,
-    0x01,
-    0x72,
-    0x01,
-    0x43,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x11,
-    0x20,
-    0x11,
-    0x60,
-    0x10,
-    0x37,
-    0x10,
-    0x37,
-    0x55,
-    0x30,
-    0x55,
-    0x35,
-    0x07,
-    0x66,
-    0x07,
-    0x66,
-    0x73,
-    0x64,
-    0x73,
-    0x24,
-    0x07,
-    0x66,
-    0x07,
-    0x66,
-    0x73,
-    0x64,
-    0x73,
-    0x24,
-    0x27,
-    0x46,
-    0x27,
-    0x46,
-    0x02,
-    0x44,
-    0x02,
-    0x62,
-    0x27,
-    0x46,
-    0x27,
-    0x46,
-    0x03,
-    0x33,
-    0x03,
-    0x25,
-    0x07,
-    0x66,
-    0x07,
-    0x66,
-    0x73,
-    0x64,
-    0x73,
-    0x24,
-    0x07,
-    0x66,
-    0x07,
-    0x66,
-    0x73,
-    0x64,
-    0x73,
-    0x24,
-    0x34,
-    0x16,
-    0x34,
-    0x16,
-    0x06,
-    0x26,
-    0x06,
-    0x32,
-    0x34,
-    0x16,
-    0x34,
-    0x16,
-    0x04,
-    0x52,
-    0x04,
-    0x14};
+// clang-format off
+static const v2_i8 g_autotile_coords[256] = {
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {1, 1}, {0, 2}, {1, 1}, {0, 6},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {5, 5}, {0, 3}, {5, 5}, {5, 3},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {1, 1}, {0, 2}, {1, 1}, {0, 6},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {5, 5}, {0, 3}, {5, 5}, {5, 3},
+    {7, 0}, {7, 7}, {7, 0}, {7, 7}, {3, 7}, {5, 7}, {3, 7}, {5, 4},
+    {7, 0}, {7, 7}, {7, 0}, {7, 7}, {3, 7}, {5, 7}, {3, 7}, {5, 4},
+    {7, 2}, {7, 5}, {7, 2}, {7, 5}, {2, 0}, {2, 1}, {2, 0}, {5, 6},
+    {7, 2}, {7, 5}, {7, 2}, {7, 5}, {3, 0}, {1, 2}, {3, 0}, {3, 1},
+    {7, 0}, {7, 7}, {7, 0}, {7, 7}, {3, 7}, {5, 7}, {3, 7}, {5, 4},
+    {7, 0}, {7, 7}, {7, 0}, {7, 7}, {3, 7}, {5, 7}, {3, 7}, {5, 4},
+    {4, 3}, {4, 5}, {4, 3}, {4, 5}, {6, 0}, {6, 5}, {6, 0}, {3, 2},
+    {4, 3}, {4, 5}, {4, 3}, {4, 5}, {4, 0}, {2, 2}, {4, 0}, {1, 3},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {1, 1}, {0, 2}, {1, 1}, {0, 6},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {5, 5}, {0, 3}, {5, 5}, {5, 3},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {7, 1}, {0, 7}, {7, 1}, {0, 7}, {1, 0}, {2, 7}, {1, 0}, {3, 4},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {1, 1}, {0, 2}, {1, 1}, {0, 6},
+    {0, 1}, {7, 3}, {0, 1}, {7, 3}, {5, 5}, {0, 3}, {5, 5}, {5, 3},
+    {7, 0}, {6, 6}, {7, 0}, {6, 6}, {3, 7}, {4, 6}, {3, 7}, {4, 2},
+    {7, 0}, {6, 6}, {7, 0}, {6, 6}, {3, 7}, {4, 6}, {3, 7}, {4, 2},
+    {7, 2}, {6, 4}, {7, 2}, {6, 4}, {2, 0}, {4, 4}, {2, 0}, {2, 6},
+    {7, 2}, {6, 4}, {7, 2}, {6, 4}, {3, 0}, {3, 3}, {3, 0}, {5, 2},
+    {7, 0}, {6, 6}, {7, 0}, {6, 6}, {3, 7}, {4, 6}, {3, 7}, {4, 2},
+    {7, 0}, {6, 6}, {7, 0}, {6, 6}, {3, 7}, {4, 6}, {3, 7}, {4, 2},
+    {4, 3}, {6, 1}, {4, 3}, {6, 1}, {6, 0}, {6, 2}, {6, 0}, {2, 3},
+    {4, 3}, {6, 1}, {4, 3}, {6, 1}, {4, 0}, {2, 5}, {4, 0}, {4, 1}};
+// clang-format on

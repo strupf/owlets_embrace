@@ -27,26 +27,23 @@ void title_init(title_s *t)
 #if 1
     save_s hs       = {0};
     hs.game_version = GAME_VERSION;
-#if 1
-    hs.upgrades[HERO_UPGRADE_AIR_JUMP_1] = 1;
-    hs.upgrades[HERO_UPGRADE_AIR_JUMP_2] = 1;
-    hs.upgrades[HERO_UPGRADE_AIR_JUMP_3] = 1;
-#endif
-    hs.upgrades[HERO_UPGRADE_HOOK]      = 1;
-    hs.upgrades[HERO_UPGRADE_WALLJUMP]  = 0;
-    hs.upgrades[HERO_UPGRADE_GLIDE]     = 1;
-    hs.upgrades[HERO_UPGRADE_HOOK_LONG] = 1;
-    hs.upgrades[HERO_UPGRADE_WHIP]      = 1;
-    hs.upgrades[HERO_UPGRADE_SWIM]      = 1;
-    hs.upgrades[HERO_UPGRADE_DIVE]      = 1;
-    hs.upgrades[HERO_UPGRADE_SPRINT]    = 1;
-    hs.health                           = 3;
+    hs.flytime      = 60;
+    hs.upgrades =
+        ((flags32)1 << HERO_UPGRADE_HOOK) |
+        ((flags32)1 << HERO_UPGRADE_WALLJUMP) |
+        ((flags32)1 << HERO_UPGRADE_HOOK_LONG) |
+        ((flags32)1 << HERO_UPGRADE_WHIP) |
+        ((flags32)1 << HERO_UPGRADE_SWIM) |
+        ((flags32)1 << HERO_UPGRADE_DIVE) |
+        ((flags32)1 << HERO_UPGRADE_SPRINT);
+
+    hs.health = 3;
 
     str_cpy(hs.hero_mapfile, "Level_0");
     hs.hero_pos.x = 50;
     hs.hero_pos.y = 100;
 
-    void *f = pltf_file_open(SAVEFILE_NAME, PLTF_FILE_W);
+    void *f = pltf_file_open_w(SAVEFILE_NAME);
     if (f) {
         pltf_file_w(f, (const void *)&hs, sizeof(save_s));
         pltf_file_close(f);

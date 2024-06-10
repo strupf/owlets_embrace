@@ -8,8 +8,8 @@
 #include "gamedef.h"
 
 typedef struct {
-    i32 tick;
-    i32 phase;
+    i16 tick;
+    i16 phase;
 } gameover_s;
 
 void gameover_start(game_s *g);

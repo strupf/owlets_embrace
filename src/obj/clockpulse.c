@@ -5,12 +5,12 @@
 #include "game.h"
 
 typedef struct {
-    int count;
-    int count_og;
-    int triggers;
-    int trigger_enable;
-    int trigger_disable;
-    int trigger_on_disable;
+    i32 count;
+    i32 count_og;
+    i32 triggers;
+    i32 trigger_enable;
+    i32 trigger_disable;
+    i32 trigger_on_disable;
 } clockpulse_s;
 
 static void clockpulse_disable(game_s *g, obj_s *o)
@@ -66,7 +66,7 @@ void clockpulse_load(game_s *g, map_obj_s *mo)
     o->on_update            = clockpulse_on_update;
     o->on_trigger           = clockpulse_on_trigger;
     clockpulse_s *cp        = (clockpulse_s *)o->mem;
-    int           period_ms = map_obj_i32(mo, "Period");
+    i32           period_ms = map_obj_i32(mo, "Period");
     o->state                = map_obj_bool(mo, "enabled");
     o->subtimer             = max_i(ticks_from_ms(period_ms), 1);
     cp->count_og            = map_obj_i32(mo, "count");

@@ -13,7 +13,7 @@ typedef struct {
 
 void hooklever_on_update(game_s *g, obj_s *o)
 {
-    const int subt = o->subtimer;
+    const i32 subt = o->subtimer;
 
     switch (o->state) {
     case 0: {
@@ -30,7 +30,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
         rope_s *r = ohook->rope;
         if (!r) break;
 
-        if (!rope_stretched(g, r)) break;
+        if (rope_stretch_q8(g, r) <= 256) break;
 
         o->subtimer++;
         if (20 <= o->subtimer) {
@@ -62,7 +62,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
         break;
     }
     case 1: {
-        int dy = (30 * min_i(o->timer, HOOKLEVER_TICKS)) / HOOKLEVER_TICKS;
+        i32 dy = (30 * min_i(o->timer, HOOKLEVER_TICKS)) / HOOKLEVER_TICKS;
         break;
     }
     }

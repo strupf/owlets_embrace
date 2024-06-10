@@ -32,11 +32,11 @@ void toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_TOGGLE, 0, 0, 16, 16);
     v2_i32    pos = v2_add(o->pos, cam);
-    int       nx  = o->w >> 4;
-    int       ny  = o->h >> 4;
+    i32       nx  = o->w >> 4;
+    i32       ny  = o->h >> 4;
 
-    for (int y = 0; y < ny; y++) {
-        for (int x = 0; x < nx; x++) {
+    for (i32 y = 0; y < ny; y++) {
+        for (i32 x = 0; x < nx; x++) {
             v2_i32 p = {pos.x + (x << 4), pos.y + (y << 4)};
             if (ny == 1) {
                 tr.r.y = 48;
@@ -66,7 +66,7 @@ static void toggleblock_set_state(game_s *g, obj_s *o, int state)
 {
     o->state = state;
     o->timer = 0;
-    int b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
+    i32 b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
 
     tile_map_set_collision(g, obj_aabb(o), b, b == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
 }

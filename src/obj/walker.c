@@ -21,7 +21,7 @@ void walker_on_update(game_s *g, obj_s *o)
 void walker_on_animate(game_s *g, obj_s *o)
 {
     obj_sprite_s *spr     = &o->sprites[0];
-    int           frameID = (time_now() >> 3) & 3;
+    i32           frameID = (time_now() >> 3) & 3;
     spr->flip             = 0 < o->facing ? 0 : SPR_FLIP_X;
     spr->trec             = asset_texrec(TEXID_SKELETON, frameID * 64, 64, 64, 64);
     spr->offs.y           = -(spr->trec.r.h - o->h);

@@ -27,7 +27,7 @@ void lighting_refresh(game_s *g, lighting_s *lig)
 
 void lighting_render(lighting_s *lig, v2_i32 cam)
 {
-    memset(lig->l, 0, sizeof(lig->l));
+    mset(lig->l, 0, sizeof(lig->l));
     for (i32 n = 0; n < lig->n_lights; n++) {
         light_merge(lig, &lig->lights[n], cam);
     }
@@ -113,7 +113,7 @@ void light_refresh(game_s *g, l_light_s *l)
     v2_i32 pm = {mm, mm};
     l->mm     = mm;
     l->w      = w;
-    memset(l->l, 0, sizeof(u8) * w * w);
+    mset(l->l, 0, sizeof(u8) * w * w);
 #if 1
     for (i32 y = 0; y < w; y++) {
         v2_i32 pl = {0, y};
@@ -161,9 +161,10 @@ void light_merge(lighting_s *lig, l_light_s *l, v2_i32 cam)
         u8 *restrict l1 = &lig->l[x + y * (416 >> 3)];
         u8 *restrict l2 = &l->l[(x - r1.x) + (y - r1.y) * w];
         for (; x < px2 - 4; x += 4, l1 += 4, l2 += 4) {
-            u8x4 v1 = v8x4_load(l2);
-            u8x4 v2 = v8x4_load(l1);
-            v8x4_store(u8x4_add(v1, v2), l1);
+            u8x4 v1 = u8x4_loadu(l2);
+            u8x4 v2 = u8x4_loadu(l1);
+            u8x4 v3 = u8x4_add(v1, v2);
+            u8x4_storeu(v3, l1);
         }
         for (; x < px2; x++, l1++, l2++) {
             *l1 = *l1 + *l2;
@@ -237,9 +238,9 @@ void lighting_shadowcast(game_s *g, lighting_s *lig, v2_i32 cam)
             if (o->mass == 0) continue;
             tile_corners_s corn = {0};
             corn.n              = 4;
-            corn.c[1]           = (v2_i8){o->w, 0};
-            corn.c[2]           = (v2_i8){o->w, o->h};
-            corn.c[3]           = (v2_i8){0, o->h};
+            corn.c[1]           = (v2_i8){(i8)o->w, 0};
+            corn.c[2]           = (v2_i8){(i8)o->w, (i8)o->h};
+            corn.c[3]           = (v2_i8){0, (i8)o->h};
             v2_i32 tpos         = o->pos;
             for (i32 n = 0; n < corn.n; n++) {
                 v2_i32 a = v2_add(v2_i32_from_v2_i8(corn.c[n]), tpos);

@@ -6,23 +6,23 @@
 
 void *alignup_ptr(void *p)
 {
-    uptr pa = ((uptr)p + (uptr)(SYS_SIZE_CL - 1)) & ~(uptr)(SYS_SIZE_CL - 1);
+    uptr pa = ((uptr)p + (uptr)(PLTF_SIZE_CL - 1)) & ~(uptr)(PLTF_SIZE_CL - 1);
     return (void *)pa;
 }
 
 void *aligndn_ptr(void *p)
 {
-    return (void *)((uptr)p & ~(uptr)(SYS_SIZE_CL - 1));
+    return (void *)((uptr)p & ~(uptr)(PLTF_SIZE_CL - 1));
 }
 
 usize alignup_usize(usize p)
 {
-    return ((p + (usize)(SYS_SIZE_CL - 1)) & ~(usize)(SYS_SIZE_CL - 1));
+    return ((p + (usize)(PLTF_SIZE_CL - 1)) & ~(usize)(PLTF_SIZE_CL - 1));
 }
 
 usize aligndn_usize(usize p)
 {
-    return (p & ~(usize)(SYS_SIZE_CL - 1));
+    return (p & ~(usize)(PLTF_SIZE_CL - 1));
 }
 
 mspan_s mspan_align(mspan_s m)
@@ -170,7 +170,7 @@ void *mheap_realloc(mheap_s *m, void *ptr, usize s)
     void *user = mheap_alloc(m, s);
     if (!user) return NULL;
 
-    memcpy(user, ptr, b->s - sizeof(mhblock_s));
+    mcpy(user, ptr, b->s - sizeof(mhblock_s));
     mheap_free(m, ptr);
     mheap_check(m);
     return user;
@@ -248,13 +248,13 @@ void mheap_print(mheap_s *m)
     pltf_log("\n");
     for (mhblock_s *b = (mhblock_s *)m->buf; b; b = b->nextphys) {
         pltf_log("%i (%i - %i) | pneigh %i | nneigh %i | n %i | p %i\n",
-                   mhblock_loc(m, b),
-                   (int)mhblock_size(b),
-                   mhblock_is_busy(b),
-                   mhblock_loc(m, b->prevphys),
-                   mhblock_loc(m, b->nextphys),
-                   mhblock_loc(m, b->prev),
-                   mhblock_loc(m, b->next));
+                 mhblock_loc(m, b),
+                 (int)mhblock_size(b),
+                 mhblock_is_busy(b),
+                 mhblock_loc(m, b->prevphys),
+                 mhblock_loc(m, b->nextphys),
+                 mhblock_loc(m, b->prev),
+                 mhblock_loc(m, b->next));
     }
 }
 

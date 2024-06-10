@@ -49,11 +49,10 @@ typedef struct {
 void assets_export()
 {
     spm_push();
-    asset_collection_s *coll = (asset_collection_s *)spm_alloc(
-        sizeof(asset_collection_s));
-    *coll      = (asset_collection_s){0};
-    char *mbeg = (char *)&ASSETS.mem[0];
-    coll->size = (u32)((char *)ASSETS.marena.p - mbeg);
+    asset_collection_s *coll = spm_alloct(asset_collection_s, 1);
+    *coll                    = (asset_collection_s){0};
+    char *mbeg               = (char *)&ASSETS.mem[0];
+    coll->size               = (u32)((char *)ASSETS.marena.p - mbeg);
 
     for (i32 n = 1; n < NUM_TEXID; n++) { // exclude display
         tex_s      t  = ASSETS.tex[n].tex;
@@ -86,7 +85,7 @@ void assets_export()
     }
 
     pltf_file_del(ASSET_FILENAME);
-    void *fil = pltf_file_open(ASSET_FILENAME, PLTF_FILE_W);
+    void *fil = pltf_file_open_w(ASSET_FILENAME);
     if (!fil) {
         pltf_log("COULD NOT CREATE ASSET FILE\n");
         return;
@@ -101,11 +100,10 @@ void assets_export()
 void assets_import()
 {
     spm_push();
-    asset_collection_s *coll = (asset_collection_s *)spm_alloc(
-        sizeof(asset_collection_s));
-    char *mbeg = (char *)&ASSETS.mem[0];
+    asset_collection_s *coll = spm_alloct(asset_collection_s, 1);
+    char               *mbeg = (char *)&ASSETS.mem[0];
 
-    void *fil = pltf_file_open(ASSET_FILENAME, PLTF_FILE_R);
+    void *fil = pltf_file_open_r(ASSET_FILENAME);
     pltf_file_r(fil, coll, sizeof(asset_collection_s));
     pltf_file_r(fil, mbeg, coll->size);
     pltf_file_close(fil);
@@ -173,7 +171,9 @@ i32 asset_tex_load(const char *filename, tex_s *tex)
 {
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
     str_append(pathname, ".tex");
+#if ASSETS_LOG_LOADING
     pltf_log("LOAD TEX: %s (%s)\n", filename, pathname);
+#endif
     tex_s t = tex_load(pathname, asset_allocator);
     if (t.px) {
         i32 ID             = assets_gen_texID();
@@ -181,7 +181,7 @@ i32 asset_tex_load(const char *filename, tex_s *tex)
         if (tex) *tex = t;
         return ID;
     }
-    pltf_log("Loading Tex FAILED\n");
+    pltf_log("+++ Loading Tex FAILED: %s\n", pathname);
     return -1;
 }
 
@@ -190,7 +190,9 @@ i32 asset_tex_loadID(i32 ID, const char *filename, tex_s *tex)
     assert(0 <= ID && ID < NUM_TEXID);
     FILEPATH_GEN(pathname, FILEPATH_TEX, filename);
     str_append(pathname, ".tex");
+#if ASSETS_LOG_LOADING
     pltf_log("LOAD TEX: %s (%s)\n", filename, pathname);
+#endif
     tex_s t = tex_load(pathname, asset_allocator);
 
     ASSETS.tex[ID].tex = t;
@@ -198,6 +200,7 @@ i32 asset_tex_loadID(i32 ID, const char *filename, tex_s *tex)
         if (tex) *tex = t;
         return ID;
     }
+    pltf_log("+++ Loading Tex FAILED: %s\n", pathname);
     return -1;
 }
 
@@ -206,14 +209,16 @@ i32 asset_snd_loadID(i32 ID, const char *filename, snd_s *snd)
     assert(0 <= ID && ID < NUM_SNDID);
     FILEPATH_GEN(pathname, FILEPATH_SND, filename);
     str_append(pathname, ".aud");
-
+#if ASSETS_LOG_LOADING
     pltf_log("LOAD SND: %s (%s)\n", filename, pathname);
+#endif
     snd_s s            = snd_load(pathname, asset_allocator);
     ASSETS.snd[ID].snd = s;
     if (s.buf) {
         if (snd) *snd = s;
         return ID;
     }
+    pltf_log("+++ Loading Snd FAILED: %s\n", pathname);
     return -1;
 }
 
@@ -223,9 +228,9 @@ i32 asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt)
 
     FILEPATH_GEN(pathname, FILEPATH_FNT, filename);
     str_append(pathname, ".json");
-
+#if ASSETS_LOG_LOADING
     pltf_log("LOAD FNT: %s (%s)\n", filename, pathname);
-
+#endif
     asset_fnt_s af = {0};
     af.fnt         = fnt_load(pathname, asset_allocator);
     asset_tex_put(af.fnt.t);
@@ -234,6 +239,7 @@ i32 asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt)
         if (fnt) *fnt = af.fnt;
         return ID;
     }
+    pltf_log("+++ Loading Fnt FAILED: %s\n", pathname);
     return -1;
 }
 
@@ -279,4 +285,50 @@ i32 assets_gen_texID()
     i32        ID    = NUM_TEXID_EXPLICIT + texID++;
     assert(ID < NUM_TEXID);
     return ID;
+}
+
+fnt_s fnt_load(const char *filename, alloc_s ma)
+{
+    spm_push();
+
+    fnt_s f = {0};
+    char *txt;
+    if (!txt_load(filename, spm_alloc, &txt)) {
+        pltf_log("+++ error loading font txt\n");
+        return f;
+    }
+
+    f.widths = (u8 *)ma.allocf(ma.ctx, sizeof(u8) * 256);
+    if (!f.widths) {
+        pltf_log("+++ allocating font memory\n");
+        spm_pop();
+        return f;
+    }
+
+    json_s j;
+    json_root(txt, &j);
+
+    // replace .json with .tex
+    char filename_tex[64];
+    str_cpy(filename_tex, filename);
+    char *fp = &filename_tex[str_len(filename_tex) - 5];
+    assert(str_eq(fp, ".json"));
+    str_cpy(fp, ".tex");
+
+#if ASSETS_LOG_LOADING
+    pltf_log("  loading fnt tex: %s\n", filename_tex);
+#endif
+    f.t      = tex_load(filename_tex, ma);
+    f.grid_w = jsonk_u32(j, "gridwidth");
+    f.grid_h = jsonk_u32(j, "gridheight");
+
+    json_key(j, "glyphwidths", &j);
+    json_fchild(j, &j);
+    for (int i = 0; i < 256; i++) {
+        f.widths[i] = json_u32(j);
+        json_next(j, &j);
+    }
+
+    spm_pop();
+    return f;
 }

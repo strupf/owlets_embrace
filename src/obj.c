@@ -35,13 +35,12 @@ bool32 obj_handle_valid(obj_handle_s h)
 
 obj_s *obj_create(game_s *g)
 {
-    assert(g->obj_head_free);
     obj_s *o = g->obj_head_free;
-
     if (!o) {
         BAD_PATH
         return NULL;
     }
+
     g->objrender_dirty              = 1;
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
@@ -53,6 +52,16 @@ obj_s *obj_create(game_s *g)
     g->obj_head_busy = o;
 #ifdef PLTF_DEBUG
     o->magic = OBJ_MAGIC;
+
+    static i32 n_warn = NUM_OBJ / 4;
+    i32        n_pool = 0;
+    for (obj_s *op = g->obj_head_free; op; op = op->next) {
+        n_pool++;
+    }
+    if (n_pool < n_warn) {
+        n_warn = n_pool;
+        pltf_log("+++ OBJ POOL: ONLY %i LEFT!\n", n_warn);
+    }
 #endif
     return o;
 }
@@ -62,8 +71,7 @@ void obj_delete(game_s *g, obj_s *o)
     if (!o) return;
     if (ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0) {
         g->obj_to_delete[g->obj_ndelete++] = o;
-
-        o->GID = obj_GID_incr_gen(o->GID); // increase gen to devalidate existing handles
+        o->GID                             = obj_GID_incr_gen(o->GID); // increase gen to devalidate existing handles
     } else {
         pltf_log("already deleted\n");
     }
@@ -93,14 +101,14 @@ obj_s *obj_get_tagged(game_s *g, i32 tag)
 void objs_cull_to_delete(game_s *g)
 {
     if (g->obj_ndelete <= 0) return;
-    for (i32 n = 0; n < g->obj_ndelete; n++) {
+    for (u32 n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
 
-        for (i32 k = 0; k < NUM_OBJ_TAGS; k++) {
+        for (u32 k = 0; k < NUM_OBJ_TAGS; k++) {
             if (g->obj_tag[k] == o)
                 g->obj_tag[k] = NULL;
         }
-        for (i32 k = 0; k < g->n_objrender; k++) {
+        for (u32 k = 0; k < g->n_objrender; k++) {
             if (g->obj_render[k] == o) {
                 g->obj_render[k] = g->obj_render[--g->n_objrender];
                 break;
@@ -125,19 +133,26 @@ void objs_cull_to_delete(game_s *g)
     g->objrender_dirty = 1;
 }
 
-bool32 actor_try_wiggle(game_s *g, obj_s *o)
+bool32 obj_try_wiggle(game_s *g, obj_s *o)
 {
     rec_i32 r = obj_aabb(o);
-    if (map_traversable(g, r)) return 1;
+    if (!map_blocked(g, o, r, o->mass)) return 1;
 
-    i32 wiggle = o->ID == OBJ_ID_HERO ? 16 : 4;
+    i32 nw = o->ID == OBJ_ID_HERO ? 6 : 4;
 
-    for (i32 y = -wiggle; y <= +wiggle; y++) {
-        for (i32 x = -wiggle; x <= +wiggle; x++) {
-            rec_i32 rr = {r.x + x, r.y + y, r.w, r.h};
-            if (map_traversable(g, rr)) {
-                o->pos.x += x;
-                o->pos.y += y;
+    for (i32 n = 1; n <= nw; n++) {
+        for (i32 yn = -n; yn <= +n; yn += n) {
+            for (i32 xn = -n; xn <= +n; xn += n) {
+                rec_i32 rr = {r.x + xn, r.y + yn, r.w, r.h};
+                if (map_blocked(g, o, rr, o->mass)) continue;
+                v2_i32 dt = {xn, yn};
+                u32    u  = (o->moverflags & OBJ_MOVER_MAP);
+                i32    m  = o->mass;
+                o->mass   = 0;
+                o->moverflags &= ~OBJ_MOVER_MAP;
+                obj_move(g, o, dt);
+                o->moverflags |= u;
+                o->mass = m;
                 return 1;
             }
         }
@@ -174,13 +189,13 @@ void squish_delete(game_s *g, obj_s *o)
 
 bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
 {
-    v2_i32 dt = {dx, dy};
-    if (0 < o->mass && g->hero_mem.rope_active) {
-        rope_moved_by_solid(g, &g->hero_mem.rope, o, dt);
+    v2_i32  dt = {dx, dy};
+    rec_i32 cr = obj_aabb(o);
+    if (0 < o->mass && g->rope.active) {
+        rope_moved_by_aabb(g, &g->rope, cr, dt);
     }
 
-    rec_i32 cr     = obj_aabb(o);
-    obj_s  *ocarry = (o->ID == OBJ_ID_HERO ? carryable_present(g) : NULL);
+    obj_s *ocarry = (o->ID == OBJ_ID_HERO ? carryable_present(g) : NULL);
     if (ocarry) {     // actively move the hero, and move the solid with it
         if (dy < 0) { // upwards -> move solid first
             if (!obj_step_y(g, ocarry, -1, 0, ocarry->mass + 1)) {
@@ -248,6 +263,11 @@ bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
 bool32 obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush)
 {
     if (dx == 0) return 0;
+    if ((o->flags & OBJ_FLAG_CLAMP_ROOM_X) &&
+        ((dx < 0 && o->pos.x <= 0) ||
+         (dx > 0 && o->pos.x >= g->pixel_x - 1))) {
+        return 0;
+    }
     i32 m = (0 < o->mass && mpush) ? mpush : o->mass;
 
     rec_i32 checkr = dx == 1 ? obj_rec_right(o) : obj_rec_left(o);
@@ -261,8 +281,10 @@ bool32 obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush)
 
         rec_i32 r1       = {o->pos.x + dx, o->pos.y - 1, o->w, o->h};
         rec_i32 r2       = {o->pos.x + dx, o->pos.y + 1, o->w, o->h};
-        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_Y_NEG) && !map_blocked(g, o, r1, m);
-        bool32  could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_Y_POS) && !map_blocked(g, o, r2, m);
+        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_Y_NEG) &&
+                          !map_blocked(g, o, r1, m);
+        bool32 could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_Y_POS) &&
+                          !map_blocked(g, o, r2, m);
 
         if (!(could_r1 && obj_step_y(g, o, -1, 0, m)) &&
             !(could_r2 && obj_step_y(g, o, +1, 0, m))) {
@@ -294,8 +316,13 @@ bool32 obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush)
 bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
 {
     if (dy == 0) return 0;
-    i32 m = (0 < o->mass && mpush) ? mpush : o->mass;
+    if ((o->flags & OBJ_FLAG_CLAMP_ROOM_Y) &&
+        ((dy < 0 && o->pos.y <= 0) ||
+         (dy > 0 && o->pos.y >= g->pixel_y - 1))) {
+        return 0;
+    }
 
+    i32     m      = (0 < o->mass && mpush) ? mpush : o->mass;
     rec_i32 checkr = dy == 1 ? obj_rec_bottom(o) : obj_rec_top(o);
 
     if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
@@ -305,8 +332,10 @@ bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
         }
         rec_i32 r1       = {o->pos.x - 1, o->pos.y + dy, o->w, o->h};
         rec_i32 r2       = {o->pos.x + 1, o->pos.y + dy, o->w, o->h};
-        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_X_NEG) && !map_blocked(g, o, r1, m);
-        bool32  could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_X_POS) && !map_blocked(g, o, r2, m);
+        bool32  could_r1 = (o->moverflags & OBJ_MOVER_SLIDE_X_NEG) &&
+                          !map_blocked(g, o, r1, m);
+        bool32 could_r2 = (o->moverflags & OBJ_MOVER_SLIDE_X_POS) &&
+                          !map_blocked(g, o, r2, m);
 
         if (!(could_r1 && obj_step_x(g, o, -1, 0, m)) &&
             !(could_r2 && obj_step_x(g, o, +1, 0, m))) {
@@ -495,7 +524,7 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
 
     rope_s     *r          = o->rope;
     ropenode_s *rn         = o->ropenode;
-    i32         len_q4     = rope_length_q4(g, r);
+    i32         len_q4     = rope_len_q4(g, r);
     i32         len_max_q4 = r->len_max_q4;
     i32         dt_len     = len_q4 - len_max_q4;
     if (dt_len <= 0) return o->vel_q8; // rope is not stretched
@@ -610,4 +639,11 @@ v2_i32 carryable_animate_spr_offset(obj_s *o)
         }
     }
     return vz;
+}
+
+void obj_on_hooked(game_s *g, obj_s *o)
+{
+    switch (o->ID) {
+    case OBJ_ID_HOOKPLANT: hookplant_on_hook(o); break;
+    }
 }

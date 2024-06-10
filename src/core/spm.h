@@ -11,16 +11,17 @@
 typedef struct {
     void *stack[16];
     i32   n_stack;
-#ifdef SYS_DEBUG
     usize lowestleft;
-#endif
 
-    marena_s             m;
-    align_CL mkilobyte_s mem[1024];
+    marena_s    m;
+    mkilobyte_s mem[1024];
 } SPM_s;
 
 extern SPM_s         SPM;
 extern const alloc_s spm_allocator;
+
+#define spm_alloct(TYPE, N)  (TYPE *)spm_alloc(sizeof(TYPE) * (N))
+#define spm_alloctz(TYPE, N) (TYPE *)spm_allocz(sizeof(TYPE) * (N))
 
 void  spm_init();
 void  spm_push();

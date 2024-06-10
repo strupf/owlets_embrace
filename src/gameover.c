@@ -67,15 +67,15 @@ void gameover_draw(game_s *g, v2_i32 cam)
 
     assert(0 <= go->phase && go->phase < NUM_GAMEOVER_PHASES);
     const gfx_ctx_s ctx      = gfx_ctx_display();
-    const int       ticks    = gameover_phase[go->phase];
+    const i32       ticks    = gameover_phase[go->phase];
     const rec_i32   rdisplay = {0, 0, PLTF_DISPLAY_W, PLTF_DISPLAY_H};
 
     gfx_ctx_s ctx_r      = ctx;
-    int       p_gameover = 12;
+    i32       p_gameover = 12;
 
     switch (go->phase) {
     case GAMEOVER_DYING: {
-        int p     = lerp_i32(0, p_gameover, go->tick, ticks);
+        i32 p     = lerp_i32(0, p_gameover, go->tick, ticks);
         ctx_r.pat = gfx_pattern_bayer_4x4(p);
         gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
         break;
@@ -89,8 +89,8 @@ void gameover_draw(game_s *g, v2_i32 cam)
         fnt_s font = asset_fnt(FNTID_LARGE);
 
         v2_i32 pos = {150, 100};
-        for (int y = -2; y <= +2; y++) {
-            for (int x = -2; x <= +2; x++) {
+        for (i32 y = -2; y <= +2; y++) {
+            for (i32 x = -2; x <= +2; x++) {
                 v2_i32 p = pos;
                 p.x += x;
                 p.y += y;
@@ -105,7 +105,7 @@ void gameover_draw(game_s *g, v2_i32 cam)
         break;
     }
     case GAMEOVER_GAMEOVER_FADE_OUT: {
-        int p     = lerp_i32(p_gameover, GFX_PATTERN_MAX, go->tick, ticks);
+        i32 p     = lerp_i32(p_gameover, GFX_PATTERN_MAX, go->tick, ticks);
         ctx_r.pat = gfx_pattern_bayer_4x4(p);
         gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
         break;

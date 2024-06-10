@@ -53,65 +53,77 @@ enum {
     SUBSTATE_MENUSCREEN,
 };
 
+typedef struct {
+    u16 y;
+    u16 x1;
+    u16 x2;
+} weather_surface_s;
+
+#define NUM_WEATHER_SURFACES 1024
+
 struct game_s {
-    i32              gameplay_tick;
-    settings_s       settings;
-    title_s          title;
-    i32              state;
+    i32               slomotimer;
+    i32               gameplay_tick;
+    settings_s        settings;
+    title_s           title;
+    i32               state;
     //
-    map_world_s      map_world; // layout of all map files globally
-    map_worldroom_s *map_worldroom;
-    area_s           area;
+    map_world_s       map_world; // layout of all map files globally
+    map_worldroom_s  *map_worldroom;
+    area_s            area;
     //
-    shop_s           shop;
-    gameover_s       gameover;
-    maptransition_s  maptransition;
-    textbox_s        textbox;
-    menu_screen_s    menu_screen;
-    u16              freeze_tick;
-    u16              substate;
+    shop_s            shop;
+    gameover_s        gameover;
+    maptransition_s   maptransition;
+    textbox_s         textbox;
+    menu_screen_s     menu_screen;
+    u16               freeze_tick;
+    u16               substate;
+    cam_s             cam;
+    flags32           events_frame;
+    u32               aud_lowpass;
     //
-    cam_s            cam;
-    flags32          events_frame;
+    u16               tiles_x;
+    u16               tiles_y;
+    u16               pixel_x;
+    u16               pixel_y;
+    tile_s            tiles[NUM_TILES];
+    rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
+    obj_s            *obj_head_busy; // linked list
+    obj_s            *obj_head_free; // linked list
+    obj_s            *obj_tag[NUM_OBJ_TAGS];
+    u32               obj_ndelete;
+    obj_s            *obj_to_delete[NUM_OBJ];
+    bool32            objrender_dirty; // resort render list?
+    u32               n_objrender;
+    obj_s            *obj_render[NUM_OBJ]; // sorted render array
+    obj_s             obj_raw[NUM_OBJ];
     //
-    i32              tiles_x;
-    i32              tiles_y;
-    i32              pixel_x;
-    i32              pixel_y;
-    tile_s           tiles[NUM_TILES];
-    rtile_s          rtiles[NUM_TILELAYER][NUM_TILES];
-    u16              obj_ndelete;
-    u16              n_objrender;
-    bool32           objrender_dirty;
-    obj_s           *obj_head_busy; // linked list
-    obj_s           *obj_head_free; // linked list
-    obj_s           *obj_tag[NUM_OBJ_TAGS];
-    obj_s           *obj_to_delete[NUM_OBJ];
-    obj_s           *obj_render[NUM_OBJ]; // sorted render array
-    obj_s            obj_raw[NUM_OBJ];
+    i32               n_weather_surfaces;
+    weather_surface_s weather_surfaces[NUM_WEATHER_SURFACES];
     //
-    i32              coins_added;
-    i32              coins_added_ticks;
-    i32              save_ticks;
+    u16               coins_added;
+    u16               coins_added_ticks;
+    u16               save_ticks;
+    u32               n_respawns;
+    v2_i32            respawns[NUM_RESPAWNS];
+    u32               n_grass;
+    grass_s           grass[NUM_GRASS];
+    u32               n_coinparticles;
+    coinparticle_s    coinparticles[NUM_COINPARTICLE];
+    u32               n_deco_verlet;
+    deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
     //
-    i32              n_respawns;
-    v2_i32           respawns[NUM_RESPAWNS];
-    //
-    i32              n_grass;
-    grass_s          grass[NUM_GRASS];
-    //
-    i32              n_wiggle_deco;
-    wiggle_deco_s    wiggle_deco[NUM_WIGGLE];
-    //
-    i32              n_coinparticles;
-    coinparticle_s   coinparticles[NUM_COINPARTICLE];
-    //
-    save_s           save;
-    hero_s           hero_mem;
-    hero_jump_ui_s   jump_ui;
-    particles_s      particles;
-    ocean_s          ocean;
-    lighting_s       lighting;
+    save_s            save;
+    hero_s            hero_mem;
+    rope_s            rope;
+    i32               n_ropes;
+    rope_s            ropes[8];
+    particles_s       particles;
+    ocean_s           ocean;
+#if LIGHTING_ENABLED
+    lighting_s lighting;
+#endif
 
     item_select_s item_select;
 

@@ -57,7 +57,7 @@ void box_on_update(game_s *g, obj_s *o)
 void box_on_animate(game_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
-    spr->offs         = carryable_animate_spr_offset(o);
+    spr->offs         = v2_i16_from_i32(carryable_animate_spr_offset(o), 0);
 }
 
 void box_on_lift(game_s *g, obj_s *o)

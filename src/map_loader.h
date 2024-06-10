@@ -24,13 +24,13 @@ typedef struct {
 } map_world_s;
 
 typedef struct {
-    u32  bytes; // total size in bytes
     u32  ID;
+    u16  bytes;  // total size in bytes
+    u16  n_prop; // number of properties
     i16  x;
     i16  y;
     u16  w;
     u16  h;
-    i32  n_prop; // number of properties
     char name[32];
 } map_obj_s;
 

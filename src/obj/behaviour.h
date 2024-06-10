@@ -66,16 +66,19 @@ void   flyer_load(game_s *g, map_obj_s *mo);
 //
 void   triggerarea_load(game_s *g, map_obj_s *mo);
 //
-void   pushablebox_load(game_s *g, map_obj_s *mo);
-//
 void   spikes_load(game_s *g, map_obj_s *mo);
 //
 void   hooklever_load(game_s *g, map_obj_s *mo);
 //
 obj_s *spritedecal_create(game_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
-                          i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, int flip);
+                          i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip);
 //
 void   wallworm_load(game_s *g, map_obj_s *mo);
 //
 void   hookplant_load(game_s *g, map_obj_s *mo);
+void   hookplant_on_hook(obj_s *o);
+//
+void   blockswing_load(game_s *g, map_obj_s *mo);
+//
+void   pushblock_load(game_s *g, map_obj_s *mo);
 #endif

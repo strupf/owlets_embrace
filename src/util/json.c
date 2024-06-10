@@ -7,14 +7,14 @@
 
 bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 {
-    void *f = pltf_file_open(filename, PLTF_FILE_R);
+    void *f = pltf_file_open_r(filename);
     if (!f) {
         pltf_log("+++ Can't open %s\n", filename);
         return 0;
     }
-    pltf_file_seek(f, 0, PLTF_FILE_SEEK_END);
+    pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
-    pltf_file_seek(f, 0, PLTF_FILE_SEEK_SET);
+    pltf_file_seek_set(f, 0);
     if ((usize)size + 1 >= bufsize) {
         pltf_log("+++ txt buf too small %s\n", filename);
         return 0;
@@ -27,14 +27,14 @@ bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 
 bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
 {
-    void *f = pltf_file_open(filename, PLTF_FILE_R);
+    void *f = pltf_file_open_r(filename);
     if (!f) {
         pltf_log("+++ Can't open %s\n", filename);
         return 0;
     }
-    pltf_file_seek(f, 0, PLTF_FILE_SEEK_END);
+    pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
-    pltf_file_seek(f, 0, PLTF_FILE_SEEK_SET);
+    pltf_file_seek_set(f, 0);
     char *buf = (char *)allocfunc((usize)size + 1);
     if (!buf) {
         pltf_file_close(f);

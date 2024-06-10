@@ -33,7 +33,7 @@ typedef struct {
     } fx;
 } area_s;
 
-void area_setup(game_s *g, area_s *a, int ID);
+void area_setup(game_s *g, area_s *a, i32 ID);
 void area_update(game_s *g, area_s *a);
 void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
 void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);

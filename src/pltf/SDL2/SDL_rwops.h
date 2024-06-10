@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -57,7 +57,7 @@ typedef struct SDL_RWops
     Sint64 (SDLCALL * size) (struct SDL_RWops * context);
 
     /**
-     *  Seek to \c offset relative to \c whence, one of 's whence values:
+     *  Seek to \c offset relative to \c whence, one of stdio's whence values:
      *  RW_SEEK_SET, RW_SEEK_CUR, RW_SEEK_END
      *
      *  \return the final offset in the data stream, or -1 on error.
@@ -117,7 +117,7 @@ typedef struct SDL_RWops
         {
             SDL_bool autoclose;
             FILE *fp;
-        } ;
+        } stdio;
 #endif
         struct
         {
@@ -214,7 +214,7 @@ extern DECLSPEC SDL_RWops *SDLCALL SDL_RWFromFP(FILE * fp, SDL_bool autoclose);
 
 /**
  * Use this function to create an SDL_RWops structure from a standard I/O file
- * pointer (.h's `FILE*`).
+ * pointer (stdio.h's `FILE*`).
  *
  * This function is not available on Windows, since files opened in an
  * application on that platform cannot be used by a dynamically linked
@@ -222,7 +222,7 @@ extern DECLSPEC SDL_RWops *SDLCALL SDL_RWFromFP(FILE * fp, SDL_bool autoclose);
  *
  * On some platforms, the first parameter is a `void*`, on others, it's a
  * `FILE*`, depending on what system headers are available to SDL. It is
- * always intended to be the `FILE*` type from the C runtime's .h.
+ * always intended to be the `FILE*` type from the C runtime's stdio.h.
  *
  * \param fp the `FILE*` that feeds the SDL_RWops stream
  * \param autoclose SDL_TRUE to close the `FILE*` when closing the SDL_RWops,

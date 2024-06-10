@@ -89,8 +89,8 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
 
             m->map.scl_q12 += inp_crank_dt_q16() << 1;
             m->map.scl_q12  = max_i(m->map.scl_q12, 12 << 8);
-            int    dpadx    = inp_x();
-            int    dpady    = inp_y();
+            i32    dpadx    = inp_x();
+            i32    dpady    = inp_y();
             bool32 pin_snap = (closest_dist < 5);
 
             if (m->map.pin && (dpadx | dpady) == 0) {
@@ -187,7 +187,7 @@ void menu_screen_draw(game_s *g, menu_screen_s *m)
             rec_i32 rselected  = {pinoffsetx + m->map.pin_type * 32, pinoffsety, 32, 32};
             gfx_rec_fill(ctx, rselected, PRIM_MODE_WHITE);
 
-            for (int n = 0; n < NUM_MAP_PIN_TYPES; n++) {
+            for (i32 n = 0; n < NUM_MAP_PIN_TYPES; n++) {
                 texrec_s tpin   = asset_texrec(TEXID_UI, 256 + n * 32, 192, 32, 32);
                 v2_i32   pospin = {pinoffsetx + n * 32, pinoffsety};
                 gfx_spr(ctx, tpin, pospin, 0, 0);
@@ -205,8 +205,8 @@ void menu_screen_draw(game_s *g, menu_screen_s *m)
         texrec_s tr_cursor  = {tui, {0, 0, 16, 16}};
         i32      cursoranim = 2 + ((sin_q16(m->map.cursoranimtick << 13) * 2) >> 16);
 
-        for (int y = -1; y <= 1; y += 2) {
-            for (int x = -1; x <= 1; x += 2) {
+        for (i32 y = -1; y <= 1; y += 2) {
+            for (i32 x = -1; x <= 1; x += 2) {
                 v2_i32 pcur = cursorpos;
                 pcur.x += (0 < x) * 16 + x * cursoranim;
                 pcur.y += (0 < y) * 16 + y * cursoranim;

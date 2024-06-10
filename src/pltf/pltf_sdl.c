@@ -2,9 +2,12 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "pltf_sdl.h"
 #include "pltf.h"
 
 #define PLTF_SDL_WINDOW_TITLE "Owlet's Embrace"
+#define PLTF_SDL_PURE_BW      1
+#define PLTF_SDL_GHOSTING     1
 
 typedef struct pltf_sdl_s {
     bool32            running;
@@ -18,20 +21,22 @@ typedef struct pltf_sdl_s {
     u8                framebuffer[52 * 240];
     SDL_Window       *window;
     SDL_Renderer     *renderer;
-    SDL_Texture      *texture;
+    SDL_Texture      *tex;
+    SDL_Texture      *texp;
     SDL_Rect          r_src;
     SDL_Rect          r_dst;
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
+    bool32            render_ghosting;
     bool32            is_mono;
     bool32            inv;
     f32               vol;
-
 } pltf_sdl_s;
 
 pltf_sdl_s g_SDL;
 
 void pltf_sdl_init();
+void pltf_sdl_close();
 void pltf_sdl_resize();
 void pltf_sdl_set_FPS_cap(i32 fps);
 void pltf_sdl_audio(void *u, u8 *stream, int len);
@@ -70,65 +75,78 @@ int main(int argc, char **argv)
         }
 
         if (pltf_internal_update()) {
+            if (g_SDL.render_ghosting) {
+                SDL_SetRenderTarget(g_SDL.renderer, g_SDL.texp);
+                SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_src);
+                SDL_SetRenderTarget(g_SDL.renderer, NULL);
+            }
+
             int   pitch;
             void *pixelsptr;
-            SDL_LockTexture(g_SDL.texture, NULL, &pixelsptr, &pitch);
+            SDL_LockTexture(g_SDL.tex, NULL, &pixelsptr, &pitch);
             u32 *pixels = (u32 *)pixelsptr;
 
             for (i32 y = 0; y < 240; y++) {
                 for (i32 x = 0; x < 400; x++) {
                     i32 i     = (x >> 3) + y * 52;
                     i32 k     = x + y * 400;
-                    i32 byt   = g_SDL.framebuffer[i];
-                    i32 bit   = !!(byt & (0x80 >> (x & 7)));
+                    i32 bit   = !!(g_SDL.framebuffer[i] & (0x80 >> (x & 7)));
                     pixels[k] = g_SDL.pal[g_SDL.inv ? !bit : bit];
                 }
             }
-            SDL_UnlockTexture(g_SDL.texture);
+            SDL_UnlockTexture(g_SDL.tex);
         }
 
-        SDL_SetRenderDrawColor(g_SDL.renderer, 0x31, 0x2F, 0x28, 0xFF);
+        SDL_SetRenderDrawColor(g_SDL.renderer,
+#if PLTF_SDL_PURE_BW
+                               0x00, 0x00, 0x00,
+#else
+                               0x31, 0x2F, 0x28,
+#endif
+                               0xFF);
         SDL_RenderClear(g_SDL.renderer);
-        SDL_RenderCopy(g_SDL.renderer, g_SDL.texture, &g_SDL.r_src, &g_SDL.r_dst);
+        SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_dst);
+        if (g_SDL.render_ghosting) {
+            SDL_SetTextureBlendMode(g_SDL.texp, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(g_SDL.texp, 64);
+            SDL_RenderCopy(g_SDL.renderer, g_SDL.texp, &g_SDL.r_src, &g_SDL.r_dst);
+        }
+
         SDL_RenderPresent(g_SDL.renderer);
 
-        // FPS cap in SDL
-        if (g_SDL.fps_cap) {
-            fps_tick++;
-            fps_timer += timedt;
-            Uint64 one_second = SDL_GetPerformanceFrequency();
-            if (one_second <= fps_timer) {
-                fps_timer -= one_second;
-                f64 avg_fps  = (f64)(fps_tick + fps_tick_prev) * 0.5;
-                f64 diff     = avg_fps - (f64)g_SDL.fps_cap;
-                f64 k_change = 0.0;
-                f64 diff_abs = 0.0 <= diff ? diff : -diff;
-                if (2.0 <= diff_abs) k_change = 0.025;
-                else if (1.00 <= diff_abs) k_change = 0.010;
-                else if (0.25 <= diff_abs) k_change = 0.001;
-                if (0.0 < diff) g_SDL.delay_timer_k += k_change;
-                if (0.0 > diff) g_SDL.delay_timer_k -= k_change;
-                fps_tick_prev = fps_tick;
-                fps_tick      = 0;
-            }
+        if (!g_SDL.fps_cap) continue;
 
-            f64 tdt = (f64)(SDL_GetPerformanceCounter() - time) / (f64)one_second;
-            g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * 1000. * g_SDL.delay_timer_k;
-            g_SDL.delay_timer = 0. <= g_SDL.delay_timer ? g_SDL.delay_timer : 0.;
-            if (1. <= g_SDL.delay_timer) {
-                Uint32 sleepfor = (Uint32)g_SDL.delay_timer;
-                g_SDL.delay_timer -= (f64)sleepfor;
-                SDL_Delay(sleepfor);
-            }
+        // FPS cap in SDL
+
+        fps_tick++;
+        fps_timer += timedt;
+        Uint64 one_second = SDL_GetPerformanceFrequency();
+        if (one_second <= fps_timer) {
+            fps_timer -= one_second;
+            f64 avg_fps  = (f64)(fps_tick + fps_tick_prev) * 0.5;
+            f64 diff     = avg_fps - (f64)g_SDL.fps_cap;
+            f64 k_change = 0.;
+            f64 diff_abs = 0. <= diff ? diff : -diff;
+            if (2.0 <= diff_abs) k_change = .025;
+            else if (1.00 <= diff_abs) k_change = .010;
+            else if (0.25 <= diff_abs) k_change = .001;
+            if (0. < diff) g_SDL.delay_timer_k += k_change;
+            if (0. > diff) g_SDL.delay_timer_k -= k_change;
+            fps_tick_prev = fps_tick;
+            fps_tick      = 0;
+        }
+
+        f64 tdt = (f64)(SDL_GetPerformanceCounter() - time) / (f64)one_second;
+        g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * 1000. * g_SDL.delay_timer_k;
+        g_SDL.delay_timer = 0. <= g_SDL.delay_timer ? g_SDL.delay_timer : 0.;
+        if (1. <= g_SDL.delay_timer) {
+            Uint32 sleepfor = (Uint32)g_SDL.delay_timer;
+            g_SDL.delay_timer -= (f64)sleepfor;
+            SDL_Delay(sleepfor);
         }
     }
     pltf_internal_close();
-
-    SDL_CloseAudioDevice(g_SDL.audiodevID);
-    SDL_DestroyTexture(g_SDL.texture);
-    SDL_DestroyRenderer(g_SDL.renderer);
-    SDL_DestroyWindow(g_SDL.window);
-    SDL_Quit();
+    pltf_sdl_close();
     return 0;
 }
 
@@ -143,8 +161,8 @@ void pltf_sdl_init()
     g_SDL.window = SDL_CreateWindow(PLTF_SDL_WINDOW_TITLE,
                                     SDL_WINDOWPOS_CENTERED,
                                     SDL_WINDOWPOS_CENTERED,
-                                    400 * 2,
-                                    240 * 2,
+                                    400,
+                                    240,
                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
 
     SDL_SetWindowMinimumSize(g_SDL.window, 400, 240);
@@ -154,15 +172,25 @@ void pltf_sdl_init()
     SDL_RendererInfo info;
     SDL_GetRendererInfo(g_SDL.renderer, &info);
     Uint32 pformat = info.texture_formats[0];
-    g_SDL.texture  = SDL_CreateTexture(g_SDL.renderer,
+    g_SDL.tex      = SDL_CreateTexture(g_SDL.renderer,
                                        pformat,
                                        SDL_TEXTUREACCESS_STREAMING,
                                        400,
                                        240);
+    g_SDL.texp     = SDL_CreateTexture(g_SDL.renderer,
+                                       pformat,
+                                       SDL_TEXTUREACCESS_TARGET,
+                                       400,
+                                       240);
 
     SDL_PixelFormat *f = SDL_AllocFormat(pformat);
-    g_SDL.pal[0]       = SDL_MapRGB((const SDL_PixelFormat *)f, 0x31, 0x2F, 0x28); // black
-    g_SDL.pal[1]       = SDL_MapRGB((const SDL_PixelFormat *)f, 0xB1, 0xAF, 0xA8); // white
+#if PLTF_SDL_PURE_BW
+    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)f, 0x00, 0x00, 0x00); // black
+    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)f, 0xFF, 0xFF, 0xFF); // white
+#else
+    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)f, 0x31, 0x2F, 0x28); // black
+    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)f, 0xB1, 0xAF, 0xA8); // white
+#endif
     SDL_FreeFormat(f);
 
     SDL_AudioSpec frmt = {0};
@@ -177,37 +205,39 @@ void pltf_sdl_init()
         SDL_PauseAudioDevice(g_SDL.audiodevID, 0);
     }
 
-    g_SDL.running    = 1;
-    g_SDL.r_src.w    = 400;
-    g_SDL.r_src.h    = 240;
-    g_SDL.r_dst.w    = 400 * 2;
-    g_SDL.r_dst.h    = 240 * 2;
-    g_SDL.timeorigin = SDL_GetPerformanceCounter();
-    g_SDL.is_mono    = 1;
-    g_SDL.vol        = 0.5f;
+    g_SDL.running         = 1;
+    g_SDL.r_src.w         = 400;
+    g_SDL.r_src.h         = 240;
+    g_SDL.r_dst.w         = 400;
+    g_SDL.r_dst.h         = 240;
+    g_SDL.timeorigin      = SDL_GetPerformanceCounter();
+    g_SDL.is_mono         = 1;
+    g_SDL.vol             = 0.5f;
+    g_SDL.render_ghosting = PLTF_SDL_GHOSTING;
     pltf_sdl_resize();
     pltf_sdl_set_FPS_cap(120);
+}
+
+void pltf_sdl_close()
+{
+    SDL_CloseAudioDevice(g_SDL.audiodevID);
+    SDL_DestroyTexture(g_SDL.tex);
+    SDL_DestroyTexture(g_SDL.texp);
+    SDL_DestroyRenderer(g_SDL.renderer);
+    SDL_DestroyWindow(g_SDL.window);
+    SDL_Quit();
 }
 
 void pltf_sdl_resize()
 {
     int w, h;
     SDL_GetWindowSize(g_SDL.window, &w, &h);
-    f32 sx = (f32)w / (f32)g_SDL.r_src.w;
-    f32 sy = (f32)h / (f32)g_SDL.r_src.h;
-#if 1 // integer scaling - patterns look terrible stretched
+    f32 sx        = (f32)w / (f32)g_SDL.r_src.w;
+    f32 sy        = (f32)h / (f32)g_SDL.r_src.h;
+    // integer scaling - patterns look terrible stretched
     i32 si        = (i32)(sx <= sy ? sx : sy);
     g_SDL.r_dst.w = g_SDL.r_src.w * si;
     g_SDL.r_dst.h = g_SDL.r_src.h * si;
-#else
-    if (sx < sy) {
-        OS_SDL.r_dst.w = w;
-        OS_SDL.r_dst.h = (i32)(sx * (f32)OS_SDL.r_src.h + .5f);
-    } else {
-        OS_SDL.r_dst.w = (i32)(sy * (f32)OS_SDL.r_src.w + .5f);
-        OS_SDL.r_dst.h = h;
-    }
-#endif
     g_SDL.r_dst.x = (w - g_SDL.r_dst.w) / 2;
     g_SDL.r_dst.y = (h - g_SDL.r_dst.h) / 2;
 }
@@ -238,8 +268,8 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
     static i16 lbuf[0x1000];
     static i16 rbuf[0x1000];
 
-    memset(lbuf, 0, sizeof(lbuf));
-    memset(rbuf, 0, sizeof(rbuf));
+    mset(lbuf, 0, sizeof(lbuf));
+    mset(rbuf, 0, sizeof(rbuf));
     i32 samples = len / (2 * sizeof(i16));
     pltf_internal_audio(lbuf, rbuf, samples);
 
@@ -305,14 +335,19 @@ void *pltf_1bit_buffer()
     return g_SDL.framebuffer;
 }
 
-void *pltf_file_open(const char *path, i32 mode)
+void *pltf_file_open_r(const char *path)
 {
-    switch (mode) {
-    case PLTF_FILE_R: return fopen(path, "rb");
-    case PLTF_FILE_W: return fopen(path, "wb");
-    case PLTF_FILE_A: return fopen(path, "ab");
-    }
-    return NULL;
+    return fopen(path, "rb");
+}
+
+void *pltf_file_open_w(const char *path)
+{
+    return fopen(path, "wb");
+}
+
+void *pltf_file_open_a(const char *path)
+{
+    return fopen(path, "ab");
 }
 
 bool32 pltf_file_close(void *f)
@@ -330,9 +365,19 @@ i32 pltf_file_tell(void *f)
     return ftell(f);
 }
 
-i32 pltf_file_seek(void *f, i32 pos, i32 origin)
+i32 pltf_file_seek_set(void *f, i32 pos)
 {
-    return fseek(f, pos, origin);
+    return (i32)fseek(f, pos, SEEK_SET);
+}
+
+i32 pltf_file_seek_cur(void *f, i32 pos)
+{
+    return (i32)fseek(f, pos, SEEK_CUR);
+}
+
+i32 pltf_file_seek_end(void *f, i32 pos)
+{
+    return (i32)fseek(f, pos, SEEK_END);
 }
 
 i32 pltf_file_w(void *f, const void *buf, usize bsize)

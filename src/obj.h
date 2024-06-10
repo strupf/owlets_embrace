@@ -10,7 +10,7 @@
 #include "gamedef.h"
 #include "rope.h"
 
-#define NUM_OBJ_POW_2 10 // = 2^N
+#define NUM_OBJ_POW_2 8 // = 2^N
 #define NUM_OBJ       (1 << NUM_OBJ_POW_2)
 
 static inline u32 obj_GID_incr_gen(u32 gid)
@@ -21,11 +21,6 @@ static inline u32 obj_GID_incr_gen(u32 gid)
 static inline i32 obj_GID_gen(u32 gid)
 {
     return (gid >> NUM_OBJ_POW_2);
-}
-
-static inline i32 obj_GID_index(u32 gid)
-{
-    return (gid & (0xFFFFFFFFU >> (32 - NUM_OBJ_POW_2)));
 }
 
 static inline u32 obj_GID_set(i32 index, i32 gen)
@@ -61,7 +56,7 @@ enum {
     OBJ_ID_WALKER,
     OBJ_ID_FLYER,
     OBJ_ID_TRIGGERAREA,
-    OBJ_ID_PUSHABLEBOX,
+    OBJ_ID_PUSHBLOCK,
     OBJ_ID_SPIKES,
     OBJ_ID_KEY,
     OBJ_ID_BOAT,
@@ -71,6 +66,7 @@ enum {
     OBJ_ID_WALLWORM,
     OBJ_ID_WALLWORM_PARENT,
     OBJ_ID_HOOKPLANT,
+    OBJ_ID_BLOCKSWING,
 };
 
 enum {
@@ -81,29 +77,26 @@ enum {
     NUM_OBJ_TAGS
 };
 
-#define OBJ_FLAG_MOVER                 ((u64)1 << 0)
-#define OBJ_FLAG_TILE_COLLISION        ((u64)1 << 1)
-#define OBJ_FLAG_INTERACTABLE          ((u64)1 << 2)
-#define OBJ_FLAG_ACTOR                 ((u64)1 << 3)
-#define OBJ_FLAG_SOLID                 ((u64)1 << 4)
-#define OBJ_FLAG_PLATFORM              ((u64)1 << 5)
-#define OBJ_FLAG_PLATFORM_HERO_ONLY    ((u64)1 << 6) // only acts as a platform for the hero
-#define OBJ_FLAG_KILL_OFFSCREEN        ((u64)1 << 7)
-#define OBJ_FLAG_HOOKABLE              ((u64)1 << 8)
-#define OBJ_FLAG_SPRITE                ((u64)1 << 9)
-#define OBJ_FLAG_ENEMY                 ((u64)1 << 10)
-#define OBJ_FLAG_COLLECTIBLE           ((u64)1 << 11)
-#define OBJ_FLAG_HURT_ON_TOUCH         ((u64)1 << 12)
-#define OBJ_FLAG_CARRYABLE             ((u64)1 << 13)
-#define OBJ_FLAG_IS_CARRIED            ((u64)1 << 14)
-#define OBJ_FLAG_CLAMP_ROOM_X          ((u64)1 << 15)
-#define OBJ_FLAG_CLAMP_ROOM_Y          ((u64)1 << 16)
-#define OBJ_FLAG_BOSS                  ((u64)1 << 17)
-#define OBJ_FLAG_SOLID_LEVEL_COLLISION ((u64)1 << 18)
-#define OBJ_FLAG_HOVER_TEXT            ((u64)1 << 19)
-#define OBJ_FLAG_CAN_BE_JUMPED_ON      ((u64)1 << 20)
-#define OBJ_FLAG_KINDA_SOLID           ((u64)1 << 21)
-#define OBJ_FLAG_RENDER_AABB           ((u64)1 << 63)
+#define OBJ_FLAG_MOVER              ((u64)1 << 0)
+#define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
+#define OBJ_FLAG_ACTOR              ((u64)1 << 3)
+#define OBJ_FLAG_SOLID              ((u64)1 << 4)
+#define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
+#define OBJ_FLAG_PLATFORM_HERO_ONLY ((u64)1 << 6) // only acts as a platform for the hero
+#define OBJ_FLAG_KILL_OFFSCREEN     ((u64)1 << 7)
+#define OBJ_FLAG_HOOKABLE           ((u64)1 << 8)
+#define OBJ_FLAG_SPRITE             ((u64)1 << 9)
+#define OBJ_FLAG_ENEMY              ((u64)1 << 10)
+#define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
+#define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
+#define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
+#define OBJ_FLAG_IS_CARRIED         ((u64)1 << 14)
+#define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
+#define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
+#define OBJ_FLAG_BOSS               ((u64)1 << 17)
+#define OBJ_FLAG_HOVER_TEXT         ((u64)1 << 19)
+#define OBJ_FLAG_CAN_BE_JUMPED_ON   ((u64)1 << 20)
+#define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 #define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
@@ -135,26 +128,17 @@ enum {
 #define OBJ_HOVER_TEXT_TICKS 20
 typedef void (*obj_action_s)(game_s *g, obj_s *o);
 
-// handle to an object
-// object pointer is valid (still exists) if:
-//   o != NULL && GID == o->GID
-typedef struct {
-    obj_s *o;
-    u32    GID;
-} obj_handle_s;
-
 typedef struct {
     texrec_s trec;
-    v2_i32   offs;
+    v2_i16   offs;
     i16      flip;
-    i16      mode;
 } obj_sprite_s;
 
 typedef struct {
     i16    sndID_hurt;
     i16    sndID_die;
-    i32    drops;
-    i32    hurt_tick;
+    i16    drops;
+    i16    hurt_tick;
     bool32 invincible;
 } enemy_s;
 
@@ -193,11 +177,11 @@ struct obj_s {
     obj_on_interact_f on_interact;
     //
     i32               render_priority;
-    flags32           bumpflags; // has to be cleared manually
-    flags32           moverflags;
-    i32               mass; // mass, for solid movement
-    i32               w;
-    i32               h;
+    flags16           bumpflags; // has to be cleared manually
+    flags16           moverflags;
+    i16               mass; // mass, for solid movement
+    i16               w;
+    i16               h;
     v2_i32            pos; // position in pixels
     v2_i32            posprev;
     v2_i32            subpos_q8;
@@ -208,8 +192,7 @@ struct obj_s {
     v2_i32            gravity_q8;
     v2_i32            tomove;
     // some generic behaviour fields
-    bool16            facing_locked;
-    i16               facing; // -1 left, +1 right
+    i32               facing; // -1 left, +1 right
     i32               trigger;
     i32               action;
     i32               subaction;
@@ -218,12 +201,9 @@ struct obj_s {
     i32               subtimer;
     i16               state;
     i16               substate;
-    //
-    i32               collectible_type;
-    i32               collectible_amount;
     i16               health;
     i16               health_max;
-    i32               invincible_tick;
+    i16               invincible_tick;
     enemy_s           enemy;
     //
     i32               hover_text_tick;
@@ -232,19 +212,14 @@ struct obj_s {
     ropenode_s       *ropenode;
     rope_s           *rope;
     obj_handle_s      linked_solid;
-    obj_handle_s      obj_handles[4];
     obj_carry_s       carry;
     //
     i32               n_sprites;
     obj_sprite_s      sprites[4];
     char              filename[64];
     //
-    union {
-        char  mem[512];
-        void *_memalign;
-    };
-
-    u32 magic;
+    ALIGN(4) char     mem[512];
+    u32               magic;
 };
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
@@ -272,7 +247,7 @@ bool32       map_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m);
 bool32       obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush);
 bool32       obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush);
 void         obj_move(game_s *g, obj_s *o, v2_i32 dt);
-bool32       actor_try_wiggle(game_s *g, obj_s *o);
+bool32       obj_try_wiggle(game_s *g, obj_s *o);
 void         obj_on_squish(game_s *g, obj_s *o);
 bool32       obj_grounded(game_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
@@ -284,6 +259,7 @@ v2_i32       carryable_pos_on_hero(obj_s *ohero, obj_s *ocarry, rec_i32 *rlift);
 void         carryable_on_lift(game_s *g, obj_s *o);
 void         carryable_on_drop(game_s *g, obj_s *o);
 v2_i32       carryable_animate_spr_offset(obj_s *o);
+void         obj_on_hooked(game_s *g, obj_s *o);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

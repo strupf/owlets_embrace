@@ -20,34 +20,32 @@ typedef struct {
 
 typedef struct {
     i8 *wavbuf;
-    u32 wavlen;
-    u32 wavlen_pitched;
-    u32 wavpos;
-    i32 vol_q8;
-    i32 ipitch_q8;
+    i32 wavlen;
+    i32 wavlen_pitched;
+    i32 wavpos;
+    f32 pitch;
+    i16 ipitch_q8;
+    i16 vol_q8;
 } sndchannel_s;
 
 typedef struct {
-    char   filename[MUS_LEN_FILENAME];
+    char        filename[MUS_LEN_FILENAME];
     //
-    void  *stream;
-    i32    datapos;
-    i32    streampos; // position in samples
-    i32    streamlen;
-    i32    chunkpos; // position in samples in chunk
-    i32    vol_q8;
-    i32    trg_vol_q8;
-    bool32 looping;
+    void       *stream;
+    i32         datapos;
+    i32         streampos; // position in samples
+    i32         streamlen;
+    i32         chunkpos; // position in samples in chunk
+    i32         vol_q8;
+    i32         trg_vol_q8;
+    bool32      looping;
     //
-    i32    fade_out_ticks_og;
-    i32    fade_out_ticks;
-    i32    fade_in_ticks;
-    i32    fade_in_ticks_og;
+    i32         fade_out_ticks_og;
+    i32         fade_out_ticks;
+    i32         fade_in_ticks;
+    i32         fade_in_ticks_og;
     //
-    union {
-        i8    chunk[MUSCHUNK_SAMPLES];
-        void *chunkalign;
-    };
+    ALIGN(4) i8 chunk[MUSCHUNK_SAMPLES];
 } muschannel_s;
 
 typedef struct {
@@ -61,6 +59,7 @@ typedef struct {
     bool32       snd_playing_disabled;
     i32          lowpass;
     i32          lowpass_acc;
+    f32          snd_pitch;
 } AUD_s;
 
 extern AUD_s AUD;
@@ -68,6 +67,7 @@ extern AUD_s AUD;
 void   aud_init();
 void   aud_update();
 void   aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
+void   aud_set_global_pitch(f32 pitch);
 void   aud_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   aud_allow_playing_new_snd(bool32 enabled);
 snd_s  snd_load(const char *pathname, alloc_s ma);

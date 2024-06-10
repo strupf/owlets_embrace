@@ -101,13 +101,13 @@ void stalactite_load(game_s *g, map_obj_s *mo)
 
     stalactite_s *s = (stalactite_s *)o->mem;
 
-    int tx      = o->pos.x >> 4;
+    i32 tx      = o->pos.x >> 4;
     s->checkr.x = o->pos.x;
     s->checkr.y = o->pos.y;
     s->checkr.w = o->w;
     s->checkr.h = 16;
-    for (int ty = (o->pos.y >> 4) + 1; ty < g->tiles_y; ty++) {
-        int t = g->tiles[tx + ty * g->tiles_x].collision;
+    for (i32 ty = (o->pos.y >> 4) + 1; ty < g->tiles_y; ty++) {
+        i32 t = g->tiles[tx + ty * g->tiles_x].collision;
         if ((TILE_BLOCK <= t && t < NUM_TILE_SHAPES)) break;
         s->checkr.h += 16;
     }

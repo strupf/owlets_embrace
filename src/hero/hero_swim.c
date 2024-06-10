@@ -21,17 +21,17 @@ i32 hero_breath_tick(game_s *g)
 
 i32 hero_breath_tick_max(game_s *g)
 {
-    return (g->save.upgrades[HERO_UPGRADE_DIVE] ? 2500 : 100);
+    return (hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 2500 : 100);
 }
 
 void hero_update_swimming(game_s *g, obj_s *o)
 {
-    hero_s *h               = &g->hero_mem;
-    o->drag_q8.x            = 240;
-    g->jump_ui.out_of_water = 1;
-    h->sprint_dtap          = 0;
-    h->sprint_ticks         = 0;
-    h->airjumps_left        = 0;
+    hero_s *h        = &g->hero_mem;
+    o->drag_q8.x     = 240;
+    h->jump_ui_water = 1;
+    h->sprint_dtap   = 0;
+    h->sprint_ticks  = 0;
+    h->flytime       = 0;
 
     i32    dpad_x      = inp_x();
     i32    dpad_y      = inp_y();
@@ -63,7 +63,7 @@ void hero_update_swimming(game_s *g, obj_s *o)
             i32 k0 = min_i(water_depth, 30);
             i32 k1 = 30;
 
-            o->vel_q8.y -= lerp_i32(20, 70, k0, k1) + lerp_i32(0, 100, i0, i1);
+            o->vel_q8.y -= lerp_i32(25, 90, k0, k1) + lerp_i32(0, 120, i0, i1);
 
         } else {
             o->vel_q8.y -= min_i(5 + water_depth, 40);

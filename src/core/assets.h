@@ -8,7 +8,8 @@
 #include "aud.h"
 #include "gfx.h"
 
-#define ASSET_FILENAME "assets/assets/assets.fil"
+#define ASSET_FILENAME     "assets/assets/assets.dat"
+#define ASSETS_LOG_LOADING 0
 
 enum {
     TEXID_DISPLAY,
@@ -19,7 +20,6 @@ enum {
     TEXID_PAUSE_TEX,
     TEXID_UI,
     TEXID_UI_ITEMS,
-    TEXID_UI_TEXTBOX,
     TEXID_PLANTS,
     TEXID_CLOUDS,
     TEXID_TITLE,
@@ -49,10 +49,9 @@ enum {
     TEXID_WIGGLE_SMALL, // grass, plants etc.
     TEXID_WIGGLE_MEDIUM,
     TEXID_WIGGLE_LARGE,
-//
-#ifdef SYS_DEBUG
     TEXID_COLLISION_TILES,
-#endif
+    TEXID_FLYING_BUG,
+    TEXID_WALLWORM,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -118,8 +117,8 @@ typedef struct {
     asset_snd_s snd[NUM_SNDID];
     asset_fnt_s fnt[NUM_FNTID];
 
-    marena_s             marena;
-    align_CL mkilobyte_s mem[5 * 1024];
+    marena_s    marena;
+    mmegabyte_s mem[5];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
@@ -140,6 +139,7 @@ i32      asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt);
 i32      asset_tex_put(tex_s t);
 tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
+fnt_s    fnt_load(const char *filename, alloc_s ma);
 
 void   snd_play_ext(i32 ID, f32 vol, f32 pitch);
 void   mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in);

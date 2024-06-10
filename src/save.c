@@ -7,19 +7,19 @@
 bool32 hero_has_upgrade(game_s *g, i32 ID)
 {
     save_s *hs = &g->save;
-    return hs->upgrades[ID];
+    return (hs->upgrades & ((flags32)1 << ID));
 }
 
 void hero_add_upgrade(game_s *g, i32 ID)
 {
-    save_s *hs       = &g->save;
-    hs->upgrades[ID] = 1;
+    save_s *hs = &g->save;
+    hs->upgrades |= (flags32)1 << ID;
 }
 
 void hero_rem_upgrade(game_s *g, i32 ID)
 {
-    save_s *hs       = &g->save;
-    hs->upgrades[ID] = 0;
+    save_s *hs = &g->save;
+    hs->upgrades &= ~((flags32)1 << ID);
 }
 
 void hero_set_name(game_s *g, const char *name)

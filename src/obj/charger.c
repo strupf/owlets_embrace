@@ -142,8 +142,8 @@ void charger_on_animate(game_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     spr->flip         = o->facing == 1 ? 0 : SPR_FLIP_X;
-    int animID        = 0;
-    int frameID       = 0;
+    i32 animID        = 0;
+    i32 frameID       = 0;
 
     switch (o->state) {
     case CHARGER_STATE_NORMAL: {

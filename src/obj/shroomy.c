@@ -88,8 +88,8 @@ void shroomy_on_animate(game_s *g, obj_s *o)
     obj_sprite_s *spr = &o->sprites[0];
     spr->flip         = o->facing == 1 ? SPR_FLIP_X : 0;
 
-    const int H = spr->trec.r.h;
-    const int W = spr->trec.r.w;
+    const i32 H = spr->trec.r.h;
+    const i32 W = spr->trec.r.w;
 
     switch (o->state) {
     case SHROOMY_WALK:

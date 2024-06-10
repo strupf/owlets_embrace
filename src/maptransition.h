@@ -8,11 +8,11 @@
 #include "gamedef.h"
 
 typedef struct {
-    i32    fade_phase;
-    i32    fade_tick;
-    i32    type;
-    i32    hero_face;
-    i32    airjumps_left;
+    i16    fade_phase;
+    i16    fade_tick;
+    i16    type;
+    i16    hero_face;
+    i16    flytime;
     v2_i32 hero_v;
     v2_i32 hero_feet;
     i32    teleport_ID;
