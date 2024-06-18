@@ -22,6 +22,11 @@ enum {
 };
 
 typedef struct {
+    u32 p;
+    u32 m;
+} tex_pm_s;
+
+typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     u16  wword;
     u16  fmt;
@@ -115,6 +120,7 @@ gfx_ctx_s     gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2);
 gfx_ctx_s     gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r);
 gfx_ctx_s     gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h);
 void          tex_clr(tex_s dst, i32 col);
+gfx_pattern_s gfx_pattern_inv(gfx_pattern_s p);
 gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
 gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
 gfx_pattern_s gfx_pattern_8x8(i32 p0, i32 p1, i32 p2, i32 p3, i32 p4, i32 p5, i32 p6, i32 p7);
@@ -133,7 +139,8 @@ void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, 
 // tiles spr across screen (true/false for x/y)
 void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 x, bool32 y);
 //
-void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 r, i32 mode);
+void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
+void gfx_rec_rounded_fill(gfx_ctx_s ctx, rec_i32 rec, i32 r, i32 mode);
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, i32 mode);
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode);
 void gfx_lin(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode);

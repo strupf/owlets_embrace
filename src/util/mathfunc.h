@@ -42,6 +42,11 @@ static inline i32 min_i32(i32 a, i32 b)
     return (a < b ? a : b);
 }
 
+static inline u32 min_u32(u32 a, u32 b)
+{
+    return (a < b ? a : b);
+}
+
 static inline i32 min3_i32(i32 a, i32 b, i32 c)
 {
     return min_i32(a, min_i32(b, c));
@@ -94,6 +99,15 @@ static inline f32 sgn_f32(f32 a)
 static inline i32 mul_ratio(i32 x, ratio_s r)
 {
     return ((x * r.num) / r.den);
+}
+
+static inline f32 pow_f32(f32 v, i32 power)
+{
+    f32 r = v;
+    for (i32 n = 1; n < power; n++) {
+        r *= v;
+    }
+    return r;
 }
 
 static inline u32 pow_u32(u32 v, i32 power)
@@ -557,6 +571,25 @@ static inline bool32 v2_i16_eq(v2_i16 a, v2_i16 b)
     return (a.x == b.x && a.y == b.y);
 }
 
+static inline v2_i16 v2_i16_shr(v2_i16 v, i32 s)
+{
+    i16x2  k = i16x2_from_v2_i16(v);
+    v2_i16 r = v2_i16_from_i16x2(i16x2_shr(k, s));
+    return r;
+}
+
+static inline v2_i16 v2_i16_shl(v2_i16 v, i32 s)
+{
+    i16x2  k = i16x2_from_v2_i16(v);
+    v2_i16 r = v2_i16_from_i16x2(i16x2_shl(k, s));
+    return r;
+}
+
+static inline i32 v2_i16_distancesq(v2_i16 a, v2_i16 b)
+{
+    return v2_i16_lensq(v2_i16_sub(a, b));
+}
+
 // ============================================================================
 // V2 F32
 // ============================================================================
@@ -901,6 +934,14 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
     return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
 }
 
+static inline bool32 overlap_tri_pnt_incl_i16(tri_i16 t, v2_i16 p)
+{
+    i32 u = v2_i16_crs(v2_i16_sub(t.p[1], t.p[0]), v2_i16_sub(p, t.p[0]));
+    i32 v = v2_i16_crs(v2_i16_sub(t.p[0], t.p[2]), v2_i16_sub(p, t.p[2]));
+    i32 w = v2_i16_crs(v2_i16_sub(t.p[2], t.p[1]), v2_i16_sub(p, t.p[1]));
+    return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
+}
+
 /* separating axis check
  * check all lines if all other points of the triangle are on
  * one side and all other points of the line are on the other side
@@ -931,6 +972,39 @@ static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
     i32 d0 = v2_crs(w, a);
     i32 d1 = v2_crs(w, c);
     i32 d2 = v2_crs(w, d);
+    i32 b0 = -a0;
+
+    bool32 separated =
+        (a0 | a1 | a2) >= 0 || (a0 <= 0 && a1 <= 0 && a2 <= 0) ||
+        (b0 | b1 | b2) >= 0 || (b0 <= 0 && b1 <= 0 && b2 <= 0) ||
+        (c0 | c1 | c2) >= 0 || (c0 <= 0 && c1 <= 0 && c2 <= 0) ||
+        (d0 | d1 | d2) >= 0 || (d0 <= 0 && d1 <= 0 && d2 <= 0);
+    return !separated;
+}
+
+static bool32 overlap_tri_lineseg_excl_i16(tri_i16 t, lineseg_i16 l)
+{
+    v2_i16 w = v2_i16_sub(l.b, l.a);
+    v2_i16 x = v2_i16_sub(t.p[1], t.p[0]);
+    v2_i16 y = v2_i16_sub(t.p[2], t.p[0]);
+    v2_i16 z = v2_i16_sub(t.p[2], t.p[1]);
+    v2_i16 a = v2_i16_sub(l.a, t.p[0]);
+    v2_i16 b = v2_i16_sub(l.b, t.p[0]);
+    v2_i16 c = v2_i16_sub(l.a, t.p[1]);
+    v2_i16 d = v2_i16_sub(l.a, t.p[2]);
+    v2_i16 e = v2_i16_sub(l.b, t.p[1]);
+
+    i32 a0 = v2_i16_crs(x, y);
+    i32 a1 = v2_i16_crs(a, x);
+    i32 a2 = v2_i16_crs(b, x);
+    i32 b1 = v2_i16_crs(a, y);
+    i32 b2 = v2_i16_crs(b, y);
+    i32 c0 = v2_i16_crs(x, z);
+    i32 c1 = v2_i16_crs(c, z);
+    i32 c2 = v2_i16_crs(e, z);
+    i32 d0 = v2_i16_crs(w, a);
+    i32 d1 = v2_i16_crs(w, c);
+    i32 d2 = v2_i16_crs(w, d);
     i32 b0 = -a0;
 
     bool32 separated =

@@ -15,8 +15,7 @@ void box_load(game_s *g, map_obj_s *mo)
     o->ID         = 1000;
     o->flags      = OBJ_FLAG_MOVER |
                OBJ_FLAG_SPRITE |
-               OBJ_FLAG_CARRYABLE |
-               OBJ_FLAG_SOLID;
+               OBJ_FLAG_CARRYABLE;
     obj_sprite_s *spr = &o->sprites[0];
     o->n_sprites      = 1;
     spr->trec         = asset_texrec(TEXID_MISCOBJ, 512, 128, 32, 32);

@@ -7,7 +7,7 @@
 #include "hero_hook.h"
 
 const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
-    {825, 25, 70, 30},   // out of water
+    {920, 30, 100, 30},  // out of water
     {1150, 40, 100, 50}, // ground
     {500, 50, 200, 0},   // fly
     {1000, 25, 80, 30}}; // wall jump
@@ -26,7 +26,6 @@ obj_s *hero_create(game_s *g)
     o->render_priority = 1000;
 
     o->flags = OBJ_FLAG_MOVER |
-               OBJ_FLAG_ACTOR |
                OBJ_FLAG_CLAMP_TO_ROOM |
                // OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_SPRITE;
@@ -393,7 +392,9 @@ void hero_item_usage(game_s *g, obj_s *o, i32 state)
     h->idle_anim           = 0;
     h->idle_ticks          = 0;
 
-    g->item_select.item = 0;
+    // g->item_select.item = 0;
+
+    assert(0 <= g->item_select.item);
 
     switch (g->item_select.item) {
     case HERO_ITEM_HOOK: {

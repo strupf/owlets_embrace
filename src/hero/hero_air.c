@@ -64,7 +64,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             h->jumpticks = 0;
         }
 
-        if (h->flytime <= 0) {
+        if (h->flytime <= 0 && h->jump_index != HERO_JUMP_WATER) {
             h->jumpticks = 0;
         }
 

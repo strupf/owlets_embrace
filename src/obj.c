@@ -53,8 +53,8 @@ obj_s *obj_create(game_s *g)
 #ifdef PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 
-    static i32 n_warn = NUM_OBJ / 4;
-    i32        n_pool = 0;
+    static u32 n_warn = NUM_OBJ / 4;
+    u32        n_pool = 0;
     for (obj_s *op = g->obj_head_free; op; op = op->next) {
         n_pool++;
     }
@@ -387,12 +387,6 @@ void obj_move(game_s *g, obj_s *o, v2_i32 dt)
     }
 }
 
-enum {
-    ACTOR_MOVE_SUCCESS,
-    ACTOR_MOVE_BUMPED = 1 << 0,
-    ACTOR_MOVE_DECR_M = 1 << 1,
-};
-
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:
 // subposition is [0, 255]. If the boundaries are exceeded
@@ -474,7 +468,7 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rbot.y += offs.y;
 
     if (map_blocked(g, o, rbot, o->mass)) return 1;
-    if ((o->flags & OBJ_FLAG_ACTOR) && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
+    if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
         if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_map_one_way(g, rbot))
             return 1;
         for (obj_each(g, k)) {

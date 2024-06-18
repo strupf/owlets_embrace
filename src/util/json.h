@@ -29,8 +29,8 @@ typedef struct {
     json_s tok;
 } json_it_s;
 
-bool32 txt_load_buf(const char *filename, char *buf, usize bufsize);
-bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out);
+bool32 txt_load_buf(const char *filename, char *buf, u32 bufsize);
+bool32 txt_load(const char *filename, void *(*allocfunc)(u32 s), char **txt_out);
 //
 bool32 json_root(const char *txt, json_s *tok_out);
 i32    json_type(json_s j);
@@ -44,13 +44,13 @@ i32    json_i32(json_s tok);
 u32    json_u32(json_s tok);
 f32    json_f32(json_s tok);
 bool32 json_bool(json_s tok);
-char  *json_str(json_s tok, char *buf, usize bufsize);
+char  *json_str(json_s tok, char *buf, u32 bufsize);
 char  *json_strp(json_s tok, int *len);
 i32    jsonk_i32(json_s tok, const char *key);
 u32    jsonk_u32(json_s tok, const char *key);
 f32    jsonk_f32(json_s tok, const char *key);
 bool32 jsonk_bool(json_s tok, const char *key);
-char  *jsonk_str(json_s tok, const char *key, char *buf, usize bufsize);
+char  *jsonk_str(json_s tok, const char *key, char *buf, u32 bufsize);
 char  *jsonk_strp(json_s tok, const char *key, int *len);
 
 #define jsonk_strs(JTOK, KEY, BUF) jsonk_str(JTOK, KEY, BUF, sizeof(BUF))

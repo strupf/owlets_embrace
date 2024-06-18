@@ -18,6 +18,40 @@ static const frame_ticks_s g_shroomyhide = {{30, 7, 3, 2, 2, 2, 2, 2}};
 #define SHROOMY_TICKS_HIDDEN   50
 #define SHROOMY_NOTICE_RANGE_X 100
 
+void shroomy_on_update(game_s *g, obj_s *o);
+void shroomy_on_animate(game_s *g, obj_s *o);
+void shroomy_bounced_on(obj_s *o);
+
+void shroomy_load(game_s *g, map_obj_s *mo)
+{
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_SHROOMY;
+    o->flags = OBJ_FLAG_MOVER |
+               OBJ_FLAG_KILL_OFFSCREEN |
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_CAN_BE_JUMPED_ON;
+    o->on_update       = shroomy_on_update;
+    o->on_animate      = shroomy_on_animate;
+    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->facing          = 1;
+    o->gravity_q8.y    = 30;
+    o->drag_q8.y       = 255;
+    o->drag_q8.x       = 200;
+    o->w               = 16;
+    o->h               = 16;
+    o->moverflags      = OBJ_MOVER_SLIDE_Y_NEG |
+                    OBJ_MOVER_GLUE_GROUND;
+
+    o->n_sprites      = 1;
+    obj_sprite_s *spr = &o->sprites[0];
+
+    spr->trec   = asset_texrec(TEXID_SHROOMY, 0, 0, 64, 48);
+    spr->offs.x = -(spr->trec.r.w - o->w) / 2;
+    spr->offs.y = -(spr->trec.r.h - o->h);
+    o->pos.x    = mo->x;
+    o->pos.y    = mo->y - mo->h;
+}
+
 void shroomy_on_update(game_s *g, obj_s *o)
 {
     if (o->bumpflags & OBJ_BUMPED_Y) {
@@ -117,37 +151,6 @@ void shroomy_on_animate(game_s *g, obj_s *o)
         spr->trec.r.x = W * lerp_i32(0, 3, o->timer, SHROOMY_TICKS_APPEAR);
         break;
     }
-}
-
-void shroomy_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_SHROOMY;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_MOVER |
-               OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_SPRITE |
-               OBJ_FLAG_CAN_BE_JUMPED_ON;
-    o->on_update       = shroomy_on_update;
-    o->on_animate      = shroomy_on_animate;
-    o->render_priority = RENDER_PRIO_HERO - 1;
-    o->facing          = 1;
-    o->gravity_q8.y    = 30;
-    o->drag_q8.y       = 255;
-    o->drag_q8.x       = 200;
-    o->w               = 16;
-    o->h               = 16;
-    o->moverflags      = OBJ_MOVER_SLIDE_Y_NEG |
-                    OBJ_MOVER_GLUE_GROUND;
-
-    o->n_sprites      = 1;
-    obj_sprite_s *spr = &o->sprites[0];
-
-    spr->trec   = asset_texrec(TEXID_SHROOMY, 0, 0, 64, 48);
-    spr->offs.x = -(spr->trec.r.w - o->w) / 2;
-    spr->offs.y = -(spr->trec.r.h - o->h);
-    o->pos.x    = mo->x;
-    o->pos.y    = mo->y - mo->h;
 }
 
 void shroomy_bounced_on(obj_s *o)

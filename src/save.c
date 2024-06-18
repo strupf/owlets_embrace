@@ -89,16 +89,75 @@ bool32 saveID_has(game_s *g, u32 ID)
     return 0;
 }
 
-bool32 hero_visited_tile(game_s *g, map_worldroom_s *room, i32 x, i32 y)
+void savefile_empty(save_s *s)
 {
-    u32 w = max_i((room->w / PLTF_DISPLAY_W) >> 3, 1);
-    u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
-    return (*b & (1 << (x & 7)));
+    mset(s, 0, sizeof(save_s));
+    s->health = 3;
+    str_cpy(s->hero_mapfile, "Level_0");
+    s->hero_pos.x = 50;
+    s->hero_pos.y = 100;
+    s->flytime    = 60;
+    s->upgrades =
+        ((flags32)1 << HERO_UPGRADE_HOOK) |
+        ((flags32)1 << HERO_UPGRADE_WALLJUMP) |
+        ((flags32)1 << HERO_UPGRADE_HOOK_LONG) |
+        ((flags32)1 << HERO_UPGRADE_WHIP) |
+        ((flags32)1 << HERO_UPGRADE_SWIM) |
+        ((flags32)1 << HERO_UPGRADE_DIVE) |
+        ((flags32)1 << HERO_UPGRADE_SPRINT);
 }
 
-void hero_set_visited_tile(game_s *g, map_worldroom_s *room, i32 x, i32 y)
+static inline const char *savefile_name(i32 slot)
 {
-    u32 w = max_i((room->w / PLTF_DISPLAY_W) >> 3, 1);
-    u8 *b = &g->save.visited_tiles[room->ID - 1][(x >> 3) + y * w];
-    *b |= 1 << (x & 7);
+    switch (slot) {
+    case 0: return "save_0.sav";
+    case 1: return "save_1.sav";
+    case 2: return "save_2.sav";
+    }
+    return NULL;
+}
+
+bool32 savefile_read(i32 slot, save_s *s)
+{
+    void *f = pltf_file_open_r(savefile_name(slot));
+
+    if (!f) return 0;
+    if (!s) {
+        pltf_file_close(f);
+        return 1;
+    }
+
+    u32 ver = 0;
+    pltf_file_r(f, &ver, sizeof(u32)); // convert savefiles with old version
+    switch (ver) {
+    default:
+        pltf_file_r(f, s, sizeof(save_s));
+        break;
+    }
+    pltf_file_close(f);
+    return 1;
+}
+
+bool32 savefile_write(i32 slot, const save_s *s)
+{
+    void *f = pltf_file_open_w(savefile_name(slot));
+
+    if (!f) return 0;
+    u32 ver = GAME_VERSION;
+    pltf_file_w(f, &ver, sizeof(u32));
+    pltf_file_w(f, s, sizeof(save_s));
+    pltf_file_close(f);
+    return 1;
+}
+
+bool32 savefile_del(i32 slot)
+{
+    return pltf_file_del(savefile_name(slot));
+}
+
+bool32 savefile_cpy(i32 slot_from, i32 slot_to)
+{
+    save_s sav = {0};
+    if (!savefile_read(slot_from, &sav)) return 0;
+    return savefile_write(slot_to, &sav);
 }

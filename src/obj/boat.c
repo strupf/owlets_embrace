@@ -29,8 +29,7 @@ void boat_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_BOAT;
-    o->flags = OBJ_FLAG_SOLID |
-               OBJ_FLAG_RENDER_AABB |
+    o->flags = OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_SPRITE;
     o->on_update  = boat_on_update;
     o->on_animate = boat_on_animate;
@@ -38,4 +37,5 @@ void boat_load(game_s *g, map_obj_s *mo)
     o->pos.y      = mo->y;
     o->w          = 64;
     o->h          = 32;
+    o->mass       = 1;
 }

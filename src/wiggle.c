@@ -35,9 +35,10 @@ void grass_animate(game_s *g)
 
 void grass_draw(game_s *g, rec_i32 camrec, v2_i32 camoffset)
 {
-    gfx_ctx_s ctx = gfx_ctx_display();
-    texrec_s  trgrass;
-    trgrass.t = asset_tex(TEXID_PLANTS);
+    gfx_ctx_s ctx     = gfx_ctx_display();
+    texrec_s  trgrass = {0};
+    trgrass.t         = asset_tex(TEXID_PLANTS);
+
     for (u32 n = 0; n < g->n_grass; n++) {
         grass_s *gr     = &g->grass[n];
         rec_i32  rgrass = {gr->pos.x - 8, gr->pos.y - 8, 32, 32};

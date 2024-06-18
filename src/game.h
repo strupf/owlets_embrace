@@ -21,7 +21,6 @@
 #include "rope.h"
 #include "save.h"
 #include "settings.h"
-#include "shop.h"
 #include "textbox.h"
 #include "tile_map.h"
 #include "title.h"
@@ -62,17 +61,13 @@ typedef struct {
 #define NUM_WEATHER_SURFACES 1024
 
 struct game_s {
-    i32               slomotimer;
-    i32               gameplay_tick;
-    settings_s        settings;
-    title_s           title;
-    i32               state;
+    u32               gameplay_tick;
+    u32               state;
     //
     map_world_s       map_world; // layout of all map files globally
     map_worldroom_s  *map_worldroom;
     area_s            area;
     //
-    shop_s            shop;
     gameover_s        gameover;
     maptransition_s   maptransition;
     textbox_s         textbox;
@@ -114,6 +109,7 @@ struct game_s {
     u32               n_deco_verlet;
     deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
     //
+    i32               save_slot;
     save_s            save;
     hero_s            hero_mem;
     rope_s            rope;
@@ -127,7 +123,7 @@ struct game_s {
 
     item_select_s item_select;
 
-    struct {
+    struct areaname {
         char filename[LEN_AREA_FILENAME];
         char label[64];
         i32  fadeticks;
@@ -142,7 +138,7 @@ void   game_paused(game_s *g);
 //
 i32    gameplay_time(game_s *g);
 i32    gameplay_time_since(game_s *g, i32 t);
-bool32 game_load_savefile(game_s *g);
+void   game_load_savefile(game_s *g);
 bool32 game_save_savefile(game_s *g);
 void   game_on_trigger(game_s *g, i32 trigger);
 void   game_on_solid_appear(game_s *g);
@@ -152,8 +148,7 @@ void   obj_game_player_attackbox(game_s *g, hitbox_s box);
 // returns a number [0, n_frames-1]
 // tick is the time variable
 // freqticks is how many ticks are needed for one loop
-i32    tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks);
-obj_s *obj_closest_interactable(game_s *g, v2_i32 pos);
+i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks);
 
 #define NUM_FRAME_TICKS 64
 

@@ -31,6 +31,10 @@ typedef struct pltf_sdl_s {
     bool32            is_mono;
     bool32            inv;
     f32               vol;
+    void (*char_add)(char c, void *ctx);
+    void (*char_del)(void *ctx);
+    void (*close_inp)(void *ctx);
+    void *ctx;
 } pltf_sdl_s;
 
 pltf_sdl_s g_SDL;
@@ -60,7 +64,15 @@ int main(int argc, char **argv)
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
             case SDL_KEYDOWN:
-                if (e.key.keysym.sym != SDLK_ESCAPE) break;
+                if (e.key.keysym.sym == SDLK_BACKSPACE && g_SDL.char_del) {
+                    g_SDL.char_del(g_SDL.ctx);
+                    break;
+                }
+                if ((e.key.keysym.sym == SDLK_ESCAPE || e.key.keysym.sym == SDLK_RETURN) && g_SDL.close_inp) {
+                    g_SDL.close_inp(g_SDL.ctx);
+                    break;
+                }
+                break;
             case SDL_QUIT: g_SDL.running = 0; break;
             case SDL_WINDOWEVENT:
                 switch (e.window.event) {
@@ -71,6 +83,14 @@ int main(int argc, char **argv)
                 } break;
                 }
                 break;
+            case SDL_TEXTINPUT: {
+                if (!g_SDL.char_add) break;
+                for (char *c = &e.text.text[0]; *c != '\0'; c++) {
+                    if ((int)*c & 0x80) continue; // non ascii
+                    g_SDL.char_add(*c, g_SDL.ctx);
+                }
+                break;
+            }
             }
         }
 
@@ -317,6 +337,22 @@ void pltf_sdl_audio_unlock()
     SDL_UnlockAudioDevice(g_SDL.audiodevID);
 }
 
+void pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), void (*char_del)(void *ctx), void (*close_inp)(void *ctx), void *ctx)
+{
+    g_SDL.char_add  = char_add;
+    g_SDL.char_del  = char_del;
+    g_SDL.close_inp = close_inp;
+    g_SDL.ctx       = ctx;
+}
+
+void pltf_sdl_txt_inp_clr_cb()
+{
+    g_SDL.char_add  = NULL;
+    g_SDL.char_del  = NULL;
+    g_SDL.close_inp = NULL;
+    g_SDL.ctx       = NULL;
+}
+
 // BACKEND =====================================================================
 
 f32 pltf_seconds()
@@ -380,14 +416,14 @@ i32 pltf_file_seek_end(void *f, i32 pos)
     return (i32)fseek(f, pos, SEEK_END);
 }
 
-i32 pltf_file_w(void *f, const void *buf, usize bsize)
+i32 pltf_file_w(void *f, const void *buf, u32 bsize)
 {
-    usize w = fwrite(buf, 1, bsize, f);
-    return (i32)w;
+    i32 w = (i32)fwrite(buf, 1, (size_t)bsize, f);
+    return w;
 }
 
-i32 pltf_file_r(void *f, void *buf, usize bsize)
+i32 pltf_file_r(void *f, void *buf, u32 bsize)
 {
-    usize r = fread(buf, 1, bsize, f);
-    return (i32)r;
+    i32 r = (i32)fread(buf, 1, (size_t)bsize, f);
+    return r;
 }

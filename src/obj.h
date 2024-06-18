@@ -10,24 +10,20 @@
 #include "gamedef.h"
 #include "rope.h"
 
-#define NUM_OBJ_POW_2 8 // = 2^N
-#define NUM_OBJ       (1 << NUM_OBJ_POW_2)
+#define NUM_OBJ_POW_2   10 // = 2^N
+#define NUM_OBJ         (1 << NUM_OBJ_POW_2)
+#define OBJ_ID_INDEX_SH (32 - NUM_OBJ_POW_2)
+#define OBJ_ID_GEN_MASK (((u32)1 << OBJ_ID_INDEX_SH) - 1)
 
 static inline u32 obj_GID_incr_gen(u32 gid)
 {
-    return (gid + (1U << NUM_OBJ_POW_2));
-}
-
-static inline i32 obj_GID_gen(u32 gid)
-{
-    return (gid >> NUM_OBJ_POW_2);
+    return ((gid & ~OBJ_ID_GEN_MASK) | ((gid + 1) & OBJ_ID_GEN_MASK));
 }
 
 static inline u32 obj_GID_set(i32 index, i32 gen)
 {
     assert(0 <= index && index < NUM_OBJ);
-    u32 gid = ((u32)index) | ((u32)gen << NUM_OBJ_POW_2);
-    return gid;
+    return (((u32)index << OBJ_ID_INDEX_SH) | ((u32)gen));
 }
 
 enum {
@@ -67,6 +63,9 @@ enum {
     OBJ_ID_WALLWORM_PARENT,
     OBJ_ID_HOOKPLANT,
     OBJ_ID_BLOCKSWING,
+    OBJ_ID_STEAM_PLATFORM,
+    OBJ_ID_BUDPLANT,
+    OBJ_ID_PROJECTILE,
 };
 
 enum {
@@ -79,8 +78,6 @@ enum {
 
 #define OBJ_FLAG_MOVER              ((u64)1 << 0)
 #define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
-#define OBJ_FLAG_ACTOR              ((u64)1 << 3)
-#define OBJ_FLAG_SOLID              ((u64)1 << 4)
 #define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
 #define OBJ_FLAG_PLATFORM_HERO_ONLY ((u64)1 << 6) // only acts as a platform for the hero
 #define OBJ_FLAG_KILL_OFFSCREEN     ((u64)1 << 7)
@@ -165,7 +162,8 @@ struct obj_s {
     obj_s            *next; // linked list
     //
     u32               GID;     // generational index
-    u32               ID;      // type of object
+    u16               ID;      // type of object
+    u16               subID;   // subtype of object
     u32               save_ID; // used to register save events
     flags64           flags;
     flags32           tags;
@@ -260,6 +258,7 @@ void         carryable_on_lift(game_s *g, obj_s *o);
 void         carryable_on_drop(game_s *g, obj_s *o);
 v2_i32       carryable_animate_spr_offset(obj_s *o);
 void         obj_on_hooked(game_s *g, obj_s *o);
+obj_s       *obj_closest_interactable(game_s *g, v2_i32 pos);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

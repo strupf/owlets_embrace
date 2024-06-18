@@ -39,6 +39,8 @@ enum {
     TILE_TYPE_FAKE_2,
     //
     TILE_TYPE_DIRT,
+    TILE_TYPE_DIRT_2,
+    TILE_TYPE_THORNS,
     //
     NUM_TILE_TYPES
 };

@@ -4,7 +4,7 @@
 
 #include "pltf.h"
 
-#define PLTF_SHOW_FPS 1 // show FPS, UPS, update time and rendering time
+#define PLTF_SHOW_FPS 0 // show FPS, UPS, update time and rendering time
 
 typedef struct pltf_s {
     void *framebuffer;
@@ -92,6 +92,10 @@ i32 pltf_internal_update()
 #endif
     }
 
+#ifdef PLTF_PD
+    // pltf_pd_keyboard_draw();
+#endif
+
 #if PLTF_SHOW_FPS
     g_pltf.fps_timeacc += timedt;
     if (1.f <= g_pltf.fps_timeacc) {
@@ -132,9 +136,26 @@ void pltf_blit_text(char *str, i32 tile_x, i32 tile_y)
     }
 }
 
+void *pltf_file_open(const char *path, i32 pltf_file_mode)
+{
+    switch (pltf_file_mode) {
+    case PLTF_FILE_MODE_R: return pltf_file_open_r(path);
+    case PLTF_FILE_MODE_W: return pltf_file_open_w(path);
+    case PLTF_FILE_MODE_A: return pltf_file_open_a(path);
+    }
+    return NULL;
+}
+
 void pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
+#if PLTF_SHOW_FPS
+    f32 tu1 = pltf_seconds();
+#endif
     app_audio(lbuf, rbuf, len);
+#if PLTF_SHOW_FPS
+    f32 tu2 = pltf_seconds();
+    g_pltf.ups_ft_acc += tu2 - tu1;
+#endif
 }
 
 void pltf_internal_close()

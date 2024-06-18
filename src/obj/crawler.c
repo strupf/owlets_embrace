@@ -281,8 +281,7 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
     assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
     o->ID    = ID;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_MOVER |
+    o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |

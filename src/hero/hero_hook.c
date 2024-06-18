@@ -27,8 +27,7 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->on_animate = hook_on_animate;
     o->on_update  = hook_update;
     obj_tag(g, o, OBJ_TAG_HOOK);
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_SPRITE;
+    o->flags          = OBJ_FLAG_SPRITE;
     o->n_sprites      = 1;
     obj_sprite_s *spr = &o->sprites[0];
     spr->trec         = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
@@ -94,7 +93,7 @@ i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
     v2_i32 ph = o->ropenode->p;
     for (obj_each(g, it)) {
         rec_i32 rit = obj_aabb(it);
-        if ((it->flags & OBJ_FLAG_SOLID)) {
+        if (it->mass) {
             if (overlap_rec(r, rit)) {
                 if (ohook) {
                     *ohook = it;
@@ -209,7 +208,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
             if (solid->ID == OBJ_ID_CRUMBLEBLOCK) {
                 crumbleblock_on_hooked(solid);
             }
-            if (!(solid->flags & OBJ_FLAG_SOLID)) continue;
+            if (solid->mass <= 0) continue;
 
             i32 kk             = overlap_rec(hookrec, obj_aabb(solid));
             hook->linked_solid = obj_handle_from_obj(solid);

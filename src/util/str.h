@@ -7,6 +7,84 @@
 
 #include "pltf/pltf.h"
 
+typedef struct {
+    u32 l;
+    u32 c;
+    u8 *s;
+} str8_s;
+
+str8_s str8_alloc(u32 c, alloc_s a)
+{
+    str8_s r = {0};
+    r.s      = (u8 *)a.allocf(a.ctx, sizeof(u8) * c);
+    if (!r.s) return r;
+    r.c = c;
+    return r;
+}
+
+static bool32 str8_append(str8_s *dst, str8_s *src)
+{
+    if (!dst || !src) return 0;
+    if (dst->c - dst->l < src->l) return 0;
+
+    for (u32 n = 0; n < src->l; n++) {
+        dst->s[dst->l++] = src->s[n];
+    }
+    return 1;
+}
+
+static bool32 c_str_from_str8(str8_s *s, char *buf, u32 bufsize)
+{
+    if (!s || !buf || bufsize == 0) return 0;
+    if (bufsize <= s->l) return 0;
+
+    for (u32 n = 0; n < s->l; n++) {
+        buf[n] = s->s[n];
+    }
+    buf[s->l] = '\0';
+    return 1;
+}
+
+static bool32 str8_append_c_str(str8_s *dst, const char *buf)
+{
+    if (!dst || !buf) return 0;
+    u32 strl = 0;
+    for (const char *c = buf; *c != '\0'; c++) {
+        strl++;
+    }
+
+    if (dst->c - dst->l < strl) return 0;
+    for (u32 n = 0; n < strl; n++) {
+        dst->s[dst->l++] = buf[n];
+    }
+    return 1;
+}
+
+#define STR_DEF_LEN(L)                                                          \
+    typedef struct {                                                            \
+        u32 l;                                                                  \
+        u8  s[L];                                                               \
+    } str8_l##L##_s;                                                            \
+                                                                                \
+    static str8_s str8_from_str8_l##L(str8_l##L##_s *s)                         \
+    {                                                                           \
+        str8_s r = {0};                                                         \
+        r.l      = s->l;                                                        \
+        r.c      = L;                                                           \
+        r.s      = &s->s[0];                                                    \
+        return r;                                                               \
+    }                                                                           \
+                                                                                \
+    static str8_s str8_from_str8_l##L##_cpy(str8_l##L##_s *s, u32 c, alloc_s a) \
+    {                                                                           \
+        str8_s r = str8_alloc(c, a);                                            \
+        if (r.c) {                                                              \
+            str8_s sc = str8_from_str8_l##L(s);                                 \
+            str8_append(&r, &sc);                                               \
+        }                                                                       \
+        return r;                                                               \
+    }
+
 #define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
     char NAME[128];                            \
     str_cpy(NAME, PATHNAME);                   \
@@ -53,7 +131,7 @@ static inline void str_cpy(char *dst, const char *src)
     strcpy(dst, src);
 }
 
-static void str_cpys(char *dst, usize dstsize, const char *src)
+static void str_cpys(char *dst, u32 dstsize, const char *src)
 {
     char       *d = dst;
     const char *s = src;
@@ -63,7 +141,7 @@ static void str_cpys(char *dst, usize dstsize, const char *src)
 }
 
 // assets/tex/file.png -> file.png
-static void str_extract_filename(const char *src, char *buf, usize bufsize)
+static void str_extract_filename(const char *src, char *buf, u32 bufsize)
 {
     const char *s = src;
     while (*s != '\0' && *s != '.')
@@ -200,13 +278,13 @@ static u32 u32_from_str(const char *str)
 }
 
 #define strs_from_u32(V, BUF) str_from_u32(V, BUF, sizeof(BUF))
-static i32 str_from_u32(u32 v, char *buf, usize bufsize)
+static i32 str_from_u32(u32 v, char *buf, u32 bufsize)
 {
     if (!buf || !bufsize) return 0;
     i32  n     = 0;
     char b[16] = {0};
 
-    for (u32 x = v; x && (usize)n < bufsize; x /= 10) {
+    for (u32 x = v; x && (u32)n < bufsize; x /= 10) {
         u32 u  = x % 10;
         b[n++] = '0' + u;
     }

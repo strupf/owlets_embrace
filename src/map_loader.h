@@ -15,7 +15,6 @@ typedef struct {
     u16 h;
 
     char filename[64];
-    u8   room_walls[NUM_WORLD_ROOM_TILES];
 } map_worldroom_s;
 
 typedef struct {
@@ -35,7 +34,7 @@ typedef struct {
 } map_obj_s;
 
 #define map_obj_strs(MO, NAME, B) map_obj_str(MO, NAME, B, sizeof(B))
-void   map_obj_str(map_obj_s *mo, const char *name, void *b, usize bs);
+void   map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs);
 i32    map_obj_i32(map_obj_s *mo, const char *name);
 f32    map_obj_f32(map_obj_s *mo, const char *name);
 bool32 map_obj_bool(map_obj_s *mo, const char *name);

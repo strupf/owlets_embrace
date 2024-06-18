@@ -155,7 +155,6 @@ void maptransition_update(game_s *g)
     }
 
     if (resp_closest) {
-        str_cpy(g->save.hero_mapfile, g->areaname.filename);
         g->save.hero_pos = *resp_closest;
         game_save_savefile(g);
     }

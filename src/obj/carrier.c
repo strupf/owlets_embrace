@@ -44,8 +44,7 @@ void carrier_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_CARRIER;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_PLATFORM |
+    o->flags = OBJ_FLAG_PLATFORM |
                OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
                // OBJ_FLAG_RENDER_AABB |

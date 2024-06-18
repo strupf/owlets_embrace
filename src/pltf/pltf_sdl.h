@@ -16,5 +16,10 @@ void   pltf_sdl_set_vol(f32 vol);
 f32    pltf_sdl_vol();
 void   pltf_sdl_audio_lock();
 void   pltf_sdl_audio_unlock();
+void   pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), // callbacks for text input
+                               void (*char_del)(void *ctx),
+                               void (*close_inp)(void *ctx),
+                               void *ctx);
+void   pltf_sdl_txt_inp_clr_cb();
 
 #endif

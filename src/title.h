@@ -6,40 +6,54 @@
 #define TITLE_H
 
 #include "gamedef.h"
+#include "save.h"
+#include "textinput.h"
 
 #define TITLE_SKIP_TO_GAME 1
-
-enum {
-    TITLE_FADE_NONE,
-    TITLE_FADE_INTERNAL, // only fade text
-    TITLE_FADE_GAME,     // fade to black
-};
-
-enum {
-    TITLE_FADE_TICKS,
-    TITLE_FADE_GAME_TICKS,
-};
-
-enum {
-    TITLE_FADE_OUT,
-    TITLE_FADE_IN,
-};
 
 // mainmenu state machine
 enum {
     TITLE_ST_PRESS_START, // title screen
+    //
+    TITLE_ST_FILE_SELECT,
+    TITLE_ST_FILE_SELECTED,
+    TITLE_ST_FILE_CPY,
+    TITLE_ST_FILE_CPY_CONFIRM,
+    TITLE_ST_FILE_DEL_CONFIRM,
+    TITLE_ST_FILE_NEW,
+    TITLE_ST_FILE_START,
+    //
+    TITLE_ST_OPTIONS,
 };
 
-#define TITLE_FADE 30
+enum {
+    TITLE_F_START,
+    TITLE_F_CPY,
+    TITLE_F_DEL
+};
 
 typedef struct {
-    i32 fade_to_game;
-    i32 state;
-    i32 option;
-    i32 title_blink;
-    i32 title_fade;
-    f32 feather_time;
-    f32 feather_y;
+    u32  health;
+    u32  tick;
+    char name[32];
+    char areaname[64];
+} save_preview_s;
+
+typedef struct title_s {
+    u32            state_tick;
+    u32            timer;
+    u16            state;
+    u16            state_prev;
+    i16            option;
+    u16            fade;
+    u16            fade_0;
+    u16            selected;
+    u16            copy_to;
+    u16            msg_tick;
+    //
+    save_preview_s saves[3];
+    textinput_s    tinput;
+    char           msg[64];
 } title_s;
 
 void title_init(title_s *t);

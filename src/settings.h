@@ -13,7 +13,6 @@ enum {
 };
 
 typedef struct {
-    u32   game_version;
     bool8 reduce_flicker;
     u8    fps_cap;
     // below only for other platforms
@@ -24,7 +23,7 @@ typedef struct {
 } settings_s;
 
 settings_s settings_default();
-bool32     settings_save(settings_s s);
+bool32     settings_save(settings_s *s);
 bool32     settings_load(settings_s *s);
 
 #endif

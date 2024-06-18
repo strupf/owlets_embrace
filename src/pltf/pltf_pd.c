@@ -174,12 +174,12 @@ i32 pltf_file_seek_end(void *f, i32 pos)
     return (i32)PD->file->seek(f, pos, SEEK_END);
 }
 
-i32 pltf_file_w(void *f, const void *buf, usize bsize)
+i32 pltf_file_w(void *f, const void *buf, u32 bsize)
 {
     return (i32)PD_file_write(f, buf, (uint)bsize);
 }
 
-i32 pltf_file_r(void *f, void *buf, usize bsize)
+i32 pltf_file_r(void *f, void *buf, u32 bsize)
 {
     return (i32)PD_file_read(f, buf, (uint)bsize);
 }

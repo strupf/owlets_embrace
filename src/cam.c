@@ -105,25 +105,27 @@ void cam_update(game_s *g, cam_s *c)
             c->pos.y += padd.y;
         }
 
+        c->pos.x = herop.x;
+
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
-        lahead.x = (f32)hero->facing * 50.f;
+        // lahead.x = (f32)hero->facing * 50.f;
     }
 
     if (c->look_tick == look_tickp) {
         c->look_tick = 0;
     }
 
-    if (g->substate == SUBSTATE_TEXTBOX || shop_active(g)) {
+    if (g->substate == SUBSTATE_TEXTBOX) {
         lahead.y = 60.f;
     }
 
-    if (abs_f(c->look_ahead.x - lahead.x) < 0.75f) {
+    if (abs_f32(c->look_ahead.x - lahead.x) < 0.75f) {
         c->look_ahead.x = lahead.x;
     } else {
         c->look_ahead.x = lerp_f32(c->look_ahead.x, lahead.x, 0.025f);
     }
 
-    if (abs_f(c->look_ahead.y - lahead.y) < 0.75f) {
+    if (abs_f32(c->look_ahead.y - lahead.y) < 0.75f) {
         c->look_ahead.y = lahead.y;
     } else {
         c->look_ahead.y = lerp_f32(c->look_ahead.y, lahead.y, 0.125f);

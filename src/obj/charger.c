@@ -172,8 +172,7 @@ void charger_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_CHARGER;
-    o->flags = OBJ_FLAG_ACTOR |
-               OBJ_FLAG_MOVER |
+    o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |

@@ -84,7 +84,6 @@ void stalactite_load(game_s *g, map_obj_s *mo)
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_STALACTITE;
     o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_ACTOR_PLATFORM |
                OBJ_FLAG_KILL_OFFSCREEN;
     o->on_update       = stalactite_on_update;
     obj_sprite_s *spr  = &o->sprites[0];

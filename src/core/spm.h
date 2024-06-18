@@ -9,12 +9,13 @@
 #include "util/mem.h"
 
 typedef struct {
-    void *stack[16];
-    i32   n_stack;
-    usize lowestleft;
+    void  *stack[8];
+    u16    n_stack;
+    bool16 lowestleft_disabled;
+    u32    lowestleft;
 
     marena_s    m;
-    mkilobyte_s mem[1024];
+    mkilobyte_s mem[512];
 } SPM_s;
 
 extern SPM_s         SPM;
@@ -26,9 +27,9 @@ extern const alloc_s spm_allocator;
 void  spm_init();
 void  spm_push();
 void  spm_pop();
-void *spm_alloc(usize s);
-void *spm_allocz(usize s);
-void *spm_alloc_rem(usize *s);
+void *spm_alloc(u32 s);
+void *spm_allocz(u32 s);
+void *spm_alloc_rem(u32 *s);
 void  spm_reset();
 
 #endif

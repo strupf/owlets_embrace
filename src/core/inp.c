@@ -6,18 +6,17 @@
 #include "util/mathfunc.h"
 
 static struct {
-    inp_new_s curri;
-    inp_new_s previ;
+    inp_state_s curri;
+    inp_state_s previ;
 } INP;
 
 void inp_update()
 {
     INP.previ = INP.curri;
-    INP.curri = (inp_new_s){0};
+    INP.curri = (inp_state_s){0};
 #ifdef PLTF_PD
     INP.curri.actions = pltf_pd_btn() & B8(00111111);
     if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
-
     INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
 #elif PLTF_SDL_EMULATE_SIM
     if (pltf_sdl_key(SDL_SCANCODE_W)) INP.curri.actions |= INP_DU;
@@ -150,4 +149,39 @@ i32 inp_dpad_dir()
     case 2: return INP_DPAD_DIR_NE;
     }
     return INP_DPAD_DIR_NONE;
+}
+
+void inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs)
+{
+    *c         = (inp_crank_click_s){0};
+    c->n_segs  = n_seg;
+    c->ang_off = (offs * 0x10000) / (c->n_segs << 1);
+}
+
+i32 inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16)
+{
+    if (!dt_q16) return 0;
+    assert(c->n_segs);
+    i32 cprev = (i32)c->ang;
+    i32 ccurr = (i32)c->ang + dt_q16;
+    c->ang    = ccurr & 0xFFFF;
+
+    i32 cp = (cprev + c->ang_off) & 0xFFFF;
+    i32 cc = (ccurr + c->ang_off) & 0xFFFF;
+    i32 dt = 0;
+    for (i32 ccx = -1; ccx <= +1; ccx += 2) {
+        if (0 >= ccx * dt_q16) continue;
+
+        while (1) {
+            i32 i    = (c->n + ccx + c->n_segs) % c->n_segs;
+            i32 iang = (i * 0x10000) / c->n_segs;
+            i32 dta  = inp_crank_calc_dt_q16(cp, iang);
+            i32 dtb  = inp_crank_calc_dt_q16(iang, cc);
+
+            if (0 > ccx * dta || 0 > ccx * dtb) break;
+            c->n = i;
+            dt += ccx;
+        }
+    }
+    return dt;
 }

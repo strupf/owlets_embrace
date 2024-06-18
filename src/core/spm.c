@@ -6,10 +6,10 @@
 
 SPM_s SPM;
 
-static void  *spm_alloc_ctx(void *ctx, usize s);
+static void  *spm_alloc_ctx(void *ctx, u32 s);
 const alloc_s spm_allocator = {spm_alloc_ctx, NULL};
 
-static void *spm_alloc_ctx(void *ctx, usize s)
+static void *spm_alloc_ctx(void *ctx, u32 s)
 {
     return spm_alloc(s);
 }
@@ -33,13 +33,13 @@ void spm_pop()
     marena_reset_to(&SPM.m, p);
 }
 
-void *spm_alloc(usize s)
+void *spm_alloc(u32 s)
 {
     void *mem = marena_alloc(&SPM.m, s);
     assert(mem);
 #ifdef PLTF_DEBUG
-    usize rem = marena_size_rem(&SPM.m);
-    if (rem < SPM.lowestleft) {
+    u32 rem = marena_size_rem(&SPM.m);
+    if (!SPM.lowestleft_disabled && rem < SPM.lowestleft) {
         SPM.lowestleft = rem;
         pltf_log("+++ lowest SPM left: %u kb\n", (u32)(rem / 1024));
     }
@@ -47,16 +47,18 @@ void *spm_alloc(usize s)
     return mem;
 }
 
-void *spm_allocz(usize s)
+void *spm_allocz(u32 s)
 {
     void *mem = spm_alloc(s);
-    assert(mem);
-    if (!mem) return NULL;
-    mset(mem, 0, s);
+    if (mem) {
+        mset(mem, 0, s);
+    } else {
+        BAD_PATH
+    }
     return mem;
 }
 
-void *spm_alloc_rem(usize *s)
+void *spm_alloc_rem(u32 *s)
 {
     return marena_alloc_rem(&SPM.m, s);
 }

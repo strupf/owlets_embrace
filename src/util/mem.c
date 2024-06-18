@@ -15,28 +15,28 @@ void *aligndn_ptr(void *p)
     return (void *)((uptr)p & ~(uptr)(PLTF_SIZE_CL - 1));
 }
 
-usize alignup_usize(usize p)
+u32 alignup_usize(u32 p)
 {
-    return ((p + (usize)(PLTF_SIZE_CL - 1)) & ~(usize)(PLTF_SIZE_CL - 1));
+    return ((p + (u32)(PLTF_SIZE_CL - 1)) & ~(u32)(PLTF_SIZE_CL - 1));
 }
 
-usize aligndn_usize(usize p)
+u32 aligndn_usize(u32 p)
 {
-    return (p & ~(usize)(PLTF_SIZE_CL - 1));
+    return (p & ~(u32)(PLTF_SIZE_CL - 1));
 }
 
 mspan_s mspan_align(mspan_s m)
 {
     void   *p0 = alignup_ptr(m.p);
     void   *p1 = (char *)m.p + m.size;
-    usize   s  = (usize)((char *)p1 - (char *)p0);
+    u32     s  = (u32)((char *)p1 - (char *)p0);
     mspan_s r  = {(void *)p0, s};
     return r;
 }
 
 // MARENA ======================================================================
 
-void marena_init(marena_s *m, void *buf, usize bufsize)
+void marena_init(marena_s *m, void *buf, u32 bufsize)
 {
     mspan_s sp = {buf, bufsize};
     sp         = mspan_align(sp);
@@ -46,9 +46,9 @@ void marena_init(marena_s *m, void *buf, usize bufsize)
     marena_reset(m);
 }
 
-void *marena_alloc(marena_s *m, usize s)
+void *marena_alloc(marena_s *m, u32 s)
 {
-    usize size = alignup_usize(s);
+    u32 size = alignup_usize(s);
     if (m->rem < size) return NULL;
     void *mem = m->p;
     m->p += size;
@@ -63,9 +63,9 @@ void *marena_state(marena_s *m)
 
 void marena_reset_to(marena_s *m, void *p)
 {
-    m->p       = (char *)p;
-    usize offs = ((char *)p - (char *)m->buf);
-    m->rem     = m->bufsize - offs;
+    m->p     = (char *)p;
+    u32 offs = (u32)((char *)p - (char *)m->buf);
+    m->rem   = m->bufsize - offs;
 }
 
 void marena_reset(marena_s *m)
@@ -74,7 +74,7 @@ void marena_reset(marena_s *m)
     m->rem = m->bufsize;
 }
 
-void *marena_alloc_rem(marena_s *m, usize *s)
+void *marena_alloc_rem(marena_s *m, u32 *s)
 {
     if (s) *s = m->rem;
     void *mem = m->p;
@@ -83,7 +83,7 @@ void *marena_alloc_rem(marena_s *m, usize *s)
     return mem;
 }
 
-usize marena_size_rem(marena_s *m)
+u32 marena_size_rem(marena_s *m)
 {
     return m->rem;
 }
@@ -91,12 +91,12 @@ usize marena_size_rem(marena_s *m)
 // MHEAP =======================================================================
 
 static bool32     mhblock_is_busy(mhblock_s *b);
-static usize      mhblock_size_needed(usize s);
-static mhblock_s *mhblock_aquire_free(mheap_s *m, usize size);
+static u32        mhblock_size_needed(u32 s);
+static mhblock_s *mhblock_aquire_free(mheap_s *m, u32 size);
 static void       mhblock_add_to(mhblock_s **head, mhblock_s *b);
 static void       mhblock_remove_from(mhblock_s **head, mhblock_s *b);
 
-void mheap_init(mheap_s *m, void *buf, usize bufsize)
+void mheap_init(mheap_s *m, void *buf, u32 bufsize)
 {
     mspan_s sp = {buf, bufsize};
     sp         = mspan_align(sp);
@@ -118,9 +118,9 @@ void mheap_reset(mheap_s *m)
     m->busy      = NULL;
 }
 
-void *mheap_alloc(mheap_s *m, usize s)
+void *mheap_alloc(mheap_s *m, u32 s)
 {
-    usize      size = mhblock_size_needed(s);
+    u32        size = mhblock_size_needed(s);
     mhblock_s *b    = mhblock_aquire_free(m, size);
     mhblock_add_to(&m->busy, b);
 
@@ -161,9 +161,9 @@ void mheap_free(mheap_s *m, void *ptr)
     mheap_check(m);
 }
 
-void *mheap_realloc(mheap_s *m, void *ptr, usize s)
+void *mheap_realloc(mheap_s *m, void *ptr, u32 s)
 {
-    usize      size = mhblock_size_needed(s);
+    u32        size = mhblock_size_needed(s);
     mhblock_s *b    = (mhblock_s *)ptr - 1;
     if (b->s >= size) return ptr;
 
@@ -199,13 +199,13 @@ static void mhblock_add_to(mhblock_s **head, mhblock_s *b)
     *head   = b;
 }
 
-static mhblock_s *mhblock_aquire_free(mheap_s *m, usize size)
+static mhblock_s *mhblock_aquire_free(mheap_s *m, u32 size)
 {
     for (mhblock_s *b = m->free; b; b = b->next) {
         assert(!mhblock_is_busy(b));
         if (b->s < size) continue;
         mhblock_remove_from(&m->free, b);
-        usize exc = (b->s - size);
+        u32 exc = (b->s - size);
         if (exc >= 2 * sizeof(mhblock_s)) {
             mhblock_s *s = (mhblock_s *)((char *)b + size);
             s->prev      = NULL;
@@ -227,15 +227,15 @@ static mhblock_s *mhblock_aquire_free(mheap_s *m, usize size)
     return NULL;
 }
 
-static usize mhblock_size_needed(usize s)
+static u32 mhblock_size_needed(u32 s)
 {
     return sizeof(mhblock_s) + alignup_usize(s);
 }
 
 #ifdef SYS_DEBUG
-static usize mhblock_size(mhblock_s *b)
+static u32 mhblock_size(mhblock_s *b)
 {
-    return (b->s & ~(usize)1);
+    return (b->s & ~(u32)1);
 }
 
 static int mhblock_loc(mheap_s *m, mhblock_s *b)

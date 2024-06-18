@@ -18,20 +18,30 @@ void hero_process_hurting_things(game_s *g, obj_s *o)
 
         v2_i32 ocenter   = obj_pos_center(it);
         v2_i32 dt        = v2_sub(hcenter, ocenter);
-        hero_knockback.x = +1000 * sgn_i32(dt.x);
-        hero_knockback.y = -1000;
+        hero_knockback.x = 1000 * sgn_i32(dt.x);
+        hero_knockback.y = 1000 * sgn_i32(dt.y);
         hero_dmg         = max_i32(hero_dmg, 1);
+
+        switch (it->ID) {
+        case OBJ_ID_PROJECTILE:
+            projectile_on_collision(g, it);
+            break;
+        }
     }
 
-    tile_map_bounds_s bounds = tile_map_bounds_rec(g, heroaabb);
-    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
-        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+    i32 bx1 = max_i32(heroaabb.x >> 4, 0);
+    i32 by1 = max_i32(heroaabb.y >> 4, 0);
+    i32 bx2 = min_i32((heroaabb.x + heroaabb.w - 1) >> 4, g->tiles_x - 1);
+    i32 by2 = min_i32((heroaabb.y + heroaabb.h - 1) >> 4, g->tiles_y - 1);
+
+    for (i32 y = by1; y <= by2; y++) {
+        for (i32 x = bx1; x <= bx2; x++) {
             if (g->tiles[x + y * g->tiles_x].collision != TILE_SPIKES)
                 continue;
             v2_i32 ocenter   = {(x << 4) + 8, (y << 4) + 8};
             v2_i32 dt        = v2_sub(hcenter, ocenter);
-            hero_knockback.x = +1000 * sgn_i32(dt.x);
-            hero_knockback.y = -1000;
+            hero_knockback.x = 1000 * sgn_i32(dt.x);
+            hero_knockback.y = 1000 * sgn_i32(dt.y);
             hero_dmg         = max_i32(hero_dmg, 1);
         }
     }
@@ -112,10 +122,6 @@ void hero_post_update(game_s *g, obj_s *o)
                 it->hover_text_tick--;
             }
         }
-
-        i32 roomtilex = hcenter.x / PLTF_DISPLAY_W;
-        i32 roomtiley = hcenter.y / PLTF_DISPLAY_H;
-        hero_set_visited_tile(g, g->map_worldroom, roomtilex, roomtiley);
 
         bool32 collected_upgrade = 0;
 

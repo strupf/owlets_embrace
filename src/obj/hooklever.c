@@ -74,7 +74,6 @@ void hooklever_load(game_s *g, map_obj_s *mo)
     o->ID      = OBJ_ID_HOOKLEVER;
     o->save_ID = mo->ID;
     o->flags   = OBJ_FLAG_HOOKABLE |
-               OBJ_FLAG_SOLID |
                OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_SPRITE;
     o->on_update    = hooklever_on_update;
@@ -86,6 +85,7 @@ void hooklever_load(game_s *g, map_obj_s *mo)
     o->h            = 32;
     o->trigger      = map_obj_i32(mo, "trigger");
     o->state        = 0;
+    o->mass         = 2;
 
     obj_sprite_s *spr = &o->sprites[0];
     o->n_sprites      = 1;

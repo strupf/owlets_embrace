@@ -16,8 +16,7 @@ void chest_load(game_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = 0;
-    o->flags = OBJ_FLAG_SOLID |
-               OBJ_FLAG_RENDER_AABB |
+    o->flags = OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_CAN_BE_JUMPED_ON;
     o->pos.x     = mo->x;
@@ -25,6 +24,7 @@ void chest_load(game_s *g, map_obj_s *mo)
     o->w         = mo->w;
     o->h         = mo->h;
     o->n_sprites = 1;
+    o->mass      = 1;
 }
 
 void chest_on_update(game_s *g, obj_s *o)

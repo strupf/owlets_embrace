@@ -195,7 +195,7 @@ static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pt
     }
 
     for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
+        if (o->mass <= 0) continue;
         v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
 
@@ -482,7 +482,7 @@ void tighten_ropesegment(game_s *g, rope_s *r,
     }
 
     for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
+        if (o->mass <= 0) continue;
         v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
         if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
@@ -586,7 +586,7 @@ bool32 rope_intact(game_s *g, rope_s *r)
         }
 
         for (obj_each(g, o)) {
-            if (!(o->flags & OBJ_FLAG_SOLID)) continue;
+            if (o->mass <= 0) continue;
             if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
                 return 0;
             }

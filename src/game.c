@@ -9,17 +9,13 @@ void game_tick_gameplay(game_s *g);
 
 void game_init(game_s *g)
 {
-    mus_set_trg_vol(1.f);
+    mus_set_trg_vol(0.f);
+    map_world_load(&g->map_world, "world.world");
+    item_select_init(&g->item_select);
+    pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
-    map_world_load(&g->map_world, "world.world");
-#if LIGHTING_ENABLED
-    lighting_init(&g->lighting);
-    g->lighting.n_lights    = 1;
-    g->lighting.lights[0].r = 100;
-#endif
-    pltf_log("GAME VERSION %u\n", GAME_VERSION);
-
+#if 0
     g->n_deco_verlet = 1;
     for (u32 k = 0; k < g->n_deco_verlet; k++) {
         g->deco_verlet[k].n_pt     = 10;
@@ -34,11 +30,13 @@ void game_init(game_s *g)
             g->deco_verlet[k].pt[n].pp = (v2_i16){0};
         }
     }
+#endif
 }
 
 void game_tick(game_s *g)
 {
-    bool32 update_gameplay = 0;
+    g->save.tick++;
+
     if (g->aud_lowpass) {
         g->aud_lowpass--;
         aud_set_lowpass(((g->aud_lowpass * 12) / 30));
@@ -165,7 +163,7 @@ void game_tick_gameplay(game_s *g)
 
     if (g->events_frame & EVENT_HERO_DAMAGE) {
         g->freeze_tick = 4;
-        g->aud_lowpass = 30;
+        g->aud_lowpass = 40;
     } else if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = 2;
     }
@@ -209,50 +207,32 @@ i32 gameplay_time_since(game_s *g, i32 t)
     return (g->gameplay_tick - t);
 }
 
-bool32 game_load_savefile(game_s *g)
+void game_load_savefile(game_s *g)
 {
-    void *f = pltf_file_open_r(SAVEFILE_NAME);
+    save_s *s = &g->save;
 
-    if (!f) {
-        pltf_log("New game\n");
-        return 1;
+    if (s->tick == 0) { // new game
+
+    } else { // continue
     }
 
-    save_s *hs = &g->save;
-
-    i32    bytes_r = pltf_file_r(f, hs, sizeof(save_s));
-    bool32 closed  = pltf_file_close(f);
-    bool32 success = (bytes_r == isizeof(save_s) && closed);
-    if (!success) {
-        pltf_log("+++ Error loading savefile!\n");
-        BAD_PATH
-        return 0;
-    }
-
-    game_load_map(g, hs->hero_mapfile);
+    game_load_map(g, s->hero_mapfile);
     obj_s  *oh   = hero_create(g);
     hero_s *hero = &g->hero_mem;
 
-    oh->pos.x = hs->hero_pos.x - oh->w / 2;
-    oh->pos.y = hs->hero_pos.y - oh->h;
+    oh->pos.x = s->hero_pos.x - oh->w / 2;
+    oh->pos.y = s->hero_pos.y - oh->h;
     game_prepare_new_map(g);
-    return success;
 }
 
 bool32 game_save_savefile(game_s *g)
 {
-    save_s *hs = &g->save;
-
-    void *f = pltf_file_open_w(SAVEFILE_NAME);
-    if (!f) {
-        pltf_log("+++ Can't write savefile!\n");
-        return 0;
-    }
+    str_cpy(g->save.hero_mapfile, g->areaname.filename);
+    str_cpy(g->save.areaname, g->areaname.label);
+    g->save_ticks = 1;
+    bool32 r      = savefile_write(g->save_slot, (const save_s *)&g->save);
     pltf_log("SAVED!\n");
-    g->save_ticks  = 1;
-    i32    bytes_w = pltf_file_w(f, (const void *)hs, sizeof(save_s));
-    bool32 closed  = pltf_file_close(f);
-    return (bytes_w == isizeof(save_s) && closed);
+    return (r);
 }
 
 void game_on_trigger(game_s *g, i32 trigger)

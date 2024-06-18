@@ -5,23 +5,25 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
+#define GAME_VERSION_MAJ 0
+#define GAME_VERSION_MIN 1
+
 // game version - important once released
-#define GAME_VERSION_GEN(P, MAJ, MIN) (P##MAJ##MIN)
-#define GAME_VERSION_CUR(P)           GAME_VERSION_GEN(P, 0, 1)
+#define GAME_VERSION_GEN(P, MAJ, MIN) (u32)(((P) << 16) | ((MAJ) << 8 | (MIN)))
 
 #if defined(PLTF_PD)
-#define GAME_VERSION GAME_VERSION_CUR(1) // 1: PLAYDATE
+#define GAME_VERSION GAME_VERSION_GEN(1, GAME_VERSION_MAJ, GAME_VERSION_MIN) // 2: SDL
 #elif defined(PLTF_SDL)
-#define GAME_VERSION GAME_VERSION_CUR(2) // 2: SDL
+#define GAME_VERSION GAME_VERSION_GEN(2, GAME_VERSION_MAJ, GAME_VERSION_MIN) // 2: SDL
 #endif
 
-#include "app.h"
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "pltf/pltf.h"
+#include "textinput.h"
 #include "util/easing.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
@@ -161,8 +163,8 @@ enum {
 
 typedef struct {
     rec_i32 r;
-    int     damage;
-    int     flags;
+    i32     damage;
+    u32     flags;
     v2_i16  force_q8;
 } hitbox_s;
 
@@ -170,5 +172,51 @@ typedef struct {
     u32    type;
     v2_i32 pos;
 } map_pin_s;
+
+typedef struct {
+    u16 h;
+    u16 m;
+    u16 s;
+    u16 ms;
+} time_real_s;
+
+#define TIME_K_S ((u32)PLTF_UPS)
+#define TIME_K_M ((u32)60 * TIME_K_S)
+#define TIME_K_H ((u32)60 * TIME_K_M)
+
+static time_real_s time_real_from_ticks(u32 t)
+{
+    time_real_s time = {
+        ((t / TIME_K_H)),                   // h
+        ((t % TIME_K_H) / TIME_K_M),        // m
+        ((t % TIME_K_M) / TIME_K_S),        // s
+        ((t % TIME_K_S) * 1000) / TIME_K_S, // ms
+    };
+    return time;
+}
+
+static u32 ticks_from_time_real(time_real_s t)
+{
+    return ((u32)t.h * TIME_K_H) +
+           ((u32)t.m * TIME_K_M) +
+           ((u32)t.s * TIME_K_S) +
+           ((u32)t.ms * TIME_K_S) / 1000;
+}
+
+// maps time t to a frame number [0; frames) at a looping frequence of freq
+static inline i32 frame_from_ticks_loop(i32 t, i32 freq, i32 frames)
+{
+    return (((t % freq) * frames) / freq);
+}
+
+// maps time t to a frame number [0; frames) at a looping frequence of freq
+// one loop is 0 to frames - 1 and back to 0
+static i32 frame_from_ticks_loop_pingpong(u32 t, u32 freq, u32 frames)
+{
+    u32 x = (((t % (freq << 1)) * (frames - 1)) << 1) / freq;
+    u32 f = x % ((frames << 1) - 2);
+    if (f < frames) return f;
+    return (frames - (f % frames) - 2);
+}
 
 #endif

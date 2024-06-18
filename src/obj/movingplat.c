@@ -118,7 +118,7 @@ void movingplatform_load(game_s *g, map_obj_s *mo)
     o->flags               = OBJ_FLAG_RENDER_AABB;
     o->on_trigger          = movingplatform_on_trigger;
     if (map_obj_bool(mo, "Solid")) {
-        o->flags |= OBJ_FLAG_SOLID;
+
     } else {
         o->flags |= OBJ_FLAG_PLATFORM;
     }

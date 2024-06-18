@@ -69,7 +69,15 @@ enum {
 typedef struct {
     u16 actions;
     u16 crank_q16;
-} inp_new_s;
+} inp_state_s;
+
+// crank wheel with discrete positions
+typedef struct {
+    u16 ang;     // q16
+    u16 ang_off; // offset of the clicking wheel
+    u8  n_segs;
+    u8  n; // current segment
+} inp_crank_click_s;
 
 i32    inp_x();    // [-1,+1]
 i32    inp_y();    // [-1,+1]
@@ -88,8 +96,9 @@ i32    inp_crankp_qx(i32 q); // prev crank angle in QXX, turns
 i32    inp_crank_dt_q16();
 i32    inp_crank_calc_dt_q16(i32 ang_from, i32 ang_to);
 i32    inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to);
-
-void inp_update();
-void inp_on_resume();
+void   inp_update();
+void   inp_on_resume();
+void   inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs);
+i32    inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16);
 
 #endif

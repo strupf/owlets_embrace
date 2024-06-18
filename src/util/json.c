@@ -5,7 +5,7 @@
 #include "json.h"
 #include "str.h"
 
-bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
+bool32 txt_load_buf(const char *filename, char *buf, u32 bufsize)
 {
     void *f = pltf_file_open_r(filename);
     if (!f) {
@@ -15,7 +15,7 @@ bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
     pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
     pltf_file_seek_set(f, 0);
-    if ((usize)size + 1 >= bufsize) {
+    if ((u32)size + 1 >= bufsize) {
         pltf_log("+++ txt buf too small %s\n", filename);
         return 0;
     }
@@ -25,7 +25,7 @@ bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
     return 1;
 }
 
-bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
+bool32 txt_load(const char *filename, void *(*allocfunc)(u32 s), char **txt_out)
 {
     void *f = pltf_file_open_r(filename);
     if (!f) {
@@ -35,7 +35,7 @@ bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_ou
     pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
     pltf_file_seek_set(f, 0);
-    char *buf = (char *)allocfunc((usize)size + 1);
+    char *buf = (char *)allocfunc((u32)size + 1);
     if (!buf) {
         pltf_file_close(f);
         pltf_log("+++ err loading %s\n", filename);
@@ -331,7 +331,7 @@ bool32 json_bool(json_s tok)
     return (*tok.c0 == 't' ? 1 : 0);
 }
 
-char *json_str(json_s tok, char *buf, usize bufsize)
+char *json_str(json_s tok, char *buf, u32 bufsize)
 {
     if (json_type(tok) != JSON_TYPE_STR) {
         buf[0] = '\0';
@@ -341,7 +341,7 @@ char *json_str(json_s tok, char *buf, usize bufsize)
     i32 i = 0;
     for (char *c = tok.c0 + 1; c < tok.c1; c++) {
         buf[i++] = *c;
-        if ((usize)(i + 1) == bufsize) break;
+        if ((u32)(i + 1) == bufsize) break;
     }
 
     buf[i] = '\0';
@@ -386,7 +386,7 @@ bool32 jsonk_bool(json_s tok, const char *key)
     return json_bool(j);
 }
 
-char *jsonk_str(json_s tok, const char *key, char *buf, usize bufsize)
+char *jsonk_str(json_s tok, const char *key, char *buf, u32 bufsize)
 {
     json_s j;
     if (!json_key(tok, key, &j)) return 0;

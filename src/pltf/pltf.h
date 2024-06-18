@@ -26,6 +26,12 @@
 #define PLTF_UPS_DT_TEST    0.0195f // elapsed seconds required to run an update, slightly lower
 #define PLTF_UPS_DT_CAP     0.0600f // max elapsed seconds
 
+enum {
+    PLTF_FILE_MODE_R,
+    PLTF_FILE_MODE_W,
+    PLTF_FILE_MODE_A
+};
+
 void app_init();
 void app_tick();
 void app_draw();
@@ -39,6 +45,7 @@ void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
+void  *pltf_file_open(const char *path, i32 pltf_file_mode);
 void  *pltf_file_open_r(const char *path);
 void  *pltf_file_open_w(const char *path);
 void  *pltf_file_open_a(const char *path);
@@ -48,8 +55,8 @@ i32    pltf_file_tell(void *f);
 i32    pltf_file_seek_set(void *f, i32 pos);
 i32    pltf_file_seek_cur(void *f, i32 pos);
 i32    pltf_file_seek_end(void *f, i32 pos);
-i32    pltf_file_w(void *f, const void *buf, usize bsize);
-i32    pltf_file_r(void *f, void *buf, usize bsize);
+i32    pltf_file_w(void *f, const void *buf, u32 bsize);
+i32    pltf_file_r(void *f, void *buf, u32 bsize);
 //
 void   pltf_internal_init();
 i32    pltf_internal_update();
@@ -57,4 +64,5 @@ void   pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   pltf_internal_close();
 void   pltf_internal_pause();
 void   pltf_internal_resume();
+
 #endif

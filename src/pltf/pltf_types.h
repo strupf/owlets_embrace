@@ -76,7 +76,6 @@ typedef u32            flags32;
 typedef u64            flags64;
 typedef float          f32;
 typedef double         f64;
-typedef size_t         usize;
 typedef uintptr_t      uptr;
 typedef intptr_t       iptr;
 typedef u32            u16x2; // ARM small 32 bit simd types
@@ -107,7 +106,7 @@ typedef u32            i8x4;
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
 typedef struct {
-    void *(*allocf)(void *ctx, usize s);
+    void *(*allocf)(void *ctx, u32 s);
     void *ctx;
 } alloc_s;
 
@@ -117,10 +116,11 @@ typedef struct {
 #define mset                 memset
 #define mcpy                 memcpy
 #define mmov                 memmove
+#define mclr(DST, SIZE)      mset(DST, 0, SIZE)
 #define POW2(X)              ((X) * (X))
 #define GLUE2(A, B)          A##B
 #define GLUE(A, B)           GLUE2(A, B)
-#define ARRLEN(A)            (sizeof(A) / sizeof(A[0]))
+#define ARRLEN(A)            (i32)(sizeof(A) / sizeof(A[0]))
 #define MAX(A, B)            ((A) >= (B) ? (A) : (B))
 #define MIN(A, B)            ((A) <= (B) ? (A) : (B))
 #define ABS(A)               ((A) >= 0 ? (A) : -(A))
@@ -214,15 +214,18 @@ typedef struct {
 } v2_i16;
 
 typedef struct {
-    i32 x, y;
+    i32 x;
+    i32 y;
 } v2_i32;
 
 typedef struct {
-    i64 x, y;
+    i64 x;
+    i64 y;
 } v2_i64;
 
 typedef struct {
-    f32 x, y;
+    f32 x;
+    f32 y;
 } v2_f32;
 
 typedef struct {
@@ -277,21 +280,6 @@ typedef struct {
     i32 c;
     u8 *s;
 } str_s;
-
-#define STR_DEF_LEN(L)                      \
-    typedef struct {                        \
-        i32 n;                              \
-        u8  s[L];                           \
-    } str_##L##_s;                          \
-                                            \
-    str_s str_from_str_##L(str_##L##_s str) \
-    {                                       \
-        str_s s = {0};                      \
-        s.c     = L;                        \
-        s.n     = str.n;                    \
-        s.s     = &str.s[0];                \
-        return s;                           \
-    }
 
 #define SIMD_USE_TYPE_PUNNING 0
 
@@ -389,9 +377,9 @@ static inline v2_i32 v2_i32_from_f32(v2_f32 a)
 // +: a goes after b | b goes before a
 typedef int (*cmp_f)(const void *a, const void *b);
 
-static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f cmp);
+static void sort_i_array(char *arr, char *lo, char *hi, u32 s, cmp_f cmp);
 
-static void sort_array(void *arr, i32 num, usize s, cmp_f cmp)
+static void sort_array(void *arr, i32 num, u32 s, cmp_f cmp)
 {
     if (num <= 1) return;
     assert(arr && s && cmp);
@@ -399,7 +387,7 @@ static void sort_array(void *arr, i32 num, usize s, cmp_f cmp)
 }
 
 // quicksort
-static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f c)
+static void sort_i_array(char *arr, char *lo, char *hi, u32 s, cmp_f c)
 {
     static char m[1024];
 
@@ -426,6 +414,46 @@ static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f c)
 
     if (lo < j) sort_i_array(arr, lo, j, s, c);
     if (hi > i) sort_i_array(arr, i, hi, s, c);
+}
+
+typedef struct {
+    char          c; // byte value
+    unsigned char n; // number of bytes
+} mem_rle_s;         // run length encoding
+
+// no overflow handling!
+static u32 mem_compress(char *dst, const char *src, u32 ssize)
+{
+    u32 *l         = (u32 *)dst;
+    *l             = 0;
+    mem_rle_s *buf = (mem_rle_s *)(dst + sizeof(u32));
+    mem_rle_s *d   = NULL;
+
+    for (u32 n = 0; n < ssize; n++) {
+        const char c = src[n];
+        if (d && d->c == c && d->n < 255) { // increase run length
+            d->n++;
+        } else { // new run length
+            d    = &buf[*l];
+            d->c = c;
+            d->n = 0;
+            *l   = *l + 1;
+        }
+    }
+    return (sizeof(u32) + sizeof(mem_rle_s) * *l);
+}
+
+// no overflow handling!
+static void mem_uncompress(char *dst, const char *src)
+{
+    char            *c = dst;
+    const u32        l = *(const u32 *)src;
+    const mem_rle_s *s = (const mem_rle_s *)(src + sizeof(u32));
+    for (u32 n = 0; n < l; n++) {
+        mset(c, s->c, (u32)s->n + 1);
+        c += s->n + 1;
+        s++;
+    }
 }
 
 static inline u16x2 u16x2_pack(u16 x, u16 y)

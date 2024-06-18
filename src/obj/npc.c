@@ -121,7 +121,6 @@ void npc_load(game_s *g, map_obj_s *mo)
 
     o->ID    = OBJ_ID_NPC;
     o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_ACTOR |
                OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_MOVER |
                OBJ_FLAG_CAN_BE_JUMPED_ON;

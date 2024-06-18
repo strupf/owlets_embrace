@@ -18,6 +18,21 @@ void render_ui(game_s *g, v2_i32 camoff)
     obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
     fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
 
+    obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
+    if (interactable) {
+        v2_i32 posi = obj_pos_center(interactable);
+        posi        = v2_add(posi, camoff);
+        posi.y -= 64 + 16;
+        posi.x -= 32;
+        i32      btn_frame = (g->gameplay_tick >> 5) & 1;
+        texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
+        gfx_spr(ctx, tui, posi, 0, 0);
+    }
+
+    if (ohero && !g->hero_mem.jump_ui_water) {
+        render_jump_ui(g, ohero, camoff);
+    }
+
     if (g->areaname.fadeticks) {
         gfx_ctx_s ctx_af = ctx;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
@@ -34,6 +49,22 @@ void render_ui(game_s *g, v2_i32 camoff)
         v2_i32 loc  = {(ctx_af.dst.w - strl) >> 1, 10};
 
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
+    }
+
+    if (g->save_ticks) {
+        i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
+        gfx_ctx_s ctx_save  = ctx;
+        if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
+            saveframe = 0;
+            i32 t0    = g->save_ticks - SAVE_TICKS_FADE_OUT;
+            if (0 <= t0) {
+                i32 t1       = SAVE_TICKS - SAVE_TICKS_FADE_OUT;
+                ctx_save.pat = gfx_pattern_interpolate(t1 - t0, t1);
+            }
+        }
+
+        texrec_s trsave = asset_texrec(TEXID_MISCOBJ, 512 + saveframe, 0, 32, 32);
+        gfx_spr(ctx_save, trsave, (v2_i32){16, 200}, 0, 0);
     }
 
 #define COIN_MONO_SPACING 8
@@ -55,40 +86,31 @@ void render_ui(game_s *g, v2_i32 camoff)
         fnt_draw_ascii_mono(ctx, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
     }
 
-    obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
-    if (interactable) {
-        v2_i32 posi = obj_pos_center(interactable);
-        posi        = v2_add(posi, camoff);
-        posi.y -= 64 + 16;
-        posi.x -= 32;
-        i32      btn_frame = (g->gameplay_tick >> 5) & 1;
-        texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
-        gfx_spr(ctx, tui, posi, 0, 0);
-    }
+    gfx_ctx_s      ctxitem = ctx;
+    item_select_s *iselect = &g->item_select;
+    ctxitem.clip_y1        = 240 - 32;
+    i32    itemID1         = iselect->item;
+    i32    itemID2         = 1 - iselect->item;
+    v2_i32 itempos1        = {400 - 32, 240 - 32};
+    v2_i32 itempos2        = {400 - 32, 240 - 32 - 32};
 
-    if (g->save_ticks) {
-        i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
-        gfx_ctx_s ctx_save  = ctx;
-        if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
-            saveframe = 0;
-            i32 t0    = g->save_ticks - SAVE_TICKS_FADE_OUT;
-            if (0 <= t0) {
-                i32 t1       = SAVE_TICKS - SAVE_TICKS_FADE_OUT;
-                ctx_save.pat = gfx_pattern_interpolate(t1 - t0, t1);
-            }
-        }
+    texrec_s tritem1 = asset_texrec(TEXID_UI, 240, 80 + itemID1 * 32, 32, 32);
+    texrec_s tritem2 = asset_texrec(TEXID_UI, 240, 80 + itemID2 * 32, 32, 32);
 
-        texrec_s trsave = asset_texrec(TEXID_MISCOBJ, 512 + saveframe, 0, 32, 32);
-        gfx_spr(ctx_save, trsave, (v2_i32){16, 200}, 0, 0);
-    }
+    i32 scr1      = ITEM_SELECT_SCROLL_TICK;
+    i32 scr0      = scr1 - abs_i32(iselect->tick_item_scroll);
+    i32 scroffset = sgn_i32(iselect->tick_item_scroll) * ease_out_back(32, 0, scr0, scr1);
 
-    if (shop_active(g)) {
-        shop_draw(g);
-    }
+    itempos1.y += scroffset;
+    itempos2.y += scroffset;
 
-    if (ohero && !g->hero_mem.jump_ui_water) {
-        render_jump_ui(g, ohero, camoff);
-    }
+    gfx_spr(ctxitem, tritem1, itempos1, 0, 0);
+    gfx_spr(ctxitem, tritem2, itempos2, 0, 0);
+
+    itempos1.y += 64;
+    itempos2.y += 64;
+    gfx_spr(ctxitem, tritem1, itempos1, 0, 0);
+    gfx_spr(ctxitem, tritem2, itempos2, 0, 0);
 }
 
 void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
@@ -113,16 +135,15 @@ void prerender_area_label(game_s *g)
     fnt_s     font_1 = asset_fnt(FNTID_AREA_LABEL);
     gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
     tex_clr(ctx.dst, GFX_COL_CLEAR);
-    char  *label = g->areaname.label;
-    v2_i32 loc   = {2, 2};
+    v2_i32 loc = {2, 2};
 
     for (i32 yy = -2; yy <= +2; yy++) {
         for (i32 xx = -2; xx <= +2; xx++) {
             v2_i32 locbg = {loc.x + xx, loc.y + yy};
-            fnt_draw_ascii(ctx, font_1, locbg, label, SPR_MODE_WHITE);
+            fnt_draw_ascii(ctx, font_1, locbg, g->areaname.label, SPR_MODE_WHITE);
         }
     }
-    fnt_draw_ascii(ctx, font_1, loc, label, SPR_MODE_BLACK);
+    fnt_draw_ascii(ctx, font_1, loc, g->areaname.label, SPR_MODE_BLACK);
 }
 
 #define WORLD_GRID_W PLTF_DISPLAY_W
@@ -173,7 +194,7 @@ void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, 
 
             for (i32 ty = 0; ty < hh; ty++) {
                 for (i32 tx = 0; tx < ww; tx++) {
-                    if (!hero_visited_tile(g, room, tx, ty)) continue;
+                    // if (!hero_visited_tile(g, room, tx, ty)) continue;
 
                     v2_i32 p1 = {(xx + tx + 0) << 8, (yy + ty + 0) << 8};
                     v2_i32 p2 = {(xx + tx + 1) << 8, (yy + ty + 1) << 8};
@@ -194,7 +215,8 @@ void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, 
                     if (!(tx == 0 || ty == 0 || tx == ww - 1 || ty == hh - 1)) continue; // no walls
 
                     // draw walls
-                    i32 walls = room->room_walls[tx + ty * ww];
+                    // i32 walls = room->room_walls[tx + ty * ww];
+                    i32 walls = 0;
                     if (walls & 1) { // left wall
                         rec_i32 rwall = {d1.x - wallhalf, d1.y - wallhalf, wallsize, dh + wallsize};
                         gfx_rec_fill(ctx, rwall, wallcol);

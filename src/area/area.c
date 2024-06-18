@@ -25,7 +25,7 @@ static flags32 g_areafx[NUM_AREA_ID] = {
     AFX_CLOUDS | AFX_WIND, // mountain
     AFX_CLOUDS | AFX_RAIN, // mountain rainy
     0,                     // cave
-    AFX_WIND,              // forest
+    0,                     // forest
 };
 
 static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
@@ -99,6 +99,7 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         break;
     case AREA_ID_MOUNTAIN:
     case AREA_ID_MOUNTAIN_RAINY:
+    case AREA_ID_FOREST:
     case AREA_ID_WHITE:
     default:
         gfx_fill_rows(tdisplay, gfx_pattern_white(), 0, clip_y2);
@@ -128,6 +129,21 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         v2_i32   pos_far  = area_parallax(cam, 25, 0, 3, 3);
         v2_i32   pos_mid  = area_parallax(cam, 75, 0, 3, 3);
         v2_i32   pos_near = area_parallax(cam, 100, 0, 1, 1);
+        gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
+        gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
+        gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);
+        break;
+    }
+    case AREA_ID_FOREST: {
+        texrec_s tr_far   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 0, 1024, 256);
+        texrec_s tr_mid   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 512, 1024, 256);
+        texrec_s tr_near  = asset_texrec(TEXID_BG_FOREST, 0, 256 + 1024, 1024, 256);
+        v2_i32   pos_far  = area_parallax(cam, 0, 0, 1, 1);
+        v2_i32   pos_mid  = area_parallax(cam, 0, 0, 1, 1);
+        v2_i32   pos_near = area_parallax(cam, 0, 0, 1, 1);
+        pos_far.y -= 32;
+        pos_mid.y -= 32;
+        pos_near.y -= 32;
         gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);

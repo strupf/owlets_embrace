@@ -13,6 +13,7 @@
 
 enum {
     TEXID_DISPLAY,
+    TEXID_KEYBOARD,
     TEXID_HERO,
     TEXID_TILESET_TERRAIN,
     TEXID_TILESET_PROPS_BG,
@@ -35,6 +36,7 @@ enum {
     TEXID_BG_MOUNTAINS,
     TEXID_BG_DEEP_FOREST,
     TEXID_BG_CAVE_DEEP,
+    TEXID_BG_FOREST,
     TEXID_CARRIER,
     TEXID_CRUMBLE,
     TEXID_NPC,
@@ -42,16 +44,13 @@ enum {
     TEXID_WATER_PRERENDER,
     TEXID_TOGGLE,
     TEXID_SKELETON,
-    TEXID_WIGGLE_DECO,
     TEXID_CHARGER,
     TEXID_FLYER,
     TEXID_WINDGUSH,
-    TEXID_WIGGLE_SMALL, // grass, plants etc.
-    TEXID_WIGGLE_MEDIUM,
-    TEXID_WIGGLE_LARGE,
     TEXID_COLLISION_TILES,
     TEXID_FLYING_BUG,
     TEXID_WALLWORM,
+    TEXID_TITLE_SCREEN,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -96,6 +95,11 @@ enum {
     SNDID_UPGRADE,
     SNDID_CRUMBLE,
     SNDID_HOOK_THROW,
+    SNDID_KB_DENIAL,
+    SNDID_KB_KEY,
+    SNDID_KB_CLICK,
+    SNDID_KB_SELECTION,
+    SNDID_KB_SELECTION_REV,
     //
     NUM_SNDID
 };
@@ -128,7 +132,7 @@ void     assets_init();
 void     assets_export();
 void     assets_import();
 //
-void    *assetmem_alloc(usize s);
+void    *assetmem_alloc(u32 s);
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);
 fnt_s    asset_fnt(i32 ID);
