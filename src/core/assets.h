@@ -51,10 +51,12 @@ enum {
     TEXID_FLYING_BUG,
     TEXID_WALLWORM,
     TEXID_TITLE_SCREEN,
+    TEXID_BUDPLANT,
+    TEXID_FLYBLOB,
     //
     NUM_TEXID_EXPLICIT,
     //
-    NUM_TEXID = 64
+    NUM_TEXID = 96
 };
 
 enum {

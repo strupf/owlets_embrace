@@ -59,11 +59,11 @@ enum {
 #define HERO_ROPEWALLJUMP_TICKS  30
 #define HERO_SWIM_TICKS          50 // duration of swimming without upgrade
 #define HERO_RUNUP_TICKS         50
-#define HERO_ATTACK_TICKS        25
+#define HERO_ATTACK_TICKS        20
 #define HERO_SPRINT_DTAP_TICKS   20
 #define HEROHOOK_N_HIST          4
 #define HERO_BREATH_TICKS        200
-#define HERO_GRAVITY             100
+#define HERO_GRAVITY             80
 #define HERO_GRAVITY_LOW         50
 #define HERO_LOW_GRAV_TICKS      80
 
@@ -99,7 +99,6 @@ typedef struct {
 // extern const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS];
 
 typedef struct hero_s {
-    i32          n_airjumps;
     obj_handle_s interactable;
     obj_handle_s hook;
     //
@@ -113,22 +112,33 @@ typedef struct hero_s {
     bool8        reel_in;
     bool8        crawling;
     bool8        crawlingp;
-    bool8        jump_ui_water;
+    bool8        hook_pr;
+    bool8        item_only_hook;
+    bool8        hook_cancel_tick;
+    bool8        show_jump_ui;
+    u8           attack_hold_tick;
+    u8           attack_tick;
+    u8           attack_flipflop;
+    u8           attack_hold_frame; // used for animating
+    i8           grabbingp;
+    i8           grabbing;
+    u8           ground_impact_ticks;
+    i16          flytime_added;
+    i16          flytime;
+    i16          low_grav_ticks;
+    i16          low_grav_ticks_0;
+    i16          flytime_recover;
+    i32          lifting_tick;
     i32          crawling_to_stand;
     i32          was_hit_ticks;
-    i32          attack_hold_tick;
-    i32          attack_flipflop;
-    i32          attack_tick;
+    u32          b_hold_tick;
     i32          sprint_ticks;
     i32          sprint_dtap;
-    i32          grabbingp;
-    i32          grabbing;
     i32          idle_ticks;
     i32          idle_anim;
     i32          breath_ticks;
     i32          ropewalljump_dir;
     i32          swimticks;
-    i32          ground_impact_ticks;
     i32          jump_btn_buffer;
     i32          jump_index; // index into jump parameter table
     i32          jumpticks;
@@ -136,11 +146,6 @@ typedef struct hero_s {
     i32          ladderx;
     i32          reel_in_dtap;
     i32          jump_boost_tick;
-    i16          low_grav_ticks;
-    i16          low_grav_ticks_0;
-    i16          flytime;
-    i16          flytime_recover;
-    i32          lifting_tick;
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -155,5 +160,11 @@ bool32 hero_stand_up(game_s *g, obj_s *o);
 void   hero_start_jump(game_s *g, obj_s *o, i32 ID);
 //
 void   hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook);
+void   hero_flytime_update_ui(game_s *g, obj_s *ohero, i32 amount); // swaps "temporary" flytime to regular flytime -> UI
+void   hero_flytime_modify(game_s *g, obj_s *ohero, i32 dt);
+void   hero_flytime_add_ui(game_s *g, obj_s *ohero, i32 dt); // add with UI animation
+i32    hero_flytime_left(game_s *g, obj_s *ohero);
+i32    hero_flytime_ui_full(game_s *g, obj_s *ohero);
+i32    hero_flytime_ui_added(game_s *g, obj_s *ohero);
 
 #endif

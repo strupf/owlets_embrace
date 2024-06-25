@@ -83,22 +83,26 @@ typedef u32            i16x2;
 typedef u32            u8x4;
 typedef u32            i8x4;
 
-#define I64_MAX INT64_MAX
-#define I64_MIN INT64_MIN
-#define U64_MAX UINT64_MAX
-#define U64_MIN 0
-#define I32_MAX INT32_MAX
-#define I32_MIN INT32_MIN
-#define U32_MAX UINT32_MAX
-#define U32_MIN 0
-#define I16_MAX INT16_MAX
-#define I16_MIN INT16_MIN
-#define U16_MAX UINT16_MAX
-#define U16_MIN 0
-#define I8_MAX  INT8_MAX
-#define I8_MIN  INT8_MIN
-#define U8_MAX  UINT8_MAX
-#define U8_MIN  0
+#define I64_MAX  INT64_MAX
+#define I64_MIN  INT64_MIN
+#define U64_MAX  UINT64_MAX
+#define U64_MIN  0
+#define I32_MAX  INT32_MAX
+#define I32_MIN  INT32_MIN
+#define U32_MAX  UINT32_MAX
+#define U32_MIN  0
+#define I16_MAX  INT16_MAX
+#define I16_MIN  INT16_MIN
+#define U16_MAX  UINT16_MAX
+#define U16_MIN  0
+#define I8_MAX   INT8_MAX
+#define I8_MIN   INT8_MIN
+#define U8_MAX   UINT8_MAX
+#define U8_MIN   0
+//
+#define U32_C(X) (X##U)
+#define I64_C(X) (X##LL)
+#define U64_C(X) (X##ULL)
 
 #define PLTF_SIZE_CL 32
 #define ALIGNCL      ALIGN(PLTF_SIZE_CL) // align on PD cache line boundaries

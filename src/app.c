@@ -54,8 +54,16 @@ void app_init()
 
 void app_tick()
 {
+#ifdef PLTF_SDL
+    static u32 skiptick;
+    if (pltf_sdl_key(SDL_SCANCODE_LSHIFT)) {
+        skiptick++;
+        if (skiptick & 7) return;
+    }
+#endif
+
     aud_update();
-    aud_set_lowpass(0);
+    // aud_set_lowpass(0);
 
     if (textinput_active()) {
         textinput_update();
@@ -88,7 +96,6 @@ void app_draw()
 #endif
 
     tex_clr(asset_tex(0), GFX_COL_WHITE);
-
     game_s *g = &APP.game;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -157,6 +164,10 @@ void app_load_tex()
     asset_tex_loadID(TEXID_SWITCH, "switch", &texswitch);
     tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
+    tex_s tflyblob;
+    asset_tex_loadID(TEXID_FLYBLOB, "flyblob", &tflyblob);
+    tex_outline(tflyblob, 0, 0, 768, 128, 1, 1);
+
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
     asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants", NULL);
@@ -213,10 +224,16 @@ void app_load_tex()
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
-    for (i32 y = 0; y < 22; y++) {
+    for (i32 y = 0; y < 20; y++) {
+        if (y == 16) continue; // black outline
         for (i32 x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
+    }
+
+    for (i32 x = 0; x < 16; x++) {
+        tex_outline(texhero, x * 64, 16 * 64, 64, 64, 0, 1);
+        tex_outline(texhero, x * 64, 16 * 64, 64, 64, 0, 0);
     }
 
     // prerender 16 rotations
@@ -256,9 +273,33 @@ void app_load_tex()
         }
     }
 #endif
+    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
+    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
 
-    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
-    tex_outline(twallworm, 512, 0, 512, 512, 0, 1);
+    tex_s tbudplant;
+    asset_tex_loadID(TEXID_BUDPLANT, "budplant", &tbudplant);
+
+    for (i32 y = 0; y < 6; y++) {
+        for (i32 x = 0; x < 8; x++) {
+            tex_outline(tbudplant, x * 64, y * 64, 64, 64, 1, 1);
+        }
+    }
+
+    gfx_ctx_s ctxbudplant = gfx_ctx_default(tbudplant);
+    // 4 rotations
+    for (i32 i = 1; i < 4; i++) {
+        v2_i32 origin = {32, 32};
+        f32    ang    = (PI_FLOAT * (f32)i * 0.5f);
+
+        for (i32 y = 0; y < 6; y++) {
+            for (i32 x = 0; x < 8; x++) {
+                v2_i32   pp         = {(x + i * 8) * 64, y * 64};
+                texrec_s trbudplant = {tbudplant, {x * 64, y * 64, 64, 64}};
+
+                gfx_spr_rotscl(ctxbudplant, trbudplant, pp, origin, -ang, 1.f, 1.f);
+            }
+        }
+    }
 
     asset_tex_loadID(TEXID_KEYBOARD, "keyboard", NULL);
 

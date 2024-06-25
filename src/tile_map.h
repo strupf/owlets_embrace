@@ -45,7 +45,12 @@ enum {
     NUM_TILE_TYPES
 };
 
-#define NUM_TILES           0x40000
+static inline i32 tile_type_render_priority(i32 type)
+{
+    return type;
+}
+
+#define NUM_TILES           0x20000
 #define TILE_WATER_MASK     0x80
 #define TILE_ICE_MASK       0x40
 #define TILE_IS_BLOCK(X)    (TILE_BLOCK == (X))
@@ -104,10 +109,11 @@ tile_tris_s  tile_tris_get(i32 ID);
 bool32       tile_map_hookable(game_s *g, rec_i32 r);
 bool32       tile_map_solid(game_s *g, rec_i32 r);
 bool32       tile_map_solid_pt(game_s *g, i32 x, i32 y);
-bool32       tile_map_one_way(game_s *g, rec_i32 r);
+bool32       tile_map_platform(game_s *g, rec_i32 r);
 bool32       tile_map_ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos);
 void         tile_map_set_collision(game_s *g, rec_i32 r, i32 shape, i32 type);
 //
+bool32       map_platform(game_s *g, obj_s *o, i32 x, i32 y, i32 w);
 bool32       map_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m);
 bool32       map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m);
 bool32       map_blocked_by_any_solid(game_s *g, rec_i32 r);

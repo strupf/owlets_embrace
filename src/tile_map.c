@@ -177,7 +177,7 @@ bool32 tile_map_solid_pt(game_s *g, i32 x, i32 y)
     return (tile_solid_pt(ID, x & 15, y & 15));
 }
 
-bool32 tile_map_one_way(game_s *g, rec_i32 r)
+bool32 tile_map_platform(game_s *g, rec_i32 r)
 {
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
     rec_i32 ri;
@@ -279,6 +279,22 @@ bool32 map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y)
     for (obj_each(g, it)) {
         if (it->mass == 0) continue;
         if (overlap_rec_pnt(obj_aabb(it), pt)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+bool32 map_platform(game_s *g, obj_s *o, i32 x, i32 y, i32 w)
+{
+    rec_i32 r = {x, y, w, 1};
+    if (tile_map_platform(g, r)) return 1;
+    for (obj_each(g, it)) {
+        if (!((it->flags & OBJ_FLAG_PLATFORM) ||
+              ((it->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) &&
+               o->ID == OBJ_ID_HERO))) continue;
+        rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
+        if (overlap_rec(r, rplat)) {
             return 1;
         }
     }

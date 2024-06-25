@@ -51,11 +51,21 @@ void title_init(title_s *t)
 {
 #if TITLE_SKIP_TO_GAME || 1
     spm_push();
-    save_s *s1 = spm_alloc(sizeof(save_s));
-    savefile_empty(s1);
-    str_cpy(s1->name, "Lukas");
-    s1->health = 3;
-    savefile_write(0, s1);
+    save_s *s = spm_alloc(sizeof(save_s));
+    savefile_empty(s);
+    str_cpy(s->name, "Lukas");
+    s->hero_pos.x = 50;
+    s->hero_pos.y = 100;
+    s->flytime    = 30;
+    s->upgrades =
+        ((flags32)1 << HERO_UPGRADE_HOOK) |
+        ((flags32)1 << HERO_UPGRADE_WALLJUMP) |
+        ((flags32)1 << HERO_UPGRADE_HOOK_LONG) |
+        ((flags32)1 << HERO_UPGRADE_WHIP) |
+        ((flags32)1 << HERO_UPGRADE_SWIM) |
+        ((flags32)1 << HERO_UPGRADE_DIVE) |
+        ((flags32)1 << HERO_UPGRADE_SPRINT);
+    savefile_write(0, s);
     spm_pop();
 #endif
     title_load(t);

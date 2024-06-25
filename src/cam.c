@@ -70,8 +70,7 @@ void cam_update(game_s *g, cam_s *c)
     i32    look_tickp = c->look_tick;
 
     if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
-        hero_s *h     = (hero_s *)hero->mem;
-        v2_i32  herop = obj_pos_bottom_center(hero);
+        v2_i32 herop = obj_pos_bottom_center(hero);
 
         i32    py_bot       = herop.y - 60;
         i32    py_top       = herop.y + 20;
@@ -105,7 +104,7 @@ void cam_update(game_s *g, cam_s *c)
             c->pos.y += padd.y;
         }
 
-        c->pos.x = herop.x;
+        c->pos.x = (f32)herop.x;
 
         c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
         // lahead.x = (f32)hero->facing * 50.f;

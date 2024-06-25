@@ -141,9 +141,6 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         v2_i32   pos_far  = area_parallax(cam, 0, 0, 1, 1);
         v2_i32   pos_mid  = area_parallax(cam, 0, 0, 1, 1);
         v2_i32   pos_near = area_parallax(cam, 0, 0, 1, 1);
-        pos_far.y -= 32;
-        pos_mid.y -= 32;
-        pos_near.y -= 32;
         gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);

@@ -16,6 +16,7 @@ void inp_update()
     INP.curri = (inp_state_s){0};
 #ifdef PLTF_PD
     INP.curri.actions = pltf_pd_btn() & B8(00111111);
+
     if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
     INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
 #elif PLTF_SDL_EMULATE_SIM

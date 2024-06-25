@@ -101,6 +101,16 @@ static inline i32 mul_ratio(i32 x, ratio_s r)
     return ((x * r.num) / r.den);
 }
 
+static inline u32 pow2_u32(u32 v)
+{
+    return (v * v);
+}
+
+static inline i32 pow2_i32(i32 v)
+{
+    return (v * v);
+}
+
 static inline f32 pow_f32(f32 v, i32 power)
 {
     f32 r = v;
@@ -119,22 +129,6 @@ static inline u32 pow_u32(u32 v, i32 power)
     return r;
 }
 
-static inline u32 pow2_u32(u32 v)
-{
-    return (v * v);
-}
-
-static inline u32 pow4_u32(u32 v)
-{
-    u32 v2 = v * v;
-    return (v2 * v2);
-}
-
-static inline i32 pow2_i32(i32 v)
-{
-    return (v * v);
-}
-
 static inline i32 pow_i32(i32 v, i32 power)
 {
     i32 r = v;
@@ -142,12 +136,6 @@ static inline i32 pow_i32(i32 v, i32 power)
         r *= v;
     }
     return r;
-}
-
-static inline i32 pow4_i32(i32 v)
-{
-    i32 v2 = v * v;
-    return (v2 * v2);
 }
 
 static inline i32 log2_u32(u32 v)
@@ -230,9 +218,48 @@ static inline f32 sqrt_f32(f32 x)
     return sqrtf(x);
 }
 
+static inline u32 sqrt_u64(u64 x)
+{
+    if (x >= U64_C(0xFFFFFFFE00000001)) return U32_C(0xFFFFFFFF);
+    if (x == 0) return 0;
+    u64 v = (u64)sqrt_f32((f32)x);
+    v     = (v + x / v) >> 1;
+    return (u32)((v * v > x) ? v - 1 : v);
+}
+
 static inline u32 sqrt_u32(u32 x)
 {
-    return (u32)sqrt_f32((f32)x + 0.5f);
+#if 1
+    if (x >= U32_C(0xFFFE0001)) return 0xFFFF;
+    u32 v = (u32)sqrt_f32((f32)x);
+    // v     = (v + x / v) >> 1;
+    return ((v * v > x) ? v - 1 : v);
+#else
+    u32 y = 0;
+    for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
+        u32 b = y | m;
+        y >>= 1;
+        if (b <= z) {
+            z -= b;
+            y |= m;
+        }
+    }
+    return y;
+#endif
+}
+
+static inline u32 sqrt_u32_exact(u32 x)
+{
+    u32 y = 0;
+    for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
+        u32 b = y | m;
+        y >>= 1;
+        if (b <= z) {
+            z -= b;
+            y |= m;
+        }
+    }
+    return y;
 }
 
 static inline i32 sqrt_i32(i32 x)
@@ -242,7 +269,7 @@ static inline i32 sqrt_i32(i32 x)
         pltf_log("sqrt_warn: negative number!\n");
     }
 #endif
-    return (x <= 0 ? 0 : (i32)sqrt_f32((f32)x + 0.5f));
+    return (x <= 0 ? 0 : (i32)sqrt_u32(x));
 }
 
 #define Q16_ANGLE_TURN 0x40000
@@ -469,6 +496,15 @@ static inline u32 v2_lensq(v2_i32 a)
 {
     u32 x = (u32)abs_i32(a.x);
     u32 y = (u32)abs_i32(a.y);
+    u64 v = ((u64)x * x + (u64)y * y);
+    assert(v <= (u64)(x * x + y * y));
+    return (x * x + y * y);
+}
+
+static inline u64 v2_lensql(v2_i32 a)
+{
+    u64 x = (u64)abs_i32(a.x);
+    u64 y = (u64)abs_i32(a.y);
     return (x * x + y * y);
 }
 
@@ -479,7 +515,12 @@ static inline f32 v2_lensq_f(v2_i32 v)
 
 static inline i32 v2_len(v2_i32 v)
 {
-    return (i32)(sqrt_f32(v2_lensq_f(v)));
+    return sqrt_u32(v2_lensq(v));
+}
+
+static inline u32 v2_lenl(v2_i32 v)
+{
+    return sqrt_u64(v2_lensql(v));
 }
 
 static inline f32 v2_lenf(v2_i32 v)
@@ -497,27 +538,28 @@ static inline i32 v2_distance(v2_i32 a, v2_i32 b)
     return sqrt_u32(v2_distancesq(a, b));
 }
 
-static inline v2_i32 v2_setlenl(v2_i32 a, f32 l, i32 len)
+static inline v2_i32 v2_setlenl(v2_i32 a, u32 l, u32 len)
 {
-    if (abs_f32(l) < 0.1f) {
+    if (l <= 2) {
         v2_i32 r0 = {len, 0};
         return r0;
     }
-    f32    s = (f32)len / l;
-    v2_i32 r = {(i32)((f32)a.x * s + .5f), (i32)((f32)a.y * s + .5f)};
+
+    v2_i32 r = {(i32)(((i64)a.x * (i64)len) / (i64)l),
+                (i32)(((i64)a.y * (i64)len) / (i64)l)};
     return r;
 }
 
 static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
 {
-    return v2_setlenl(a, v2_lenf(a), len);
+    return v2_setlenl(a, v2_len(a), len);
 }
 
 static inline v2_i32 v2_truncate(v2_i32 a, i32 l)
 {
     u32 ls = v2_lensq(a);
     if (ls <= (u32)l * (u32)l) return a;
-    return v2_setlenl(a, sqrt_f32((f32)ls), l);
+    return v2_setlenl(a, sqrt_u32(ls), l);
 }
 
 static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)

@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "render.h"
+#include "app.h"
 #include "game.h"
 #include "obj/behaviour.h"
 
@@ -177,8 +178,6 @@ void game_draw(game_s *g)
         spm_pop();
     }
 
-    item_select_draw(&g->item_select);
-
     switch (g->substate) {
     case 0: break;
     case SUBSTATE_TEXTBOX:
@@ -201,12 +200,21 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
         for (i32 n = 0; n < o->n_sprites; n++) {
             obj_sprite_s sprite = o->sprites[n];
             if (sprite.trec.t.px == NULL) continue;
+
             v2_i32 sprpos = v2_add(ppos, v2_i32_from_i16(sprite.offs));
             i32    mode   = 0;
             if ((o->flags & OBJ_FLAG_ENEMY) && ((o->enemy.hurt_tick >> 2) & 1)) {
                 mode = SPR_MODE_INV;
             }
             gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, mode);
+
+            // player low health blinking
+            if (o->ID == OBJ_ID_HERO && o->health == 1) {
+                gfx_ctx_s cs = ctx;
+                i32       s  = (sin_q16(g->gameplay_tick << 13) + 65536) >> 1;
+                cs.pat       = gfx_pattern_interpolate(s, 65536 * 3);
+                gfx_spr(cs, sprite.trec, sprpos, sprite.flip, SPR_MODE_BLACK);
+            }
         }
     }
 
@@ -309,6 +317,7 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
     ctxw.pat             = water_pattern();
     i32 tick             = g->gameplay_tick;
 
+#if 0
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
             i32    i  = x + y * g->tiles_x;
@@ -338,6 +347,47 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
 #endif
         }
     }
+#else
+    // water tiles
+    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+            i32    i  = x + y * g->tiles_x;
+            tile_s rt = g->tiles[i];
+            if (rt.U == 0) continue;
+            if (!(rt.type & TILE_WATER_MASK)) continue;
+            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
+            i32    j = i - g->tiles_x;
+            if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
+                i32      watert = water_tile_get(x, y, tick);
+                texrec_s trw    = {twat, {16, watert << 4, 16, 16}};
+                gfx_spr_tile_32x32(ctxw, trw, p);
+            } else {
+                gfx_rec_fill(ctxw, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
+            }
+        }
+    }
+
+    for (i32 pass = 0; pass < 15; pass++) {
+        for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+            for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+                tile_s rt = g->tiles[x + y * g->tiles_x];
+                i32    tt = rt.type & 15;
+                if (tt + 1 != pass) continue;
+                if (rt.u == 0) continue;
+                v2_i32   p   = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
+                v2_i32   tp  = {p.x - 8, p.y - 8};
+                texrec_s trt = {tset, {rt.tx << 5, rt.ty << 5, 32, 32}};
+                gfx_spr_tile_32x32(ctx, trt, tp);
+#if defined(SYS_DEBUG) && 0
+                int t1 = g->tiles[x + y * g->tiles_x].collision;
+                if (!(0 < t1 && t1 < NUM_TILE_SHAPES)) continue;
+                texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
+                gfx_spr(ctx, tr1, p, 0, 0);
+#endif
+            }
+        }
+    }
+#endif
 
     ocean_s *oc = &g->ocean;
     if (oc->active) {

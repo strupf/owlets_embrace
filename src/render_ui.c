@@ -29,7 +29,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx, tui, posi, 0, 0);
     }
 
-    if (ohero && !g->hero_mem.jump_ui_water) {
+    if (ohero && g->hero_mem.show_jump_ui) {
         render_jump_ui(g, ohero, camoff);
     }
 
@@ -86,31 +86,19 @@ void render_ui(game_s *g, v2_i32 camoff)
         fnt_draw_ascii_mono(ctx, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
     }
 
-    gfx_ctx_s      ctxitem = ctx;
-    item_select_s *iselect = &g->item_select;
-    ctxitem.clip_y1        = 240 - 32;
-    i32    itemID1         = iselect->item;
-    i32    itemID2         = 1 - iselect->item;
-    v2_i32 itempos1        = {400 - 32, 240 - 32};
-    v2_i32 itempos2        = {400 - 32, 240 - 32 - 32};
-
-    texrec_s tritem1 = asset_texrec(TEXID_UI, 240, 80 + itemID1 * 32, 32, 32);
-    texrec_s tritem2 = asset_texrec(TEXID_UI, 240, 80 + itemID2 * 32, 32, 32);
-
-    i32 scr1      = ITEM_SELECT_SCROLL_TICK;
-    i32 scr0      = scr1 - abs_i32(iselect->tick_item_scroll);
-    i32 scroffset = sgn_i32(iselect->tick_item_scroll) * ease_out_back(32, 0, scr0, scr1);
-
-    itempos1.y += scroffset;
-    itempos2.y += scroffset;
-
-    gfx_spr(ctxitem, tritem1, itempos1, 0, 0);
-    gfx_spr(ctxitem, tritem2, itempos2, 0, 0);
-
-    itempos1.y += 64;
-    itempos2.y += 64;
-    gfx_spr(ctxitem, tritem1, itempos1, 0, 0);
-    gfx_spr(ctxitem, tritem2, itempos2, 0, 0);
+    if (ohero) {
+        texrec_s trheart = asset_texrec(TEXID_UI, 400, 240, 32, 32);
+        for (i32 n = 0; n < ohero->health_max; n++) {
+            i32 frameID = 0;
+            if (n < ohero->health) {
+                frameID = 1;
+            } else {
+                frameID = 0;
+            }
+            trheart.r.x = 400 + frameID * 32;
+            gfx_spr(ctx, trheart, (v2_i32){n * 20 - 2, -4}, 0, 0);
+        }
+    }
 }
 
 void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
@@ -118,16 +106,29 @@ void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
     gfx_ctx_s ctx = gfx_ctx_display();
     v2_i32    p   = v2_add(o->pos, camoff);
 
-    i32 ft0 = g->save.flytime;
-    i32 ft1 = g->hero_mem.flytime;
-    if (ft1 < ft0) {
-        rec_i32 rfly   = {p.x - 16, p.y - 32, 32, 8};
-        rec_i32 rfly_1 = {rfly.x - 1, rfly.y - 1, rfly.w + 2, rfly.h + 2};
-        rec_i32 rfly_2 = {rfly.x + 1, rfly.y + 1, (ft1 * (rfly.w - 2)) / ft0, rfly.h - 2};
-        gfx_rec_fill(ctx, rfly_1, GFX_COL_WHITE);
-        gfx_rec_fill(ctx, rfly, GFX_COL_BLACK);
-        gfx_rec_fill(ctx, rfly_2, GFX_COL_WHITE);
+    i32     ft0    = g->save.flytime;
+    i32     ftx    = hero_flytime_ui_full(g, o);
+    i32     fty    = hero_flytime_ui_added(g, o);
+    rec_i32 rfly   = {p.x - 10, p.y - 32, 32, 10};
+    rec_i32 rfly_1 = {rfly.x - 2, rfly.y - 2, rfly.w + 4, rfly.h + 4};
+    rec_i32 rfly_2 = {rfly.x + 2, rfly.y + 2, (ftx * (rfly.w - 4)) / ft0, rfly.h - 4};
+    rec_i32 rfly_3 = {rfly.x + 2, rfly.y + 2, ((ftx + fty) * (rfly.w - 4)) / ft0, rfly.h - 4};
+
+    gfx_ctx_s ctxb = ctx;
+    gfx_ctx_s ctxc = ctx;
+    ctxc.pat       = gfx_pattern_4x4(B4(0101),
+                                     B4(0101),
+                                     B4(0101),
+                                     B4(0101));
+    if (ftx == 0) {
+        i32 i    = max_i32(40000, sin_q16(pltf_time() << 14));
+        ctxb.pat = gfx_pattern_interpolate(i, 65536);
     }
+
+    gfx_rec_rounded_fill(ctx, rfly_1, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctxb, rfly, -1, GFX_COL_BLACK);
+    gfx_rec_rounded_fill(ctxc, rfly_3, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctxb, rfly_2, -1, GFX_COL_WHITE);
 }
 
 void prerender_area_label(game_s *g)

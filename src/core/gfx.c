@@ -380,18 +380,19 @@ void tex_clr(tex_s dst, i32 col)
 
 // used for simple sprites
 typedef struct {
-    i32           dmax; // count of dst words -1
+    u32          *dp;   // pixel
+    u16           dmax; // count of dst words -1
+    u16           dadd;
     u32           ml;   // boundary mask left
     u32           mr;   // boundary mask right
-    i32           mode; // drawing mode
-    i32           doff; // bitoffset of first dst bit
-    u32          *dp;   // pixel
-    i32           y;
+    i16           mode; // drawing mode
+    i16           doff; // bitoffset of first dst bit
+    u16           dst_wword;
+    i16           y;
     gfx_pattern_s pat;
-    i32           dadd;
 } span_blit_s;
 
-span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
+static span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
 {
     i32         nbit = (x2 + 1) - x1; // number of bits in a row to blit
     i32         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
@@ -402,10 +403,17 @@ span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
     info.mode        = mode;                                               // sprite masking mode
     info.ml          = bswap32(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
     info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
+    info.dst_wword   = ctx.dst.wword;
     info.dp          = &ctx.dst.px[((x1 >> 5) << lsh) + y * ctx.dst.wword];
     info.dadd        = 1 + lsh;
     info.pat         = ctx.pat;
     return info;
+}
+
+static inline void span_blit_incr_y(span_blit_s *info)
+{
+    info->y++;
+    info->dp += info->dst_wword;
 }
 
 void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, i32 tx, i32 ty)
@@ -582,14 +590,14 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode)
     tex_s       dtex = ctx.dst;
     span_blit_s info = span_blit_gen(ctx, y1, x1, x2, mode);
     if (dtex.fmt == TEX_FMT_OPAQUE) {
-        for (info.y = y1; info.y <= y2; info.y++) {
+        for (i32 y = y1; y <= y2; y++) {
             prim_blit_span_X(info);
-            info.dp += dtex.wword;
+            span_blit_incr_y(&info);
         }
     } else {
-        for (info.y = y1; info.y <= y2; info.y++) {
+        for (i32 y = y1; y <= y2; y++) {
             prim_blit_span_Y(info);
-            info.dp += dtex.wword;
+            span_blit_incr_y(&info);
         }
     }
 }

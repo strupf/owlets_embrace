@@ -66,6 +66,7 @@ enum {
     OBJ_ID_STEAM_PLATFORM,
     OBJ_ID_BUDPLANT,
     OBJ_ID_PROJECTILE,
+    OBJ_ID_STAMINARESTORER,
 };
 
 enum {
@@ -74,6 +75,12 @@ enum {
     OBJ_TAG_CARRIED,
     //
     NUM_OBJ_TAGS
+};
+
+enum {
+    PROJECTILE_ID_DEFAULT,
+    PROJECTILE_ID_BUDPLANT,
+    PROJECTILE_ID_STALACTITE_BREAK,
 };
 
 #define OBJ_FLAG_MOVER              ((u64)1 << 0)
@@ -157,7 +164,7 @@ typedef void (*obj_on_draw_f)(game_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_on_trigger_f)(game_s *g, obj_s *o, i32 trigger);
 typedef void (*obj_on_interact_f)(game_s *g, obj_s *o);
 
-#define OBJ_MAGIC 0xDEADBEEFU
+#define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
     obj_s            *next; // linked list
     //

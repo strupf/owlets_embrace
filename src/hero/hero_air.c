@@ -25,9 +25,13 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
     rec_r.h -= 8;
     rec_l.y += 4;
     rec_r.y += 4;
-    const i32 flytimep = h->flytime;
+    const i32 flytimep = hero_flytime_left(g, o);
 
     if (rope_stretched) {
+        if (g->gameplay_tick & 1) {
+            hero_flytime_modify(g, o, +1);
+        }
+
         o->drag_q8.x = 253;
         o->drag_q8.y = 256;
 
@@ -61,10 +65,12 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
         // dynamic jump height
         if (0 < h->jumpticks && !inp_action(INP_A)) {
+
+            o->vel_q8.y  = (o->vel_q8.y * 3) >> 2;
             h->jumpticks = 0;
         }
 
-        if (h->flytime <= 0 && h->jump_index != HERO_JUMP_WATER) {
+        if (flytimep <= 0 && h->jump_index != HERO_JUMP_WATER) {
             h->jumpticks = 0;
         }
 
@@ -73,7 +79,9 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             i32            t0 = pow_i32(jv.ticks, 4);
             i32            ti = pow_i32(h->jumpticks, 4) - t0;
             o->vel_q8.y -= jv.v0 - ((jv.v1 - jv.v0) * ti) / t0;
-            h->flytime -= (h->jump_index == HERO_JUMP_FLY);
+            if (h->jump_index == HERO_JUMP_FLY) {
+                hero_flytime_modify(g, o, -1);
+            }
         }
         h->jumpticks--;
 
@@ -98,7 +106,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         bool32 jump_midair = !usinghook &&         // not hooked
                              !jump_ground &&       // jump in air?
                              h->jumpticks <= -8 && // wait some ticks after last jump
-                             0 < h->flytime;
+                             hero_flytime_left(g, o);
 
         if (jump_midair && !jump_ground) { // just above ground -> ground jump
             for (i32 y = 0; y < 6; y++) {
@@ -115,7 +123,8 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             hero_restore_grounded_stuff(g, o);
             hero_start_jump(g, o, HERO_JUMP_GROUND);
         } else if (jump_midair) {
-            h->flytime--;
+            hero_flytime_modify(g, o, -1);
+
             h->sprint_ticks = 0;
             hero_start_jump(g, o, HERO_JUMP_FLY);
 
@@ -129,10 +138,10 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         }
     }
 
-    if (h->flytime == flytimep) {
-        if (0 < h->flytime && h->flytime < g->save.flytime) {
+    if (hero_flytime_left(g, o) == flytimep) {
+        if (0 < flytimep && flytimep < g->save.flytime) {
             h->flytime_recover++;
-            h->flytime += (h->flytime_recover & 7) == 0;
+            hero_flytime_modify(g, o, (h->flytime_recover & 7) == 0);
         }
     } else {
         h->flytime_recover = 0;

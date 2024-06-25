@@ -146,6 +146,11 @@ void *pltf_file_open(const char *path, i32 pltf_file_mode)
     return NULL;
 }
 
+u32 pltf_time()
+{
+    return g_pltf.tick;
+}
+
 void pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
 #if PLTF_SHOW_FPS

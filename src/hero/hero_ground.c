@@ -163,8 +163,7 @@ void hero_update_ground(game_s *g, obj_s *o)
 
 void hero_restore_grounded_stuff(game_s *g, obj_s *o)
 {
-    hero_s *h        = &g->hero_mem;
-    h->swimticks     = HERO_SWIM_TICKS;
-    h->flytime       = g->save.flytime;
-    h->jump_ui_water = 0;
+    hero_s *h    = &g->hero_mem;
+    h->swimticks = HERO_SWIM_TICKS;
+    h->flytime   = g->save.flytime;
 }

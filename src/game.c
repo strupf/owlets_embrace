@@ -11,7 +11,6 @@ void game_init(game_s *g)
 {
     mus_set_trg_vol(0.f);
     map_world_load(&g->map_world, "world.world");
-    item_select_init(&g->item_select);
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 
@@ -36,15 +35,13 @@ void game_init(game_s *g)
 void game_tick(game_s *g)
 {
     g->save.tick++;
-
     if (g->aud_lowpass) {
         g->aud_lowpass--;
         aud_set_lowpass(((g->aud_lowpass * 12) / 30));
     }
 
     if (g->substate) {
-        g->freeze_tick        = 0;
-        g->item_select.docked = 0;
+        g->freeze_tick = 0;
     } else {
         if (0 < g->freeze_tick) {
             g->freeze_tick--;
@@ -95,7 +92,6 @@ void game_tick(game_s *g)
 void game_tick_gameplay(game_s *g)
 {
     g->gameplay_tick++;
-    item_select_update(&g->item_select);
     g->events_frame          = 0;
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
 
@@ -190,7 +186,6 @@ void game_tick_gameplay(game_s *g)
 
 void game_resume(game_s *g)
 {
-    g->item_select.docked = 0;
 }
 
 void game_paused(game_s *g)
@@ -264,10 +259,12 @@ void game_on_solid_appear(game_s *g)
     }
 }
 
-void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
+bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
 
-void obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
+bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
 {
+    bool32 res = 0;
+
     for (obj_each(g, o)) {
         rec_i32 aabb = obj_aabb(o);
 
@@ -282,28 +279,33 @@ void obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
         }
 
         if (0 <= strongest) {
-            obj_game_player_attackbox_o(g, o, boxes[strongest]);
+            res |= obj_game_player_attackbox_o(g, o, boxes[strongest]);
         }
     }
+    return res;
 }
 
-void obj_game_player_attackbox(game_s *g, hitbox_s box)
+bool32 obj_game_player_attackbox(game_s *g, hitbox_s box)
 {
-    obj_game_player_attackboxes(g, &box, 1);
+    return obj_game_player_attackboxes(g, &box, 1);
 }
 
-void obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
+bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
 {
     switch (o->ID) {
     case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
+    default: break;
     }
 
     if ((o->flags & OBJ_FLAG_ENEMY) && !o->enemy.invincible) {
+        g->freeze_tick = max_i32(g->freeze_tick, 2);
         o->health -= box.damage;
         if (o->health <= 0) {
             obj_delete(g, o);
         } else {
             o->enemy.hurt_tick = ENEMY_HURT_TICKS;
         }
+        return 1;
     }
+    return 0;
 }

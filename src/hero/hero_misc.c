@@ -123,6 +123,8 @@ void hero_post_update(game_s *g, obj_s *o)
             }
         }
 
+        staminarestorer_try_collect_any(g, o);
+
         bool32 collected_upgrade = 0;
 
         for (obj_each(g, it)) {

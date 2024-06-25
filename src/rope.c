@@ -617,7 +617,7 @@ void rope_verletsim(game_s *g, rope_s *r)
 
     u32 dista = 0;
     for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
-        dista += v2_len(v2_shl(v2_sub(r1->p, r2->p), 8));
+        dista += v2_lenl(v2_shl(v2_sub(r1->p, r2->p), 8));
         i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
         if (1 <= i && i < ROPE_VERLET_N - 1) {
             verlet_pos_s vp = {i, v2_shl(r2->p, 8)};
@@ -646,9 +646,8 @@ void rope_verletsim(game_s *g, rope_s *r)
             rope_pt_s *p2 = &r->ropept[n];
 
             v2_i32 dt = v2_sub(p1->p, p2->p);
-            v2_f32 df = {(f32)dt.x, (f32)dt.y};
-            f32    dl = v2f_len(df);
-            i32    dd = (i32)(dl + .5f) - ll_q8;
+            i32    dl = v2_lenl(dt);
+            i32    dd = dl - ll_q8;
 
             if (dd <= 1) continue;
             dt    = v2_setlenl(dt, dl, dd >> 1);

@@ -94,17 +94,6 @@ void savefile_empty(save_s *s)
     mset(s, 0, sizeof(save_s));
     s->health = 3;
     str_cpy(s->hero_mapfile, "Level_0");
-    s->hero_pos.x = 50;
-    s->hero_pos.y = 100;
-    s->flytime    = 60;
-    s->upgrades =
-        ((flags32)1 << HERO_UPGRADE_HOOK) |
-        ((flags32)1 << HERO_UPGRADE_WALLJUMP) |
-        ((flags32)1 << HERO_UPGRADE_HOOK_LONG) |
-        ((flags32)1 << HERO_UPGRADE_WHIP) |
-        ((flags32)1 << HERO_UPGRADE_SWIM) |
-        ((flags32)1 << HERO_UPGRADE_DIVE) |
-        ((flags32)1 << HERO_UPGRADE_SPRINT);
 }
 
 static inline const char *savefile_name(i32 slot)

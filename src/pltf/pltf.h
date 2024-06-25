@@ -43,6 +43,7 @@ void app_resume();
 // to be implemented by platform
 void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
+u32    pltf_time();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
 void  *pltf_file_open(const char *path, i32 pltf_file_mode);

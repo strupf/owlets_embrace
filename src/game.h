@@ -10,7 +10,6 @@
 #include "gamedef.h"
 #include "gameover.h"
 #include "hero/hero.h"
-#include "item_select.h"
 #include "lighting.h"
 #include "map_loader.h"
 #include "maptransition.h"
@@ -49,7 +48,7 @@ enum {
     SUBSTATE_MAPTRANSITION,
     SUBSTATE_GAMEOVER,
     SUBSTATE_HEROUPGRADE,
-    SUBSTATE_MENUSCREEN,
+    SUBSTATE_MENUSCREEN
 };
 
 typedef struct {
@@ -77,6 +76,7 @@ struct game_s {
     cam_s             cam;
     flags32           events_frame;
     u32               aud_lowpass;
+    bool32            hook_mode;
     //
     u16               tiles_x;
     u16               tiles_y;
@@ -121,8 +121,6 @@ struct game_s {
     lighting_s lighting;
 #endif
 
-    item_select_s item_select;
-
     struct areaname {
         char filename[LEN_AREA_FILENAME];
         char label[64];
@@ -142,8 +140,8 @@ void   game_load_savefile(game_s *g);
 bool32 game_save_savefile(game_s *g);
 void   game_on_trigger(game_s *g, i32 trigger);
 void   game_on_solid_appear(game_s *g);
-void   obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
-void   obj_game_player_attackbox(game_s *g, hitbox_s box);
+bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
+bool32 obj_game_player_attackbox(game_s *g, hitbox_s box);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

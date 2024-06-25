@@ -210,7 +210,6 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
             }
             if (solid->mass <= 0) continue;
 
-            i32 kk             = overlap_rec(hookrec, obj_aabb(solid));
             hook->linked_solid = obj_handle_from_obj(solid);
         }
         break;

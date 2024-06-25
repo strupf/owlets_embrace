@@ -12,14 +12,14 @@ typedef struct {
 static PD_s g_PD;
 
 PlaydateAPI *PD;
-void (*PD_system_logToConsole)(const char *fmt, ...);
-void *(*PD_system_realloc)(void *ptr, size_t s);
-int (*PD_system_formatString)(char **outstr, const char *fmt, ...);
-void (*PD_system_getButtonState)(PDButtons *c, PDButtons *p, PDButtons *r);
-void (*PD_graphics_markUpdatedRows)(int start, int end);
-float (*PD_system_getElapsedTime)(void);
-int (*PD_file_read)(SDFile *file, void *buf, uint len);
-int (*PD_file_write)(SDFile *file, const void *buf, uint len);
+void         (*PD_system_logToConsole)(const char *fmt, ...);
+void        *(*PD_system_realloc)(void *ptr, size_t s);
+int          (*PD_system_formatString)(char **outstr, const char *fmt, ...);
+void         (*PD_system_getButtonState)(PDButtons *c, PDButtons *p, PDButtons *r);
+void         (*PD_graphics_markUpdatedRows)(int start, int end);
+float        (*PD_system_getElapsedTime)(void);
+int          (*PD_file_read)(SDFile *file, void *buf, uint len);
+int          (*PD_file_write)(SDFile *file, const void *buf, uint len);
 
 int pltf_pd_update(void *user);
 int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len);

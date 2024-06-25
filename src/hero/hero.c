@@ -3,13 +3,14 @@
 // =============================================================================
 
 #include "hero.h"
+#include "app.h"
 #include "game.h"
 #include "hero_hook.h"
 
 const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
-    {920, 30, 100, 30},  // out of water
-    {1150, 40, 100, 50}, // ground
-    {500, 50, 200, 0},   // fly
+    {800, 30, 100, 30},  // out of water
+    {1200, 40, 70, 25},  // ground
+    {600, 50, 140, 0},   // fly
     {1000, 25, 80, 30}}; // wall jump
 
 void hero_on_update(game_s *g, obj_s *o);
@@ -155,21 +156,21 @@ bool32 hero_unhook(game_s *g, obj_s *o)
     if (!obj_handle_valid(h->hook)) return 0;
 
     hook_destroy(g, o, obj_from_obj_handle(h->hook));
-    i32 mulx = 300;
-    i32 muly = 350;
+    i32 mulx = 280;
+    i32 muly = 320;
 
     if (abs_i32(o->vel_q8.x) < 600) {
-        mulx = 330;
+        mulx = 300;
     }
 
     if (abs_i32(o->vel_q8.y) < 600) {
-        muly = 400;
+        muly = 350;
     }
 
     i32 addx = sgn_i32(o->vel_q8.x) * 200;
     i32 addy = 0;
     if (o->vel_q8.y < 0) {
-        addy -= 250;
+        addy -= 200;
     }
 
     o->vel_q8.x = ((o->vel_q8.x * mulx) >> 8) + addx;
@@ -226,20 +227,21 @@ void hero_start_jump(game_s *g, obj_s *o, i32 ID)
         spritedecal_create(g, RENDER_PRIO_HERO + 1, NULL, posc, TEXID_MISCOBJ,
                            trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
     }
+    if (ID == HERO_JUMP_FLY) {
+        h->show_jump_ui = 1;
+    }
 }
 
 void hero_use_hook(game_s *g, obj_s *o)
 {
-    hero_s *h = &g->hero_mem;
-    snd_play_ext(SNDID_HOOK_THROW, 1.f, 1.f);
-    // throw new hook
     i32 dirx = inp_x();
     i32 diry = inp_y();
 
-    if (dirx == 0 && diry == 0) {
-        diry = -1;
-        dirx = o->facing;
-    }
+    if (dirx == 0 && diry == 0) return;
+    // throw new hook
+
+    hero_s *h = &g->hero_mem;
+    snd_play_ext(SNDID_HOOK_THROW, 1.f, 1.f);
 
     v2_i32 center  = obj_pos_center(o);
     v2_i32 vlaunch = {dirx * 3000, diry * 2300};
@@ -388,109 +390,77 @@ void hero_item_usage(game_s *g, obj_s *o, i32 state)
         return;
     }
 
-    g->item_select.n_items = 2;
-    h->idle_anim           = 0;
-    h->idle_ticks          = 0;
+    h->idle_anim  = 0;
+    h->idle_ticks = 0;
 
-    // g->item_select.item = 0;
+#define HOOK_HOLD_TICK 12
 
-    assert(0 <= g->item_select.item);
-
-    switch (g->item_select.item) {
-    case HERO_ITEM_HOOK: {
-        assert(hero_has_upgrade(g, HERO_UPGRADE_HOOK));
-        if (inp_action_jp(INP_B)) {
-            if (o->rope) {
-                hero_unhook(g, o);
-            } else {
-                hero_use_hook(g, o);
-                obj_s *ohook = obj_from_obj_handle(h->hook);
-            }
-            break;
-        }
-
-        rope_s *r    = o->rope;
-        u32     rlen = r ? rope_len_q4(g, r) : 0;
-
-        if (r && h->reel_in) {
-            ropenode_s *rnode = ropenode_neighbour(r, o->ropenode);
-            v2_i32      dtr   = v2_sub(rnode->p, o->pos);
-            dtr               = v2_setlen(dtr, 600);
-            o->gravity_q8.y   = 0;
-            o->vel_q8         = v2_add(o->vel_q8, dtr);
-
-            if (rlen <= HERO_ROPE_LEN_MIN) {
-                h->reel_in = 0;
-                rlen       = HERO_ROPE_LEN_MIN;
-            }
-            r->len_max_q4 = rlen;
-        }
-
-        if (inp_action_jp(INP_DU) && r &&
-            HERO_ROPE_LEN_MIN < rlen) {
-            i32 time = gameplay_time(g);
-            if ((time - h->reel_in_dtap) <= 10) {
-                h->reel_in = 1;
-            }
-            h->reel_in_dtap = time;
-            break;
-        }
-
-        if (r) {
-            i32 dt_crank  = inp_crank_dt_q16() >> 4;
-            u32 l_new_q4  = r->len_max_q4 + ((dt_crank * 200) >> 12);
-            l_new_q4      = clamp_i(l_new_q4,
-                                    HERO_ROPE_LEN_MIN,
-                                    hero_max_rope_len_q4(g));
-            r->len_max_q4 = l_new_q4;
-        }
-        break;
-    }
-    case HERO_ITEM_WEAPON: {
-        if (h->attack_hold_tick) {
-            if (inp_action_jr(INP_B)) {
-                h->attack_hold_tick = 0;
-                h->attack_tick      = 1;
-
-                hitbox_s hb   = {0};
-                hb.damage     = 1;
-                hb.r.h        = 32;
-                hb.r.w        = 48;
-                hb.r.y        = o->pos.y - 5;
-                hb.force_q8.x = o->facing * 800;
-                hb.force_q8.y = -400;
+    if (h->b_hold_tick) {
+        if (inp_action_jr(INP_B)) {
+            if (HOOK_HOLD_TICK <= h->b_hold_tick) {
+                h->attack_tick = 0;
+                if (inp_x() | inp_y()) {
+                    hero_use_hook(g, o);
+                    obj_s *ohook = obj_from_obj_handle(h->hook);
+                }
+            } else if (!h->item_only_hook) {
+                h->attack_tick = 1;
+                hitbox_s hb    = {0};
+                hb.damage      = 1;
+                hb.r.h         = 32;
+                hb.r.w         = 48;
+                hb.r.y         = o->pos.y - 5;
+                hb.force_q8.x  = o->facing * 800;
+                hb.force_q8.y  = -400;
                 if (o->facing == 1) {
                     hb.r.x = o->pos.x + o->w;
                 } else {
                     hb.r.x = o->pos.x - hb.r.w;
                 }
-                obj_game_player_attackbox(g, hb);
-                rec_i32 rslash = {0, 384, 64, 64};
-                v2_i32  dcpos  = {0, -40};
+
+                bool32 hit       = obj_game_player_attackbox(g, hb);
+                i32    knockback = obj_grounded(g, o) ? 3000 : 500;
+                o->vel_q8.x      = -hit * o->facing * knockback;
+
+                rec_i32 rslash = {0, 1024, 64, 64};
+                v2_i32  dcpos  = {-10, -40};
                 i32     flip   = 0;
-
-                if (o->facing == 1) {
-
-                } else {
+                if (o->facing < 0) {
                     flip    = SPR_FLIP_X;
                     dcpos.x = -40;
                 }
-
                 if (h->attack_flipflop) {
-                    rslash.y += 64;
+                    rslash.x += 512;
                 }
-                // spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_MISCOBJ, rslash, 12, 5, flip);
-            } else {
-                h->attack_hold_tick++;
+
+                // slash sprite
+                spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_HERO, rslash, 20, 8, flip);
             }
-        } else if (h->attack_tick == 0 || 2 <= h->attack_tick) {
-            if (inp_action_jp(INP_B)) {
-                h->attack_flipflop  = 1 - h->attack_flipflop;
+            h->hook_cancel_tick = 0;
+            h->attack_hold_tick = 0;
+            h->b_hold_tick      = 0;
+            h->item_only_hook   = 0;
+        } else {
+            h->b_hold_tick++;
+        }
+    } else if (inp_action_jp(INP_B)) {
+        if (o->rope) {
+            hero_unhook(g, o);
+            h->item_only_hook = 1;
+        } else if (h->attack_tick == 0 || 6 <= h->attack_tick) {
+            h->attack_flipflop = 1 - h->attack_flipflop;
+            h->item_only_hook  = 0;
+            if (0 < h->attack_tick) {
+                if (h->attack_tick <= 12) {
+                    h->attack_hold_tick = 10;
+                } else {
+                    h->attack_hold_tick = 6;
+                }
+            } else {
                 h->attack_hold_tick = 1;
             }
         }
-        break;
-    }
+        h->b_hold_tick = 1;
     }
 }
 
@@ -536,6 +506,12 @@ void hero_on_update(game_s *g, obj_s *o)
         h->sliding = 0;
     }
 
+    hero_flytime_update_ui(g, o, 1);
+#ifdef PLTF_DEBUG
+    assert(0 <= hero_flytime_left(g, o) &&
+           hero_flytime_left(g, o) <= g->save.flytime);
+#endif
+
     if (h->attack_tick) {
         h->attack_tick++;
         if (HERO_ATTACK_TICKS <= h->attack_tick) {
@@ -543,8 +519,12 @@ void hero_on_update(game_s *g, obj_s *o)
         }
     }
 
-    h->jump_btn_buffer--;
-    h->ground_impact_ticks--;
+    if (h->jump_btn_buffer) {
+        h->jump_btn_buffer--;
+    }
+    if (h->ground_impact_ticks) {
+        h->ground_impact_ticks--;
+    }
 
     if ((state != HERO_STATE_DEAD) && (state != HERO_STATE_SWIMMING || !h->diving)) {
         h->breath_ticks -= hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 100 : 5;
@@ -694,4 +674,57 @@ bool32 hero_stand_up(game_s *g, obj_s *o)
     obj_move(g, o, dt);
     o->h = HERO_HEIGHT;
     return 1;
+}
+
+void hero_flytime_update_ui(game_s *g, obj_s *ohero, i32 amount)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    if (!h->flytime_added) return;
+
+    i32 d = min_i32(h->flytime_added, amount);
+    h->flytime_added -= d;
+    h->flytime += d;
+}
+
+void hero_flytime_modify(game_s *g, obj_s *ohero, i32 dt)
+{
+    hero_s *h  = (hero_s *)&g->hero_mem;
+    i32     ft = hero_flytime_left(g, ohero);
+
+    if (0 < dt) { // add flytime
+        i32 d = min_i32(dt, g->save.flytime - ft);
+        h->flytime += d;
+    } else if (dt < 0) { // remove flytime
+        i32 d = -dt;
+        if (h->flytime_added) {
+            i32 x = min_i32(h->flytime_added, d);
+            h->flytime_added -= x;
+            d -= x;
+        }
+        h->flytime = max_i32(0, h->flytime - d);
+    }
+}
+
+void hero_flytime_add_ui(game_s *g, obj_s *ohero, i32 dt)
+{
+    hero_s *h        = (hero_s *)&g->hero_mem;
+    h->flytime_added = min_i32(dt, g->save.flytime - h->flytime);
+}
+
+i32 hero_flytime_left(game_s *g, obj_s *ohero)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    return (h->flytime + h->flytime_added);
+}
+
+i32 hero_flytime_ui_full(game_s *g, obj_s *ohero)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    return h->flytime;
+}
+
+i32 hero_flytime_ui_added(game_s *g, obj_s *ohero)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    return h->flytime_added;
 }

@@ -227,31 +227,46 @@ bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
         ropenode_move(g, o->rope, o->ropenode, dt);
     }
 
-    if (o->mass <= 0) return 1;
+    if (o->mass <= 0 &&
+        !(o->flags & OBJ_FLAG_PLATFORM) &&
+        !(o->flags & OBJ_FLAG_PLATFORM_HERO_ONLY)) return 1;
 
     // solid pushing
     const rec_i32 oaabb = obj_aabb(o);
+    const rec_i32 rplat = {o->pos.x, o->pos.y - dy, o->w, 1};
     for (obj_each(g, it)) {
         if (o == it) continue;
-
-        bool32 linked  = o == obj_from_obj_handle(it->linked_solid);
-        bool32 pushed  = 0;
-        bool32 carried = 0;
+        rec_i32 it_bot  = obj_rec_bottom(it);
+        rec_i32 it_rec  = obj_aabb(it);
+        bool32  linked  = o == obj_from_obj_handle(it->linked_solid);
+        bool32  pushed  = 0;
+        bool32  carried = 0;
 
         switch (it->ID) {
         case OBJ_ID_CRAWLER_CATERPILLAR:
         case OBJ_ID_CRAWLER:
-            if (overlap_rec_touch(obj_aabb(it), cr))
+            if (overlap_rec_touch(it_rec, cr))
                 linked = 1;
             break;
         }
 
-        if (it->mass < o->mass) {
-            pushed = overlap_rec(oaabb, obj_aabb(it));
+        if (o->mass) {
+            if (it->mass < o->mass) {
+                pushed = overlap_rec(oaabb, it_rec);
+            }
+            if (it->mass <= o->mass) {
+                carried = overlap_rec(cr, it_bot);
+            }
         }
-        if (it->mass <= o->mass) {
-            carried = overlap_rec(cr, obj_rec_bottom(it));
+
+        if (((o->flags & OBJ_FLAG_PLATFORM) ||
+             ((o->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) &&
+              it->ID == OBJ_ID_HERO)) &&
+            (it->moverflags & OBJ_MOVER_ONE_WAY_PLAT) &&
+            overlap_rec(it_bot, rplat)) {
+            carried = 1;
         }
+
         if (linked || pushed || carried) {
             obj_step_x(g, it, dx, 1, pushed ? m : 0);
             obj_step_y(g, it, dy, 1, pushed ? m : 0);
@@ -346,7 +361,13 @@ bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
 
     checkr = dy == 1 ? obj_rec_bottom(o) : obj_rec_top(o);
 
-    if ((o->moverflags & OBJ_MOVER_MAP) && map_blocked(g, o, checkr, m)) {
+    bool32 is_solid = (o->moverflags & OBJ_MOVER_MAP) &&
+                      map_blocked(g, o, checkr, m);
+    bool32 is_platform = 0 < dy &&
+                         (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT) &&
+                         map_platform(g, o, o->pos.x, checkr.y, o->w);
+
+    if (is_solid || is_platform) {
         o->bumpflags |= dy == 1 ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG;
         return 0;
     }
@@ -468,19 +489,7 @@ bool32 obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs)
     rbot.y += offs.y;
 
     if (map_blocked(g, o, rbot, o->mass)) return 1;
-    if ((o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
-        if (0 <= o->vel_q8.y && (rbot.y & 15) == 0 && tile_map_one_way(g, rbot))
-            return 1;
-        for (obj_each(g, k)) {
-            if (k == o) continue;
-            if (!(k->flags & OBJ_FLAG_PLATFORM)) continue;
-            if ((k->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) &&
-                o->ID != OBJ_ID_HERO) continue;
-            rec_i32 rplat = {k->pos.x, k->pos.y, k->w, 1};
-            if (overlap_rec(rbot, rplat))
-                return 1;
-        }
-    }
+    if (map_platform(g, o, rbot.x, rbot.y, rbot.w)) return 1;
     return 0;
 }
 

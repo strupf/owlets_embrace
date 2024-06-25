@@ -52,6 +52,13 @@ static inline u16x2 u16x2_shr(u16x2 v, i32 s)
 #define ASM2(I, R, A, B) ASM(#I " %0, %1, %2" : "=r"(R) : "r"(A), "r"(B))
 // clang-format on
 
+static inline u32 rotr(u32 v, u32 rot)
+{
+    u32 r = 0;
+    ASM2(ror, r, v, rot);
+    return r;
+}
+
 static inline u32 bswap32(u32 v)
 {
     u32 r = 0;
@@ -226,6 +233,21 @@ static inline u32 brev32(u32 v)
     ASM1(rbit, r, v);
     return r;
 }
+
+static u32 rotr32(u32 x, u32 rot)
+{
+    u32 r = 0;
+    ASM2(ror, r, x, rot);
+    return r;
+}
+
+static u32 rotr16(u16 x, u32 rot)
+{
+    u16 r = 0;
+    ASM2(ror, r, x, rot);
+    return r;
+}
+
 #else
 
 static inline i32 i32_sadd(i32 x, i32 y)
@@ -500,6 +522,16 @@ static inline i8x4 i8x4_ssub(i8x4 x, i8x4 y)
                i8_sat((i32)a[3] - (i32)b[3])};
     mcpy(&r, z, 4);
     return r;
+}
+
+static u32 rotr16(u32 x, u32 r)
+{
+    return (x >> r) | (x << ((16 - r) & 15));
+}
+
+static u32 rotr32(u32 x, u32 r)
+{
+    return (x >> r) | (x << ((32 - r) & 31));
 }
 
 static u32 bswap32(u32 i)

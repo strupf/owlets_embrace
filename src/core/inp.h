@@ -23,13 +23,13 @@ enum {
 
 enum {
 #ifdef PLTF_PD
-    INP_CRANK_DOCK = 1 << 15,
     INP_A          = PLTF_PD_BTN_A,
     INP_B          = PLTF_PD_BTN_B,
     INP_DL         = PLTF_PD_BTN_DL,
     INP_DR         = PLTF_PD_BTN_DR,
     INP_DU         = PLTF_PD_BTN_DU,
     INP_DD         = PLTF_PD_BTN_DD,
+    INP_CRANK_DOCK = 1 << 15,
     //
     INP_CONFIRM    = INP_A,
     INP_CANCEL     = INP_B,

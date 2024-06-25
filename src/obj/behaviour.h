@@ -62,4 +62,8 @@ void   steam_platform_load(game_s *g, map_obj_s *mo);
 void   budplant_load(game_s *g, map_obj_s *mo);
 obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void   projectile_on_collision(game_s *g, obj_s *o);
+void   flyblob_load(game_s *g, map_obj_s *mo);
+void   staminarestorer_load(game_s *g, map_obj_s *mo);
+void   staminarestorer_try_collect_any(game_s *g, obj_s *ohero);
+void   staminarestorer_respawn_all(game_s *g, obj_s *o);
 #endif

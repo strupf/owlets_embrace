@@ -117,8 +117,11 @@ static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 
 static void map_obj_parse(game_s *g, map_obj_s *o)
 {
-    pltf_log("%s\n", o->name);
     if (0) {
+    } else if (str_eq_nc(o->name, "Staminarestorer")) {
+        staminarestorer_load(g, o);
+    } else if (str_eq_nc(o->name, "Flyblob")) {
+        flyblob_load(g, o);
     } else if (str_eq_nc(o->name, "Switch")) {
         switch_load(g, o);
     } else if (str_eq_nc(o->name, "Budplant")) {
@@ -415,7 +418,9 @@ static bool32 at_types_blending(i32 a, i32 b)
     if (b == TILE_TYPE_FAKE_1) return 0;
     if (b == TILE_TYPE_FAKE_2) return 1;
 
-    if (b == TILE_TYPE_DIRT && a == 7) return 0;
+    if (a == 7 || b == 7) return 0;
+
+    // if (b == TILE_TYPE_DIRT && a == 7) return 0;
 
     if (b == 6) return 0;
     return 1;
@@ -531,8 +536,8 @@ static bool32 map_dual_border(tilelayer_terrain_s tiles, i32 x, i32 y,
     i32 t = tiles.tiles[u + v * tiles.w];
     if (map_terrain_type(t) == 6) return 0;
 
-    u32 r = ((x | u) + ((y | v))) * 213;
-    if (rngs_u32(&r) < ((u32)30000 << 16)) return 0;
+    u32 r = ((x | u) + ((y | v)));
+    if (rngs_u32(&r) < 0x80000000U) return 0;
 
     if (t != map_terrain_pack(type, TILE_BLOCK)) return 0;
     return (march == map_marching_squares(tiles, u, v));

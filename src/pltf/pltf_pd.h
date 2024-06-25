@@ -46,11 +46,5 @@ f32    pltf_pd_crank_deg();
 f32    pltf_pd_crank();
 bool32 pltf_pd_crank_docked();
 u32    pltf_pd_btn();
-//
-void   pltf_pd_keyboard_show();
-void   pltf_pd_keyboard_hide();
-bool32 pltf_pd_keyboard_active();
-void   pltf_pd_keyboard_update();
-void   pltf_pd_keyboard_draw();
 
 #endif
