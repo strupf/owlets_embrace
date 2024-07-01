@@ -24,7 +24,6 @@ enum {
 };
 
 enum {
-    HERO_UPGRADE_WHIP,
     HERO_UPGRADE_SWIM,
     HERO_UPGRADE_HOOK,
     HERO_UPGRADE_HOOK_LONG,
@@ -44,28 +43,29 @@ enum {
     HERO_ITEM_WEAPON,
 };
 
-#define HERO_HEIGHT              26
-#define HERO_HEIGHT_CRAWL        16
-#define HERO_DRAG_Y              256
-#define HERO_GLIDE_VY            200
-#define HERO_SPRINT_TICKS        60 // ticks walking until sprinting
-#define HERO_VX_WALK             640
-#define HERO_VX_SPRINT           900
-#define HERO_VY_BOOST_SPRINT_ABS 0   // absolute vy added to a jump sprinted
-#define HERO_VX_BOOST_SPRINT_Q8  300 // vx multiplier when jumping sprinted
-#define HERO_VX_BOOST_SLIDE_Q8   370 // vx multiplier when jumping slided
-#define HERO_DRAG_SLIDING        250
-#define HERO_REEL_RATE           30
-#define HERO_ROPEWALLJUMP_TICKS  30
-#define HERO_SWIM_TICKS          50 // duration of swimming without upgrade
-#define HERO_RUNUP_TICKS         50
-#define HERO_ATTACK_TICKS        20
-#define HERO_SPRINT_DTAP_TICKS   20
-#define HEROHOOK_N_HIST          4
-#define HERO_BREATH_TICKS        200
-#define HERO_GRAVITY             80
-#define HERO_GRAVITY_LOW         50
-#define HERO_LOW_GRAV_TICKS      80
+#define HERO_HEIGHT                 26
+#define HERO_HEIGHT_CRAWL           16
+#define HERO_DRAG_Y                 256
+#define HERO_GLIDE_VY               200
+#define HERO_SPRINT_TICKS           60 // ticks walking until sprinting
+#define HERO_VX_WALK                640
+#define HERO_VX_SPRINT              900
+#define HERO_VY_BOOST_SPRINT_ABS    0   // absolute vy added to a jump sprinted
+#define HERO_VX_BOOST_SPRINT_Q8     300 // vx multiplier when jumping sprinted
+#define HERO_VX_BOOST_SLIDE_Q8      370 // vx multiplier when jumping slided
+#define HERO_DRAG_SLIDING           250
+#define HERO_REEL_RATE              30
+#define HERO_ROPEWALLJUMP_TICKS     30
+#define HERO_SWIM_TICKS             50 // duration of swimming without upgrade
+#define HERO_RUNUP_TICKS            50
+#define HERO_ATTACK_TICKS           18
+#define HERO_SPRINT_DTAP_TICKS      20
+#define HEROHOOK_N_HIST             4
+#define HERO_BREATH_TICKS           200
+#define HERO_GRAVITY                80
+#define HERO_GRAVITY_LOW            50
+#define HERO_LOW_GRAV_TICKS         80
+#define HERO_TICKS_PER_JUMP_UPGRADE 30
 
 typedef struct {
     i32 vy;
@@ -98,6 +98,8 @@ typedef struct {
 } inventory_item_desc_s;
 // extern const inventory_item_desc_s g_item_desc[INVENTORY_NUM_ITEMS];
 
+#define JUMP_UI_TICKS_HIDE 12
+
 typedef struct hero_s {
     obj_handle_s interactable;
     obj_handle_s hook;
@@ -115,7 +117,9 @@ typedef struct hero_s {
     bool8        hook_pr;
     bool8        item_only_hook;
     bool8        hook_cancel_tick;
-    bool8        show_jump_ui;
+    bool8        jump_ui_may_hide;
+    u8           jump_ui_collected_tick;
+    u8           jump_ui_fade_out;
     u8           attack_hold_tick;
     u8           attack_tick;
     u8           attack_flipflop;
@@ -127,7 +131,6 @@ typedef struct hero_s {
     i16          flytime;
     i16          low_grav_ticks;
     i16          low_grav_ticks_0;
-    i16          flytime_recover;
     i32          lifting_tick;
     i32          crawling_to_stand;
     i32          was_hit_ticks;
@@ -166,5 +169,6 @@ void   hero_flytime_add_ui(game_s *g, obj_s *ohero, i32 dt); // add with UI anim
 i32    hero_flytime_left(game_s *g, obj_s *ohero);
 i32    hero_flytime_ui_full(game_s *g, obj_s *ohero);
 i32    hero_flytime_ui_added(game_s *g, obj_s *ohero);
+i32    hero_flytime_max(game_s *g, obj_s *ohero);
 
 #endif

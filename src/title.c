@@ -54,14 +54,13 @@ void title_init(title_s *t)
     save_s *s = spm_alloc(sizeof(save_s));
     savefile_empty(s);
     str_cpy(s->name, "Lukas");
-    s->hero_pos.x = 50;
-    s->hero_pos.y = 100;
-    s->flytime    = 30;
+    s->hero_pos.x  = 50;
+    s->hero_pos.y  = 100;
+    s->flyupgrades = 5;
     s->upgrades =
         ((flags32)1 << HERO_UPGRADE_HOOK) |
         ((flags32)1 << HERO_UPGRADE_WALLJUMP) |
         ((flags32)1 << HERO_UPGRADE_HOOK_LONG) |
-        ((flags32)1 << HERO_UPGRADE_WHIP) |
         ((flags32)1 << HERO_UPGRADE_SWIM) |
         ((flags32)1 << HERO_UPGRADE_DIVE) |
         ((flags32)1 << HERO_UPGRADE_SPRINT);

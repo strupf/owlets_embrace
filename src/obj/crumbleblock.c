@@ -18,7 +18,6 @@ static void crumbleblock_start_breaking(obj_s *o)
     if (o->state == CRUMBLE_STATE_IDLE) {
         o->state = CRUMBLE_STATE_BREAKING;
         o->timer = CRUMBLE_TICKS_BREAK;
-        snd_play_ext(SNDID_CRUMBLE, 0.7f, 1.8f);
     }
 }
 
@@ -44,7 +43,6 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
     case CRUMBLE_STATE_BREAKING: {
         o->timer--;
         if (0 < o->timer) break;
-        snd_play_ext(SNDID_SWITCH, 0.5f, 0.7f);
         tile_map_set_collision(g, obj_aabb(o), 0, 0);
         o->flags &= ~OBJ_FLAG_SPRITE;
         o->state = CRUMBLE_STATE_RESPAWNING;
@@ -54,7 +52,6 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
     case CRUMBLE_STATE_RESPAWNING: {
         o->timer--;
         if (0 < o->timer) break;
-        snd_play_ext(SNDID_SPEAK, 1.f, 0.7f);
         o->state = CRUMBLE_STATE_IDLE;
         o->flags |= OBJ_FLAG_SPRITE;
         tile_map_set_collision(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
@@ -69,13 +66,13 @@ void crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     if (o->state == CRUMBLE_STATE_RESPAWNING) return;
 
     gfx_ctx_s ctx = gfx_ctx_display();
-    int       rx  = (o->substate == TILE_ONE_WAY ? 64 : 0);
+    i32       rx  = (o->substate == TILE_ONE_WAY ? 64 : 0);
     texrec_s  tr  = asset_texrec(TEXID_CRUMBLE, rx, 0, 16, 48);
-    int       n   = o->w >> 4;
+    i32       n   = o->w >> 4;
     v2_i32    p   = v2_add(o->pos, cam);
     p.y -= 16;
 
-    int ry = o->state == CRUMBLE_STATE_BREAKING ? 2 : 0;
+    i32 ry = o->state == CRUMBLE_STATE_BREAKING ? 2 : 0;
     if (n == 1) {
         tr.r.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
@@ -84,7 +81,7 @@ void crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
         tr.r.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
         p.x += 16;
-        for (int i = 1; i < n - 1; i++) {
+        for (i32 i = 1; i < n - 1; i++) {
             tr.r.x = 32 + rx;
             tr.r.y = rngr_i32(0, ry) * 48;
             gfx_spr(ctx, tr, p, 0, 0);
@@ -110,7 +107,7 @@ void crumbleblock_load(game_s *g, map_obj_s *mo)
     o->pos.y           = mo->y;
     o->w               = mo->w;
     o->h               = mo->h;
-    int n              = o->w >> 4;
+    i32 n              = o->w >> 4;
     o->substate        = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
 
     tile_map_set_collision(g, obj_aabb(o), o->substate, o->substate == TILE_BLOCK ? TILE_TYPE_DIRT : 0);

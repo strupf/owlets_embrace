@@ -158,7 +158,6 @@ void app_load_tex()
 
     asset_tex_loadID(TEXID_UI, "ui", NULL);
     asset_tex_putID(TEXID_PAUSE_TEX, tex_create_opaque(400, 240, asset_allocator));
-    asset_tex_loadID(TEXID_UI_ITEMS, "items", NULL);
 
     tex_s texswitch;
     asset_tex_loadID(TEXID_SWITCH, "switch", &texswitch);

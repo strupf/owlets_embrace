@@ -165,5 +165,9 @@ void hero_restore_grounded_stuff(game_s *g, obj_s *o)
 {
     hero_s *h    = &g->hero_mem;
     h->swimticks = HERO_SWIM_TICKS;
-    h->flytime   = g->save.flytime;
+    hero_flytime_add_ui(g, o, 10000);
+    if (h->flytime_added == 0) {
+        h->jump_ui_may_hide = 1;
+    }
+    staminarestorer_respawn_all(g, o);
 }

@@ -9,7 +9,7 @@ void game_tick_gameplay(game_s *g);
 
 void game_init(game_s *g)
 {
-    mus_set_trg_vol(0.f);
+    mus_set_trg_vol(1.0f);
     map_world_load(&g->map_world, "world.world");
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;

@@ -18,12 +18,14 @@ typedef struct {
     u16 h;
     u16 n_obj;
     u16 n_prop;
+    u16 n_obj_fg;
     u32 bytes_prop;
     u32 bytes_tiles_bg;
     u32 bytes_tiles_terrain;
     u32 n_bg; // number of map_prop_tile_s in background
     u32 n_fg; // number of map_prop_tile_s in foreground
     u32 bytes_obj;
+    u32 bytes_obj_fg;
 } map_header_s;
 
 typedef struct {
@@ -105,6 +107,8 @@ static void             map_at_background(game_s *g, tilelayer_bg_s tiles, i32 x
 static void             map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y);
 static map_prop_s      *map_prop_get(map_properties_s p, const char *name);
 static map_properties_s map_obj_properties(map_obj_s *mo);
+static void             map_obj_parse(game_s *g, map_obj_s *o);
+static void             map_obj_prop_fg_parse(game_s *g, map_obj_s *o);
 //
 static bool32           at_types_blending(i32 a, i32 b);
 
@@ -212,6 +216,19 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
     }
 }
 
+static void map_obj_prop_fg_parse(game_s *g, map_obj_s *o)
+{
+    foreground_prop_s *p = &g->foreground_props[g->n_foreground_props++];
+    *p                   = (foreground_prop_s){0};
+    p->pos.x             = o->x;
+    p->pos.y             = o->y;
+    p->tr                = asset_texrec(TEXID_TILESET_PROPS_FG,
+                                        (i32)o->tx << 4,
+                                        (i32)o->ty << 4,
+                                        (i32)o->tw << 4,
+                                        (i32)o->th << 4);
+}
+
 void game_load_map(game_s *g, const char *mapfile)
 {
     g->save.coins += g->coins_added;
@@ -232,17 +249,18 @@ void game_load_map(game_s *g, const char *mapfile)
     for (i32 n = 0; n < NUM_OBJ_TAGS; n++) {
         g->obj_tag[n] = NULL;
     }
-    g->n_grass          = 0;
-    g->n_deco_verlet    = 0;
-    g->rope.active      = 0;
-    g->particles.n      = 0;
-    g->ocean.active     = 0;
-    g->n_coinparticles  = 0;
-    g->cam.locked_x     = 0;
-    g->cam.locked_y     = 0;
-    g->cam.n_attractors = 0;
-    g->n_respawns       = 0;
-    g->hero_mem         = (hero_s){0};
+    g->n_foreground_props = 0;
+    g->n_grass            = 0;
+    g->n_deco_verlet      = 0;
+    g->rope.active        = 0;
+    g->particles.n        = 0;
+    g->ocean.active       = 0;
+    g->n_coinparticles    = 0;
+    g->cam.locked_x       = 0;
+    g->cam.locked_y       = 0;
+    g->cam.n_attractors   = 0;
+    g->n_respawns         = 0;
+    g->hero_mem           = (hero_s){0};
     mset(g->tiles, 0, sizeof(g->tiles));
     mset(g->rtiles, 0, sizeof(g->rtiles));
     g->areaname.fadeticks = 1;
@@ -283,7 +301,7 @@ void game_load_map(game_s *g, const char *mapfile)
     char muspath[128] = {0};
     str_append(muspath, FILEPATH_MUS);
     str_append(muspath, musname);
-    str_append(muspath, ".aud");
+    str_append(muspath, ".audio");
     mus_fade_to(muspath, 50, 50);
 
     i32 room_y1 = g->map_worldroom->y;
@@ -396,6 +414,18 @@ void game_load_map(game_s *g, const char *mapfile)
     }
     spm_pop();
 
+    // OBJECTS FG ==============================================================
+    spm_push();
+    char *of = (char *)spm_alloc(header.bytes_obj_fg);
+    pltf_file_r(mapf, of, header.bytes_obj_fg);
+
+    for (i32 n = 0; n < header.n_obj_fg; n++) {
+        map_obj_s *o = (map_obj_s *)of;
+        map_obj_prop_fg_parse(g, o);
+        of += o->bytes;
+    }
+    spm_pop();
+
     spm_pop();
     pltf_file_close(mapf);
 }
@@ -419,6 +449,8 @@ static bool32 at_types_blending(i32 a, i32 b)
     if (b == TILE_TYPE_FAKE_2) return 1;
 
     if (a == 7 || b == 7) return 0;
+
+    if (a == 4) return 0;
 
     // if (b == TILE_TYPE_DIRT && a == 7) return 0;
 
@@ -526,6 +558,7 @@ static bool32 map_dual_border(tilelayer_terrain_s tiles, i32 x, i32 y,
     case 0:
     case 1:
     case 2:
+    case TILE_TYPE_SPIKES:
     case 7: return 0;
     default: break;
     }
@@ -561,6 +594,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y)
     rtile->type = tiletype;
 
     switch (tiletype) {
+    case TILE_TYPE_SPIKES:
     case TILE_TYPE_THORNS:
         rtile->collision = TILE_SPIKES;
         break;
@@ -575,7 +609,7 @@ static void map_at_terrain(game_s *g, tilelayer_terrain_s tiles, i32 x, i32 y)
 
     switch (tileshape) {
     case TILE_BLOCK: {
-        i32 n_vari = 3; // number of variations in that tileset
+        i32 n_vari = 1; // number of variations in that tileset
         i32 vari   = rngr_i32(0, n_vari - 1);
         switch (march) { // coordinates of variation tiles
         case 17: {       // vertical

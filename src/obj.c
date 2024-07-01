@@ -135,6 +135,10 @@ void objs_cull_to_delete(game_s *g)
 
 bool32 obj_try_wiggle(game_s *g, obj_s *o)
 {
+    switch (o->ID) {
+    case OBJ_ID_CRUMBLEBLOCK: return 1;
+    }
+
     rec_i32 r = obj_aabb(o);
     if (!map_blocked(g, o, r, o->mass)) return 1;
 

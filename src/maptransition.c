@@ -29,14 +29,16 @@ void maptransition_init(game_s *g, const char *file,
 {
     maptransition_s *mt = &g->maptransition;
     str_cpy(mt->to_load, file);
-    mt->dir        = 0;
-    mt->type       = type;
-    mt->hero_feet  = hero_feet;
-    mt->hero_v     = hero_v;
-    mt->hero_face  = facing;
-    mt->fade_tick  = 0;
-    mt->fade_phase = 1;
-    g->substate    = SUBSTATE_MAPTRANSITION;
+    mt->dir              = 0;
+    mt->type             = type;
+    mt->hero_feet        = hero_feet;
+    mt->hero_v           = hero_v;
+    mt->hero_face        = facing;
+    mt->jump_ui_may_hide = g->hero_mem.jump_ui_may_hide;
+    mt->jump_ui_tick     = g->hero_mem.jump_ui_fade_out;
+    mt->fade_tick        = 0;
+    mt->fade_phase       = 1;
+    g->substate          = SUBSTATE_MAPTRANSITION;
 }
 
 void maptransition_teleport(game_s *g, const char *map, v2_i32 hero_feet)
@@ -134,14 +136,16 @@ void maptransition_update(game_s *g)
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
     game_load_map(g, mt->to_load);
-    obj_s  *hero = hero_create(g);
-    hero_s *hh   = (hero_s *)&g->hero_mem;
-    hero->pos.x  = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y  = mt->hero_feet.y - hero->h;
-    hero->facing = mt->hero_face;
-    hero->vel_q8 = mt->hero_v;
-    hh->flytime  = mt->flytime;
-    v2_i32 hpos  = obj_pos_center(hero);
+    obj_s  *hero         = hero_create(g);
+    hero_s *hh           = (hero_s *)&g->hero_mem;
+    hero->pos.x          = mt->hero_feet.x - hero->w / 2;
+    hero->pos.y          = mt->hero_feet.y - hero->h;
+    hero->facing         = mt->hero_face;
+    hero->vel_q8         = mt->hero_v;
+    hh->flytime          = mt->flytime;
+    hh->jump_ui_may_hide = mt->jump_ui_may_hide;
+    hh->jump_ui_fade_out = mt->jump_ui_tick;
+    v2_i32 hpos          = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
     v2_i32 *resp_closest = NULL;

@@ -38,11 +38,7 @@ void hero_process_hurting_things(game_s *g, obj_s *o)
         for (i32 x = bx1; x <= bx2; x++) {
             if (g->tiles[x + y * g->tiles_x].collision != TILE_SPIKES)
                 continue;
-            v2_i32 ocenter   = {(x << 4) + 8, (y << 4) + 8};
-            v2_i32 dt        = v2_sub(hcenter, ocenter);
-            hero_knockback.x = 1000 * sgn_i32(dt.x);
-            hero_knockback.y = 1000 * sgn_i32(dt.y);
-            hero_dmg         = max_i32(hero_dmg, 1);
+            hero_dmg = max_i32(hero_dmg, 1);
         }
     }
 

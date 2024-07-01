@@ -132,7 +132,7 @@ void assets_import()
     for (u32 n = 0; n < NUM_SNDID; n++) {
         snd_s    *s  = &ASSETS.snd[n].snd;
         exp_snd_s es = coll->snd[n];
-        s->buf       = (i8 *)(mbeg + es.offs);
+        s->buf       = (u8 *)(mbeg + es.offs);
         s->len       = es.len;
     }
     for (u32 n = 0; n < NUM_FNTID; n++) {
@@ -220,7 +220,7 @@ i32 asset_snd_loadID(i32 ID, const char *filename, snd_s *snd)
 {
     assert(0 <= ID && ID < NUM_SNDID);
     FILEPATH_GEN(pathname, FILEPATH_SND, filename);
-    str_append(pathname, ".aud");
+    str_append(pathname, ".audio");
 #if ASSETS_LOG_LOADING
     pltf_log("LOAD SND: %s (%s)\n", filename, pathname);
 #endif

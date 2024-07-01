@@ -16,10 +16,10 @@ typedef struct {
     u16 n;
 } inventory_item_s;
 
-typedef struct {
+typedef struct save_s {
     u32              tick;
     i16              health;
-    i16              flytime;
+    i16              flyupgrades;
     flags32          upgrades;
     char             name[32];
     i16              coins;

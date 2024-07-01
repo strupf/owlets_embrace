@@ -63,6 +63,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
     } else {
         o->drag_q8.x = h->sliding ? 253 : 240;
 
+        i32 jumpticksp = h->jumpticks;
         // dynamic jump height
         if (0 < h->jumpticks && !inp_action(INP_A)) {
 
@@ -84,6 +85,13 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             }
         }
         h->jumpticks--;
+
+#if 0
+        if (0 < jumpticksp && h->jumpticks <= 0) {
+            h->low_grav_ticks   = 10;
+            h->low_grav_ticks_0 = 20;
+        }
+#endif
 
         if (inp_action_jp(INP_A)) {
             h->jump_btn_buffer = 12;
@@ -136,14 +144,5 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
             spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, dcpos, TEXID_WINDGUSH, rwind, 18, 6, flip);
         }
-    }
-
-    if (hero_flytime_left(g, o) == flytimep) {
-        if (0 < flytimep && flytimep < g->save.flytime) {
-            h->flytime_recover++;
-            hero_flytime_modify(g, o, (h->flytime_recover & 7) == 0);
-        }
-    } else {
-        h->flytime_recover = 0;
     }
 }

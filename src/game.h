@@ -7,6 +7,7 @@
 
 #include "area/area.h"
 #include "cam.h"
+#include "foreground_prop.h"
 #include "gamedef.h"
 #include "gameover.h"
 #include "hero/hero.h"
@@ -96,6 +97,8 @@ struct game_s {
     //
     i32               n_weather_surfaces;
     weather_surface_s weather_surfaces[NUM_WEATHER_SURFACES];
+    i32               n_foreground_props;
+    foreground_prop_s foreground_props[NUM_FOREGROUND_PROPS];
     //
     u16               coins_added;
     u16               coins_added_ticks;

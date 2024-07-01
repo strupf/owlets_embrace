@@ -26,11 +26,13 @@ i32 hero_breath_tick_max(game_s *g)
 
 void hero_update_swimming(game_s *g, obj_s *o)
 {
-    hero_s *h       = &g->hero_mem;
-    o->drag_q8.x    = 240;
-    h->sprint_dtap  = 0;
-    h->sprint_ticks = 0;
-    h->flytime      = 0;
+    hero_s *h           = &g->hero_mem;
+    o->drag_q8.x        = 240;
+    h->sprint_dtap      = 0;
+    h->sprint_ticks     = 0;
+    h->flytime          = 0;
+    h->flytime_added    = 0;
+    h->jump_ui_may_hide = 1;
 
     i32    dpad_x      = inp_x();
     i32    dpad_y      = inp_y();

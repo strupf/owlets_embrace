@@ -17,6 +17,7 @@ enum {
 };
 
 typedef struct {
+    v2_i32 prev_offs;
     v2_f32 pos;
     v2_f32 offs_shake;
     i16    mode;

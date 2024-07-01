@@ -121,6 +121,7 @@ void game_draw(game_s *g)
     render_water_and_terrain(g, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
     area_draw_fg(g, &g->area, camoffset_raw, camoffset);
+    foreground_props_draw(g, camoffset);
 
 #if LIGHTING_ENABLED
 #if 0
@@ -190,11 +191,26 @@ void game_draw(game_s *g)
         maptransition_draw(g, camoffset);
         break;
     }
+
+    g->cam.prev_offs = camoffset;
 }
 
 void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
 {
+    if (o->on_draw_pre) {
+        o->on_draw_pre(g, o, cam);
+    }
+
     v2_i32 ppos = v2_add(o->pos, cam);
+    if (o->ID == OBJ_ID_HERO) {
+        // less choppy alignment of player sprite and camera movement
+        if (cam.x != g->cam.prev_offs.x) {
+            ppos.x &= ~1;
+        }
+        if (cam.y != g->cam.prev_offs.y) {
+            ppos.y &= ~1;
+        }
+    }
 
     if (o->flags & OBJ_FLAG_SPRITE) {
         for (i32 n = 0; n < o->n_sprites; n++) {
@@ -367,7 +383,7 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
         }
     }
 
-    for (i32 pass = 0; pass < 15; pass++) {
+    for (i32 pass = 15; pass >= 0; pass--) {
         for (i32 y = bounds.y1; y <= bounds.y2; y++) {
             for (i32 x = bounds.x1; x <= bounds.x2; x++) {
                 tile_s rt = g->tiles[x + y * g->tiles_x];
@@ -515,4 +531,15 @@ void render_rec_as_terrain(gfx_ctx_s ctx, rec_i32 r, int terrain)
             gfx_spr(ctx, tr, pos, 0, 0);
         }
     }
+}
+
+// cam is the top left corner but the center of the
+// view area is needed
+v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8)
+{
+    i32    cx = pos.x - (-cam.x + (PLTF_DISPLAY_W >> 1));
+    i32    cy = pos.y - (-cam.y + (PLTF_DISPLAY_H >> 1));
+    v2_i32 p  = {pos.x + ((cx * x_q8) >> 8),
+                 pos.y + ((cy * y_q8) >> 8)};
+    return p;
 }

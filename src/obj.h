@@ -177,6 +177,7 @@ struct obj_s {
     //
     obj_on_update_f   on_update;
     obj_on_animate_f  on_animate;
+    obj_on_draw_f     on_draw_pre;
     obj_on_draw_f     on_draw;
     obj_on_trigger_f  on_trigger;
     obj_on_interact_f on_interact;

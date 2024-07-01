@@ -29,5 +29,6 @@ void   render_pause(game_s *g);
 void   ocean_calc_spans(game_s *g, rec_i32 camr);
 void   render_rec_as_terrain(gfx_ctx_s ctx, rec_i32 r, int terrain);
 void   render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds);
+v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8);
 
 #endif

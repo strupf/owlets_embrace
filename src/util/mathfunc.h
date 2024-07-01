@@ -10,6 +10,11 @@
 #define PI_FLOAT  3.1415927f
 #define PI2_FLOAT 6.2831853f
 
+#define QX_FRAC(Q, D, N) (((D) << (Q)) / (N))
+#define Q8_FRAC(D, N)    QX_FRAC(8, D, N)
+#define Q12_FRAC(D, N)   QX_FRAC(12, D, N)
+#define Q16_FRAC(D, N)   QX_FRAC(16, D, N)
+
 static const i32 cos_table[256];
 
 #define clamp_i clamp_i32
@@ -25,6 +30,7 @@ static const i32 cos_table[256];
 
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
 {
+    Q8_FRAC(1, 256);
     if (x < lo) return lo;
     if (x > hi) return hi;
     return x;

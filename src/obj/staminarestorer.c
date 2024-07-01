@@ -76,7 +76,7 @@ void staminarestorer_try_collect_any(game_s *g, obj_s *ohero)
         if (overlap_rec(haabb, obj_aabb(o))) {
             o->state = STAMINARESTORER_COLLECT;
             o->timer = 1;
-            hero_flytime_add_ui(g, ohero, 20);
+            hero_flytime_add_ui(g, ohero, HERO_TICKS_PER_JUMP_UPGRADE);
         }
     }
 }

@@ -23,6 +23,7 @@ typedef struct {
 } map_world_s;
 
 typedef struct {
+    u32  IID[4];
     u32  ID;
     u16  bytes;  // total size in bytes
     u16  n_prop; // number of properties
@@ -30,6 +31,10 @@ typedef struct {
     i16  y;
     u16  w;
     u16  h;
+    u8   tx; // tile data
+    u8   ty;
+    u8   tw;
+    u8   th;
     char name[32];
 } map_obj_s;
 

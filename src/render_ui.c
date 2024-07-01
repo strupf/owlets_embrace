@@ -29,7 +29,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx, tui, posi, 0, 0);
     }
 
-    if (ohero && g->hero_mem.show_jump_ui) {
+    if (ohero && g->save.flyupgrades && g->hero_mem.jump_ui_fade_out) {
         render_jump_ui(g, ohero, camoff);
     }
 
@@ -106,20 +106,26 @@ void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
     gfx_ctx_s ctx = gfx_ctx_display();
     v2_i32    p   = v2_add(o->pos, camoff);
 
-    i32     ft0    = g->save.flytime;
+#if 1
+    i32 wi_total = 28 + (g->save.flyupgrades - 1) * 3;
+#else
+    i32 wi_total = g->save.flyupgrades * 12;
+#endif
+
+    i32 wi = (wi_total * g->hero_mem.jump_ui_fade_out) / JUMP_UI_TICKS_HIDE;
+
+    i32     ft0    = hero_flytime_max(g, o);
     i32     ftx    = hero_flytime_ui_full(g, o);
     i32     fty    = hero_flytime_ui_added(g, o);
-    rec_i32 rfly   = {p.x - 10, p.y - 32, 32, 10};
+    rec_i32 rfly   = {p.x + 5 - (wi) / 2, p.y - 32, wi, 10};
     rec_i32 rfly_1 = {rfly.x - 2, rfly.y - 2, rfly.w + 4, rfly.h + 4};
     rec_i32 rfly_2 = {rfly.x + 2, rfly.y + 2, (ftx * (rfly.w - 4)) / ft0, rfly.h - 4};
     rec_i32 rfly_3 = {rfly.x + 2, rfly.y + 2, ((ftx + fty) * (rfly.w - 4)) / ft0, rfly.h - 4};
 
     gfx_ctx_s ctxb = ctx;
     gfx_ctx_s ctxc = ctx;
-    ctxc.pat       = gfx_pattern_4x4(B4(0101),
-                                     B4(0101),
-                                     B4(0101),
-                                     B4(0101));
+    ctxc.pat       = gfx_pattern_2x2(B4(0001),
+                                     B4(0010));
     if (ftx == 0) {
         i32 i    = max_i32(40000, sin_q16(pltf_time() << 14));
         ctxb.pat = gfx_pattern_interpolate(i, 65536);
@@ -129,6 +135,12 @@ void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
     gfx_rec_rounded_fill(ctxb, rfly, -1, GFX_COL_BLACK);
     gfx_rec_rounded_fill(ctxc, rfly_3, -1, GFX_COL_WHITE);
     gfx_rec_rounded_fill(ctxb, rfly_2, -1, GFX_COL_WHITE);
+
+    for (i32 n = 0; n < g->save.flyupgrades - 1; n++) {
+        i32     pp = (rfly.w * (n + 1)) / g->save.flyupgrades;
+        rec_i32 rr = {rfly.x + pp, rfly.y + 3, 1, rfly.h - 6};
+        gfx_rec_fill(ctx, rr, GFX_COL_BLACK);
+    }
 }
 
 void prerender_area_label(game_s *g)

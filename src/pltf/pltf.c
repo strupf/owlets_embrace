@@ -4,7 +4,7 @@
 
 #include "pltf.h"
 
-#define PLTF_SHOW_FPS 0 // show FPS, UPS, update time and rendering time
+#define PLTF_SHOW_FPS 1 // show FPS, UPS, update time and rendering time
 
 typedef struct pltf_s {
     void *framebuffer;

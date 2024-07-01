@@ -63,7 +63,7 @@ void hero_on_animate(game_s *g, obj_s *o)
             h->attack_hold_frame = frameID;
         } else {
             // times when to display specific frames
-            static const u8 frametimes[8] = {0, 2, 4, 6, 10, 13, 16, 18};
+            static const u8 frametimes[8] = {0, 1, 2, 4, 6, 10, 12, 14};
 
             for (i32 n = ARRLEN(frametimes) - 1; 0 <= n; n--) {
                 if (frametimes[n] <= h->attack_tick) {
@@ -80,7 +80,6 @@ void hero_on_animate(game_s *g, obj_s *o)
 
     switch (state) {
     case HERO_STATE_GROUND: {
-        h->show_jump_ui = 0;
         if (0 < h->ground_impact_ticks && !h->carrying) {
             sprite->offs.y -= 4;
             animID  = HERO_ANIMID_AIR; // "oof"
@@ -154,7 +153,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
                 if (idle_animp) {
                     h->idle_anim = idle_animp + 1;
-                } else if (100 <= h->idle_ticks && rngr_i32(0, 512) == 128) {
+                } else if (100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
                     h->idle_anim = 1;
                 }
 
@@ -187,13 +186,11 @@ void hero_on_animate(game_s *g, obj_s *o)
     }
 
     case HERO_STATE_LADDER: {
-        h->show_jump_ui = 0;
-        animID          = HERO_ANIMID_LADDER; // "ladder"
-        frameID         = (-(o->pos.y >> 2)) & 7;
+        animID  = HERO_ANIMID_LADDER; // "ladder"
+        frameID = (-(o->pos.y >> 2)) & 7;
         break;
     }
     case HERO_STATE_SWIMMING: { // repurpose jumping animation for swimming
-        h->show_jump_ui = 0;
         if (inp_x()) {
             animID  = HERO_ANIMID_SWIM; // swim
             frameID = ((o->animation >> 3) % 6);
@@ -235,11 +232,11 @@ void hero_on_animate(game_s *g, obj_s *o)
         animID = HERO_ANIMID_AIR; // "air"
         if (0 < h->ground_impact_ticks) {
             frameID = 0;
-        } else if (+600 <= o->vel_q8.y) {
-            frameID = 4 + ((o->animation >> 2) & 1);
-        } else if (-10 <= o->vel_q8.y) {
+        } else if (+300 <= o->vel_q8.y) {
+            frameID = 4;
+        } else if (-200 <= o->vel_q8.y) {
             frameID = 3;
-        } else if (-300 <= o->vel_q8.y) {
+        } else if (-600 <= o->vel_q8.y) {
             frameID = 2;
         } else {
             frameID = 1;
@@ -247,14 +244,42 @@ void hero_on_animate(game_s *g, obj_s *o)
         break;
     }
     case HERO_STATE_DEAD: {
-        h->show_jump_ui = 0;
         sprite->offs.y -= 16;
         frameID = 0;
         animID  = HERO_ANIMID_WALK;
         break;
     }
     }
-
     rec_i32 frame  = {frameID * 64, animID * 64, 64, 64};
     sprite->trec.r = frame;
+}
+
+void hero_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    if (h->b_hold_tick < 12) return;
+    gfx_ctx_s ctx  = gfx_ctx_display();
+    v2_i32    oc   = v2_add(obj_pos_center(o), cam);
+    i32       t    = g->save.tick * 20000;
+    v2_i32    offs = {
+        (26 * sin_q16(t)) >> 16,
+        (26 * cos_q16(t)) >> 16};
+    v2_i32 offs2 = {
+        (26 * sin_q16(t - 20000)) >> 16,
+        (26 * cos_q16(t - 20000)) >> 16};
+
+    offs  = v2_add(oc, offs);
+    offs2 = v2_add(oc, offs2);
+
+    gfx_ctx_s ctxw = ctx;
+    ctxw.pat       = gfx_pattern_4x4(B4(0111),
+                                     B4(1010),
+                                     B4(1101),
+                                     B4(1010));
+    gfx_lin_thick(ctx, oc, offs2, GFX_COL_WHITE, 6);
+    gfx_lin_thick(ctx, oc, offs2, GFX_COL_BLACK, 4);
+
+    gfx_lin_thick(ctx, oc, offs, GFX_COL_WHITE, 10);
+    gfx_lin_thick(ctx, oc, offs, GFX_COL_BLACK, 8);
+    gfx_lin_thick(ctxw, oc, offs, GFX_COL_WHITE, 3);
 }
