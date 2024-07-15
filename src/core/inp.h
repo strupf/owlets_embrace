@@ -19,8 +19,6 @@ enum {
     INP_DPAD_DIR_SW,
 };
 
-#define PLTF_SDL_EMULATE_SIM 1
-
 enum {
 #ifdef PLTF_PD
     INP_A          = PLTF_PD_BTN_A,
@@ -30,39 +28,14 @@ enum {
     INP_DU         = PLTF_PD_BTN_DU,
     INP_DD         = PLTF_PD_BTN_DD,
     INP_CRANK_DOCK = 1 << 15,
-    //
-    INP_CONFIRM    = INP_A,
-    INP_CANCEL     = INP_B,
-    INP_JUMP       = INP_A,
-    INP_ITEM       = INP_B
-#elif PLTF_SDL_EMULATE_SIM
-    INP_CRANK_DOCK = 1 << 15,
+#else
     INP_A          = 1 << 0,
     INP_B          = 1 << 1,
     INP_DL         = 1 << 2,
     INP_DR         = 1 << 3,
     INP_DU         = 1 << 4,
     INP_DD         = 1 << 5,
-    //
-    INP_CONFIRM    = INP_A,
-    INP_CANCEL     = INP_B,
-    INP_JUMP       = INP_A,
-    INP_ITEM       = INP_B
-#else
-#error INP NOT IMPLEMENTED
-    INP_DL        = 1 << 0,
-    INP_DR        = 1 << 1,
-    INP_DU        = 1 << 2,
-    INP_DD        = 1 << 3,
-    INP_CONFIRM   = 1 << 4,
-    INP_CANCEL    = 1 << 5,
-    INP_JUMP      = 1 << 6,
-    INP_ITEM_1    = 1 << 7,
-    INP_ITEM_2    = 1 << 8,
-    INP_ITEM_NEXT = 1 << 9,
-    INP_ITEM_PREV = 1 << 10,
-    INP_INVENTORY = 1 << 11,
-    INP_PAUSE     = 1 << 12
+    INP_CRANK_DOCK = 1 << 15,
 #endif
 };
 
@@ -79,6 +52,9 @@ typedef struct {
     u8  n; // current segment
 } inp_crank_click_s;
 
+u32    inp_state();
+void   inp_update();
+void   inp_on_resume();
 i32    inp_x();    // [-1,+1]
 i32    inp_y();    // [-1,+1]
 i32    inp_xp();   // [-1,+1]
@@ -96,8 +72,6 @@ i32    inp_crankp_qx(i32 q); // prev crank angle in QXX, turns
 i32    inp_crank_dt_q16();
 i32    inp_crank_calc_dt_q16(i32 ang_from, i32 ang_to);
 i32    inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to);
-void   inp_update();
-void   inp_on_resume();
 void   inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs);
 i32    inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16);
 

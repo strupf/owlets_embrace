@@ -10,6 +10,11 @@ static struct {
     inp_state_s previ;
 } INP;
 
+u32 inp_state()
+{
+    return 0;
+}
+
 void inp_update()
 {
     INP.previ = INP.curri;
@@ -19,7 +24,7 @@ void inp_update()
 
     if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
     INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
-#elif PLTF_SDL_EMULATE_SIM
+#else
     if (pltf_sdl_key(SDL_SCANCODE_W)) INP.curri.actions |= INP_DU;
     if (pltf_sdl_key(SDL_SCANCODE_S)) INP.curri.actions |= INP_DD;
     if (pltf_sdl_key(SDL_SCANCODE_A)) INP.curri.actions |= INP_DL;
@@ -27,8 +32,12 @@ void inp_update()
     if (pltf_sdl_key(SDL_SCANCODE_COMMA)) INP.curri.actions |= INP_B;
     if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) INP.curri.actions |= INP_A;
     INP.curri.actions |= INP_CRANK_DOCK;
-#else
 #endif
+}
+
+void inp_on_resume()
+{
+    inp_update();
 }
 
 i32 inp_x()
@@ -127,11 +136,6 @@ i32 inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to)
     if (dt <= -(1 << (q - 1))) return (dt + (1 << q));
     if (dt >= +(1 << (q - 1))) return (dt - (1 << q));
     return dt;
-}
-
-void inp_on_resume()
-{
-    inp_update();
 }
 
 i32 inp_dpad_dir()

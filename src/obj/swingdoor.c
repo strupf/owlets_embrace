@@ -25,7 +25,7 @@ typedef struct {
 
 void swingdoor_toggle(game_s *g, obj_s *o)
 {
-    snd_play_ext(SNDID_DOOR_SQUEEK, 1.f, rngr_f32(0.4f, 0.6f));
+    snd_play(SNDID_DOOR_SQUEEK, 1.f, rngr_f32(0.4f, 0.6f));
     o->timer   = 0;
     o->state   = 1 - o->state;
     int to_set = o->state == SWINGDOOR_CLOSED ? TILE_BLOCK : TILE_EMPTY;
@@ -54,14 +54,14 @@ void swingdoor_on_update(game_s *g, obj_s *o)
             od->key_open_origin = obj_pos_center(ohero);
             od->key_open_origin.y -= 64;
             od->key_opener_ticks = 1;
-            snd_play_ext(SNDID_DOOR_KEY_SPAWNED, 1.f, 1.f);
+            snd_play(SNDID_DOOR_KEY_SPAWNED, 1.f, 1.f);
         }
     } else {
         od->key_opener_ticks++;
         if (SWINGDOOR_KEY_OPEN_TICKS <= od->key_opener_ticks) {
             od->key_opener_ticks = 0;
             swingdoor_toggle(g, o);
-            snd_play_ext(SNDID_DOOR_UNLOCKED, 1.f, 1.f);
+            snd_play(SNDID_DOOR_UNLOCKED, 1.f, 1.f);
         }
     }
 }
@@ -70,7 +70,7 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
 {
     if (o->timer == SWINGDOOR_TICKS) {
         f32 pitch = o->state == SWINGDOOR_OPEN ? 0.5f : 1.f;
-        snd_play_ext(SNDID_DOOR_TOGGLE, 1.f, pitch);
+        snd_play(SNDID_DOOR_TOGGLE, 1.f, pitch);
     }
     int t  = min_i(o->timer, SWINGDOOR_TICKS);
     int fr = (t * 2) / SWINGDOOR_TICKS;

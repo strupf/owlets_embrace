@@ -155,7 +155,7 @@ void shroomy_on_animate(game_s *g, obj_s *o)
 
 void shroomy_bounced_on(obj_s *o)
 {
-    snd_play_ext(SNDID_SHROOMY_JUMP, 0.15f, 1.f);
+    snd_play(SNDID_SHROOMY_JUMP, 0.15f, 1.f);
     o->state = SHROOMY_BOUNCED;
     o->timer = 0;
 }

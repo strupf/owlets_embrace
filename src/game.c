@@ -3,13 +3,47 @@
 // =============================================================================
 
 #include "game.h"
+#include "app.h"
 #include "render.h"
 
 void game_tick_gameplay(game_s *g);
 
+void game_update_wind_tiles(game_s *g)
+{
+    for (i32 n = 0; n < 1000; n++) {
+        for (i32 y = 0; y < g->tiles_y; y++) {
+            for (i32 x = 0; x < g->tiles_x; x++) {
+                i32          i  = x + y * g->tiles_x;
+                wind_tile_s *wt = &g->wind_tiles[i];
+                if (wt->str) continue;
+
+                v2_i32 v   = {0};
+                u32    str = 0;
+                i32    k   = 0;
+                for (i32 yi = -1; yi < +1; yi++) {
+                    for (i32 xi = -1; xi < +1; xi++) {
+                        i32 xx = x + xi;
+                        i32 yy = y + yi;
+                        if (!(0 <= xx && xx < g->tiles_x &&
+                              0 <= yy && yy < g->tiles_x)) continue;
+                        wind_tile_s *wi = &g->wind_tiles[xx + yy * g->tiles_x];
+                        if (!wi->str) continue;
+                        k++;
+                        str += wi->str;
+                        v2_i32 vi = v2_i32_from_v2_i8(wi->v);
+                        v         = v2_add(v, v2_mul(vi, wi->str));
+                    }
+                }
+
+                if (!str) continue;
+            }
+        }
+    }
+}
+
 void game_init(game_s *g)
 {
-    mus_set_trg_vol(1.0f);
+    pltf_audio_set_volume(1.f);
     map_world_load(&g->map_world, "world.world");
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
@@ -46,6 +80,9 @@ void game_tick(game_s *g)
         if (0 < g->freeze_tick) {
             g->freeze_tick--;
         } else {
+            if (inp_action_jr(INP_B)) {
+                hero_item_activate(g, obj_get_tagged(g, OBJ_TAG_HERO));
+            }
             game_tick_gameplay(g);
         }
     }
@@ -63,6 +100,7 @@ void game_tick(game_s *g)
     }
 
     cam_update(g, &g->cam);
+
     if (g->areaname.fadeticks) {
         g->areaname.fadeticks++;
         if (FADETICKS_AREALABEL <= g->areaname.fadeticks) {
@@ -103,14 +141,6 @@ void game_tick_gameplay(game_s *g)
         }
 
         o->posprev = posprev;
-
-        if (0 < o->invincible_tick) {
-            o->invincible_tick--;
-        }
-
-        if (o->enemy.hurt_tick) {
-            o->enemy.hurt_tick--;
-        }
     }
 
     for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
@@ -120,35 +150,68 @@ void game_tick_gameplay(game_s *g)
     }
 
     for (obj_each(g, o)) {
-        o->moverflags |= OBJ_MOVER_MAP;
+        o->moverflags |= OBJ_MOVER_MAP; // TODO: really shouldn't be here...
         if (!obj_try_wiggle(g, o)) continue;
-        obj_move(g, o, o->tomove);
+        obj_move(g, o, v2_i32_from_i16(o->tomove));
         o->tomove.x = 0, o->tomove.y = 0;
     }
 
-    // out of bounds deletion
     rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
     for (obj_each(g, o)) {
-        if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) &&
+        if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && // out of bounds deletion
             !overlap_rec(obj_aabb(o), roombounds)) {
             obj_delete(g, o);
+            continue;
+        }
+
+        if (o->enemy.die_tick) {
+            o->enemy.die_tick--;
+            if (o->enemy.die_tick == 2) {
+                snd_play(SNDID_ENEMY_EXPLO, 4.f, 1.f);
+            }
+            if (o->enemy.die_tick == 0) {
+                rec_i32 rdecal = {0, 128, 64, 64};
+                v2_i32  pos    = obj_pos_center(o);
+                pos.x -= 32;
+                pos.y -= 32;
+                spritedecal_create(g, 0x10000, NULL, pos, TEXID_EXPLOSIONS, rdecal, 30, 14, 0);
+                // snd_play(SNDID_ENEMY_EXPLO, 4.f, 1.f);
+                obj_delete(g, o);
+                continue;
+            }
+        }
+
+        if (o->enemy.hurt_tick) {
+            o->enemy.hurt_tick--;
+            o->enemy.hurt_shake_offs.x = rngr_i32(-2, +2);
+            o->enemy.hurt_shake_offs.y = rngr_i32(-2, +2);
+        } else {
+            o->enemy.hurt_shake_offs.x = 0;
+            o->enemy.hurt_shake_offs.y = 0;
         }
     }
 
     objs_cull_to_delete(g);
     coinparticle_update(g);
+    particles_update(g, &g->particles);
 
     if (g->rope.active) {
         rope_update(g, &g->rope);
         rope_verletsim(g, &g->rope);
     }
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (ohero) {
-        if (ohero->health) {
-            hero_post_update(g, ohero);
-        } else {
+    obj_s *ohero = NULL;
+
+    if (hero_present_and_alive(g, &ohero)) {
+        hero_process_hurting_things(g, ohero);
+
+        if (ohero->health <= 0) {
+            gameover_start(g);
         }
+    }
+
+    if (hero_present_and_alive(g, &ohero)) {
+        hero_post_update(g, ohero);
     }
 
 #ifdef PLTF_DEBUG
@@ -165,13 +228,13 @@ void game_tick_gameplay(game_s *g)
     }
 
     objs_cull_to_delete(g);
-    particles_update(g, &g->particles);
 
+    // animate coin counter ui
     if (g->coins_added) {
         if (g->coins_added_ticks) {
             g->coins_added_ticks--;
         } else {
-            i32 to_add = clamp_i(g->coins_added, -2, +2);
+            i32 to_add = clamp_i32(g->coins_added, -2, +2);
             g->save.coins += to_add;
             g->coins_added -= to_add;
         }
@@ -297,13 +360,14 @@ bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
     default: break;
     }
 
-    if ((o->flags & OBJ_FLAG_ENEMY) && !o->enemy.invincible) {
+    if ((o->flags & OBJ_FLAG_ENEMY) &&
+        0 < o->health &&
+        !o->enemy.invincible) {
         g->freeze_tick = max_i32(g->freeze_tick, 2);
         o->health -= box.damage;
+        o->enemy.hurt_tick = ENEMY_HURT_TICKS;
         if (o->health <= 0) {
-            obj_delete(g, o);
-        } else {
-            o->enemy.hurt_tick = ENEMY_HURT_TICKS;
+            o->enemy.die_tick = 15;
         }
         return 1;
     }

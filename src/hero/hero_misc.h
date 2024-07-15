@@ -7,6 +7,7 @@
 
 #include "hero.h"
 
+void hero_process_hurting_things(game_s *g, obj_s *o);
 void hero_post_update(game_s *g, obj_s *o);
 
 #endif

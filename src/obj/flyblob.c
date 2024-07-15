@@ -23,6 +23,8 @@ void flyblob_load(game_s *g, map_obj_s *mo)
     o->h          = 16;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
+    o->health_max = 3;
+    o->health     = o->health_max;
 
     o->flags = OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
@@ -48,11 +50,12 @@ void flyblob_on_animate(game_s *g, obj_s *o)
     static const i8 propeller_offs[] = {-5, -6, -6, -5, -3,
                                         +0, +2, +3, +2, -2};
 
-    u32 frameblob = (f->anim_frame / 4) % 10;
+    u32 frameblob = 1 + frame_from_ticks_pingpong(f->anim_frame / 4, 4);
+    // u32 frameblob = (f->anim_frame / 4) % 10;
     u32 frameprop = (f->anim_propeller >> 1) & 3;
 
-    s0->offs.x = -15;
-    s0->offs.y = -15;
+    s0->offs.x = -18;
+    s0->offs.y = -18;
     s1->offs   = s0->offs;
     s1->offs.y += propeller_offs[frameblob];
 

@@ -19,16 +19,16 @@ void app_init()
 {
     spm_init();
     assets_init();
-    aud_init();
-#ifdef PLTF_PD
-    assets_import();
-#else
+
+#if ASSETS_EXPORT
     SPM.lowestleft_disabled = 1;
     app_load_tex();
     app_load_fnt();
     app_load_snd();
     assets_export();
     SPM.lowestleft_disabled = 0;
+#else
+    assets_import();
 #endif
     game_s *g = &APP.game;
 
@@ -36,15 +36,11 @@ void app_init()
     u32 size_tabs = sizeof(g_tile_corners) +
                     sizeof(g_tile_tris) +
                     sizeof(AUD_s);
-    pltf_log("size RES: %u kb\n", (uint)sizeof(ASSETS_s) / 1024);
-    pltf_log("size SPM: %u kb\n", (uint)sizeof(SPM_s) / 1024);
-    pltf_log("size APP: %u kb\n", (uint)sizeof(app_s) / 1024);
-    pltf_log("size TAB: %u kb\n", (uint)(size_tabs / 1024));
-    pltf_log("  = %u kb\n\n", (uint)(sizeof(ASSETS_s) +
-                                     sizeof(SPM_s) +
-                                     sizeof(app_s) +
-                                     size_tabs) /
-                                  1024);
+    pltf_log("static RAM ~%u kb\n\n", (uint)(sizeof(ASSETS_s) +
+                                             sizeof(SPM_s) +
+                                             sizeof(app_s) +
+                                             size_tabs) /
+                                          1024);
 
     pltf_log("size save: %u bytes\n", (uint)(sizeof(save_s)));
 
@@ -52,7 +48,15 @@ void app_init()
     game_init(g);
 }
 
+static void app_tick_step();
+
 void app_tick()
+{
+    app_tick_step();
+    aud_cmd_queue_commit();
+}
+
+static void app_tick_step()
 {
 #ifdef PLTF_SDL
     static u32 skiptick;
@@ -62,18 +66,9 @@ void app_tick()
     }
 #endif
 
-    aud_update();
-    // aud_set_lowpass(0);
-
     if (textinput_active()) {
         textinput_update();
         return;
-    }
-
-    if (APP.slomorate) {
-        APP.slomotick++;
-        APP.slomotick %= APP.slomorate;
-        if (APP.slomotick) return;
     }
 
     inp_update();
@@ -94,8 +89,14 @@ void app_draw()
 #ifdef PLTF_PD
     pltf_pd_update_rows(0, 239);
 #endif
-
     tex_clr(asset_tex(0), GFX_COL_WHITE);
+    gfx_ctx_s ctx = gfx_ctx_display();
+#if 0
+
+    texrec_s  trpl = asset_texrec(TEXID_HERO, 0, 0, 256, 256);
+    gfx_spr(ctx, trpl, (v2_i32){0, 0}, 0, 0);
+    return;
+#endif
     game_s *g = &APP.game;
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -134,6 +135,7 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 void app_load_tex()
 {
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", NULL);
+    asset_tex_loadID(TEXID_TILESET_BG_AUTO, "TILESET_BG_AUTO", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_BG, "TILESET_BG", NULL);
     asset_tex_loadID(TEXID_TILESET_PROPS_FG, "TILESET_FG", NULL);
 
@@ -170,6 +172,7 @@ void app_load_tex()
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
     asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
     asset_tex_loadID(TEXID_PLANTS, "plants", NULL);
+    asset_tex_loadID(TEXID_CRABLER, "crabler", NULL);
 
     tex_s tcharger;
     asset_tex_loadID(TEXID_CHARGER, "charger", &tcharger);
@@ -207,6 +210,14 @@ void app_load_tex()
     asset_tex_loadID(TEXID_BG_CAVE_DEEP, "bg_cave_deep", NULL);
     asset_tex_loadID(TEXID_BG_FOREST, "bg_forest", NULL);
 
+    tex_s texpl;
+    asset_tex_loadID(TEXID_EXPLOSIONS, "explosions", &texpl);
+    for (i32 y = 0; y < 12; y++) {
+        for (i32 x = 0; x < 14; x++) {
+            tex_outline(texpl, x * 64, y * 64, 64, 64, 0, 1);
+        }
+    }
+
     tex_s tskeleton;
     asset_tex_loadID(TEXID_SKELETON, "skeleton", &tskeleton);
     for (i32 y = 0; y < 2; y++) {
@@ -223,12 +234,16 @@ void app_load_tex()
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
+#if 0
+    tex_outline_f(texhero, 64 + 30, 64, 128, 128, 0, 1);
+#else
     for (i32 y = 0; y < 20; y++) {
         if (y == 16) continue; // black outline
         for (i32 x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
     }
+#endif
 
     for (i32 x = 0; x < 16; x++) {
         tex_outline(texhero, x * 64, 16 * 64, 64, 64, 0, 1);
@@ -386,6 +401,17 @@ void app_load_snd()
     asset_snd_loadID(SNDID_KB_CLICK, "click", NULL);
     asset_snd_loadID(SNDID_KB_SELECTION, "selection", NULL);
     asset_snd_loadID(SNDID_KB_SELECTION_REV, "selection-reverse", NULL);
+    asset_snd_loadID(SNDID_FOOTSTEP_LEAVES, "footstep_leaves", NULL);
+    asset_snd_loadID(SNDID_FOOTSTEP_GRASS, "footstep_grass", NULL);
+    asset_snd_loadID(SNDID_FOOTSTEP_MUD, "footstep_mud", NULL);
+    asset_snd_loadID(SNDID_FOOTSTEP_SAND, "footstep_sand", NULL);
+    asset_snd_loadID(SNDID_FOOTSTEP_DIRT, "footstep_dirt", NULL);
+    asset_snd_loadID(SNDID_OWLET_ATTACK_1, "owlet_attack_1", NULL);
+    asset_snd_loadID(SNDID_OWLET_ATTACK_2, "owlet_attack_2", NULL);
+    asset_snd_loadID(SNDID_ENEMY_EXPLO, "enemy_explo", NULL);
+    asset_snd_loadID(SNDID_WING, "wing_sfx", NULL);
+    asset_snd_loadID(SNDID_WING1, "wing_sfx1", NULL);
+    asset_snd_loadID(SNDID_HOOK_READY, "hook_ready", NULL);
 }
 
 void app_load_fnt()
@@ -393,16 +419,4 @@ void app_load_fnt()
     asset_fnt_loadID(FNTID_SMALL, "font_small", NULL);
     asset_fnt_loadID(FNTID_MEDIUM, "font_med", NULL);
     asset_fnt_loadID(FNTID_LARGE, "font_large", NULL);
-}
-
-void app_slomo(u32 rate)
-{
-    if (rate == APP.slomorate) return;
-    APP.slomorate = rate;
-    APP.slomotick = 0;
-}
-
-u32 app_get_slomo()
-{
-    return APP.slomorate;
 }

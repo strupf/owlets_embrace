@@ -39,23 +39,6 @@
 #error ALIGNMENT UNAVAILABLE
 #endif
 
-#ifdef PLTF_PD_HW // overwrite assert on hardware -> force timeout
-#undef assert
-#define assert(X)        \
-    do {                 \
-        if (!(X))        \
-            while (1) {} \
-    } while (0)
-#elif (defined(PLTF_SDL) && 1) // use SDL assert instead of std?
-#include "SDL2/SDL_assert.h"
-#undef assert
-#define assert SDL_assert
-#endif
-#ifndef PLTF_DEBUG
-#undef assert
-#define assert(X)
-#endif
-
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
@@ -82,6 +65,26 @@ typedef u32            u16x2; // ARM small 32 bit simd types
 typedef u32            i16x2;
 typedef u32            u8x4;
 typedef u32            i8x4;
+
+#ifdef PLTF_PD_HW
+void (*PD_system_error)(const char *format, ...);
+#undef assert
+#define assert(X)                                \
+    {                                            \
+        if (!(X)) {                              \
+            PD_system_error("ASSERT: " #X "\n"); \
+        }                                        \
+    }
+#elif defined(PLTF_SDL) && 1 // use SDL assert instead of std?
+#include "SDL2/SDL_assert.h"
+#undef assert
+#define assert SDL_assert
+#endif
+
+#ifndef PLTF_DEBUG
+#undef assert
+#define assert(X)
+#endif
 
 #define I64_MAX  INT64_MAX
 #define I64_MIN  INT64_MIN
@@ -130,7 +133,7 @@ typedef struct {
 #define ABS(A)               ((A) >= 0 ? (A) : -(A))
 #define SGN(A)               ((0 < (A)) - (0 > (A)))
 #define CLAMP(X, LO, HI)     ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
-#define SWAP(T, a, b)        do { T tmp_ = a; a = b; b = tmp_; } while (0)
+#define SWAP(T, a, b)        { T tmp_ = a; a = b; b = tmp_; }
 
 #ifndef SYS_PD_HW
 #define FILE_AND_LINE__(A, B) A "|" #B
@@ -418,46 +421,6 @@ static void sort_i_array(char *arr, char *lo, char *hi, u32 s, cmp_f c)
 
     if (lo < j) sort_i_array(arr, lo, j, s, c);
     if (hi > i) sort_i_array(arr, i, hi, s, c);
-}
-
-typedef struct {
-    char          c; // byte value
-    unsigned char n; // number of bytes
-} mem_rle_s;         // run length encoding
-
-// no overflow handling!
-static u32 mem_compress(char *dst, const char *src, u32 ssize)
-{
-    u32 *l         = (u32 *)dst;
-    *l             = 0;
-    mem_rle_s *buf = (mem_rle_s *)(dst + sizeof(u32));
-    mem_rle_s *d   = NULL;
-
-    for (u32 n = 0; n < ssize; n++) {
-        const char c = src[n];
-        if (d && d->c == c && d->n < 255) { // increase run length
-            d->n++;
-        } else { // new run length
-            d    = &buf[*l];
-            d->c = c;
-            d->n = 0;
-            *l   = *l + 1;
-        }
-    }
-    return (sizeof(u32) + sizeof(mem_rle_s) * *l);
-}
-
-// no overflow handling!
-static void mem_uncompress(char *dst, const char *src)
-{
-    char            *c = dst;
-    const u32        l = *(const u32 *)src;
-    const mem_rle_s *s = (const mem_rle_s *)(src + sizeof(u32));
-    for (u32 n = 0; n < l; n++) {
-        mset(c, s->c, (u32)s->n + 1);
-        c += s->n + 1;
-        s++;
-    }
 }
 
 static inline u16x2 u16x2_pack(u16 x, u16 y)

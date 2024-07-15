@@ -25,7 +25,7 @@ const i32 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     30};
 
 void maptransition_init(game_s *g, const char *file,
-                        i32 type, v2_i32 hero_feet, v2_i32 hero_v, i32 facing)
+                        i32 type, v2_i32 hero_feet, v2_i16 hero_v, i32 facing)
 {
     maptransition_s *mt = &g->maptransition;
     str_cpy(mt->to_load, file);
@@ -43,7 +43,7 @@ void maptransition_init(game_s *g, const char *file,
 
 void maptransition_teleport(game_s *g, const char *map, v2_i32 hero_feet)
 {
-    v2_i32 hero_v = {0};
+    v2_i16 hero_v = {0};
     maptransition_init(g, map, MAPTRANSITION_TYPE_TELEPORT,
                        hero_feet, hero_v, +1);
 }
@@ -89,7 +89,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
     trgaabb.x += g->map_worldroom->x - nr.x;
     trgaabb.y += g->map_worldroom->y - nr.y;
 
-    v2_i32 hvel = o->vel_q8;
+    v2_i16 hvel = o->vel_q8;
     switch (touchedbounds) {
     case DIRECTION_E:
         trgaabb.x = 8;
@@ -148,10 +148,10 @@ void maptransition_update(game_s *g)
     v2_i32 hpos          = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
-    v2_i32 *resp_closest = NULL;
+    v2_i16 *resp_closest = NULL;
     for (u32 n = 0; n < g->n_respawns; n++) {
-        v2_i32 *rp = &g->respawns[n];
-        u32     d  = v2_distancesq(hpos, *rp);
+        v2_i16 *rp = &g->respawns[n];
+        u32     d  = v2_distancesq(hpos, v2_i32_from_i16(*rp));
         if (d < respawn_d) {
             respawn_d    = d;
             resp_closest = rp;
@@ -159,7 +159,7 @@ void maptransition_update(game_s *g)
     }
 
     if (resp_closest) {
-        g->save.hero_pos = *resp_closest;
+        g->save.hero_pos = v2_i32_from_i16(*resp_closest);
         game_save_savefile(g);
     }
     game_prepare_new_map(g);

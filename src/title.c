@@ -705,7 +705,7 @@ void title_render_textfield(i32 x, i32 y, i32 w, i32 h, const char *txt, bool32 
     if (selected && !editing) {
         rec_i32   rsmall = {r.x + 3, r.y + 3, r.w - 6, r.h - 6};
         gfx_ctx_s ctxr   = ctx;
-        i32       fr     = frame_from_ticks_loop_pingpong(tick, 80, 256);
+        i32       fr     = frame_from_ticks_pingpong(tick >> 1, 256);
         ctxr.pat         = gfx_pattern_interpolate(fr, 512);
         gfx_rec_rounded_fill(ctxr, rsmall, -1, GFX_COL_WHITE);
     }

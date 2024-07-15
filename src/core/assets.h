@@ -11,11 +11,18 @@
 #define ASSET_FILENAME     "assets/assets/assets.dat"
 #define ASSETS_LOG_LOADING 0
 
+#if defined(PLTF_SDL)
+#define ASSETS_EXPORT 1
+#else
+#define ASSETS_EXPORT 0
+#endif
+
 enum {
     TEXID_DISPLAY,
     TEXID_KEYBOARD,
     TEXID_HERO,
     TEXID_TILESET_TERRAIN,
+    TEXID_TILESET_BG_AUTO,
     TEXID_TILESET_PROPS_BG,
     TEXID_TILESET_PROPS_FG,
     TEXID_PAUSE_TEX,
@@ -52,6 +59,8 @@ enum {
     TEXID_TITLE_SCREEN,
     TEXID_BUDPLANT,
     TEXID_FLYBLOB,
+    TEXID_EXPLOSIONS,
+    TEXID_CRABLER,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -101,6 +110,17 @@ enum {
     SNDID_KB_CLICK,
     SNDID_KB_SELECTION,
     SNDID_KB_SELECTION_REV,
+    SNDID_FOOTSTEP_LEAVES,
+    SNDID_FOOTSTEP_GRASS,
+    SNDID_FOOTSTEP_MUD,
+    SNDID_FOOTSTEP_SAND,
+    SNDID_FOOTSTEP_DIRT,
+    SNDID_OWLET_ATTACK_1,
+    SNDID_OWLET_ATTACK_2,
+    SNDID_ENEMY_EXPLO,
+    SNDID_WING,
+    SNDID_WING1,
+    SNDID_HOOK_READY,
     //
     NUM_SNDID
 };
@@ -123,14 +143,16 @@ typedef struct {
     asset_fnt_s fnt[NUM_FNTID];
 
     marena_s    marena;
-    mmegabyte_s mem[5];
+    mmegabyte_s mem[6];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
 extern const alloc_s asset_allocator;
 
-void     assets_init();
-void     assets_export();
+void assets_init();
+#if ASSETS_EXPORT
+void assets_export();
+#endif
 void     assets_import();
 //
 void    *assetmem_alloc(u32 s);
@@ -146,7 +168,7 @@ tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
 fnt_s    fnt_load(const char *filename, alloc_s ma);
 
-void   snd_play_ext(i32 ID, f32 vol, f32 pitch);
+u32    snd_play(i32 ID, f32 vol, f32 pitch);
 void   mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in);
 void   mus_stop();
 bool32 mus_playing();

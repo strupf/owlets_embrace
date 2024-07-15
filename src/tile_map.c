@@ -129,8 +129,9 @@ bool32 tile_map_hookable(game_s *g, rec_i32 r)
             i32    ID   = tile.collision;
             i32    t    = tile.type;
             if (!TILE_IS_SHAPE(ID)) continue;
-            if (!(t == TILE_TYPE_DIRT))
-                continue;
+            if (t == TILE_TYPE_THORNS ||
+                t == TILE_TYPE_SPIKES) continue;
+
             i32 x0 = (tx == tx0 ? px0 & 15 : 0);
             i32 x1 = (tx == tx1 ? px1 & 15 : 15);
             if (tile_solid_r(ID, x0, y0, x1, y1))

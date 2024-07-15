@@ -34,21 +34,30 @@ enum {
 
 enum {
     TILE_TYPE_NONE,
-    TILE_TYPE_DITHER,
-    TILE_TYPE_FAKE_1,
-    TILE_TYPE_FAKE_2,
-    //
-    TILE_TYPE_DIRT,
-    TILE_TYPE_DIRT_2,
+    TILE_TYPE_INVISIBLE_NON_CONNECTING,
+    TILE_TYPE_INVISIBLE_CONNECTING,
+    TILE_TYPE_DEBUG,
     TILE_TYPE_THORNS,
-    TILE_TYPE_STONE_SQUARE_DARK,
-    TILE_TYPE_STONE_SQUARE_LIGHT,
     TILE_TYPE_SPIKES,
+    TILE_TYPE_______1,
+    TILE_TYPE_______2,
+    TILE_TYPE_DIRT,
+    TILE_TYPE_LEAVES,
+    TILE_TYPE_STONE_SQUARE_LIGHT,
+    TILE_TYPE_______3,
+    TILE_TYPE_______4,
+    TILE_TYPE_______5,
+    TILE_TYPE_______6,
     TILE_TYPE_STONE_ROUND_DARK,
-    TILE_TYPE_STONE_ROUND_LIGHT,
+    TILE_TYPE_STONE_SQUARE_DARK,
     //
-    NUM_TILE_TYPES
+    NUM_TILE_TYPES = 24
 };
+
+static const u8 tile_type_connects_to[] = {
+    //
+
+    /* */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static inline i32 tile_type_render_priority(i32 type)
 {

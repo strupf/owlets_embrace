@@ -7,7 +7,7 @@
 
 #define PLTF_SDL_WINDOW_TITLE "Owlet's Embrace"
 #define PLTF_SDL_PURE_BW      1
-#define PLTF_SDL_GHOSTING     1
+#define PLTF_SDL_GHOSTING     0
 
 typedef struct pltf_sdl_s {
     bool32            running;
@@ -95,6 +95,7 @@ int main(int argc, char **argv)
         }
 
         if (pltf_internal_update()) {
+            assert(g_SDL.render_ghosting == 0);
             if (g_SDL.render_ghosting) {
                 SDL_SetRenderTarget(g_SDL.renderer, g_SDL.texp);
                 SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_src);
@@ -223,6 +224,8 @@ void pltf_sdl_init()
     g_SDL.audiodevID = SDL_OpenAudioDevice(NULL, 0, &frmt, &g_SDL.audiospec, 0);
     if (g_SDL.audiodevID) {
         SDL_PauseAudioDevice(g_SDL.audiodevID, 0);
+    } else {
+        pltf_log("+++ SDL: Can't create audio device!\n");
     }
 
     g_SDL.running         = 1;
@@ -287,6 +290,7 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
 {
     static i16 lbuf[0x1000];
     static i16 rbuf[0x1000];
+    static u32 magic = 0xDEADBEEFU;
 
     mset(lbuf, 0, sizeof(lbuf));
     mset(rbuf, 0, sizeof(rbuf));
@@ -309,32 +313,7 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
             *s++ = (i16)((f32)*r++ * g_SDL.vol);
         }
     }
-}
-
-void pltf_sdl_set_vol(f32 vol)
-{
-#ifdef PLTF_SDL
-    pltf_sdl_audio_lock();
-#endif
-    g_SDL.vol = vol;
-#ifdef PLTF_SDL
-    pltf_sdl_audio_unlock();
-#endif
-}
-
-f32 pltf_sdl_vol()
-{
-    return g_SDL.vol;
-}
-
-void pltf_sdl_audio_lock()
-{
-    SDL_LockAudioDevice(g_SDL.audiodevID);
-}
-
-void pltf_sdl_audio_unlock()
-{
-    SDL_UnlockAudioDevice(g_SDL.audiodevID);
+    assert(magic == 0xDEADBEEFU);
 }
 
 void pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), void (*char_del)(void *ctx), void (*close_inp)(void *ctx), void *ctx)
@@ -354,6 +333,18 @@ void pltf_sdl_txt_inp_clr_cb()
 }
 
 // BACKEND =====================================================================
+
+void pltf_audio_set_volume(f32 vol)
+{
+    pltf_audio_lock();
+    g_SDL.vol = vol;
+    pltf_audio_unlock();
+}
+
+f32 pltf_audio_get_volume()
+{
+    return g_SDL.vol;
+}
 
 f32 pltf_seconds()
 {
@@ -426,4 +417,14 @@ i32 pltf_file_r(void *f, void *buf, u32 bsize)
 {
     i32 r = (i32)fread(buf, 1, (size_t)bsize, f);
     return r;
+}
+
+void pltf_audio_lock()
+{
+    SDL_LockAudioDevice(g_SDL.audiodevID);
+}
+
+void pltf_audio_unlock()
+{
+    SDL_UnlockAudioDevice(g_SDL.audiodevID);
 }

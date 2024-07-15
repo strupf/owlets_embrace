@@ -7,9 +7,6 @@
 
 #include "gamedef.h"
 
-#define CAM_ATTRACTOR_RADIUS   300.f
-#define CAM_ATTRACTOR_MAX_OFFS 40.f
-
 enum {
     CAM_MODE_DIRECT,
     CAM_MODE_FOLLOW_HERO,
@@ -17,20 +14,16 @@ enum {
 };
 
 typedef struct {
-    v2_i32 prev_offs;
-    v2_f32 pos;
-    v2_f32 offs_shake;
+    v2_i32 prev_gfx_offs;
+    v2_i32 pos_q8;
+    v2_i32 shake;
+    v2_i32 attract;
     i16    mode;
-    i16    look_tick;
-    i16    shake_ticks;
-    i16    shake_ticks_max;
-    i16    shake_str;
+    u16    shake_ticks;
+    u16    shake_ticks_max;
+    u16    shake_str;
     bool8  locked_x;
     bool8  locked_y;
-    v2_f32 look_ahead;
-    v2_f32 camattr;
-    i32    n_attractors;
-    v2_i32 attractors[16];
 } cam_s;
 
 void    cam_screenshake(cam_s *c, i32 ticks, i32 str);

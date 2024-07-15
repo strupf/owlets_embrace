@@ -16,7 +16,6 @@
 #include "maptransition.h"
 #include "menu_screen.h"
 #include "obj.h"
-#include "obj/behaviour.h"
 #include "particle.h"
 #include "rope.h"
 #include "save.h"
@@ -53,16 +52,15 @@ enum {
 };
 
 typedef struct {
-    u16 y;
-    u16 x1;
-    u16 x2;
-} weather_surface_s;
-
-#define NUM_WEATHER_SURFACES 1024
+    u8    str;
+    v2_i8 v;
+} wind_tile_s;
 
 struct game_s {
     u32               gameplay_tick;
     u32               state;
+    u32               hook_pause_tick;
+    i32               hook_skip_tick;
     //
     map_world_s       map_world; // layout of all map files globally
     map_worldroom_s  *map_worldroom;
@@ -77,12 +75,12 @@ struct game_s {
     cam_s             cam;
     flags32           events_frame;
     u32               aud_lowpass;
-    bool32            hook_mode;
     //
     u16               tiles_x;
     u16               tiles_y;
     u16               pixel_x;
     u16               pixel_y;
+    wind_tile_s       wind_tiles[NUM_TILES];
     tile_s            tiles[NUM_TILES];
     rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
     obj_s            *obj_head_busy; // linked list
@@ -95,8 +93,6 @@ struct game_s {
     obj_s            *obj_render[NUM_OBJ]; // sorted render array
     obj_s             obj_raw[NUM_OBJ];
     //
-    i32               n_weather_surfaces;
-    weather_surface_s weather_surfaces[NUM_WEATHER_SURFACES];
     i32               n_foreground_props;
     foreground_prop_s foreground_props[NUM_FOREGROUND_PROPS];
     //
@@ -104,7 +100,7 @@ struct game_s {
     u16               coins_added_ticks;
     u16               save_ticks;
     u32               n_respawns;
-    v2_i32            respawns[NUM_RESPAWNS];
+    v2_i16            respawns[NUM_RESPAWNS];
     u32               n_grass;
     grass_s           grass[NUM_GRASS];
     u32               n_coinparticles;

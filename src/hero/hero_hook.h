@@ -25,5 +25,6 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8);
 bool32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
 void   hook_update(game_s *g, obj_s *hook); // called by hero
 void   hook_on_animate(game_s *g, obj_s *o);
+bool32 hook_is_attached(obj_s *o);
 
 #endif

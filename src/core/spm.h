@@ -15,7 +15,7 @@ typedef struct {
     u32    lowestleft;
 
     marena_s    m;
-    mkilobyte_s mem[512];
+    mkilobyte_s mem[1024];
 } SPM_s;
 
 extern SPM_s         SPM;

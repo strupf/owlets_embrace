@@ -86,7 +86,7 @@ void floater_on_update(game_s *g, obj_s *o)
     fl->vel_amount       = 70;
     fl->steer_change_q16 = rngr_i32(-100, +100);
     fl->steer_ang_q16    = (fl->steer_ang_q16 + fl->steer_change_q16) & 0xFFFF;
-    v2_i32 steer         = {(fl->vel_amount * sin_q16(fl->steer_ang_q16 << 2)) >> 16,
+    v2_i16 steer         = {(fl->vel_amount * sin_q16(fl->steer_ang_q16 << 2)) >> 16,
                             (fl->vel_amount * cos_q16(fl->steer_ang_q16 << 2)) >> 16};
     o->vel_q8            = steer;
     if (ohero) {

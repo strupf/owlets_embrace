@@ -235,13 +235,13 @@ void textinput_pd_update(textinput_handler_s *hdl)
 
         hdl->x_scroll_timer = 2 * dx;
         hdl->x_bump_timer   = 3 * dx;
-        snd_play_ext(dx == 1 ? SNDID_KB_SELECTION : SNDID_KB_SELECTION_REV,
-                     1.f, 1.f);
+        snd_play(dx == 1 ? SNDID_KB_SELECTION : SNDID_KB_SELECTION_REV,
+                 1.f, 1.f);
     }
 
     if ((hdl->b & PLTF_PD_BTN_B) && !(hdl->bp & PLTF_PD_BTN_B)) {
         textinput_del_char(hdl->tinp);
-        snd_play_ext(SNDID_KB_KEY, 1.f, 1.f);
+        snd_play(SNDID_KB_KEY, 1.f, 1.f);
     }
 
     if (hdl->b & PLTF_PD_BTN_A) {
@@ -274,7 +274,7 @@ void textinput_pd_update(textinput_handler_s *hdl)
             char c = g_kbrd[hdl->pos_x][hdl->pos_y[hdl->pos_x]];
             textinput_add_char(hdl->tinp, c);
         }
-        snd_play_ext(SNDID_KB_KEY, 1.f, 1.f);
+        snd_play(SNDID_KB_KEY, 1.f, 1.f);
     }
 
     if (hdl->b & (PLTF_PD_BTN_DD | PLTF_PD_BTN_DU)) {
@@ -298,7 +298,7 @@ void textinput_pd_update(textinput_handler_s *hdl)
             if (!(pos_y1 <= pos_y_new && pos_y_new <= 3)) { // bump
                 hdl->y_bump_timer = 3 * sgn_i32(dy);
                 dy                = 0;
-                snd_play_ext(SNDID_KB_DENIAL, 1.f, 1.f);
+                snd_play(SNDID_KB_DENIAL, 1.f, 1.f);
             } else {
                 hdl->pos_y[TI_PD_COL_UTIL] = pos_y_new;
             }
@@ -319,7 +319,7 @@ void textinput_pd_update(textinput_handler_s *hdl)
         }
 
         if (dy != 0) {
-            snd_play_ext(SNDID_KB_CLICK, 1.f, 1.f);
+            snd_play(SNDID_KB_CLICK, 1.f, 1.f);
             hdl->y_bump_timer   = 3;
             hdl->y_scroll_timer = TI_PD_Y_SCROLL_TIMER * sgn_i32(dy);
         }
@@ -340,7 +340,7 @@ void textinput_pd_draw(textinput_handler_s *hdl)
     i32 col1 = hdl->only_letters ? 1 : 0;
 
     for (i32 n = col1; n < 4; n++) {
-        texrec_s tr_util = {tex, {640, 32 * n, 64, 32}};
+        texrec_s tr_util = {tex, {608, 32 * n, 64, 32}};
         i32      offs_y  = (n - hdl->pos_y[TI_PD_COL_UTIL]) * TI_PD_SPACE_Y;
         if (hdl->pos_x == 3) {
             offs_y += y_scroll;

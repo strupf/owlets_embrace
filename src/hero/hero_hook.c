@@ -33,14 +33,14 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     spr->trec         = asset_texrec(TEXID_HOOK, 0, 0, 32, 32);
     spr->offs.x       = -16 + 4;
     spr->offs.y       = -16 + 4;
-    o->w              = 8;
-    o->h              = 8;
+    o->w              = 4;
+    o->h              = 4;
     o->pos.x          = p.x - o->w / 2;
     o->pos.y          = p.y - o->h / 2;
     o->drag_q8.x      = 256;
     o->drag_q8.y      = 256;
     o->gravity_q8.y   = 70;
-    o->vel_q8         = v_q8;
+    o->vel_q8         = v2_i16_from_i32(v_q8, 0);
     o->vel_cap_q8.x   = 2500;
     o->vel_cap_q8.y   = 2500;
 
@@ -164,7 +164,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     obj_apply_movement(hook);
 
     obj_s *tohook = NULL;
-    i32    attach = hook_move(g, hook, hook->tomove, &tohook);
+    i32    attach = hook_move(g, hook, v2_i32_from_i16(hook->tomove), &tohook);
     if (attach != HOOK_ATTACH_NONE) {
         i32 mlen_q4   = hero_max_rope_len_q4(g);
         i32 clen_q4   = rope_len_q4(g, r);
@@ -180,13 +180,13 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     case HOOK_ATTACH_NONE:
         if (hook->bumpflags & OBJ_BUMPED_X) {
             if (abs_i32(hook->vel_q8.x) > 700) {
-                snd_play_ext(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
+                snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
             hook->vel_q8.x = -hook->vel_q8.x / 3;
         }
         if (hook->bumpflags & OBJ_BUMPED_Y) {
             if (abs_i32(hook->vel_q8.y) > 700) {
-                snd_play_ext(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
+                snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
             hook->vel_q8.y = -hook->vel_q8.y / 3;
         }
@@ -200,7 +200,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
         hook->vel_q8.x = 0;
         hook->vel_q8.y = 0;
         hook->state    = HOOK_STATE_ATTACHED;
-        snd_play_ext(SNDID_HOOK_ATTACH, 1.f, 1.f);
+        snd_play(SNDID_HOOK_ATTACH, 1.f, 1.f);
 
         rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
         for (obj_each(g, solid)) {
@@ -212,6 +212,16 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
 
             hook->linked_solid = obj_handle_from_obj(solid);
         }
+
+        ropenode_s *rnn = ropenode_neighbour(hook->rope, hook->ropenode);
+        v2_i32      pos = obj_pos_center(hook);
+        pos             = v2_add(pos, v2_setlen(v2_sub(rnn->p, pos), 4));
+        pos.x -= 32;
+        pos.y -= 32;
+        rec_i32 rdecal = {0, 64 * 9, 64, 64};
+
+        i32 dflip = rngr_i32(0, 3);
+        spritedecal_create(g, 0x20000, NULL, pos, TEXID_EXPLOSIONS, rdecal, 18, 6, dflip);
         break;
     }
     case HOOK_ATTACH_OBJ:
@@ -281,4 +291,10 @@ void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
     ohero->rope     = NULL;
     ohook->rope     = NULL;
     ohook->ropenode = NULL;
+}
+
+bool32 hook_is_attached(obj_s *o)
+{
+    assert(o->ID == OBJ_ID_HOOK);
+    return o->state == HOOK_STATE_ATTACHED;
 }

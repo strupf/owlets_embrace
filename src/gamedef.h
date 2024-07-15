@@ -45,7 +45,7 @@ typedef struct obj_s  obj_s;
 // handle to an object
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
-typedef struct {
+typedef struct obj_handle_s {
     obj_s *o;
     u32    GID;
 } obj_handle_s;
@@ -204,16 +204,17 @@ static u32 ticks_from_time_real(time_real_s t)
 }
 
 // maps time t to a frame number [0; frames) at a looping frequence of freq
-static inline i32 frame_from_ticks_loop(i32 t, i32 freq, i32 frames)
+static inline i32 frame_from_ticks_loop(u32 t, u32 frames)
 {
-    return (((t % freq) * frames) / freq);
+    return (t % frames);
 }
 
-// maps time t to a frame number [0; frames) at a looping frequence of freq
+// maps time t to a frame number [0; frames), looping back and forth
 // one loop is 0 to frames - 1 and back to 0
-static i32 frame_from_ticks_loop_pingpong(u32 t, u32 freq, u32 frames)
+static i32 frame_from_ticks_pingpong(u32 t, u32 frames)
 {
-    u32 x = (((t % (freq << 1)) * (frames - 1)) << 1) / freq;
+    u32 n = (frames << 1) - 1;
+    u32 x = (((t % (n << 1)) * (frames - 1)) << 1) / n;
     u32 f = x % ((frames << 1) - 2);
     if (f < frames) return f;
     return (frames - (f % frames) - 2);

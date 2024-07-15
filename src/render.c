@@ -5,7 +5,6 @@
 #include "render.h"
 #include "app.h"
 #include "game.h"
-#include "obj/behaviour.h"
 
 static inline i32 cmp_obj_render_priority(obj_s **a, obj_s **b)
 {
@@ -192,7 +191,7 @@ void game_draw(game_s *g)
         break;
     }
 
-    g->cam.prev_offs = camoffset;
+    g->cam.prev_gfx_offs = camoffset;
 }
 
 void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
@@ -202,14 +201,9 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
     }
 
     v2_i32 ppos = v2_add(o->pos, cam);
-    if (o->ID == OBJ_ID_HERO) {
-        // less choppy alignment of player sprite and camera movement
-        if (cam.x != g->cam.prev_offs.x) {
-            ppos.x &= ~1;
-        }
-        if (cam.y != g->cam.prev_offs.y) {
-            ppos.y &= ~1;
-        }
+    if (o->enemy.hurt_tick) {
+        ppos.x += o->enemy.hurt_shake_offs.x;
+        ppos.y += o->enemy.hurt_shake_offs.y;
     }
 
     if (o->flags & OBJ_FLAG_SPRITE) {
@@ -218,11 +212,7 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
             if (sprite.trec.t.px == NULL) continue;
 
             v2_i32 sprpos = v2_add(ppos, v2_i32_from_i16(sprite.offs));
-            i32    mode   = 0;
-            if ((o->flags & OBJ_FLAG_ENEMY) && ((o->enemy.hurt_tick >> 2) & 1)) {
-                mode = SPR_MODE_INV;
-            }
-            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, mode);
+            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, 0);
 
             // player low health blinking
             if (o->ID == OBJ_ID_HERO && o->health == 1) {
@@ -260,7 +250,7 @@ void render_tilemap(game_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camof
     tex_s tex = {0};
     switch (layer) {
     case TILELAYER_BG:
-        tex = asset_tex(TEXID_TILESET_TERRAIN);
+        tex = asset_tex(TEXID_TILESET_BG_AUTO);
         break;
     case TILELAYER_PROP_BG:
         tex = asset_tex(TEXID_TILESET_PROPS_BG);
@@ -324,6 +314,21 @@ void ocean_calc_spans(game_s *g, rec_i32 camr)
     }
 }
 
+typedef struct {
+    u16 z;
+    u8  tx;
+    u8  ty;
+    i16 x;
+    i16 y;
+} tile_spr_s;
+
+static inline i32 cmp_tile_spr(tile_spr_s *a, tile_spr_s *b)
+{
+    return ((i32)a->z - (i32)b->z);
+}
+
+SORT_ARRAY_DEF(tile_spr_s, z_tile_spr, cmp_tile_spr)
+
 void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
     const tex_s     tset = asset_tex(TEXID_TILESET_TERRAIN);
@@ -333,13 +338,19 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
     ctxw.pat             = water_pattern();
     i32 tick             = g->gameplay_tick;
 
-#if 0
+    spm_push();
+
+    u32         n_tile_spr = 0;
+    tile_spr_s *tile_spr   = spm_alloct(tile_spr_s, 512);
+
+    // water tiles
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
             i32    i  = x + y * g->tiles_x;
             tile_s rt = g->tiles[i];
             if (rt.U == 0) continue;
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
+
             if (rt.type & TILE_WATER_MASK) {
                 i32 j = i - g->tiles_x;
                 if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
@@ -347,63 +358,34 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
                     texrec_s trw    = {twat, {16, watert << 4, 16, 16}};
                     gfx_spr_tile_32x32(ctxw, trw, p);
                 } else {
-                    gfx_rec_fill(ctxw, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
+                    rec_i32 recw = {p.x, p.y, 16, 16};
+                    gfx_rec_fill(ctxw, recw, GFX_COL_BLACK);
                 }
             }
 
             if (rt.u == 0) continue;
-            v2_i32   tp  = {p.x - 8, p.y - 8};
-            texrec_s trt = {tset, {rt.tx << 5, rt.ty << 5, 32, 32}};
-            gfx_spr_tile_32x32(ctx, trt, tp);
-#if defined(SYS_DEBUG) && 0
-            int t1 = g->tiles[x + y * g->tiles_x].collision;
+
+            // draw terrain tiles sorted by type, insert in buffer first
+            i32        tt          = rt.type & 31;
+            tile_spr_s sp          = {tt, rt.tx, rt.ty, p.x, p.y};
+            tile_spr[n_tile_spr++] = sp;
+#if defined(PLTF_DEBUG) && 0
+            i32 t1 = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t1 && t1 < NUM_TILE_SHAPES)) continue;
             texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
             gfx_spr(ctx, tr1, p, 0, 0);
 #endif
         }
     }
-#else
-    // water tiles
-    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
-        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-            i32    i  = x + y * g->tiles_x;
-            tile_s rt = g->tiles[i];
-            if (rt.U == 0) continue;
-            if (!(rt.type & TILE_WATER_MASK)) continue;
-            v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
-            i32    j = i - g->tiles_x;
-            if (0 <= j && !(g->tiles[j].type & TILE_WATER_MASK)) {
-                i32      watert = water_tile_get(x, y, tick);
-                texrec_s trw    = {twat, {16, watert << 4, 16, 16}};
-                gfx_spr_tile_32x32(ctxw, trw, p);
-            } else {
-                gfx_rec_fill(ctxw, (rec_i32){p.x, p.y, 16, 16}, PRIM_MODE_BLACK);
-            }
-        }
-    }
 
-    for (i32 pass = 15; pass >= 0; pass--) {
-        for (i32 y = bounds.y1; y <= bounds.y2; y++) {
-            for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-                tile_s rt = g->tiles[x + y * g->tiles_x];
-                i32    tt = rt.type & 15;
-                if (tt + 1 != pass) continue;
-                if (rt.u == 0) continue;
-                v2_i32   p   = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
-                v2_i32   tp  = {p.x - 8, p.y - 8};
-                texrec_s trt = {tset, {rt.tx << 5, rt.ty << 5, 32, 32}};
-                gfx_spr_tile_32x32(ctx, trt, tp);
-#if defined(SYS_DEBUG) && 0
-                int t1 = g->tiles[x + y * g->tiles_x].collision;
-                if (!(0 < t1 && t1 < NUM_TILE_SHAPES)) continue;
-                texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
-                gfx_spr(ctx, tr1, p, 0, 0);
-#endif
-            }
-        }
+    sort_z_tile_spr(tile_spr, n_tile_spr);
+    for (u32 n = 0; n < n_tile_spr; n++) {
+        tile_spr_s sp   = tile_spr[n];
+        texrec_s   trec = {tset, {sp.tx << 5, sp.ty << 5, 32, 32}};
+        v2_i32     pos  = {sp.x - 8, sp.y - 8};
+        gfx_spr_tile_32x32(ctx, trec, pos);
     }
-#endif
+    spm_pop();
 
     ocean_s *oc = &g->ocean;
     if (oc->active) {
@@ -412,10 +394,10 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
 
         ctxf.pat  = water_pattern();
         ctxl.pat  = gfx_pattern_interpolate(1, 6);
-        i32 y_max = clamp_i(oc->y_max, 0, ctx.dst.h - 1);
+        i32 y_max = clamp_i32(oc->y_max, 0, ctx.dst.h - 1);
 
         // fill "static" bottom section
-        u32 *px = &((u32 *)ctx.dst.px)[y_max * ctx.dst.wword];
+        u32 *px = &ctx.dst.px[y_max * ctx.dst.wword];
         for (i32 y = y_max; y < ctx.dst.h; y++) {
             u32 pt = ~ctxf.pat.p[y & 7];
             for (i32 x = 0; x < ctx.dst.wword; x++)
@@ -462,7 +444,7 @@ void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 
     ocean_s *oc = &g->ocean;
     if (oc->active) {
-        i32 y_max = clamp_i(oc->y_max, 0, t.h);
+        i32 y_max = clamp_i32(oc->y_max, 0, t.h);
 
         for (i32 k = 0, x = 0; k < oc->n_spans; k++) {
             ocean_span_s sp = oc->spans[k];
@@ -472,7 +454,7 @@ void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
             x += sp.w;
         }
 
-        u32 *px = &((u32 *)t.px)[y_max * t.wword];
+        u32 *px = &t.px[y_max * t.wword];
         i32  N  = t.wword * (t.h - y_max);
         for (i32 n = 0; n < N; n++) {
             *px++ = 0;
@@ -480,55 +462,78 @@ void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
     }
 }
 
-void render_rec_as_terrain(gfx_ctx_s ctx, rec_i32 r, int terrain)
+// renders a block of tiles dressed up as tile_type
+void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type)
 {
-    assert((r.w & 15) == 0 && (r.h & 15) == 0);
-    i32 nx = r.w >> 4;
-    i32 ny = r.h >> 4;
+    if (tile_type < TILE_TYPE_DEBUG) return;
 
-    texrec_s tr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 16, 16);
-    for (i32 y = 0; y < ny; y++) {
-        for (i32 x = 0; x < nx; x++) {
-            if (ny == 1 && nx == 1) { // single block
-                tr.r.x = 7 * 16;
-                tr.r.y = 1 * 16;
-            } else if (ny == 1) { // horizontal strip
-                if (x == 0) {
+    // check if visible at all
+    rec_i32 visible_geometry = {pos.x - 8,
+                                pos.y - 8,
+                                (tx << 5) + 8,
+                                (ty << 5) + 8};
+    rec_i32 rtarget          = {ctx.clip_x1,
+                                ctx.clip_y1,
+                                ctx.clip_x2 - ctx.clip_x1 + 1,
+                                ctx.clip_y2 - ctx.clip_y1 + 1};
+    if (!overlap_rec(visible_geometry, rtarget)) return;
 
-                } else if (x == nx - 1) {
-                } else {
+    texrec_s tr = asset_texrec(TEXID_TILESET_TERRAIN, 0, 0, 32, 32);
+
+    for (i32 y = 0; y < ty; y++) {
+        for (i32 x = 0; x < tx; x++) {
+            u32 tilex = 0;
+            u32 tiley = 0;
+
+            if (0) {
+            } else if (tx == 1 && ty == 1) { // 1-tile block
+                tilex = 7, tiley = 1;
+            } else if (tx == 1 && 1 < ty) { // vertical strip
+                if (0) {
+                } else if (y == 0) { // left
+                    tilex = 0, tiley = 1;
+                } else if (y == ty - 1) { // right
+                    tilex = 0, tiley = 7;
+                } else { // middle
+                    tilex = 7, tiley = 3;
                 }
-            } else if (nx == 1) { // vertical strip
-                if (y == 0) {
-
-                } else if (y == ny - 1) {
-                } else {
+            } else if (ty == 1 && 1 < tx) { // horizontal strip
+                if (0) {
+                } else if (x == 0) { // top
+                    tilex = 1, tiley = 0;
+                } else if (x == tx - 1) { // bottom
+                    tilex = 7, tiley = 0;
+                } else { // middle
+                    tilex = 4, tiley = 7;
                 }
-            } else if (y == 0) { // top row
-                if (x == 0) {
-
-                } else if (x == nx - 1) {
-
-                } else {
-                }
-            } else if (y == ny - 1) { // bottom row
-                if (x == 0) {
-
-                } else if (x == nx - 1) {
-
-                } else {
-                }
-            } else { // middle row
-                if (x == 0) {
-
-                } else if (x == nx - 1) {
-
-                } else {
+            } else { // big block
+                if (0) {
+                } else if (x == 0 && y == 0) { // corner top left
+                    tilex = 5, tiley = 5;
+                } else if (x == 0 && y == ty - 1) { // corner bottom left
+                    tilex = 3, tiley = 4;
+                } else if (x == tx - 1 && y == 0) { // corner top right
+                    tilex = 4, tiley = 3;
+                } else if (x == tx - 1 && y == ty - 1) { // corner bottom right
+                    tilex = 6, tiley = 6;
+                } else if (x == 0) { // left
+                    tilex = 0, tiley = 4;
+                } else if (y == 0) { // top
+                    tilex = 4, tiley = 0;
+                } else if (x == tx - 1) { // right
+                    tilex = 2, tiley = 4;
+                } else if (y == ty - 1) { // bottom
+                    tilex = 1, tiley = 6;
+                } else { // middle
+                    tilex = 4, tiley = 1;
                 }
             }
 
-            v2_i32 pos = {0};
-            gfx_spr(ctx, tr, pos, 0, 0);
+            tr.r.x = (tilex << 5);
+            tr.r.y = (tiley << 5) + ((tile_type - 2) << 8);
+
+            v2_i32 p = {pos.x + (x << 4) - 8, pos.y + (y << 4) - 8};
+            gfx_spr(ctx, tr, p, 0, 0);
         }
     }
 }

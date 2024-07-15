@@ -34,6 +34,7 @@ enum {
     HERO_UPGRADE_FLY,
     HERO_UPGRADE_LAMP,
     HERO_UPGRADE_SHIELD,
+    HERO_UPGRADE_WHIRLWIND,
     //
     NUM_HERO_UPGRADES = 32
 };
@@ -127,13 +128,16 @@ typedef struct hero_s {
     i8           grabbingp;
     i8           grabbing;
     u8           ground_impact_ticks;
+    u8           edgeticks;
+    u8           jump_index; // index into jump parameter table
+    u8           jump_btn_buffer;
     i16          flytime_added;
     i16          flytime;
     i16          low_grav_ticks;
     i16          low_grav_ticks_0;
+    u16          swimticks;
     i32          lifting_tick;
     i32          crawling_to_stand;
-    i32          was_hit_ticks;
     u32          b_hold_tick;
     i32          sprint_ticks;
     i32          sprint_dtap;
@@ -141,14 +145,11 @@ typedef struct hero_s {
     i32          idle_anim;
     i32          breath_ticks;
     i32          ropewalljump_dir;
-    i32          swimticks;
-    i32          jump_btn_buffer;
-    i32          jump_index; // index into jump parameter table
     i32          jumpticks;
-    i32          edgeticks;
     i32          ladderx;
     i32          reel_in_dtap;
     i32          jump_boost_tick;
+    u32          jump_fly_snd_iID;
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -170,5 +171,7 @@ i32    hero_flytime_left(game_s *g, obj_s *ohero);
 i32    hero_flytime_ui_full(game_s *g, obj_s *ohero);
 i32    hero_flytime_ui_added(game_s *g, obj_s *ohero);
 i32    hero_flytime_max(game_s *g, obj_s *ohero);
+bool32 hero_present_and_alive(game_s *g, obj_s **ohero);
+void   hero_item_activate(game_s *g, obj_s *o);
 
 #endif

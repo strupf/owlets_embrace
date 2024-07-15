@@ -2,11 +2,67 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef BEHAVIOUR_H
-#define BEHAVIOUR_H
+#ifndef OBJDEF_H
+#define OBJDEF_H
 
 #include "gamedef.h"
 #include "map_loader.h"
+
+enum {
+    OBJ_ID_NULL,
+    OBJ_ID_HERO,
+    OBJ_ID_HOOK,
+    OBJ_ID_SIGN,
+    OBJ_ID_SIGN_POPUP,
+    OBJ_ID_SOLID,
+    OBJ_ID_DOOR_SWING,
+    OBJ_ID_CRUMBLEBLOCK,
+    OBJ_ID_SWITCH,
+    OBJ_ID_TOGGLEBLOCK,
+    OBJ_ID_CLOCKPULSE,
+    OBJ_ID_SHROOMY,
+    OBJ_ID_CRAWLER,
+    OBJ_ID_CRAWLER_CATERPILLAR,
+    OBJ_ID_CARRIER,
+    OBJ_ID_HEROUPGRADE,
+    OBJ_ID_MOVINGPLATFORM,
+    OBJ_ID_NPC,
+    OBJ_ID_CHARGER,
+    OBJ_ID_TELEPORT,
+    OBJ_ID_COLLECTIBLE,
+    OBJ_ID_STALACTITE,
+    OBJ_ID_WALKER,
+    OBJ_ID_FLYER,
+    OBJ_ID_TRIGGERAREA,
+    OBJ_ID_PUSHBLOCK,
+    OBJ_ID_SPIKES,
+    OBJ_ID_KEY,
+    OBJ_ID_BOAT,
+    OBJ_ID_HOOKLEVER,
+    OBJ_ID_SPRITEDECAL,
+    OBJ_ID_FLOATER,
+    OBJ_ID_WALLWORM,
+    OBJ_ID_WALLWORM_PARENT,
+    OBJ_ID_HOOKPLANT,
+    OBJ_ID_BLOCKSWING,
+    OBJ_ID_STEAM_PLATFORM,
+    OBJ_ID_BUDPLANT,
+    OBJ_ID_PROJECTILE,
+    OBJ_ID_STAMINARESTORER,
+    OBJ_ID_CRABLER,
+    OBJ_ID_CRANKSWITCH,
+    OBJ_ID_CAMATTRACTOR,
+    OBJ_ID_FROG,
+};
+
+enum {
+    OBJ_TAG_HERO,
+    OBJ_TAG_HOOK,
+    OBJ_TAG_CARRIED,
+    OBJ_TAG_BOSS,
+    //
+    NUM_OBJ_TAGS
+};
 
 enum {
     PROJECTILE_ID_ENEMY,
@@ -66,4 +122,10 @@ void   flyblob_load(game_s *g, map_obj_s *mo);
 void   staminarestorer_load(game_s *g, map_obj_s *mo);
 void   staminarestorer_try_collect_any(game_s *g, obj_s *ohero);
 void   staminarestorer_respawn_all(game_s *g, obj_s *o);
+void   crankswitch_load(game_s *g, map_obj_s *mo);
+void   crankswitch_on_turn(game_s *g, obj_s *o, i32 angle_q8);
+void   camattractor_static_load(game_s *g, map_obj_s *mo);
+v2_i32 camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
+void   frog_load(game_s *g, map_obj_s *mo);
+
 #endif

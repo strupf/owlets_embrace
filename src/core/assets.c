@@ -6,11 +6,6 @@
 #include "gamedef.h"
 #include "util/mem.h"
 
-typedef struct {
-    char c; // byte value
-    u8   n; // number of bytes
-} rle_u8_s; // run length encoding
-
 ASSETS_s ASSETS;
 
 i32           assets_gen_texID();
@@ -51,6 +46,7 @@ typedef struct {
     exp_fnt_s fnt[NUM_FNTID];
 } asset_collection_s;
 
+#if ASSETS_EXPORT
 void assets_export()
 {
     spm_push();
@@ -97,11 +93,21 @@ void assets_export()
     }
 
     pltf_file_w(fil, coll, sizeof(asset_collection_s));
+#if 1 // compression
+    static char compressed[0x800000];
+
+    u32 stotal = mem_compress_block(compressed, mbeg, coll->size);
+    pltf_file_w(fil, compressed, stotal);
+    pltf_log("Wrote %u kb asset file!\n", (u32)((stotal + sizeof(asset_collection_s)) / 1024));
+#else
     pltf_file_w(fil, mbeg, coll->size);
-    pltf_file_close(fil);
     pltf_log("Wrote %u kb asset file!\n", (u32)(coll->size / 1024));
+#endif
+    pltf_file_close(fil);
+
     spm_pop();
 }
+#endif
 
 void assets_import()
 {
@@ -117,7 +123,12 @@ void assets_import()
 
     char *mbeg = (char *)&ASSETS.mem[0];
     pltf_file_r(fil, coll, sizeof(asset_collection_s));
-    pltf_file_r(fil, mbeg, coll->size);
+
+#define MEM_ASSET_DECOMPRESSION 0x40000
+    spm_push();
+    void *decompmem = spm_alloc(MEM_ASSET_DECOMPRESSION);
+    mem_decompress_block_from_file(fil, mbeg, decompmem, MEM_ASSET_DECOMPRESSION);
+    spm_pop();
     pltf_file_close(fil);
 
     for (u32 n = 1; n < NUM_TEXID; n++) { // exclude display
@@ -280,15 +291,15 @@ texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h)
     return tr;
 }
 
-void snd_play_ext(i32 ID, f32 vol, f32 pitch)
+u32 snd_play(i32 ID, f32 vol, f32 pitch)
 {
-    snd_play(asset_snd(ID), vol, pitch);
+    return snd_instance_play(asset_snd(ID), vol, pitch);
 }
 
 void asset_mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in)
 {
     FILEPATH_GEN(path, FILEPATH_MUS, filename);
-    mus_fade_to(path, ticks_out, ticks_in);
+    // mus_fade_to(path, ticks_out, ticks_in);
 }
 
 i32 assets_gen_texID()

@@ -30,7 +30,6 @@ static const i32 cos_table[256];
 
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
 {
-    Q8_FRAC(1, 256);
     if (x < lo) return lo;
     if (x > hi) return hi;
     return x;
@@ -190,8 +189,8 @@ static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 // more expensive variant using an immediate u64 to prevent overflow
 static inline i32 lerpl_i32(i32 a, i32 b, i32 num, i32 den)
 {
-    i32 r = a + (i32)(((i64)(b - a) * (i64)num) / (i64)den);
-    return r;
+    i64 i = (i64)(b - a) * num;
+    return (i32)(a + (i32)(i / (i64)den));
 }
 
 static inline f32 lerp_f32(f32 a, f32 b, f32 r)
@@ -226,35 +225,23 @@ static inline f32 sqrt_f32(f32 x)
 
 static inline u32 sqrt_u64(u64 x)
 {
-    if (x >= U64_C(0xFFFFFFFE00000001)) return U32_C(0xFFFFFFFF);
+    if (U64_C(0xFFFFFFFE00000001) <= x) return U32_C(0xFFFFFFFF);
     if (x == 0) return 0;
     u64 v = (u64)sqrt_f32((f32)x);
     v     = (v + x / v) >> 1;
-    return (u32)((v * v > x) ? v - 1 : v);
+    return (u32)((x < v * v) ? v - 1 : v);
 }
 
 static inline u32 sqrt_u32(u32 x)
 {
-#if 1
-    if (x >= U32_C(0xFFFE0001)) return 0xFFFF;
+    if (U32_C(0xFFFE0001) <= x) return 0xFFFF;
+    if (x == 0) return 0;
     u32 v = (u32)sqrt_f32((f32)x);
     // v     = (v + x / v) >> 1;
-    return ((v * v > x) ? v - 1 : v);
-#else
-    u32 y = 0;
-    for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
-        u32 b = y | m;
-        y >>= 1;
-        if (b <= z) {
-            z -= b;
-            y |= m;
-        }
-    }
-    return y;
-#endif
+    return ((x < v * v) ? v - 1 : v);
 }
 
-static inline u32 sqrt_u32_exact(u32 x)
+static u32 sqrt_u32_exact(u32 x)
 {
     u32 y = 0;
     for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
@@ -376,7 +363,7 @@ static i32 asin_q16(i32 x)
 
 // INPUT:  [-0x10000,0x10000] = [-1;1]
 // OUTPUT: [0, 0x20000] = [0;PI]
-static i32 acos_q16(i32 x)
+static inline i32 acos_q16(i32 x)
 {
     return 0x10000 - asin_q16(x);
 }
@@ -483,7 +470,7 @@ static inline v2_i32 v2_mulq(v2_i32 a, i32 n, i32 q)
     return v2_shr(v2_mul(a, n), q);
 }
 
-static inline i32 v2_eq(v2_i32 a, v2_i32 b)
+static inline bool32 v2_eq(v2_i32 a, v2_i32 b)
 {
     return a.x == b.x && a.y == b.y;
 }
@@ -498,25 +485,18 @@ static inline i32 v2_crs(v2_i32 a, v2_i32 b)
     return a.x * b.y - a.y * b.x;
 }
 
-static inline u32 v2_lensq(v2_i32 a)
-{
-    u32 x = (u32)abs_i32(a.x);
-    u32 y = (u32)abs_i32(a.y);
-    u64 v = ((u64)x * x + (u64)y * y);
-    assert(v <= (u64)(x * x + y * y));
-    return (x * x + y * y);
-}
-
 static inline u64 v2_lensql(v2_i32 a)
 {
-    u64 x = (u64)abs_i32(a.x);
-    u64 y = (u64)abs_i32(a.y);
-    return (x * x + y * y);
+    i64 x = (i64)a.x;
+    i64 y = (i64)a.y;
+    return ((u64)(x * x) + (u64)(y * y));
 }
 
-static inline f32 v2_lensq_f(v2_i32 v)
+static inline u32 v2_lensq(v2_i32 a)
 {
-    return (f32)v.x * (f32)v.x + (f32)v.y * (f32)v.y;
+    u64 r = v2_lensql(a);
+    assert((u64)((u32)r) == r);
+    return (u32)r;
 }
 
 static inline i32 v2_len(v2_i32 v)
@@ -531,7 +511,8 @@ static inline u32 v2_lenl(v2_i32 v)
 
 static inline f32 v2_lenf(v2_i32 v)
 {
-    return sqrt_f32(v2_lensq_f(v));
+    f32 ls = (f32)v.x * (f32)v.x + (f32)v.y * (f32)v.y;
+    return sqrt_f32(ls);
 }
 
 static inline u32 v2_distancesq(v2_i32 a, v2_i32 b)
@@ -561,11 +542,13 @@ static inline v2_i32 v2_setlen(v2_i32 a, i32 len)
     return v2_setlenl(a, v2_len(a), len);
 }
 
-static inline v2_i32 v2_truncate(v2_i32 a, i32 l)
+#define v2_truncate v2_truncatel
+
+static inline v2_i32 v2_truncatel(v2_i32 a, u32 l)
 {
-    u32 ls = v2_lensq(a);
-    if (ls <= (u32)l * (u32)l) return a;
-    return v2_setlenl(a, sqrt_u32(ls), l);
+    u64 ls = v2_lensql(a);
+    if (ls <= (u64)l * (u64)l) return a;
+    return v2_setlenl(a, sqrt_u64(ls), l);
 }
 
 static v2_i32 v2_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
@@ -919,13 +902,13 @@ static bool32 overlap_lineseg_line_excl(lineseg_i32 la, line_i32 lb)
 
 // projects a point onto a line and clamps it to the endpoints if not infinite
 // S = A + [(B - A) * u] / den
-static inline ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
+static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
 {
     v2_i32 pnt = v2_sub(p, a);
     v2_i32 dir = v2_sub(b, a);
     u32    d   = v2_lensq(dir);
     i32    s   = v2_dot(dir, pnt);
-    if (d > I32_MAX) { // reduce precision to fit both into i32
+    if ((u32)I32_MAX < d) { // reduce precision to fit both into i32
         d >>= 1;
         s >>= 1;
     }
@@ -940,8 +923,8 @@ static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
     return t;
 }
 
-static inline void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
-                                   i32 *u, i32 *v, i32 *w)
+static void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,
+                            i32 *u, i32 *v, i32 *w)
 {
     *u = v2_crs(v2_sub(b, a), v2_sub(p, a));
     *v = v2_crs(v2_sub(a, c), v2_sub(p, c));
@@ -974,7 +957,7 @@ static inline bool32 overlap_tri_pnt_incl2(tri_i32 t, v2_i32 p)
 }
 
 // check for overlap - touching tri considered overlapped
-static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
+static bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
 {
     i32 u = v2_crs(v2_sub(t.p[1], t.p[0]), v2_sub(p, t.p[0]));
     i32 v = v2_crs(v2_sub(t.p[0], t.p[2]), v2_sub(p, t.p[2]));
@@ -982,7 +965,7 @@ static inline bool32 overlap_tri_pnt_incl(tri_i32 t, v2_i32 p)
     return (u | v | w) >= 0 || (u <= 0 && v <= 0 && w <= 0);
 }
 
-static inline bool32 overlap_tri_pnt_incl_i16(tri_i16 t, v2_i16 p)
+static bool32 overlap_tri_pnt_incl_i16(tri_i16 t, v2_i16 p)
 {
     i32 u = v2_i16_crs(v2_i16_sub(t.p[1], t.p[0]), v2_i16_sub(p, t.p[0]));
     i32 v = v2_i16_crs(v2_i16_sub(t.p[0], t.p[2]), v2_i16_sub(p, t.p[2]));
@@ -999,28 +982,27 @@ static inline bool32 overlap_tri_pnt_incl_i16(tri_i16 t, v2_i16 p)
  */
 static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
 {
-    v2_i32 w = v2_sub(l.b, l.a);
-    v2_i32 x = v2_sub(t.p[1], t.p[0]);
-    v2_i32 y = v2_sub(t.p[2], t.p[0]);
-    v2_i32 z = v2_sub(t.p[2], t.p[1]);
-    v2_i32 a = v2_sub(l.a, t.p[0]);
-    v2_i32 b = v2_sub(l.b, t.p[0]);
-    v2_i32 c = v2_sub(l.a, t.p[1]);
-    v2_i32 d = v2_sub(l.a, t.p[2]);
-    v2_i32 e = v2_sub(l.b, t.p[1]);
-
-    i32 a0 = v2_crs(x, y);
-    i32 a1 = v2_crs(a, x);
-    i32 a2 = v2_crs(b, x);
-    i32 b1 = v2_crs(a, y);
-    i32 b2 = v2_crs(b, y);
-    i32 c0 = v2_crs(x, z);
-    i32 c1 = v2_crs(c, z);
-    i32 c2 = v2_crs(e, z);
-    i32 d0 = v2_crs(w, a);
-    i32 d1 = v2_crs(w, c);
-    i32 d2 = v2_crs(w, d);
-    i32 b0 = -a0;
+    v2_i32 w  = v2_sub(l.b, l.a);
+    v2_i32 x  = v2_sub(t.p[1], t.p[0]);
+    v2_i32 y  = v2_sub(t.p[2], t.p[0]);
+    v2_i32 z  = v2_sub(t.p[2], t.p[1]);
+    v2_i32 a  = v2_sub(l.a, t.p[0]);
+    v2_i32 b  = v2_sub(l.b, t.p[0]);
+    v2_i32 c  = v2_sub(l.a, t.p[1]);
+    v2_i32 d  = v2_sub(l.a, t.p[2]);
+    v2_i32 e  = v2_sub(l.b, t.p[1]);
+    i32    a0 = v2_crs(x, y);
+    i32    a1 = v2_crs(a, x);
+    i32    a2 = v2_crs(b, x);
+    i32    b1 = v2_crs(a, y);
+    i32    b2 = v2_crs(b, y);
+    i32    c0 = v2_crs(x, z);
+    i32    c1 = v2_crs(c, z);
+    i32    c2 = v2_crs(e, z);
+    i32    d0 = v2_crs(w, a);
+    i32    d1 = v2_crs(w, c);
+    i32    d2 = v2_crs(w, d);
+    i32    b0 = -a0;
 
     bool32 separated =
         (a0 | a1 | a2) >= 0 || (a0 <= 0 && a1 <= 0 && a2 <= 0) ||
@@ -1032,28 +1014,27 @@ static bool32 overlap_tri_lineseg_excl(tri_i32 t, lineseg_i32 l)
 
 static bool32 overlap_tri_lineseg_excl_i16(tri_i16 t, lineseg_i16 l)
 {
-    v2_i16 w = v2_i16_sub(l.b, l.a);
-    v2_i16 x = v2_i16_sub(t.p[1], t.p[0]);
-    v2_i16 y = v2_i16_sub(t.p[2], t.p[0]);
-    v2_i16 z = v2_i16_sub(t.p[2], t.p[1]);
-    v2_i16 a = v2_i16_sub(l.a, t.p[0]);
-    v2_i16 b = v2_i16_sub(l.b, t.p[0]);
-    v2_i16 c = v2_i16_sub(l.a, t.p[1]);
-    v2_i16 d = v2_i16_sub(l.a, t.p[2]);
-    v2_i16 e = v2_i16_sub(l.b, t.p[1]);
-
-    i32 a0 = v2_i16_crs(x, y);
-    i32 a1 = v2_i16_crs(a, x);
-    i32 a2 = v2_i16_crs(b, x);
-    i32 b1 = v2_i16_crs(a, y);
-    i32 b2 = v2_i16_crs(b, y);
-    i32 c0 = v2_i16_crs(x, z);
-    i32 c1 = v2_i16_crs(c, z);
-    i32 c2 = v2_i16_crs(e, z);
-    i32 d0 = v2_i16_crs(w, a);
-    i32 d1 = v2_i16_crs(w, c);
-    i32 d2 = v2_i16_crs(w, d);
-    i32 b0 = -a0;
+    v2_i16 w  = v2_i16_sub(l.b, l.a);
+    v2_i16 x  = v2_i16_sub(t.p[1], t.p[0]);
+    v2_i16 y  = v2_i16_sub(t.p[2], t.p[0]);
+    v2_i16 z  = v2_i16_sub(t.p[2], t.p[1]);
+    v2_i16 a  = v2_i16_sub(l.a, t.p[0]);
+    v2_i16 b  = v2_i16_sub(l.b, t.p[0]);
+    v2_i16 c  = v2_i16_sub(l.a, t.p[1]);
+    v2_i16 d  = v2_i16_sub(l.a, t.p[2]);
+    v2_i16 e  = v2_i16_sub(l.b, t.p[1]);
+    i32    a0 = v2_i16_crs(x, y);
+    i32    a1 = v2_i16_crs(a, x);
+    i32    a2 = v2_i16_crs(b, x);
+    i32    b1 = v2_i16_crs(a, y);
+    i32    b2 = v2_i16_crs(b, y);
+    i32    c0 = v2_i16_crs(x, z);
+    i32    c1 = v2_i16_crs(c, z);
+    i32    c2 = v2_i16_crs(e, z);
+    i32    d0 = v2_i16_crs(w, a);
+    i32    d1 = v2_i16_crs(w, c);
+    i32    d2 = v2_i16_crs(w, d);
+    i32    b0 = -a0;
 
     bool32 separated =
         (a0 | a1 | a2) >= 0 || (a0 <= 0 && a1 <= 0 && a2 <= 0) ||

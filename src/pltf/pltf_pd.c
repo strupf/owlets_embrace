@@ -12,6 +12,7 @@ typedef struct {
 static PD_s g_PD;
 
 PlaydateAPI *PD;
+void         (*PD_system_error)(const char *format, ...);
 void         (*PD_system_logToConsole)(const char *fmt, ...);
 void        *(*PD_system_realloc)(void *ptr, size_t s);
 int          (*PD_system_formatString)(char **outstr, const char *fmt, ...);
@@ -32,6 +33,7 @@ __declspec(dllexport)
     switch (event) {
     case kEventInit:
         PD                          = pd;
+        PD_system_error             = PD->system->error;
         PD_system_logToConsole      = PD->system->logToConsole;
         PD_system_realloc           = PD->system->realloc;
         PD_system_formatString      = PD->system->formatString;
@@ -109,6 +111,7 @@ u32 pltf_pd_btn()
 }
 
 // BACKEND =====================================================================
+
 f32 pltf_seconds()
 {
     return PD_system_getElapsedTime();

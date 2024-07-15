@@ -9,8 +9,8 @@
 
 const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
     {800, 30, 100, 30},  // out of water
-    {1200, 40, 70, 25},  // ground
-    {600, 50, 140, 0},   // fly
+    {1200, 35, 70, 20},  // ground
+    {600, 50, 140, 20},  // fly
     {1000, 25, 80, 30}}; // wall jump
 
 void hero_on_update(game_s *g, obj_s *o);
@@ -38,7 +38,6 @@ obj_s *hero_create(game_s *g)
     o->health_max      = g->save.health;
     o->health          = o->health_max;
     o->render_priority = RENDER_PRIO_HERO;
-    o->n_sprites       = 2;
     o->drag_q8.x       = 256;
     o->drag_q8.y       = HERO_DRAG_Y;
     o->gravity_q8.y    = HERO_GRAVITY;
@@ -157,7 +156,13 @@ bool32 hero_unhook(game_s *g, obj_s *o)
     hero_s *h = &g->hero_mem;
     if (!obj_handle_valid(h->hook)) return 0;
 
-    hook_destroy(g, o, obj_from_obj_handle(h->hook));
+    obj_s *ohook;
+    if (!obj_try_from_obj_handle(h->hook, &ohook)) return 0;
+    bool32 attached = hook_is_attached(ohook);
+    hook_destroy(g, o, ohook);
+
+    if (obj_grounded(g, o) || !attached) return 1;
+
     i32 mulx = 280;
     i32 muly = 320;
 
@@ -178,13 +183,10 @@ bool32 hero_unhook(game_s *g, obj_s *o)
     o->vel_q8.x = ((o->vel_q8.x * mulx) >> 8) + addx;
     o->vel_q8.y = ((o->vel_q8.y * muly) >> 8) + addy;
 
-    if (!obj_grounded(g, o)) { // low gravity mode
-        hero_s *h = &g->hero_mem;
 #define LOW_G_TICKS_VEL 4000
-        i32 low_g_v         = min_i32(abs_i32(o->vel_q8.y), LOW_G_TICKS_VEL);
-        h->low_grav_ticks_0 = HERO_LOW_GRAV_TICKS;
-        h->low_grav_ticks   = lerp_i32(0, HERO_LOW_GRAV_TICKS, low_g_v, LOW_G_TICKS_VEL);
-    }
+    i32 low_g_v         = min_i32(abs_i32(o->vel_q8.y), LOW_G_TICKS_VEL);
+    h->low_grav_ticks_0 = HERO_LOW_GRAV_TICKS;
+    h->low_grav_ticks   = lerp_i32(0, HERO_LOW_GRAV_TICKS, low_g_v, LOW_G_TICKS_VEL);
 
     return 1;
 }
@@ -208,15 +210,16 @@ void hero_start_jump(game_s *g, obj_s *o, i32 ID)
     HERO_GRAVITY       = jsonk_i32(js, "grav");
     spm_pop();
 #endif
-    snd_play_ext(SNDID_SPEAK, 1.f, 0.5f);
-    hero_jumpvar_s jv  = g_herovar[ID];
-    h->jump_index      = ID;
-    h->edgeticks       = 0;
-    h->jump_btn_buffer = 0;
-    o->vel_q8.y        = -jv.vy;
-    h->jumpticks       = jv.ticks;
 
+    hero_jumpvar_s jv   = g_herovar[ID];
+    h->jump_index       = ID;
+    h->edgeticks        = 0;
+    h->jump_btn_buffer  = 0;
+    o->vel_q8.y         = -jv.vy;
+    h->jumpticks        = jv.ticks;
+    h->jump_fly_snd_iID = 0;
     if (ID == HERO_JUMP_GROUND) {
+        snd_play(SNDID_SPEAK, 1.f, 0.5f);
         if (h->jump_boost_tick) {
             o->vel_q8.y        = (o->vel_q8.y * 300) >> 8;
             h->jump_boost_tick = 0;
@@ -229,6 +232,9 @@ void hero_start_jump(game_s *g, obj_s *o, i32 ID)
         spritedecal_create(g, RENDER_PRIO_HERO + 1, NULL, posc, TEXID_MISCOBJ,
                            trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
     }
+    if (ID == HERO_JUMP_FLY) {
+        snd_play(SNDID_WING1, 2.f, rngr_f32(0.8f, 1.2f));
+    }
 }
 
 void hero_use_hook(game_s *g, obj_s *o)
@@ -240,9 +246,15 @@ void hero_use_hook(game_s *g, obj_s *o)
     // throw new hook
 
     hero_s *h = &g->hero_mem;
-    snd_play_ext(SNDID_HOOK_THROW, 1.f, 1.f);
+    snd_play(SNDID_HOOK_THROW, 1.f, 1.f);
 
-    v2_i32 center  = obj_pos_center(o);
+    v2_i32 center = obj_pos_center(o);
+    center.y -= 8;
+
+    if (dirx && diry == 0) {
+        diry = -1;
+    }
+
     v2_i32 vlaunch = {dirx * 3000, diry * 2300};
 
     if (diry < 0) {
@@ -261,13 +273,68 @@ void hero_use_hook(game_s *g, obj_s *o)
     o->ropenode    = rope->head;
 
     v2_i32 pcurr = v2_shl(center, 8);
-    // "hint" the direction to the verlet sim
-    v2_i32 pprev = {pcurr.x - (dirx << 9), pcurr.y - (diry << 9)};
-    // v2_i32 pprev = pcurr;
+
     for (i32 n = 0; n < ROPE_VERLET_N; n++) {
-        rope->ropept[n].p  = pcurr;
-        rope->ropept[n].pp = pprev;
+        rope->ropept[n].p    = pcurr;
+        // "hint" the direction to the verlet sim
+        i32 k                = ROPE_VERLET_N - 1 - n;
+        rope->ropept[n].pp.x = pcurr.x - ((dirx << 12) * k) / ROPE_VERLET_N;
+        rope->ropept[n].pp.y = pcurr.y - ((diry << 12) * k) / ROPE_VERLET_N;
     }
+}
+
+#define HOOK_HOLD_TICK 12
+
+void hero_item_activate(game_s *g, obj_s *o)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+
+    if (hero_has_upgrade(g, HERO_UPGRADE_HOOK) &&
+        HOOK_HOLD_TICK <= h->b_hold_tick) {
+        h->attack_tick = 0;
+        if (inp_x() | inp_y()) {
+            hero_use_hook(g, o);
+            obj_s *ohook = obj_from_obj_handle(h->hook);
+        }
+    } else if (!h->item_only_hook) {
+
+        h->attack_tick = 1;
+        hitbox_s hb    = {0};
+        hb.damage      = 1;
+        hb.r.h         = 32;
+        hb.r.w         = 48;
+        hb.r.y         = o->pos.y - 5;
+        hb.force_q8.x  = o->facing * 800;
+        hb.force_q8.y  = -400;
+        if (o->facing == 1) {
+            hb.r.x = o->pos.x + o->w;
+        } else {
+            hb.r.x = o->pos.x - hb.r.w;
+        }
+
+        bool32 did_hit = obj_game_player_attackbox(g, hb);
+        snd_play(SNDID_OWLET_ATTACK_1, 1.3f, rngr_f32(0.8f, 1.2f));
+
+        rec_i32 rslash = {0, 1024 - 64, 64, 64};
+        v2_i32  dcpos  = {-10, -40};
+        i32     flip   = 0;
+        if (o->facing < 0) {
+            flip    = SPR_FLIP_X;
+            dcpos.x = -40;
+        }
+        if (h->attack_flipflop) {
+            rslash.x += 512;
+        }
+
+        // slash sprite
+        spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_HERO, rslash, 18, 8, flip);
+    }
+
+    g->hook_pause_tick  = 0;
+    h->hook_cancel_tick = 0;
+    h->attack_hold_tick = 0;
+    h->b_hold_tick      = 0;
+    h->item_only_hook   = 0;
 }
 
 void hero_item_usage(game_s *g, obj_s *o, i32 state)
@@ -390,54 +457,22 @@ void hero_item_usage(game_s *g, obj_s *o, i32 state)
         return;
     }
 
-#define HOOK_HOLD_TICK 12
-
     if (h->b_hold_tick) {
         if (inp_action_jr(INP_B)) {
-            if (hero_has_upgrade(g, HERO_UPGRADE_HOOK) &&
-                HOOK_HOLD_TICK <= h->b_hold_tick) {
-                h->attack_tick = 0;
-                if (inp_x() | inp_y()) {
-                    hero_use_hook(g, o);
-                    obj_s *ohook = obj_from_obj_handle(h->hook);
-                }
-            } else if (!h->item_only_hook) {
-                h->attack_tick = 1;
-                hitbox_s hb    = {0};
-                hb.damage      = 1;
-                hb.r.h         = 32;
-                hb.r.w         = 48;
-                hb.r.y         = o->pos.y - 5;
-                hb.force_q8.x  = o->facing * 800;
-                hb.force_q8.y  = -400;
-                if (o->facing == 1) {
-                    hb.r.x = o->pos.x + o->w;
-                } else {
-                    hb.r.x = o->pos.x - hb.r.w;
-                }
-
-                obj_game_player_attackbox(g, hb);
-
-                rec_i32 rslash = {0, 1024, 64, 64};
-                v2_i32  dcpos  = {-10, -40};
-                i32     flip   = 0;
-                if (o->facing < 0) {
-                    flip    = SPR_FLIP_X;
-                    dcpos.x = -40;
-                }
-                if (h->attack_flipflop) {
-                    rslash.x += 512;
-                }
-
-                // slash sprite
-                spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_HERO, rslash, 18, 8, flip);
-            }
-            h->hook_cancel_tick = 0;
-            h->attack_hold_tick = 0;
-            h->b_hold_tick      = 0;
-            h->item_only_hook   = 0;
+            hero_item_activate(g, o);
         } else {
             h->b_hold_tick++;
+            if (!g->hook_pause_tick &&
+                HOOK_HOLD_TICK - 3 <= h->b_hold_tick &&
+                !h->item_only_hook) {
+                g->hook_pause_tick = 1;
+            }
+            if (HOOK_HOLD_TICK == h->b_hold_tick && !h->item_only_hook) {
+                // snd_play(SNDID_HOOK_READY, 0.5f, 1.f);
+                rec_i32 rslash = {0, 640, 64, 64};
+                v2_i32  dcpos  = {-20, -20};
+                spritedecal_create(g, 100000, o, dcpos, TEXID_EXPLOSIONS, rslash, 8, 7, 0);
+            }
         }
     } else if (inp_action_jp(INP_B)) {
         if (o->rope) {
@@ -469,7 +504,7 @@ void hero_on_update(game_s *g, obj_s *o)
 {
     hero_s *h = &g->hero_mem;
 
-    const v2_i32 v_og   = o->vel_q8;
+    const v2_i16 v_og   = o->vel_q8;
     const i32    state  = hero_determine_state(g, o, h);
     i32          dpad_x = inp_x();
     i32          dpad_y = inp_y();
@@ -540,7 +575,7 @@ void hero_on_update(game_s *g, obj_s *o)
 
     if ((state != HERO_STATE_DEAD) && (state != HERO_STATE_SWIMMING || !h->diving)) {
         h->breath_ticks -= hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 100 : 5;
-        h->breath_ticks = max_i(h->breath_ticks, 0);
+        h->breath_ticks = max_i32(h->breath_ticks, 0);
     }
 
     if (state != HERO_STATE_AIR && state != HERO_STATE_GROUND) {
@@ -583,7 +618,7 @@ void hero_on_update(game_s *g, obj_s *o)
         } else {
             if (1000 <= o->vel_q8.y) {
                 f32 vol = (1.f * (f32)o->vel_q8.y) / 2000.f;
-                snd_play_ext(SNDID_STEP, min_f(vol, 1.f) * 1.2f, 1.f);
+                snd_play(SNDID_STEP, min_f(vol, 1.f) * 1.2f, 1.f);
             }
 
             if (1000 <= o->vel_q8.y && 0 < inp_y()) {
@@ -749,4 +784,14 @@ i32 hero_flytime_ui_added(game_s *g, obj_s *ohero)
 i32 hero_flytime_max(game_s *g, obj_s *ohero)
 {
     return g->save.flyupgrades * HERO_TICKS_PER_JUMP_UPGRADE;
+}
+
+bool32 hero_present_and_alive(game_s *g, obj_s **ohero)
+{
+    obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (!o) return 0;
+    if (ohero) {
+        *ohero = o;
+    }
+    return (0 < o->health);
 }

@@ -11,11 +11,11 @@
 // #define SPR_FUNC_FX       0
 
 #if SPR_FUNC_DM
-#define SPR_DST_INCR                     2
-#define SPR_FUNC_BLIT(DP, DM, SP, SM, M) spr_blit_pm(DP, DM, SP, SM, M)
+#define SPR_DST_INCR                         2
+#define SPR_FUNC_BLIT(DP, DM, SP, SM, PT, M) spr_blit_pm(DP, DM, SP, (SM) & (PT), M)
 #else
-#define SPR_DST_INCR                     1
-#define SPR_FUNC_BLIT(DP, DM, SP, SM, M) spr_blit_p(DP, SP, SM, M)
+#define SPR_DST_INCR                         1
+#define SPR_FUNC_BLIT(DP, DM, SP, SM, PT, M) spr_blit_p(DP, SP, (SM) & (PT), M)
 #endif // dst mask
 
 #if SPR_FUNC_FX
@@ -109,7 +109,7 @@ void SPR_FUNC_PF(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
 #endif
             sp += SPR_SRC_INCR;
             for (i32 i = 0; i < dm; i++, sp += SPR_SRC_INCR, dp += SPR_DST_INCR) {
-                SPR_FUNC_BLIT(dp, dp + 1, p, m & pt, mode);
+                SPR_FUNC_BLIT(dp, dp + 1, p, m, pt, mode);
                 p = SPR_FUNC_GET(*sp);
 #if SPR_FUNC_SM
                 m = SPR_FUNC_GET(*(sp + 1));
@@ -117,7 +117,7 @@ void SPR_FUNC_PF(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
                 m = 0xFFFFFFFFU;
 #endif
             }
-            SPR_FUNC_BLIT(dp, dp + 1, p, m & (pt & mr), mode);
+            SPR_FUNC_BLIT(dp, dp + 1, p, m & mr, pt, mode);
             continue;
         }
         if (0 < of) { // first word
@@ -140,10 +140,10 @@ void SPR_FUNC_PF(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
         m = ml;
 #endif
         if (dm == 0) { // only one word long
-            SPR_FUNC_BLIT(dp, dp + 1, p, m & (pt & mr), mode);
+            SPR_FUNC_BLIT(dp, dp + 1, p, m & mr, pt, mode);
             continue;
         }
-        SPR_FUNC_BLIT(dp, dp + 1, p, m & pt, mode);
+        SPR_FUNC_BLIT(dp, dp + 1, p, m, pt, mode);
         dp += SPR_DST_INCR;
 
         for (i32 i = 1; i < dm; i++, sp += SPR_SRC_INCR, dp += SPR_DST_INCR) { // middle words
@@ -155,7 +155,7 @@ void SPR_FUNC_PF(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
 #else
             m = 0xFFFFFFFFU;
 #endif
-            SPR_FUNC_BLIT(dp, dp + 1, p, m & pt, mode);
+            SPR_FUNC_BLIT(dp, dp + 1, p, m, pt, mode);
         }
 
         p = SPR_FUNC_GET(bswap32(*sp)) << l; // last word
@@ -173,7 +173,7 @@ void SPR_FUNC_PF(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
         }
         p = bswap32(p);
         m = bswap32(m);
-        SPR_FUNC_BLIT(dp, dp + 1, p, m & (pt & mr), mode);
+        SPR_FUNC_BLIT(dp, dp + 1, p, m & mr, pt, mode);
     }
 }
 

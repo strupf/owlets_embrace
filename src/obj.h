@@ -8,9 +8,10 @@
 #define ENEMY_HURT_TICKS 20
 
 #include "gamedef.h"
+#include "objdef.h"
 #include "rope.h"
 
-#define NUM_OBJ_POW_2   10 // = 2^N
+#define NUM_OBJ_POW_2   9 // = 2^N
 #define NUM_OBJ         (1 << NUM_OBJ_POW_2)
 #define OBJ_ID_INDEX_SH (32 - NUM_OBJ_POW_2)
 #define OBJ_ID_GEN_MASK (((u32)1 << OBJ_ID_INDEX_SH) - 1)
@@ -25,57 +26,6 @@ static inline u32 obj_GID_set(i32 index, i32 gen)
     assert(0 <= index && index < NUM_OBJ);
     return (((u32)index << OBJ_ID_INDEX_SH) | ((u32)gen));
 }
-
-enum {
-    OBJ_ID_NULL,
-    OBJ_ID_HERO,
-    OBJ_ID_HOOK,
-    OBJ_ID_SIGN,
-    OBJ_ID_SIGN_POPUP,
-    OBJ_ID_SOLID,
-    OBJ_ID_DOOR_SWING,
-    OBJ_ID_CRUMBLEBLOCK,
-    OBJ_ID_SWITCH,
-    OBJ_ID_TOGGLEBLOCK,
-    OBJ_ID_CLOCKPULSE,
-    OBJ_ID_SHROOMY,
-    OBJ_ID_CRAWLER,
-    OBJ_ID_CRAWLER_CATERPILLAR,
-    OBJ_ID_CARRIER,
-    OBJ_ID_HEROUPGRADE,
-    OBJ_ID_MOVINGPLATFORM,
-    OBJ_ID_NPC,
-    OBJ_ID_CHARGER,
-    OBJ_ID_TELEPORT,
-    OBJ_ID_COLLECTIBLE,
-    OBJ_ID_STALACTITE,
-    OBJ_ID_WALKER,
-    OBJ_ID_FLYER,
-    OBJ_ID_TRIGGERAREA,
-    OBJ_ID_PUSHBLOCK,
-    OBJ_ID_SPIKES,
-    OBJ_ID_KEY,
-    OBJ_ID_BOAT,
-    OBJ_ID_HOOKLEVER,
-    OBJ_ID_SPRITEDECAL,
-    OBJ_ID_FLOATER,
-    OBJ_ID_WALLWORM,
-    OBJ_ID_WALLWORM_PARENT,
-    OBJ_ID_HOOKPLANT,
-    OBJ_ID_BLOCKSWING,
-    OBJ_ID_STEAM_PLATFORM,
-    OBJ_ID_BUDPLANT,
-    OBJ_ID_PROJECTILE,
-    OBJ_ID_STAMINARESTORER,
-};
-
-enum {
-    OBJ_TAG_HERO,
-    OBJ_TAG_HOOK,
-    OBJ_TAG_CARRIED,
-    //
-    NUM_OBJ_TAGS
-};
 
 enum {
     PROJECTILE_ID_DEFAULT,
@@ -98,8 +48,8 @@ enum {
 #define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
 #define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
 #define OBJ_FLAG_BOSS               ((u64)1 << 17)
-#define OBJ_FLAG_HOVER_TEXT         ((u64)1 << 19)
-#define OBJ_FLAG_CAN_BE_JUMPED_ON   ((u64)1 << 20)
+#define OBJ_FLAG_HOVER_TEXT         ((u64)1 << 18)
+#define OBJ_FLAG_CAN_BE_JUMPED_ON   ((u64)1 << 19)
 #define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
@@ -139,11 +89,12 @@ typedef struct {
 } obj_sprite_s;
 
 typedef struct {
-    i16    sndID_hurt;
-    i16    sndID_die;
-    i16    drops;
-    i16    hurt_tick;
-    bool32 invincible;
+    u16   sndID_hurt;
+    u16   sndID_die;
+    u8    die_tick;
+    u8    hurt_tick;
+    v2_i8 hurt_shake_offs;
+    bool8 invincible;
 } enemy_s;
 
 typedef struct {
@@ -190,13 +141,15 @@ struct obj_s {
     i16               h;
     v2_i32            pos; // position in pixels
     v2_i32            posprev;
-    v2_i32            subpos_q8;
-    v2_i32            vel_q8;
-    v2_i32            vel_prev_q8;
-    v2_i32            vel_cap_q8;
-    v2_i32            drag_q8;
-    v2_i32            gravity_q8;
-    v2_i32            tomove;
+    v2_i16            subpos_q8;
+    v2_i16            vel_q8;
+    v2_i16            vel_prev_q8;
+    v2_i16            vel_cap_q8;
+    v2_i16            drag_q8;
+    v2_i16            gravity_q8;
+    v2_i16            tomove;
+    v2_i16            knockback_q8;
+    u16               knockback_tick;
     // some generic behaviour fields
     i32               facing; // -1 left, +1 right
     i32               trigger;
@@ -209,11 +162,9 @@ struct obj_s {
     i16               substate;
     i16               health;
     i16               health_max;
+    u16               cam_attract_r;
     i16               invincible_tick;
     enemy_s           enemy;
-    //
-    i32               hover_text_tick;
-    char              hover_text[2][64];
     //
     ropenode_s       *ropenode;
     rope_s           *rope;

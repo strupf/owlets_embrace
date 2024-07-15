@@ -15,7 +15,7 @@ typedef struct {
     i16    flytime;
     u8     jump_ui_tick;
     bool8  jump_ui_may_hide;
-    v2_i32 hero_v;
+    v2_i16 hero_v;
     v2_i32 hero_feet;
     i32    teleport_ID;
     char   to_load[64];

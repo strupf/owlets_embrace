@@ -33,7 +33,7 @@ void switch_on_animate(game_s *g, obj_s *o)
 void switch_on_interact(game_s *g, obj_s *o)
 {
     if (!(o->flags & OBJ_FLAG_INTERACTABLE)) return;
-    snd_play_ext(SNDID_SWITCH, .5f, 1.f);
+    snd_play(SNDID_SWITCH, .5f, 1.f);
     cam_screenshake(&g->cam, 8, 5);
     obj_switch_s *os = (obj_switch_s *)o->mem;
     if (os->once) {

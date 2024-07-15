@@ -21,22 +21,12 @@ void cam_screenshake(cam_s *c, i32 ticks, i32 str)
 
 v2_i32 cam_pos_px(game_s *g, cam_s *c)
 {
-    v2_f32 pprev = c->pos;
-    v2_f32 p     = c->pos;
-
-    p = v2f_add(p, c->look_ahead);
-    p = v2f_add(p, c->camattr);
-    if (c->locked_x) {
-        p.x = pprev.x;
-    }
-    if (c->locked_y) {
-        p.y = pprev.y;
-    }
-    p = v2f_add(p, c->offs_shake);
-
-    v2_i32 v = {(i32)(p.x + .5f), (i32)(p.y + .5f)};
-    v2_i32 r = cam_constrain_to_room(g, v);
-    return r;
+    v2_i32 pos_q8 = c->pos_q8;
+    pos_q8        = v2_add(pos_q8, c->attract);
+    v2_i32 pos    = v2_shr(pos_q8, 8);
+    pos           = v2_add(pos, c->shake);
+    pos           = cam_constrain_to_room(g, pos);
+    return pos;
 }
 
 rec_i32 cam_rec_px(game_s *g, cam_s *c)
@@ -48,8 +38,8 @@ rec_i32 cam_rec_px(game_s *g, cam_s *c)
 
 void cam_set_pos_px(cam_s *c, i32 x, i32 y)
 {
-    c->pos.x = (f32)x;
-    c->pos.y = (f32)y;
+    c->pos_q8.x = x << 8;
+    c->pos_q8.y = y << 8;
 }
 
 void cam_init_level(game_s *g, cam_s *c)
@@ -59,113 +49,116 @@ void cam_init_level(game_s *g, cam_s *c)
     }
 }
 
+#define CAM_Y_NEW_BASE_MIN_SPEED  (1 << 7)
+#define CAM_X_LOOKAHEAD_MIN_SPEED (1 << 7)
+#define CAM_HERO_Y_BOT            190 // camera pushing boundaries, absolute pixels
+#define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 70)
+#define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) << 8)
+#define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) << 8)
+
 void cam_update(game_s *g, cam_s *c)
 {
     obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
+    v2_i32 ppos = c->pos_q8;
+    v2_i32 padd = {0};
 
-    v2_f32 ppos       = c->pos;
-    v2_f32 padd       = {0};
-    v2_f32 lahead     = {0};
-    i32    dpad_y     = inp_y();
-    i32    look_tickp = c->look_tick;
+    switch (c->mode) {
+    case CAM_MODE_FOLLOW_HERO: {
+        if (!hero) break;
 
-    if (c->mode == CAM_MODE_FOLLOW_HERO && hero) {
-        v2_i32 herop = obj_pos_bottom_center(hero);
-
-        i32    py_bot       = herop.y - 60;
-        i32    py_top       = herop.y + 20;
-        i32    target_x     = herop.x;
-        i32    target_y     = py_bot;
+        v2_i32 herop        = obj_pos_bottom_center(hero);
         bool32 herogrounded = obj_grounded(g, hero);
-
-        f32 diffx = (f32)(target_x - c->pos.x);
-        f32 diffy = (f32)(target_y - c->pos.y);
-        padd.x    = diffx * .1f;
+        i32    hero_bot_q8  = herop.y << 8;
 
         if (herogrounded && 0 <= hero->vel_q8.y) {
             // move camera upwards if hero landed on new platform
             // "new base height"
-            padd.y = diffy * .05f;
-            if (abs_i(hero->vel_q8.x) < 64 && dpad_y) {
-                if (20 <= ++c->look_tick) {
-                    lahead.y = (f32)(dpad_y * 50);
-                }
+            i32 cam_y_bot_q8 = c->pos_q8.y + CAM_OFFS_Q8_BOT; // align bottom with platform
+            i32 diffy_q8     = hero_bot_q8 - cam_y_bot_q8;
+            i32 y_add        = (diffy_q8 * 20) >> 8;
+            if (diffy_q8 < 0) {
+                y_add = min_i32(y_add, -CAM_Y_NEW_BASE_MIN_SPEED);
             }
+            if (diffy_q8 > 0) {
+                y_add = max_i32(y_add, +CAM_Y_NEW_BASE_MIN_SPEED);
+            }
+            c->pos_q8.y += y_add;
         }
 
-        if (abs_f32(diffx) < 1.5f) {
-            c->pos.x = (f32)target_x;
+        i32 cam_y_min = hero_bot_q8 - CAM_OFFS_Q8_BOT;
+        i32 cam_y_max = hero_bot_q8 - CAM_OFFS_Q8_TOP;
+        c->pos_q8.y   = clamp_i32(c->pos_q8.y, cam_y_min, cam_y_max);
+
+        i32 trgx_q8 = (herop.x + hero->facing * 30) << 8;
+        trgx_q8 += hero->vel_q8.x << 3;
+        i32 diffx_q8 = trgx_q8 - c->pos_q8.x;
+        i32 x_to_add = (diffx_q8 * 20) >> 8;
+        if (diffx_q8 < 0) {
+            x_to_add = min_i32(x_to_add, -CAM_X_LOOKAHEAD_MIN_SPEED);
+        }
+        if (diffx_q8 > 0) {
+            x_to_add = max_i32(x_to_add, +CAM_X_LOOKAHEAD_MIN_SPEED);
+        }
+
+        if (abs_i32(diffx_q8) <= abs_i32(x_to_add)) {
+            c->pos_q8.x = trgx_q8;
         } else {
-            c->pos.x += padd.x;
+            c->pos_q8.x += x_to_add;
         }
-        if (abs_f32(diffy) < 1.5f) {
-            c->pos.y = (f32)target_y;
+
+        // cam attractors
+        v2_i32 pos_px    = v2_shr(c->pos_q8, 8);
+        v2_i32 attract   = {0};
+        u32    n_attract = 0;
+
+        for (obj_each(g, o)) {
+            if (!o->cam_attract_r) continue;
+
+            v2_i32 pattr;
+            if (o->ID == OBJ_ID_CAMATTRACTOR) {
+                pattr = camattractor_static_closest_pt(o, pos_px);
+            } else {
+                pattr = obj_pos_center(o);
+            }
+            v2_i32 attr = v2_sub(pattr, pos_px);
+            u32    ds   = pow2_u32(o->cam_attract_r);
+            u32    ls   = v2_lensq(attr);
+            if (ds <= ls) continue;
+
+            attr.x  = (attr.x * (i32)(ds - ls)) / (i32)ds;
+            attr.y  = (attr.y * (i32)(ds - ls)) / (i32)ds;
+            attract = v2_add(attract, attr);
+            n_attract++;
+        }
+
+        if (n_attract) {
+            attract = v2_shl(attract, 8);
+            attract.x /= n_attract;
+            attract.y /= n_attract;
+            c->attract.x = c->attract.x + (((attract.x - c->attract.x) * 3) >> 8);
+            c->attract.y = c->attract.y + (((attract.y - c->attract.y) * 3) >> 8);
+            c->attract   = v2_truncatel(c->attract, 10000);
         } else {
-            c->pos.y += padd.y;
+            c->attract.x = (c->attract.x * 250) >> 8;
+            c->attract.y = (c->attract.y * 250) >> 8;
         }
 
-        c->pos.x = (f32)herop.x;
-
-        c->pos.y = clamp_f(c->pos.y, (f32)py_bot, (f32)py_top);
-        // lahead.x = (f32)hero->facing * 50.f;
+        break;
+    }
     }
 
-    if (c->look_tick == look_tickp) {
-        c->look_tick = 0;
-    }
-
-    if (g->substate == SUBSTATE_TEXTBOX) {
-        lahead.y = 60.f;
-    }
-
-    if (abs_f32(c->look_ahead.x - lahead.x) < 0.75f) {
-        c->look_ahead.x = lahead.x;
-    } else {
-        c->look_ahead.x = lerp_f32(c->look_ahead.x, lahead.x, 0.025f);
-    }
-
-    if (abs_f32(c->look_ahead.y - lahead.y) < 0.75f) {
-        c->look_ahead.y = lahead.y;
-    } else {
-        c->look_ahead.y = lerp_f32(c->look_ahead.y, lahead.y, 0.125f);
-    }
-
-    v2_f32 dtca = {0};
-    i32    nc   = 0;
-    for (i32 n = 0; n < c->n_attractors; n++) {
-        v2_i32 ca  = c->attractors[n];
-        v2_f32 dc  = v2f_sub((v2_f32){(f32)ca.x, (f32)ca.y}, c->pos);
-        f32    lsq = v2f_lensq(dc);
-        if (POW2(CAM_ATTRACTOR_RADIUS) < lsq) continue;
-        dtca = v2f_add(dtca, dc);
-        nc++;
-    }
-    if (nc) {
-        dtca      = v2f_mul(dtca, 0.5f / (f32)nc);
-        f32 dtlen = v2f_len(dtca);
-        if (CAM_ATTRACTOR_MAX_OFFS < dtlen) {
-            dtca = v2f_setlen(dtca, CAM_ATTRACTOR_MAX_OFFS);
-        }
-
-        c->camattr = v2f_lerp(c->camattr, dtca, 0.025f);
-    } else {
-        c->camattr = v2f_lerp(c->camattr, (v2_f32){0}, 0.025f);
-    }
-
-    c->offs_shake.x = 0.f;
-    c->offs_shake.y = 0.f;
-    if (0 < c->shake_ticks) {
-        i32 s = (c->shake_str * c->shake_ticks--) / c->shake_ticks_max;
-
-        c->offs_shake.x = (f32)rngr_sym_i32(s);
-        c->offs_shake.y = (f32)rngr_sym_i32(s);
+    if (c->shake_ticks) {
+        c->shake_ticks--;
+        i32 shakes = (c->shake_str * c->shake_ticks) / c->shake_ticks_max;
+        c->shake.x = rngr_sym_i32(shakes);
+        c->shake.y = rngr_sym_i32(shakes);
     }
 
     if (c->locked_x) {
-        c->pos.x = ppos.x;
+        c->pos_q8.x = ppos.x;
     }
     if (c->locked_y) {
-        c->pos.y = ppos.y;
+        c->pos_q8.y = ppos.y;
     }
 }
 

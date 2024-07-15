@@ -97,9 +97,9 @@ void movingplatform_on_update(game_s *g, obj_s *o)
     v2_i32 p1  = v2_i32_from_i16(plat->path[plat->i1]);
     i32    num = plat->p_q4 >> 4;
     i32    den = v2_distance(p0, p1);
-    v2_i32 pi  = {p0.x + ((p1.x - p0.x) * num) / den,
+    v2_i16 pi  = {p0.x + ((p1.x - p0.x) * num) / den,
                   p0.y + ((p1.y - p0.y) * num) / den};
-    o->tomove  = v2_sub(pi, o->pos);
+    o->tomove  = v2_i16_sub(pi, v2_i16_from_i32(o->pos, 0));
 }
 
 void movingplatform_on_trigger(game_s *g, obj_s *o, i32 trigger)

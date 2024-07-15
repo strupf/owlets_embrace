@@ -11,7 +11,10 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
     i32     dpad_y    = inp_y();
     bool32  usinghook = o->rope != NULL;
     o->animation++;
-    h->edgeticks--;
+    if (h->edgeticks) {
+        h->edgeticks--;
+    }
+
     if (h->low_grav_ticks) {
         h->low_grav_ticks--;
         i32 gt0         = pow2_i32(h->low_grav_ticks_0);
@@ -66,9 +69,10 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         i32 jumpticksp = h->jumpticks;
         // dynamic jump height
         if (0 < h->jumpticks && !inp_action(INP_A)) {
-
             o->vel_q8.y  = (o->vel_q8.y * 3) >> 2;
             h->jumpticks = 0;
+            snd_instance_stop(h->jump_fly_snd_iID);
+            h->jump_fly_snd_iID = 0;
         }
 
         if (flytimep <= 0 && h->jump_index != HERO_JUMP_WATER) {
@@ -82,6 +86,9 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             o->vel_q8.y -= jv.v0 - ((jv.v1 - jv.v0) * ti) / t0;
             if (h->jump_index == HERO_JUMP_FLY) {
                 hero_flytime_modify(g, o, -1);
+            }
+            if (h->jump_index == HERO_JUMP_FLY && h->jumpticks == jv.ticks - 8) {
+                h->jump_fly_snd_iID = snd_play(SNDID_WING1, 1.8f, 0.5f);
             }
         }
         h->jumpticks--;

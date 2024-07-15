@@ -11,12 +11,15 @@
 #include "title.h"
 
 typedef struct {
-    u32 slomorate;
-    u32 slomotick;
+    i32 x;
+} app_menu_s;
 
-    game_s     game;
+typedef struct {
+    game_s game;
+
     title_s    title;
     settings_s settings;
+    app_menu_s menu; // playdate sidebar menu
 } app_s;
 
 extern app_s APP;
@@ -28,8 +31,5 @@ void app_close();
 void app_resume();
 void app_pause();
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
-//
-void app_slomo(u32 rate); // higher is slower
-u32  app_get_slomo();
 
 #endif

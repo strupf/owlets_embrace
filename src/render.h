@@ -27,7 +27,7 @@ void   render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff);
 void   prerender_area_label(game_s *g);
 void   render_pause(game_s *g);
 void   ocean_calc_spans(game_s *g, rec_i32 camr);
-void   render_rec_as_terrain(gfx_ctx_s ctx, rec_i32 r, int terrain);
+void   render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type);
 void   render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds);
 v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8);
 

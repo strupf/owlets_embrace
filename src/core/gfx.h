@@ -109,6 +109,8 @@ i32           tex_mk_at(tex_s tex, i32 x, i32 y);
 void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
+void          tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
+void          tex_outline_all(tex_s tex, i32 col);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);

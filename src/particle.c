@@ -110,7 +110,7 @@ void coinparticle_update(game_s *g)
         coinparticle_s *c = &g->coinparticles[n];
         if (ohero && v2_distancesq(heropos, c->pos) < COINPARTICLE_COLLECT_DISTSQ) {
             hero_coins_change(g, 1);
-            snd_play_ext(SNDID_COIN, 1.f, 1.f);
+            snd_play(SNDID_COIN, 1.f, 1.f);
             *c = g->coinparticles[--g->n_coinparticles];
             continue;
         }

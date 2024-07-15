@@ -16,7 +16,6 @@ enum {
     HERO_ANIMID_CARRY_IDLE,
     HERO_ANIMID_CARRY_WALK,
     HERO_ANIMID_HANG_HOOK,
-    HERO_ANIMID_CRAWL_START,
     HERO_ANIMID_CRAWL,
     HERO_ANIMID_LADDER,
     HERO_ANIMID_LIFT,
@@ -25,20 +24,20 @@ enum {
 
 void hero_on_animate(game_s *g, obj_s *o)
 {
-    obj_sprite_s *sprite = &o->sprites[0];
-    hero_s       *h      = &g->hero_mem;
-    sprite->trec.t       = asset_tex(TEXID_HERO);
-    sprite->flip         = o->facing == -1 ? SPR_FLIP_X : 0;
-    sprite->offs.x       = o->w / 2 - 32;
-    sprite->offs.y       = o->h - 64 + 16;
-    i32 animID           = 0;
-    i32 frameID          = 0;
-    i32 state            = hero_determine_state(g, o, h);
+    obj_sprite_s *sprite     = &o->sprites[0];
+    hero_s       *h          = &g->hero_mem;
+    const bool32  was_idle   = h->is_idle;
+    const i32     idle_animp = h->idle_anim;
 
-    const bool32 was_idle   = h->is_idle;
-    const i32    idle_animp = h->idle_anim;
-    h->idle_anim            = 0;
-    h->is_idle              = 0;
+    h->idle_anim   = 0;
+    h->is_idle     = 0;
+    sprite->trec.t = asset_tex(TEXID_HERO);
+    sprite->flip   = o->facing == -1 ? SPR_FLIP_X : 0;
+    sprite->offs.x = o->w / 2 - 32;
+    sprite->offs.y = o->h - 64 + 16;
+    i32 animID     = 0;
+    i32 frameID    = 0;
+    i32 state      = hero_determine_state(g, o, h);
 
     if (h->sliding) {
         state = -1; // override other states
@@ -80,15 +79,15 @@ void hero_on_animate(game_s *g, obj_s *o)
 
     switch (state) {
     case HERO_STATE_GROUND: {
+        sprite->offs.y -= 16;
         if (0 < h->ground_impact_ticks && !h->carrying) {
-            sprite->offs.y -= 4;
             animID  = HERO_ANIMID_AIR; // "oof"
             frameID = 6;
             break;
         }
 
-        sprite->offs.y -= 16;
         if (h->crawling) {
+            animID = HERO_ANIMID_CRAWL;
             if (!h->crawlingp) {
                 o->animation         = 0;
                 h->crawling_to_stand = 0;
@@ -96,12 +95,11 @@ void hero_on_animate(game_s *g, obj_s *o)
 #define HERO_START_CRAWL_TICK 10
             if (h->crawling_to_stand < HERO_START_CRAWL_TICK) {
                 h->crawling_to_stand++;
-                animID  = HERO_ANIMID_CRAWL_START;
+
                 frameID = min_i32((h->crawling_to_stand * 6) / HERO_START_CRAWL_TICK, 5);
             } else {
                 o->animation += o->vel_q8.x;
-                frameID = ((u32)o->animation / 1500) % 6;
-                animID  = HERO_ANIMID_CRAWL;
+                frameID = 8 + ((u32)o->animation / 1500) % 6;
             }
         } else {
             if (h->crawlingp) {
@@ -111,7 +109,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
             if (h->crawling_to_stand) {
                 h->crawling_to_stand--;
-                animID  = HERO_ANIMID_CRAWL_START;
+                animID  = HERO_ANIMID_CRAWL;
                 frameID = (h->crawling_to_stand * 6) / 8;
                 break;
             }
@@ -126,8 +124,8 @@ void hero_on_animate(game_s *g, obj_s *o)
                 i32 frameID_prev = (o->animation / 2000) & 7;
                 o->animation += abs_i(o->vel_q8.x);
                 frameID = (o->animation / 2000) & 7;
-                if (frameID_prev != frameID && (frameID & 1) == 0) {
-                    // snd_play_ext(SNDID_STEP, 0.5f, 1.f);
+                if (frameID_prev != frameID && (frameID & 3) == 1) {
+                    snd_play(SNDID_FOOTSTEP_LEAVES, 0.6f, rngr_f32(0.9f, 1.0f));
                     v2_i32 posc = obj_pos_bottom_center(o);
                     posc.x -= 16 + sgn_i(o->vel_q8.x) * 4;
                     posc.y -= 30;
@@ -219,7 +217,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
             frameID = -(i32)((ang * 4.f)) - 3;
             frameID = clamp_i32(frameID, 0, 5);
-            sprite->offs.y += 18;
+            sprite->offs.y += 12;
             break;
         }
 
@@ -232,6 +230,8 @@ void hero_on_animate(game_s *g, obj_s *o)
         animID = HERO_ANIMID_AIR; // "air"
         if (0 < h->ground_impact_ticks) {
             frameID = 0;
+        } else if (+500 <= o->vel_q8.y) {
+            frameID = 5;
         } else if (+300 <= o->vel_q8.y) {
             frameID = 4;
         } else if (-200 <= o->vel_q8.y) {

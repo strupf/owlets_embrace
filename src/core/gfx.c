@@ -21,30 +21,31 @@ tex_s tex_framebuffer()
     return t;
 }
 
-tex_s tex_create_(i32 w, i32 h, bool32 mask, alloc_s ma)
+tex_s tex_create_internal(i32 w, i32 h, bool32 mask, alloc_s ma)
 {
     tex_s t        = {0};
     u32   waligned = (w + 31) & ~31;
     u32   wword    = (waligned / 32) << (0 < mask);
     u32   size     = sizeof(u32) * wword * h;
     void *mem      = ma.allocf(ma.ctx, size); // * 2 bc of mask pixels
-    if (!mem) return t;
-    t.px    = (u32 *)mem;
-    t.fmt   = (0 < mask);
-    t.w     = w;
-    t.h     = h;
-    t.wword = wword;
+    if (mem) {
+        t.px    = (u32 *)mem;
+        t.fmt   = (0 < mask);
+        t.w     = w;
+        t.h     = h;
+        t.wword = wword;
+    }
     return t;
 }
 
 tex_s tex_create(i32 w, i32 h, alloc_s ma)
 {
-    return tex_create_(w, h, 1, ma);
+    return tex_create_internal(w, h, 1, ma);
 }
 
 tex_s tex_create_opaque(i32 w, i32 h, alloc_s ma)
 {
-    return tex_create_(w, h, 0, ma);
+    return tex_create_internal(w, h, 0, ma);
 }
 
 tex_s tex_load(const char *path, alloc_s ma)
@@ -171,6 +172,97 @@ void tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
                 }
             }
         BREAK_LOOP:;
+        }
+    }
+    spm_pop();
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
+{
+    spm_push();
+    tex_s src  = tex; // need to work off of a copy
+    u32   size = sizeof(u32) * tex.wword * tex.h;
+    src.px     = (u32 *)spm_alloc(size);
+    mcpy(src.px, tex.px, size);
+
+    i32 x1 = x >> 5;
+    i32 y1 = y;
+    i32 x2 = (x + w - 1) >> 5;
+    i32 y2 = (y + h - 1);
+
+    for (i32 yy = y1; yy <= y2; yy++) {
+        for (i32 xx = x1; xx <= x2; xx++) {
+            u32 *dp = &tex.px[(xx << 1) + (yy * src.wword)];
+            u32 *dm = dp + 1;
+
+            u32 m = 0;
+            for (i32 yi = -1; yi <= +1; yi++) {
+                for (i32 xi = -1; xi <= +1; xi++) {
+                    i32 u = xx + xi;
+                    i32 v = yy + yi;
+                    if (!(x1 <= u && u <= x2 &&
+                          y1 <= v && v <= y2)) continue;
+                    u32 k = bswap32(src.px[(u << 1) + v * src.wword + 1]);
+                    switch (xi) {
+                    case -1: m |= k << 31; break;
+                    case +1: m |= k >> 31; break;
+                    case +0: m |= (k >> 1) | (k << 1); break;
+                    }
+                }
+            }
+            m = bswap32(m) & ~*dm;
+            *dm |= m;
+            if (col) {
+                *dp |= m;
+            } else {
+                *dp &= ~m;
+            }
+        }
+    }
+    spm_pop();
+}
+
+void tex_outline_all(tex_s tex, i32 col)
+{
+    spm_push();
+    tex_s src  = tex; // need to work off of a copy
+    u32   size = sizeof(u32) * tex.wword * tex.h;
+    src.px     = (u32 *)spm_alloc(size);
+    mcpy(src.px, tex.px, size);
+
+    i32 x1 = 0;
+    i32 y1 = 0;
+    i32 x2 = (src.wword - 1) >> 5;
+    i32 y2 = src.h - 1;
+
+    for (i32 yy = y1; yy <= y2; yy++) {
+        for (i32 xx = x1; xx <= x2; xx++) {
+            u32 *dp = &tex.px[(xx << 1) + (yy * src.wword)];
+            u32 *dm = dp + 1;
+
+            u32 m = 0;
+            for (i32 yi = -1; yi <= +1; yi++) {
+                for (i32 xi = -1; xi <= +1; xi++) {
+                    i32 u = xx + xi;
+                    i32 v = yy + yi;
+                    if (!(x1 <= u && u <= x2 &&
+                          y1 <= v && v <= y2)) continue;
+                    u32 k = bswap32(src.px[(u << 1) + v * src.wword + 1]);
+                    switch (xi) {
+                    case -1: m |= k << 31; break;
+                    case +1: m |= k >> 31; break;
+                    case +0: m |= (k >> 1) | (k << 1); break;
+                    }
+                }
+            }
+            m = bswap32(m) & ~*dm;
+            *dm |= m;
+            if (col) {
+                *dp |= m;
+            } else {
+                *dp &= ~m;
+            }
         }
     }
     spm_pop();

@@ -10,6 +10,8 @@ enum {
     HOOKPLANT_HIDDEN,
 };
 
+#define HOOKPLANT_TICKS_RESPAWN 100
+
 typedef struct {
     v2_i32 p;
 } hookplant_s;
@@ -36,31 +38,57 @@ void hookplant_on_update(game_s *g, obj_s *o)
     switch (o->state) {
     case HOOKPLANT_IDLE: break;
     case HOOKPLANT_GRABBED: {
-        o->timer++;
-        if (o->timer < 10) break;
-        if (20 <= o->timer) {
-            obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
-            ohero->vel_q8 = v2_mulq(ohero->vel_q8, 250, 8);
+        obj_s *ohero;
+        if (!hero_present_and_alive(g, &ohero) || !ohero->rope) {
+            o->state = HOOKPLANT_HIDDEN;
+            o->timer = 0;
             hero_unhook(g, ohero);
-            obj_delete(g, o);
             break;
         }
 
-        u32 ll = g->rope.len_max_q4;
-        g->rope.len_max_q4 /= 2;
+        o->timer++;
+        if (o->timer < 10) {
+            g->rope.len_max_q4 = (g->rope.len_max_q4 * 260) >> 8;
+        }
+
+        if (o->timer < 15) {
+            g->rope.len_max_q4 /= 2;
+            g->rope.len_max_q4 = max_i32(g->rope.len_max_q4, 16);
+        } else {
+            hero_unhook(g, ohero);
+            o->state = HOOKPLANT_HIDDEN;
+            o->timer = 0;
+        }
+
         break;
     }
+    case HOOKPLANT_HIDDEN:
+        o->timer++;
+        if (HOOKPLANT_TICKS_RESPAWN <= o->timer) {
+            o->state = HOOKPLANT_IDLE;
+            o->timer = 0;
+        }
+        break;
     }
 }
 
 void hookplant_on_animate(game_s *g, obj_s *o)
 {
+    o->flags |= OBJ_FLAG_RENDER_AABB;
+    switch (o->state) {
+    case HOOKPLANT_IDLE: break;
+    case HOOKPLANT_GRABBED: break;
+    case HOOKPLANT_HIDDEN:
+        o->flags &= ~OBJ_FLAG_RENDER_AABB;
+        break;
+    }
 }
 
 void hookplant_on_hook(obj_s *o)
 {
     hookplant_s *pl = (hookplant_s *)o->mem;
-    o->state        = 1;
+    o->state        = HOOKPLANT_GRABBED;
+    o->timer        = 0;
     ropenode_s *rn  = ropenode_neighbour(o->rope, o->ropenode);
     pl->p           = v2_sub(o->ropenode->p, rn->p);
 }
