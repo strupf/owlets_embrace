@@ -30,6 +30,7 @@ enum {
     OBJ_ID_CHARGER,
     OBJ_ID_TELEPORT,
     OBJ_ID_COLLECTIBLE,
+    OBJ_ID_HERO_PICKUP,
     OBJ_ID_STALACTITE,
     OBJ_ID_WALKER,
     OBJ_ID_FLYER,
@@ -65,7 +66,16 @@ enum {
 };
 
 enum {
+    PROJECTILE_ID_DEFAULT,
     PROJECTILE_ID_ENEMY,
+    PROJECTILE_ID_BUDPLANT,
+    PROJECTILE_ID_STALACTITE_BREAK,
+};
+
+enum {
+    PICKUP_ID_NONE,
+    PICKUP_ID_BOMB,
+    PICKUP_ID_WEAPON,
 };
 
 void   floater_load(game_s *g, map_obj_s *mo);
@@ -127,5 +137,7 @@ void   crankswitch_on_turn(game_s *g, obj_s *o, i32 angle_q8);
 void   camattractor_static_load(game_s *g, map_obj_s *mo);
 v2_i32 camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
 void   frog_load(game_s *g, map_obj_s *mo);
+obj_s *hero_pickup_create(game_s *g, v2_i32 pos, i32 pickupID);
+void   hero_pickup_load(game_s *g, map_obj_s *mo);
 
 #endif

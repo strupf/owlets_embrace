@@ -52,6 +52,13 @@ static inline u16x2 u16x2_shr(u16x2 v, i32 s)
 #define ASM2(I, R, A, B) ASM(#I " %0, %1, %2" : "=r"(R) : "r"(A), "r"(B))
 // clang-format on
 
+static inline u32 bswap32(u32 v)
+{
+    u32 r = 0;
+    ASM1(rev, r, v);
+    return r;
+}
+
 static inline i32 ssat16(i32 x)
 {
     u32 r = 0;
@@ -66,13 +73,6 @@ static inline u32 rotr(u32 v, u32 rot)
 {
     u32 r = 0;
     ASM2(ror, r, v, rot);
-    return r;
-}
-
-static inline u32 bswap32(u32 v)
-{
-    u32 r = 0;
-    ASM1(rev, r, v);
     return r;
 }
 

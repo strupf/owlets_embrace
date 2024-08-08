@@ -5,9 +5,19 @@
 #include "pltf_sdl.h"
 #include "pltf.h"
 
-#define PLTF_SDL_WINDOW_TITLE "Owlet's Embrace"
-#define PLTF_SDL_PURE_BW      1
-#define PLTF_SDL_GHOSTING     0
+#define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
+#define PLTF_SDL_PURE_BW        1
+#define PLTF_SDL_GHOSTING       0
+#define PLTF_SDL_NUM_DEBUG_RECS 1024
+
+typedef struct {
+    u32 col;
+    u32 ticks;
+    i16 x;
+    i16 y;
+    i16 w;
+    i16 h;
+} pltf_debug_rec_s;
 
 typedef struct pltf_sdl_s {
     bool32            running;
@@ -18,15 +28,17 @@ typedef struct pltf_sdl_s {
     f64               delay_timer_k;
     //
     u32               pal[2];
-    u8                framebuffer[52 * 240];
+    u8                framebuffer[PLTF_DISPLAY_WBYTES * PLTF_DISPLAY_H];
     SDL_Window       *window;
     SDL_Renderer     *renderer;
+    SDL_Texture      *tex_debug_recs;
     SDL_Texture      *tex;
     SDL_Texture      *texp;
     SDL_Rect          r_src;
     SDL_Rect          r_dst;
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
+    SDL_PixelFormat  *pformat;
     bool32            render_ghosting;
     bool32            is_mono;
     bool32            inv;
@@ -34,7 +46,9 @@ typedef struct pltf_sdl_s {
     void (*char_add)(char c, void *ctx);
     void (*char_del)(void *ctx);
     void (*close_inp)(void *ctx);
-    void *ctx;
+    void            *ctx;
+    i32              n_debug_recs;
+    pltf_debug_rec_s debug_recs[PLTF_SDL_NUM_DEBUG_RECS];
 } pltf_sdl_s;
 
 pltf_sdl_s g_SDL;
@@ -107,14 +121,46 @@ int main(int argc, char **argv)
             SDL_LockTexture(g_SDL.tex, NULL, &pixelsptr, &pitch);
             u32 *pixels = (u32 *)pixelsptr;
 
-            for (i32 y = 0; y < 240; y++) {
-                for (i32 x = 0; x < 400; x++) {
-                    i32 i     = (x >> 3) + y * 52;
-                    i32 k     = x + y * 400;
+            for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {
+                for (i32 x = 0; x < PLTF_DISPLAY_W; x++) {
+                    i32 i     = (x >> 3) + y * PLTF_DISPLAY_WBYTES;
+                    i32 k     = x + y * PLTF_DISPLAY_W;
                     i32 bit   = !!(g_SDL.framebuffer[i] & (0x80 >> (x & 7)));
                     pixels[k] = g_SDL.pal[g_SDL.inv ? !bit : bit];
                 }
             }
+
+            for (i32 n = g_SDL.n_debug_recs - 1; 0 <= n; n--) {
+                pltf_debug_rec_s *dbr = &g_SDL.debug_recs[n];
+                if (dbr->ticks == 0) {
+                    *dbr = g_SDL.debug_recs[--g_SDL.n_debug_recs];
+                    continue;
+                }
+                dbr->ticks--;
+
+                i32 x1 = dbr->x;
+                i32 y1 = dbr->y;
+                i32 x2 = dbr->x + dbr->w - 1;
+                i32 y2 = dbr->y + dbr->h - 1;
+                i32 u1 = 0 <= x1 ? x1 : 0;
+                i32 v1 = 0 <= y1 ? y1 : 0;
+                i32 u2 = x2 < PLTF_DISPLAY_W ? x2 : PLTF_DISPLAY_W - 1;
+                i32 v2 = y2 < PLTF_DISPLAY_H ? y2 : PLTF_DISPLAY_H - 1;
+
+                if (0 <= y1 && y1 < PLTF_DISPLAY_H)
+                    for (i32 x = u1; x <= u2; x++)
+                        pixels[x + y1 * PLTF_DISPLAY_W] = dbr->col;
+                if (0 <= y2 && y2 < PLTF_DISPLAY_H)
+                    for (i32 x = u1; x <= u2; x++)
+                        pixels[x + y2 * PLTF_DISPLAY_W] = dbr->col;
+                if (0 <= x1 && x1 < PLTF_DISPLAY_W)
+                    for (i32 y = v1; y <= v2; y++)
+                        pixels[x1 + y * PLTF_DISPLAY_W] = dbr->col;
+                if (0 <= x2 && x2 < PLTF_DISPLAY_W)
+                    for (i32 y = v1; y <= v2; y++)
+                        pixels[x2 + y * PLTF_DISPLAY_W] = dbr->col;
+            }
+
             SDL_UnlockTexture(g_SDL.tex);
         }
 
@@ -182,37 +228,45 @@ void pltf_sdl_init()
     g_SDL.window = SDL_CreateWindow(PLTF_SDL_WINDOW_TITLE,
                                     SDL_WINDOWPOS_CENTERED,
                                     SDL_WINDOWPOS_CENTERED,
-                                    400,
-                                    240,
+                                    PLTF_DISPLAY_W,
+                                    PLTF_DISPLAY_H,
                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
 
-    SDL_SetWindowMinimumSize(g_SDL.window, 400, 240);
+    SDL_SetWindowMinimumSize(g_SDL.window, PLTF_DISPLAY_W, PLTF_DISPLAY_H);
     g_SDL.renderer = SDL_CreateRenderer(g_SDL.window, -1, 0);
 
     SDL_SetRenderDrawColor(g_SDL.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RendererInfo info;
     SDL_GetRendererInfo(g_SDL.renderer, &info);
-    Uint32 pformat = info.texture_formats[0];
-    g_SDL.tex      = SDL_CreateTexture(g_SDL.renderer,
-                                       pformat,
-                                       SDL_TEXTUREACCESS_STREAMING,
-                                       400,
-                                       240);
-    g_SDL.texp     = SDL_CreateTexture(g_SDL.renderer,
-                                       pformat,
-                                       SDL_TEXTUREACCESS_TARGET,
-                                       400,
-                                       240);
+    Uint32 pformat       = info.texture_formats[0];
+    g_SDL.tex            = SDL_CreateTexture(g_SDL.renderer,
+                                             pformat,
+                                             SDL_TEXTUREACCESS_STREAMING,
+                                             PLTF_DISPLAY_W,
+                                             PLTF_DISPLAY_H);
+    g_SDL.texp           = SDL_CreateTexture(g_SDL.renderer,
+                                             pformat,
+                                             SDL_TEXTUREACCESS_TARGET,
+                                             PLTF_DISPLAY_W,
+                                             PLTF_DISPLAY_H);
+    g_SDL.tex_debug_recs = SDL_CreateTexture(g_SDL.renderer,
+                                             pformat,
+                                             SDL_TEXTUREACCESS_STREAMING,
+                                             PLTF_DISPLAY_W,
+                                             PLTF_DISPLAY_H);
 
-    SDL_PixelFormat *f = SDL_AllocFormat(pformat);
+    g_SDL.pformat = SDL_AllocFormat(pformat);
 #if PLTF_SDL_PURE_BW
-    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)f, 0x00, 0x00, 0x00); // black
-    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)f, 0xFF, 0xFF, 0xFF); // white
+    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                              0x00, 0x00, 0x00); // black
+    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                              0xFF, 0xFF, 0xFF); // white
 #else
-    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)f, 0x31, 0x2F, 0x28); // black
-    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)f, 0xB1, 0xAF, 0xA8); // white
+    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                              0x31, 0x2F, 0x28); // black
+    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                              0xB1, 0xAF, 0xA8); // white
 #endif
-    SDL_FreeFormat(f);
 
     SDL_AudioSpec frmt = {0};
     frmt.channels      = 2;
@@ -229,10 +283,10 @@ void pltf_sdl_init()
     }
 
     g_SDL.running         = 1;
-    g_SDL.r_src.w         = 400;
-    g_SDL.r_src.h         = 240;
-    g_SDL.r_dst.w         = 400;
-    g_SDL.r_dst.h         = 240;
+    g_SDL.r_src.w         = PLTF_DISPLAY_W;
+    g_SDL.r_src.h         = PLTF_DISPLAY_H;
+    g_SDL.r_dst.w         = PLTF_DISPLAY_W;
+    g_SDL.r_dst.h         = PLTF_DISPLAY_H;
     g_SDL.timeorigin      = SDL_GetPerformanceCounter();
     g_SDL.is_mono         = 1;
     g_SDL.vol             = 0.5f;
@@ -243,9 +297,11 @@ void pltf_sdl_init()
 
 void pltf_sdl_close()
 {
+    SDL_FreeFormat(g_SDL.pformat);
     SDL_CloseAudioDevice(g_SDL.audiodevID);
     SDL_DestroyTexture(g_SDL.tex);
     SDL_DestroyTexture(g_SDL.texp);
+    SDL_DestroyTexture(g_SDL.tex_debug_recs);
     SDL_DestroyRenderer(g_SDL.renderer);
     SDL_DestroyWindow(g_SDL.window);
     SDL_Quit();
@@ -290,30 +346,22 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
 {
     static i16 lbuf[0x1000];
     static i16 rbuf[0x1000];
-    static u32 magic = 0xDEADBEEFU;
 
-    mset(lbuf, 0, sizeof(lbuf));
-    mset(rbuf, 0, sizeof(rbuf));
+    mclr(lbuf, sizeof(lbuf));
+    mclr(rbuf, sizeof(rbuf));
     i32 samples = len / (2 * sizeof(i16));
     pltf_internal_audio(lbuf, rbuf, samples);
 
     i16 *s = (i16 *)stream;
     i16 *l = lbuf;
-    i16 *r = (i16 *)rbuf;
+    i16 *r = rbuf;
 
-    if (g_SDL.is_mono) {
-        for (i32 n = 0; n < samples; n++) {
-            i32 v = i16_sat((i32)((f32)*l++ * g_SDL.vol));
-            *s++  = v;
-            *s++  = v;
-        }
-    } else {
-        for (i32 n = 0; n < samples; n++) {
-            *s++ = (i16)((f32)*l++ * g_SDL.vol);
-            *s++ = (i16)((f32)*r++ * g_SDL.vol);
-        }
+    for (i32 n = 0; n < samples; n++) {
+        i32 vl = i16_sat((i32)((f32)*l++ * g_SDL.vol));
+        i32 vr = g_SDL.is_mono ? vl : i16_sat((i32)((f32)*r++ * g_SDL.vol));
+        *s++   = vl;
+        *s++   = vr;
     }
-    assert(magic == 0xDEADBEEFU);
 }
 
 void pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), void (*char_del)(void *ctx), void (*close_inp)(void *ctx), void *ctx)
@@ -360,6 +408,36 @@ void pltf_1bit_invert(bool32 i)
 void *pltf_1bit_buffer()
 {
     return g_SDL.framebuffer;
+}
+
+void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
+{
+    if (PLTF_SDL_NUM_DEBUG_RECS <= g_SDL.n_debug_recs) return;
+
+    pltf_debug_rec_s rec = {0};
+    rec.col              = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                                      r, g, b);
+    rec.ticks            = 0 < t ? t : 1;
+    rec.x                = ssat16(x);
+    rec.y                = ssat16(y);
+    rec.w                = ssat16(w);
+    rec.h                = ssat16(h);
+
+    g_SDL.debug_recs[g_SDL.n_debug_recs++] = rec;
+}
+
+bool32 pltf_accelerometer_enabled()
+{
+    return 0;
+}
+
+void pltf_accelerometer_set(bool32 enabled)
+{
+}
+
+void pltf_accelerometer(f32 *x, f32 *y, f32 *z)
+{
+    *x = 0.f, *y = 0.f, *z = 0.f;
 }
 
 void *pltf_file_open_r(const char *path)

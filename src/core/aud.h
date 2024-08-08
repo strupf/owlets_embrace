@@ -7,7 +7,7 @@
 
 #include "pltf/pltf.h"
 
-#define MUS_LEN_FILENAME  64
+#define LEN_MUS_NAME      24
 #define NUM_SNDCHANNEL    12
 #define NUM_AUD_CMD_QUEUE 128
 
@@ -19,18 +19,14 @@
 #endif
 
 enum {
-    AUD_MUSCHANNEL_0,
+    AUD_MUSCHANNEL_0_LAYER_0,
+    AUD_MUSCHANNEL_0_LAYER_1,
+    AUD_MUSCHANNEL_0_LAYER_2,
+    AUD_MUSCHANNEL_0_LAYER_3,
     AUD_MUSCHANNEL_1,
     AUD_MUSCHANNEL_2,
-    AUD_MUSCHANNEL_3,
     //
     NUM_MUSCHANNEL
-};
-
-// TODO: use 22050 for sfx?
-enum {
-    ADPCM_FREQ_22050,
-    ADPCM_FREQ_44100
 };
 
 typedef struct snd_s {
@@ -62,11 +58,14 @@ typedef struct {
 } aud_cmd_snd_modify_s;
 
 typedef struct {
-    char *mus_file;
-    u16   vol_q8;
-    u16   f_out;
-    u16   f_in;
+    char mus_name[LEN_MUS_NAME];
+    u8   channelID;
+    u8   vol_q8;
+    u8   ticks_out;
+    u8   ticks_in;
 } aud_cmd_mus_play_s;
+
+static_assert(sizeof(aud_cmd_mus_play_s) <= 28, "Music command size");
 
 typedef struct {
     i32 v;
@@ -111,6 +110,7 @@ typedef struct muschannel_s {
     u32     total_bytes_file;
     adpcm_s adpcm;
     u8      chunk[256];
+    char    mus_name[LEN_MUS_NAME];
     i32     trg_vol_q8;
     bool32  looping;
 } muschannel_s;
@@ -122,7 +122,7 @@ typedef struct AUD_s {
     u32          i_cmd_w;     // visible to audio thread/context
     u32          i_cmd_r;
     aud_cmd_s    cmds[NUM_AUD_CMD_QUEUE];
-    u32          snd_iID;
+    u32          snd_iID; // unique snd instance ID counter
     bool32       snd_playing_disabled;
     i32          lowpass;
     i32          lowpass_acc;
@@ -138,6 +138,6 @@ snd_s snd_load(const char *pathname, alloc_s ma);
 u32   snd_instance_play(snd_s s, f32 vol, f32 pitch); // returns an integer to refer to an active sound instance
 void  snd_instance_stop(u32 snd_iID);
 void  snd_instance_set_vol(u32 snd_iID, f32 vol);
-void  mus_play(char *fname);
+void  mus_play(const char *fname);
 
 #endif

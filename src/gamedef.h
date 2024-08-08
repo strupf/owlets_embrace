@@ -31,13 +31,14 @@
 #include "util/rng.h"
 #include "util/str.h"
 
-#define SAVEFILE_NAME   "save.sav"
-#define FILEPATH_MAP    "assets/map/"
-#define FILEPATH_SND    "assets/snd/"
-#define FILEPATH_MUS    "assets/mus/"
-#define FILEPATH_TEX    "assets/tex/"
-#define FILEPATH_FNT    "assets/fnt/"
-#define FILEPATH_DIALOG "assets/dialog/"
+#define SAVEFILE_NAME     "save.sav"
+#define FILEPATH_MAP      "assets/map/"
+#define FILEPATH_SND      "assets/snd/"
+#define FILEPATH_MUS      "assets/mus/"
+#define FILEPATH_TEX      "assets/tex/"
+#define FILEPATH_FNT      "assets/fnt/"
+#define FILEPATH_DIALOG   "assets/dialog/"
+#define FILEEXTENSION_AUD ".audio"
 
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;

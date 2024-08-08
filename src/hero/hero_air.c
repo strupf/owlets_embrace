@@ -17,59 +17,36 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
     if (h->low_grav_ticks) {
         h->low_grav_ticks--;
-        i32 gt0         = pow2_i32(h->low_grav_ticks_0);
-        i32 gt1         = pow2_i32(h->low_grav_ticks - h->low_grav_ticks_0);
-        o->gravity_q8.y = lerp_i32(HERO_GRAVITY_LOW, HERO_GRAVITY, gt1, gt0);
+        i32 gt0      = pow2_i32(h->low_grav_ticks_0);
+        i32 gt1      = pow2_i32(h->low_grav_ticks - h->low_grav_ticks_0);
+        o->grav_q8.y = lerp_i32(HERO_GRAVITY_LOW, HERO_GRAVITY, gt1, gt0);
     }
 
-    rec_i32 rec_l = obj_rec_left(o);
-    rec_i32 rec_r = obj_rec_right(o);
-    rec_l.h -= 8;
-    rec_r.h -= 8;
-    rec_l.y += 4;
-    rec_r.y += 4;
     const i32 flytimep = hero_flytime_left(g, o);
 
     if (rope_stretched) {
-        if (g->gameplay_tick & 1) {
-            hero_flytime_modify(g, o, +1);
-        }
-
-        o->drag_q8.x = 253;
-        o->drag_q8.y = 256;
-
-        if (inp_action(INP_A) && 0 < h->jumpticks) {
-            h->jumpticks--;
-            i32 vadd = lerp_i32(20, 50, h->jumpticks, HERO_ROPEWALLJUMP_TICKS);
-            o->vel_q8.x += h->ropewalljump_dir * vadd;
-        } else {
-            h->jumpticks = 0;
-        }
-
-        if (inp_action_jp(INP_A)) {
-            h->jump_btn_buffer = 8;
-        }
-
         v2_i32 rn_curr  = o->ropenode->p;
         v2_i32 rn_next  = ropenode_neighbour(o->rope, o->ropenode)->p;
         v2_i32 dtrope   = v2_sub(rn_next, rn_curr);
         i32    dtrope_s = sgn_i32(dtrope.x);
         i32    dtrope_a = abs_i32(dtrope.x);
 
+        if (sgn_i32(o->v_q8.x) != dpad_x) {
+            o->v_q8.x = (o->v_q8.x * 254) / 256;
+        }
+
         if (dpad_x) {
             if (dtrope_s == dpad_x) {
-                o->vel_q8.x += 60 * dpad_x;
+                o->v_q8.x += 60 * dpad_x;
             } else {
-                o->vel_q8.x += 15 * dpad_x;
+                o->v_q8.x += 15 * dpad_x;
             }
         }
     } else {
-        o->drag_q8.x = h->sliding ? 253 : 240;
-
         i32 jumpticksp = h->jumpticks;
         // dynamic jump height
-        if (0 < h->jumpticks && !inp_action(INP_A)) {
-            o->vel_q8.y  = (o->vel_q8.y * 3) >> 2;
+        if (0 < h->jumpticks && !h->action_jump) {
+            o->v_q8.y    = (o->v_q8.y * 3) >> 2;
             h->jumpticks = 0;
             snd_instance_stop(h->jump_fly_snd_iID);
             h->jump_fly_snd_iID = 0;
@@ -83,44 +60,41 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             hero_jumpvar_s jv = g_herovar[h->jump_index];
             i32            t0 = pow_i32(jv.ticks, 4);
             i32            ti = pow_i32(h->jumpticks, 4) - t0;
-            o->vel_q8.y -= jv.v0 - ((jv.v1 - jv.v0) * ti) / t0;
+            i32            ch = jv.v0 - ((jv.v1 - jv.v0) * ti) / t0;
+            o->v_q8.y -= ch;
             if (h->jump_index == HERO_JUMP_FLY) {
                 hero_flytime_modify(g, o, -1);
             }
             if (h->jump_index == HERO_JUMP_FLY && h->jumpticks == jv.ticks - 8) {
                 h->jump_fly_snd_iID = snd_play(SNDID_WING1, 1.8f, 0.5f);
             }
-        }
-        h->jumpticks--;
-
-#if 0
-        if (0 < jumpticksp && h->jumpticks <= 0) {
-            h->low_grav_ticks   = 10;
-            h->low_grav_ticks_0 = 20;
-        }
-#endif
-
-        if (inp_action_jp(INP_A)) {
-            h->jump_btn_buffer = 12;
+            h->jumpticks--;
         }
 
-        if (dpad_x) {
-            i32 i0 = (dpad_x == sgn_i32(o->vel_q8.x) ? abs_i32(o->vel_q8.x) : 0);
-            i32 ax = (max_i32(HERO_VX_WALK - i0, 0) * 32) >> 8;
-            o->vel_q8.x += ax * dpad_x;
-            o->drag_q8.x = 256;
+        i32 vs = sgn_i32(o->v_q8.x);
+        i32 va = abs_i32(o->v_q8.x);
+        i32 ax = 0;
+
+        if (dpad_x != vs) {
+            o->v_q8.x = (o->v_q8.x * 246) / 256;
         }
 
-        if (dpad_x != sgn_i(h->sprint_ticks)) {
-            h->sprint_ticks = 0;
+        if (vs == 0) {
+            ax = 200;
+        } else if (dpad_x == +vs && va < HERO_VX_WALK) { // press same dir as velocity
+            ax = lerp_i32(200, 20, va, HERO_VX_WALK);
+            ax = min_i32(ax, HERO_VX_WALK - va);
+        } else if (dpad_x == -vs) {
+            ax = min_i32(100, va);
         }
+        o->v_q8.x += ax * dpad_x;
     }
 
     if (0 < h->jump_btn_buffer) {
         bool32 jump_ground = 0 < h->edgeticks;
-        bool32 jump_midair = !usinghook &&         // not hooked
-                             !jump_ground &&       // jump in air?
-                             h->jumpticks <= -8 && // wait some ticks after last jump
+        bool32 jump_midair = !usinghook &&   // not hooked
+                             !jump_ground && // jump in air?
+                             !h->jumpticks &&
                              hero_flytime_left(g, o);
 
         if (jump_midair && !jump_ground) { // just above ground -> ground jump
@@ -134,13 +108,15 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             }
         }
 
+        if (jump_ground || jump_midair) {
+            h->jump_btn_buffer = 0;
+        }
+
         if (jump_ground) {
             hero_restore_grounded_stuff(g, o);
             hero_start_jump(g, o, HERO_JUMP_GROUND);
         } else if (jump_midair) {
             hero_flytime_modify(g, o, -1);
-
-            h->sprint_ticks = 0;
             hero_start_jump(g, o, HERO_JUMP_FLY);
 
             rec_i32 rwind = {0, 0, 64, 64};

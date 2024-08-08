@@ -5,10 +5,54 @@
 #include "game.h"
 #include "hero_hook.h"
 
+void hero_handle_input(game_s *g, obj_s *o)
+{
+    hero_s *h      = &g->hero_mem;
+    i32     dpad_x = inp_x();
+    i32     dpad_y = inp_y();
+    i32     state  = hero_determine_state(g, o, h);
+
+    h->action_jumpp = h->action_jump;
+    h->action_jump  = inp_action(INP_A);
+
+    if (inp_action_jp(INP_A)) {
+        h->jump_btn_buffer = 6;
+    }
+
+    if (state == HERO_STATE_LADDER) {
+        h->attack_tick = 0;
+        h->b_hold_tick = 0;
+        hero_action_ungrapple(g, o);
+        return;
+    }
+    if (state == HERO_STATE_SWIMMING) {
+        h->attack_tick = 0;
+        hero_action_ungrapple(g, o);
+        return;
+    }
+
+    if (h->b_hold_tick) {
+        if (!inp_action(INP_B)) {
+            if (inp_x() | inp_y()) {
+                hero_action_throw_grapple(g, o);
+            }
+            h->b_hold_tick = 0;
+        } else if (h->b_hold_tick < U8_MAX) {
+            h->b_hold_tick++;
+        }
+    } else if (inp_action_jp(INP_B)) {
+        if (o->rope) {
+            hero_action_ungrapple(g, o);
+        } else {
+            h->b_hold_tick = 1;
+        }
+    }
+}
+
 void hero_process_hurting_things(game_s *g, obj_s *o)
 {
-    if (o->health <= 0) return;
-    if (o->invincible_tick) return;
+    hero_s *h = (hero_s *)&g->hero_mem;
+    if (o->health == 0 || h->invincibility_ticks) return;
 
     v2_i32  hcenter        = obj_pos_center(o);
     rec_i32 heroaabb       = obj_aabb(o);
@@ -48,7 +92,7 @@ void hero_process_hurting_things(game_s *g, obj_s *o)
     if (hero_dmg) {
         hero_hurt(g, o, hero_dmg);
         snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
-        o->vel_q8 = v2_i16_from_i32(hero_knockback, 0);
+        o->v_q8 = v2_i16_from_i32(hero_knockback, 0);
         o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
         g->events_frame |= EVENT_HERO_DAMAGE;
     }
@@ -72,10 +116,10 @@ void hero_post_update(game_s *g, obj_s *o)
             rec_i32 rs = obj_aabb(it);
             rec_i32 ri;
             if (!intersect_rec(heroaabb, rs, &ri)) break;
-            if (0 < o->vel_q8.y &&
+            if (0 < o->v_q8.y &&
                 (heroaabb.y + heroaabb.h) < (rs.y + rs.h) &&
-                o->posprev.y < o->pos.y) {
-                o->vel_q8.y = -2000;
+                o->pos_prev.y < o->pos.y) {
+                o->v_q8.y = -2000;
                 o->tomove.y -= ri.h;
                 shroomy_bounced_on(it);
             }
@@ -92,12 +136,12 @@ void hero_post_update(game_s *g, obj_s *o)
 
             if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
 
-                ohook->vel_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
+                ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
             } else {
-                o->vel_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
+                o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
             }
             if (!rope_intact(g, o->rope)) {
-                hero_unhook(g, ohook);
+                hero_action_ungrapple(g, ohook);
                 return;
             }
         }
@@ -139,4 +183,50 @@ void hero_post_update(game_s *g, obj_s *o)
             }
         }
     }
+}
+
+obj_s *hero_pickup_available(game_s *g, obj_s *o)
+{
+    u32          d_sq = HERO_DISTSQ_PICKUP;
+    obj_s       *res  = NULL;
+    const v2_i32 hc   = obj_pos_bottom_center(o);
+
+    for (obj_each(g, it)) {
+        if (it->ID != OBJ_ID_HERO_PICKUP) continue;
+
+        v2_i32 p = obj_pos_bottom_center(it);
+        u32    d = v2_distancesq(hc, p);
+        if (d < d_sq) {
+            d_sq = d;
+            res  = it;
+        }
+    }
+    return res;
+}
+
+obj_s *hero_interactable_available(game_s *g, obj_s *o)
+{
+    u32          d_sq = HERO_DISTSQ_INTERACT;
+    obj_s       *res  = NULL;
+    const v2_i32 hc   = obj_pos_bottom_center(o);
+
+    for (obj_each(g, it)) {
+        if (!(it->flags & OBJ_FLAG_INTERACTABLE)) continue;
+
+        v2_i32 p = obj_pos_bottom_center(it);
+        u32    d = v2_distancesq(hc, p);
+        if (d < d_sq) {
+            d_sq = d;
+            res  = it;
+        }
+    }
+    return res;
+}
+
+void hero_start_item_pickup(game_s *g, obj_s *o)
+{
+}
+
+void hero_drop_item(game_s *g, obj_s *o)
+{
 }

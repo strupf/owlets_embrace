@@ -104,9 +104,17 @@ static void aud_cmds_flush()
             muschannel_s       *mc = &AUD.muschannel[0];
             muschannel_stop(mc);
 
-            void *f = pltf_file_open_r(c->mus_file);
-            if (!f) break;
+            char mfile[64];
+            str_cpy(mfile, FILEPATH_MUS);
+            str_append(mfile, c->mus_name);
+            str_append(mfile, FILEEXTENSION_AUD);
 
+            void *f = pltf_file_open_r(mfile);
+            if (!f) {
+                pltf_log("+++ Cant open music file: %s\n", mfile);
+                break;
+            }
+            str_cpy(mc->mus_name, c->mus_name);
             adpcm_s *pcm         = &mc->adpcm;
             u32      num_samples = 0;
             pltf_file_r(f, &num_samples, sizeof(u32));
@@ -329,12 +337,11 @@ static void muschannel_playback_part(muschannel_s *mc, i16 *lb, i16 *rb, i32 len
 #endif
 }
 
-void mus_play(char *fname)
+void mus_play(const char *fname)
 {
-    aud_cmd_s cmd           = {AUD_CMD_MUS_PLAY,
-                               AUD_CMD_PRIORITY_MUS_PLAY};
-    cmd.c.mus_play.mus_file = fname;
-    cmd.c.mus_play.vol_q8   = 128;
+    aud_cmd_s cmd = {AUD_CMD_MUS_PLAY, AUD_CMD_PRIORITY_MUS_PLAY};
+    str_cpy(cmd.c.mus_play.mus_name, fname);
+    cmd.c.mus_play.vol_q8 = 128;
     aud_push_cmd(cmd);
 }
 
@@ -343,6 +350,7 @@ static void muschannel_stop(muschannel_s *mc)
     if (!mc->stream) return;
     pltf_file_close(mc->stream);
     mc->stream = NULL;
+    mclr(mc->mus_name, sizeof(mc->mus_name));
 }
 
 static void sndchannel_playback(sndchannel_s *sc, i16 *lbuf, i16 *rbuf, i32 len)

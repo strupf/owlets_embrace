@@ -34,16 +34,16 @@ void pushblock_load(game_s *g, map_obj_s *mo)
 void pushblock_on_update(game_s *g, obj_s *o)
 {
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->timer    = 0; // reset fall delay timer
-        o->vel_q8.y = 0;
+        o->timer  = 0; // reset fall delay timer
+        o->v_q8.y = 0;
     }
-    o->bumpflags    = 0;
-    o->gravity_q8.y = 0;
+    o->bumpflags = 0;
+    o->grav_q8.y = 0;
 
     if (!map_blocked(g, o, obj_rec_bottom(o), o->mass)) {
         // not grounded -> don't push, only fall
         o->timer++; // fall delay timer
-        o->gravity_q8.y = (5 <= o->timer ? 80 : 0);
+        o->grav_q8.y = (5 <= o->timer ? 80 : 0);
         return;
     }
 

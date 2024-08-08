@@ -5,22 +5,25 @@
 #include "pltf_pd.h"
 #include "pltf.h"
 
+PlaydateAPI *PD;
+
 typedef struct {
     PDButtons b;
+    bool32    acc_active;
 } PD_s;
 
 static PD_s g_PD;
 
-PlaydateAPI *PD;
-void         (*PD_system_error)(const char *format, ...);
-void         (*PD_system_logToConsole)(const char *fmt, ...);
-void        *(*PD_system_realloc)(void *ptr, size_t s);
-int          (*PD_system_formatString)(char **outstr, const char *fmt, ...);
-void         (*PD_system_getButtonState)(PDButtons *c, PDButtons *p, PDButtons *r);
-void         (*PD_graphics_markUpdatedRows)(int start, int end);
-float        (*PD_system_getElapsedTime)(void);
-int          (*PD_file_read)(SDFile *file, void *buf, uint len);
-int          (*PD_file_write)(SDFile *file, const void *buf, uint len);
+void (*PD_system_error)(const char *format, ...);
+void (*PD_system_logToConsole)(const char *fmt, ...);
+void *(*PD_system_realloc)(void *ptr, size_t s);
+int (*PD_system_formatString)(char **outstr, const char *fmt, ...);
+void (*PD_system_getButtonState)(PDButtons *c, PDButtons *p, PDButtons *r);
+void (*PD_graphics_markUpdatedRows)(int start, int end);
+float (*PD_system_getElapsedTime)(void);
+int (*PD_file_read)(SDFile *file, void *buf, uint len);
+int (*PD_file_write)(SDFile *file, const void *buf, uint len);
+void (*PD_system_getAccelerometer)(f32 *outx, f32 *outy, f32 *outz);
 
 int pltf_pd_update(void *user);
 int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len);
@@ -42,6 +45,7 @@ __declspec(dllexport)
         PD_graphics_markUpdatedRows = PD->graphics->markUpdatedRows;
         PD_file_read                = PD->file->read;
         PD_file_write               = PD->file->write;
+        PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD->system->setUpdateCallback(pltf_pd_update, PD);
         PD->sound->addSource(pltf_pd_audio, NULL, 0);
         PD->display->setRefreshRate(0.f);
@@ -117,11 +121,6 @@ f32 pltf_seconds()
     return PD_system_getElapsedTime();
 }
 
-void pltf_invert(bool32 i)
-{
-    PD->display->setInverted(i);
-}
-
 void pltf_1bit_invert(bool32 i)
 {
     PD->display->setInverted(i);
@@ -130,6 +129,30 @@ void pltf_1bit_invert(bool32 i)
 void *pltf_1bit_buffer()
 {
     return PD->graphics->getFrame();
+}
+
+bool32 pltf_accelerometer_enabled()
+{
+    return g_PD.acc_active;
+}
+
+void pltf_accelerometer_set(bool32 enabled)
+{
+    PD->system->setPeripheralsEnabled(enabled ? kAccelerometer : kNone);
+    g_PD.acc_active = enabled;
+}
+
+void pltf_accelerometer(f32 *x, f32 *y, f32 *z)
+{
+    if (g_PD.acc_active) {
+        PD_system_getAccelerometer(x, y, z);
+    } else {
+        *x = 0.f, *y = 0.f, *z = 0.f;
+    }
+}
+
+void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
+{
 }
 
 void *pltf_file_open_r(const char *path)

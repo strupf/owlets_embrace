@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-#define INVENTORY_NUM_ITEMS 256
+#define INVENTORY_NUM_ITEMS 128
 #define NUM_MAP_PINS        64
 #define NUM_SAVEIDS         256
 
@@ -18,14 +18,14 @@ typedef struct {
 
 typedef struct save_s {
     u32              tick;
-    i16              health;
-    i16              flyupgrades;
     flags32          upgrades;
+    u8               health;
+    u8               flyupgrades;
+    u8               n_map_pins;
+    u8               n_items;
+    u16              coins;
+    u16              n_saveIDs;
     char             name[32];
-    i16              coins;
-    i16              n_items;
-    i16              n_saveIDs;
-    i16              n_map_pins;
     inventory_item_s items[INVENTORY_NUM_ITEMS];
     u32              saveIDs[NUM_SAVEIDS]; // unlocked things or events already happened
     char             hero_mapfile[64];

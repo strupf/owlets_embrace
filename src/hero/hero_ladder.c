@@ -8,8 +8,6 @@ void hero_update_ladder(game_s *g, obj_s *o)
 {
     hero_s *h = &g->hero_mem;
     o->flags &= ~OBJ_FLAG_MOVER;
-    h->sprint_dtap  = 0;
-    h->sprint_ticks = 0;
     hero_restore_grounded_stuff(g, o);
 
     if (o->pos.x != h->ladderx) {
@@ -20,8 +18,8 @@ void hero_update_ladder(game_s *g, obj_s *o)
     if (inp_action_jp(INP_A)) {
         h->onladder = 0;
         hero_start_jump(g, o, 0);
-        i32 dpad_x  = inp_x();
-        o->vel_q8.x = dpad_x * 200;
+        i32 dpad_x = inp_x();
+        o->v_q8.x  = dpad_x * 200;
         return;
     }
 
@@ -69,18 +67,17 @@ bool32 hero_try_snap_to_ladder(game_s *g, obj_s *o, i32 diry)
     aabb.y += diry;
     if (!map_traversable(g, aabb)) return 0;
 
-    hero_unhook(g, o);
+    hero_action_ungrapple(g, o);
     o->flags &= ~OBJ_FLAG_MOVER;
     hero_restore_grounded_stuff(g, o);
     o->pos.x = posx;
     o->pos.y += diry;
-    o->vel_q8.x        = 0;
-    o->vel_q8.y        = 0;
-    o->animation       = 0;
-    hero->onladder     = 1;
-    hero->ladderx      = posx;
-    hero->sprint_ticks = 0;
-    hero->attack_tick  = 0;
+    o->v_q8.x         = 0;
+    o->v_q8.y         = 0;
+    o->animation      = 0;
+    hero->onladder    = 1;
+    hero->ladderx     = posx;
+    hero->attack_tick = 0;
     return 1;
 }
 

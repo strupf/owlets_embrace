@@ -293,11 +293,18 @@ void game_load_map(game_s *g, const char *mapfile)
     spm_push();
 
     // READ FILE ===============================================================
-    map_header_s header = {0};
-
-    FILEPATH_GEN(filepath, FILEPATH_MAP, mapfile);
+    char filepath[128];
+    str_cpy(filepath, FILEPATH_MAP);
+    str_append(filepath, mapfile);
     str_append(filepath, ".map");
+
     void *mapf = pltf_file_open_r(filepath);
+    if (!mapf) {
+        pltf_log("Can't load map file! %s\n", filepath);
+        BAD_PATH
+    }
+
+    map_header_s header = {0};
     pltf_file_r(mapf, &header, sizeof(map_header_s));
 
     const i32 w = header.w;
@@ -318,18 +325,9 @@ void game_load_map(game_s *g, const char *mapfile)
     map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
     area_setup(g, &g->area, map_prop_i32(mp, "Area_ID"));
-    char musname[64] = {0};
+    char musname[32] = {0};
     map_prop_strs(mp, "Music", musname);
-    char muspath[128] = {0};
-    str_append(muspath, FILEPATH_MUS);
-    str_append(muspath, musname);
-    str_append(muspath, ".audio");
-
-    // TODO: mechanism for music file commands without needing
-    // to write the whole file name into the command
-    // -> integer index?
-    static char *g_music = "assets/mus/OE4.audio";
-    mus_play(g_music);
+    mus_play(musname);
 
     i32 room_y1 = g->map_worldroom->y;
     i32 room_y2 = g->map_worldroom->y + g->map_worldroom->h;
@@ -605,7 +603,7 @@ static bool32 map_dual_border(tilelayer_terrain_s tiles, i32 x, i32 y,
     // tile types without dual tiles
     switch (map_terrain_type(tiles.tiles[x + y * tiles.w])) {
     case TILE_TYPE_STONE_SQUARE_DARK:
-    case TILE_TYPE_STONE_SQUARE_LIGHT: return 1;
+    case TILE_TYPE_STONE_SQUARE_LIGHT: break;
     default: return 0;
     }
 
@@ -615,8 +613,9 @@ static bool32 map_dual_border(tilelayer_terrain_s tiles, i32 x, i32 y,
     i32 t = tiles.tiles[u + v * tiles.w];
     if (map_terrain_type(t) == 6) return 0;
 
-    u32 r = ((x | u) + ((y | v)));
-    if (rngs_u32(&r) < 0x80000000U) return 0;
+    u32 seed = ((x | u) + ((y | v)));
+    u32 r    = rngs_u32(&seed);
+    if (r < 0x80000000U) return 0;
 
     if (t != map_terrain_pack(type, TILE_BLOCK)) return 0;
     return (march == map_marching_squares(tiles, u, v));

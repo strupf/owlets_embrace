@@ -30,10 +30,10 @@ void npc_on_update(game_s *g, obj_s *o)
 {
     bool32 bumpedx = o->bumpflags & OBJ_BUMPED_X;
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
     if (bumpedx) {
-        o->vel_q8.x = 0;
+        o->v_q8.x = 0;
     }
     o->bumpflags = 0;
 
@@ -53,23 +53,23 @@ void npc_on_update(game_s *g, obj_s *o)
 
         if (--o->timer <= 0) {
             o->drag_q8.x = 180; // slowly stop movement
-            if (abs_i(o->vel_q8.x) < 10) {
-                o->vel_q8.x = 0;
+            if (abs_i(o->v_q8.x) < 10) {
+                o->v_q8.x = 0;
             }
             if (o->timer < -100) {
                 o->timer     = rngr_i32(80, 150);
-                o->vel_q8.x  = rngr_i32(-1, +1);
+                o->v_q8.x    = rngr_i32(-1, +1);
                 o->drag_q8.x = 256;
-                if (o->vel_q8.x != 0) {
-                    o->facing = sgn_i(o->vel_q8.x);
+                if (o->v_q8.x != 0) {
+                    o->facing = sgn_i(o->v_q8.x);
                 }
             }
         } else {
-            o->vel_q8.x <<= 1;
+            o->v_q8.x <<= 1;
         }
 
-        if (obj_would_fall_down_next(g, o, sgn_i(o->vel_q8.x))) {
-            o->vel_q8.x = 0;
+        if (obj_would_fall_down_next(g, o, sgn_i(o->v_q8.x))) {
+            o->v_q8.x = 0;
         }
     } break;
     }
@@ -82,11 +82,11 @@ void npc_on_animate(game_s *g, obj_s *o)
 
     switch (npc_get_state(g, o)) {
     case NPC_GROUNDED: {
-        if (o->vel_q8.x == 0) {
+        if (o->v_q8.x == 0) {
             o->animation++;
             frame = 0 + ((o->animation >> 4) & 1);
         } else {
-            o->animation += abs_i(o->vel_q8.x);
+            o->animation += abs_i(o->v_q8.x);
             frame = 4 + ((o->animation >> 10) & 3);
         }
         break;
@@ -109,7 +109,7 @@ void npc_on_interact(game_s *g, obj_s *o)
     if (ohero) {
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }
-    o->vel_q8.x = 0;
+    o->v_q8.x = 0;
     textbox_load_dialog(g, o->filename);
 }
 
@@ -136,10 +136,10 @@ void npc_load(game_s *g, map_obj_s *mo)
     o->h               = 20;
     o->pos.x           = mo->x;
     o->pos.y           = mo->y + mo->h - o->h;
-    o->gravity_q8.y    = 50;
+    o->grav_q8.y       = 50;
     o->drag_q8.x       = 256;
     o->drag_q8.y       = 255;
-    o->vel_cap_q8.x    = 96; // don't move faster than 1 pixel per frame -> falls down
+    o->v_cap_x_q8      = 96; // don't move faster than 1 pixel per frame -> falls down
     o->facing          = 1;
     o->n_sprites       = 1;
     spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);

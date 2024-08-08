@@ -27,9 +27,7 @@ i32 hero_breath_tick_max(game_s *g)
 void hero_update_swimming(game_s *g, obj_s *o)
 {
     hero_s *h           = &g->hero_mem;
-    o->drag_q8.x        = 240;
-    h->sprint_dtap      = 0;
-    h->sprint_ticks     = 0;
+    o->v_q8.x           = (o->v_q8.x * 240) >> 8;
     h->flytime          = 0;
     h->flytime_added    = 0;
     h->jump_ui_may_hide = 1;
@@ -46,17 +44,16 @@ void hero_update_swimming(game_s *g, obj_s *o)
     o->animation++;
 
     if (h->diving && hero_has_upgrade(g, HERO_UPGRADE_DIVE)) {
-        o->drag_q8.y    = 230;
-        o->gravity_q8.y = 0;
-        // o->vel_q8.y -= HERO_GRAVITY / 2;
+        o->v_q8.y    = (o->v_q8.y * 230) >> 8;
+        o->grav_q8.y = 0;
 
         if (dpad_y) {
-            i32 i0 = (dpad_y == sgn_i32(o->vel_q8.y) ? abs_i32(o->vel_q8.y) : 0);
+            i32 i0 = (dpad_y == sgn_i32(o->v_q8.y) ? abs_i32(o->v_q8.y) : 0);
             i32 ay = (max_i32(512 - i0, 0) * 128) >> 8;
-            o->vel_q8.y += ay * dpad_y;
+            o->v_q8.y += ay * dpad_y;
         }
     } else {
-        o->drag_q8.y = 220;
+        o->v_q8.y = (o->v_q8.y * 220) >> 8;
         if (!hero_has_upgrade(g, HERO_UPGRADE_SWIM) && 0 < h->swimticks) {
             h->swimticks--; // swim ticks are reset when grounded later on
         }
@@ -70,17 +67,17 @@ void hero_update_swimming(game_s *g, obj_s *o)
 
             i32 ch = lerp_i32(25, 70, k0, k1) +
                      lerp_i32(0, 110, i0, i1);
-            o->vel_q8.y -= ch;
+            o->v_q8.y -= ch;
 
         } else {
-            o->vel_q8.y -= min_i32(5 + water_depth, 40);
+            o->v_q8.y -= min_i32(5 + water_depth, 40);
             h->diving = 1;
         }
 
         if (hero_has_upgrade(g, HERO_UPGRADE_DIVE) && 0 < inp_y()) {
             o->tomove.y += 10;
-            o->vel_q8.y = +1000;
-            h->diving   = 1;
+            o->v_q8.y = +1000;
+            h->diving = 1;
         } else if (inp_action_jp(INP_A)) {
             // see if we can jump
             i32 tx1 = max_i32((o->pos.x + 0) >> 4, 0);
@@ -104,13 +101,13 @@ void hero_update_swimming(game_s *g, obj_s *o)
         }
     }
 
-    if (dpad_x != sgn_i32(o->vel_q8.x)) {
-        o->vel_q8.x /= 2;
+    if (dpad_x != sgn_i32(o->v_q8.x)) {
+        o->v_q8.x /= 2;
     }
     if (dpad_x) {
-        i32 i0 = (dpad_x == sgn_i32(o->vel_q8.x) ? abs_i32(o->vel_q8.x) : 0);
+        i32 i0 = (dpad_x == sgn_i32(o->v_q8.x) ? abs_i32(o->v_q8.x) : 0);
         i32 ax = (max_i32(512 - i0, 0) * 32) >> 8;
-        o->vel_q8.x += ax * dpad_x;
+        o->v_q8.x += ax * dpad_x;
     }
 
     if (submerged && h->diving) {

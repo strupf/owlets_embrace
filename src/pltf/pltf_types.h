@@ -39,6 +39,10 @@
 #error ALIGNMENT UNAVAILABLE
 #endif
 
+typedef float          f32;
+typedef double         f64;
+typedef uintptr_t      uptr;
+typedef intptr_t       iptr;
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
@@ -57,10 +61,6 @@ typedef u8             flags8;
 typedef u16            flags16;
 typedef u32            flags32;
 typedef u64            flags64;
-typedef float          f32;
-typedef double         f64;
-typedef uintptr_t      uptr;
-typedef intptr_t       iptr;
 typedef u32            u16x2; // ARM small 32 bit simd types
 typedef u32            i16x2;
 typedef u32            u8x4;

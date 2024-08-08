@@ -138,9 +138,9 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         texrec_s tr_far   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 0, 1024, 256);
         texrec_s tr_mid   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 512, 1024, 256);
         texrec_s tr_near  = asset_texrec(TEXID_BG_FOREST, 0, 256 + 1024, 1024, 256);
-        v2_i32   pos_far  = area_parallax(cam, 0, 0, 1, 1);
-        v2_i32   pos_mid  = area_parallax(cam, 0, 0, 1, 1);
-        v2_i32   pos_near = area_parallax(cam, 0, 0, 1, 1);
+        v2_i32   pos_far  = area_parallax(cam, 25, 0, 1, 1);
+        v2_i32   pos_mid  = area_parallax(cam, 50, 0, 1, 1);
+        v2_i32   pos_near = area_parallax(cam, 75, 0, 1, 1);
         gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);

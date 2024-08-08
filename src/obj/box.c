@@ -24,14 +24,14 @@ void box_load(game_s *g, map_obj_s *mo)
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_MAP |
                     OBJ_MOVER_SLIDE_Y_NEG;
-    o->pos.x        = mo->x;
-    o->pos.y        = mo->y;
-    o->w            = mo->w;
-    o->h            = mo->h;
-    o->mass         = 1;
-    o->gravity_q8.y = 70;
-    o->drag_q8.x    = 128;
-    o->drag_q8.y    = 256;
+    o->pos.x     = mo->x;
+    o->pos.y     = mo->y;
+    o->w         = mo->w;
+    o->h         = mo->h;
+    o->mass      = 1;
+    o->grav_q8.y = 70;
+    o->drag_q8.x = 128;
+    o->drag_q8.y = 256;
 }
 
 void box_on_update(game_s *g, obj_s *o)
@@ -45,10 +45,10 @@ void box_on_update(game_s *g, obj_s *o)
     o->drag_q8.x = obj_grounded(g, o) ? 240 : 253;
 
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = (-o->vel_q8.y * 50) >> 8;
+        o->v_q8.y = (-o->v_q8.y * 50) >> 8;
     }
     if (o->bumpflags & OBJ_BUMPED_X) {
-        o->vel_q8.x = (-o->vel_q8.x * 50) >> 8;
+        o->v_q8.x = (-o->v_q8.x * 50) >> 8;
     }
     o->bumpflags = 0;
 }

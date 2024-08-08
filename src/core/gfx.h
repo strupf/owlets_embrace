@@ -39,6 +39,38 @@ typedef struct {
     rec_i32 r;
 } texrec_s;
 
+// bmap is a successor to the tex structure to be used in
+// future revisions of the gfx functions
+enum {
+    BMAP_FMT_OPAQUE, // only color pixels
+    BMAP_FMT_MASK,   // color and mask interlaced in words
+};
+
+typedef struct { // masked bitmap
+    u32 p;       // black/white
+    u32 m;       // opaque/transparent
+} bmap_pxmk_s;
+
+typedef struct { // opaque bitmap
+    u32 p;       // black/white
+} bmap_px_s;
+
+typedef struct {
+    void *data; // bmap_px_s or bmap_pxmk_s depending on fmt
+    u16   fmt;
+    u16   wword;
+    u16   w;
+    u16   h;
+} bmap_s;
+
+typedef struct {
+    bmap_s t;
+    u16    x;
+    u16    y;
+    u16    w;
+    u16    h;
+} bmap_rec_s;
+
 #define GFX_PATTERN_NUM 17
 #define GFX_PATTERN_MAX (GFX_PATTERN_NUM - 1)
 

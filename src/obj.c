@@ -45,11 +45,16 @@ obj_s *obj_create(game_s *g)
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
 
-    u32 GID          = o->GID;
-    *o               = (obj_s){0};
-    o->GID           = GID;
-    o->next          = g->obj_head_busy;
-    g->obj_head_busy = o;
+    u32 GID           = o->GID;
+    *o                = (obj_s){0};
+    o->GID            = GID;
+    o->next           = g->obj_head_busy;
+    g->obj_head_busy  = o;
+    o->drag_q8.x      = 256;
+    o->drag_q8.y      = 256;
+    o->v_cap_y_q8_neg = -32768;
+    o->v_cap_y_q8_pos = +32767;
+    o->v_cap_x_q8     = +32767;
 #ifdef PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 
@@ -418,16 +423,14 @@ void obj_move(game_s *g, obj_s *o, v2_i32 dt)
 // the goal is to move a whole pixel left or right
 void obj_apply_movement(obj_s *o)
 {
-    o->vel_prev_q8 = o->vel_q8;
-    o->vel_q8      = v2_i16_add(o->vel_q8, o->gravity_q8);
-    o->vel_q8.x    = (o->vel_q8.x * o->drag_q8.x) >> 8;
-    o->vel_q8.y    = (o->vel_q8.y * o->drag_q8.y) >> 8;
-    if (o->vel_cap_q8.x != 0)
-        o->vel_q8.x = clamp_i(o->vel_q8.x, -o->vel_cap_q8.x, +o->vel_cap_q8.x);
-    if (o->vel_cap_q8.y != 0)
-        o->vel_q8.y = clamp_i(o->vel_q8.y, -o->vel_cap_q8.y, +o->vel_cap_q8.y);
+    o->v_prev_q8 = o->v_q8;
+    o->v_q8      = v2_i16_add(o->v_q8, o->grav_q8);
+    o->v_q8.x    = ((i32)o->v_q8.x * (i32)o->drag_q8.x) >> 8;
+    o->v_q8.y    = ((i32)o->v_q8.y * (i32)o->drag_q8.y) >> 8;
+    o->v_q8.x    = clamp_i32(o->v_q8.x, -o->v_cap_x_q8, +o->v_cap_x_q8);
+    o->v_q8.y    = clamp_i32(o->v_q8.y, o->v_cap_y_q8_neg, o->v_cap_y_q8_pos);
 
-    o->subpos_q8 = v2_i16_add(o->subpos_q8, o->vel_q8);
+    o->subpos_q8 = v2_i16_add(o->subpos_q8, o->v_q8);
     o->tomove.x += o->subpos_q8.x >> 8;
     o->tomove.y += o->subpos_q8.y >> 8;
     o->subpos_q8.x &= 255;
@@ -528,14 +531,14 @@ obj_s *obj_closest_interactable(game_s *g, v2_i32 pos)
 
 v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
 {
-    if (!o->rope || !o->ropenode) return v2_i32_from_i16(o->vel_q8);
+    if (!o->rope || !o->ropenode) return v2_i32_from_i16(o->v_q8);
 
     rope_s     *r          = o->rope;
     ropenode_s *rn         = o->ropenode;
     i32         len_q4     = rope_len_q4(g, r);
     i32         len_max_q4 = r->len_max_q4;
     i32         dt_len     = len_q4 - len_max_q4;
-    if (dt_len <= 0) return v2_i32_from_i16(o->vel_q8); // rope is not stretched
+    if (dt_len <= 0) return v2_i32_from_i16(o->v_q8); // rope is not stretched
 
     ropenode_s *rprev = rn->next ? rn->next : rn->prev;
     assert(rprev);
@@ -546,8 +549,8 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
     // damping force
 
     v2_i32 fdamp = {0};
-    if (v2_dot(ropedt, v2_i32_from_i16(o->vel_q8)) > 0) {
-        v2_i32 vrad = project_pnt_line(v2_i32_from_i16(o->vel_q8), (v2_i32){0}, dt_q4);
+    if (v2_dot(ropedt, v2_i32_from_i16(o->v_q8)) > 0) {
+        v2_i32 vrad = project_pnt_line(v2_i32_from_i16(o->v_q8), (v2_i32){0}, dt_q4);
         fdamp       = v2_mulq(vrad, 210, 8);
     }
 
@@ -556,7 +559,7 @@ v2_i32 obj_constrain_to_rope(game_s *g, obj_s *o)
     v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
 
     v2_i32 frope   = v2_add(fdamp, fspring);
-    v2_i32 vel_new = v2_sub(v2_i32_from_i16(o->vel_q8), frope);
+    v2_i32 vel_new = v2_sub(v2_i32_from_i16(o->v_q8), frope);
     return vel_new;
 }
 

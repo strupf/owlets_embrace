@@ -146,10 +146,10 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
     }
 
     if (o->bumpflags & OBJ_BUMPED_X) {
-        o->vel_q8.x = -(o->vel_q8.x * mx) >> 8;
+        o->v_q8.x = -(o->v_q8.x * mx) >> 8;
     }
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = -(o->vel_q8.y * my) >> 8;
+        o->v_q8.y = -(o->v_q8.y * my) >> 8;
     }
     if (o->bumpflags & (OBJ_BUMPED_X | OBJ_BUMPED_Y)) {
         crawler->bounce_rotation_q12 = rngr_sym_i32(2000);
@@ -157,7 +157,7 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
     o->bumpflags = 0;
 
     // try to return to crawling if not bouncing too much
-    if (o->timer < 0 && abs_i(o->vel_q8.x) < 100 && abs_i(o->vel_q8.y) < 5) {
+    if (o->timer < 0 && abs_i(o->v_q8.x) < 100 && abs_i(o->v_q8.y) < 5) {
         o->timer                     = 0;
         o->state                     = CRAWLER_STATE_FALLING;
         o->substate                  = CRAWLER_SUBSTATE_CURLED;
@@ -289,7 +289,7 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
     o->on_update       = crawler_on_update;
     o->on_animate      = crawler_on_animate;
     o->render_priority = 1;
-    o->gravity_q8.y    = 30;
+    o->grav_q8.y       = 30;
     o->drag_q8.y       = 255;
     o->drag_q8.x       = 255;
     o->w               = 15;
@@ -332,8 +332,8 @@ void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)
     o->state                     = CRAWLER_STATE_BOUNCING;
     o->substate                  = CRAWLER_SUBSTATE_CURLED;
     o->timer                     = CRAWLER_TICKS_BOUNCING;
-    o->vel_q8.y                  = (hb.force_q8.y * 800) >> 8;
-    o->vel_q8.x                  = (hb.force_q8.x * 1000) >> 8;
+    o->v_q8.y                    = (hb.force_q8.y * 800) >> 8;
+    o->v_q8.x                    = (hb.force_q8.x * 1000) >> 8;
     o->drag_q8.y                 = 255;
     o->drag_q8.x                 = 255;
     crawler->bounce_rotation_q12 = rngr_sym_i32(2000);

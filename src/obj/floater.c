@@ -67,7 +67,7 @@ void floater_on_update(game_s *g, obj_s *o)
             if (o->bumpflags & OBJ_BUMPED_X_NEG) {
                 o->substate = OBJ_BUMPED_X_NEG;
             }
-            o->vel_q8.x = -o->vel_q8.x;
+            o->v_q8.x = -o->v_q8.x;
         }
         if (o->bumpflags & OBJ_BUMPED_Y) {
             if (o->bumpflags & OBJ_BUMPED_Y_POS) {
@@ -76,7 +76,7 @@ void floater_on_update(game_s *g, obj_s *o)
             if (o->bumpflags & OBJ_BUMPED_Y_NEG) {
                 o->substate = OBJ_BUMPED_Y_NEG;
             }
-            o->vel_q8.y = -o->vel_q8.y;
+            o->v_q8.y = -o->v_q8.y;
         }
     }
     if (o->bumpflags) {
@@ -88,12 +88,12 @@ void floater_on_update(game_s *g, obj_s *o)
     fl->steer_ang_q16    = (fl->steer_ang_q16 + fl->steer_change_q16) & 0xFFFF;
     v2_i16 steer         = {(fl->vel_amount * sin_q16(fl->steer_ang_q16 << 2)) >> 16,
                             (fl->vel_amount * cos_q16(fl->steer_ang_q16 << 2)) >> 16};
-    o->vel_q8            = steer;
+    o->v_q8              = steer;
     if (ohero) {
         rec_i32 herobot = obj_rec_bottom(ohero);
         rec_i32 rplat   = {o->pos.x, o->pos.y, o->w, 1};
-        if (overlap_rec(herobot, rplat) && 0 < ohero->vel_q8.y) {
-            o->vel_q8.y += 200;
+        if (overlap_rec(herobot, rplat) && 0 < ohero->v_q8.y) {
+            o->v_q8.y += 200;
             // fl->steer_ang_q16 -= sgn_i32(fl->steer_ang_q16) * 100;
         }
     }

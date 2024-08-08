@@ -35,7 +35,7 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (!ohero) break;
         rec_i32 r = {o->pos.x, o->pos.y, o->w, 1};
-        if (0 <= ohero->vel_q8.y && overlap_rec(obj_rec_bottom(ohero), r)) {
+        if (0 <= ohero->v_q8.y && overlap_rec(obj_rec_bottom(ohero), r)) {
             crumbleblock_start_breaking(o);
         }
         break;

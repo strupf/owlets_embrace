@@ -51,13 +51,18 @@ void flyblob_on_animate(game_s *g, obj_s *o)
                                         +0, +2, +3, +2, -2};
 
     u32 frameblob = 1 + frame_from_ticks_pingpong(f->anim_frame / 4, 4);
-    // u32 frameblob = (f->anim_frame / 4) % 10;
     u32 frameprop = (f->anim_propeller >> 1) & 3;
 
     s0->offs.x = -18;
     s0->offs.y = -18;
-    s1->offs   = s0->offs;
-    s1->offs.y += propeller_offs[frameblob];
+    s1->offs.x = s0->offs.x;
+    s1->offs.y = s0->offs.y + propeller_offs[frameblob];
+
+    o->n_sprites = 2;
+    if (o->enemy.hurt_tick) { // display hurt frame
+        o->n_sprites = 1;
+        frameblob    = 10;
+    }
 
     s0->trec = asset_texrec(TEXID_FLYBLOB, frameblob * 64, 64, 64, 64);
     s1->trec = asset_texrec(TEXID_FLYBLOB, frameprop * 64, 0, 64, 64);

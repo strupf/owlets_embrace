@@ -231,7 +231,7 @@ i32 asset_snd_loadID(i32 ID, const char *filename, snd_s *snd)
 {
     assert(0 <= ID && ID < NUM_SNDID);
     FILEPATH_GEN(pathname, FILEPATH_SND, filename);
-    str_append(pathname, ".audio");
+    str_append(pathname, FILEEXTENSION_AUD);
 #if ASSETS_LOG_LOADING
     pltf_log("LOAD SND: %s (%s)\n", filename, pathname);
 #endif

@@ -87,6 +87,16 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 
     if (ohero) {
+        hero_s *hhero          = (hero_s *)&g->hero_mem;
+        char    momentumtxt[6] = {0};
+        if (hhero->momentum == 0) {
+            momentumtxt[0] = '0';
+        } else {
+            strs_from_u32(hhero->momentum, momentumtxt);
+        }
+
+        // fnt_draw_ascii(ctx, font_1, (v2_i32){360, 0}, momentumtxt, SPR_MODE_BLACK);
+
         texrec_s trheart = asset_texrec(TEXID_UI, 400, 240, 32, 32);
         for (i32 n = 0; n < ohero->health_max; n++) {
             i32 frameID = 0;

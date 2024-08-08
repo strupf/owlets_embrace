@@ -6,6 +6,7 @@
 
 enum {
     HERO_ANIMID_WALK,
+    HERO_ANIMID_RUN,
     HERO_ANIMID_IDLE,
     HERO_ANIMID_SLEEP,
     HERO_ANIMID_DREAM_START,
@@ -27,7 +28,7 @@ void hero_on_animate(game_s *g, obj_s *o)
     obj_sprite_s *sprite     = &o->sprites[0];
     hero_s       *h          = &g->hero_mem;
     const bool32  was_idle   = h->is_idle;
-    const i32     idle_animp = h->idle_anim;
+    const u32     idle_animp = h->idle_anim;
 
     h->idle_anim   = 0;
     h->is_idle     = 0;
@@ -48,11 +49,12 @@ void hero_on_animate(game_s *g, obj_s *o)
 
     o->n_sprites = 1;
     if (h->attack_tick || h->b_hold_tick) {
-        state = -1; // override other states
+
         sprite->offs.y -= 16;
         sprite->offs.x += o->facing == 1 ? +12 : -7;
-        animID          = HERO_ANIMID_ATTACK;
+        animID          = HERO_ANIMID_ATTACK + (state == HERO_STATE_GROUND);
         u32 attack_hold = h->attack_hold_tick + h->b_hold_tick;
+        state           = -1; // override other states
 
         if (attack_hold) {
             frameID = (attack_hold < 6 ? 0 : (attack_hold < 10 ? 1 : 2));
@@ -98,84 +100,105 @@ void hero_on_animate(game_s *g, obj_s *o)
 
                 frameID = min_i32((h->crawling_to_stand * 6) / HERO_START_CRAWL_TICK, 5);
             } else {
-                o->animation += o->vel_q8.x;
+                o->animation += o->v_q8.x;
                 frameID = 8 + ((u32)o->animation / 1500) % 6;
             }
-        } else {
-            if (h->crawlingp) {
-                o->animation         = 0;
-                h->crawling_to_stand = 5;
-            }
+            break;
+        }
 
-            if (h->crawling_to_stand) {
-                h->crawling_to_stand--;
-                animID  = HERO_ANIMID_CRAWL;
-                frameID = (h->crawling_to_stand * 6) / 8;
+        if (h->crawlingp) {
+            o->animation         = 0;
+            h->crawling_to_stand = 5;
+        }
+
+        if (h->crawling_to_stand) {
+            h->crawling_to_stand--;
+            animID  = HERO_ANIMID_CRAWL;
+            frameID = (h->crawling_to_stand * 6) / 8;
+            break;
+        }
+
+        if (o->v_q8.x != 0) {
+            if (was_idle) {
+                animID  = HERO_ANIMID_SLEEP;
+                frameID = 3;
                 break;
             }
-
-            if (o->vel_q8.x != 0) {
-                if (was_idle) {
-                    animID  = HERO_ANIMID_SLEEP;
-                    frameID = 3;
-                    break;
-                }
-                animID           = h->carrying ? HERO_ANIMID_CARRY_WALK : HERO_ANIMID_WALK; // "carrying/walking"
-                i32 frameID_prev = (o->animation / 2000) & 7;
-                o->animation += abs_i(o->vel_q8.x);
-                frameID = (o->animation / 2000) & 7;
-                if (frameID_prev != frameID && (frameID & 3) == 1) {
-                    snd_play(SNDID_FOOTSTEP_LEAVES, 0.6f, rngr_f32(0.9f, 1.0f));
-                    v2_i32 posc = obj_pos_bottom_center(o);
-                    posc.x -= 16 + sgn_i(o->vel_q8.x) * 4;
-                    posc.y -= 30;
-                    rec_i32 trp = {0, 284, 32, 32};
-                    spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, posc, TEXID_MISCOBJ, trp, 12, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
-                }
-                break;
-            }
-
-            // idle standing
-            if (h->carrying) {
-                animID = HERO_ANIMID_CARRY_IDLE;
-                o->animation++;
-                i32 carryf = (o->animation >> 5) & 3;
-                frameID    = (carryf == 0 ? 1 : 0);
+            animID           = h->carrying ? HERO_ANIMID_CARRY_WALK : HERO_ANIMID_WALK; // "carrying/walking"
+            i32 frameID_prev = (o->animation / 2000) & 7;
+            i32 va           = abs_i32(o->v_q8.x);
+            if (HERO_VX_SPRINT <= va && animID == HERO_ANIMID_WALK) {
+                animID = HERO_ANIMID_RUN;
+                o->animation += (va * 220) >> 8;
             } else {
-                animID     = HERO_ANIMID_IDLE; // "carrying/idle"
-                h->is_idle = 1;
-                h->idle_ticks++;
-                if (!was_idle) {
-                    h->idle_ticks = 0;
+                o->animation += va;
+            }
+
+            if (h->skidding) {
+                if (4 <= h->skidding) {
+                    animID  = HERO_ANIMID_RUN;
+                    frameID = 8;
+                } else {
+                    animID  = HERO_ANIMID_RUN;
+                    frameID = 9;
                 }
 
-                if (idle_animp) {
-                    h->idle_anim = idle_animp + 1;
-                } else if (100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
-                    h->idle_anim = 1;
-                }
+                break;
+            }
+
+            frameID = (o->animation / 2000) & 7;
+            if (frameID_prev != frameID && (frameID & 3) == 1) {
+                snd_play(SNDID_FOOTSTEP_LEAVES, 0.6f, rngr_f32(0.9f, 1.0f));
+                v2_i32 posc = obj_pos_bottom_center(o);
+                posc.x -= 16 + sgn_i(o->v_q8.x) * 4;
+                posc.y -= 30;
+                rec_i32 trp = {0, 284, 32, 32};
+                spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, posc, TEXID_MISCOBJ, trp, 12, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
+            }
+            break;
+        }
+
+        // idle standing
+        if (h->carrying) {
+            o->animation++;
+            i32 carryf = (o->animation >> 5) & 3;
+            animID     = HERO_ANIMID_CARRY_IDLE;
+            frameID    = (carryf == 0 ? 1 : 0);
+            break;
+        }
+
+        animID     = HERO_ANIMID_IDLE; // "carrying/idle"
+        h->is_idle = 1;
+        h->idle_ticks++;
+        if (!was_idle) {
+            h->idle_ticks = 0;
+        }
+
+        if (idle_animp) {
+            h->idle_anim = idle_animp + 1;
+        } else if (100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
+            h->idle_anim = 1;
+        }
 
 #define HERO_TICKS_IDLE_SIT 60
-                if (h->idle_anim) {
-                    animID = HERO_ANIMID_SLEEP;
-                    if (HERO_TICKS_IDLE_SIT <= h->idle_anim) {
-                        frameID = 12 + (((h->idle_anim - HERO_TICKS_IDLE_SIT) >> 6) & 1);
-                    } else {
-                        frameID = lerp_i32(0, 13, h->idle_anim, HERO_TICKS_IDLE_SIT);
-                        frameID = clamp_i32(frameID, 0, 12);
-                    }
+        if (h->idle_anim) {
+            animID = HERO_ANIMID_SLEEP;
+            if (HERO_TICKS_IDLE_SIT <= h->idle_anim) {
+                frameID = 12 + (((h->idle_anim - HERO_TICKS_IDLE_SIT) >> 6) & 1);
+            } else {
+                frameID = lerp_i32(0, 13, h->idle_anim, HERO_TICKS_IDLE_SIT);
+                frameID = clamp_i32(frameID, 0, 12);
+            }
 
-                } else {
-                    if (o->vel_prev_q8.x != 0) {
-                        o->animation = 0; // just got idle
-                    } else {
-                        o->animation++;
-                        i32 idlea = o->animation / 15;
-                        frameID   = idlea & 3;
-                        if (((idlea >> 2) % 3) == 1 && frameID <= 1) {
-                            frameID += 4; // blink
-                        }
-                    }
+        } else {
+            if (o->v_prev_q8.x != 0) {
+                o->animation = 0; // just got idle
+            } else {
+                o->animation++;
+                i32 idlea = o->animation / 15;
+                frameID   = idlea & 3;
+                if (((idlea >> 2) % 3) == 1 && frameID <= 1) {
+                    frameID += 4; // blink
                 }
             }
         }
@@ -230,13 +253,13 @@ void hero_on_animate(game_s *g, obj_s *o)
         animID = HERO_ANIMID_AIR; // "air"
         if (0 < h->ground_impact_ticks) {
             frameID = 0;
-        } else if (+500 <= o->vel_q8.y) {
+        } else if (+500 <= o->v_q8.y) {
             frameID = 5;
-        } else if (+300 <= o->vel_q8.y) {
+        } else if (+300 <= o->v_q8.y) {
             frameID = 4;
-        } else if (-200 <= o->vel_q8.y) {
+        } else if (-200 <= o->v_q8.y) {
             frameID = 3;
-        } else if (-600 <= o->vel_q8.y) {
+        } else if (-600 <= o->v_q8.y) {
             frameID = 2;
         } else {
             frameID = 1;
@@ -252,34 +275,4 @@ void hero_on_animate(game_s *g, obj_s *o)
     }
     rec_i32 frame  = {frameID * 64, animID * 64, 64, 64};
     sprite->trec.r = frame;
-}
-
-void hero_on_draw(game_s *g, obj_s *o, v2_i32 cam)
-{
-    hero_s *h = (hero_s *)&g->hero_mem;
-    if (h->b_hold_tick < 12) return;
-    gfx_ctx_s ctx  = gfx_ctx_display();
-    v2_i32    oc   = v2_add(obj_pos_center(o), cam);
-    i32       t    = g->save.tick * 20000;
-    v2_i32    offs = {
-        (26 * sin_q16(t)) >> 16,
-        (26 * cos_q16(t)) >> 16};
-    v2_i32 offs2 = {
-        (26 * sin_q16(t - 20000)) >> 16,
-        (26 * cos_q16(t - 20000)) >> 16};
-
-    offs  = v2_add(oc, offs);
-    offs2 = v2_add(oc, offs2);
-
-    gfx_ctx_s ctxw = ctx;
-    ctxw.pat       = gfx_pattern_4x4(B4(0111),
-                                     B4(1010),
-                                     B4(1101),
-                                     B4(1010));
-    gfx_lin_thick(ctx, oc, offs2, GFX_COL_WHITE, 6);
-    gfx_lin_thick(ctx, oc, offs2, GFX_COL_BLACK, 4);
-
-    gfx_lin_thick(ctx, oc, offs, GFX_COL_WHITE, 10);
-    gfx_lin_thick(ctx, oc, offs, GFX_COL_BLACK, 8);
-    gfx_lin_thick(ctxw, oc, offs, GFX_COL_WHITE, 3);
 }

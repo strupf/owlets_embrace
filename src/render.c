@@ -228,6 +228,8 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
         o->on_draw(g, o, cam);
     }
 
+    pltf_debugr(ppos.x, ppos.y, o->w, o->h, 0xFF, 0, 0, 1);
+
 #ifdef PLTF_DEBUG
     if (o->flags & OBJ_FLAG_RENDER_AABB) {
         gfx_ctx_s ctx_aabb = ctx;

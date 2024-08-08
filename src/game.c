@@ -8,39 +8,6 @@
 
 void game_tick_gameplay(game_s *g);
 
-void game_update_wind_tiles(game_s *g)
-{
-    for (i32 n = 0; n < 1000; n++) {
-        for (i32 y = 0; y < g->tiles_y; y++) {
-            for (i32 x = 0; x < g->tiles_x; x++) {
-                i32          i  = x + y * g->tiles_x;
-                wind_tile_s *wt = &g->wind_tiles[i];
-                if (wt->str) continue;
-
-                v2_i32 v   = {0};
-                u32    str = 0;
-                i32    k   = 0;
-                for (i32 yi = -1; yi < +1; yi++) {
-                    for (i32 xi = -1; xi < +1; xi++) {
-                        i32 xx = x + xi;
-                        i32 yy = y + yi;
-                        if (!(0 <= xx && xx < g->tiles_x &&
-                              0 <= yy && yy < g->tiles_x)) continue;
-                        wind_tile_s *wi = &g->wind_tiles[xx + yy * g->tiles_x];
-                        if (!wi->str) continue;
-                        k++;
-                        str += wi->str;
-                        v2_i32 vi = v2_i32_from_v2_i8(wi->v);
-                        v         = v2_add(v, v2_mul(vi, wi->str));
-                    }
-                }
-
-                if (!str) continue;
-            }
-        }
-    }
-}
-
 void game_init(game_s *g)
 {
     pltf_audio_set_volume(1.f);
@@ -68,23 +35,19 @@ void game_init(game_s *g)
 
 void game_tick(game_s *g)
 {
+    g->n_hitboxes = 0;
     g->save.tick++;
-    if (g->aud_lowpass) {
-        g->aud_lowpass--;
-        aud_set_lowpass(((g->aud_lowpass * 12) / 30));
+    if (g->hero_hurt_lowpass_tick) {
+        g->hero_hurt_lowpass_tick--;
+        aud_set_lowpass(((g->hero_hurt_lowpass_tick * 12) / 30));
     }
 
     if (g->substate) {
         g->freeze_tick = 0;
+    } else if (0 < g->freeze_tick) {
+        g->freeze_tick--;
     } else {
-        if (0 < g->freeze_tick) {
-            g->freeze_tick--;
-        } else {
-            if (inp_action_jr(INP_B)) {
-                hero_item_activate(g, obj_get_tagged(g, OBJ_TAG_HERO));
-            }
-            game_tick_gameplay(g);
-        }
+        game_tick_gameplay(g);
     }
 
     switch (g->substate) {
@@ -140,7 +103,7 @@ void game_tick_gameplay(game_s *g)
             o->on_update(g, o);
         }
 
-        o->posprev = posprev;
+        o->pos_prev = posprev;
     }
 
     for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
@@ -183,8 +146,8 @@ void game_tick_gameplay(game_s *g)
 
         if (o->enemy.hurt_tick) {
             o->enemy.hurt_tick--;
-            o->enemy.hurt_shake_offs.x = rngr_i32(-2, +2);
-            o->enemy.hurt_shake_offs.y = rngr_i32(-2, +2);
+            o->enemy.hurt_shake_offs.x = rngr_sym_i32(3);
+            o->enemy.hurt_shake_offs.y = rngr_sym_i32(3);
         } else {
             o->enemy.hurt_shake_offs.x = 0;
             o->enemy.hurt_shake_offs.y = 0;
@@ -205,7 +168,7 @@ void game_tick_gameplay(game_s *g)
     if (hero_present_and_alive(g, &ohero)) {
         hero_process_hurting_things(g, ohero);
 
-        if (ohero->health <= 0) {
+        if (ohero->health == 0) {
             gameover_start(g);
         }
     }
@@ -221,8 +184,8 @@ void game_tick_gameplay(game_s *g)
 #endif
 
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick = 4;
-        g->aud_lowpass = 40;
+        g->freeze_tick            = 4;
+        g->hero_hurt_lowpass_tick = 40;
     } else if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = 2;
     }
@@ -328,6 +291,11 @@ bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
 {
     bool32 res = 0;
 
+    for (i32 n = 0; n < nb; n++) {
+        hitbox_s hb = boxes[n];
+        pltf_debugr(hb.r.x, hb.r.y, hb.r.w, hb.r.h, 0, 0xFF, 0, 10);
+    }
+
     for (obj_each(g, o)) {
         rec_i32 aabb = obj_aabb(o);
 
@@ -363,10 +331,10 @@ bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
     if ((o->flags & OBJ_FLAG_ENEMY) &&
         0 < o->health &&
         !o->enemy.invincible) {
-        g->freeze_tick = max_i32(g->freeze_tick, 2);
-        o->health -= box.damage;
-        o->enemy.hurt_tick = ENEMY_HURT_TICKS;
-        if (o->health <= 0) {
+        g->freeze_tick     = max_i32(g->freeze_tick, 3);
+        o->health          = max_i32((i32)o->health - box.damage, 0);
+        o->enemy.hurt_tick = 15;
+        if (o->health == 0) {
             o->enemy.die_tick = 15;
         }
         return 1;

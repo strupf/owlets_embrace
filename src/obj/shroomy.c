@@ -34,7 +34,7 @@ void shroomy_load(game_s *g, map_obj_s *mo)
     o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->facing          = 1;
-    o->gravity_q8.y    = 30;
+    o->grav_q8.y       = 30;
     o->drag_q8.y       = 255;
     o->drag_q8.x       = 200;
     o->w               = 16;
@@ -55,7 +55,7 @@ void shroomy_load(game_s *g, map_obj_s *mo)
 void shroomy_on_update(game_s *g, obj_s *o)
 {
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
 
     if ((o->bumpflags & OBJ_BUMPED_X) ||
@@ -79,12 +79,12 @@ void shroomy_on_update(game_s *g, obj_s *o)
 
     switch (o->state) {
     case SHROOMY_WALK: {
-        o->vel_q8.x = o->facing * 64;
+        o->v_q8.x = o->facing * 64;
 
         if (ohero && overlap_rec(obj_aabb(ohero), rr)) { // saw hero
-            o->state    = SHROOMY_HIDE;
-            o->timer    = 0;
-            o->vel_q8.x = 0;
+            o->state  = SHROOMY_HIDE;
+            o->timer  = 0;
+            o->v_q8.x = 0;
         }
     } break;
     case SHROOMY_HIDE:
@@ -127,7 +127,7 @@ void shroomy_on_animate(game_s *g, obj_s *o)
 
     switch (o->state) {
     case SHROOMY_WALK:
-        o->animation += o->vel_q8.x;
+        o->animation += o->v_q8.x;
         spr->trec.r.y = 0;
         if (obj_grounded(g, o))
             spr->trec.r.x = W * ((o->animation >> 9) & 3);

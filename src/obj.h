@@ -27,12 +27,6 @@ static inline u32 obj_GID_set(i32 index, i32 gen)
     return (((u32)index << OBJ_ID_INDEX_SH) | ((u32)gen));
 }
 
-enum {
-    PROJECTILE_ID_DEFAULT,
-    PROJECTILE_ID_BUDPLANT,
-    PROJECTILE_ID_STALACTITE_BREAK,
-};
-
 #define OBJ_FLAG_MOVER              ((u64)1 << 0)
 #define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
 #define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
@@ -140,16 +134,18 @@ struct obj_s {
     i16               w;
     i16               h;
     v2_i32            pos; // position in pixels
-    v2_i32            posprev;
+    v2_i32            pos_prev;
     v2_i16            subpos_q8;
-    v2_i16            vel_q8;
-    v2_i16            vel_prev_q8;
-    v2_i16            vel_cap_q8;
+    v2_i16            v_q8;
+    v2_i16            v_prev_q8;
     v2_i16            drag_q8;
-    v2_i16            gravity_q8;
+    v2_i16            grav_q8;
     v2_i16            tomove;
     v2_i16            knockback_q8;
     u16               knockback_tick;
+    i16               v_cap_x_q8;
+    i16               v_cap_y_q8_pos;
+    i16               v_cap_y_q8_neg;
     // some generic behaviour fields
     i32               facing; // -1 left, +1 right
     i32               trigger;
@@ -160,10 +156,9 @@ struct obj_s {
     i32               subtimer;
     i16               state;
     i16               substate;
-    i16               health;
-    i16               health_max;
     u16               cam_attract_r;
-    i16               invincible_tick;
+    u8                health;
+    u8                health_max;
     enemy_s           enemy;
     //
     ropenode_s       *ropenode;

@@ -26,7 +26,7 @@ static void charger_update_normal(game_s *g, obj_s *o)
 {
     bool32 bumpedx = (o->bumpflags & OBJ_BUMPED_X);
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
     o->bumpflags = 0;
 
@@ -72,18 +72,18 @@ static void charger_update_charging(game_s *g, obj_s *o)
     bool32  bumpedy = (o->bumpflags & OBJ_BUMPED_Y);
     o->bumpflags    = 0;
     if (bumpedy) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
 
     if (bumpedx) {
         snd_play(SNDID_CRUMBLE, 0.5f, 2.f);
         cam_screenshake(&g->cam, 10, 5);
-        o->vel_q8.x = 0;
+        o->v_q8.x = 0;
         if (obj_grounded(g, o)) {
-            o->vel_q8.y = -700;
+            o->v_q8.y = -700;
         }
-        if (bflags & OBJ_BUMPED_X_NEG) o->vel_q8.x = +150;
-        if (bflags & OBJ_BUMPED_X_POS) o->vel_q8.x = -150;
+        if (bflags & OBJ_BUMPED_X_NEG) o->v_q8.x = +150;
+        if (bflags & OBJ_BUMPED_X_POS) o->v_q8.x = -150;
         o->state    = CHARGER_STATE_STUNNED;
         o->subtimer = 0;
         return;
@@ -100,18 +100,18 @@ static void charger_update_charging(game_s *g, obj_s *o)
         return;
     }
 
-    o->vel_q8.x += o->facing * 64;
+    o->v_q8.x += o->facing * 64;
 }
 
 static void charger_update_stunned(game_s *g, obj_s *o)
 {
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = -(o->vel_q8.y >> 1);
+        o->v_q8.y = -(o->v_q8.y >> 1);
     }
     if (o->bumpflags & OBJ_BUMPED_X) {
-        o->vel_q8.x = 0;
+        o->v_q8.x = 0;
     } else if (obj_grounded(g, o)) {
-        o->vel_q8.x /= 2;
+        o->v_q8.x /= 2;
     }
 
     o->bumpflags = 0;
@@ -183,11 +183,10 @@ void charger_load(game_s *g, map_obj_s *mo)
     o->on_animate     = charger_on_animate;
     o->w              = 48;
     o->h              = 32;
-    o->gravity_q8.y   = 80;
+    o->grav_q8.y      = 80;
     o->drag_q8.y      = 255;
     o->drag_q8.x      = 256;
     o->moverflags     = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLIDE_Y_NEG;
-    o->vel_cap_q8.x   = 2000;
     o->facing         = -1;
     o->health_max     = 3;
     o->health         = o->health_max;

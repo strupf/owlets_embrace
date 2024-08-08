@@ -39,10 +39,9 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->pos.y          = p.y - o->h / 2;
     o->drag_q8.x      = 256;
     o->drag_q8.y      = 256;
-    o->gravity_q8.y   = 70;
-    o->vel_q8         = v2_i16_from_i32(v_q8, 0);
-    o->vel_cap_q8.x   = 2500;
-    o->vel_cap_q8.y   = 2500;
+    o->grav_q8.y      = 70;
+    o->v_q8           = v2_i16_from_i32(v_q8, 0);
+    o->v_cap_y_q8_pos = 2500;
 
     rope_init(r);
     r->len_max_q4 = hero_max_rope_len_q4(g);
@@ -179,26 +178,26 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     switch (attach) {
     case HOOK_ATTACH_NONE:
         if (hook->bumpflags & OBJ_BUMPED_X) {
-            if (abs_i32(hook->vel_q8.x) > 700) {
+            if (abs_i32(hook->v_q8.x) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
-            hook->vel_q8.x = -hook->vel_q8.x / 3;
+            hook->v_q8.x = -hook->v_q8.x / 3;
         }
         if (hook->bumpflags & OBJ_BUMPED_Y) {
-            if (abs_i32(hook->vel_q8.y) > 700) {
+            if (abs_i32(hook->v_q8.y) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
-            hook->vel_q8.y = -hook->vel_q8.y / 3;
+            hook->v_q8.y = -hook->v_q8.y / 3;
         }
         if (obj_grounded(g, hook)) {
-            hook->vel_q8.x = (hook->vel_q8.x * 240) >> 8;
+            hook->v_q8.x = (hook->v_q8.x * 240) >> 8;
         }
         break;
     case HOOK_ATTACH_SOLID: {
         hook->tomove.x = 0;
         hook->tomove.y = 0;
-        hook->vel_q8.x = 0;
-        hook->vel_q8.y = 0;
+        hook->v_q8.x   = 0;
+        hook->v_q8.y   = 0;
         hook->state    = HOOK_STATE_ATTACHED;
         snd_play(SNDID_HOOK_ATTACH, 1.f, 1.f);
 
@@ -276,7 +275,7 @@ void hook_update(game_s *g, obj_s *hook)
     obj_s  *h       = obj_get_tagged(g, OBJ_TAG_HERO);
     rec_i32 r_room  = {0, 0, g->pixel_x, g->pixel_y};
     if (!overlap_rec_pnt(r_room, obj_pos_center(hook))) {
-        hero_unhook(g, h);
+        hero_action_ungrapple(g, h);
     }
 }
 

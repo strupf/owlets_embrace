@@ -23,11 +23,11 @@ tex_s tex_framebuffer()
 
 tex_s tex_create_internal(i32 w, i32 h, bool32 mask, alloc_s ma)
 {
-    tex_s t        = {0};
     u32   waligned = (w + 31) & ~31;
     u32   wword    = (waligned / 32) << (0 < mask);
     u32   size     = sizeof(u32) * wword * h;
     void *mem      = ma.allocf(ma.ctx, size); // * 2 bc of mask pixels
+    tex_s t        = {0};
     if (mem) {
         t.px    = (u32 *)mem;
         t.fmt   = (0 < mask);
@@ -1206,8 +1206,8 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
     i32   nb      = (x2 + 1) - x1;                                             // number of bits in a row
     i32   od      = x1 & 31;                                                   // bitoffset in dst
     i32   dm      = (od + nb - 1) >> 5;                                        // number of touched dst words -1
-    u32   ml      = bswap32(0xFFFFFFFFU >> (31 & od));                         // mask to cut off boundary left
-    u32   mr      = bswap32(0xFFFFFFFFU << (31 & (u32)(-od - nb)));            // mask to cut off boundary right
+    u32   ml      = bswap32(U32_C(0xFFFFFFFF) >> (31 & od));                   // mask to cut off boundary left
+    u32   mr      = bswap32(U32_C(0xFFFFFFFF) << (31 & (u32)(-od - nb)));      // mask to cut off boundary right
     i32   u1      = src.r.x - sx * pos.x + (sx < 0 ? src.r.w - (x2 + 1) : x1); // first bit index in src row
     i32   os      = (u32)(sx * u1 - (sx < 0) * nb) & 31;                       // bitoffset in src
     i32   da      = 1 + (dtex.fmt == TEX_FMT_MASK);                            // number of words to next logical pixel word in dst
@@ -1244,7 +1244,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
                 for (i32 i = 0; i < dm; i++, sp -= sa, dp += da) {
                     spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
                     p = brev32(*sp);
-                    m = 0xFFFFFFFFU;
+                    m = U32_C(0xFFFFFFFF);
                     if (sa == 2) {
                         m = brev32(*(sp + 1));
                     }
@@ -1254,7 +1254,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
             }
             if (0 < of) { // first word
                 p = brev32(bswap32(*sp)) << l;
-                m = 0xFFFFFFFFU;
+                m = U32_C(0xFFFFFFFF);
                 if (sa == 2) {
                     m = brev32(bswap32(*(sp + 1))) << l;
                 }
@@ -1280,7 +1280,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
             for (i32 i = 1; i < dm; i++, sp -= sa, dp += da) { // middle words
                 p = brev32(bswap32(*sp)) << l;
                 p = bswap32(p | (brev32(bswap32(*(sp - sa))) >> r));
-                m = 0xFFFFFFFFU;
+                m = U32_C(0xFFFFFFFF);
                 if (sa == 2) {
                     m = brev32(bswap32(*(sp + 1))) << l;
                     m = bswap32(m | (brev32(bswap32(*(sp - 1))) >> r));
@@ -1289,7 +1289,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
             }
 
             p = brev32(bswap32(*sp)) << l; // last word
-            m = 0xFFFFFFFFU;
+            m = U32_C(0xFFFFFFFF);
             if (sa == 2) {
                 m = brev32(bswap32(*(sp + 1))) << l;
             }
@@ -1315,7 +1315,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
                 for (i32 i = 0; i < dm; i++, sp += sa, dp += da) {
                     spr_blit(dp, da == 1 ? NULL : dp + 1, p, m & pt, mode);
                     p = *sp;
-                    m = 0xFFFFFFFFU;
+                    m = U32_C(0xFFFFFFFF);
                     if (sa == 2) {
                         m = *(sp + 1);
                     }
@@ -1326,7 +1326,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
 
             if (0 < of) { // first word
                 p = bswap32(*sp) << l;
-                m = 0xFFFFFFFFU;
+                m = U32_C(0xFFFFFFFF);
                 if (sa == 2) {
                     m = bswap32(*(sp + 1)) << l;
                 }
@@ -1352,7 +1352,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
             for (i32 i = 1; i < dm; i++, sp += sa, dp += da) { // middle words
                 p = bswap32(*sp) << l;
                 p = bswap32(p | (bswap32(*(sp + sa)) >> r));
-                m = 0xFFFFFFFFU;
+                m = U32_C(0xFFFFFFFF);
                 if (sa == 2) {
                     m = bswap32(*(sp + 1)) << l;
                     m = bswap32(m | (bswap32(*(sp + 3)) >> r));
@@ -1361,7 +1361,7 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
             }
 
             p = bswap32(*sp) << l; // last word
-            m = 0xFFFFFFFFU;
+            m = U32_C(0xFFFFFFFF);
             if (sa == 2) {
                 m = bswap32(*(sp + 1)) << l;
             }
@@ -1402,18 +1402,18 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
 
     tex_s dtex    = ctx.dst;
     tex_s stex    = src.t;
-    i32   nb      = (x2 + 1) - x1;                                  // number of bits in a row
-    i32   u1      = src.r.x - pos.x + x1;                           // first bit index in src row
-    i32   src_wy1 = src.r.y - pos.y + y1;                           //
-    i32   od      = x1 & 31;                                        // bitoffset in dst
-    i32   os      = u1 & 31;                                        // bitoffset in src
-    i32   dm      = ((od + nb - 1) >> 5);                           // number of touched dst words -1
-    i32   sm      = ((os + nb - 1) >> 5) << 1;                      // number of touched src words -1
-    u32   ml      = bswap32(0xFFFFFFFFU >> (31 & od));              // mask to cut off boundary left
-    u32   mr      = bswap32(0xFFFFFFFFU << (31 & (u32)(-od - nb))); // mask to cut off boundary right
-    i32   of      = os - od;                                        // alignment difference
-    i32   l       = of & 31;                                        // word left shift amount
-    i32   r       = 32 - l;                                         // word rght shift amound
+    i32   nb      = (x2 + 1) - x1;                                        // number of bits in a row
+    i32   u1      = src.r.x - pos.x + x1;                                 // first bit index in src row
+    i32   src_wy1 = src.r.y - pos.y + y1;                                 //
+    i32   od      = x1 & 31;                                              // bitoffset in dst
+    i32   os      = u1 & 31;                                              // bitoffset in src
+    i32   dm      = ((od + nb - 1) >> 5);                                 // number of touched dst words -1
+    i32   sm      = ((os + nb - 1) >> 5) << 1;                            // number of touched src words -1
+    u32   ml      = bswap32(U32_C(0xFFFFFFFF) >> (31 & od));              // mask to cut off boundary left
+    u32   mr      = bswap32(U32_C(0xFFFFFFFF) << (31 & (u32)(-od - nb))); // mask to cut off boundary right
+    i32   of      = os - od;                                              // alignment difference
+    i32   l       = of & 31;                                              // word left shift amount
+    i32   r       = 32 - l;                                               // word rght shift amound
 
     u32 *restrict dp       = &dtex.px[((x1 >> 5) << 0) + dtex.wword * y1];      // dst pixel words
     const u32 *restrict sp = &stex.px[((u1 >> 5) << 1) + stex.wword * src_wy1]; // src pixel words

@@ -50,7 +50,7 @@ void stalactite_on_update(game_s *g, obj_s *o)
         if (obj_grounded(g, o)) {
             o->state = STALACTITE_STUCK;
             o->flags &= ~OBJ_FLAG_MOVER;
-            if (1000 < o->vel_q8.y) {
+            if (1000 < o->v_q8.y) {
                 cam_screenshake(&g->cam, 10, 3);
             }
 
@@ -64,13 +64,13 @@ void stalactite_on_update(game_s *g, obj_s *o)
                 }
             }
 
-            o->vel_q8.y = 0;
+            o->v_q8.y = 0;
         }
         if (o->bumpflags & OBJ_BUMPED_X) {
-            o->vel_q8.x = 0;
+            o->v_q8.x = 0;
         }
         if (o->bumpflags & OBJ_BUMPED_Y) {
-            o->vel_q8.y = 0;
+            o->v_q8.y = 0;
         }
         o->bumpflags = 0;
         break;
@@ -97,7 +97,7 @@ void stalactite_load(game_s *g, map_obj_s *mo)
     o->n_sprites       = 1;
     o->w               = 32;
     o->h               = 16;
-    o->gravity_q8.y    = 70;
+    o->grav_q8.y       = 70;
     o->drag_q8.y       = 255;
     spr->trec          = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
     o->pos.x           = mo->x;

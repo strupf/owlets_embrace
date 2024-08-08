@@ -8,10 +8,10 @@ void carrier_on_update(game_s *g, obj_s *o)
 {
     bool32 bumpedx = (o->bumpflags & OBJ_BUMPED_X);
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
     if (bumpedx) {
-        o->vel_q8.x = 0;
+        o->v_q8.x = 0;
     }
     o->bumpflags = 0;
     o->drag_q8.x = 250;
@@ -24,20 +24,20 @@ void carrier_on_update(game_s *g, obj_s *o)
     if (!overlap_rec(rherofeet, rtop)) return;
 
     if (bumpedx) {
-        o->vel_q8.y = -1000;
+        o->v_q8.y = -1000;
     }
 
     if (obj_grounded(g, o)) {
-        o->vel_q8.x += hero->facing * 50;
+        o->v_q8.x += hero->facing * 50;
         o->drag_q8.x = 256;
     } else {
-        o->vel_q8.x += hero->facing * 15;
+        o->v_q8.x += hero->facing * 15;
     }
 }
 
 void carrier_on_animate(game_s *g, obj_s *o)
 {
-    o->sprites[0].flip = o->vel_q8.x < 0 ? SPR_FLIP_X : 0;
+    o->sprites[0].flip = o->v_q8.x < 0 ? SPR_FLIP_X : 0;
 }
 
 void carrier_load(game_s *g, map_obj_s *mo)
@@ -58,8 +58,7 @@ void carrier_load(game_s *g, map_obj_s *mo)
     o->w               = 40;
     o->h               = 24;
     o->drag_q8.y       = 255;
-    o->vel_cap_q8.x    = 2500;
-    o->gravity_q8.y    = 60;
+    o->grav_q8.y       = 60;
     o->render_priority = 2;
 
     o->n_sprites      = 1;

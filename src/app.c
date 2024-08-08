@@ -15,10 +15,29 @@ void app_load_tex();
 void app_load_fnt();
 void app_load_snd();
 
+#ifdef PLTF_PD
+PDMenuItem *menu_item;
+
+void menu_callback(void *arg)
+{
+    hero_s *h     = (hero_s *)&APP.game.hero_mem;
+    h->input_type = PD->system->getMenuItemValue(menu_item);
+}
+#endif
+
 void app_init()
 {
+    pltf_accelerometer_set(1);
     spm_init();
     assets_init();
+    inp_init();
+
+#ifdef PLTF_PD
+    const char *menutitles[3] = {
+        "Shakeswap", "Hold B", "Shake Throw"};
+
+    menu_item = PD->system->addOptionsMenuItem("Controls", menutitles, 3, menu_callback, NULL);
+#endif
 
 #if ASSETS_EXPORT
     SPM.lowestleft_disabled = 1;
@@ -238,7 +257,7 @@ void app_load_tex()
     tex_outline_f(texhero, 64 + 30, 64, 128, 128, 0, 1);
 #else
     for (i32 y = 0; y < 20; y++) {
-        if (y == 16) continue; // black outline
+        if (y == 17) continue; // black outline
         for (i32 x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
         }
@@ -246,8 +265,8 @@ void app_load_tex()
 #endif
 
     for (i32 x = 0; x < 16; x++) {
-        tex_outline(texhero, x * 64, 16 * 64, 64, 64, 0, 1);
-        tex_outline(texhero, x * 64, 16 * 64, 64, 64, 0, 0);
+        tex_outline(texhero, x * 64, 17 * 64, 64, 64, 0, 1);
+        tex_outline(texhero, x * 64, 17 * 64, 64, 64, 0, 0);
     }
 
     // prerender 16 rotations

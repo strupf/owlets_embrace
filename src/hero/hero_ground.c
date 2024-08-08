@@ -10,15 +10,7 @@ void hero_update_ground(game_s *g, obj_s *o)
     hero_restore_grounded_stuff(g, o);
 
     if (h->trys_lifting) return;
-    o->drag_q8.x = 250;
     h->edgeticks = 6;
-
-    if (h->sprint_dtap) {
-        h->sprint_dtap += sgn_i32(h->sprint_dtap);
-        if (HERO_SPRINT_DTAP_TICKS <= abs_i32(h->sprint_dtap)) {
-            h->sprint_dtap = 0;
-        }
-    }
 
     i32 dpad_x = inp_x();
     i32 dpad_y = inp_y();
@@ -28,8 +20,7 @@ void hero_update_ground(game_s *g, obj_s *o)
     h->interactable     = obj_handle_from_obj(interactable);
 
     if (0 < dpad_y && !o->rope && !h->crawlingp) { // sliding
-        h->sprint_dtap = 0;
-        i32 accx       = 0;
+        i32 accx = 0;
         if (0) {
         } else if (!obj_grounded_at_offs(g, o, (v2_i32){+1, 0})) {
             accx = +85;
@@ -46,8 +37,7 @@ void hero_update_ground(game_s *g, obj_s *o)
         }
 
         if (h->sliding) {
-            o->drag_q8.x = accx ? HERO_DRAG_SLIDING : 245;
-            o->vel_q8.x += accx;
+            o->v_q8.x += accx;
 
             if (rngr_i32(0, 2)) {
                 particle_desc_s prt = {0};
@@ -72,16 +62,12 @@ void hero_update_ground(game_s *g, obj_s *o)
         }
     }
 
-    if ((inp_action_jp(INP_A) || 0 < h->jump_btn_buffer)) {
+    if (0 < h->jump_btn_buffer) {
+        h->ground_impact_ticks = 6;
         hero_start_jump(g, o, HERO_JUMP_GROUND);
         if (h->sliding) { // boosting
-            o->vel_q8.x = (o->vel_q8.x * HERO_VX_BOOST_SLIDE_Q8) >> 8;
+            o->v_q8.x = (o->v_q8.x * HERO_VX_BOOST_SLIDE_Q8) >> 8;
         }
-        if (hero_is_sprinting(h)) { // boosting
-            o->vel_q8.x = (o->vel_q8.x * HERO_VX_BOOST_SPRINT_Q8) >> 8;
-            o->vel_q8.y -= HERO_VY_BOOST_SPRINT_ABS;
-        }
-        h->ground_impact_ticks = 6;
     }
 
     bool32 can_crawl = !h->sliding &&
@@ -92,7 +78,7 @@ void hero_update_ground(game_s *g, obj_s *o)
         if (0 < dpad_y) {
             h->crawling = 1;
             if (!h->crawlingp) {
-                hero_unhook(g, o);
+                hero_action_ungrapple(g, o);
                 o->pos.y += HERO_HEIGHT - HERO_HEIGHT_CRAWL;
                 o->h = HERO_HEIGHT_CRAWL;
             }
@@ -104,59 +90,55 @@ void hero_update_ground(game_s *g, obj_s *o)
     }
 
     if (!h->sliding) {
-        if (dpad_x != sgn_i(o->vel_q8.x)) {
-            o->vel_q8.x /= 2;
+        if (0 < dpad_y && h->action_jump && !h->action_jumpp) {
+            o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
+            o->tomove.y += 1;
         }
 
-        if (0 < dpad_y && h->jump_boost_tick) {
-            h->jump_boost_tick++;
-            if (100 <= h->jump_boost_tick) {
-                h->jump_boost_tick = 0;
-            }
-        }
-
-        if (0 < dpad_y) {
-            if (inp_action_jp(INP_A)) {
-                o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
-                o->tomove.y += 1;
-            } else {
-            }
-        }
-
-        if (o->vel_prev_q8.x == 0 && o->vel_q8.x != 0) {
+        if (o->v_prev_q8.x == 0 && o->v_q8.x != 0) {
             o->animation = 0;
         }
 
-        i32 dtap_s = 0;
-        if (inp_action_jp(INP_DL)) {
-            dtap_s = -1;
-        }
-        if (inp_action_jp(INP_DR)) {
-            dtap_s = +1;
-        }
-        if (!hero_is_sprinting(h) && hero_has_upgrade(g, HERO_UPGRADE_SPRINT) &&
-            dtap_s != 0) {
+        i32 vs = sgn_i32(o->v_q8.x);
+        i32 va = abs_i32(o->v_q8.x);
+        i32 ax = 0;
 
-            if (h->sprint_dtap == 0) {
-                h->sprint_dtap = dtap_s;
-            } else if (sgn_i32(h->sprint_dtap) == dtap_s) {
-                h->sprint_ticks = 1;
+        if (h->skidding) {
+            if (256 <= va) {
+                o->v_q8.x = (o->v_q8.x * 220) / 256;
+            } else {
+                o->v_q8.x = (o->v_q8.x * 128) / 256;
             }
         }
 
-        if (dpad_x) {
-            i32 vt = HERO_VX_WALK;
-            if (h->sprint_ticks) {
-                vt = lerp_i32(vt, HERO_VX_SPRINT, min_i32(h->sprint_ticks++, 10), 10);
+        if (dpad_x != vs) {
+            if (va >= HERO_VX_SPRINT) {
+                if (!h->skidding) {
+                    o->facing   = vs;
+                    h->skidding = 15;
+                }
+            } else if (!h->skidding) {
+                o->v_q8.x = (o->v_q8.x * 128) / 256;
             }
-            if (h->crawling) {
-                vt = (HERO_VX_WALK * 2) / 4;
+        }
+
+        if (vs == 0 && h->skidding < 6) {
+            ax = 200;
+        } else if (dpad_x == +vs) { // press same dir as velocity
+            if (0) {
+            } else if (va < HERO_VX_WALK) {
+                ax = lerp_i32(200, 20, va, HERO_VX_WALK);
+            } else if (va < HERO_VX_SPRINT) {
+                ax = lerp_i32(20, 4, va, HERO_VX_SPRINT);
             }
-            i32 i0 = (dpad_x == sgn_i32(o->vel_q8.x) ? abs_i32(o->vel_q8.x) : 0);
-            i32 ax = (max_i32(vt - i0, 0) * 256) >> 8;
-            o->vel_q8.x += ax * dpad_x;
-        } else {
-            h->sprint_ticks = 0;
+            ax = min_i32(ax, HERO_VX_SPRINT - va);
+        } else if (dpad_x == -vs && h->skidding < 6) {
+            ax = min_i32(70, va);
+        }
+
+        o->v_q8.x += ax * dpad_x;
+        if (h->crawling) {
+            o->v_q8.x = clamp_i32(o->v_q8.x, -HERO_VX_CRAWL, +HERO_VX_CRAWL);
         }
     }
 }

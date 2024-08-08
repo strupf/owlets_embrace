@@ -25,6 +25,12 @@
 #define PLTF_UPS_DT_TEST    0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
 #define PLTF_UPS_DT_CAP     0.0600f // max elapsed seconds
 
+#ifdef PLTF_PD
+#define PLTF_ACCELEROMETER_SUPPORT 1
+#else
+#define PLTF_ACCELEROMETER_SUPPORT 0
+#endif
+
 enum {
     PLTF_FILE_MODE_R,
     PLTF_FILE_MODE_W,
@@ -57,6 +63,10 @@ f32    pltf_seconds();
 u32    pltf_time();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
+bool32 pltf_accelerometer_enabled();
+void   pltf_accelerometer_set(bool32 enabled);
+void   pltf_accelerometer(f32 *x, f32 *y, f32 *z);
+void   pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t);
 void  *pltf_file_open(const char *path, i32 pltf_file_mode);
 void  *pltf_file_open_r(const char *path);
 void  *pltf_file_open_w(const char *path);

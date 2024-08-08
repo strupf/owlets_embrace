@@ -25,19 +25,19 @@ void walker_load(game_s *g, map_obj_s *mo)
     o->pos.x = mo->x;
     o->pos.y = mo->y + mo->h - o->h;
 
-    o->drag_q8.y    = 255;
-    o->health_max   = 5;
-    o->health       = o->health_max;
-    o->enemy        = enemy_default();
-    o->gravity_q8.y = 70;
-    o->facing       = 1;
-    o->n_sprites    = 1;
+    o->drag_q8.y  = 255;
+    o->health_max = 5;
+    o->health     = o->health_max;
+    o->enemy      = enemy_default();
+    o->grav_q8.y  = 70;
+    o->facing     = 1;
+    o->n_sprites  = 1;
 }
 
 void walker_on_update(game_s *g, obj_s *o)
 {
     if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->vel_q8.y = 0;
+        o->v_q8.y = 0;
     }
 
     if ((o->bumpflags & OBJ_BUMPED_X) || obj_would_fall_down_next(g, o, o->facing)) {

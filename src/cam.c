@@ -70,7 +70,7 @@ void cam_update(game_s *g, cam_s *c)
         bool32 herogrounded = obj_grounded(g, hero);
         i32    hero_bot_q8  = herop.y << 8;
 
-        if (herogrounded && 0 <= hero->vel_q8.y) {
+        if (herogrounded && 0 <= hero->v_q8.y) {
             // move camera upwards if hero landed on new platform
             // "new base height"
             i32 cam_y_bot_q8 = c->pos_q8.y + CAM_OFFS_Q8_BOT; // align bottom with platform
@@ -89,8 +89,8 @@ void cam_update(game_s *g, cam_s *c)
         i32 cam_y_max = hero_bot_q8 - CAM_OFFS_Q8_TOP;
         c->pos_q8.y   = clamp_i32(c->pos_q8.y, cam_y_min, cam_y_max);
 
-        i32 trgx_q8 = (herop.x + hero->facing * 30) << 8;
-        trgx_q8 += hero->vel_q8.x << 3;
+        i32 trgx_q8  = (herop.x + hero->facing * 30) << 8;
+        // trgx_q8 += hero->v_q8.x << 3;
         i32 diffx_q8 = trgx_q8 - c->pos_q8.x;
         i32 x_to_add = (diffx_q8 * 20) >> 8;
         if (diffx_q8 < 0) {

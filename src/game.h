@@ -51,16 +51,9 @@ enum {
     SUBSTATE_MENUSCREEN
 };
 
-typedef struct {
-    u8    str;
-    v2_i8 v;
-} wind_tile_s;
-
 struct game_s {
     u32               gameplay_tick;
     u32               state;
-    u32               hook_pause_tick;
-    i32               hook_skip_tick;
     //
     map_world_s       map_world; // layout of all map files globally
     map_worldroom_s  *map_worldroom;
@@ -74,22 +67,23 @@ struct game_s {
     u16               substate;
     cam_s             cam;
     flags32           events_frame;
-    u32               aud_lowpass;
+    u32               hero_hurt_lowpass_tick;
     //
     u16               tiles_x;
     u16               tiles_y;
     u16               pixel_x;
     u16               pixel_y;
-    wind_tile_s       wind_tiles[NUM_TILES];
     tile_s            tiles[NUM_TILES];
     rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
+    //
     obj_s            *obj_head_busy; // linked list
     obj_s            *obj_head_free; // linked list
     obj_s            *obj_tag[NUM_OBJ_TAGS];
     u32               obj_ndelete;
     obj_s            *obj_to_delete[NUM_OBJ];
-    bool32            objrender_dirty; // resort render list?
-    u32               n_objrender;
+    //
+    bool16            objrender_dirty; // resort render list?
+    u16               n_objrender;
     obj_s            *obj_render[NUM_OBJ]; // sorted render array
     obj_s             obj_raw[NUM_OBJ];
     //
@@ -116,6 +110,9 @@ struct game_s {
     rope_s            ropes[8];
     particles_s       particles;
     ocean_s           ocean;
+    //
+    i32               n_hitboxes;
+    hitbox_s          hitboxes[256];
 #if LIGHTING_ENABLED
     lighting_s lighting;
 #endif
@@ -125,6 +122,9 @@ struct game_s {
         char label[64];
         i32  fadeticks;
     } areaname;
+
+    marena_s    memarena;
+    mkilobyte_s mem[64];
 };
 
 void   game_init(game_s *g);

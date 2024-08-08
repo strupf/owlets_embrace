@@ -42,7 +42,7 @@ void hookplant_on_update(game_s *g, obj_s *o)
         if (!hero_present_and_alive(g, &ohero) || !ohero->rope) {
             o->state = HOOKPLANT_HIDDEN;
             o->timer = 0;
-            hero_unhook(g, ohero);
+            hero_action_ungrapple(g, ohero);
             break;
         }
 
@@ -55,7 +55,7 @@ void hookplant_on_update(game_s *g, obj_s *o)
             g->rope.len_max_q4 /= 2;
             g->rope.len_max_q4 = max_i32(g->rope.len_max_q4, 16);
         } else {
-            hero_unhook(g, ohero);
+            hero_action_ungrapple(g, ohero);
             o->state = HOOKPLANT_HIDDEN;
             o->timer = 0;
         }

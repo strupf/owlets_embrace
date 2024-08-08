@@ -33,7 +33,7 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     o->on_update  = projectile_on_update;
     o->on_animate = projectile_on_animate;
     o->on_draw    = projectile_on_draw;
-    o->vel_q8     = v2_i16_from_i32(vel, 0);
+    o->v_q8       = v2_i16_from_i32(vel, 0);
     o->subID      = subID;
     //
     o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
@@ -47,11 +47,11 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
         o->timer = 30;
         break;
     default:
-        o->w            = 16;
-        o->h            = 16;
-        p->hist_len     = 10;
-        p->d_smear      = 10;
-        o->gravity_q8.y = 80;
+        o->w         = 16;
+        o->h         = 16;
+        p->hist_len  = 10;
+        p->d_smear   = 10;
+        o->grav_q8.y = 80;
         break;
     }
 

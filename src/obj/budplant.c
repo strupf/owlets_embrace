@@ -174,6 +174,11 @@ void budplant_on_animate(game_s *g, obj_s *o)
     default: break;
     }
 
+    if (o->enemy.hurt_tick) {
+        frameID = 4;
+        animID  = 0;
+    }
+
     frameID += bp->orientation * 8;
 
     switch (bp->orientation) {

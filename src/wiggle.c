@@ -22,7 +22,7 @@ void grass_animate(game_s *g)
 
         for (obj_each(g, o)) {
             if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
-                gr->v_q8 += o->vel_q8.x >> 4;
+                gr->v_q8 += o->v_q8.x >> 4;
             }
         }
 

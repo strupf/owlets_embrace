@@ -5,14 +5,37 @@
 #include "inp.h"
 #include "util/mathfunc.h"
 
+#define INP_ACC_K 0.35f // accelerometer smoothing: A * (1-K) + B * K
+
 static struct {
-    inp_state_s curri;
-    inp_state_s previ;
+    inp_state_s  curri;
+    inp_state_s  previ;
+    inp_config_s cfg;
+    f32          acc_x;
+    f32          acc_y;
+    f32          acc_z;
 } INP;
 
-u32 inp_state()
+void inp_init()
 {
-    return 0;
+    INP.cfg = inp_config_default();
+}
+
+inp_config_s inp_config_default()
+{
+    inp_config_s c    = {0};
+    c.acc_sensitivity = 0.80f;
+    return c;
+}
+
+inp_config_s inp_config_get()
+{
+    return INP.cfg;
+}
+
+void inp_config_set(inp_config_s c)
+{
+    INP.cfg = c;
 }
 
 void inp_update()
@@ -25,6 +48,23 @@ void inp_update()
     if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
     INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
 #else
+    static SDL_GameController *gc;
+    static i32                 once = 0;
+    if (once == 0) {
+        once = 1;
+        gc   = SDL_GameControllerOpen(0);
+    }
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_UP) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) < 0) INP.curri.actions |= INP_DU;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) > 0) INP.curri.actions |= INP_DD;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) < 0) INP.curri.actions |= INP_DL;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) > 0) INP.curri.actions |= INP_DR;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_A)) INP.curri.actions |= INP_B;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_B)) INP.curri.actions |= INP_A;
+
     if (pltf_sdl_key(SDL_SCANCODE_W)) INP.curri.actions |= INP_DU;
     if (pltf_sdl_key(SDL_SCANCODE_S)) INP.curri.actions |= INP_DD;
     if (pltf_sdl_key(SDL_SCANCODE_A)) INP.curri.actions |= INP_DL;
@@ -32,6 +72,21 @@ void inp_update()
     if (pltf_sdl_key(SDL_SCANCODE_COMMA)) INP.curri.actions |= INP_B;
     if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) INP.curri.actions |= INP_A;
     INP.curri.actions |= INP_CRANK_DOCK;
+#endif
+
+#if PLTF_ACCELEROMETER_SUPPORT
+    f32 x, y, z;
+    pltf_accelerometer(&x, &y, &z);
+
+    INP.acc_x = INP.acc_x + (x - INP.acc_x) * INP_ACC_K;
+    INP.acc_y = INP.acc_y + (y - INP.acc_y) * INP_ACC_K;
+    INP.acc_z = INP.acc_z + (z - INP.acc_z) * INP_ACC_K;
+    f32 dx    = x - INP.acc_x;
+    f32 dy    = y - INP.acc_y;
+    f32 dz    = z - INP.acc_z;
+    if (INP.cfg.acc_sensitivity <= (dx * dx + dy * dy + dz * dz)) {
+        INP.curri.actions |= INP_SHAKE;
+    }
 #endif
 }
 

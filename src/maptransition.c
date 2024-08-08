@@ -53,7 +53,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
     maptransition_s *mt = &g->maptransition;
 
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (!o || o->health <= 0) return 0;
+    if (!o || o->health == 0) return 0;
     if (!g->map_worldroom) {
         BAD_PATH
         return 0;
@@ -89,7 +89,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
     trgaabb.x += g->map_worldroom->x - nr.x;
     trgaabb.y += g->map_worldroom->y - nr.y;
 
-    v2_i16 hvel = o->vel_q8;
+    v2_i16 hvel = o->v_q8;
     switch (touchedbounds) {
     case DIRECTION_E:
         trgaabb.x = 8;
@@ -141,7 +141,7 @@ void maptransition_update(game_s *g)
     hero->pos.x          = mt->hero_feet.x - hero->w / 2;
     hero->pos.y          = mt->hero_feet.y - hero->h;
     hero->facing         = mt->hero_face;
-    hero->vel_q8         = mt->hero_v;
+    hero->v_q8           = mt->hero_v;
     hh->flytime          = mt->flytime;
     hh->jump_ui_may_hide = mt->jump_ui_may_hide;
     hh->jump_ui_fade_out = mt->jump_ui_tick;
