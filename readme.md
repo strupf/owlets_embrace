@@ -1,4 +1,4 @@
-# Owlet's Embrace (working title)
+# Owlet's Embrace
 The goal is to make a 2D metroidvania from scratch using almost no external libraries for the **Playdate** in C. I only upload the source code and keep stuff like lib files and assets local. The game has two backends: One on top of the PlaydateSDK, and another one on top of SDL.
 
 <img src="misc/animation_05.gif" width="400" />
