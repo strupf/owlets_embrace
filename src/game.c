@@ -11,10 +11,10 @@ void game_tick_gameplay(game_s *g);
 void game_init(game_s *g)
 {
     pltf_audio_set_volume(1.f);
+
     map_world_load(&g->map_world, "world.world");
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
-
 #if 0
     g->n_deco_verlet = 1;
     for (u32 k = 0; k < g->n_deco_verlet; k++) {
@@ -59,6 +59,9 @@ void game_tick(game_s *g)
         break;
     case SUBSTATE_GAMEOVER:
         gameover_update(g);
+        break;
+    case SUBSTATE_POWERUP:
+        hero_powerup_update(g);
         break;
     }
 
@@ -123,7 +126,15 @@ void game_tick_gameplay(game_s *g)
     for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && // out of bounds deletion
             !overlap_rec(obj_aabb(o), roombounds)) {
-            obj_delete(g, o);
+            if (o->ID == OBJ_ID_HERO) {
+                rec_i32 roombounds_hero = {0, 0, g->pixel_x, g->pixel_y + 64};
+                if (!overlap_rec(obj_aabb(o), roombounds_hero)) {
+                    hero_kill(g, o);
+                }
+
+            } else {
+                obj_delete(g, o);
+            }
             continue;
         }
 
@@ -285,6 +296,38 @@ void game_on_solid_appear(game_s *g)
     }
 }
 
+bool32 obj_game_enemy_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
+{
+    obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
+    if (!o) return 0;
+
+    for (i32 n = 0; n < nb; n++) {
+        hitbox_s hb = boxes[n];
+        pltf_debugr(hb.r.x + g->cam_prev.x, hb.r.y + g->cam_prev.y, hb.r.w, hb.r.h, 0, 0xFF, 0, 10);
+    }
+
+    rec_i32 aabb      = obj_aabb(o);
+    i32     strongest = -1;
+    for (i32 n = 0; n < nb; n++) {
+        hitbox_s hb = boxes[n];
+        if (!overlap_rec(aabb, hb.r)) continue;
+
+        if (strongest < 0 || boxes[strongest].damage < hb.damage) {
+            strongest = n;
+        }
+    }
+
+    if (0 <= strongest) {
+        hero_hurt(g, o, 1);
+        snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
+        o->v_q8.x = (boxes[strongest].force_q8.x);
+        o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+        g->events_frame |= EVENT_HERO_DAMAGE;
+        return 1;
+    }
+    return 0;
+}
+
 bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
 
 bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
@@ -293,7 +336,7 @@ bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
 
     for (i32 n = 0; n < nb; n++) {
         hitbox_s hb = boxes[n];
-        pltf_debugr(hb.r.x, hb.r.y, hb.r.w, hb.r.h, 0, 0xFF, 0, 10);
+        pltf_debugr(hb.r.x, hb.r.y, hb.r.w, hb.r.h, 0, 0, 0xFF, 10);
     }
 
     for (obj_each(g, o)) {
@@ -328,14 +371,21 @@ bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
     default: break;
     }
 
-    if ((o->flags & OBJ_FLAG_ENEMY) &&
-        0 < o->health &&
-        !o->enemy.invincible) {
+    if ((o->flags & OBJ_FLAG_ENEMY) && 0 < o->health && !o->enemy.invincible) {
         g->freeze_tick     = max_i32(g->freeze_tick, 3);
         o->health          = max_i32((i32)o->health - box.damage, 0);
         o->enemy.hurt_tick = 15;
         if (o->health == 0) {
             o->enemy.die_tick = 15;
+            snd_play(SNDID_ENEMY_DIE, 1.f, 1.f);
+            return 1;
+        }
+        snd_play(SNDID_ENEMY_HURT, 1.f, 1.f);
+
+        switch (o->ID) {
+        case OBJ_ID_CRAWLER: crawler_on_weapon_hit(g, o, box); break;
+        case OBJ_ID_FLYBLOB: flyblob_on_hit(g, o, box); break;
+        default: break;
         }
         return 1;
     }

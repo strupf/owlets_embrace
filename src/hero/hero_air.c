@@ -44,6 +44,18 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         }
     } else {
         i32 jumpticksp = h->jumpticks;
+
+        if (!h->stomp &&
+            !h->holds_weapon &&
+            !usinghook &&
+            inp_action_jp(INP_DD)) {
+            h->stomp     = 1;
+            h->jumpticks = 0;
+            o->v_q8.x    = 0;
+            o->v_q8.y    = 0;
+            snd_play(SNDID_WING, 1.f, 1.f);
+        }
+
         // dynamic jump height
         if (0 < h->jumpticks && !h->action_jump) {
             o->v_q8.y    = (o->v_q8.y * 3) >> 2;
@@ -52,7 +64,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
             h->jump_fly_snd_iID = 0;
         }
 
-        if (flytimep <= 0 && h->jump_index != HERO_JUMP_WATER) {
+        if (flytimep <= 0 && h->jump_index == HERO_JUMP_FLY) {
             h->jumpticks = 0;
         }
 
@@ -94,7 +106,9 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         bool32 jump_ground = 0 < h->edgeticks;
         bool32 jump_midair = !usinghook &&   // not hooked
                              !jump_ground && // jump in air?
+                             !h->holds_weapon &&
                              !h->jumpticks &&
+                             !h->stomp &&
                              hero_flytime_left(g, o);
 
         if (jump_midair && !jump_ground) { // just above ground -> ground jump

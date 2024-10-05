@@ -19,6 +19,7 @@ bool32 textbox_load_dialog(game_s *g, const char *fname)
     str_append(filepath, ".json");
 
     spm_push();
+    spm_align(4);
     char *txt = NULL;
     if (!txt_load(filepath, spm_alloc, &txt)) {
         pltf_log("Couldn't load dialog: %s\n", filepath);
@@ -97,6 +98,7 @@ bool32 textbox_load_dialog(game_s *g, const char *fname)
                     line->chars[line->len++] = tbc;
                 } else {
                     pltf_log("Dialog line cropped:\n  ");
+                    BAD_PATH
                     c++;
                     while (*c != '\"') {
                         pltf_log("%c", *c);
@@ -282,9 +284,9 @@ void textbox_start_exit(textbox_s *tb)
 
 void textbox_draw(game_s *g, v2_i32 camoffset)
 {
-    textbox_s *tb = &g->textbox;
+    textbox_s *tb  = &g->textbox;
+    gfx_ctx_s  ctx = gfx_ctx_display();
 
-    gfx_ctx_s ctx = gfx_ctx_display();
     switch (tb->state) {
     case TEXTBOX_STATE_FADE_IN:
         ctx.pat = gfx_pattern_interpolate(tb->timer_fade, TEXTBOX_FADE_I);

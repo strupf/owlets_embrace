@@ -161,10 +161,10 @@ void light_merge(lighting_s *lig, l_light_s *l, v2_i32 cam)
         u8 *restrict l1 = &lig->l[x + y * (416 >> 3)];
         u8 *restrict l2 = &l->l[(x - r1.x) + (y - r1.y) * w];
         for (; x < px2 - 4; x += 4, l1 += 4, l2 += 4) {
-            u8x4 v1 = u8x4_loadu(l2);
-            u8x4 v2 = u8x4_loadu(l1);
-            u8x4 v3 = u8x4_add(v1, v2);
-            u8x4_storeu(v3, l1);
+            // vec32 v1 = vec32_ldu(l2);
+            // vec32 v2 = vec32_ldu(l1);
+            // vec32 v3 = u8x4_add(v1, v2);
+            // vec32_stu(v3, l1);
         }
         for (; x < px2; x++, l1++, l2++) {
             *l1 = *l1 + *l2;

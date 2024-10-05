@@ -5,7 +5,7 @@
 #include "json.h"
 #include "str.h"
 
-bool32 txt_load_buf(const char *filename, char *buf, u32 bufsize)
+bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 {
     void *f = pltf_file_open_r(filename);
     if (!f) {
@@ -15,7 +15,7 @@ bool32 txt_load_buf(const char *filename, char *buf, u32 bufsize)
     pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
     pltf_file_seek_set(f, 0);
-    if ((u32)size + 1 >= bufsize) {
+    if ((usize)size + 1 >= bufsize) {
         pltf_log("+++ txt buf too small %s\n", filename);
         return 0;
     }
@@ -25,7 +25,7 @@ bool32 txt_load_buf(const char *filename, char *buf, u32 bufsize)
     return 1;
 }
 
-bool32 txt_load(const char *filename, void *(*allocfunc)(u32 s), char **txt_out)
+bool32 txt_load(const char *filename, void *(*allocfunc)(usize s), char **txt_out)
 {
     void *f = pltf_file_open_r(filename);
     if (!f) {
@@ -35,7 +35,7 @@ bool32 txt_load(const char *filename, void *(*allocfunc)(u32 s), char **txt_out)
     pltf_file_seek_end(f, 0);
     i32 size = pltf_file_tell(f);
     pltf_file_seek_set(f, 0);
-    char *buf = (char *)allocfunc((u32)size + 1);
+    char *buf = (char *)allocfunc((usize)size + 1);
     if (!buf) {
         pltf_file_close(f);
         pltf_log("+++ err loading %s\n", filename);

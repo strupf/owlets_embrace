@@ -38,7 +38,7 @@ void hookplant_on_update(game_s *g, obj_s *o)
     switch (o->state) {
     case HOOKPLANT_IDLE: break;
     case HOOKPLANT_GRABBED: {
-        obj_s *ohero;
+        obj_s *ohero = NULL;
         if (!hero_present_and_alive(g, &ohero) || !ohero->rope) {
             o->state = HOOKPLANT_HIDDEN;
             o->timer = 0;

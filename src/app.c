@@ -4,6 +4,7 @@
 
 #include "app.h"
 #include "core/assets.h"
+#include "core/gfx_1bit.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "render.h"
@@ -20,23 +21,26 @@ PDMenuItem *menu_item;
 
 void menu_callback(void *arg)
 {
-    hero_s *h     = (hero_s *)&APP.game.hero_mem;
-    h->input_type = PD->system->getMenuItemValue(menu_item);
+    // hero_s *h     = (hero_s *)&APP.game.hero_mem;
+    // h->input_type = PD->system->getMenuItemValue(menu_item);
 }
 #endif
 
 void app_init()
 {
+    pltf_audio_set_volume(0.1f);
     pltf_accelerometer_set(1);
     spm_init();
     assets_init();
     inp_init();
 
 #ifdef PLTF_PD
+#if 0
     const char *menutitles[3] = {
         "Shakeswap", "Hold B", "Shake Throw"};
 
     menu_item = PD->system->addOptionsMenuItem("Controls", menutitles, 3, menu_callback, NULL);
+#endif
 #endif
 
 #if ASSETS_EXPORT
@@ -51,7 +55,7 @@ void app_init()
 #endif
     game_s *g = &APP.game;
 
-    pltf_log("Asset mem left: %u kb\n", (u32)marena_size_rem(&ASSETS.marena) / 1024);
+    pltf_log("Asset mem left: %u kb\n", (u32)memarena_size_rem(&ASSETS.marena) / 1024);
     u32 size_tabs = sizeof(g_tile_corners) +
                     sizeof(g_tile_tris) +
                     sizeof(AUD_s);
@@ -84,13 +88,12 @@ static void app_tick_step()
         if (skiptick & 7) return;
     }
 #endif
-
+    inp_update();
     if (textinput_active()) {
         textinput_update();
         return;
     }
 
-    inp_update();
     game_s *g = &APP.game;
 
     switch (g->state) {
@@ -103,6 +106,8 @@ static void app_tick_step()
     }
 }
 
+void gfx_fill_r(tex_s dst, rec_i32 rsrc);
+
 void app_draw()
 {
 #ifdef PLTF_PD
@@ -110,13 +115,8 @@ void app_draw()
 #endif
     tex_clr(asset_tex(0), GFX_COL_WHITE);
     gfx_ctx_s ctx = gfx_ctx_display();
-#if 0
+    game_s   *g   = &APP.game;
 
-    texrec_s  trpl = asset_texrec(TEXID_HERO, 0, 0, 256, 256);
-    gfx_spr(ctx, trpl, (v2_i32){0, 0}, 0, 0);
-    return;
-#endif
-    game_s *g = &APP.game;
     switch (g->state) {
     case APP_STATE_TITLE:
         title_render(&APP.title);
@@ -186,7 +186,7 @@ void app_load_tex()
 
     tex_s tflyblob;
     asset_tex_loadID(TEXID_FLYBLOB, "flyblob", &tflyblob);
-    tex_outline(tflyblob, 0, 0, 768, 128, 1, 1);
+    tex_outline(tflyblob, 0, 0, 1024, 512, 1, 1);
 
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
     asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
@@ -210,16 +210,6 @@ void app_load_tex()
     }
 
     asset_tex_loadID(TEXID_CARRIER, "carrier", NULL);
-#if 0
-    {
-        texrec_s  trcarrier   = asset_texrec(TEXID_CARRIER, 0, 0, 64, 64);
-        gfx_ctx_s ctx_carrier = gfx_ctx_default(trcarrier.t);
-        for (int x = 0; x < 1; x++) {
-            tex_outline(trcarrier.t, x * 96, 0, 96, 64, 1, 1);
-        }
-    }
-#endif
-
     asset_tex_loadID(TEXID_CLOUDS, "clouds", NULL);
     asset_tex_loadID(TEXID_TITLE, "title", NULL);
     asset_tex_loadID(TEXID_TOGGLE, "toggle", NULL);
@@ -228,6 +218,7 @@ void app_load_tex()
     asset_tex_loadID(TEXID_BG_DEEP_FOREST, "bg_deep_forest", NULL);
     asset_tex_loadID(TEXID_BG_CAVE_DEEP, "bg_cave_deep", NULL);
     asset_tex_loadID(TEXID_BG_FOREST, "bg_forest", NULL);
+    asset_tex_loadID(TEXID_FLUIDS, "fluids", NULL);
 
     tex_s texpl;
     asset_tex_loadID(TEXID_EXPLOSIONS, "explosions", &texpl);
@@ -256,7 +247,7 @@ void app_load_tex()
 #if 0
     tex_outline_f(texhero, 64 + 30, 64, 128, 128, 0, 1);
 #else
-    for (i32 y = 0; y < 20; y++) {
+    for (i32 y = 0; y < 32; y++) {
         if (y == 17) continue; // black outline
         for (i32 x = 0; x < 16; x++) {
             tex_outline(texhero, x * 64, y * 64, 64, 64, 1, 1);
@@ -393,16 +384,11 @@ void app_load_snd()
     asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt", NULL);
     asset_snd_loadID(SNDID_BASIC_ATTACK, "basic_attack", NULL);
     asset_snd_loadID(SNDID_COIN, "coin", NULL);
-    asset_snd_loadID(SNDID_ATTACK_DASH, "dash_attack", NULL);
-    asset_snd_loadID(SNDID_ATTACK_SPIN, "spin_attack", NULL);
-    asset_snd_loadID(SNDID_ATTACK_SLIDE_GROUND, "slide_ground", NULL);
-    asset_snd_loadID(SNDID_ATTACK_SLIDE_AIR, "slide_air", NULL);
     asset_snd_loadID(SNDID_SHROOMY_JUMP, "shroomyjump", NULL);
     asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach", NULL);
     asset_snd_loadID(SNDID_SPEAK, "speak", NULL);
     asset_snd_loadID(SNDID_STEP, "step", NULL);
     asset_snd_loadID(SNDID_SWITCH, "switch", NULL);
-    asset_snd_loadID(SNDID_WHIP, "whip", NULL);
     asset_snd_loadID(SNDID_SWOOSH, "swoosh_0", NULL);
     asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy", NULL);
     asset_snd_loadID(SNDID_DOOR_TOGGLE, "doortoggle", NULL);
@@ -413,7 +399,6 @@ void app_load_snd()
     asset_snd_loadID(SNDID_DOOR_UNLOCKED, "unlockdoor", NULL);
     asset_snd_loadID(SNDID_DOOR_KEY_SPAWNED, "keyspawn", NULL);
     asset_snd_loadID(SNDID_UPGRADE, "upgrade", NULL);
-    asset_snd_loadID(SNDID_CRUMBLE, "crumble", NULL);
     asset_snd_loadID(SNDID_HOOK_THROW, "throw_hook", NULL);
     asset_snd_loadID(SNDID_KB_KEY, "key", NULL);
     asset_snd_loadID(SNDID_KB_DENIAL, "denial", NULL);
@@ -431,6 +416,18 @@ void app_load_snd()
     asset_snd_loadID(SNDID_WING, "wing_sfx", NULL);
     asset_snd_loadID(SNDID_WING1, "wing_sfx1", NULL);
     asset_snd_loadID(SNDID_HOOK_READY, "hook_ready", NULL);
+    asset_snd_loadID(SNDID_WATER_SPLASH_BIG, "water_splash_big", NULL);
+    asset_snd_loadID(SNDID_WATER_SPLASH_SMALL, "water_splash_small", NULL);
+    asset_snd_loadID(SNDID_WATER_SWIM_1, "water_swim_1", NULL);
+    asset_snd_loadID(SNDID_WATER_SWIM_2, "water_swim_2", NULL);
+    asset_snd_loadID(SNDID_WATER_OUT_OF, "water_out_of", NULL);
+    asset_snd_loadID(SNDID_WEAPON_UNEQUIP, "weapon_unequip", NULL);
+    asset_snd_loadID(SNDID_WEAPON_EQUIP, "weapon_equip", NULL);
+    asset_snd_loadID(SNDID_WOOSH_1, "woosh_1", NULL);
+    asset_snd_loadID(SNDID_WOOSH_2, "woosh_3", NULL);
+    asset_snd_loadID(SNDID_STOMP_START, "stomp_start", NULL);
+    asset_snd_loadID(SNDID_STOMP, "stomp", NULL);
+    asset_snd_loadID(SNDID_SKID, "skid", NULL);
 }
 
 void app_load_fnt()

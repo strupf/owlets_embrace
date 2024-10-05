@@ -14,6 +14,16 @@ void hero_add_upgrade(game_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     hs->upgrades |= (flags32)1 << ID;
+    switch (ID) {
+    case HERO_UPGRADE_FLY: {
+        hs->flyupgrades = 2;
+        break;
+    case HERO_UPGRADE_SWIM: {
+        hs->upgrades |= (flags32)1 << HERO_UPGRADE_DIVE;
+        break;
+    }
+    }
+    }
 }
 
 void hero_rem_upgrade(game_s *g, i32 ID)
@@ -73,17 +83,19 @@ i32 hero_coins(game_s *g)
     return c;
 }
 
-void saveID_put(game_s *g, u32 ID)
+i32 saveID_put(game_s *g, u32 ID)
 {
     save_s *hs = &g->save;
-    assert(hs->n_saveIDs < ARRLEN(hs->saveIDs));
+    if (saveID_has(g, ID)) return 2;
+    if (hs->n_saveIDs == NUM_SAVEIDS) return 0;
     hs->saveIDs[hs->n_saveIDs++] = ID;
+    return 1;
 }
 
 bool32 saveID_has(game_s *g, u32 ID)
 {
     save_s *hs = &g->save;
-    for (int n = 0; n < hs->n_saveIDs; n++) {
+    for (i32 n = 0; n < hs->n_saveIDs; n++) {
         if (hs->saveIDs[n] == ID) return 1;
     }
     return 0;
@@ -93,7 +105,7 @@ void savefile_empty(save_s *s)
 {
     mset(s, 0, sizeof(save_s));
     s->health = 3;
-    str_cpy(s->hero_mapfile, "Level_0");
+    str_cpy(s->hero_mapfile, "L_0");
 }
 
 static inline const char *savefile_name(i32 slot)

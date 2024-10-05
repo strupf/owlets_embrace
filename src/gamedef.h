@@ -28,7 +28,9 @@
 #include "util/json.h"
 #include "util/mathfunc.h"
 #include "util/mem.h"
+#include "util/memarena.h"
 #include "util/rng.h"
+#include "util/sorting.h"
 #include "util/str.h"
 
 #define SAVEFILE_NAME     "save.sav"

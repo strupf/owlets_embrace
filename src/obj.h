@@ -82,7 +82,7 @@ typedef struct {
     i16      flip;
 } obj_sprite_s;
 
-typedef struct {
+typedef struct enemy_s {
     u16   sndID_hurt;
     u16   sndID_die;
     u8    die_tick;
@@ -159,6 +159,7 @@ struct obj_s {
     u16               cam_attract_r;
     u8                health;
     u8                health_max;
+    bool8             interactable_hovered;
     enemy_s           enemy;
     //
     ropenode_s       *ropenode;
@@ -170,7 +171,7 @@ struct obj_s {
     obj_sprite_s      sprites[4];
     char              filename[64];
     //
-    ALIGN(4) char     mem[512];
+    alignas(4) byte   mem[512];
     u32               magic;
 };
 

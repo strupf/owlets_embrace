@@ -6,6 +6,7 @@
 #define MATHFUNC_H
 
 #include "pltf/pltf.h"
+#include "util/simd.h"
 
 #define PI_FLOAT  3.1415927f
 #define PI2_FLOAT 6.2831853f
@@ -571,30 +572,30 @@ static v2_i32 v2_lerpl(v2_i32 a, v2_i32 b, i32 num, i32 den)
 
 static inline i32 v2_i16_dot(v2_i16 a, v2_i16 b)
 {
-    return i16x2_muad(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+    return i16x2_muad(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
 }
 
 static inline i32 v2_i16_crs(v2_i16 a, v2_i16 b)
 {
-    return i16x2_musdx(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
+    return i16x2_musdx(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
 }
 
 static inline i32 v2_i16_lensq(v2_i16 a)
 {
-    i16x2 x = i16x2_from_v2_i16(a);
-    return i16x2_muad(x, x);
+    vec32 va = vec32_from_v2_i16(a);
+    return i16x2_muad(va, va);
 }
 
 static inline v2_i16 v2_i16_add(v2_i16 a, v2_i16 b)
 {
-    i16x2 r = i16x2_add(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
-    return v2_i16_from_i16x2(r);
+    vec32 r = i16x2_add(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
+    return v2_i16_from_vec32(r);
 }
 
 static inline v2_i16 v2_i16_sub(v2_i16 a, v2_i16 b)
 {
-    i16x2 r = i16x2_sub(i16x2_from_v2_i16(a), i16x2_from_v2_i16(b));
-    return v2_i16_from_i16x2(r);
+    vec32 r = i16x2_sub(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
+    return v2_i16_from_vec32(r);
 }
 
 static inline bool32 v2_i16_eq(v2_i16 a, v2_i16 b)
@@ -604,16 +605,14 @@ static inline bool32 v2_i16_eq(v2_i16 a, v2_i16 b)
 
 static inline v2_i16 v2_i16_shr(v2_i16 v, i32 s)
 {
-    i16x2  k = i16x2_from_v2_i16(v);
-    v2_i16 r = v2_i16_from_i16x2(i16x2_shr(k, s));
-    return r;
+    v2_i16 res = {v.x >> s, v.y >> s};
+    return res;
 }
 
 static inline v2_i16 v2_i16_shl(v2_i16 v, i32 s)
 {
-    i16x2  k = i16x2_from_v2_i16(v);
-    v2_i16 r = v2_i16_from_i16x2(i16x2_shl(k, s));
-    return r;
+    v2_i16 res = {v.x << s, v.y << s};
+    return res;
 }
 
 static inline i32 v2_i16_distancesq(v2_i16 a, v2_i16 b)

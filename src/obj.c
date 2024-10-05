@@ -289,7 +289,7 @@ bool32 obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush)
     if (dx == 0) return 0;
     if ((o->flags & OBJ_FLAG_CLAMP_ROOM_X) &&
         ((dx < 0 && o->pos.x <= 0) ||
-         (dx > 0 && o->pos.x >= g->pixel_x - 1))) {
+         (dx > 0 && o->pos.x + o->w >= g->pixel_x))) {
         return 0;
     }
     i32 m = (0 < o->mass && mpush) ? mpush : o->mass;
@@ -342,7 +342,7 @@ bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
     if (dy == 0) return 0;
     if ((o->flags & OBJ_FLAG_CLAMP_ROOM_Y) &&
         ((dy < 0 && o->pos.y <= 0) ||
-         (dy > 0 && o->pos.y >= g->pixel_y - 1))) {
+         (dy > 0 && o->pos.y + o->h >= g->pixel_y))) {
         return 0;
     }
 
@@ -391,14 +391,12 @@ bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
                 if (!(it->flags & OBJ_FLAG_CAN_BE_JUMPED_ON)) continue;
                 rec_i32 ro = {it->pos.x, it->pos.y, it->w, 1};
                 if (!overlap_rec(rhero, ro)) continue;
-                it->bumpflags |= OBJ_BUMPED_JUMPED_ON;
-                ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+                hero_register_bounced_on_obj(g, ohero, it);
             }
         } else if ((o->flags & OBJ_FLAG_CAN_BE_JUMPED_ON) && dy < 0) {
             rec_i32 ro = {o->pos.x, o->pos.y, o->w, 1};
             if (overlap_rec(rhero, ro)) {
-                o->bumpflags |= OBJ_BUMPED_JUMPED_ON;
-                ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+                hero_register_bounced_on_obj(g, ohero, o);
             }
         }
     }
@@ -657,4 +655,16 @@ void obj_on_hooked(game_s *g, obj_s *o)
     switch (o->ID) {
     case OBJ_ID_HOOKPLANT: hookplant_on_hook(o); break;
     }
+}
+
+bool32 enemy_vulnerable(obj_s *o)
+{
+    if (!(o->flags & OBJ_FLAG_ENEMY)) return 0;
+
+    switch (o->ID) {
+    default: break;
+    case OBJ_ID_CRAWLER:
+        break;
+    }
+    return 1;
 }

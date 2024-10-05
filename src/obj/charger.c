@@ -76,7 +76,7 @@ static void charger_update_charging(game_s *g, obj_s *o)
     }
 
     if (bumpedx) {
-        snd_play(SNDID_CRUMBLE, 0.5f, 2.f);
+        // snd_play(SNDID_CRUMBLE, 0.5f, 2.f);
         cam_screenshake(&g->cam, 10, 5);
         o->v_q8.x = 0;
         if (obj_grounded(g, o)) {

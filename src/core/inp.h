@@ -44,9 +44,8 @@ typedef struct {
 } inp_config_s;
 
 typedef struct {
-    ALIGN(4)
-    u16 actions;
-    u16 crank_q16;
+    alignas(4) u16 actions;
+    u16            crank_q16;
 } inp_state_s;
 
 typedef struct {

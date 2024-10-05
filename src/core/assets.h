@@ -7,6 +7,7 @@
 
 #include "aud.h"
 #include "gfx.h"
+#include "util/memarena.h"
 
 #define ASSET_FILENAME     "assets/assets/assets.dat"
 #define ASSETS_LOG_LOADING 0
@@ -61,6 +62,7 @@ enum {
     TEXID_FLYBLOB,
     TEXID_EXPLOSIONS,
     TEXID_CRABLER,
+    TEXID_FLUIDS,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -81,16 +83,11 @@ enum {
     SNDID_SPEAK,
     SNDID_STEP,
     SNDID_SWITCH,
-    SNDID_WHIP,
     SNDID_SWOOSH,
     SNDID_HIT_ENEMY,
     SNDID_SHROOMY_JUMP,
     SNDID_DOOR_SQUEEK,
     SNDID_DOOR_TOGGLE,
-    SNDID_ATTACK_DASH,
-    SNDID_ATTACK_SLIDE_GROUND,
-    SNDID_ATTACK_SLIDE_AIR,
-    SNDID_ATTACK_SPIN,
     SNDID_SELECT,
     SNDID_MENU_NEXT_ITEM,
     SNDID_MENU_NONEXT_ITEM,
@@ -103,7 +100,6 @@ enum {
     SNDID_DOOR_KEY_SPAWNED,
     SNDID_DOOR_UNLOCKED,
     SNDID_UPGRADE,
-    SNDID_CRUMBLE,
     SNDID_HOOK_THROW,
     SNDID_KB_DENIAL,
     SNDID_KB_KEY,
@@ -121,6 +117,18 @@ enum {
     SNDID_WING,
     SNDID_WING1,
     SNDID_HOOK_READY,
+    SNDID_WATER_SPLASH_BIG,
+    SNDID_WATER_SPLASH_SMALL,
+    SNDID_WATER_SWIM_1,
+    SNDID_WATER_SWIM_2,
+    SNDID_WATER_OUT_OF,
+    SNDID_WEAPON_EQUIP,
+    SNDID_WEAPON_UNEQUIP,
+    SNDID_WOOSH_1,
+    SNDID_WOOSH_2,
+    SNDID_STOMP_START,
+    SNDID_STOMP,
+    SNDID_SKID,
     //
     NUM_SNDID
 };
@@ -142,8 +150,8 @@ typedef struct {
     asset_snd_s snd[NUM_SNDID];
     asset_fnt_s fnt[NUM_FNTID];
 
-    marena_s    marena;
-    mmegabyte_s mem[6];
+    marena_s        marena;
+    alignas(4) byte mem[6 * 1024 * 1024];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
@@ -155,7 +163,7 @@ void assets_export();
 #endif
 void     assets_import();
 //
-void    *assetmem_alloc(u32 s);
+void    *assetmem_alloc(usize s);
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);
 fnt_s    asset_fnt(i32 ID);

@@ -10,6 +10,8 @@
 #include "rope.h"
 
 enum {
+    HERO_STATE_NULL = -1,
+    //
     HERO_STATE_GROUND,
     HERO_STATE_CLIMB,
     HERO_STATE_AIR,
@@ -19,12 +21,11 @@ enum {
 };
 
 enum {
-    HERO_UPGRADE_SWIM,
     HERO_UPGRADE_HOOK,
-    HERO_UPGRADE_SPRINT,
+    HERO_UPGRADE_SWIM,
     HERO_UPGRADE_DIVE,
+    HERO_UPGRADE_SPRINT,
     HERO_UPGRADE_FLY,
-    HERO_UPGRADE_ATTACK_ENHANCEMENT,
     //
     NUM_HERO_UPGRADES = 32
 };
@@ -60,14 +61,17 @@ enum {
 #define HERO_LOW_GRAV_TICKS         80
 #define HERO_TICKS_PER_JUMP_UPGRADE 30
 #define HERO_MOMENTUM_MAX           100
-#define HERO_DISTSQ_INTERACT        POW2(100)
+#define HERO_DISTSQ_INTERACT        POW2(40)
 #define HERO_DISTSQ_PICKUP          POW2(100)
+#define HERO_N_MAX_JUMPED_ON        4
+#define HERO_WEAPON_DROP_TICKS      20
+#define HERO_TICKS_STOMP_INIT       6
 
 typedef struct {
-    i32 vy;
-    i32 ticks; // ticks of variable jump (decreases faster if jump button is not held)
-    i32 v0;    // "jetpack" velocity, goes to v1 over ticks or less
-    i32 v1;
+    i16 vy;
+    i16 ticks; // ticks of variable jump (decreases faster if jump button is not held)
+    i16 v0;    // "jetpack" velocity, goes to v1 over ticks or less
+    i16 v1;
 } hero_jumpvar_s;
 
 enum {
@@ -101,49 +105,54 @@ typedef struct hero_s {
     obj_handle_s interactable;
     obj_handle_s hook;
 
-    bool8 carrying;
-    bool8 trys_lifting;
-    bool8 sliding;
-    bool8 climbing;
-    bool8 climbingp;
-    bool8 is_idle;
-    bool8 diving;
-    bool8 onladder;
-    bool8 crawling;
-    bool8 crawlingp;
-    bool8 item_only_hook;
-    bool8 jump_ui_may_hide;
-    bool8 action_jumpp;
-    bool8 action_jump;
-    u8    pickupID;
-    u8    invincibility_ticks;
-    u8    crawling_to_stand;
-    u8    skidding;
-    u8    jump_ui_collected_tick;
-    u8    jump_ui_fade_out;
-    u8    b_hold_tick;
-    u8    attack_hold_tick;
-    u8    attack_tick;
-    u8    attack_flipflop;
-    u8    attack_hold_frame; // used for animating
-    i8    grabbingp;
-    i8    grabbing;
-    u8    ground_impact_ticks;
-    u8    edgeticks;
-    u8    jump_index; // index into jump parameter table
-    u8    jump_btn_buffer;
-    u8    jumpticks;
-    u8    low_grav_ticks;
-    u8    low_grav_ticks_0;
-    u16   flytime_added;
-    u16   flytime;
-    u16   swimticks;
-    i16   ladderx;
-    u16   jump_fly_snd_iID;
-    u16   breath_ticks;
-    u16   momentum;
-    u32   idle_ticks;
-    u32   idle_anim;
+    bool8        carrying;
+    bool8        trys_lifting;
+    bool8        sliding;
+    bool8        climbing;
+    bool8        climbingp;
+    bool8        is_idle;
+    bool8        diving;
+    bool8        onladder;
+    bool8        crawling;
+    bool8        crawlingp;
+    bool8        jump_ui_may_hide;
+    bool8        action_jumpp;
+    bool8        action_jump;
+    u8           stomp;
+    u8           holds_weapon;
+    u8           swimsfx_delay;
+    u8           statep;
+    u8           invincibility_ticks;
+    u8           crawling_to_stand;
+    u8           skidding;
+    u8           jump_ui_collected_tick;
+    u8           jump_ui_fade_out;
+    u8           b_hold_tick;
+    u8           attack_ID;
+    u8           attack_hold_tick;
+    u8           attack_tick;
+    u8           attack_flipflop;
+    u8           attack_hold_frame; // used for animating
+    i8           grabbingp;
+    i8           grabbing;
+    u8           ground_impact_ticks;
+    u8           edgeticks;
+    u8           jump_index; // index into jump parameter table
+    u8           jump_btn_buffer;
+    u8           jumpticks;
+    u8           low_grav_ticks;
+    u8           low_grav_ticks_0;
+    u16          flytime_added;
+    u16          flytime;
+    u16          swimticks;
+    i16          ladderx;
+    u16          jump_fly_snd_iID;
+    u16          breath_ticks;
+    u16          momentum;
+    u32          idle_ticks;
+    u32          idle_anim;
+    i32          n_bounced_on;
+    obj_handle_s bounced_on[HERO_N_MAX_JUMPED_ON];
 } hero_s;
 
 obj_s *hero_create(game_s *g);
@@ -184,5 +193,9 @@ bool32 hero_is_climbing_y_offs(game_s *g, obj_s *o, i32 facing, i32 dy);
 bool32 hero_try_snap_to_ladder(game_s *g, obj_s *o, i32 diry);
 bool32 hero_rec_ladder(game_s *g, obj_s *o, rec_i32 *rout);
 bool32 hero_rec_on_ladder(game_s *g, rec_i32 aabb, rec_i32 *rout);
+i32    hero_swim_frameID(i32 animation);
+i32    hero_swim_frameID_idle(i32 animation);
+i32    hero_register_bounced_on_obj(game_s *g, obj_s *ohero, obj_s *o); // 0 if list full, 1 if added, 2 if already contained
+void   hero_on_stomped(game_s *g, obj_s *o);
 
 #endif

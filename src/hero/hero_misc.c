@@ -19,23 +19,57 @@ void hero_handle_input(game_s *g, obj_s *o)
         h->jump_btn_buffer = 6;
     }
 
-    if (state == HERO_STATE_LADDER) {
-        h->attack_tick = 0;
-        h->b_hold_tick = 0;
-        hero_action_ungrapple(g, o);
-        return;
-    }
-    if (state == HERO_STATE_SWIMMING) {
-        h->attack_tick = 0;
+    if (state == HERO_STATE_SWIMMING || state == HERO_STATE_LADDER) {
+        h->attack_tick  = 0;
+        h->b_hold_tick  = 0;
+        h->holds_weapon = 0;
         hero_action_ungrapple(g, o);
         return;
     }
 
-    if (h->b_hold_tick) {
-        if (!inp_action(INP_B)) {
-            if (inp_x() | inp_y()) {
+    if (h->holds_weapon) { // weapon equipped
+        if (h->b_hold_tick) {
+            if (!inp_action(INP_B)) {
+                if (h->b_hold_tick < 7) {
+                    h->attack_ID = 1;
+                }
+                hero_action_attack(g, o);
+                h->b_hold_tick = 0;
+            } else if (h->b_hold_tick < U8_MAX) {
+                h->b_hold_tick++;
+            }
+        } else if (inp_action_jp(INP_B) && (h->attack_ID == 1 || (h->attack_ID == 0 && (h->attack_tick == 0 || 8 <= h->attack_tick)))) {
+            h->attack_ID       = 0;
+            h->attack_flipflop = 1 - h->attack_flipflop;
+            h->attack_tick     = 0;
+            h->b_hold_tick     = 1;
+        }
+    } else if (hero_has_upgrade(g, HERO_UPGRADE_HOOK)) {
+        if (inp_action_jp(INP_B)) {
+            if (o->rope) {
+                hero_action_ungrapple(g, o);
+            } else if (inp_x() || inp_y()) {
                 hero_action_throw_grapple(g, o);
             }
+        } else if (o->rope) {
+            i32 ll              = o->rope->len_max_q4;
+            i32 dt              = inp_crank_dt_q16();
+            o->rope->len_max_q4 = clamp_i32(ll + (dt >> 6), 500, 6000);
+        }
+    }
+
+#if 0
+    if (h->b_hold_tick) {
+        if (!inp_action(INP_B)) {
+            if (12 < h->b_hold_tick) {
+                if (inp_x() | inp_y()) {
+                    hero_action_throw_grapple(g, o);
+                }
+            } else {
+                hero_action_attack(g, o);
+                h->attack_flipflop = 1 - h->attack_flipflop;
+            }
+
             h->b_hold_tick = 0;
         } else if (h->b_hold_tick < U8_MAX) {
             h->b_hold_tick++;
@@ -47,6 +81,7 @@ void hero_handle_input(game_s *g, obj_s *o)
             h->b_hold_tick = 1;
         }
     }
+#endif
 }
 
 void hero_process_hurting_things(game_s *g, obj_s *o)
@@ -103,28 +138,62 @@ void hero_post_update(game_s *g, obj_s *o)
     if (!o) return;
     assert(0 < o->health);
 
-    v2_i32  hcenter      = obj_pos_center(o);
-    hero_s *hero         = &g->hero_mem;
-    rec_i32 heroaabb     = obj_aabb(o);
-    bool32  herogrounded = obj_grounded(g, o);
+    v2_i32  hcenter  = obj_pos_center(o);
+    hero_s *hero     = &g->hero_mem;
+    rec_i32 heroaabb = obj_aabb(o);
 
     // hero touching other objects
-    for (obj_each(g, it)) {
-        switch (o->ID) {
+    for (i32 n = 0; n < hero->n_bounced_on; n++) {
+        obj_s *it = obj_from_obj_handle(hero->bounced_on[n]);
+        if (!it) continue;
+
+        hitbox_s hb   = {0};
+        hb.damage     = hero->stomp ? 2 : 1;
+        hb.r.x        = o->pos.x - 8;
+        hb.r.y        = o->pos.y + o->h;
+        hb.r.w        = o->w + 16;
+        hb.r.h        = 16;
+        hb.force_q8.y = 256;
+
+        if (it->flags & OBJ_FLAG_ENEMY) {
+            o->v_q8.y = -1200;
+            obj_game_player_attackbox(g, hb);
+        }
+
+        switch (it->ID) {
         case OBJ_ID_SHROOMY: {
-            if (herogrounded) break;
-            rec_i32 rs = obj_aabb(it);
-            rec_i32 ri;
-            if (!intersect_rec(heroaabb, rs, &ri)) break;
-            if (0 < o->v_q8.y &&
-                (heroaabb.y + heroaabb.h) < (rs.y + rs.h) &&
-                o->pos_prev.y < o->pos.y) {
-                o->v_q8.y = -2000;
-                o->tomove.y -= ri.h;
-                shroomy_bounced_on(it);
-            }
+            o->v_q8.y = hero->stomp ? -2000 : -1500;
+            shroomy_bounced_on(it);
             break;
         }
+        }
+    }
+    if (hero->n_bounced_on) {
+        hero->n_bounced_on = 0;
+        if (hero->stomp) {
+            hero_on_stomped(g, o);
+        } else {
+            particle_desc_s prt = {0};
+            {
+                prt.p.p_q8      = v2_shl(obj_pos_bottom_center(o), 8);
+                prt.p.v_q8.x    = 0;
+                prt.p.v_q8.y    = -450;
+                prt.p.a_q8.y    = 20;
+                prt.p.size      = 3;
+                prt.p.ticks_max = 30;
+                prt.ticksr      = 10;
+                prt.pr_q8.x     = 2000;
+                prt.pr_q8.y     = 1000;
+                prt.vr_q8.x     = 150;
+                prt.vr_q8.y     = 100;
+                prt.ar_q8.y     = 5;
+                prt.sizer       = 1;
+                prt.p.gfx       = PARTICLE_GFX_CIR;
+                prt.p.col       = GFX_COL_WHITE;
+                particles_spawn(g, prt, 15);
+                prt.p.col = GFX_COL_BLACK;
+                particles_spawn(g, prt, 15);
+            }
         }
     }
 
@@ -164,9 +233,10 @@ void hero_post_update(game_s *g, obj_s *o)
     bool32 collected_upgrade = 0;
 
     for (obj_each(g, it)) {
-        if (it->ID != OBJ_ID_HEROUPGRADE) continue;
+        if (it->ID != OBJ_ID_HERO_POWERUP) continue;
         if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
-        heroupgrade_on_collect(g, it);
+
+        hero_powerup_collected(g, hero_powerup_obj_ID(it));
         obj_delete(g, it);
         objs_cull_to_delete(g);
         collected_upgrade = 1;
@@ -213,13 +283,18 @@ obj_s *hero_interactable_available(game_s *g, obj_s *o)
     for (obj_each(g, it)) {
         if (!(it->flags & OBJ_FLAG_INTERACTABLE)) continue;
 
-        v2_i32 p = obj_pos_bottom_center(it);
-        u32    d = v2_distancesq(hc, p);
+        it->interactable_hovered = 0;
+        v2_i32 p                 = obj_pos_bottom_center(it);
+        u32    d                 = v2_distancesq(hc, p);
         if (d < d_sq) {
             d_sq = d;
             res  = it;
         }
     }
+    if (res) {
+        res->interactable_hovered = 1;
+    }
+
     return res;
 }
 

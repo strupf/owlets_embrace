@@ -34,6 +34,7 @@ void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
 
     for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
         muschannel_s *ch = &AUD.muschannel[n];
+        ch->adpcm.vol_q8 = 64;
         muschannel_playback(ch, lbuf, rbuf, len);
     }
 

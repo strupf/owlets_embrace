@@ -16,7 +16,7 @@ void hero_update_ground(game_s *g, obj_s *o)
     i32 dpad_y = inp_y();
 
     v2_i32 posc         = obj_pos_center(o);
-    obj_s *interactable = obj_closest_interactable(g, posc);
+    obj_s *interactable = hero_interactable_available(g, o);
     h->interactable     = obj_handle_from_obj(interactable);
 
     if (0 < dpad_y && !o->rope && !h->crawlingp) { // sliding
@@ -57,23 +57,44 @@ void hero_update_ground(game_s *g, obj_s *o)
                 prt.ar_q8.y     = 4;
                 prt.sizer       = 1;
                 prt.p.gfx       = PARTICLE_GFX_CIR;
-                particles_spawn(g, &g->particles, prt, 1);
+                particles_spawn(g, prt, 1);
             }
         }
     }
 
-    if (0 < h->jump_btn_buffer) {
-        h->ground_impact_ticks = 6;
-        hero_start_jump(g, o, HERO_JUMP_GROUND);
-        if (h->sliding) { // boosting
-            o->v_q8.x = (o->v_q8.x * HERO_VX_BOOST_SLIDE_Q8) >> 8;
+    if (0 < dpad_y && inp_action_jp(INP_A)) {
+        o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
+        h->jump_btn_buffer = 0;
+    } else {
+        if (0 < h->jump_btn_buffer) {
+            h->ground_impact_ticks = 6;
+            hero_start_jump(g, o, HERO_JUMP_GROUND);
+            if (h->sliding) { // boosting
+                o->v_q8.x = (o->v_q8.x * HERO_VX_BOOST_SLIDE_Q8) >> 8;
+            }
         }
     }
 
-    bool32 can_crawl = !h->sliding &&
+    bool32 can_crawl = !h->holds_weapon &&
+                       !h->sliding &&
                        !h->carrying &&
                        !h->trys_lifting &&
                        !h->grabbingp;
+
+    if (h->holds_weapon) {
+        if (dpad_y == 1 && inp_action(INP_B)) {
+            h->holds_weapon++;
+            h->b_hold_tick = 0;
+            h->attack_tick = 0;
+            if (HERO_WEAPON_DROP_TICKS <= h->holds_weapon) {
+                h->holds_weapon = 0;
+                weapon_pickup_place(g, o);
+            }
+        } else {
+            h->holds_weapon = 1;
+        }
+    }
+
     if (can_crawl) {
         if (0 < dpad_y) {
             h->crawling = 1;
@@ -116,6 +137,7 @@ void hero_update_ground(game_s *g, obj_s *o)
                 if (!h->skidding) {
                     o->facing   = vs;
                     h->skidding = 15;
+                    // snd_play(SNDID_SKID, 0.6f, rngr_f32(0.9f, 1.1f));
                 }
             } else if (!h->skidding) {
                 o->v_q8.x = (o->v_q8.x * 128) / 256;
@@ -128,7 +150,7 @@ void hero_update_ground(game_s *g, obj_s *o)
             if (0) {
             } else if (va < HERO_VX_WALK) {
                 ax = lerp_i32(200, 20, va, HERO_VX_WALK);
-            } else if (va < HERO_VX_SPRINT) {
+            } else if (va < HERO_VX_SPRINT && !h->holds_weapon) {
                 ax = lerp_i32(20, 4, va, HERO_VX_SPRINT);
             }
             ax = min_i32(ax, HERO_VX_SPRINT - va);
@@ -147,6 +169,33 @@ void hero_restore_grounded_stuff(game_s *g, obj_s *o)
 {
     hero_s *h    = &g->hero_mem;
     h->swimticks = HERO_SWIM_TICKS;
+    if (h->stomp) {
+        h->stomp = 0;
+        snd_play(SNDID_STOMP, 1.f, 1.f);
+
+        particle_desc_s prt = {0};
+        {
+            prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
+            prt.p.v_q8.x    = 0;
+            prt.p.v_q8.y    = -300;
+            prt.p.a_q8.y    = 20;
+            prt.p.size      = 3;
+            prt.p.ticks_max = 20;
+            prt.ticksr      = 10;
+            prt.pr_q8.x     = 5000;
+            prt.pr_q8.y     = 1000;
+            prt.vr_q8.x     = 400;
+            prt.vr_q8.y     = 200;
+            prt.ar_q8.y     = 5;
+            prt.sizer       = 1;
+            prt.p.gfx       = PARTICLE_GFX_CIR;
+            prt.p.col       = GFX_COL_WHITE;
+            particles_spawn(g, prt, 15);
+            prt.p.col = GFX_COL_BLACK;
+            particles_spawn(g, prt, 15);
+        }
+    }
+
     hero_flytime_add_ui(g, o, 10000);
     if (h->flytime_added == 0) {
         h->jump_ui_may_hide = 1;

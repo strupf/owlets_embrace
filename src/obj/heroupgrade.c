@@ -4,17 +4,13 @@
 
 #include "game.h"
 
-void heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void hero_powerup_obj_load(game_s *g, map_obj_s *mo)
 {
-}
-
-void heroupgrade_load(game_s *g, map_obj_s *mo)
-{
-    int upgrade = map_obj_i32(mo, "Upgrade");
-    if (hero_has_upgrade(g, upgrade)) return;
+    i32 upgrade = map_obj_i32(mo, "ID");
+    // if (hero_has_upgrade(g, upgrade)) return;
 
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_HEROUPGRADE;
+    o->ID    = OBJ_ID_HERO_POWERUP;
     o->flags = OBJ_FLAG_COLLECTIBLE |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_RENDER_AABB;
@@ -31,12 +27,11 @@ void heroupgrade_load(game_s *g, map_obj_s *mo)
     o->state          = upgrade;
 }
 
-void heroupgrade_on_collect(game_s *g, obj_s *o)
+void hero_powerup_obj_on_draw(game_s *g, obj_s *o, v2_i32 cam)
 {
-    hero_add_upgrade(g, o->state);
-    if (o->state == HERO_UPGRADE_HOOK) {
-        // hero_add_upgrade(g, HERO_UPGRADE_HOOK_LONG);
-    }
-    // substate_upgrade_collected(g, &g->substate, o->state);
-    NOT_IMPLEMENTED
+}
+
+i32 hero_powerup_obj_ID(obj_s *o)
+{
+    return o->state;
 }

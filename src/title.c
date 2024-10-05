@@ -49,19 +49,25 @@ void title_log(title_s *t, const char *msg)
 
 void title_init(title_s *t)
 {
-#if TITLE_SKIP_TO_GAME || 1
+#if TITLE_SKIP_TO_GAME || 0
     spm_push();
-    save_s *s = spm_alloc(sizeof(save_s));
+    save_s *s = spm_alloct(save_s, 1);
     savefile_empty(s);
     str_cpy(s->name, "Lukas");
-    s->hero_pos.x  = 50;
-    s->hero_pos.y  = 200;
+    s->hero_pos.x  = 100;
+    s->hero_pos.y  = 500;
+    s->flyupgrades = 0;
+#if 1
+    s->upgrades =
+        ((flags32)1 << HERO_UPGRADE_SPRINT);
+#else
     s->flyupgrades = 5;
     s->upgrades =
         ((flags32)1 << HERO_UPGRADE_HOOK) |
         ((flags32)1 << HERO_UPGRADE_SWIM) |
         ((flags32)1 << HERO_UPGRADE_DIVE) |
         ((flags32)1 << HERO_UPGRADE_SPRINT);
+#endif
     savefile_write(0, s);
     spm_pop();
 #endif
@@ -71,7 +77,7 @@ void title_init(title_s *t)
 void title_load(title_s *t)
 {
     spm_push();
-    save_s *s = spm_alloc(sizeof(save_s));
+    save_s *s = spm_alloct(save_s, 1);
 
     for (i32 n = 0; n < 3; n++) {
         save_preview_s pr = {0};
@@ -264,6 +270,12 @@ void title_pressed_A(game_s *g, title_s *t)
             save_s *s = spm_alloctz(save_s, 1);
             savefile_empty(s);
             mcpy(s->name, t->tinput.c, t->tinput.n + 1);
+
+            s->hero_pos.x = 100;
+            s->hero_pos.y = 500;
+            s->upgrades =
+                ((flags32)1 << HERO_UPGRADE_SPRINT);
+
             savefile_write(t->selected, s);
             spm_pop();     // fallthrough
             title_load(t); // update savefiles

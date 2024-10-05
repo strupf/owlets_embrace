@@ -16,9 +16,9 @@ enum {
     HOOK_STATE_ATTACHED,
 };
 
-void   hook_on_animate(game_s *g, obj_s *o);
-bool32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
-bool32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
+void hook_on_animate(game_s *g, obj_s *o);
+i32  hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
+i32  hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
 
 obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
 {
@@ -199,7 +199,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
         hook->v_q8.x   = 0;
         hook->v_q8.y   = 0;
         hook->state    = HOOK_STATE_ATTACHED;
-        snd_play(SNDID_HOOK_ATTACH, 1.f, 1.f);
+        snd_play(SNDID_HOOK_ATTACH, 0.5f, 1.f);
 
         rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
         for (obj_each(g, solid)) {

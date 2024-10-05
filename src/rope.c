@@ -254,7 +254,6 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
     if (dir == 0) return;
 
     spm_push();
-
     ropepts_s *pts = spm_alloct(ropepts_s, 1);
     pts->n         = 2;
     pts->pt[0]     = p0;

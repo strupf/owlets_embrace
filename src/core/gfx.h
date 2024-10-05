@@ -22,11 +22,6 @@ enum {
 };
 
 typedef struct {
-    u32 p;
-    u32 m;
-} tex_pm_s;
-
-typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     u16  wword;
     u16  fmt;
@@ -38,38 +33,6 @@ typedef struct {
     tex_s   t;
     rec_i32 r;
 } texrec_s;
-
-// bmap is a successor to the tex structure to be used in
-// future revisions of the gfx functions
-enum {
-    BMAP_FMT_OPAQUE, // only color pixels
-    BMAP_FMT_MASK,   // color and mask interlaced in words
-};
-
-typedef struct { // masked bitmap
-    u32 p;       // black/white
-    u32 m;       // opaque/transparent
-} bmap_pxmk_s;
-
-typedef struct { // opaque bitmap
-    u32 p;       // black/white
-} bmap_px_s;
-
-typedef struct {
-    void *data; // bmap_px_s or bmap_pxmk_s depending on fmt
-    u16   fmt;
-    u16   wword;
-    u16   w;
-    u16   h;
-} bmap_s;
-
-typedef struct {
-    bmap_s t;
-    u16    x;
-    u16    y;
-    u16    w;
-    u16    h;
-} bmap_rec_s;
 
 #define GFX_PATTERN_NUM 17
 #define GFX_PATTERN_MAX (GFX_PATTERN_NUM - 1)
@@ -191,8 +154,7 @@ void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text,
 i32  fnt_length_px(fnt_s fnt, const char *txt);
 i32  fnt_length_px_mono(fnt_s fnt, const char *txt, i32 spacing);
 
-static void spr_blit(u32 *restrict dp, u32 *restrict dm,
-                     u32 sp, u32 sm, i32 mode)
+static void spr_blit(u32 *dp, u32 *dm, u32 sp, u32 sm, i32 mode)
 {
     switch (mode) {
     case SPR_MODE_INV: sp = ~sp; // fallthrough
@@ -208,8 +170,12 @@ static void spr_blit(u32 *restrict dp, u32 *restrict dm,
     if (dm) *dm |= sm;
 }
 
-static void spr_blit_p(u32 *restrict dp,
-                       u32 sp, u32 sm, i32 mode)
+static void spr_blit_ff(u32 *dp, u32 sp, u32 sm)
+{
+    *dp = (*dp & ~sm) | (sp & sm);
+}
+
+static void spr_blit_p(u32 *dp, u32 sp, u32 sm, i32 mode)
 {
     switch (mode) {
     case SPR_MODE_INV: sp = ~sp; // fallthrough
@@ -223,8 +189,7 @@ static void spr_blit_p(u32 *restrict dp,
     }
 }
 
-static void spr_blit_pm(u32 *restrict dp, u32 *restrict dm,
-                        u32 sp, u32 sm, i32 mode)
+static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, i32 mode)
 {
     switch (mode) {
     case SPR_MODE_INV: sp = ~sp; // fallthrough

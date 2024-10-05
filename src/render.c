@@ -19,10 +19,8 @@ SORT_ARRAY_DEF(obj_s *, obj_render, cmp_obj_render_priority)
 
 static inline gfx_pattern_s water_pattern()
 {
-    return gfx_pattern_4x4(B4(0101),
-                           B4(1010),
-                           B4(0101),
-                           B4(1010));
+    return gfx_pattern_2x2(B4(0011),
+                           B4(0010));
 }
 
 void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam);
@@ -45,6 +43,7 @@ void game_draw(game_s *g)
     camrec.y &= ~1;
 
     v2_i32 camoffset = {-camrec.x, -camrec.y};
+    g->cam_prev      = camoffset;
 
     tex_s             texdisplay = asset_tex(0);
     gfx_ctx_s         ctx        = gfx_ctx_default(texdisplay);
@@ -56,7 +55,6 @@ void game_draw(game_s *g)
     render_water_background(g, camoffset, tilebounds);
     render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
-
     deco_verlet_draw(g, camoffset);
 
     if (g->objrender_dirty) {
@@ -108,6 +106,7 @@ void game_draw(game_s *g)
         }
     }
 
+    render_fluids(g, camoffset, tilebounds);
     particles_draw(g, &g->particles, camoffset);
     coinparticle_draw(g, camoffset);
 
@@ -121,7 +120,6 @@ void game_draw(game_s *g)
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
     area_draw_fg(g, &g->area, camoffset_raw, camoffset);
     foreground_props_draw(g, camoffset);
-
 #if LIGHTING_ENABLED
 #if 0
     {
@@ -160,15 +158,21 @@ void game_draw(game_s *g)
     i32 breath_t = hero_breath_tick(g);
     if (breath_t) {
         spm_push();
-        tex_s     drowntex  = tex_create_opaque(PLTF_DISPLAY_W, PLTF_DISPLAY_H, spm_allocator);
+        spm_align(4);
+        tex_s drowntex = tex_create_opaque(PLTF_DISPLAY_W, PLTF_DISPLAY_H, spm_allocator);
+        tex_clr(drowntex, GFX_COL_WHITE);
         gfx_ctx_s ctx_drown = gfx_ctx_default(drowntex);
-        ctx_drown.pat       = gfx_pattern_interpolate(3, 4);
+        ctx_drown.pat       = gfx_pattern_4x4(B4(1101),
+                                              B4(1111),
+                                              B4(0111),
+                                              B4(1111));
 
         v2_i32 herop = v2_add(camoffset, obj_pos_center(ohero));
         gfx_rec_fill(ctx_drown, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
-        ctx_drown.pat = gfx_pattern_interpolate(1, 1);
+        ctx_drown.pat = gfx_pattern_100();
         i32 breath_tm = hero_breath_tick_max(g);
         i32 cird      = ease_out_quad(700, 0, breath_t, breath_tm);
+
         gfx_cir_fill(ctx_drown, herop, cird, PRIM_MODE_WHITE);
 
         u32 N = PLTF_DISPLAY_H * PLTF_DISPLAY_WWORDS;
@@ -188,6 +192,9 @@ void game_draw(game_s *g)
         break;
     case SUBSTATE_MAPTRANSITION:
         maptransition_draw(g, camoffset);
+        break;
+    case SUBSTATE_POWERUP:
+        hero_powerup_draw(g, camoffset);
         break;
     }
 
@@ -331,6 +338,7 @@ static inline i32 cmp_tile_spr(tile_spr_s *a, tile_spr_s *b)
 
 SORT_ARRAY_DEF(tile_spr_s, z_tile_spr, cmp_tile_spr)
 
+#include "core/gfx_1bit.h"
 void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
     const tex_s     tset = asset_tex(TEXID_TILESET_TERRAIN);
@@ -341,7 +349,6 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
     i32 tick             = g->gameplay_tick;
 
     spm_push();
-
     u32         n_tile_spr = 0;
     tile_spr_s *tile_spr   = spm_alloct(tile_spr_s, 512);
 
@@ -385,6 +392,8 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
         tile_spr_s sp   = tile_spr[n];
         texrec_s   trec = {tset, {sp.tx << 5, sp.ty << 5, 32, 32}};
         v2_i32     pos  = {sp.x - 8, sp.y - 8};
+
+        // gfx_1b_b(ctx.dst, trec.t, trec.r, pos);
         gfx_spr_tile_32x32(ctx, trec, pos);
     }
     spm_pop();
@@ -420,13 +429,86 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
     }
 }
 
+#define FLUID_SRC_TILE(X, Y) (X) + (Y) * 16
+
+void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
+{
+    const tex_s twat = asset_tex(TEXID_FLUIDS);
+    u32         tick = g->gameplay_tick;
+    gfx_ctx_s   ctx  = gfx_ctx_display();
+    tex_s       t    = ctx.dst;
+
+    // dynamic y offset in source for waterfall tiles
+    // ~1 -> align dither to screenspace
+    i32 fluid_d_offs  = (64 - ((tick * 3) & 63)) & ~1;
+    i32 fluid_d_offs2 = (64 - ((tick * 2) & 63)) & ~1;
+
+    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+            u32 fl = g->fluid_streams[x + y * g->tiles_x];
+            if (fl == 0) continue;
+
+            i32    frx    = 0;
+            i32    fry    = 0;
+            i32    frw    = 16;
+            i32    frh    = 16;
+            v2_i32 p      = {camoff.x + (x << 4), camoff.y + (y << 4)};
+            i32    framey = 48 * ((tick / 3) & 3);
+
+            switch (fl - 1) {
+            case FLUID_SRC_TILE(0, 1):
+                frx = 16 * 17;
+                fry = 16 * (3 + (y & 1)) + framey;
+                break;
+            case FLUID_SRC_TILE(1, 1):
+                frx = 16 * (18 + (x & 1));
+                fry = 16 * (3 + (y & 1)) + framey;
+                break;
+            case FLUID_SRC_TILE(2, 1):
+                frx = 16 * 20;
+                fry = 16 * (3 + (y & 1)) + framey;
+                break;
+            case FLUID_SRC_TILE(4, 0):
+                p.x -= 8;
+                frx = 128;
+                frw = 32;
+                fry = 16;
+                break;
+            case FLUID_SRC_TILE(5, 0):
+                frx = 160 + ((tick >> 2) & 1) * 16;
+                fry = 0;
+                fry = 16;
+                break;
+            case FLUID_SRC_TILE(4, 1):
+                p.x -= 8;
+                frx = 128;
+                frw = 32;
+                fry = 32 + (y & 3) * 16 + fluid_d_offs2;
+                break;
+            case FLUID_SRC_TILE(6, 1):
+                p.x -= 8;
+                frx = 192;
+                frw = 32;
+                fry = 32 + (y & 3) * 16 + fluid_d_offs2;
+                break;
+            }
+            texrec_s trw = {twat, {frx, fry, frw, frh}};
+            gfx_spr_tile_32x32(ctx, trw, p);
+        }
+    }
+}
+
 void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 {
     const tex_s twat = asset_tex(TEXID_WATER_PRERENDER);
     i32         tick = g->gameplay_tick;
     gfx_ctx_s   ctx  = gfx_ctx_display();
     tex_s       t    = ctx.dst;
-
+    gfx_ctx_s   ctx1 = ctx;
+    ctx1.pat         = gfx_pattern_4x4(B4(0000), // white background dots
+                                       B4(0101),
+                                       B4(0000),
+                                       B4(0101));
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
             i32    i  = x + y * g->tiles_x;
@@ -440,6 +522,7 @@ void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
                 gfx_spr_tile_32x32(ctx, trw, p);
             } else {
                 gfx_rec_fill(ctx, (rec_i32){p.x, p.y, 16, 16}, GFX_COL_BLACK);
+                gfx_rec_fill(ctx1, (rec_i32){p.x, p.y, 16, 16}, GFX_COL_WHITE);
             }
         }
     }

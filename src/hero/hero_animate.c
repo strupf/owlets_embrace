@@ -30,32 +30,31 @@ void hero_on_animate(game_s *g, obj_s *o)
     const bool32  was_idle   = h->is_idle;
     const u32     idle_animp = h->idle_anim;
 
-    h->idle_anim   = 0;
-    h->is_idle     = 0;
-    sprite->trec.t = asset_tex(TEXID_HERO);
-    sprite->flip   = o->facing == -1 ? SPR_FLIP_X : 0;
-    sprite->offs.x = o->w / 2 - 32;
-    sprite->offs.y = o->h - 64 + 16;
-    i32 animID     = 0;
-    i32 frameID    = 0;
-    i32 state      = hero_determine_state(g, o, h);
+    o->n_sprites    = 1;
+    h->idle_anim    = 0;
+    h->is_idle      = 0;
+    sprite->trec.t  = asset_tex(TEXID_HERO);
+    sprite->flip    = o->facing == -1 ? SPR_FLIP_X : 0;
+    sprite->offs.x  = o->w / 2 - 32;
+    sprite->offs.y  = o->h - 64 + 16;
+    i32 animID      = 0;
+    i32 frameID     = 0;
+    i32 frameID_add = 0;
+    i32 state       = hero_determine_state(g, o, h);
 
     if (h->sliding) {
-        state = -1; // override other states
+        state = HERO_STATE_NULL; // override other states
         sprite->offs.y -= 16;
         animID  = HERO_ANIMID_DREAM_START;
         frameID = 0;
     }
 
-    o->n_sprites = 1;
     if (h->attack_tick || h->b_hold_tick) {
-
+        state = HERO_STATE_NULL; // override other states
         sprite->offs.y -= 16;
-        sprite->offs.x += o->facing == 1 ? +12 : -7;
-        animID          = HERO_ANIMID_ATTACK + (state == HERO_STATE_GROUND);
-        u32 attack_hold = h->attack_hold_tick + h->b_hold_tick;
-        state           = -1; // override other states
+        sprite->offs.x += o->facing == 1 ? 0 : -60;
 
+        u32 attack_hold = h->attack_hold_tick + h->b_hold_tick;
         if (attack_hold) {
             frameID = (attack_hold < 6 ? 0 : (attack_hold < 10 ? 1 : 2));
             if (h->attack_flipflop == 0 && 10 <= attack_hold) {
@@ -63,28 +62,46 @@ void hero_on_animate(game_s *g, obj_s *o)
             }
             h->attack_hold_frame = frameID;
         } else {
-            // times when to display specific frames
-            static const u8 frametimes[8] = {0, 1, 2, 4, 6, 10, 12, 14};
+            static const u8 frametimes[2][8] = {{0, 1, 2, 4, 6, 8, 10, 12},
+                                                {0, 1, 2, 3, 4, 5, 7, 9}};
 
-            for (i32 n = ARRLEN(frametimes) - 1; 0 <= n; n--) {
-                if (frametimes[n] <= h->attack_tick) {
+            for (i32 n = 8 - 1; 0 <= n; n--) {
+                if (frametimes[h->attack_ID][n] <= h->attack_tick) {
                     frameID = n;
                     break;
                 }
             }
             frameID = max_i32(frameID, h->attack_hold_frame);
         }
-        frameID += h->attack_flipflop * 8;
-    } else {
-        h->attack_hold_frame = 0;
+
+        if (h->attack_ID == 1) {
+            animID = 31;
+        } else {
+            animID = 29 + h->attack_flipflop;
+        }
+
+        rec_i32 frame_attack = {128 * frameID,
+                                64 * animID,
+                                128,
+                                64};
+        sprite->trec.r       = frame_attack;
+        return;
     }
+
+    h->attack_hold_frame = 0;
 
     switch (state) {
     case HERO_STATE_GROUND: {
         sprite->offs.y -= 16;
-        if (0 < h->ground_impact_ticks && !h->carrying) {
-            animID  = HERO_ANIMID_AIR; // "oof"
-            frameID = 6;
+        if (0 < h->ground_impact_ticks && !h->carrying && !h->holds_weapon) {
+            if (h->holds_weapon) {
+                animID  = 23;
+                frameID = 0;
+            } else {
+                animID  = HERO_ANIMID_AIR; // "oof"
+                frameID = 6;
+            }
+
             break;
         }
 
@@ -119,22 +136,30 @@ void hero_on_animate(game_s *g, obj_s *o)
         }
 
         if (o->v_q8.x != 0) {
-            if (was_idle) {
+            if (was_idle && h->idle_anim) {
                 animID  = HERO_ANIMID_SLEEP;
                 frameID = 3;
                 break;
             }
-            animID           = h->carrying ? HERO_ANIMID_CARRY_WALK : HERO_ANIMID_WALK; // "carrying/walking"
+
+            // "carrying/walking"
+            if (h->holds_weapon) {
+                animID = 22;
+                if (o->facing == -1) frameID_add = 8;
+            } else {
+                animID = h->carrying ? HERO_ANIMID_CARRY_WALK : HERO_ANIMID_WALK;
+            }
+
             i32 frameID_prev = (o->animation / 2000) & 7;
             i32 va           = abs_i32(o->v_q8.x);
-            if (HERO_VX_SPRINT <= va && animID == HERO_ANIMID_WALK) {
+            if (HERO_VX_SPRINT <= va && animID == HERO_ANIMID_WALK && !h->holds_weapon) {
                 animID = HERO_ANIMID_RUN;
                 o->animation += (va * 220) >> 8;
             } else {
                 o->animation += va;
             }
 
-            if (h->skidding) {
+            if (h->skidding && !h->holds_weapon) {
                 if (4 <= h->skidding) {
                     animID  = HERO_ANIMID_RUN;
                     frameID = 8;
@@ -148,7 +173,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
             frameID = (o->animation / 2000) & 7;
             if (frameID_prev != frameID && (frameID & 3) == 1) {
-                snd_play(SNDID_FOOTSTEP_LEAVES, 0.6f, rngr_f32(0.9f, 1.0f));
+                snd_play(SNDID_FOOTSTEP_LEAVES, rngr_f32(0.25f, 0.35f), rngr_f32(0.8f, 1.0f));
                 v2_i32 posc = obj_pos_bottom_center(o);
                 posc.x -= 16 + sgn_i(o->v_q8.x) * 4;
                 posc.y -= 30;
@@ -167,7 +192,13 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
-        animID     = HERO_ANIMID_IDLE; // "carrying/idle"
+        if (h->holds_weapon) {
+            animID = 23; // "carrying/idle"
+            if (o->facing == -1) frameID_add = 8;
+        } else {
+            animID = HERO_ANIMID_IDLE; // "carrying/idle"
+        }
+
         h->is_idle = 1;
         h->idle_ticks++;
         if (!was_idle) {
@@ -176,7 +207,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
         if (idle_animp) {
             h->idle_anim = idle_animp + 1;
-        } else if (100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
+        } else if (!h->holds_weapon && 100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
             h->idle_anim = 1;
         }
 
@@ -214,10 +245,10 @@ void hero_on_animate(game_s *g, obj_s *o)
     case HERO_STATE_SWIMMING: { // repurpose jumping animation for swimming
         if (inp_x()) {
             animID  = HERO_ANIMID_SWIM; // swim
-            frameID = ((o->animation >> 3) % 6);
+            frameID = hero_swim_frameID(o->animation);
         } else {
             animID   = HERO_ANIMID_AIR; // "air"
-            i32 swim = ((o->animation >> 4) & 7);
+            i32 swim = hero_swim_frameID_idle(o->animation);
             if (swim <= 1) {
                 sprite->offs.y += swim == 0 ? 0 : -2;
                 frameID = 2;
@@ -250,6 +281,20 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
+        if (h->stomp) {
+            animID  = 7;
+            frameID = 7 + min_i32(4, h->stomp >> 2);
+            break;
+        }
+
+        if (h->holds_weapon) {
+            sprite->offs.y -= 16;
+            animID  = 22;
+            frameID = 6 + ((o->animation >> 4) & 1);
+            if (o->facing == -1) frameID_add = 8;
+            break;
+        }
+
         animID = HERO_ANIMID_AIR; // "air"
         if (0 < h->ground_impact_ticks) {
             frameID = 0;
@@ -273,6 +318,10 @@ void hero_on_animate(game_s *g, obj_s *o)
         break;
     }
     }
-    rec_i32 frame  = {frameID * 64, animID * 64, 64, 64};
+
+    rec_i32 frame  = {64 * (frameID + frameID_add),
+                      64 * animID,
+                      64,
+                      64};
     sprite->trec.r = frame;
 }

@@ -5,8 +5,9 @@
 #include "particle.h"
 #include "game.h"
 
-void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, i32 n)
+void particles_spawn(game_s *g, particle_desc_s desc, i32 n)
 {
+    particles_s *pr = &g->particles;
     if (pr->n == PARTICLE_NUM) return;
     for (i32 i = 0; i < n; i++) {
         v2_i32 pos = desc.p.p_q8;
@@ -42,7 +43,7 @@ void particles_update(game_s *g, particles_s *pr)
         v2_i32 pp = v2_add(p->p_q8, p->v_q8);  // proposed new position
         v2_i32 pd = v2_sub(v2_shr(pp, 8), p0); // delta in pixels
 
-        for (i32 m = abs_i(pd.x), s = sgn_i(pd.x); m; m--) {
+        for (i32 m = abs_i32(pd.x), s = sgn_i32(pd.x); m; m--) {
             if (map_traversable_pt(g, p0.x + s, p0.y)) {
                 p0.x += s;
             } else {
@@ -52,7 +53,7 @@ void particles_update(game_s *g, particles_s *pr)
             }
         }
 
-        for (i32 m = abs_i(pd.y), s = sgn_i(pd.y); m; m--) {
+        for (i32 m = abs_i32(pd.y), s = sgn_i32(pd.y); m; m--) {
             if (map_traversable_pt(g, p0.x, p0.y + s)) {
                 p0.y += s;
             } else {
@@ -78,11 +79,11 @@ void particles_draw(game_s *g, particles_s *pr, v2_i32 cam)
 
         switch (p->gfx) {
         case PARTICLE_GFX_CIR: {
-            gfx_cir_fill(ctxparticle, ppos, p->size, PRIM_MODE_BLACK);
+            gfx_cir_fill(ctxparticle, ppos, p->size, p->col);
         } break;
         case PARTICLE_GFX_REC: {
             rec_i32 rr = {ppos.x, ppos.y, p->size, p->size};
-            gfx_rec_fill(ctxparticle, rr, PRIM_MODE_BLACK);
+            gfx_rec_fill(ctxparticle, rr, p->col);
         } break;
         case PARTICLE_GFX_SPR: {
             gfx_spr(ctxparticle, p->texrec, ppos, 0, 0);

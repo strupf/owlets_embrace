@@ -12,6 +12,82 @@ typedef struct {
     i32 v_q12;
 } waterparticle_s;
 
+typedef struct {
+    i32 y_q12;
+    i32 v_q12;
+} fluid_particle_s;
+
+typedef struct {
+    alignas(32)
+        fluid_particle_s *pt;
+    i32                   num;
+    i32                   steps;
+    i32                   substeps;
+    i32                   dampening;
+    u32                   rng_seed;
+    i32                   rng_range;
+} fluid_particles_s;
+
+void fluid_particles_step(fluid_particles_s *fp)
+{
+    fluid_particle_s *pt = fp->pt;
+
+    for (i32 step = 0; step < fp->steps; step++) {
+        for (i32 i = 0; i < fp->substeps; i++) {
+            for (i32 n = 0; n < fp->num; n++) {
+                fluid_particle_s *pl = &pt[(n - 1 + fp->num) % fp->num];
+                fluid_particle_s *pr = &pt[(n + 1) % fp->num];
+                fluid_particle_s *pc = &pt[n];
+
+                i32 f0 = 0x064 * (pl->y_q12 + pr->y_q12 - (pc->y_q12 << 1));
+                i32 f1 = 0x7D0 * (pc->y_q12);
+                pc->v_q12 += (f0 - f1) >> 16;
+            }
+
+            for (i32 n = 0; n < fp->num; n++) {
+                pt[n].y_q12 += pt[n].v_q12;
+            }
+        }
+
+        // dampening
+        for (i32 n = 0; n < fp->num; n++) {
+            fluid_particle_s *pc = &pt[n];
+
+            pc->v_q12 = ((pc->v_q12 * fp->dampening + 2048) >> 12) +
+                        rngsr_sym_i32(&fp->rng_seed, fp->rng_range);
+        }
+    }
+}
+
+void fluid_particle_s_step(fluid_particle_s *particles, i32 num, i32 steps)
+{
+    for (i32 step = 0; step < steps; step++) {
+        // forces and velocity integration
+        for (i32 i = 0; i < 3; i++) {
+            for (i32 n = 0; n < num; n++) {
+                fluid_particle_s *pl = &particles[(n - 1 + num) % num];
+                fluid_particle_s *pr = &particles[(n + 1) % num];
+                fluid_particle_s *pc = &particles[n];
+
+                i32 f0 = pl->y_q12 + pr->y_q12 - pc->y_q12 * 2;
+                pc->v_q12 += (f0 * 100 - pc->y_q12 * 2000) >> 16;
+            }
+
+            for (i32 n = 0; n < num; n++) {
+                particles[n].y_q12 += particles[n].v_q12;
+            }
+        }
+
+        // dampening
+        for (i32 n = 0; n < num; n++) {
+            fluid_particle_s *pc = &particles[n];
+
+            pc->v_q12 = (pc->v_q12 * 4050 + (1 << 11)) >> 12;
+            pc->v_q12 += rngr_sym_i32(128);
+        }
+    }
+}
+
 void water_step(waterparticle_s *particles, i32 num, i32 steps);
 
 void water_prerender_tiles()
@@ -21,6 +97,7 @@ void water_prerender_tiles()
     asset_tex_putID(TEXID_WATER_PRERENDER, wtex);
 
     spm_push();
+    spm_align(4);
 
 #define WATER_RENDER_STEP 2
 #define WATER_NUM_P       256
@@ -29,12 +106,20 @@ void water_prerender_tiles()
     water_step(particles, WATER_NUM_P, 256);
 
     gfx_ctx_s wctx  = gfx_ctx_default(wtex);
+    gfx_ctx_s wctx0 = gfx_ctx_default(wtex);
     gfx_ctx_s wctx1 = gfx_ctx_default(wtex);
     gfx_ctx_s wctx2 = gfx_ctx_default(wtex);
+    gfx_ctx_s wctx3 = gfx_ctx_default(wtex);
+    wctx0.pat       = gfx_pattern_2x2(B2(11),
+                                      B2(10));
     wctx1.pat       = gfx_pattern_2x2(B2(11),
                                       B2(10));
     wctx2.pat       = gfx_pattern_2x2(B2(10),
                                       B2(00));
+    wctx3.pat       = gfx_pattern_4x4(B4(0000), // white background dots
+                                      B4(0101),
+                                      B4(0000),
+                                      B4(0101));
 
     for (i32 n = 0; n < NUM_WATER_TILES; n++) {
         water_step(particles, WATER_NUM_P, 1);
@@ -46,14 +131,16 @@ void water_prerender_tiles()
             i32 yy = n * 16 + 4 + hh;
 
             // filled tile silhouette background
-            rec_i32 rf = {k, yy - 1, WATER_RENDER_STEP, 12 + 1 - hh};
+            rec_i32 rf  = {k, yy - 1, WATER_RENDER_STEP, 12 + 1 - hh};
+            rec_i32 rf3 = {k, yy + 1, WATER_RENDER_STEP, 12 + 1 - hh - 2};
             gfx_rec_fill(wctx, rf, PRIM_MODE_BLACK);
+            gfx_rec_fill(wctx3, rf3, PRIM_MODE_WHITE);
 
             // tile overlay top
             rec_i32 rl1 = {k + 16, yy + 2, WATER_RENDER_STEP, 2};
             rec_i32 rl2 = {k + 16, yy + 4, WATER_RENDER_STEP, 1};
             rec_i32 rfb = {k + 16, yy, WATER_RENDER_STEP, 12 - hh};
-            gfx_rec_fill(wctx1, rfb, PRIM_MODE_BLACK);
+            gfx_rec_fill(wctx0, rfb, PRIM_MODE_BLACK);
             gfx_rec_fill(wctx1, rl1, PRIM_MODE_WHITE);
             gfx_rec_fill(wctx2, rl2, PRIM_MODE_WHITE);
         }

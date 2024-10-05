@@ -8,6 +8,7 @@
 #if 0 // edit PD code files?
 #undef PLTF_SDL
 #define PLTF_PD
+#define PLTF_PD_HW
 #endif
 
 #define PLTF_DEBUG 1
@@ -28,17 +29,15 @@
 #include <stdint.h>
 #include <string.h>
 
-#if (201112L <= __STDC_VERSION__)               // C11
-#include <stdalign.h>                           //
-#define ALIGN _Alignas                          //
-#elif defined(_MSC_VER)                         // MSVC
-#define ALIGN(X) __declspec(align(X))           //
-#elif (defined(__GNUC__) || defined(__clang__)) // GCC/CLANG
-#define ALIGN(X) __attribute__((aligned(X)))
+#if (202311L <= __STDC_VERSION__) // C23
+
+#elif (201112L <= __STDC_VERSION__) // C11
+#include <stdalign.h>
 #else
 #error ALIGNMENT UNAVAILABLE
 #endif
 
+typedef char           byte;
 typedef float          f32;
 typedef double         f64;
 typedef uintptr_t      uptr;
@@ -46,6 +45,7 @@ typedef intptr_t       iptr;
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
+typedef size_t         usize;
 typedef uint8_t        u8;
 typedef uint16_t       u16;
 typedef uint32_t       u32;
@@ -54,20 +54,28 @@ typedef int8_t         i8;
 typedef int16_t        i16;
 typedef int32_t        i32;
 typedef int64_t        i64;
-typedef i8             bool8;
-typedef i16            bool16;
-typedef i32            bool32;
+typedef u8             bool8;
+typedef u16            bool16;
+typedef u32            bool32;
 typedef u8             flags8;
 typedef u16            flags16;
 typedef u32            flags32;
 typedef u64            flags64;
-typedef u32            u16x2; // ARM small 32 bit simd types
-typedef u32            i16x2;
-typedef u32            u8x4;
-typedef u32            i8x4;
 
 #ifdef PLTF_PD_HW
+#define ASM           __asm volatile
+#define ASM1(I, R, A) ASM(#I " %0, %1" \
+                          : "=r"(R)    \
+                          : "r"(A))
+#define ASM2(I, R, A, B) ASM(#I " %0, %1, %2" \
+                             : "=r"(R)        \
+                             : "r"(A), "r"(B))
+
 void (*PD_system_error)(const char *format, ...);
+#if 1
+#undef assert
+#define assert(X)
+#else
 #undef assert
 #define assert(X)                                \
     {                                            \
@@ -75,6 +83,7 @@ void (*PD_system_error)(const char *format, ...);
             PD_system_error("ASSERT: " #X "\n"); \
         }                                        \
     }
+#endif
 #elif defined(PLTF_SDL) && 1 // use SDL assert instead of std?
 #include "SDL2/SDL_assert.h"
 #undef assert
@@ -108,40 +117,36 @@ void (*PD_system_error)(const char *format, ...);
 #define U64_C(X) (X##ULL)
 
 #define PLTF_SIZE_CL 32
-#define ALIGNCL      ALIGN(PLTF_SIZE_CL) // align on PD cache line boundaries
+#define ALIGNCL      alignas(PLTF_SIZE_CL) // align on PD cache line boundaries
+#define ALIGNT(T)    alignas(sizeof(T))
 
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
 typedef struct {
-    void *(*allocf)(void *ctx, u32 s);
+    void *(*allocf)(void *ctx, usize s);
     void *ctx;
 } alloc_s;
 
 // clang-format off
-#define isizeof (i32)sizeof
-#define typedef_struct(NAME) typedef struct NAME NAME
-#define mset                 memset
-#define mcpy                 memcpy
-#define mmov                 memmove
-#define mclr(DST, SIZE)      mset(DST, 0, SIZE)
-#define POW2(X)              ((X) * (X))
-#define GLUE2(A, B)          A##B
-#define GLUE(A, B)           GLUE2(A, B)
-#define ARRLEN(A)            (i32)(sizeof(A) / sizeof(A[0]))
-#define MAX(A, B)            ((A) >= (B) ? (A) : (B))
-#define MIN(A, B)            ((A) <= (B) ? (A) : (B))
-#define ABS(A)               ((A) >= 0 ? (A) : -(A))
-#define SGN(A)               ((0 < (A)) - (0 > (A)))
-#define CLAMP(X, LO, HI)     ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
-#define SWAP(T, a, b)        { T tmp_ = a; a = b; b = tmp_; }
-
-#ifndef SYS_PD_HW
+#define typedef_struct(NAME)  typedef struct NAME NAME
+#define td_struct             typedef_struct
+#define mset                  memset
+#define mcpy                  memcpy
+#define mmov                  memmove
+#define mclr(DST, SIZE)       mset(DST, 0, SIZE)
+#define POW2(X)               ((X) * (X))
+#define GLUE2(A, B)           A##B
+#define GLUE(A, B)            GLUE2(A, B)
+#define ARRLEN(A)             (i32)(sizeof(A) / sizeof(A[0]))
+#define MAX(A, B)             ((A) >= (B) ? (A) : (B))
+#define MIN(A, B)             ((A) <= (B) ? (A) : (B))
+#define ABS(A)                ((A) >= 0 ? (A) : -(A))
+#define SGN(A)                ((0 < (A)) - (0 > (A)))
+#define CLAMP(X, LO, HI)      ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
+#define SWAP(T, a, b)         { T tmp_ = a; a = b; b = tmp_; }
 #define FILE_AND_LINE__(A, B) A "|" #B
 #define FILE_AND_LINE_(A, B)  FILE_AND_LINE__(A, B)
 #define FILE_AND_LINE         FILE_AND_LINE_(__FILE__, __LINE__)
-#else
-#define FILE_AND_LINE ""
-#endif
 // clang-format on
 
 #define NOT_IMPLEMENTED                      \
@@ -209,15 +214,13 @@ typedef struct {
 } rec_i32;
 
 typedef struct {
-    ALIGN(2)
-    i8 x;
-    i8 y;
+    alignas(2) i8 x;
+    i8            y;
 } v2_i8;
 
 typedef struct {
-    ALIGN(4) // alignment for ARM intrinsics
-    i16 x;
-    i16 y;
+    alignas(4) i16 x; // word alignment for ARM intrinsics
+    i16            y;
 } v2_i16;
 
 typedef struct {
@@ -288,30 +291,6 @@ typedef struct {
     u8 *s;
 } str_s;
 
-#define SIMD_USE_TYPE_PUNNING 0
-
-static inline i16x2 i16x2_from_v2_i16(v2_i16 v)
-{
-#if SIMD_USE_TYPE_PUNNING
-    u32 r = *((u32 *)&v);
-#else
-    u32 r = {0};
-    mcpy(&r, &v, 4);
-#endif
-    return r;
-}
-
-static inline v2_i16 v2_i16_from_i16x2(i16x2 v)
-{
-    v2_i16 r = {0};
-#if SIMD_USE_TYPE_PUNNING
-    *((u32 *)&r) = v;
-#else
-    mcpy(&r, &v, 4);
-#endif
-    return r;
-}
-
 static inline v2_i32 v2_i32_from_v2_i8(v2_i8 v)
 {
     v2_i32 r = {v.x, v.y};
@@ -346,185 +325,6 @@ static inline v2_i32 v2_i32_from_f32(v2_f32 a)
     v2_i32 r = {(i32)(a.x + .5f), (i32)(a.y + .5f)};
     return r;
 }
-
-#define SORT_ARRAY_DEF(TYPE, NAME, CMPF)                      \
-    static void sort_i_##NAME(TYPE *arr, TYPE *lo, TYPE *hi); \
-                                                              \
-    static void sort_##NAME(TYPE *arr, i32 num)               \
-    {                                                         \
-        if (num <= 1) return;                                 \
-        assert(arr);                                          \
-        sort_i_##NAME(arr, &arr[0], &arr[num - 1]);           \
-    }                                                         \
-                                                              \
-    static void sort_i_##NAME(TYPE *arr, TYPE *lo, TYPE *hi)  \
-    {                                                         \
-        assert(lo < hi);                                      \
-        TYPE  p = arr[((lo - arr) + (hi - arr)) >> 1];        \
-        TYPE *i = lo;                                         \
-        TYPE *j = hi;                                         \
-                                                              \
-        do {                                                  \
-            while (CMPF(i, &p) < 0) { i++; }                  \
-            while (CMPF(j, &p) > 0) { j--; }                  \
-            if (i > j) break;                                 \
-            TYPE tp = *i;                                     \
-            *i      = *j;                                     \
-            *j      = tp;                                     \
-            i++, j--;                                         \
-        } while (i <= j);                                     \
-                                                              \
-        if (lo < j) sort_i_##NAME(arr, lo, j);                \
-        if (hi > i) sort_i_##NAME(arr, i, hi);                \
-    }
-
-// int (*cmp)(const void *a, const void *b)
-// -: a goes before b | b goes after a
-// 0: equivalent
-// +: a goes after b | b goes before a
-typedef int (*cmp_f)(const void *a, const void *b);
-
-static void sort_i_array(char *arr, char *lo, char *hi, u32 s, cmp_f cmp);
-
-static void sort_array(void *arr, i32 num, u32 s, cmp_f cmp)
-{
-    if (num <= 1) return;
-    assert(arr && s && cmp);
-    sort_i_array((char *)arr, (char *)arr, (char *)arr + (num - 1) * s, s, cmp);
-}
-
-// quicksort
-static void sort_i_array(char *arr, char *lo, char *hi, u32 s, cmp_f c)
-{
-    static char m[1024];
-
-    assert(s * 2 <= sizeof(m));
-    assert(lo < hi);
-
-    char *i = lo;
-    char *j = hi;
-    char *p = &m[s];
-
-    mcpy(p, arr + (((lo - arr) + (hi - arr)) / (s << 1)) * s, s);
-
-    do {
-        while (c((const void *)i, (const void *)p) < 0) { i += s; }
-        while (c((const void *)j, (const void *)p) > 0) { j -= s; }
-        if (i > j) break;
-
-        mcpy(m, (const void *)i, s);
-        mcpy(i, (const void *)j, s);
-        mcpy(j, (const void *)m, s);
-        i += s;
-        j -= s;
-    } while (i <= j);
-
-    if (lo < j) sort_i_array(arr, lo, j, s, c);
-    if (hi > i) sort_i_array(arr, i, hi, s, c);
-}
-
-static inline u16x2 u16x2_pack(u16 x, u16 y)
-{
-    u16x2 r    = {0};
-    u16   z[4] = {x, y};
-    mcpy(&r, z, 4);
-    return r;
-}
-
-static inline i16x2 i16x2_pack(i16 x, i16 y)
-{
-    i16x2 r    = {0};
-    i16   z[4] = {x, y};
-    mcpy(&r, z, 4);
-    return r;
-}
-
-static inline u8x4 u8x4_pack(u8 a, u8 b, u8 c, u8 d)
-{
-    u8x4 r    = {0};
-    u8   z[4] = {a, b, c, d};
-    mcpy(&r, z, 4);
-    return r;
-}
-
-static inline i8x4 i8x4_pack(i8 a, i8 b, i8 c, i8 d)
-{
-    i8x4 r    = {0};
-    i8   z[4] = {a, b, c, d};
-    mcpy(&r, z, 4);
-    return r;
-}
-
-static inline u16x2 u16x2_set1(u16 x)
-{
-    return u16x2_pack(x, x);
-}
-
-static inline i16x2 i16x2_set1(i16 x)
-{
-    return i16x2_pack(x, x);
-}
-
-static inline u8x4 u8x4_set1(u8 a)
-{
-    return u8x4_pack(a, a, a, a);
-}
-
-static inline i8x4 i8x4_set1(i8 a)
-{
-    return i8x4_pack(a, a, a, a);
-}
-
-static inline u32 v32_load(const void *x)
-{
-    assert(((uptr)x & (uptr)3) == 0);
-    u32 v = {0};
-#if SIMD_USE_TYPE_PUNNING
-    *((u32 *)&v) = *((u32 *)x);
-#else
-    mcpy(&v, x, 4);
-#endif
-    return v;
-}
-
-static inline u32 v32_loadu(const void *x)
-{
-    u32 v = {0};
-    mcpy(&v, x, 4);
-    return v;
-}
-
-static inline void v32_store(u32 v, void *x)
-{
-    assert(((uptr)x & (uptr)3) == 0);
-#if SIMD_USE_TYPE_PUNNING
-    *((u32 *)x) = *((u32 *)&v);
-#else
-    mcpy(x, &v, 4);
-#endif
-}
-
-static inline void v32_storeu(u32 v, void *x)
-{
-    mcpy(x, &v, 4);
-}
-
-#define u8x4_loadu   v32_loadu
-#define u8x4_load    v32_load
-#define u8x4_storeu  v32_storeu
-#define u8x4_store   v32_store
-#define i8x4_loadu   v32_loadu
-#define i8x4_load    v32_load
-#define i8x4_storeu  v32_storeu
-#define i8x4_store   v32_store
-#define i16x2_loadu  v32_loadu
-#define i16x2_load   v32_load
-#define i16x2_storeu v32_storeu
-#define i16x2_store  v32_store
-#define u16x2_loadu  v32_loadu
-#define u16x2_load   v32_load
-#define u16x2_storeu v32_storeu
-#define u16x2_store  v32_store
 
 // =============================================================================
 // B8(00001111) -> 0x0F

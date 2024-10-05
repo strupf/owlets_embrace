@@ -12,6 +12,8 @@
 #define ITEM_Y_OFFS      180
 #define FNTID_AREA_LABEL FNTID_LARGE
 
+void render_weapon_drop_ui(game_s *g, obj_s *o, v2_i32 camoff);
+
 void render_ui(game_s *g, v2_i32 camoff)
 {
     const gfx_ctx_s ctx    = gfx_ctx_display();
@@ -31,6 +33,10 @@ void render_ui(game_s *g, v2_i32 camoff)
 
     if (ohero && g->save.flyupgrades && g->hero_mem.jump_ui_fade_out) {
         render_jump_ui(g, ohero, camoff);
+    }
+
+    if (ohero) {
+        render_weapon_drop_ui(g, ohero, camoff);
     }
 
     if (g->areaname.fadeticks) {
@@ -109,6 +115,30 @@ void render_ui(game_s *g, v2_i32 camoff)
             gfx_spr(ctx, trheart, (v2_i32){n * 20 - 2, -4}, 0, 0);
         }
     }
+}
+
+void render_weapon_drop_ui(game_s *g, obj_s *o, v2_i32 camoff)
+{
+    hero_s *h = &g->hero_mem;
+    if (h->holds_weapon < 2) return;
+
+    gfx_ctx_s ctx = gfx_ctx_display();
+    v2_i32    p   = v2_add(o->pos, camoff);
+
+    i32     wi     = 55;
+    rec_i32 rfly   = {p.x + 5 - wi / 2, p.y - 32, wi, 16};
+    rec_i32 rfly_1 = {rfly.x - 2, rfly.y - 2, rfly.w + 4, rfly.h + 4};
+    rec_i32 rfly_2 = {rfly.x + 2, rfly.y + 2, (h->holds_weapon * (rfly.w - 4)) / HERO_WEAPON_DROP_TICKS, rfly.h - 4};
+
+    gfx_ctx_s ctxb = ctx;
+    fnt_s     fnt  = asset_fnt(FNTID_SMALL);
+    gfx_rec_rounded_fill(ctx, rfly_1, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctxb, rfly, -1, GFX_COL_BLACK);
+    gfx_rec_rounded_fill(ctxb, rfly_2, -1, GFX_COL_WHITE);
+    v2_i32 pf = p;
+    pf.y -= 31;
+    pf.x -= 14;
+    fnt_draw_ascii(ctx, fnt, pf, "DROP", SPR_MODE_XOR);
 }
 
 void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)

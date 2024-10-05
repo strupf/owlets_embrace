@@ -38,7 +38,8 @@ obj_s *hero_create(game_s *g)
     o->render_priority = 1000;
 
     o->flags = OBJ_FLAG_MOVER |
-               OBJ_FLAG_CLAMP_TO_ROOM |
+               OBJ_FLAG_CLAMP_ROOM_X |
+               OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE;
     o->moverflags = OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
@@ -54,6 +55,7 @@ obj_s *hero_create(game_s *g)
     o->h               = HERO_HEIGHT;
     o->facing          = 1;
     o->n_sprites       = 1;
+
     return o;
 }
 
@@ -123,7 +125,6 @@ void hero_hurt(game_s *g, obj_s *o, i32 damage)
 
 void hero_kill(game_s *g, obj_s *o)
 {
-
     o->health = 0;
     o->flags &= ~OBJ_FLAG_CLAMP_ROOM_Y; // let hero fall through floor
     hero_action_ungrapple(g, o);
@@ -209,6 +210,17 @@ void hero_on_update(game_s *g, obj_s *o)
     h->climbing     = 0;
     h->trys_lifting = 0;
 
+    if (h->stomp) {
+        o->flags &= ~OBJ_FLAG_MOVER;
+        if (h->stomp < U8_MAX) {
+            h->stomp++;
+        }
+        if (HERO_TICKS_STOMP_INIT <= h->stomp) {
+            o->tomove.y = min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10);
+            o->tomove.x = dpad_x;
+        }
+    }
+
     if (h->invincibility_ticks) {
         h->invincibility_ticks--;
     }
@@ -267,10 +279,40 @@ void hero_on_update(game_s *g, obj_s *o)
         hero_flytime_update_ui(g, o, g->save.flyupgrades << 1);
     }
 
-#ifdef PLTF_DEBUG
-    assert(0 <= hero_flytime_left(g, o) &&
-           hero_flytime_left(g, o) <= hero_flytime_max(g, o));
-#endif
+    if (state == HERO_STATE_SWIMMING && h->statep == HERO_STATE_AIR) {
+        h->swimsfx_delay = 0;
+        o->animation     = 0;
+
+        i32 vsplash_max = 2500;
+        i32 v_clamped   = clamp_i32(o->v_q8.y, 0, vsplash_max);
+        f32 vol         = 0.7f * (f32)v_clamped / (f32)vsplash_max;
+        snd_play(SNDID_WATER_SPLASH_BIG, vol, rngr_f32(0.9f, 1.1f));
+
+        particle_desc_s prt = {0};
+        {
+            i32 prt_vy = ease_lin(200, 600, v_clamped, vsplash_max);
+
+            prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
+            prt.p.v_q8.x    = 0;
+            prt.p.v_q8.y    = -rngr_i32(prt_vy, prt_vy + 150);
+            prt.p.a_q8.y    = 20;
+            prt.p.size      = 2;
+            prt.p.ticks_max = ease_lin(20, 50, v_clamped, vsplash_max);
+            prt.ticksr      = 10;
+            prt.pr_q8.x     = 3000;
+            prt.pr_q8.y     = 1000;
+            prt.vr_q8.x     = 150;
+            prt.vr_q8.y     = 200;
+            prt.ar_q8.y     = 5;
+            prt.sizer       = 1;
+            prt.p.gfx       = PARTICLE_GFX_CIR;
+            prt.p.col       = GFX_COL_WHITE;
+            i32 prt_n       = ease_in_quad(0, 80, v_clamped, vsplash_max);
+            particles_spawn(g, prt, prt_n);
+            prt.p.col = GFX_COL_BLACK;
+            particles_spawn(g, prt, prt_n >> 1);
+        }
+    }
 
     if (h->attack_tick) {
         h->attack_tick++;
@@ -334,7 +376,7 @@ void hero_on_update(game_s *g, obj_s *o)
 
         if (state == HERO_STATE_AIR && rope_stretched) {
             o->v_q8.y = -(o->v_q8.y >> 2);
-        } else {
+        } else if (!(o->bumpflags & OBJ_BUMPED_ON_HEAD)) {
             if (1000 <= o->v_q8.y) {
                 f32 vol = (1.f * (f32)o->v_q8.y) / 2000.f;
                 snd_play(SNDID_STEP, min_f(vol, 1.f) * 1.2f, 1.f);
@@ -353,10 +395,6 @@ void hero_on_update(game_s *g, obj_s *o)
         }
     }
 
-    if (o->bumpflags & OBJ_BUMPED_ON_HEAD) {
-        o->v_q8.y = -1000;
-    }
-
     if (o->bumpflags & OBJ_BUMPED_X) {
         if (h->sliding) {
             o->v_q8.x = -(o->v_q8.x >> 2);
@@ -373,17 +411,19 @@ void hero_on_update(game_s *g, obj_s *o)
     o->bumpflags = 0;
 
     switch (state) {
+    default: h->holds_weapon = 0; break;
     case HERO_STATE_GROUND:
     case HERO_STATE_AIR: {
         if (!inp_action_jp(INP_DU) && !inp_action_jp(INP_DD)) break;
         if (hero_try_snap_to_ladder(g, o, dpad_y)) {
-            return; // RETURN
+            state = HERO_STATE_LADDER;
         }
         break;
     }
     }
 
     switch (state) {
+    case HERO_STATE_NULL: break;
     case HERO_STATE_GROUND:
         hero_update_ground(g, o);
         break;
@@ -416,6 +456,8 @@ void hero_on_update(game_s *g, obj_s *o)
             h->crawling = 1;
         }
     }
+
+    h->statep = state;
 }
 
 bool32 hero_stand_up(game_s *g, obj_s *o)
@@ -528,11 +570,7 @@ void hero_action_throw_grapple(game_s *g, obj_s *o)
     v2_i32 center = obj_pos_center(o);
     center.y -= 8;
 
-    if (dirx && diry == 0) {
-        diry = -1;
-    }
-
-    v2_i32 vlaunch = {dirx * 3000, diry * 2300};
+    v2_i32 vlaunch = {dirx * 2500, diry * 2000};
 
     if (diry < 0) {
         vlaunch.y = (vlaunch.y * 5) / 4;
@@ -572,14 +610,14 @@ bool32 hero_action_ungrapple(game_s *g, obj_s *o)
     if (obj_grounded(g, o) || !attached) return 1;
 
     i32 mulx = 280;
-    i32 muly = 320;
+    i32 muly = 300;
 
     if (abs_i32(o->v_q8.x) < 600) {
         mulx = 300;
     }
 
     if (abs_i32(o->v_q8.y) < 600) {
-        muly = 350;
+        muly = 340;
     }
 
     i32 addx = sgn_i32(o->v_q8.x) * 200;
@@ -612,22 +650,39 @@ void hero_action_attack(game_s *g, obj_s *o)
         o->v_q8.x = 0;
     }
 
-    hitbox_s hb   = {0};
-    hb.damage     = 1;
-    hb.r.h        = 32;
-    hb.r.w        = 48;
-    hb.r.y        = o->pos.y - 5;
-    hb.force_q8.x = o->facing * 800;
-    hb.force_q8.y = -400;
+    hitbox_s hb = {0};
+
+    switch (h->attack_tick) {
+    case 0: // slash
+        hb.r.y        = o->pos.y - 5;
+        hb.r.w        = 60;
+        hb.r.h        = 32;
+        hb.force_q8.x = o->facing * 800;
+        hb.force_q8.y = -400;
+        hb.damage     = 2;
+        snd_play(SNDID_WOOSH_2, 1.f, rngr_f32(1.1f, 1.3f));
+        break;
+    case 1: // stab
+        hb.r.w        = 48;
+        hb.r.h        = 24;
+        hb.r.y        = o->pos.y + 1;
+        hb.force_q8.x = o->facing * 600;
+        hb.force_q8.y = -200;
+        hb.damage     = 1;
+        snd_play(SNDID_WOOSH_1, 0.7f, rngr_f32(0.8f, 1.2f));
+        break;
+    }
+
     if (o->facing == 1) {
         hb.r.x = o->pos.x + o->w;
     } else {
         hb.r.x = o->pos.x - hb.r.w;
     }
 
+    pltf_debugr(hb.r.x + g->cam_prev.x, hb.r.y + g->cam_prev.y, hb.r.w, hb.r.h, 255, 100, 0, 30);
     bool32 did_hit = obj_game_player_attackbox(g, hb);
-    snd_play(SNDID_OWLET_ATTACK_1, 1.3f, rngr_f32(0.8f, 1.2f));
 
+#if 0
     // slash sprite
     rec_i32 rslash = {0, 1024 + 64, 64, 64};
     v2_i32  dcpos  = {-10, -40};
@@ -641,4 +696,54 @@ void hero_action_attack(game_s *g, obj_s *o)
     }
 
     spritedecal_create(g, 0xFFFF, o, dcpos, TEXID_HERO, rslash, 18, 8, flip);
+#endif
+}
+
+i32 hero_register_bounced_on_obj(game_s *g, obj_s *ohero, obj_s *o)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    if (h->n_bounced_on == HERO_N_MAX_JUMPED_ON) return 0;
+
+    ohero->bumpflags |= OBJ_BUMPED_ON_HEAD;
+    o->bumpflags |= OBJ_BUMPED_JUMPED_ON;
+
+    obj_handle_s h1 = obj_handle_from_obj(o);
+    for (i32 n = 0; n < h->n_bounced_on; n++) {
+        obj_handle_s h2 = h->bounced_on[n];
+        if (h1.GID == h2.GID)
+            return 2;
+    }
+    h->bounced_on[h->n_bounced_on++] = h1;
+    return 1;
+}
+
+void hero_on_stomped(game_s *g, obj_s *o)
+{
+    hero_s *h = (hero_s *)&g->hero_mem;
+    if (h->stomp) {
+        h->stomp = 0;
+        snd_play(SNDID_STOMP, 1.f, 1.f);
+
+        particle_desc_s prt = {0};
+        {
+            prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
+            prt.p.v_q8.x    = 0;
+            prt.p.v_q8.y    = -300;
+            prt.p.a_q8.y    = 20;
+            prt.p.size      = 3;
+            prt.p.ticks_max = 20;
+            prt.ticksr      = 10;
+            prt.pr_q8.x     = 5000;
+            prt.pr_q8.y     = 1000;
+            prt.vr_q8.x     = 400;
+            prt.vr_q8.y     = 200;
+            prt.ar_q8.y     = 5;
+            prt.sizer       = 1;
+            prt.p.gfx       = PARTICLE_GFX_CIR;
+            prt.p.col       = GFX_COL_WHITE;
+            particles_spawn(g, prt, 15);
+            prt.p.col = GFX_COL_BLACK;
+            particles_spawn(g, prt, 15);
+        }
+    }
 }

@@ -24,7 +24,7 @@ enum {
     OBJ_ID_CRAWLER,
     OBJ_ID_CRAWLER_CATERPILLAR,
     OBJ_ID_CARRIER,
-    OBJ_ID_HEROUPGRADE,
+    OBJ_ID_HERO_POWERUP,
     OBJ_ID_MOVINGPLATFORM,
     OBJ_ID_NPC,
     OBJ_ID_CHARGER,
@@ -54,6 +54,8 @@ enum {
     OBJ_ID_CRANKSWITCH,
     OBJ_ID_CAMATTRACTOR,
     OBJ_ID_FROG,
+    OBJ_ID_WEAPON_PICKUP,
+    OBJ_ID_FLYBLOB,
 };
 
 enum {
@@ -97,9 +99,9 @@ void   crawler_load(game_s *g, map_obj_s *mo);
 void   crawler_caterpillar_load(game_s *g, map_obj_s *mo);
 void   crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb);
 void   carrier_load(game_s *g, map_obj_s *mo);
-void   heroupgrade_load(game_s *g, map_obj_s *mo);
-void   heroupgrade_on_collect(game_s *g, obj_s *o);
-void   heroupgrade_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void   hero_powerup_obj_load(game_s *g, map_obj_s *mo);
+void   hero_powerup_obj_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+i32    hero_powerup_obj_ID(obj_s *o);
 void   movingplatform_load(game_s *g, map_obj_s *mo);
 void   npc_load(game_s *g, map_obj_s *mo);
 void   charger_load(game_s *g, map_obj_s *mo);
@@ -129,6 +131,7 @@ void   budplant_load(game_s *g, map_obj_s *mo);
 obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void   projectile_on_collision(game_s *g, obj_s *o);
 void   flyblob_load(game_s *g, map_obj_s *mo);
+void   flyblob_on_hit(game_s *g, obj_s *o, hitbox_s hb);
 void   staminarestorer_load(game_s *g, map_obj_s *mo);
 void   staminarestorer_try_collect_any(game_s *g, obj_s *ohero);
 void   staminarestorer_respawn_all(game_s *g, obj_s *o);
@@ -139,5 +142,10 @@ v2_i32 camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
 void   frog_load(game_s *g, map_obj_s *mo);
 obj_s *hero_pickup_create(game_s *g, v2_i32 pos, i32 pickupID);
 void   hero_pickup_load(game_s *g, map_obj_s *mo);
+void   weapon_pickup_load(game_s *g, map_obj_s *mo);
+void   weapon_pickup_place(game_s *g, obj_s *ohero);
+void   weapon_pickup_on_pickup(game_s *g, obj_s *o, obj_s *ohero);
+//
+bool32 enemy_vulnerable(obj_s *o);
 
 #endif

@@ -18,6 +18,7 @@ typedef struct {
     v2_i32 pos_q8;
     v2_i32 shake;
     v2_i32 attract;
+    i32    lookdown;
     i16    mode;
     u16    shake_ticks;
     u16    shake_ticks_max;

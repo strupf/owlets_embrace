@@ -18,7 +18,7 @@ enum {
     NUM_MAPTRANSITION_PHASES
 };
 
-const i32 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
+const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     0,
     15,
     1,
@@ -175,7 +175,6 @@ void maptransition_draw(game_s *g, v2_i32 cam)
     }
 
     const i32 ticks = maptransition_phase[mt->fade_phase];
-    const i32 ft2   = mt->fade_tick * 2 - ticks;
 
     gfx_pattern_s pat = {0};
 
@@ -184,11 +183,8 @@ void maptransition_draw(game_s *g, v2_i32 cam)
         pat = gfx_pattern_interpolate(mt->fade_tick, ticks);
         break;
     case MAPTRANSITION_FADE_IN:
-        if (ft2 < 0) {
-            pat = gfx_pattern_100();
-        } else {
-            pat = gfx_pattern_interpolate(ticks - ft2, ticks);
-        }
+        pat = gfx_pattern_interpolate(ticks - mt->fade_tick, ticks);
+        // pat = gfx_pattern_inv(pat);
         break;
     }
 
@@ -203,12 +199,12 @@ void maptransition_draw(game_s *g, v2_i32 cam)
     }
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero && 0 <= ft2) {
+
+    if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero) {
         gfx_ctx_s ctxc = gfx_ctx_default(tmp);
         v2_i32    cpos = v2_add(obj_pos_center(ohero), cam);
-        ctxc.pat       = gfx_pattern_interpolate(ft2, ticks);
-        i32 cird       = ease_out_quad(0, 200, ft2, ticks);
-        gfx_cir_fill(ctxc, cpos, cird, PRIM_MODE_WHITE);
+        i32       cird = ease_out_quad(0, 200, min_i32(mt->fade_tick, ticks / 2), ticks / 2);
+        gfx_cir_fill(ctxc, cpos, cird, GFX_COL_WHITE);
     }
 
     for (i32 y = 0; y < tmp.h; y++) {

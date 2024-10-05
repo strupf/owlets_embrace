@@ -9,12 +9,12 @@
 ASSETS_s ASSETS;
 
 i32           assets_gen_texID();
-void         *assetmem_alloc_ctx(void *arg, u32 s);
+void         *assetmem_alloc_ctx(void *arg, usize s);
 const alloc_s asset_allocator = {assetmem_alloc_ctx, NULL};
 
 void assets_init()
 {
-    marena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
+    memarena_init(&ASSETS.marena, ASSETS.mem, sizeof(ASSETS.mem));
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
 }
 
@@ -51,13 +51,13 @@ void assets_export()
 {
     spm_push();
     asset_collection_s *coll = spm_alloctz(asset_collection_s, 1);
-    const char         *mbeg = (const char *)&ASSETS.mem[0];
-    coll->size               = (u32)((const char *)ASSETS.marena.p - mbeg);
+    const byte         *mbeg = (const byte *)&ASSETS.mem[0];
+    coll->size               = (u32)((const byte *)ASSETS.marena.p - mbeg);
 
     for (u32 n = 1; n < NUM_TEXID; n++) { // exclude display
         tex_s      t  = ASSETS.tex[n].tex;
         exp_tex_s *et = &coll->tex[n];
-        et->offs      = (u32)((const char *)t.px - mbeg);
+        et->offs      = (u32)((const byte *)t.px - mbeg);
         et->w         = t.w;
         et->h         = t.h;
         et->wword     = t.wword;
@@ -66,13 +66,13 @@ void assets_export()
     for (u32 n = 0; n < NUM_SNDID; n++) {
         snd_s      s  = ASSETS.snd[n].snd;
         exp_snd_s *es = &coll->snd[n];
-        es->offs      = (u32)((const char *)s.buf - mbeg);
+        es->offs      = (u32)((const byte *)s.buf - mbeg);
         es->len       = s.len;
     }
     for (u32 n = 0; n < NUM_FNTID; n++) {
         fnt_s      f  = ASSETS.fnt[n].fnt;
         exp_fnt_s *ef = &coll->fnt[n];
-        ef->offs      = (u32)((const char *)f.widths - mbeg);
+        ef->offs      = (u32)((const byte *)f.widths - mbeg);
         ef->grid_w    = (u8)f.grid_w;
         ef->grid_h    = (u8)f.grid_h;
         for (u32 i = 0; i < NUM_TEXID; i++) {
@@ -94,9 +94,9 @@ void assets_export()
 
     pltf_file_w(fil, coll, sizeof(asset_collection_s));
 #if 1 // compression
-    static char compressed[0x800000];
+    static alignas(4) byte compressed[0x800000];
 
-    u32 stotal = mem_compress_block(compressed, mbeg, coll->size);
+    usize stotal = mem_compress(compressed, mbeg, coll->size);
     pltf_file_w(fil, compressed, stotal);
     pltf_log("Wrote %u kb asset file!\n", (u32)((stotal + sizeof(asset_collection_s)) / 1024));
 #else
@@ -121,12 +121,12 @@ void assets_import()
         return;
     }
 
-    char *mbeg = (char *)&ASSETS.mem[0];
+    byte *mbeg = (byte *)&ASSETS.mem[0];
     pltf_file_r(fil, coll, sizeof(asset_collection_s));
 
 #define MEM_ASSET_DECOMPRESSION 0x40000
     spm_push();
-    void *decompmem = spm_alloc(MEM_ASSET_DECOMPRESSION);
+    void *decompmem = spm_alloc_aligned(MEM_ASSET_DECOMPRESSION, 4);
     mem_decompress_block_from_file(fil, mbeg, decompmem, MEM_ASSET_DECOMPRESSION);
     spm_pop();
     pltf_file_close(fil);
@@ -157,14 +157,15 @@ void assets_import()
     spm_pop();
 }
 
-void *assetmem_alloc_ctx(void *arg, u32 s)
+void *assetmem_alloc_ctx(void *arg, usize s)
 {
     return assetmem_alloc(s);
 }
 
-void *assetmem_alloc(u32 s)
+void *assetmem_alloc(usize s)
 {
-    void *mem = marena_alloc(&ASSETS.marena, s);
+    memarena_align(&ASSETS.marena, 4);
+    void *mem = memarena_alloc(&ASSETS.marena, s);
     if (!mem) {
         pltf_log("+++ ran out of asset mem!\n");
         BAD_PATH
@@ -313,7 +314,7 @@ i32 assets_gen_texID()
 fnt_s fnt_load(const char *filename, alloc_s ma)
 {
     spm_push();
-
+    spm_align(4);
     fnt_s f = {0};
     char *txt;
     if (!txt_load(filename, spm_alloc, &txt)) {

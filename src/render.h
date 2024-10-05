@@ -29,6 +29,7 @@ void   render_pause(game_s *g);
 void   ocean_calc_spans(game_s *g, rec_i32 camr);
 void   render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type);
 void   render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds);
+void   render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds);
 v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8);
 
 #endif

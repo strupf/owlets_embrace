@@ -41,7 +41,8 @@ static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, i32 dir)
 
 static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir)
 {
-    const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
+    // const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
+    const rec_i32 rbounds = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
     if (map_traversable(g, rbounds)) // check if any surface nearby
         return 0;
 
@@ -82,10 +83,11 @@ static void crawler_do_normal(game_s *g, obj_s *o)
     default: break;
     }
 
+    if (!domove) return;
+
     // returns a direction if still sticking to a wall
     i32 dir_to_crawl = crawler_find_crawl_direction(g, o, o->action);
     o->action        = dir_to_crawl;
-
     if (dir_to_crawl) { // glued to wall
         o->state = CRAWLER_STATE_CRAWLING;
         o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
@@ -110,17 +112,6 @@ static void crawler_do_normal(game_s *g, obj_s *o)
                     o->subtimer = 0;
                 }
             } break;
-            }
-
-#if 0
-            bool32 can_be_hurt      = !((o->substate == CRAWLER_SUBSTATE_CURLED &&
-                                    CRAWLER_TICKS_TO_CURL <= o->subtimer));
-            o->enemy.cannot_be_hurt = !can_be_hurt;
-#endif
-
-            // if curled: don't move
-            if (o->substate == CRAWLER_SUBSTATE_CURLED || o->subtimer < CRAWLER_TICKS_TO_CURL) {
-                domove = 0;
             }
         }
 
@@ -157,7 +148,7 @@ static void crawler_do_bounce(game_s *g, obj_s *o)
     o->bumpflags = 0;
 
     // try to return to crawling if not bouncing too much
-    if (o->timer < 0 && abs_i(o->v_q8.x) < 100 && abs_i(o->v_q8.y) < 5) {
+    if (o->timer < 0 && abs_i32(o->v_q8.x) < 100 && abs_i32(o->v_q8.y) < 5) {
         o->timer                     = 0;
         o->state                     = CRAWLER_STATE_FALLING;
         o->substate                  = CRAWLER_SUBSTATE_CURLED;
@@ -174,7 +165,6 @@ void crawler_on_update(game_s *g, obj_s *o)
 {
     o->drag_q8.y = 255;
     o->drag_q8.x = 255;
-
     if (o->state == CRAWLER_STATE_BOUNCING) {
         crawler_do_bounce(g, o);
     } else {
@@ -306,9 +296,12 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
     // difference between tilesize and object dimension
     for (i32 y = 0; y <= 1; y++) {
         for (i32 x = 0; x <= 1; x++) {
-            o->pos.x = mo->x + x - mo->w / 2;
-            o->pos.y = mo->y + y - mo->h;
-            if (crawler_find_crawl_direction(g, o, 0)) {
+            o->pos.x = mo->x + x;
+            o->pos.y = mo->y + y;
+            i32 dir  = crawler_find_crawl_direction(g, o, 0);
+            if (dir) {
+                o->state  = CRAWLER_STATE_CRAWLING;
+                o->action = dir;
                 return;
             }
         }

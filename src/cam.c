@@ -25,7 +25,12 @@ v2_i32 cam_pos_px(game_s *g, cam_s *c)
     pos_q8        = v2_add(pos_q8, c->attract);
     v2_i32 pos    = v2_shr(pos_q8, 8);
     pos           = v2_add(pos, c->shake);
-    pos           = cam_constrain_to_room(g, pos);
+
+    if (30 <= c->lookdown) {
+        pos.y += min_i32((c->lookdown - 30), 30) * 2;
+    }
+
+    pos = cam_constrain_to_room(g, pos);
     return pos;
 }
 
@@ -51,16 +56,17 @@ void cam_init_level(game_s *g, cam_s *c)
 
 #define CAM_Y_NEW_BASE_MIN_SPEED  (1 << 7)
 #define CAM_X_LOOKAHEAD_MIN_SPEED (1 << 7)
-#define CAM_HERO_Y_BOT            190 // camera pushing boundaries, absolute pixels
+#define CAM_HERO_Y_BOT            180 // camera pushing boundaries, absolute pixels
 #define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 70)
 #define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) << 8)
 #define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) << 8)
 
 void cam_update(game_s *g, cam_s *c)
 {
-    obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
-    v2_i32 ppos = c->pos_q8;
-    v2_i32 padd = {0};
+    obj_s *hero          = obj_get_tagged(g, OBJ_TAG_HERO);
+    v2_i32 ppos          = c->pos_q8;
+    v2_i32 padd          = {0};
+    i32    lookdown_prev = c->lookdown;
 
     switch (c->mode) {
     case CAM_MODE_FOLLOW_HERO: {
@@ -83,6 +89,10 @@ void cam_update(game_s *g, cam_s *c)
                 y_add = max_i32(y_add, +CAM_Y_NEW_BASE_MIN_SPEED);
             }
             c->pos_q8.y += y_add;
+
+            if (hero->v_q8.x == 0 && inp_action(INP_DD)) {
+                c->lookdown += 3;
+            }
         }
 
         i32 cam_y_min = hero_bot_q8 - CAM_OFFS_Q8_BOT;
@@ -147,6 +157,11 @@ void cam_update(game_s *g, cam_s *c)
     }
     }
 
+    if (0 < lookdown_prev && lookdown_prev == c->lookdown) {
+        c->lookdown = min_i32(c->lookdown, 256);
+        c->lookdown = max_i32(c->lookdown - 2, 0);
+    }
+
     if (c->shake_ticks) {
         c->shake_ticks--;
         i32 shakes = (c->shake_str * c->shake_ticks) / c->shake_ticks_max;
@@ -164,8 +179,8 @@ void cam_update(game_s *g, cam_s *c)
 
 static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center)
 {
-    v2_i32 v = {clamp_i(p_center.x, CAM_WH, g->pixel_x - CAM_WH),
-                clamp_i(p_center.y, CAM_HH, g->pixel_y - CAM_HH)};
+    v2_i32 v = {clamp_i32(p_center.x, CAM_WH, g->pixel_x - CAM_WH),
+                clamp_i32(p_center.y, CAM_HH, g->pixel_y - CAM_HH)};
     return v;
 }
 

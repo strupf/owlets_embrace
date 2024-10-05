@@ -11,6 +11,7 @@
 #include "gamedef.h"
 #include "gameover.h"
 #include "hero/hero.h"
+#include "hero_powerup.h"
 #include "lighting.h"
 #include "map_loader.h"
 #include "maptransition.h"
@@ -47,13 +48,14 @@ enum {
     SUBSTATE_TEXTBOX,
     SUBSTATE_MAPTRANSITION,
     SUBSTATE_GAMEOVER,
-    SUBSTATE_HEROUPGRADE,
+    SUBSTATE_POWERUP,
     SUBSTATE_MENUSCREEN
 };
 
 struct game_s {
     u32               gameplay_tick;
     u32               state;
+    v2_i32            cam_prev;
     //
     map_world_s       map_world; // layout of all map files globally
     map_worldroom_s  *map_worldroom;
@@ -63,6 +65,7 @@ struct game_s {
     maptransition_s   maptransition;
     textbox_s         textbox;
     menu_screen_s     menu_screen;
+    hero_powerup_s    powerup;
     u16               freeze_tick;
     u16               substate;
     cam_s             cam;
@@ -75,6 +78,7 @@ struct game_s {
     u16               pixel_y;
     tile_s            tiles[NUM_TILES];
     rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
+    u8                fluid_streams[NUM_TILES];
     //
     obj_s            *obj_head_busy; // linked list
     obj_s            *obj_head_free; // linked list
@@ -123,8 +127,8 @@ struct game_s {
         i32  fadeticks;
     } areaname;
 
-    marena_s    memarena;
-    mkilobyte_s mem[64];
+    marena_s        memarena;
+    alignas(4) byte mem[64 * 1024];
 };
 
 void   game_init(game_s *g);
@@ -139,6 +143,7 @@ void   game_load_savefile(game_s *g);
 bool32 game_save_savefile(game_s *g);
 void   game_on_trigger(game_s *g, i32 trigger);
 void   game_on_solid_appear(game_s *g);
+bool32 obj_game_enemy_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
 bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
 bool32 obj_game_player_attackbox(game_s *g, hitbox_s box);
 

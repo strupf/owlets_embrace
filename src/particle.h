@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-#define PARTICLE_NUM 256
+#define PARTICLE_NUM 512
 
 enum {
     PARTICLE_GFX_REC,
@@ -22,7 +22,8 @@ typedef struct {
     i16      ticks;
     i16      ticks_max;
     i16      size;
-    i16      gfx;
+    u8       gfx;
+    u8       col;
     texrec_s texrec;
 } particle_s;
 
@@ -41,7 +42,7 @@ typedef struct {
     particle_s particles[PARTICLE_NUM];
 } particles_s;
 
-void particles_spawn(game_s *g, particles_s *pr, particle_desc_s desc, i32 n);
+void particles_spawn(game_s *g, particle_desc_s desc, i32 n);
 void particles_update(game_s *g, particles_s *pr);
 void particles_draw(game_s *g, particles_s *pr, v2_i32 cam);
 

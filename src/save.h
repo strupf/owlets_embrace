@@ -44,7 +44,7 @@ void   hero_inv_rem(game_s *g, i32 ID, i32 n);
 i32    hero_inv_count_of(game_s *g, i32 ID);
 void   hero_coins_change(game_s *g, i32 n);
 i32    hero_coins(game_s *g);
-void   saveID_put(game_s *g, u32 ID);
+i32    saveID_put(game_s *g, u32 ID);
 bool32 saveID_has(game_s *g, u32 ID);
 //
 void   savefile_empty(save_s *s);

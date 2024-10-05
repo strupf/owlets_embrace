@@ -29,7 +29,7 @@ void shroomy_load(game_s *g, map_obj_s *mo)
     o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_SPRITE |
-               OBJ_FLAG_CAN_BE_JUMPED_ON;
+               OBJ_FLAG_CAN_BE_JUMPED_ON | OBJ_FLAG_PLATFORM_HERO_ONLY;
     o->on_update       = shroomy_on_update;
     o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;

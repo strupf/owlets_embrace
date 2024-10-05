@@ -77,10 +77,9 @@ tile_tris_s tile_tris_get(i32 ID)
     return res;
 }
 
-#define TC(X, Y)       \
-    {                  \
-        X << 3, Y << 3 \
-    }
+#define TC(X, Y) \
+    {            \
+        X << 3, Y << 3}
 
 const tile_corners_s g_tile_corners[NUM_TILE_SHAPES] = {
     {0, {TC(0, 0), TC(0, 0), TC(0, 0), TC(0, 0)}}, // empty
@@ -288,6 +287,7 @@ bool32 map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y)
 
 bool32 map_platform(game_s *g, obj_s *o, i32 x, i32 y, i32 w)
 {
+    if ((y & 15)) return 0;
     rec_i32 r = {x, y, w, 1};
     if (tile_map_platform(g, r)) return 1;
     for (obj_each(g, it)) {
