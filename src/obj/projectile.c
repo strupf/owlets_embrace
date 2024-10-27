@@ -75,6 +75,7 @@ void projectile_on_update(game_s *g, obj_s *o)
         o->timer--;
         if (o->timer == 0) {
             // remove
+
             obj_delete(g, o);
             return;
         }
@@ -137,5 +138,7 @@ void projectile_on_collision(game_s *g, obj_s *o)
     default: break;
     }
 
+    f32 vol = cam_snd_scale(g, o->pos, 300) * 0.1f;
+    snd_play(SNDID_PROJECTILE_WALL, vol, rngr_f32(0.9f, 1.1f));
     obj_delete(g, o);
 }

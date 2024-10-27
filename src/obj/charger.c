@@ -157,7 +157,7 @@ void charger_on_animate(game_s *g, obj_s *o)
     case CHARGER_STATE_CHARGING: {
         if (o->subtimer < CHARGER_TICKS_STATE_CHANGE) {
             animID  = 1;
-            frameID = min_i((o->subtimer >> 5), 1);
+            frameID = min_i32((o->subtimer >> 5), 1);
         } else {
             animID  = 2;
             frameID = (o->subtimer >> 2) & 3;

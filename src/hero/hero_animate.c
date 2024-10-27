@@ -42,13 +42,6 @@ void hero_on_animate(game_s *g, obj_s *o)
     i32 frameID_add = 0;
     i32 state       = hero_determine_state(g, o, h);
 
-    if (h->sliding) {
-        state = HERO_STATE_NULL; // override other states
-        sprite->offs.y -= 16;
-        animID  = HERO_ANIMID_DREAM_START;
-        frameID = 0;
-    }
-
     if (h->attack_tick || h->b_hold_tick) {
         state = HERO_STATE_NULL; // override other states
         sprite->offs.y -= 16;
@@ -93,7 +86,7 @@ void hero_on_animate(game_s *g, obj_s *o)
     switch (state) {
     case HERO_STATE_GROUND: {
         sprite->offs.y -= 16;
-        if (0 < h->ground_impact_ticks && !h->carrying && !h->holds_weapon) {
+        if (0 < h->ground_impact_ticks && !h->holds_weapon) {
             if (h->holds_weapon) {
                 animID  = 23;
                 frameID = 0;
@@ -105,34 +98,43 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
-        if (h->crawling) {
-            animID = HERO_ANIMID_CRAWL;
-            if (!h->crawlingp) {
-                o->animation         = 0;
-                h->crawling_to_stand = 0;
-            }
-#define HERO_START_CRAWL_TICK 10
-            if (h->crawling_to_stand < HERO_START_CRAWL_TICK) {
-                h->crawling_to_stand++;
-
-                frameID = min_i32((h->crawling_to_stand * 6) / HERO_START_CRAWL_TICK, 5);
-            } else {
+        if (h->crouched) {
+            if (h->crawl) {
+                animID = HERO_ANIMID_CRAWL;
                 o->animation += o->v_q8.x;
                 frameID = 8 + ((u32)o->animation / 1500) % 6;
+            } else {
+                animID = HERO_ANIMID_CRAWL - 1;
+                if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
+                    frameID = 11 + (h->crouched * 2) / HERO_CROUCHED_MAX_TICKS;
+                } else {
+                    o->animation += 1;
+                    frameID = 13 + (o->animation / 14) % 3;
+                }
             }
+
+            break;
+        }
+        if (h->crouch_standup) {
+            animID  = HERO_ANIMID_CRAWL - 1;
+            frameID = 11 + (h->crouch_standup * 2) / HERO_CROUCHED_MAX_TICKS;
             break;
         }
 
-        if (h->crawlingp) {
-            o->animation         = 0;
-            h->crawling_to_stand = 5;
-        }
+        if (o->rope) {
+            ropenode_s *rn          = ropenode_neighbour(o->rope, o->ropenode);
+            i32         dir         = sgn_i32(rn->p.x - o->pos.x);
+            i32         ropestretch = rope_stretch_q8(g, o->rope);
+            if (252 <= ropestretch && dir) {
+                sprite->flip = 0 < dir ? 0 : SPR_FLIP_X;
+                animID       = 1;
+                frameID      = 12;
+                if (260 <= ropestretch) {
+                    frameID += (g->gameplay_tick >> 4) & 1;
+                }
 
-        if (h->crawling_to_stand) {
-            h->crawling_to_stand--;
-            animID  = HERO_ANIMID_CRAWL;
-            frameID = (h->crawling_to_stand * 6) / 8;
-            break;
+                break;
+            }
         }
 
         if (o->v_q8.x != 0) {
@@ -147,7 +149,7 @@ void hero_on_animate(game_s *g, obj_s *o)
                 animID = 22;
                 if (o->facing == -1) frameID_add = 8;
             } else {
-                animID = h->carrying ? HERO_ANIMID_CARRY_WALK : HERO_ANIMID_WALK;
+                animID = HERO_ANIMID_WALK;
             }
 
             i32 frameID_prev = (o->animation / 2000) & 7;
@@ -175,20 +177,11 @@ void hero_on_animate(game_s *g, obj_s *o)
             if (frameID_prev != frameID && (frameID & 3) == 1) {
                 snd_play(SNDID_FOOTSTEP_LEAVES, rngr_f32(0.25f, 0.35f), rngr_f32(0.8f, 1.0f));
                 v2_i32 posc = obj_pos_bottom_center(o);
-                posc.x -= 16 + sgn_i(o->v_q8.x) * 4;
+                posc.x -= 16 + sgn_i32(o->v_q8.x) * 4;
                 posc.y -= 30;
                 rec_i32 trp = {0, 284, 32, 32};
                 spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, posc, TEXID_MISCOBJ, trp, 12, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
             }
-            break;
-        }
-
-        // idle standing
-        if (h->carrying) {
-            o->animation++;
-            i32 carryf = (o->animation >> 5) & 3;
-            animID     = HERO_ANIMID_CARRY_IDLE;
-            frameID    = (carryf == 0 ? 1 : 0);
             break;
         }
 
@@ -272,12 +265,6 @@ void hero_on_animate(game_s *g, obj_s *o)
             frameID = -(i32)((ang * 4.f)) - 3;
             frameID = clamp_i32(frameID, 0, 5);
             sprite->offs.y += 12;
-            break;
-        }
-
-        if (h->carrying) {
-            sprite->offs.y -= 16;
-            animID = HERO_ANIMID_CARRY_WALK; // "carrying air"
             break;
         }
 

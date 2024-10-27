@@ -204,33 +204,8 @@ bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
         rope_moved_by_aabb(g, &g->rope, cr, dt);
     }
 
-    obj_s *ocarry = (o->ID == OBJ_ID_HERO ? carryable_present(g) : NULL);
-    if (ocarry) {     // actively move the hero, and move the solid with it
-        if (dy < 0) { // upwards -> move solid first
-            if (!obj_step_y(g, ocarry, -1, 0, ocarry->mass + 1)) {
-                o->bumpflags |= OBJ_BUMPED_Y_NEG;
-                return 0;
-            }
-            o->pos.y--;
-        }
-        if (dy > 0) { // downwards -> move hero first
-            o->pos.y++;
-            if (!obj_step_y(g, ocarry, +1, 0, 0)) {
-                return 0;
-            }
-        }
-
-        if (dx) {
-            if (!obj_step_x(g, ocarry, dx, 0, 0)) {
-                o->bumpflags |= (0 < dx ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG);
-                return 0;
-            }
-            o->pos.x += dx;
-        }
-    } else {
-        o->pos.x += dx;
-        o->pos.y += dy;
-    }
+    o->pos.x += dx;
+    o->pos.y += dy;
 
     if (o->ropenode) {
         ropenode_move(g, o->rope, o->ropenode, dt);
@@ -406,11 +381,11 @@ bool32 obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush)
 
 void obj_move(game_s *g, obj_s *o, v2_i32 dt)
 {
-    for (i32 m = abs_i(dt.x), sx = sgn_i(dt.x); 0 < m; m--) {
+    for (i32 m = abs_i32(dt.x), sx = sgn_i32(dt.x); 0 < m; m--) {
         obj_step_x(g, o, sx, 1, 0);
     }
 
-    for (i32 m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
+    for (i32 m = abs_i32(dt.y), sy = sgn_i32(dt.y); 0 < m; m--) {
         obj_step_y(g, o, sy, 1, 0);
     }
 }
@@ -567,87 +542,6 @@ enemy_s enemy_default()
     e.sndID_die  = SNDID_ENEMY_DIE;
     e.sndID_hurt = SNDID_ENEMY_HURT;
     return e;
-}
-
-obj_s *carryable_present(game_s *g)
-{
-    obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
-    obj_s *ocarry = obj_get_tagged(g, OBJ_TAG_CARRIED);
-    if (!ohero || !ocarry) return 0;
-
-    v2_i32 pos = carryable_pos_on_hero(ohero, ocarry, NULL);
-    if (v2_eq(pos, ocarry->pos)) return ocarry;
-    carryable_on_drop(g, ocarry);
-    return NULL;
-}
-
-v2_i32 carryable_pos_on_hero(obj_s *ohero, obj_s *ocarry, rec_i32 *rlift)
-{
-    rec_i32 rhero = obj_aabb(ohero);
-    v2_i32  pos   = {rhero.x + rhero.w / 2 - ocarry->w / 2,
-                     rhero.y - ocarry->h};
-    if (rlift) {
-        rec_i32 rcarr = {pos.x, pos.y, ocarry->w, ocarry->h};
-        *rlift        = rcarr;
-    }
-    return pos;
-}
-
-void carryable_on_lift(game_s *g, obj_s *o)
-{
-    assert(o->flags & OBJ_FLAG_CARRYABLE);
-
-    o->flags &= ~OBJ_FLAG_CARRYABLE;
-    o->flags &= ~OBJ_FLAG_MOVER;
-    o->tomove.x   = 0;
-    o->tomove.y   = 0;
-    o->carry.tick = 1;
-    o->carry.time = 1;
-
-    switch (o->ID) {
-    case 1000: {
-        box_on_lift(g, o);
-        break;
-    }
-    }
-}
-
-void carryable_on_drop(game_s *g, obj_s *o)
-{
-    assert(!(o->flags & OBJ_FLAG_CARRYABLE));
-    obj_untag(g, o, OBJ_TAG_CARRIED);
-    hero_s *h   = &g->hero_mem;
-    h->carrying = 0;
-    o->flags |= OBJ_FLAG_CARRYABLE;
-    o->flags |= OBJ_FLAG_MOVER;
-
-    switch (o->ID) {
-    case 1000: {
-        box_on_drop(g, o);
-        break;
-    }
-    }
-}
-
-#define CARRYABLE_PICKUP_TICKS 4 // half the time
-
-v2_i32 carryable_animate_spr_offset(obj_s *o)
-{
-    v2_i32 vz = {0};
-    if (o->carry.tick) {
-        o->carry.tick++;
-        if ((CARRYABLE_PICKUP_TICKS << 1) <= o->carry.tick) {
-            o->carry.tick = 0;
-            return vz;
-        }
-        v2_i32 p1 = {o->carry.offs.x, o->carry.offs.y >> 2};
-        if (o->carry.tick <= CARRYABLE_PICKUP_TICKS) {
-            return v2_lerp(o->carry.offs, p1, o->carry.tick, CARRYABLE_PICKUP_TICKS);
-        } else {
-            return v2_lerp(p1, vz, o->carry.tick - CARRYABLE_PICKUP_TICKS, CARRYABLE_PICKUP_TICKS);
-        }
-    }
-    return vz;
 }
 
 void obj_on_hooked(game_s *g, obj_s *o)

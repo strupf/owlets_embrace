@@ -16,7 +16,7 @@ typedef struct {
     u16 n;
 } inventory_item_s;
 
-typedef struct save_s {
+typedef_struct (save_s) {
     u32              tick;
     flags32          upgrades;
     u8               health;
@@ -25,14 +25,13 @@ typedef struct save_s {
     u8               n_items;
     u16              coins;
     u16              n_saveIDs;
-    char             name[32];
+    char             name[16];
     inventory_item_s items[INVENTORY_NUM_ITEMS];
     u32              saveIDs[NUM_SAVEIDS]; // unlocked things or events already happened
-    char             hero_mapfile[64];
-    char             areaname[64];
+    char             hero_mapfile[32];
     v2_i32           hero_pos;
     map_pin_s        map_pins[NUM_MAP_PINS];
-} save_s;
+};
 
 bool32 hero_has_upgrade(game_s *g, i32 ID);
 void   hero_add_upgrade(game_s *g, i32 ID);

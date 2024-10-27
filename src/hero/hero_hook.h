@@ -28,4 +28,7 @@ void   hook_update(game_s *g, obj_s *hook); // called by hero
 void   hook_on_animate(game_s *g, obj_s *o);
 bool32 hook_is_attached(obj_s *o);
 
+// returns relative stretched length in q8 > 0 if stretched
+i32 hook_is_stretched(game_s *g, obj_s *o);
+
 #endif

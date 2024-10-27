@@ -37,24 +37,29 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
         if (dpad_x) {
             if (dtrope_s == dpad_x) {
-                o->v_q8.x += 60 * dpad_x;
+                o->v_q8.x += 40 * dpad_x;
             } else {
-                o->v_q8.x += 15 * dpad_x;
+                o->v_q8.x += 5 * dpad_x;
             }
         }
-    } else {
-        i32 jumpticksp = h->jumpticks;
-
-        if (!h->stomp &&
-            !h->holds_weapon &&
-            !usinghook &&
-            inp_action_jp(INP_DD)) {
-            h->stomp     = 1;
-            h->jumpticks = 0;
-            o->v_q8.x    = 0;
-            o->v_q8.y    = 0;
-            snd_play(SNDID_WING, 1.f, 1.f);
+    } else if (h->stomp) {
+        o->flags &= ~OBJ_FLAG_MOVER;
+        if (h->stomp < U8_MAX) {
+            h->stomp++;
         }
+        if (HERO_TICKS_STOMP_INIT <= h->stomp) {
+            o->tomove.y = min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10);
+            o->tomove.x = dpad_x;
+        }
+    } else if (!h->stomp && !h->holds_weapon && !usinghook && inp_action_jp(INP_DD)) {
+        h->stomp     = 1;
+        h->jumpticks = 0;
+        o->v_q8.x    = 0;
+        o->v_q8.y    = 0;
+        snd_play(SNDID_WING, 1.f, 1.f);
+    } else {
+
+        i32 jumpticksp = h->jumpticks;
 
         // dynamic jump height
         if (0 < h->jumpticks && !h->action_jump) {

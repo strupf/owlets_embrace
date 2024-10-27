@@ -27,10 +27,13 @@ v2_i32 cam_pos_px(game_s *g, cam_s *c)
     pos           = v2_add(pos, c->shake);
 
     if (30 <= c->lookdown) {
-        pos.y += min_i32((c->lookdown - 30), 30) * 2;
+        // pos.y += min_i32((c->lookdown - 30), 30) * 2;
     }
 
     pos = cam_constrain_to_room(g, pos);
+    if (30 <= c->textboxdown) {
+        pos.y += min_i32((c->textboxdown - 30), 30) * 2;
+    }
     return pos;
 }
 
@@ -63,10 +66,11 @@ void cam_init_level(game_s *g, cam_s *c)
 
 void cam_update(game_s *g, cam_s *c)
 {
-    obj_s *hero          = obj_get_tagged(g, OBJ_TAG_HERO);
-    v2_i32 ppos          = c->pos_q8;
-    v2_i32 padd          = {0};
-    i32    lookdown_prev = c->lookdown;
+    obj_s    *hero             = obj_get_tagged(g, OBJ_TAG_HERO);
+    v2_i32    ppos             = c->pos_q8;
+    v2_i32    padd             = {0};
+    const i32 lookdown_prev    = c->lookdown;
+    const i32 textboxdown_prev = c->textboxdown;
 
     switch (c->mode) {
     case CAM_MODE_FOLLOW_HERO: {
@@ -116,6 +120,10 @@ void cam_update(game_s *g, cam_s *c)
             c->pos_q8.x += x_to_add;
         }
 
+#if 0
+        c->pos_q8.x = trgx_q8;
+#endif
+
         // cam attractors
         v2_i32 pos_px    = v2_shr(c->pos_q8, 8);
         v2_i32 attract   = {0};
@@ -157,6 +165,15 @@ void cam_update(game_s *g, cam_s *c)
     }
     }
 
+    if (g->substate == SUBSTATE_TEXTBOX) {
+        // c->textboxdown += 3;
+    }
+
+    if (0 < textboxdown_prev && textboxdown_prev == c->textboxdown) {
+        c->textboxdown = min_i32(c->textboxdown, 256);
+        c->textboxdown = max_i32(c->textboxdown - 2, 0);
+    }
+
     if (0 < lookdown_prev && lookdown_prev == c->lookdown) {
         c->lookdown = min_i32(c->lookdown, 256);
         c->lookdown = max_i32(c->lookdown - 2, 0);
@@ -189,4 +206,12 @@ v2_i32 cam_offset_max(game_s *g, cam_s *c)
     v2_i32 o = {g->pixel_x - CAM_W,
                 g->pixel_y - CAM_H};
     return o;
+}
+
+f32 cam_snd_scale(game_s *g, v2_i32 p, u32 dst_max)
+{
+    f32 dsq = sqrt_f32(pow_f32((f32)p.x - (f32)g->cam_prev_world.x, 2) +
+                       pow_f32((f32)p.y - (f32)g->cam_prev_world.y, 2));
+    f32 vol = ((f32)dst_max - min_f32(dsq, (f32)dst_max)) / (f32)dst_max;
+    return vol;
 }

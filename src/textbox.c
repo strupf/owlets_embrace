@@ -6,6 +6,7 @@
 #include "game.h"
 
 #define DIALOG_CHAR_TICK_Q2_DEFAULT 4
+#define TEXTBOX_HEIGHT              64
 
 void textbox_update_wait(textbox_s *tb);
 void textbox_update_write(textbox_s *tb, bool32 fast_forward);
@@ -287,19 +288,31 @@ void textbox_draw(game_s *g, v2_i32 camoffset)
     textbox_s *tb  = &g->textbox;
     gfx_ctx_s  ctx = gfx_ctx_display();
 
+    i32 offs = TEXTBOX_HEIGHT;
+
     switch (tb->state) {
     case TEXTBOX_STATE_FADE_IN:
-        ctx.pat = gfx_pattern_interpolate(tb->timer_fade, TEXTBOX_FADE_I);
+        // ctx.pat = gfx_pattern_interpolate(tb->timer_fade, TEXTBOX_FADE_I);
+        offs = lerp_i32(0, TEXTBOX_HEIGHT, tb->timer_fade, TEXTBOX_FADE_I);
         break;
     case TEXTBOX_STATE_FADE_OUT:
-        ctx.pat = gfx_pattern_interpolate(tb->timer_fade, TEXTBOX_FADE_O);
+        // ctx.pat = gfx_pattern_interpolate(tb->timer_fade, TEXTBOX_FADE_O);
+        offs = lerp_i32(0, TEXTBOX_HEIGHT, tb->timer_fade, TEXTBOX_FADE_O);
         break;
     }
 
-    gfx_rec_fill(ctx, (rec_i32){0, 150, 400, 90}, GFX_COL_BLACK);
+    for (i32 y = 0; y < PLTF_DISPLAY_H - offs; y++) {
+        for (i32 w = 0; w < PLTF_DISPLAY_WWORDS; w++) {
+            ctx.dst.px[w + y * PLTF_DISPLAY_WWORDS] =
+                ctx.dst.px[w + (y + offs) * PLTF_DISPLAY_WWORDS];
+        }
+    }
+
+    rec_i32 tbr = {0, PLTF_DISPLAY_H - offs, PLTF_DISPLAY_W, TEXTBOX_HEIGHT};
+    gfx_rec_fill(ctx, tbr, GFX_COL_BLACK);
+    v2_i32 pos_og = {10, PLTF_DISPLAY_H - offs};
 #define TB_LINE_SPACING 26
 
-    v2_i32 pos_og = {10, 160};
     switch (tb->frame->n_lines) {
     case 1: pos_og.y += TB_LINE_SPACING; break;
     case 2: pos_og.y += TB_LINE_SPACING / 2; break;

@@ -12,38 +12,21 @@
 
 app_s APP;
 
+#if PLTF_DEV_ENV
 void app_load_tex();
 void app_load_fnt();
 void app_load_snd();
-
-#ifdef PLTF_PD
-PDMenuItem *menu_item;
-
-void menu_callback(void *arg)
-{
-    // hero_s *h     = (hero_s *)&APP.game.hero_mem;
-    // h->input_type = PD->system->getMenuItemValue(menu_item);
-}
 #endif
 
 void app_init()
 {
-    pltf_audio_set_volume(0.1f);
+    pltf_audio_set_volume(0.2f);
     pltf_accelerometer_set(1);
     spm_init();
     assets_init();
     inp_init();
 
-#ifdef PLTF_PD
-#if 0
-    const char *menutitles[3] = {
-        "Shakeswap", "Hold B", "Shake Throw"};
-
-    menu_item = PD->system->addOptionsMenuItem("Controls", menutitles, 3, menu_callback, NULL);
-#endif
-#endif
-
-#if ASSETS_EXPORT
+#if PLTF_DEV_ENV
     SPM.lowestleft_disabled = 1;
     app_load_tex();
     app_load_fnt();
@@ -151,12 +134,12 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
     aud_audio(lbuf, rbuf, len);
 }
 
+#if PLTF_DEV_ENV
 void app_load_tex()
 {
     asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", NULL);
     asset_tex_loadID(TEXID_TILESET_BG_AUTO, "TILESET_BG_AUTO", NULL);
-    asset_tex_loadID(TEXID_TILESET_PROPS_BG, "TILESET_BG", NULL);
-    asset_tex_loadID(TEXID_TILESET_PROPS_FG, "TILESET_FG", NULL);
+    asset_tex_loadID(TEXID_TILESET_PROPS, "TILESET_PROPS", NULL);
 
 #if PLTF_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -428,6 +411,8 @@ void app_load_snd()
     asset_snd_loadID(SNDID_STOMP_START, "stomp_start", NULL);
     asset_snd_loadID(SNDID_STOMP, "stomp", NULL);
     asset_snd_loadID(SNDID_SKID, "skid", NULL);
+    asset_snd_loadID(SNDID_PROJECTILE_SPIT, "projectile_spit", NULL);
+    asset_snd_loadID(SNDID_PROJECTILE_WALL, "projectile_wall", NULL);
 }
 
 void app_load_fnt()
@@ -436,3 +421,4 @@ void app_load_fnt()
     asset_fnt_loadID(FNTID_MEDIUM, "font_med", NULL);
     asset_fnt_loadID(FNTID_LARGE, "font_large", NULL);
 }
+#endif

@@ -45,11 +45,39 @@ void hero_handle_input(game_s *g, obj_s *o)
             h->b_hold_tick     = 1;
         }
     } else if (hero_has_upgrade(g, HERO_UPGRADE_HOOK)) {
+        if (h->aim_mode) {
+            h->hook_aim -= inp_y() * 3000;
+        }
+
+        if (inp_action(INP_B)) {
+            if (h->aim_mode) { // throw hook or abort aim mode
+                if (h->hook_aim_mode_tick && 15 <= ++h->hook_aim_mode_tick) {
+                    h->aim_mode           = 0;
+                    h->hook_aim_mode_tick = 0;
+                }
+            } else if (h->hook_aim_mode_tick && 15 <= ++h->hook_aim_mode_tick) { // enter aim mode
+                h->hook_aim_mode_tick = 0;
+                h->aim_mode           = 1;
+                h->hook_aim           = 0x18000;
+            }
+        } else if (h->aim_mode && h->hook_aim_mode_tick) {
+            hero_action_throw_grapple(g, o);
+            h->aim_mode = 0;
+        } else {
+            h->hook_aim_mode_tick = 0;
+        }
+
         if (inp_action_jp(INP_B)) {
             if (o->rope) {
                 hero_action_ungrapple(g, o);
+            } else if (h->aim_mode) {
+                if (!h->hook_aim_mode_tick) {
+                    h->hook_aim_mode_tick = 1;
+                }
             } else if (inp_x() || inp_y()) {
                 hero_action_throw_grapple(g, o);
+            } else if (!h->hook_aim_mode_tick) {
+                h->hook_aim_mode_tick = 1;
             }
         } else if (o->rope) {
             i32 ll              = o->rope->len_max_q4;
@@ -156,7 +184,7 @@ void hero_post_update(game_s *g, obj_s *o)
         hb.force_q8.y = 256;
 
         if (it->flags & OBJ_FLAG_ENEMY) {
-            o->v_q8.y = -1200;
+            o->v_q8.y = -1600;
             obj_game_player_attackbox(g, hb);
         }
 
@@ -199,20 +227,20 @@ void hero_post_update(game_s *g, obj_s *o)
 
     // possibly enter new substates
     hero_check_rope_intact(g, o);
-    if (o->rope) {
-        obj_s *ohook = obj_from_obj_handle(hero->hook);
-        if (ohook) {
-
-            if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
-
-                ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
+    obj_s *ohook = obj_from_obj_handle(hero->hook);
+    if (o->rope && ohook) {
+        if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
+            ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
+        } else {
+            if (obj_grounded(g, o)) {
+                if (271 <= rope_stretch_q8(g, o->rope))
+                    o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
             } else {
                 o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
             }
-            if (!rope_intact(g, o->rope)) {
-                hero_action_ungrapple(g, ohook);
-                return;
-            }
+        }
+        if (!rope_intact(g, o->rope)) {
+            hero_action_ungrapple(g, ohook);
         }
     }
 

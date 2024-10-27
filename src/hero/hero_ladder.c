@@ -31,7 +31,7 @@ void hero_update_ladder(game_s *g, obj_s *o)
     i32 dpad_y = inp_y();
     i32 dir_y  = dpad_y << 1;
 
-    for (i32 m = abs_i(dir_y); m; m--) {
+    for (i32 m = abs_i32(dir_y); m; m--) {
         rec_i32 aabb = obj_aabb(o);
         aabb.y += dpad_y;
         if (!map_traversable(g, aabb)) break;

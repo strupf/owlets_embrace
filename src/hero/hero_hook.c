@@ -39,7 +39,7 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->pos.y          = p.y - o->h / 2;
     o->drag_q8.x      = 256;
     o->drag_q8.y      = 256;
-    o->grav_q8.y      = 70;
+    o->grav_q8.y      = 60;
     o->v_q8           = v2_i16_from_i32(v_q8, 0);
     o->v_cap_y_q8_pos = 2500;
 
@@ -115,7 +115,7 @@ i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
 
 i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
 {
-    for (int m = abs_i(dt.x), sx = sgn_i(dt.x); 0 < m; m--) {
+    for (i32 m = abs_i32(dt.x), sx = sgn_i32(dt.x); 0 < m; m--) {
         rec_i32 r = obj_aabb(o);
         v2_i32  v = {sx, 0};
         r.x += sx;
@@ -133,7 +133,7 @@ i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
         }
     }
 
-    for (int m = abs_i(dt.y), sy = sgn_i(dt.y); 0 < m; m--) {
+    for (i32 m = abs_i32(dt.y), sy = sgn_i32(dt.y); 0 < m; m--) {
         rec_i32 r = obj_aabb(o);
         v2_i32  v = {0, sy};
         r.y += sy;
@@ -171,7 +171,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
         if (herostate == HERO_STATE_AIR) {
             clen_q4 = (clen_q4 * 240) >> 8;
         }
-        i32 newlen_q4 = clamp_i(clen_q4, HERO_ROPE_LEN_MIN_JUST_HOOKED, mlen_q4);
+        i32 newlen_q4 = clamp_i32(clen_q4, HERO_ROPE_LEN_MIN_JUST_HOOKED, mlen_q4);
         r->len_max_q4 = newlen_q4;
     }
 
@@ -223,7 +223,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
         spritedecal_create(g, 0x20000, NULL, pos, TEXID_EXPLOSIONS, rdecal, 18, 6, dflip);
         break;
     }
-    case HOOK_ATTACH_OBJ:
+    case HOOK_ATTACH_OBJ: {
         v2_i32 ctr = obj_pos_center(tohook);
         v2_i32 dt  = v2_sub(ctr, hook->ropenode->p);
         ropenode_move(g, r, hook->ropenode, dt);
@@ -233,6 +233,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
         obj_delete(g, hook);
         obj_on_hooked(g, tohook);
         return 1;
+    }
     }
     return 0;
 }
@@ -296,4 +297,13 @@ bool32 hook_is_attached(obj_s *o)
 {
     assert(o->ID == OBJ_ID_HOOK);
     return o->state == HOOK_STATE_ATTACHED;
+}
+
+i32 hook_is_stretched(game_s *g, obj_s *o)
+{
+    rope_s *r = o->rope;
+    if (!r) return 0;
+    i32 l = rope_len_q4(g, r);
+    if (l <= r->len_max_q4) return 0;
+    return ((l << 8) / r->len_max_q4 - 256);
 }

@@ -7,8 +7,8 @@
 
 #include "gamedef.h"
 
-#define TEXTBOX_FADE_I            10
-#define TEXTBOX_FADE_O            10
+#define TEXTBOX_FADE_I            8
+#define TEXTBOX_FADE_O            8
 #define TEXTBOX_FNTID             FNTID_LARGE
 #define TEXTBOX_NUM_FRAMES        64
 #define DIALOG_NUM_LINES          4

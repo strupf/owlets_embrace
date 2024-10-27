@@ -207,11 +207,6 @@ bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(game_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
-obj_s       *carryable_present(game_s *g);
-v2_i32       carryable_pos_on_hero(obj_s *ohero, obj_s *ocarry, rec_i32 *rlift);
-void         carryable_on_lift(game_s *g, obj_s *o);
-void         carryable_on_drop(game_s *g, obj_s *o);
-v2_i32       carryable_animate_spr_offset(obj_s *o);
 void         obj_on_hooked(game_s *g, obj_s *o);
 obj_s       *obj_closest_interactable(game_s *g, v2_i32 pos);
 

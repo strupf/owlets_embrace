@@ -12,20 +12,13 @@
 #define ASSET_FILENAME     "assets/assets/assets.dat"
 #define ASSETS_LOG_LOADING 0
 
-#if defined(PLTF_SDL)
-#define ASSETS_EXPORT 1
-#else
-#define ASSETS_EXPORT 0
-#endif
-
 enum {
     TEXID_DISPLAY,
     TEXID_KEYBOARD,
     TEXID_HERO,
     TEXID_TILESET_TERRAIN,
     TEXID_TILESET_BG_AUTO,
-    TEXID_TILESET_PROPS_BG,
-    TEXID_TILESET_PROPS_FG,
+    TEXID_TILESET_PROPS,
     TEXID_PAUSE_TEX,
     TEXID_UI,
     TEXID_PLANTS,
@@ -129,6 +122,8 @@ enum {
     SNDID_STOMP_START,
     SNDID_STOMP,
     SNDID_SKID,
+    SNDID_PROJECTILE_SPIT,
+    SNDID_PROJECTILE_WALL,
     //
     NUM_SNDID
 };
@@ -158,10 +153,11 @@ extern ASSETS_s      ASSETS;
 extern const alloc_s asset_allocator;
 
 void assets_init();
-#if ASSETS_EXPORT
+#if PLTF_DEV_ENV
 void assets_export();
+#else
+void assets_import();
 #endif
-void     assets_import();
 //
 void    *assetmem_alloc(usize s);
 tex_s    asset_tex(i32 ID);

@@ -103,6 +103,7 @@ void areafx_clouds_draw(game_s *g, areafx_clouds_s *fx, v2_i32 cam);
 void areafx_rain_setup(game_s *g, areafx_rain_s *fx);
 void areafx_rain_update(game_s *g, areafx_rain_s *fx);
 void areafx_rain_draw(game_s *g, areafx_rain_s *fx, v2_i32 cam);
+void areafx_rain_draw_lightning(game_s *g, areafx_rain_s *fx, v2_i32 cam);
 //
 void areafx_wind_setup(game_s *g, areafx_wind_s *fx);
 void areafx_wind_update(game_s *g, areafx_wind_s *fx);

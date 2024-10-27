@@ -73,7 +73,7 @@ void flyblob_load(game_s *g, map_obj_s *mo)
 
     o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_SPRITE |
-               OBJ_FLAG_HURT_ON_TOUCH |
+               // OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY | OBJ_FLAG_PLATFORM_HERO_ONLY |
                OBJ_FLAG_CLAMP_TO_ROOM | OBJ_FLAG_CAN_BE_JUMPED_ON;
     o->n_sprites         = 2;

@@ -52,7 +52,7 @@ void sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     if (o->timer <= 0) return;
 
     sign_popup_s *s   = (sign_popup_s *)o->mem;
-    int           t   = clamp_i(o->timer, 0, 100);
+    int           t   = clamp_i32(o->timer, 0, 100);
     gfx_ctx_s     ctx = gfx_ctx_display();
     ctx.pat           = gfx_pattern_interpolate(t, 100);
     fnt_s fnt         = asset_fnt(FNTID_SMALL);

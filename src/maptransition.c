@@ -21,8 +21,8 @@ enum {
 const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     0,
     15,
-    1,
-    30};
+    10,
+    25};
 
 void maptransition_init(game_s *g, const char *file,
                         i32 type, v2_i32 hero_feet, v2_i16 hero_v, i32 facing)
@@ -99,7 +99,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
         break;
     case DIRECTION_N:
         trgaabb.y = nr.h - trgaabb.h - 8;
-        hvel.y    = min_i(hvel.y, -1200);
+        hvel.y    = min_i32(hvel.y, -1200);
         break;
     case DIRECTION_S:
         trgaabb.y = 8;

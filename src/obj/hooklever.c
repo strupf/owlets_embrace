@@ -62,7 +62,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
         break;
     }
     case 1: {
-        i32 dy = (30 * min_i(o->timer, HOOKLEVER_TICKS)) / HOOKLEVER_TICKS;
+        i32 dy = (30 * min_i32(o->timer, HOOKLEVER_TICKS)) / HOOKLEVER_TICKS;
         break;
     }
     }

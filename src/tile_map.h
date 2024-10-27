@@ -64,7 +64,6 @@ static inline i32 tile_type_render_priority(i32 type)
     return type;
 }
 
-#define NUM_TILES           0x20000
 #define TILE_WATER_MASK     0x80
 #define TILE_ICE_MASK       0x40
 #define TILE_IS_BLOCK(X)    (TILE_BLOCK == (X))

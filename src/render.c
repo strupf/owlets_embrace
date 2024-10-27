@@ -35,9 +35,11 @@ void game_draw(game_s *g)
     rec_i32 camrec_raw    = cam_rec_px(g, &g->cam);
     v2_i32  camoffset_raw = {-camrec_raw.x, -camrec_raw.y};
     rec_i32 camrec        = camrec_raw;
-    v2_i32  camoffsetmax  = cam_offset_max(g, &g->cam);
-    assert(0 <= camrec.x && camrec.x <= camoffsetmax.x);
-    assert(0 <= camrec.y && camrec.y <= camoffsetmax.y);
+    if (!g->cam.textboxdown) {
+        v2_i32 camoffsetmax = cam_offset_max(g, &g->cam);
+        assert(0 <= camrec.x && camrec.x <= camoffsetmax.x);
+        assert(0 <= camrec.y && camrec.y <= camoffsetmax.y);
+    }
 
     camrec.x &= ~1;
     camrec.y &= ~1;
@@ -115,11 +117,11 @@ void game_draw(game_s *g)
     }
 
     grass_draw(g, camrec, camoffset);
-    area_draw_mg(g, &g->area, camoffset_raw, camoffset);
-    render_water_and_terrain(g, tilebounds, camoffset);
-    render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
-    area_draw_fg(g, &g->area, camoffset_raw, camoffset);
     foreground_props_draw(g, camoffset);
+    render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
+    render_water_and_terrain(g, tilebounds, camoffset);
+    area_draw_fg(g, &g->area, camoffset_raw, camoffset);
+
 #if LIGHTING_ENABLED
 #if 0
     {
@@ -175,8 +177,8 @@ void game_draw(game_s *g)
 
         gfx_cir_fill(ctx_drown, herop, cird, PRIM_MODE_WHITE);
 
-        u32 N = PLTF_DISPLAY_H * PLTF_DISPLAY_WWORDS;
-        for (u32 n = 0; n < N; n++) {
+        i32 N = PLTF_DISPLAY_H * PLTF_DISPLAY_WWORDS;
+        for (i32 n = 0; n < N; n++) {
             ctx.dst.px[n] &= drowntex.px[n];
         }
         spm_pop();
@@ -208,6 +210,10 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
     }
 
     v2_i32 ppos = v2_add(o->pos, cam);
+#if 0
+    ppos.x &= ~1;
+#endif
+
     if (o->enemy.hurt_tick) {
         ppos.x += o->enemy.hurt_shake_offs.x;
         ppos.y += o->enemy.hurt_shake_offs.y;
@@ -258,16 +264,14 @@ void render_tilemap(game_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camof
 {
     tex_s tex = {0};
     switch (layer) {
+    default: return;
     case TILELAYER_BG:
         tex = asset_tex(TEXID_TILESET_BG_AUTO);
         break;
-    case TILELAYER_PROP_BG:
-        tex = asset_tex(TEXID_TILESET_PROPS_BG);
-        break;
     case TILELAYER_PROP_FG:
-        tex = asset_tex(TEXID_TILESET_PROPS_FG);
+    case TILELAYER_PROP_BG:
+        tex = asset_tex(TEXID_TILESET_PROPS);
         break;
-    default: return;
     }
     gfx_ctx_s ctx = gfx_ctx_display();
 
@@ -282,7 +286,7 @@ void render_tilemap(game_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camof
     }
 }
 
-int water_render_height(game_s *g, int pixel_x)
+i32 water_render_height(game_s *g, i32 pixel_x)
 {
     i32 p = pixel_x;
     i32 t = g->gameplay_tick;
@@ -346,7 +350,7 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
     const gfx_ctx_s ctx  = gfx_ctx_display();
     gfx_ctx_s       ctxw = ctx;
     ctxw.pat             = water_pattern();
-    i32 tick             = g->gameplay_tick;
+    i32 tick             = pltf_time();
 
     spm_push();
     u32         n_tile_spr = 0;
@@ -434,7 +438,7 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
 void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 {
     const tex_s twat = asset_tex(TEXID_FLUIDS);
-    u32         tick = g->gameplay_tick;
+    u32         tick = pltf_time();
     gfx_ctx_s   ctx  = gfx_ctx_display();
     tex_s       t    = ctx.dst;
 
@@ -453,20 +457,28 @@ void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
             i32    frw    = 16;
             i32    frh    = 16;
             v2_i32 p      = {camoff.x + (x << 4), camoff.y + (y << 4)};
-            i32    framey = 48 * ((tick / 3) & 3);
+            i32    framex = 7 * 16 * ((tick / 4) & 3);
 
             switch (fl - 1) {
+            case FLUID_SRC_TILE(0, 2):
             case FLUID_SRC_TILE(0, 1):
-                frx = 16 * 17;
-                fry = 16 * (3 + (y & 1)) + framey;
+                frx = 16 * (20) + framex;
+                fry = 16 * (2 + (y & 1));
                 break;
+            case FLUID_SRC_TILE(1, 2):
             case FLUID_SRC_TILE(1, 1):
-                frx = 16 * (18 + (x & 1));
-                fry = 16 * (3 + (y & 1)) + framey;
+                frx = 16 * (21 + (x & 1)) + framex;
+                fry = 16 * (2 + (y & 1));
                 break;
+            case FLUID_SRC_TILE(2, 2):
             case FLUID_SRC_TILE(2, 1):
-                frx = 16 * 20;
-                fry = 16 * (3 + (y & 1)) + framey;
+                frx = 16 * 23 + framex;
+                fry = 16 * (2 + (y & 1));
+                break;
+            case FLUID_SRC_TILE(3, 2):
+            case FLUID_SRC_TILE(3, 1):
+                frx = 16 * (25) + framex;
+                fry = 16 * (2 + (y & 1));
                 break;
             case FLUID_SRC_TILE(4, 0):
                 p.x -= 8;
@@ -492,8 +504,34 @@ void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
                 fry = 32 + (y & 3) * 16 + fluid_d_offs2;
                 break;
             }
+
             texrec_s trw = {twat, {frx, fry, frw, frh}};
             gfx_spr_tile_32x32(ctx, trw, p);
+
+            bool32 foam = 1;
+            switch (fl - 1) {
+            default: foam = 0; break;
+            case FLUID_SRC_TILE(0, 2):
+                frx = 16 * (20) + framex;
+                fry = 16 * 4;
+                break;
+            case FLUID_SRC_TILE(1, 2):
+                frx = 16 * (21 + (x & 1)) + framex;
+                fry = 16 * 4;
+                break;
+            case FLUID_SRC_TILE(2, 2):
+                frx = 16 * 23 + framex;
+                fry = 16 * 4;
+                break;
+            case FLUID_SRC_TILE(3, 2):
+                frx = 16 * 25 + framex;
+                fry = 16 * 4;
+                break;
+            }
+            if (!foam) continue;
+            texrec_s trw2 = {twat, {frx, fry, frw, frh}};
+            p.y += 4;
+            gfx_spr_tile_32x32(ctx, trw2, p);
         }
     }
 }

@@ -15,7 +15,7 @@ typedef struct {
     usize  lowestleft;
 
     marena_s        m;
-    alignas(4) char mem[1024 * 1024];
+    alignas(4) byte mem[1024 * 1024];
 } SPM_s;
 
 extern SPM_s         SPM;

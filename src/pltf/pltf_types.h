@@ -57,6 +57,9 @@ typedef int64_t        i64;
 typedef u8             bool8;
 typedef u16            bool16;
 typedef u32            bool32;
+typedef bool8          b8;
+typedef bool16         b16;
+typedef bool32         b32;
 typedef u8             flags8;
 typedef u16            flags16;
 typedef u32            flags32;
@@ -128,8 +131,8 @@ typedef struct {
 } alloc_s;
 
 // clang-format off
-#define typedef_struct(NAME)  typedef struct NAME NAME
-#define td_struct             typedef_struct
+#define typedef_struct(NAME)  typedef struct NAME NAME; struct NAME
+#define typedef_union(NAME)  typedef union NAME NAME; union NAME
 #define mset                  memset
 #define mcpy                  memcpy
 #define mmov                  memmove

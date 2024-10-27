@@ -13,6 +13,7 @@ enum {
     AREA_ID_MOUNTAIN,
     AREA_ID_MOUNTAIN_RAINY,
     AREA_ID_CAVE,
+    AREA_ID_CAVE_DEEP,
     AREA_ID_FOREST,
     //
     NUM_AREA_ID
@@ -25,7 +26,8 @@ static flags32 g_areafx[NUM_AREA_ID] = {
     AFX_CLOUDS | AFX_WIND, // mountain
     AFX_CLOUDS | AFX_RAIN, // mountain rainy
     0,                     // cave
-    0,                     // forest
+    0,                     // cave deep
+    AFX_WIND,              // forest
 };
 
 static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
@@ -88,12 +90,13 @@ void area_update(game_s *g, area_s *a)
 void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s tdisplay = asset_tex(0);
-    i32   clip_y2  = min_i(g->ocean.y_max, tdisplay.h);
+    i32   clip_y2  = min_i32(g->ocean.y_max, tdisplay.h);
 
     const gfx_ctx_s ctx = gfx_ctx_clip_bot(gfx_ctx_default(tdisplay), clip_y2);
 
     switch (a->ID) {
     case AREA_ID_CAVE:
+    case AREA_ID_CAVE_DEEP:
     case AREA_ID_BLACK:
         gfx_fill_rows(tdisplay, gfx_pattern_black(), 0, clip_y2);
         break;
@@ -123,9 +126,20 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         break;
     }
     case AREA_ID_CAVE: {
-        texrec_s tr_far   = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 1024, 1024, 512);
-        texrec_s tr_mid   = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 512, 1024, 512);
-        texrec_s tr_near  = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 0, 1024, 512);
+        texrec_s tr_far  = asset_texrec(TEXID_BG_CAVE, 0, 0, 1024, 256);
+        texrec_s tr_mid  = asset_texrec(TEXID_BG_CAVE, 0, 256, 1024, 256);
+        v2_i32   pos_far = area_parallax(cam, 25, 0, 1, 1);
+        v2_i32   pos_mid = area_parallax(cam, 50, 0, 1, 1);
+        pos_far.y += 30;
+        pos_mid.y += 30;
+        gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
+        gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
+        break;
+    }
+    case AREA_ID_CAVE_DEEP: {
+        texrec_s tr_far   = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 1024, 448, 512);
+        texrec_s tr_mid   = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 512, 448, 512);
+        texrec_s tr_near  = asset_texrec(TEXID_BG_CAVE_DEEP, 0, 0, 448, 512);
         v2_i32   pos_far  = area_parallax(cam, 25, 0, 3, 3);
         v2_i32   pos_mid  = area_parallax(cam, 75, 0, 3, 3);
         v2_i32   pos_near = area_parallax(cam, 100, 0, 1, 1);
@@ -135,9 +149,9 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         break;
     }
     case AREA_ID_FOREST: {
-        texrec_s tr_far   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 0, 1024, 256);
-        texrec_s tr_mid   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 512, 1024, 256);
-        texrec_s tr_near  = asset_texrec(TEXID_BG_FOREST, 0, 256 + 1024, 1024, 256);
+        texrec_s tr_far   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 0, 416, 256);
+        texrec_s tr_mid   = asset_texrec(TEXID_BG_FOREST, 0, 256 + 512, 416, 256);
+        texrec_s tr_near  = asset_texrec(TEXID_BG_FOREST, 0, 256 + 1024, 416, 256);
         v2_i32   pos_far  = area_parallax(cam, 25, 0, 1, 1);
         v2_i32   pos_mid  = area_parallax(cam, 50, 0, 1, 1);
         v2_i32   pos_near = area_parallax(cam, 75, 0, 1, 1);
@@ -153,6 +167,9 @@ void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     if (g_areafx[a->ID] & AFX_RAIN) {
         areafx_rain_draw(g, &a->fx.rain, cam);
+    }
+    if (g_areafx[a->ID] & AFX_WIND) {
+        areafx_wind_draw(g, &a->fx.wind, cam);
     }
 }
 
@@ -174,12 +191,11 @@ void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         break;
     }
     }
-
+    if (g_areafx[a->ID] & AFX_RAIN) {
+        areafx_rain_draw_lightning(g, &a->fx.rain, cam);
+    }
     if (g_areafx[a->ID] & AFX_HEAT) {
         areafx_heat_draw(g, &a->fx.heat, cam);
-    }
-    if (g_areafx[a->ID] & AFX_WIND) {
-        areafx_wind_draw(g, &a->fx.wind, cam);
     }
     if ((g_areafx[a->ID] & AFX_PARTICLES_CALM)) {
         areafx_particles_calm_draw(g, &a->fx.particles_calm, cam);

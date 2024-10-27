@@ -10,8 +10,6 @@ void game_tick_gameplay(game_s *g);
 
 void game_init(game_s *g)
 {
-    pltf_audio_set_volume(1.f);
-
     map_world_load(&g->map_world, "world.world");
     pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
@@ -66,6 +64,7 @@ void game_tick(game_s *g)
     }
 
     cam_update(g, &g->cam);
+    g->cam_prev_world = cam_pos_px(g, &g->cam);
 
     if (g->areaname.fadeticks) {
         g->areaname.fadeticks++;
@@ -260,7 +259,6 @@ void game_load_savefile(game_s *g)
 bool32 game_save_savefile(game_s *g)
 {
     str_cpy(g->save.hero_mapfile, g->areaname.filename);
-    str_cpy(g->save.areaname, g->areaname.label);
     g->save_ticks = 1;
     bool32 r      = savefile_write(g->save_slot, (const save_s *)&g->save);
     pltf_log("SAVED!\n");
@@ -376,7 +374,7 @@ bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
         o->health          = max_i32((i32)o->health - box.damage, 0);
         o->enemy.hurt_tick = 15;
         if (o->health == 0) {
-            o->enemy.die_tick = 15;
+            o->enemy.die_tick = 10;
             snd_play(SNDID_ENEMY_DIE, 1.f, 1.f);
             return 1;
         }

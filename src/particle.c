@@ -130,7 +130,7 @@ void coinparticle_update(game_s *g)
         c->pos_q8.x &= 0xFF;
         c->pos_q8.y &= 0xFF;
 
-        for (i32 m = abs_i(dx), s = sgn_i(dx); 0 < m; m--) {
+        for (i32 m = abs_i32(dx), s = sgn_i32(dx); 0 < m; m--) {
             i32 x = c->pos.x + s;
             if (!map_traversable_pt(g, x, c->pos.y)) {
                 c->vel_q8.x = -((c->vel_q8.x * 230) >> 8);
@@ -140,7 +140,7 @@ void coinparticle_update(game_s *g)
         }
 
         bool32 collided_bot = 0;
-        for (i32 m = abs_i(dy), s = sgn_i(dy); 0 < m; m--) {
+        for (i32 m = abs_i32(dy), s = sgn_i32(dy); 0 < m; m--) {
             i32 y = c->pos.y + s;
             if (!map_traversable_pt(g, c->pos.x, y)) {
                 c->vel_q8.y  = -((c->vel_q8.y * 220) >> 8);

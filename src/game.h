@@ -12,7 +12,6 @@
 #include "gameover.h"
 #include "hero/hero.h"
 #include "hero_powerup.h"
-#include "lighting.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"
@@ -38,6 +37,7 @@ enum {
     EVENT_HERO_HOOK_PAUSE = 1 << 2,
 };
 
+// for (obj_each(g, o)) {}
 #define obj_each(G, IT)           \
     obj_s *IT = G->obj_head_busy; \
     IT;                           \
@@ -56,6 +56,7 @@ struct game_s {
     u32               gameplay_tick;
     u32               state;
     v2_i32            cam_prev;
+    v2_i32            cam_prev_world;
     //
     map_world_s       map_world; // layout of all map files globally
     map_worldroom_s  *map_worldroom;
@@ -69,7 +70,7 @@ struct game_s {
     u16               freeze_tick;
     u16               substate;
     cam_s             cam;
-    flags32           events_frame;
+    u32               events_frame; // flags
     u32               hero_hurt_lowpass_tick;
     //
     u16               tiles_x;

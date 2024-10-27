@@ -46,7 +46,7 @@ typedef struct {
     exp_fnt_s fnt[NUM_FNTID];
 } asset_collection_s;
 
-#if ASSETS_EXPORT
+#if PLTF_DEV_ENV
 void assets_export()
 {
     spm_push();
@@ -107,8 +107,7 @@ void assets_export()
 
     spm_pop();
 }
-#endif
-
+#else
 void assets_import()
 {
     spm_push();
@@ -156,7 +155,7 @@ void assets_import()
     }
     spm_pop();
 }
-
+#endif
 void *assetmem_alloc_ctx(void *arg, usize s)
 {
     return assetmem_alloc(s);
@@ -283,12 +282,7 @@ tex_s asset_tex_putID(i32 ID, tex_s t)
 
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h)
 {
-    texrec_s tr = {0};
-    tr.t        = asset_tex(ID);
-    tr.r.x      = x;
-    tr.r.y      = y;
-    tr.r.w      = w;
-    tr.r.h      = h;
+    texrec_s tr = {asset_tex(ID), {x, y, w, h}};
     return tr;
 }
 

@@ -5,6 +5,8 @@
 #ifndef GAMEDEF_H
 #define GAMEDEF_H
 
+#include "pltf/pltf.h"
+
 #define GAME_VERSION_MAJ 0
 #define GAME_VERSION_MIN 1
 
@@ -22,7 +24,6 @@
 #include "core/gfx.h"
 #include "core/inp.h"
 #include "core/spm.h"
-#include "pltf/pltf.h"
 #include "textinput.h"
 #include "util/easing.h"
 #include "util/json.h"
@@ -33,7 +34,6 @@
 #include "util/sorting.h"
 #include "util/str.h"
 
-#define SAVEFILE_NAME     "save.sav"
 #define FILEPATH_MAP      "assets/map/"
 #define FILEPATH_SND      "assets/snd/"
 #define FILEPATH_MUS      "assets/mus/"
@@ -41,6 +41,7 @@
 #define FILEPATH_FNT      "assets/fnt/"
 #define FILEPATH_DIALOG   "assets/dialog/"
 #define FILEEXTENSION_AUD ".audio"
+#define NUM_TILES         131072
 
 typedef struct game_s game_s;
 typedef struct obj_s  obj_s;
@@ -48,10 +49,10 @@ typedef struct obj_s  obj_s;
 // handle to an object
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
-typedef struct obj_handle_s {
+typedef_struct (obj_handle_s) {
     obj_s *o;
     u32    GID;
-} obj_handle_s;
+};
 
 enum {
     APP_STATE_TITLE,
@@ -164,24 +165,24 @@ enum {
     HITBOX_FLAG_HERO             = 1 << 3,
 };
 
-typedef struct {
+typedef_struct (hitbox_s) {
     rec_i32 r;
     i32     damage;
     u32     flags;
     v2_i16  force_q8;
-} hitbox_s;
+};
 
-typedef struct {
+typedef_struct (map_pin_s) {
     u32    type;
     v2_i32 pos;
-} map_pin_s;
+};
 
-typedef struct {
+typedef_struct (time_real_s) {
     u16 h;
     u16 m;
     u16 s;
     u16 ms;
-} time_real_s;
+};
 
 #define TIME_K_S ((u32)PLTF_UPS)
 #define TIME_K_M ((u32)60 * TIME_K_S)

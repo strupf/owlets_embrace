@@ -53,7 +53,7 @@ void npc_on_update(game_s *g, obj_s *o)
 
         if (--o->timer <= 0) {
             o->drag_q8.x = 180; // slowly stop movement
-            if (abs_i(o->v_q8.x) < 10) {
+            if (abs_i32(o->v_q8.x) < 10) {
                 o->v_q8.x = 0;
             }
             if (o->timer < -100) {
@@ -61,14 +61,14 @@ void npc_on_update(game_s *g, obj_s *o)
                 o->v_q8.x    = rngr_i32(-1, +1);
                 o->drag_q8.x = 256;
                 if (o->v_q8.x != 0) {
-                    o->facing = sgn_i(o->v_q8.x);
+                    o->facing = sgn_i32(o->v_q8.x);
                 }
             }
         } else {
             o->v_q8.x <<= 1;
         }
 
-        if (obj_would_fall_down_next(g, o, sgn_i(o->v_q8.x))) {
+        if (obj_would_fall_down_next(g, o, sgn_i32(o->v_q8.x))) {
             o->v_q8.x = 0;
         }
     } break;
@@ -79,15 +79,17 @@ void npc_on_animate(game_s *g, obj_s *o)
 {
     obj_sprite_s *spr   = &o->sprites[0];
     i32           frame = 0;
+    spr->flip           = SPR_FLIP_X;
 
     switch (npc_get_state(g, o)) {
     case NPC_GROUNDED: {
         if (o->v_q8.x == 0) {
             o->animation++;
-            frame = 0 + ((o->animation >> 4) & 1);
+
+            frame = 0 + ((o->animation / 6) % 6);
         } else {
-            o->animation += abs_i(o->v_q8.x);
-            frame = 4 + ((o->animation >> 10) & 3);
+            o->animation += abs_i32(o->v_q8.x);
+            frame = 0 + ((o->animation >> 10) % 6);
         }
         break;
     }
@@ -99,7 +101,7 @@ void npc_on_animate(game_s *g, obj_s *o)
     }
 
     spr->trec.r.x = frame * 64;
-    spr->flip     = o->facing == 1 ? 0 : SPR_FLIP_X;
+    // spr->flip     = o->facing == 1 ? 0 : SPR_FLIP_X;
 }
 
 void npc_on_interact(game_s *g, obj_s *o)

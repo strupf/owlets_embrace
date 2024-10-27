@@ -72,7 +72,7 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
         f32 pitch = o->state == SWINGDOOR_OPEN ? 0.5f : 1.f;
         snd_play(SNDID_DOOR_TOGGLE, 1.f, pitch);
     }
-    int t  = min_i(o->timer, SWINGDOOR_TICKS);
+    int t  = min_i32(o->timer, SWINGDOOR_TICKS);
     int fr = (t * 2) / SWINGDOOR_TICKS;
 
     if (o->state == SWINGDOOR_CLOSED) {

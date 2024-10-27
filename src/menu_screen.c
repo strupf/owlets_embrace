@@ -88,7 +88,7 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
             }
 
             m->map.scl_q12 += inp_crank_dt_q16() << 1;
-            m->map.scl_q12  = max_i(m->map.scl_q12, 12 << 8);
+            m->map.scl_q12  = max_i32(m->map.scl_q12, 12 << 8);
             i32    dpadx    = inp_x();
             i32    dpady    = inp_y();
             bool32 pin_snap = (closest_dist < 5);
@@ -138,11 +138,11 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
 
             if (inp_action_jp(INP_DL)) {
                 m->map.pin_type--;
-                m->map.pin_type = max_i(m->map.pin_type, 0);
+                m->map.pin_type = max_i32(m->map.pin_type, 0);
             }
             if (inp_action_jp(INP_DR)) {
                 m->map.pin_type++;
-                m->map.pin_type = min_i(m->map.pin_type, NUM_MAP_PIN_TYPES - 1);
+                m->map.pin_type = min_i32(m->map.pin_type, NUM_MAP_PIN_TYPES - 1);
             }
             break;
         }

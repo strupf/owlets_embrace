@@ -19,6 +19,7 @@ typedef struct {
     v2_i32 shake;
     v2_i32 attract;
     i32    lookdown;
+    i32    textboxdown;
     i16    mode;
     u16    shake_ticks;
     u16    shake_ticks_max;
@@ -34,5 +35,6 @@ void    cam_set_pos_px(cam_s *c, i32 x, i32 y);
 void    cam_init_level(game_s *g, cam_s *c);
 void    cam_update(game_s *g, cam_s *c);
 v2_i32  cam_offset_max(game_s *g, cam_s *c);
+f32     cam_snd_scale(game_s *g, v2_i32 p, u32 dst_max);
 
 #endif

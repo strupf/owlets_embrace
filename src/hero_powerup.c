@@ -199,9 +199,11 @@ const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS] = {
       "can change its length using the crank while",
       "it's active."}},
     //
-    {"Swim and Dive",
-     {"You can now savely head into the water.",
-      "Press down to start diving."}},
+    {"Swimming",
+     {
+         "Water isn't too bad after all.",
+         "So easy it almost works as if by itself.",
+     }},
     //
     {0},
     //

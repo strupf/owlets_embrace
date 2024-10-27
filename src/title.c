@@ -54,20 +54,17 @@ void title_init(title_s *t)
     save_s *s = spm_alloct(save_s, 1);
     savefile_empty(s);
     str_cpy(s->name, "Lukas");
-    s->hero_pos.x  = 100;
-    s->hero_pos.y  = 500;
-    s->flyupgrades = 0;
-#if 1
-    s->upgrades =
-        ((flags32)1 << HERO_UPGRADE_SPRINT);
-#else
-    s->flyupgrades = 5;
+    str_cpy(s->hero_mapfile, "L_4");
+    s->hero_pos.x  = 1950;
+    s->hero_pos.y  = 850;
+    s->flyupgrades = 1;
+    s->health      = 3;
     s->upgrades =
         ((flags32)1 << HERO_UPGRADE_HOOK) |
         ((flags32)1 << HERO_UPGRADE_SWIM) |
         ((flags32)1 << HERO_UPGRADE_DIVE) |
-        ((flags32)1 << HERO_UPGRADE_SPRINT);
-#endif
+        //((flags32)1 << HERO_UPGRADE_SPRINT) |
+        0;
     savefile_write(0, s);
     spm_pop();
 #endif
@@ -269,12 +266,18 @@ void title_pressed_A(game_s *g, title_s *t)
             spm_push();
             save_s *s = spm_alloctz(save_s, 1);
             savefile_empty(s);
+
             mcpy(s->name, t->tinput.c, t->tinput.n + 1);
 
+            str_cpy(s->hero_mapfile, "L_0");
             s->hero_pos.x = 100;
             s->hero_pos.y = 500;
             s->upgrades =
-                ((flags32)1 << HERO_UPGRADE_SPRINT);
+                ((flags32)1 << HERO_UPGRADE_SPRINT) |
+                ((flags32)1 << HERO_UPGRADE_FLY) |
+                ((flags32)1 << HERO_UPGRADE_HOOK) |
+                ((flags32)1 << HERO_UPGRADE_SWIM) |
+                ((flags32)1 << HERO_UPGRADE_DIVE);
 
             savefile_write(t->selected, s);
             spm_pop();     // fallthrough
@@ -423,8 +426,8 @@ void title_render(title_s *t)
         }
 
         i32 fade_i    = 100;
-        i32 fade_j    = min_i((100 * b + (PRESS_START_TICKS / 2)) / PRESS_START_TICKS, fade_i);
-        fade_j        = min_i(fade_j * 2, 100);
+        i32 fade_j    = min_i32((100 * b + (PRESS_START_TICKS / 2)) / PRESS_START_TICKS, fade_i);
+        fade_j        = min_i32(fade_j * 2, 100);
         ctx_start.pat = gfx_pattern_interpolate(pow2_i32(fade_j), pow2_i32(100));
 
         i32 strl = fnt_length_px(font, PRESS_START_TXT);

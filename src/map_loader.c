@@ -264,7 +264,7 @@ static void map_obj_prop_fg_parse(game_s *g, map_obj_s *o)
     *p                   = (foreground_prop_s){0};
     p->pos.x             = o->x;
     p->pos.y             = o->y;
-    p->tr                = asset_texrec(TEXID_TILESET_PROPS_FG,
+    p->tr                = asset_texrec(TEXID_TILESET_PROPS,
                                         (i32)o->tx << 4,
                                         (i32)o->ty << 4,
                                         (i32)o->tw << 4,
@@ -428,7 +428,6 @@ void game_load_map(game_s *g, const char *mapfile)
 
     // PROPS_FG ================================================================
     map_prop_tile_s *props_fg = (map_prop_tile_s *)&mapdata[hd.offs_fg];
-
     for (u32 n = 0; n < hd.n_fg; n++) {
         map_prop_tile_s pt = props_fg[n];
         i32             tx, ty, f;
@@ -643,6 +642,7 @@ static void map_at_terrain(game_s *g, tilelayer_u16 tiles, i32 x, i32 y)
         case TILE_TYPE_STONE_ROUND_DARK:
         case TILE_TYPE_STONE_SQUARE_LIGHT:
         case TILE_TYPE_STONE_SQUARE_DARK:
+        case TILE_TYPE_LEAVES:
             n_vari = 3;
             break;
         }

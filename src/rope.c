@@ -628,7 +628,7 @@ void rope_verletsim(game_s *g, rope_s *r)
     vpos[n_vpos++]      = vp_end;
 
     u32 ropelen_max_q8 = r->len_max_q4 << 4;
-    f32 len_ratio      = min_f(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
+    f32 len_ratio      = min_f32(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
     i32 ll_q8          = (i32)((f32)ropelen_max_q8 * len_ratio) / ROPE_VERLET_N;
 
     for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {

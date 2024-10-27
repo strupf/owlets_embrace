@@ -57,7 +57,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
-    if (g->save_ticks) {
+    if (g->save_ticks && 0) {
         i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
         gfx_ctx_s ctx_save  = ctx;
         if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
@@ -93,8 +93,16 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 
     if (ohero) {
-        hero_s *hhero          = (hero_s *)&g->hero_mem;
-        char    momentumtxt[6] = {0};
+        hero_s *hhero = (hero_s *)&g->hero_mem;
+        if (hhero->aim_mode) {
+            v2_i32 aimpos  = hero_hook_aim_dir(hhero);
+            v2_i32 heropos = v2_add(obj_pos_center(ohero), camoff);
+            aimpos         = v2_setlen(aimpos, 100);
+            aimpos         = v2_add(aimpos, heropos);
+            gfx_cir_fill(ctx, aimpos, 20, GFX_COL_WHITE);
+            gfx_cir_fill(ctx, aimpos, 14, GFX_COL_BLACK);
+        }
+        char momentumtxt[6] = {0};
         if (hhero->momentum == 0) {
             momentumtxt[0] = '0';
         } else {
@@ -112,7 +120,7 @@ void render_ui(game_s *g, v2_i32 camoff)
                 frameID = 0;
             }
             trheart.r.x = 400 + frameID * 32;
-            gfx_spr(ctx, trheart, (v2_i32){n * 20 - 2, -4}, 0, 0);
+            gfx_spr(ctx, trheart, (v2_i32){n * 20 - 3, -4}, 0, 0);
         }
     }
 }

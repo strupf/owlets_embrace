@@ -296,38 +296,38 @@ gfx_ctx_s gfx_ctx_unclip(gfx_ctx_s ctx)
 gfx_ctx_s gfx_ctx_clip(gfx_ctx_s ctx, i32 x1, i32 y1, i32 x2, i32 y2)
 {
     gfx_ctx_s c = ctx;
-    c.clip_x1   = max_i(x1, 0);
-    c.clip_y1   = max_i(y1, 0);
-    c.clip_x2   = min_i(x2, ctx.dst.w - 1);
-    c.clip_y2   = min_i(y2, ctx.dst.h - 1);
+    c.clip_x1   = max_i32(x1, 0);
+    c.clip_y1   = max_i32(y1, 0);
+    c.clip_x2   = min_i32(x2, ctx.dst.w - 1);
+    c.clip_y2   = min_i32(y2, ctx.dst.h - 1);
     return c;
 }
 
 gfx_ctx_s gfx_ctx_clip_top(gfx_ctx_s ctx, i32 y1)
 {
     gfx_ctx_s c = ctx;
-    c.clip_y1   = max_i(y1, 0);
+    c.clip_y1   = max_i32(y1, 0);
     return c;
 }
 
 gfx_ctx_s gfx_ctx_clip_bot(gfx_ctx_s ctx, i32 y2)
 {
     gfx_ctx_s c = ctx;
-    c.clip_y2   = min_i(y2, ctx.dst.h - 1);
+    c.clip_y2   = min_i32(y2, ctx.dst.h - 1);
     return c;
 }
 
 gfx_ctx_s gfx_ctx_clip_left(gfx_ctx_s ctx, i32 x1)
 {
     gfx_ctx_s c = ctx;
-    c.clip_x1   = max_i(x1, 0);
+    c.clip_x1   = max_i32(x1, 0);
     return c;
 }
 
 gfx_ctx_s gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2)
 {
     gfx_ctx_s c = ctx;
-    c.clip_x2   = min_i(x2, ctx.dst.w - 1);
+    c.clip_x2   = min_i32(x2, ctx.dst.w - 1);
     return c;
 }
 
@@ -408,7 +408,7 @@ gfx_pattern_s gfx_pattern_bayer_4x4(i32 i)
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0x77777777U,
         0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 
-    const u32    *p   = &ditherpat[clamp_i(i, 0, GFX_PATTERN_MAX) << 2];
+    const u32    *p   = &ditherpat[clamp_i32(i, 0, GFX_PATTERN_MAX) << 2];
     gfx_pattern_s pat = {{p[0], p[1], p[2], p[3], p[0], p[1], p[2], p[3]}};
     return pat;
 }

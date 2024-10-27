@@ -36,8 +36,9 @@ enum {
     HERO_B_PICK_UP,
 };
 
+#define HERO_CROUCHED_MAX_TICKS     5
+#define HERO_HEIGHT_CROUCHED        16
 #define HERO_HEIGHT                 26
-#define HERO_HEIGHT_CRAWL           16
 #define HERO_DRAG_Y                 256
 #define HERO_GLIDE_VY               200
 #define HERO_SPRINT_TICKS           60 // ticks walking until sprinting
@@ -101,23 +102,23 @@ typedef struct {
 
 #define JUMP_UI_TICKS_HIDE 12
 
-typedef struct hero_s {
+typedef_struct (hero_s) {
     obj_handle_s interactable;
     obj_handle_s hook;
 
-    bool8        carrying;
-    bool8        trys_lifting;
-    bool8        sliding;
     bool8        climbing;
     bool8        climbingp;
     bool8        is_idle;
     bool8        diving;
     bool8        onladder;
-    bool8        crawling;
-    bool8        crawlingp;
     bool8        jump_ui_may_hide;
     bool8        action_jumpp;
     bool8        action_jump;
+    bool8        dropped_weapon;
+    u8           crouch_standup;
+    u8           crouched;
+    i8           crawl; // facing sign
+    u8           sprint_dtap;
     u8           stomp;
     u8           holds_weapon;
     u8           swimsfx_delay;
@@ -133,8 +134,6 @@ typedef struct hero_s {
     u8           attack_tick;
     u8           attack_flipflop;
     u8           attack_hold_frame; // used for animating
-    i8           grabbingp;
-    i8           grabbing;
     u8           ground_impact_ticks;
     u8           edgeticks;
     u8           jump_index; // index into jump parameter table
@@ -152,8 +151,12 @@ typedef struct hero_s {
     u32          idle_ticks;
     u32          idle_anim;
     i32          n_bounced_on;
+    bool32       aim_mode;
+    i32          hook_aim_dir;
+    i32          hook_aim_mode_tick;
+    i32          hook_aim;
     obj_handle_s bounced_on[HERO_N_MAX_JUMPED_ON];
-} hero_s;
+};
 
 obj_s *hero_create(game_s *g);
 void   hero_handle_input(game_s *g, obj_s *o);
@@ -163,7 +166,7 @@ void   hero_hurt(game_s *g, obj_s *o, i32 damage);
 void   hero_kill(game_s *g, obj_s *o);
 i32    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
 i32    hero_max_rope_len_q4(game_s *g);
-bool32 hero_stand_up(game_s *g, obj_s *o);
+bool32 hero_try_stand_up(game_s *g, obj_s *o);
 void   hero_start_jump(game_s *g, obj_s *o, i32 ID);
 void   hero_flytime_update_ui(game_s *g, obj_s *ohero, i32 amount); // swaps "temporary" flytime to regular flytime -> UI
 void   hero_flytime_modify(game_s *g, obj_s *ohero, i32 dt);
@@ -197,5 +200,6 @@ i32    hero_swim_frameID(i32 animation);
 i32    hero_swim_frameID_idle(i32 animation);
 i32    hero_register_bounced_on_obj(game_s *g, obj_s *ohero, obj_s *o); // 0 if list full, 1 if added, 2 if already contained
 void   hero_on_stomped(game_s *g, obj_s *o);
+v2_i32 hero_hook_aim_dir(hero_s *h);
 
 #endif

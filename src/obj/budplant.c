@@ -44,14 +44,16 @@ void budplant_load(game_s *g, map_obj_s *mo)
     o->ID    = OBJ_ID_BUDPLANT;
     o->flags = OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_SPRITE;
+               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_CAN_BE_JUMPED_ON |
+               OBJ_FLAG_PLATFORM_HERO_ONLY;
     o->w          = 16;
     o->h          = 16;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->on_update  = budplant_on_update;
     o->on_animate = budplant_on_animate;
-    o->health_max = 3;
+    o->health_max = 1;
     o->health     = o->health_max;
 
     obj_sprite_s *spr = &o->sprites[0];
@@ -128,7 +130,9 @@ void budplant_on_update(game_s *g, obj_s *o)
                 break;
             }
 
-            obj_s *pr = projectile_create(g, ppos, pv, PROJECTILE_ID_BUDPLANT);
+            obj_s *pr  = projectile_create(g, ppos, pv, PROJECTILE_ID_BUDPLANT);
+            f32    vol = cam_snd_scale(g, o->pos, 300);
+            snd_play(SNDID_PROJECTILE_SPIT, vol, rngr_f32(0.9f, 1.1f));
         }
         if (BUDPLANT_TICKS_SHOOTING <= o->timer) {
             o->timer = 0;

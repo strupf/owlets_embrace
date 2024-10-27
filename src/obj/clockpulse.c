@@ -68,7 +68,7 @@ void clockpulse_load(game_s *g, map_obj_s *mo)
     clockpulse_s *cp        = (clockpulse_s *)o->mem;
     i32           period_ms = map_obj_i32(mo, "Period");
     o->state                = map_obj_bool(mo, "enabled");
-    o->subtimer             = max_i(ticks_from_ms(period_ms), 1);
+    o->subtimer             = max_i32(ticks_from_ms(period_ms), 1);
     cp->count_og            = map_obj_i32(mo, "count");
     cp->triggers            = map_obj_i32(mo, "triggers");
     cp->trigger_enable      = map_obj_i32(mo, "trigger_enable");

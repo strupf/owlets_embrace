@@ -46,7 +46,6 @@ void grass_draw(game_s *g, rec_i32 camrec, v2_i32 camoffset)
 
         v2_i32 pos = v2_add(gr->pos, camoffset);
 
-        // prerender?
         for (i32 i = 0; i < 16; i++) {
             v2_i32 p = pos;
             p.y += i;

@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "core/aud.h"
+#include "adpcm.h"
 #include "gamedef.h"
 #include "util/mathfunc.h"
 
@@ -12,15 +13,6 @@ static void       aud_cmds_flush();
 static void       aud_push_cmd(aud_cmd_s c);
 static inline u32 aud_cmd_next_index(u32 i);
 //
-static void       adpcm_reset_to_start(adpcm_s *pcm);
-static void       adpcm_set_pitch(adpcm_s *pcm, i32 pitch_q8);
-static i32        adpcm_step(u8 step, i16 *history, i16 *step_size);
-static i32        adpcm_advance_to(adpcm_s *pcm, u32 pos);
-static i32        adpcm_advance_step(adpcm_s *pcm);
-static void       adpcm_playback_nonpitch_silent(adpcm_s *pcm, i32 len);
-static void       adpcm_playback(adpcm_s *pcm, i16 *lb, i16 *rb, i32 len);
-static void       adpcm_playback_nonpitch(adpcm_s *pcm, i16 *lb, i16 *rb, i32 len);
-//
 static void       muschannel_playback(muschannel_s *mc, i16 *lb, i16 *rb, i32 len);
 static void       muschannel_playback_part(muschannel_s *mc, i16 *lb, i16 *rb, i32 len);
 static void       muschannel_stop(muschannel_s *mc);
@@ -29,12 +21,13 @@ static void       sndchannel_stop(sndchannel_s *ch);
 
 void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
+
     // assumption: provided buffers are 0 filled
     aud_cmds_flush();
 
     for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
         muschannel_s *ch = &AUD.muschannel[n];
-        ch->adpcm.vol_q8 = 64;
+        ch->adpcm.vol_q8 = 256;
         muschannel_playback(ch, lbuf, rbuf, len);
     }
 
@@ -187,92 +180,6 @@ void aud_set_lowpass(i32 lp)
     aud_cmd_s cmd   = {0};
     cmd.c.lowpass.v = lp;
     aud_push_cmd(cmd);
-}
-
-static void adpcm_reset_to_start(adpcm_s *pcm)
-{
-    pcm->step_size   = 127;
-    pcm->hist        = 0;
-    pcm->nibble      = 0;
-    pcm->pos         = 0;
-    pcm->pos_pitched = 0;
-    pcm->curr_sample = 0;
-    pcm->data_pos    = 0;
-    pcm->curr_byte   = 0;
-}
-
-static void adpcm_set_pitch(adpcm_s *pcm, i32 pitch_q8)
-{
-    if (pitch_q8 <= 1) return;
-    pcm->pitch_q8    = pitch_q8;
-    pcm->ipitch_q8   = (256 << 8) / pcm->pitch_q8;
-    pcm->len_pitched = (pcm->len * pcm->pitch_q8) >> 8;
-
-    // highest position in pitched len shall not be out of bounds
-    AUD_MUS_ASSERT((((pcm->len_pitched - 1) * pcm->ipitch_q8) >> 8) < pcm->len);
-}
-
-static void adpcm_playback_nonpitch_silent(adpcm_s *pcm, i32 len)
-{
-    pcm->pos_pitched += len;
-    adpcm_advance_to(pcm, pcm->pos_pitched);
-}
-
-static void adpcm_playback(adpcm_s *pcm, i16 *lb, i16 *rb, i32 len)
-{
-    i16 *l = lb;
-    for (i32 i = 0; i < len; i++, l++) {
-        u32 p = (++pcm->pos_pitched * pcm->ipitch_q8) >> 8;
-        i32 v = (adpcm_advance_to(pcm, p) * pcm->vol_q8) >> 8;
-        *l    = ssat16((i32)*l + v);
-    }
-}
-
-static void adpcm_playback_nonpitch(adpcm_s *pcm, i16 *lb, i16 *rb, i32 len)
-{
-    i16 *l = lb;
-    pcm->pos_pitched += len;
-    for (i32 i = 0; i < len; i++, l++) {
-        i32 v = (adpcm_advance_step(pcm) * pcm->vol_q8) >> 8;
-        *l    = ssat16((i32)*l + v);
-    }
-}
-
-static i32 adpcm_advance_to(adpcm_s *pcm, u32 pos)
-{
-    AUD_MUS_ASSERT(pos < pcm->len);
-    AUD_MUS_ASSERT(pcm->pos <= pos);
-    while (pcm->pos < pos) { // can't savely skip any samples with ADPCM
-        adpcm_advance_step(pcm);
-    }
-    return pcm->curr_sample;
-}
-
-static i32 adpcm_advance_step(adpcm_s *pcm)
-{
-    AUD_MUS_ASSERT(pcm->pos + 1 < pcm->len);
-    pcm->pos++;
-    if (!pcm->nibble) {
-        pcm->curr_byte = pcm->data[pcm->data_pos++];
-    }
-    u32 b = (pcm->curr_byte << pcm->nibble) >> 4;
-    pcm->nibble ^= 4;
-    pcm->curr_sample = adpcm_step(b, &pcm->hist, &pcm->step_size);
-    return pcm->curr_sample;
-}
-
-// an ADPCM function to advance the sample decoding
-// github.com/superctr/adpcm/blob/master/ymb_codec.c
-static i32 adpcm_step(u8 step, i16 *history, i16 *step_size)
-{
-    static const u8 t_step[8] = {57, 57, 57, 57, 77, 102, 128, 153};
-
-    i32 s      = step & 7;
-    i32 d      = ((1 + (s << 1)) * *step_size) >> 3;
-    i32 v      = ssat16((i32)*history + ((step & 8) ? -d : +d));
-    *step_size = clamp_i32((t_step[s] * *step_size) >> 6, 127, 24576);
-    *history   = v;
-    return v;
 }
 
 static void muschannel_playback(muschannel_s *mc, i16 *lb, i16 *rb, i32 len)

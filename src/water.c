@@ -127,7 +127,7 @@ void water_prerender_tiles()
         for (i32 k = 0; k < 16; k += WATER_RENDER_STEP) {
 
             i32 hh = particles[((k + WATER_NUM_P) >> 1)].y_q12 >> 12;
-            hh     = clamp_i(hh, -4, +4);
+            hh     = clamp_i32(hh, -4, +4);
             i32 yy = n * 16 + 4 + hh;
 
             // filled tile silhouette background

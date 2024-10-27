@@ -254,8 +254,6 @@ bool32 map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m)
         if (it == o) continue;
         if (it->mass == 0) continue;
         if (m <= it->mass && overlap_rec(r, obj_aabb(it))) {
-            obj_s *ocarry = (o && o->ID == OBJ_ID_HERO) ? carryable_present(g) : NULL;
-            if (ocarry == it) continue;
             return 1;
         }
     }

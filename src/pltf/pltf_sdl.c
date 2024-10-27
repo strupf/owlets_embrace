@@ -5,12 +5,15 @@
 #include "pltf_sdl.h"
 #include "pltf.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #define PLTF_SDL_RECORD_1080P   0
-#define PLTF_SDL_SW_RENDERER    1 || (PLTF_SDL_RECORD_1080P)
-#define PLTF_SDL_PURE_BW        1
-#define PLTF_SDL_GHOSTING       0
-#define PLTF_SDL_USE_DEBUG_RECS 1
-#define PLTF_SDL_NUM_DEBUG_RECS 512
+#define PLTF_SDL_RECORD_ANY     (PLTF_SDL_RECORD_1080P)
+#define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_ANY
+#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_ANY
+#define PLTF_SDL_NUM_DEBUG_RECS 256
 #define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
 
 typedef struct {
@@ -22,29 +25,30 @@ typedef struct {
     i16 h;
 } pltf_debug_rec_s;
 
-typedef struct pltf_sdl_s {
-    bool32            running;
+typedef_struct (pltf_sdl_s) {
     u64               timeorigin;
+    u64               time_prev;
+    u64               fps_timer;
+    i32               fps_tick;
+    i32               fps_tick_prev;
+    b32               running;
     u32               fps_cap;
-    f64               fps_cap_dt;
-    f64               delay_timer;
-    f64               delay_timer_k;
+    f32               fps_cap_dt;
+    f32               delay_timer;
+    f32               delay_timer_k;
     //
     u32               pal[2];
     u8                framebuffer[PLTF_DISPLAY_WBYTES * PLTF_DISPLAY_H];
     SDL_Window       *window;
     SDL_Renderer     *renderer;
-    SDL_Texture      *tex_debug_recs;
     SDL_Texture      *tex;
-    SDL_Texture      *texp;
     SDL_Rect          r_src;
     SDL_Rect          r_dst;
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
     SDL_PixelFormat  *pformat;
-    bool32            render_ghosting;
-    bool32            is_mono;
-    bool32            inv;
+    b32               is_mono;
+    b32               inv;
     f32               vol;
     void (*char_add)(char c, void *ctx);
     void (*char_del)(void *ctx);
@@ -52,175 +56,17 @@ typedef struct pltf_sdl_s {
     void            *ctx;
     i32              n_debug_recs;
     pltf_debug_rec_s debug_recs[PLTF_SDL_NUM_DEBUG_RECS];
-} pltf_sdl_s;
+};
 
 pltf_sdl_s g_SDL;
 
-void pltf_sdl_init();
+void pltf_sdl_step();
 void pltf_sdl_close();
 void pltf_sdl_resize();
 void pltf_sdl_set_FPS_cap(i32 fps);
 void pltf_sdl_audio(void *u, u8 *stream, int len);
 
 int main(int argc, char **argv)
-{
-    pltf_sdl_init();
-    pltf_internal_init();
-
-    u64 time_prev     = SDL_GetPerformanceCounter();
-    u64 fps_timer     = 0;
-    i32 fps_tick      = 0;
-    i32 fps_tick_prev = 0;
-
-    while (g_SDL.running) {
-        u64 time   = SDL_GetPerformanceCounter();
-        u64 timedt = time - time_prev;
-        time_prev  = time;
-
-        SDL_Event e;
-        while (SDL_PollEvent(&e)) {
-            switch (e.type) {
-            case SDL_KEYDOWN:
-                if (e.key.keysym.sym == SDLK_BACKSPACE && g_SDL.char_del) {
-                    g_SDL.char_del(g_SDL.ctx);
-                    break;
-                }
-                if ((e.key.keysym.sym == SDLK_ESCAPE || e.key.keysym.sym == SDLK_RETURN) && g_SDL.close_inp) {
-                    g_SDL.close_inp(g_SDL.ctx);
-                    break;
-                }
-                break;
-            case SDL_QUIT: g_SDL.running = 0; break;
-            case SDL_WINDOWEVENT:
-                switch (e.window.event) {
-                case SDL_WINDOWEVENT_RESIZED:
-                case SDL_WINDOWEVENT_SIZE_CHANGED:
-                case SDL_WINDOWEVENT_MAXIMIZED: {
-                    pltf_sdl_resize();
-                } break;
-                }
-                break;
-            case SDL_TEXTINPUT: {
-                if (!g_SDL.char_add) break;
-                for (char *c = &e.text.text[0]; *c != '\0'; c++) {
-                    if ((int)*c & 0x80) continue; // non ascii
-                    g_SDL.char_add(*c, g_SDL.ctx);
-                }
-                break;
-            }
-            }
-        }
-
-        if (pltf_internal_update()) {
-            assert(g_SDL.render_ghosting == 0);
-            if (g_SDL.render_ghosting) {
-                SDL_SetRenderTarget(g_SDL.renderer, g_SDL.texp);
-                SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_src);
-                SDL_SetRenderTarget(g_SDL.renderer, NULL);
-            }
-
-            int   pitch;
-            void *pixelsptr;
-            SDL_LockTexture(g_SDL.tex, NULL, &pixelsptr, &pitch);
-            u32 *pixels = (u32 *)pixelsptr;
-
-            for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {
-                for (i32 x = 0; x < PLTF_DISPLAY_W; x++) {
-                    i32 i     = (x >> 3) + y * PLTF_DISPLAY_WBYTES;
-                    i32 k     = x + y * PLTF_DISPLAY_W;
-                    i32 bit   = !!(g_SDL.framebuffer[i] & (0x80 >> (x & 7)));
-                    i32 col   = g_SDL.pal[g_SDL.inv ? !bit : bit];
-                    pixels[k] = col;
-                }
-            }
-
-            for (i32 n = g_SDL.n_debug_recs - 1; 0 <= n; n--) {
-                pltf_debug_rec_s *dbr = &g_SDL.debug_recs[n];
-                if (dbr->ticks == 0) {
-                    *dbr = g_SDL.debug_recs[--g_SDL.n_debug_recs];
-                    continue;
-                }
-                dbr->ticks--;
-
-                i32 x1 = dbr->x;
-                i32 y1 = dbr->y;
-                i32 x2 = dbr->x + dbr->w - 1;
-                i32 y2 = dbr->y + dbr->h - 1;
-                i32 u1 = 0 <= x1 ? x1 : 0;
-                i32 v1 = 0 <= y1 ? y1 : 0;
-                i32 u2 = x2 < PLTF_DISPLAY_W ? x2 : PLTF_DISPLAY_W - 1;
-                i32 v2 = y2 < PLTF_DISPLAY_H ? y2 : PLTF_DISPLAY_H - 1;
-
-                if (0 <= y1 && y1 < PLTF_DISPLAY_H)
-                    for (i32 x = u1; x <= u2; x++)
-                        pixels[x + y1 * PLTF_DISPLAY_W] = dbr->col;
-                if (0 <= y2 && y2 < PLTF_DISPLAY_H)
-                    for (i32 x = u1; x <= u2; x++)
-                        pixels[x + y2 * PLTF_DISPLAY_W] = dbr->col;
-                if (0 <= x1 && x1 < PLTF_DISPLAY_W)
-                    for (i32 y = v1; y <= v2; y++)
-                        pixels[x1 + y * PLTF_DISPLAY_W] = dbr->col;
-                if (0 <= x2 && x2 < PLTF_DISPLAY_W)
-                    for (i32 y = v1; y <= v2; y++)
-                        pixels[x2 + y * PLTF_DISPLAY_W] = dbr->col;
-            }
-            SDL_UnlockTexture(g_SDL.tex);
-        }
-
-        SDL_SetRenderDrawColor(g_SDL.renderer,
-#if PLTF_SDL_PURE_BW
-                               0x00, 0x00, 0x00,
-#else
-                               0x31, 0x2F, 0x28,
-#endif
-                               0xFF);
-        SDL_RenderClear(g_SDL.renderer);
-
-        SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_dst);
-        if (g_SDL.render_ghosting) {
-            SDL_SetTextureBlendMode(g_SDL.texp, SDL_BLENDMODE_BLEND);
-            SDL_SetTextureAlphaMod(g_SDL.texp, 64);
-            SDL_RenderCopy(g_SDL.renderer, g_SDL.texp, &g_SDL.r_src, &g_SDL.r_dst);
-        }
-        SDL_RenderPresent(g_SDL.renderer);
-
-        if (!g_SDL.fps_cap) continue;
-
-        // FPS cap in SDL
-
-        fps_tick++;
-        fps_timer += timedt;
-        Uint64 one_second = SDL_GetPerformanceFrequency();
-        if (one_second <= fps_timer) {
-            fps_timer -= one_second;
-            f64 avg_fps  = (f64)(fps_tick + fps_tick_prev) * 0.5;
-            f64 diff     = avg_fps - (f64)g_SDL.fps_cap;
-            f64 k_change = 0.;
-            f64 diff_abs = 0. <= diff ? diff : -diff;
-            if (2.0 <= diff_abs) k_change = .025;
-            else if (1.00 <= diff_abs) k_change = .010;
-            else if (0.25 <= diff_abs) k_change = .001;
-            if (0. < diff) g_SDL.delay_timer_k += k_change;
-            if (0. > diff) g_SDL.delay_timer_k -= k_change;
-            fps_tick_prev = fps_tick;
-            fps_tick      = 0;
-        }
-
-        f64 tdt = (f64)(SDL_GetPerformanceCounter() - time) / (f64)one_second;
-        g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * 1000. * g_SDL.delay_timer_k;
-        g_SDL.delay_timer = 0. <= g_SDL.delay_timer ? g_SDL.delay_timer : 0.;
-        if (1. <= g_SDL.delay_timer) {
-            Uint32 sleepfor = (Uint32)g_SDL.delay_timer;
-            g_SDL.delay_timer -= (f64)sleepfor;
-            SDL_Delay(sleepfor);
-        }
-    }
-    pltf_internal_close();
-    pltf_sdl_close();
-    return 0;
-}
-
-void pltf_sdl_init()
 {
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "system");
@@ -238,49 +84,34 @@ void pltf_sdl_init()
                                     PLTF_DISPLAY_W * 2,
                                     PLTF_DISPLAY_H * 2,
 #endif
-                                    SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
+                                    SDL_WINDOW_ALLOW_HIGHDPI |
+                                        SDL_WINDOW_RESIZABLE |
+                                        SDL_WINDOW_INPUT_FOCUS);
 
     SDL_SetWindowMinimumSize(g_SDL.window, PLTF_DISPLAY_W, PLTF_DISPLAY_H);
     g_SDL.renderer = SDL_CreateRenderer(g_SDL.window, -1,
-#if PLTF_SDL_SW_RENDERER // software renderer produces better scaling for dithering
+#if PLTF_SDL_SW_RENDERER // software renderer produces regular scaling
                                         SDL_RENDERER_SOFTWARE
 #else
                                         0
 #endif
     );
-
     SDL_SetRenderDrawColor(g_SDL.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
     SDL_RendererInfo info;
     SDL_GetRendererInfo(g_SDL.renderer, &info);
-    Uint32 pformat       = info.texture_formats[0];
-    g_SDL.tex            = SDL_CreateTexture(g_SDL.renderer,
-                                             pformat,
-                                             SDL_TEXTUREACCESS_STREAMING,
-                                             PLTF_DISPLAY_W,
-                                             PLTF_DISPLAY_H);
-    g_SDL.texp           = SDL_CreateTexture(g_SDL.renderer,
-                                             pformat,
-                                             SDL_TEXTUREACCESS_TARGET,
-                                             PLTF_DISPLAY_W,
-                                             PLTF_DISPLAY_H);
-    g_SDL.tex_debug_recs = SDL_CreateTexture(g_SDL.renderer,
-                                             pformat,
-                                             SDL_TEXTUREACCESS_STREAMING,
-                                             PLTF_DISPLAY_W,
-                                             PLTF_DISPLAY_H);
+    Uint32 pformat = info.texture_formats[0];
+    g_SDL.tex      = SDL_CreateTexture(g_SDL.renderer,
+                                       pformat,
+                                       SDL_TEXTUREACCESS_STREAMING,
+                                       PLTF_DISPLAY_W,
+                                       PLTF_DISPLAY_H);
+    SDL_SetTextureScaleMode(g_SDL.tex, SDL_ScaleModeNearest);
 
     g_SDL.pformat = SDL_AllocFormat(pformat);
-#if PLTF_SDL_PURE_BW
-    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
-                              0x00, 0x00, 0x00); // black
-    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
-                              0xFF, 0xFF, 0xFF); // white
-#else
-    g_SDL.pal[0] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
-                              0x31, 0x2F, 0x28); // black
-    g_SDL.pal[1] = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
-                              0xB1, 0xAF, 0xA8); // white
-#endif
+    g_SDL.pal[0]  = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                               0x00, 0x00, 0x00); // black
+    g_SDL.pal[1]  = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
+                               0xFF, 0xFF, 0xFF); // white
 
     SDL_AudioSpec frmt = {0};
     frmt.channels      = 2;
@@ -297,17 +128,164 @@ void pltf_sdl_init()
         pltf_log("+++ SDL: Can't create audio device!\n");
     }
 
-    g_SDL.running         = 1;
-    g_SDL.r_src.w         = PLTF_DISPLAY_W;
-    g_SDL.r_src.h         = PLTF_DISPLAY_H;
-    g_SDL.r_dst.w         = PLTF_DISPLAY_W;
-    g_SDL.r_dst.h         = PLTF_DISPLAY_H;
-    g_SDL.timeorigin      = SDL_GetPerformanceCounter();
-    g_SDL.is_mono         = 1;
-    g_SDL.vol             = 0.5f;
-    g_SDL.render_ghosting = PLTF_SDL_GHOSTING;
+    g_SDL.running    = 1;
+    g_SDL.r_src.w    = PLTF_DISPLAY_W;
+    g_SDL.r_src.h    = PLTF_DISPLAY_H;
+    g_SDL.r_dst.w    = PLTF_DISPLAY_W;
+    g_SDL.r_dst.h    = PLTF_DISPLAY_H;
+    g_SDL.timeorigin = SDL_GetPerformanceCounter();
+    g_SDL.is_mono    = 1;
+    g_SDL.vol        = 0.5f;
+    g_SDL.time_prev  = (u64)SDL_GetPerformanceCounter();
+
+    pltf_internal_init();
     pltf_sdl_resize();
-    pltf_sdl_set_FPS_cap(144);
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(pltf_sdl_step, 0, 1);
+#else
+    pltf_sdl_set_FPS_cap(120);
+
+    while (g_SDL.running) {
+        pltf_sdl_step();
+    }
+#endif
+
+    pltf_internal_close();
+    pltf_sdl_close();
+    return 0;
+}
+
+void pltf_sdl_step()
+{
+    u64 time        = (u64)SDL_GetPerformanceCounter();
+    u64 timedt      = time - g_SDL.time_prev;
+    g_SDL.time_prev = time;
+
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+        switch (e.type) {
+        case SDL_KEYDOWN:
+            if (e.key.keysym.sym == SDLK_BACKSPACE && g_SDL.char_del) {
+                g_SDL.char_del(g_SDL.ctx);
+                break;
+            }
+            if ((e.key.keysym.sym == SDLK_ESCAPE || e.key.keysym.sym == SDLK_RETURN) && g_SDL.close_inp) {
+                g_SDL.close_inp(g_SDL.ctx);
+                break;
+            }
+            break;
+        case SDL_QUIT: g_SDL.running = 0; break;
+        case SDL_WINDOWEVENT:
+            switch (e.window.event) {
+            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+            case SDL_WINDOWEVENT_MAXIMIZED: {
+                pltf_sdl_resize();
+            } break;
+            }
+            break;
+        case SDL_TEXTINPUT: {
+            if (!g_SDL.char_add) break;
+            for (char *c = &e.text.text[0]; *c != '\0'; c++) {
+                if ((int)*c & 0x80) continue; // non ascii
+                g_SDL.char_add(*c, g_SDL.ctx);
+            }
+            break;
+        }
+        }
+    }
+
+    if (pltf_internal_update()) {
+        int   pitch;
+        void *pixelsptr;
+        SDL_LockTexture(g_SDL.tex, NULL, &pixelsptr, &pitch);
+        u32 *pixels = (u32 *)pixelsptr;
+
+        for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {
+            for (i32 x = 0; x < PLTF_DISPLAY_W; x++) {
+                i32 i     = (x >> 3) + y * PLTF_DISPLAY_WBYTES;
+                i32 k     = x + y * PLTF_DISPLAY_W;
+                i32 bit   = !!(g_SDL.framebuffer[i] & (0x80 >> (x & 7)));
+                i32 col   = g_SDL.pal[g_SDL.inv ? !bit : bit];
+                pixels[k] = col;
+            }
+        }
+
+        for (i32 n = g_SDL.n_debug_recs - 1; 0 <= n; n--) {
+            pltf_debug_rec_s *dbr = &g_SDL.debug_recs[n];
+            if (dbr->ticks == 0) {
+                *dbr = g_SDL.debug_recs[--g_SDL.n_debug_recs];
+                continue;
+            }
+            dbr->ticks--;
+
+            i32 x1 = dbr->x;
+            i32 y1 = dbr->y;
+            i32 x2 = dbr->x + dbr->w - 1;
+            i32 y2 = dbr->y + dbr->h - 1;
+            i32 u1 = 0 <= x1 ? x1 : 0;
+            i32 v1 = 0 <= y1 ? y1 : 0;
+            i32 u2 = x2 < PLTF_DISPLAY_W ? x2 : PLTF_DISPLAY_W - 1;
+            i32 v2 = y2 < PLTF_DISPLAY_H ? y2 : PLTF_DISPLAY_H - 1;
+
+            if (0 <= y1 && y1 < PLTF_DISPLAY_H)
+                for (i32 x = u1; x <= u2; x++)
+                    pixels[x + y1 * PLTF_DISPLAY_W] = dbr->col;
+            if (0 <= y2 && y2 < PLTF_DISPLAY_H)
+                for (i32 x = u1; x <= u2; x++)
+                    pixels[x + y2 * PLTF_DISPLAY_W] = dbr->col;
+            if (0 <= x1 && x1 < PLTF_DISPLAY_W)
+                for (i32 y = v1; y <= v2; y++)
+                    pixels[x1 + y * PLTF_DISPLAY_W] = dbr->col;
+            if (0 <= x2 && x2 < PLTF_DISPLAY_W)
+                for (i32 y = v1; y <= v2; y++)
+                    pixels[x2 + y * PLTF_DISPLAY_W] = dbr->col;
+        }
+        SDL_UnlockTexture(g_SDL.tex);
+    }
+
+    SDL_SetRenderDrawColor(g_SDL.renderer,
+#if PLTF_SDL_PURE_BW
+                           0x00, 0x00, 0x00,
+#else
+                           0x31, 0x2F, 0x28,
+#endif
+                           0xFF);
+    SDL_RenderClear(g_SDL.renderer);
+    SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_dst);
+    SDL_RenderPresent(g_SDL.renderer);
+
+#ifndef PLTF_SDL_WEB
+    if (!g_SDL.fps_cap) return;
+
+    // custom FPS cap solution in SDL
+    g_SDL.fps_tick++;
+    g_SDL.fps_timer += timedt;
+    u64 one_s = (u64)SDL_GetPerformanceFrequency();
+    if (one_s <= g_SDL.fps_timer) {
+        g_SDL.fps_timer -= one_s;
+        f32 avg_fps  = (f32)(g_SDL.fps_tick + g_SDL.fps_tick_prev) * 0.5f;
+        f32 diff     = avg_fps - (f32)g_SDL.fps_cap;
+        f32 k_change = 0.f;
+        f32 diff_abs = 0.f <= diff ? diff : -diff;
+        if (2.0f <= diff_abs) k_change = .025f;
+        else if (1.00f <= diff_abs) k_change = .010f;
+        else if (0.25f <= diff_abs) k_change = .001f;
+        if (0.f < diff) g_SDL.delay_timer_k += k_change;
+        if (0.f > diff) g_SDL.delay_timer_k -= k_change;
+        g_SDL.fps_tick_prev = g_SDL.fps_tick;
+        g_SDL.fps_tick      = 0;
+    }
+
+    f32 tdt = (f32)((u64)SDL_GetPerformanceCounter() - time) / (f32)one_s;
+    g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * 1000.f * g_SDL.delay_timer_k;
+    g_SDL.delay_timer = 0.f <= g_SDL.delay_timer ? g_SDL.delay_timer : 0.f;
+    if (1.f <= g_SDL.delay_timer) {
+        u32 sleepfor = (u32)g_SDL.delay_timer;
+        g_SDL.delay_timer -= (f32)sleepfor;
+        SDL_Delay((Uint32)sleepfor);
+    }
+#endif
 }
 
 void pltf_sdl_close()
@@ -315,8 +293,6 @@ void pltf_sdl_close()
     SDL_FreeFormat(g_SDL.pformat);
     SDL_CloseAudioDevice(g_SDL.audiodevID);
     SDL_DestroyTexture(g_SDL.tex);
-    SDL_DestroyTexture(g_SDL.texp);
-    SDL_DestroyTexture(g_SDL.tex_debug_recs);
     SDL_DestroyRenderer(g_SDL.renderer);
     SDL_DestroyWindow(g_SDL.window);
     SDL_Quit();
@@ -325,13 +301,16 @@ void pltf_sdl_close()
 void pltf_sdl_resize()
 {
     int w, h;
-    SDL_GetWindowSize(g_SDL.window, &w, &h);
+    SDL_GetWindowSizeInPixels(g_SDL.window, &w, &h);
     f32 sx = (f32)w / (f32)g_SDL.r_src.w;
     f32 sy = (f32)h / (f32)g_SDL.r_src.h;
     // integer scaling - patterns look terrible stretched
 #if PLTF_SDL_RECORD_1080P
     g_SDL.r_dst.w = 1800;
     g_SDL.r_dst.h = 1080;
+#elif PLTF_SDL_RECORD_480P
+    g_SDL.r_dst.w = 800;
+    g_SDL.r_dst.h = 480;
 #else
     i32 si        = (i32)(sx <= sy ? sx : sy);
     g_SDL.r_dst.w = g_SDL.r_src.w * si;
@@ -339,20 +318,19 @@ void pltf_sdl_resize()
 #endif
     g_SDL.r_dst.x = (w - g_SDL.r_dst.w) / 2;
     g_SDL.r_dst.y = (h - g_SDL.r_dst.h) / 2;
-    pltf_log("%i x %i\n", g_SDL.r_dst.w, g_SDL.r_dst.h);
 }
 
 void pltf_sdl_set_FPS_cap(i32 fps)
 {
     if (fps <= 0) {
         g_SDL.fps_cap     = 0;
-        g_SDL.fps_cap_dt  = 0.;
-        g_SDL.delay_timer = 0.;
+        g_SDL.fps_cap_dt  = 0.f;
+        g_SDL.delay_timer = 0.f;
         return;
     }
-    g_SDL.delay_timer_k = 1.;
+    g_SDL.delay_timer_k = 1.f;
     g_SDL.fps_cap       = fps;
-    g_SDL.fps_cap_dt    = 1. / (f64)fps;
+    g_SDL.fps_cap_dt    = 1.f / (f32)fps;
 }
 
 bool32 pltf_sdl_key(i32 k)
@@ -417,7 +395,7 @@ f32 pltf_audio_get_volume()
 
 f32 pltf_seconds()
 {
-    u64 d = SDL_GetPerformanceCounter() - g_SDL.timeorigin;
+    u64 d = (u64)SDL_GetPerformanceCounter() - g_SDL.timeorigin;
     return (f32)d / (f32)SDL_GetPerformanceFrequency();
 }
 

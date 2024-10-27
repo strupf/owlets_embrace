@@ -18,17 +18,6 @@
 
 static const i32 cos_table[256];
 
-#define clamp_i clamp_i32
-#define clamp_f clamp_f32
-#define sgn_i   sgn_i32
-#define sgn_f   sgn_f32
-#define max_i   max_i32
-#define max_f   max_f32
-#define min_i   min_i32
-#define min_f   min_f32
-#define abs_i   abs_i32
-#define abs_f   abs_f32
-
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
 {
     if (x < lo) return lo;
@@ -941,10 +930,8 @@ static inline bool32 overlap_tri_pnt_excl(tri_i32 t, v2_i32 p)
 {
     i32 u, v, w;
     tri_pnt_barycentric_uvw(t, p, &u, &v, &w);
-    bool32 a = (u > 0 && v > 0 && w > 0) || (u < 0 && v < 0 && w < 0);
-    bool32 b = (u > 0 && v > 0 && w > 0) || (u & v & w) < 0; // not entirely sure
-    assert(a == b);
-    return a;
+    bool32 r = (u > 0 && v > 0 && w > 0) || (u < 0 && v < 0 && w < 0);
+    return r;
 }
 
 // check for overlap - touching tri considered overlapped
@@ -1102,7 +1089,7 @@ static m33_f32 m33_identity()
 
 static m33_f32 m33_add(m33_f32 a, m33_f32 b)
 {
-    m33_f32 m;
+    m33_f32 m = {0};
     for (i32 n = 0; n < 9; n++)
         m.m[n] = a.m[n] + b.m[n];
     return m;
@@ -1110,7 +1097,7 @@ static m33_f32 m33_add(m33_f32 a, m33_f32 b)
 
 static m33_f32 m33_sub(m33_f32 a, m33_f32 b)
 {
-    m33_f32 m;
+    m33_f32 m = {0};
     for (i32 n = 0; n < 9; n++)
         m.m[n] = a.m[n] - b.m[n];
     return m;
@@ -1118,7 +1105,7 @@ static m33_f32 m33_sub(m33_f32 a, m33_f32 b)
 
 static m33_f32 m33_mul(m33_f32 a, m33_f32 b)
 {
-    m33_f32 m;
+    m33_f32 m = {0};
     for (i32 i = 0; i < 3; i++) {
         for (i32 j = 0; j < 3; j++) {
             m.m[i + j * 3] = a.m[i + 0 * 3] * b.m[0 + j * 3] +

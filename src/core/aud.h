@@ -5,11 +5,12 @@
 #ifndef AUD_H
 #define AUD_H
 
+#include "adpcm.h"
 #include "pltf/pltf.h"
 
 #define LEN_MUS_NAME      24
 #define NUM_SNDCHANNEL    12
-#define NUM_AUD_CMD_QUEUE 128
+#define NUM_AUD_CMD_QUEUE 64
 
 #if 1
 #define AUD_MUS_ASSERT assert
@@ -83,29 +84,12 @@ typedef struct {
     } c;
 } aud_cmd_s;
 
-typedef struct adpcm_s {
-    u8 *data;        // pointer to sample data (2x 4 bit samples per byte)
-    u32 len;         // number of samples
-    u32 len_pitched; // length of pitched buffer
-    u32 data_pos;    // index in data array
-    u32 pos;         // current sample index in original buffer
-    u32 pos_pitched; // current sample index in pitched buffer
-    u16 pitch_q8;
-    u16 ipitch_q8;
-    i16 hist;
-    i16 step_size;
-    u8  nibble;
-    u8  curr_byte;   // current byte value of the sample
-    i16 curr_sample; // current decoded i16 sample value
-    i16 vol_q8;      // playback volume in Q8
-} adpcm_s;
-
-typedef struct sndchannel_s {
+typedef struct {
     u32     snd_iID;
     adpcm_s adpcm;
 } sndchannel_s;
 
-typedef struct muschannel_s {
+typedef struct {
     void   *stream;
     u32     total_bytes_file;
     adpcm_s adpcm;
