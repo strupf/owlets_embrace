@@ -17,9 +17,11 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
     if (h->low_grav_ticks) {
         h->low_grav_ticks--;
-        i32 gt0      = pow2_i32(h->low_grav_ticks_0);
-        i32 gt1      = pow2_i32(h->low_grav_ticks - h->low_grav_ticks_0);
-        o->grav_q8.y = lerp_i32(HERO_GRAVITY_LOW, HERO_GRAVITY, gt1, gt0);
+        i32 gt0 = pow2_i32(h->low_grav_ticks_0);
+        i32 gt1 = pow2_i32(h->low_grav_ticks - h->low_grav_ticks_0);
+        o->v_q8.y += lerp_i32(HERO_GRAVITY_LOW, HERO_GRAVITY, gt1, gt0);
+    } else {
+        o->v_q8.y += HERO_GRAVITY;
     }
 
     const i32 flytimep = hero_flytime_left(g, o);
@@ -32,24 +34,19 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         i32    dtrope_a = abs_i32(dtrope.x);
 
         if (sgn_i32(o->v_q8.x) != dpad_x) {
-            o->v_q8.x = (o->v_q8.x * 254) / 256;
+            obj_vx_q8_mul(o, 254);
         }
 
-        if (dpad_x) {
-            if (dtrope_s == dpad_x) {
-                o->v_q8.x += 40 * dpad_x;
-            } else {
-                o->v_q8.x += 5 * dpad_x;
-            }
-        }
+        o->v_q8.x += ((dtrope_s == dpad_x) ? 40 : 5) * dpad_x;
     } else if (h->stomp) {
         o->flags &= ~OBJ_FLAG_MOVER;
         if (h->stomp < U8_MAX) {
             h->stomp++;
         }
         if (HERO_TICKS_STOMP_INIT <= h->stomp) {
-            o->tomove.y = min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10);
-            o->tomove.x = dpad_x;
+            obj_move_by(g, o,
+                        dpad_x,
+                        min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10));
         }
     } else if (!h->stomp && !h->holds_weapon && !usinghook && inp_action_jp(INP_DD)) {
         h->stomp     = 1;
@@ -63,7 +60,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
 
         // dynamic jump height
         if (0 < h->jumpticks && !h->action_jump) {
-            o->v_q8.y    = (o->v_q8.y * 3) >> 2;
+            obj_vy_q8_mul(o, 192);
             h->jumpticks = 0;
             snd_instance_stop(h->jump_fly_snd_iID);
             h->jump_fly_snd_iID = 0;
@@ -93,7 +90,7 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         i32 ax = 0;
 
         if (dpad_x != vs) {
-            o->v_q8.x = (o->v_q8.x * 246) / 256;
+            obj_vx_q8_mul(o, 246);
         }
 
         if (vs == 0) {
@@ -106,6 +103,8 @@ void hero_update_air(game_s *g, obj_s *o, bool32 rope_stretched)
         }
         o->v_q8.x += ax * dpad_x;
     }
+
+    o->v_q8.y = min_i32(o->v_q8.y, 1792);
 
     if (0 < h->jump_btn_buffer) {
         bool32 jump_ground = 0 < h->edgeticks;

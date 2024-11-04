@@ -7,11 +7,11 @@
 
 #include "pltf/pltf_types.h"
 
-// int (*cmp)(const void *a, const void *b)
+// i32 (*cmp)(const void *a, const void *b)
 // -: a goes before b | b goes after a
 // 0: equivalent
 // +: a goes after b | b goes before a
-typedef int (*cmp_f)(const void *a, const void *b);
+typedef i32 (*cmp_f)(const void *a, const void *b);
 
 static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f cmp);
 

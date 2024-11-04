@@ -127,7 +127,7 @@ void cam_update(game_s *g, cam_s *c)
         // cam attractors
         v2_i32 pos_px    = v2_shr(c->pos_q8, 8);
         v2_i32 attract   = {0};
-        u32    n_attract = 0;
+        i32    n_attract = 0;
 
         for (obj_each(g, o)) {
             if (!o->cam_attract_r) continue;
@@ -146,6 +146,7 @@ void cam_update(game_s *g, cam_s *c)
             attr.x  = (attr.x * (i32)(ds - ls)) / (i32)ds;
             attr.y  = (attr.y * (i32)(ds - ls)) / (i32)ds;
             attract = v2_add(attract, attr);
+
             n_attract++;
         }
 

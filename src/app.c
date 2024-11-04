@@ -20,7 +20,7 @@ void app_load_snd();
 
 void app_init()
 {
-    pltf_audio_set_volume(0.2f);
+    pltf_audio_set_volume(1.f);
     pltf_accelerometer_set(1);
     spm_init();
     assets_init();

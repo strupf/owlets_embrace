@@ -8,6 +8,7 @@ void hero_update_ground(game_s *g, obj_s *o)
 {
     hero_s *h = &g->hero_mem;
     hero_restore_grounded_stuff(g, o);
+    o->v_q8.y += HERO_GRAVITY;
 
     h->edgeticks = 6;
     i32 dpad_x   = inp_x();
@@ -39,8 +40,6 @@ void hero_update_ground(game_s *g, obj_s *o)
     if (o->v_prev_q8.x == 0 && o->v_q8.x != 0) {
         o->animation = 0;
     }
-    i32 vs = sgn_i32(o->v_q8.x);
-    i32 va = abs_i32(o->v_q8.x);
 
     // crawling ----------------------------------------------------------------
 
@@ -51,13 +50,14 @@ void hero_update_ground(game_s *g, obj_s *o)
         o->h              = HERO_HEIGHT_CROUCHED;
         h->crouched       = 1;
         h->crouch_standup = 0;
+        h->sprint         = 0;
     }
 
     if (h->crouched) {
         if (0 < dpad_y && h->action_jump && !h->action_jumpp) {
             o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
             h->jump_btn_buffer = 0;
-            o->tomove.y += 1;
+            obj_move_by(g, o, 0, 1);
         }
 
         if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
@@ -72,7 +72,7 @@ void hero_update_ground(game_s *g, obj_s *o)
     } else {
         if (h->crouch_standup) {
             h->crouch_standup--;
-            o->v_q8.x = (o->v_q8.x * 220) / 256;
+            obj_vx_q8_mul(o, 220);
         }
 
         if (0 < h->jump_btn_buffer) {
@@ -80,24 +80,37 @@ void hero_update_ground(game_s *g, obj_s *o)
             hero_start_jump(g, o, HERO_JUMP_GROUND);
         }
 
-        if (h->skidding) {
-            if (256 <= va) {
-                o->v_q8.x = (o->v_q8.x * 220) / 256;
-            } else {
-                o->v_q8.x = (o->v_q8.x * 128) / 256;
+        if (!h->sprint) {
+            if (h->sprint_dtap) {
+                h->sprint_dtap--;
+            }
+
+            if (inp_action_jp(INP_DR) || inp_action_jp(INP_DL)) {
+                if (h->sprint_dtap) {
+                    h->sprint      = 1;
+                    h->sprint_dtap = 0;
+                    if (dpad_x == -1) {
+                        o->v_q8.x = min_i32(o->v_q8.x, -HERO_VX_WALK);
+                    } else if (dpad_x == +1) {
+                        o->v_q8.x = max_i32(o->v_q8.x, +HERO_VX_WALK);
+                    }
+                } else {
+                    h->sprint_dtap = 12;
+                }
             }
         }
-
+        i32 vs = sgn_i32(o->v_q8.x);
+        i32 va = abs_i32(o->v_q8.x);
         i32 ax = 0;
 
-        if (dpad_x != vs) {
-            if (va >= HERO_VX_SPRINT) {
-                if (!h->skidding) {
-                    o->facing   = vs;
-                    h->skidding = 15;
-                }
-            } else if (!h->skidding) {
-                o->v_q8.x = (o->v_q8.x * 128) / 256;
+        if (h->skidding) {
+            obj_vx_q8_mul(o, 256 <= va ? 220 : 128);
+        } else if (dpad_x != vs) {
+            if (HERO_VX_SPRINT <= va) {
+                o->facing   = vs;
+                h->skidding = 15;
+            } else {
+                obj_vx_q8_mul(o, 128);
             }
         }
 
@@ -107,7 +120,7 @@ void hero_update_ground(game_s *g, obj_s *o)
             if (0) {
             } else if (va < HERO_VX_WALK) {
                 ax = lerp_i32(200, 20, va, HERO_VX_WALK);
-            } else if (va < HERO_VX_SPRINT && !h->holds_weapon) {
+            } else if (va < HERO_VX_SPRINT && h->sprint) {
                 ax = lerp_i32(20, 4, va, HERO_VX_SPRINT);
             }
             ax = min_i32(ax, HERO_VX_SPRINT - va);

@@ -16,19 +16,12 @@ typedef struct {
 
 static_assert(sizeof(projectile_s) < 512, "");
 
-void projectile_on_update(game_s *g, obj_s *o);
-void projectile_on_animate(game_s *g, obj_s *o);
-void projectile_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-
 obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
 {
     obj_s        *o = obj_create(g);
     projectile_s *p = (projectile_s *)o->mem;
 
     o->ID = OBJ_ID_PROJECTILE;
-    o->flags =
-        // OBJ_FLAG_RENDER_AABB |
-        OBJ_FLAG_MOVER;
 
     o->on_update  = projectile_on_update;
     o->on_animate = projectile_on_animate;
@@ -37,8 +30,7 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     o->subID      = subID;
     //
     o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
-    o->drag_q8.x = 255;
-    o->drag_q8.y = 255;
+    o->moverflags = OBJ_MOVER_MAP;
 
     switch (subID) {
     case PROJECTILE_ID_STALACTITE_BREAK:
@@ -47,11 +39,10 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
         o->timer = 30;
         break;
     default:
-        o->w         = 16;
-        o->h         = 16;
-        p->hist_len  = 10;
-        p->d_smear   = 10;
-        o->grav_q8.y = 80;
+        o->w        = 16;
+        o->h        = 16;
+        p->hist_len = 10;
+        p->d_smear  = 10;
         break;
     }
 
@@ -66,6 +57,14 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
 
 void projectile_on_update(game_s *g, obj_s *o)
 {
+    switch (o->subID) {
+    case PROJECTILE_ID_STALACTITE_BREAK:
+        break;
+    default:
+        o->v_q8.y += 80;
+        break;
+    }
+
     if (o->bumpflags) {
         projectile_on_collision(g, o);
         return;
@@ -89,6 +88,7 @@ void projectile_on_update(game_s *g, obj_s *o)
         p->n_hist              = (p->n_hist + 1) % p->hist_len;
         p->pos_hist[p->n_hist] = o->pos;
     }
+    obj_move_by_v_q8(g, o);
 }
 
 void projectile_on_animate(game_s *g, obj_s *o)

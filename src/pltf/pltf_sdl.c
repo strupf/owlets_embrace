@@ -9,10 +9,9 @@
 #include <emscripten.h>
 #endif
 
-#define PLTF_SDL_RECORD_1080P   0
-#define PLTF_SDL_RECORD_ANY     (PLTF_SDL_RECORD_1080P)
-#define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_ANY
-#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_ANY
+#define PLTF_SDL_RECORD_1080P   (0 && !defined(__EMSCRIPTEN__))
+#define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
+#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_NUM_DEBUG_RECS 256
 #define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
 
@@ -61,7 +60,6 @@ typedef_struct (pltf_sdl_s) {
 pltf_sdl_s g_SDL;
 
 void pltf_sdl_step();
-void pltf_sdl_close();
 void pltf_sdl_resize();
 void pltf_sdl_set_FPS_cap(i32 fps);
 void pltf_sdl_audio(void *u, u8 *stream, int len);
@@ -80,6 +78,9 @@ int main(int argc, char **argv)
 #if PLTF_SDL_RECORD_1080P
                                     1920,
                                     1080,
+#elif defined(__EMSCRIPTEN__)
+                                    PLTF_DISPLAY_W,
+                                    PLTF_DISPLAY_H,
 #else
                                     PLTF_DISPLAY_W * 2,
                                     PLTF_DISPLAY_H * 2,
@@ -149,9 +150,6 @@ int main(int argc, char **argv)
         pltf_sdl_step();
     }
 #endif
-
-    pltf_internal_close();
-    pltf_sdl_close();
     return 0;
 }
 
@@ -164,6 +162,16 @@ void pltf_sdl_step()
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
+        case SDL_QUIT:
+            pltf_internal_close();
+            SDL_FreeFormat(g_SDL.pformat);
+            SDL_CloseAudioDevice(g_SDL.audiodevID);
+            SDL_DestroyTexture(g_SDL.tex);
+            SDL_DestroyRenderer(g_SDL.renderer);
+            SDL_DestroyWindow(g_SDL.window);
+            SDL_Quit();
+            g_SDL.running = 0;
+            return;
         case SDL_KEYDOWN:
             if (e.key.keysym.sym == SDLK_BACKSPACE && g_SDL.char_del) {
                 g_SDL.char_del(g_SDL.ctx);
@@ -174,7 +182,6 @@ void pltf_sdl_step()
                 break;
             }
             break;
-        case SDL_QUIT: g_SDL.running = 0; break;
         case SDL_WINDOWEVENT:
             switch (e.window.event) {
             case SDL_WINDOWEVENT_RESIZED:
@@ -244,30 +251,30 @@ void pltf_sdl_step()
         SDL_UnlockTexture(g_SDL.tex);
     }
 
-    SDL_SetRenderDrawColor(g_SDL.renderer,
-#if PLTF_SDL_PURE_BW
-                           0x00, 0x00, 0x00,
-#else
-                           0x31, 0x2F, 0x28,
-#endif
-                           0xFF);
+    SDL_SetRenderDrawColor(g_SDL.renderer, 0x00, 0x00, 0x00, 0xFF);
     SDL_RenderClear(g_SDL.renderer);
     SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_dst);
     SDL_RenderPresent(g_SDL.renderer);
 
-#ifndef PLTF_SDL_WEB
+#ifndef __EMSCRIPTEN__
     if (!g_SDL.fps_cap) return;
 
     // custom FPS cap solution in SDL
+    // try to sleep for the desired amount of time
+    // use a multiplier delay_timer_k to fine tune the sleep over time
+    // so we actually hit e.g. 120 FPS instead of 114 FPS
     g_SDL.fps_tick++;
     g_SDL.fps_timer += timedt;
     u64 one_s = (u64)SDL_GetPerformanceFrequency();
+
     if (one_s <= g_SDL.fps_timer) {
         g_SDL.fps_timer -= one_s;
         f32 avg_fps  = (f32)(g_SDL.fps_tick + g_SDL.fps_tick_prev) * 0.5f;
         f32 diff     = avg_fps - (f32)g_SDL.fps_cap;
-        f32 k_change = 0.f;
         f32 diff_abs = 0.f <= diff ? diff : -diff;
+        f32 k_change = 0.f;
+
+        // greater change to multiplier if actual FPS is far off
         if (2.0f <= diff_abs) k_change = .025f;
         else if (1.00f <= diff_abs) k_change = .010f;
         else if (0.25f <= diff_abs) k_change = .001f;
@@ -278,7 +285,7 @@ void pltf_sdl_step()
     }
 
     f32 tdt = (f32)((u64)SDL_GetPerformanceCounter() - time) / (f32)one_s;
-    g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * 1000.f * g_SDL.delay_timer_k;
+    g_SDL.delay_timer += (g_SDL.fps_cap_dt - tdt) * g_SDL.delay_timer_k;
     g_SDL.delay_timer = 0.f <= g_SDL.delay_timer ? g_SDL.delay_timer : 0.f;
     if (1.f <= g_SDL.delay_timer) {
         u32 sleepfor = (u32)g_SDL.delay_timer;
@@ -286,16 +293,6 @@ void pltf_sdl_step()
         SDL_Delay((Uint32)sleepfor);
     }
 #endif
-}
-
-void pltf_sdl_close()
-{
-    SDL_FreeFormat(g_SDL.pformat);
-    SDL_CloseAudioDevice(g_SDL.audiodevID);
-    SDL_DestroyTexture(g_SDL.tex);
-    SDL_DestroyRenderer(g_SDL.renderer);
-    SDL_DestroyWindow(g_SDL.window);
-    SDL_Quit();
 }
 
 void pltf_sdl_resize()
@@ -328,7 +325,7 @@ void pltf_sdl_set_FPS_cap(i32 fps)
         g_SDL.delay_timer = 0.f;
         return;
     }
-    g_SDL.delay_timer_k = 1.f;
+    g_SDL.delay_timer_k = 1000.f; // 1000 milliseconds starting value
     g_SDL.fps_cap       = fps;
     g_SDL.fps_cap_dt    = 1.f / (f32)fps;
 }

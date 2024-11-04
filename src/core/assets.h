@@ -146,7 +146,7 @@ typedef struct {
     asset_fnt_s fnt[NUM_FNTID];
 
     marena_s        marena;
-    alignas(4) byte mem[6 * 1024 * 1024];
+    alignas(8) byte mem[6 * 1024 * 1024];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;
@@ -172,9 +172,6 @@ tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
 fnt_s    fnt_load(const char *filename, alloc_s ma);
 
-u32    snd_play(i32 ID, f32 vol, f32 pitch);
-void   mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in);
-void   mus_stop();
-bool32 mus_playing();
+u32 snd_play(i32 ID, f32 vol, f32 pitch);
 
 #endif

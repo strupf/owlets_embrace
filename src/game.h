@@ -11,6 +11,7 @@
 #include "gamedef.h"
 #include "gameover.h"
 #include "hero/hero.h"
+#include "hero/hero_hook.h"
 #include "hero_powerup.h"
 #include "map_loader.h"
 #include "maptransition.h"

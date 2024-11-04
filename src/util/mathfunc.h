@@ -439,7 +439,10 @@ static inline v2_i32 v2_shr(v2_i32 a, i32 s)
 
 static inline v2_i32 v2_shl(v2_i32 a, i32 s)
 {
-    v2_i32 r = {a.x << s, a.y << s};
+    i64    s1 = (i64)a.x << s;
+    i64    s2 = (i64)a.y << s;
+    v2_i32 r  = {a.x << s, a.y << s};
+    assert((i32)s1 == r.x && (i32)s2 == r.y);
     return r;
 }
 

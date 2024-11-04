@@ -5,14 +5,14 @@
 #ifndef AUD_H
 #define AUD_H
 
-#include "adpcm.h"
 #include "pltf/pltf.h"
+#include "qoa.h"
 
 #define LEN_MUS_NAME      24
 #define NUM_SNDCHANNEL    12
 #define NUM_AUD_CMD_QUEUE 64
 
-#if 1
+#if 0
 #define AUD_MUS_ASSERT assert
 #define AUD_MUS_DEBUG
 #else
@@ -24,15 +24,13 @@ enum {
     AUD_MUSCHANNEL_0_LAYER_1,
     AUD_MUSCHANNEL_0_LAYER_2,
     AUD_MUSCHANNEL_0_LAYER_3,
-    AUD_MUSCHANNEL_1,
-    AUD_MUSCHANNEL_2,
     //
     NUM_MUSCHANNEL
 };
 
 typedef struct snd_s {
-    u8 *buf;
-    u32 len;
+    u32   num_samples;
+    void *dat;
 } snd_s;
 
 enum {
@@ -85,18 +83,18 @@ typedef struct {
 } aud_cmd_s;
 
 typedef struct {
-    u32     snd_iID;
-    adpcm_s adpcm;
+    u32        snd_iID;
+    qoa_data_s qoa_dat;
 } sndchannel_s;
 
 typedef struct {
-    void   *stream;
-    u32     total_bytes_file;
-    adpcm_s adpcm;
-    u8      chunk[256];
-    char    mus_name[LEN_MUS_NAME];
-    i32     trg_vol_q8;
-    bool32  looping;
+    void        *stream;
+    u32          total_bytes_file;
+    qoa_stream_s qoa_str;
+    u8           chunk[256];
+    char         mus_name[LEN_MUS_NAME];
+    i32          trg_vol_q8;
+    bool32       looping;
 } muschannel_s;
 
 typedef struct AUD_s {

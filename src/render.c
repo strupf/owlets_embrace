@@ -442,96 +442,135 @@ void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
     gfx_ctx_s   ctx  = gfx_ctx_display();
     tex_s       t    = ctx.dst;
 
-    // dynamic y offset in source for waterfall tiles
-    // ~1 -> align dither to screenspace
-    i32 fluid_d_offs  = (64 - ((tick * 3) & 63)) & ~1;
-    i32 fluid_d_offs2 = (64 - ((tick * 2) & 63)) & ~1;
-
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-            u32 fl = g->fluid_streams[x + y * g->tiles_x];
+            i32 fl = g->fluid_streams[x + y * g->tiles_x];
             if (fl == 0) continue;
 
-            i32    frx    = 0;
-            i32    fry    = 0;
-            i32    frw    = 16;
-            i32    frh    = 16;
-            v2_i32 p      = {camoff.x + (x << 4), camoff.y + (y << 4)};
-            i32    framex = 7 * 16 * ((tick / 4) & 3);
+            i32    tile_index = fl - 1;
+            i32    frx        = 0;
+            i32    fry        = 0;
+            i32    frw        = 16;
+            i32    frh        = 16;
+            i32    framex     = 12 * 16 * (((tick) / 4) & 3);
+            v2_i32 p          = {camoff.x + (x << 4), camoff.y + (y << 4)};
 
-            switch (fl - 1) {
-            case FLUID_SRC_TILE(0, 2):
-            case FLUID_SRC_TILE(0, 1):
-                frx = 16 * (20) + framex;
-                fry = 16 * (2 + (y & 1));
-                break;
-            case FLUID_SRC_TILE(1, 2):
+            u32 nb = 0; // neighbours
+
+            switch (tile_index) {
+                // WATERFALL BIG
+            case FLUID_SRC_TILE(1, 0):
             case FLUID_SRC_TILE(1, 1):
-                frx = 16 * (21 + (x & 1)) + framex;
-                fry = 16 * (2 + (y & 1));
+            case FLUID_SRC_TILE(1, 2): {
+                if (x < g->tiles_x - 1)
+                    nb |= (!!g->fluid_streams[x + 1 + y * g->tiles_x]);
+                if (0 < x)
+                    nb |= (!!g->fluid_streams[x - 1 + y * g->tiles_x]) << 1;
+
+                switch (nb) {
+                case 0: frx = 16 * 5; break;             // none
+                case 1: frx = 16 * 1; break;             // r
+                case 2: frx = 16 * 4; break;             // l
+                case 3: frx = 16 * (2 + (x & 1)); break; // l & r
+                }
+
+                switch (tile_index) {
+                case FLUID_SRC_TILE(1, 0): fry = 16 * 1; break;
+                case FLUID_SRC_TILE(1, 1):
+                case FLUID_SRC_TILE(1, 2): fry = 16 * (2 + (y & 1)); break;
+                }
                 break;
-            case FLUID_SRC_TILE(2, 2):
-            case FLUID_SRC_TILE(2, 1):
-                frx = 16 * 23 + framex;
-                fry = 16 * (2 + (y & 1));
-                break;
-            case FLUID_SRC_TILE(3, 2):
+            }
+            case FLUID_SRC_TILE(3, 0):
             case FLUID_SRC_TILE(3, 1):
-                frx = 16 * (25) + framex;
-                fry = 16 * (2 + (y & 1));
+                frx = 6 * 16;
+                fry = (2 + (y & 1)) * 16;
                 break;
-            case FLUID_SRC_TILE(4, 0):
-                p.x -= 8;
-                frx = 128;
-                frw = 32;
-                fry = 16;
+            case FLUID_SRC_TILE(7, 0):
+            case FLUID_SRC_TILE(7, 1):
+                frx = 6 * 16;
+                fry = (6 + (y & 1)) * 16;
                 break;
-            case FLUID_SRC_TILE(5, 0):
-                frx = 160 + ((tick >> 2) & 1) * 16;
-                fry = 0;
-                fry = 16;
+                // WATER STREAM FACING RIGHT
+            case FLUID_SRC_TILE(6, 0):
+                frx = 11 * 16;
+                fry = 7 * 16;
                 break;
-            case FLUID_SRC_TILE(4, 1):
-                p.x -= 8;
-                frx = 128;
-                frw = 32;
-                fry = 32 + (y & 3) * 16 + fluid_d_offs2;
+            case FLUID_SRC_TILE(6, 2):
+                frx = 8 * 16;
+                fry = 7 * 16;
                 break;
             case FLUID_SRC_TILE(6, 1):
-                p.x -= 8;
-                frx = 192;
-                frw = 32;
-                fry = 32 + (y & 3) * 16 + fluid_d_offs2;
+                frx = (8) * 16;
+                fry = (5 + (y & 1)) * 16;
+                break;
+            case FLUID_SRC_TILE(7, 2): {
+                frx = (9 + (x & 1)) * 16;
+                fry = 7 * 16;
                 break;
             }
-
-            texrec_s trw = {twat, {frx, fry, frw, frh}};
-            gfx_spr_tile_32x32(ctx, trw, p);
-
-            bool32 foam = 1;
-            switch (fl - 1) {
-            default: foam = 0; break;
-            case FLUID_SRC_TILE(0, 2):
-                frx = 16 * (20) + framex;
-                fry = 16 * 4;
+                // WATER STREAM FACING LEFT
+            case FLUID_SRC_TILE(4, 0):
+                frx = 8 * 16;
+                fry = 3 * 16;
                 break;
-            case FLUID_SRC_TILE(1, 2):
-                frx = 16 * (21 + (x & 1)) + framex;
-                fry = 16 * 4;
+            case FLUID_SRC_TILE(4, 2):
+                frx = 11 * 16;
+                fry = 3 * 16;
                 break;
-            case FLUID_SRC_TILE(2, 2):
-                frx = 16 * 23 + framex;
-                fry = 16 * 4;
+            case FLUID_SRC_TILE(4, 1):
+                frx = 11 * 16;
+                fry = (1 + (y & 1)) * 16;
                 break;
             case FLUID_SRC_TILE(3, 2):
-                frx = 16 * 25 + framex;
-                fry = 16 * 4;
+                frx = (9 + (x & 1)) * 16;
+                fry = 3 * 16;
+                break;
+                //
+            }
+
+            texrec_s trw = {twat, {frx + framex, fry, frw, frh}};
+            gfx_spr_tile_32x32(ctx, trw, p);
+
+            // FOAM
+            bool32 render_foam = 1;
+            switch (tile_index) {
+            default: render_foam = 0; break;
+            case FLUID_SRC_TILE(1, 2): {
+                fry = 4 * 16;
+                switch (nb) {
+                case 0:
+                    frx = 16 * 5;
+                    break; // none
+                case 1:
+                    p.x -= 16;
+                    frx = 0;
+                    frw = 32;
+                    break; // r
+                case 2:
+                    frx = 16 * 4;
+                    frw = 32;
+                    break; // l
+                case 3:
+                    frx = 16 * (2 + (x & 1));
+                    break; // l & r
+                }
                 break;
             }
-            if (!foam) continue;
-            texrec_s trw2 = {twat, {frx, fry, frw, frh}};
-            p.y += 4;
-            gfx_spr_tile_32x32(ctx, trw2, p);
+            case FLUID_SRC_TILE(7, 1): p.x -= 8;
+            case FLUID_SRC_TILE(3, 1): {
+                fry = 16 * 4;
+                frx = 16 * 6;
+                frw = 32;
+                break;
+            }
+            }
+
+            if (render_foam) {
+                texrec_s tr_foam = {twat, {frx + framex, fry, frw, frh}};
+                p.y += 4;
+                gfx_spr_tile_32x32(ctx, tr_foam, p);
+            }
         }
     }
 }

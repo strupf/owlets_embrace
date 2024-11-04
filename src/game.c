@@ -97,28 +97,25 @@ void game_tick_gameplay(game_s *g)
     g->gameplay_tick++;
     g->events_frame          = 0;
     g->hero_mem.interactable = obj_handle_from_obj(NULL);
+    g->hero_mem.pushing      = 0;
 
     for (obj_each(g, o)) {
-        v2_i32 posprev = o->pos;
+        o->v_prev_q8 = o->v_q8;
 
-        if (o->on_update) {
-            o->on_update(g, o);
+        switch (o->ID) {
+        case OBJ_ID_HERO: hero_on_update(g, o); break;
+        case OBJ_ID_HOOK: hook_update(g, o); break;
+        case OBJ_ID_FLYBLOB: flyblob_on_update(g, o); break;
+        case OBJ_ID_PROJECTILE: projectile_on_update(g, o); break;
+        case OBJ_ID_BUDPLANT: budplant_on_update(g, o); break;
+        case OBJ_ID_SPRITEDECAL: spritedecal_on_update(g, o); break;
+        case OBJ_ID_PUSHBLOCK: pushblock_on_update(g, o); break;
+        case OBJ_ID_NPC: npc_on_update(g, o); break;
+        case OBJ_ID_HERO_POWERUP: hero_powerup_obj_on_update(g, o); break;
         }
-
-        o->pos_prev = posprev;
     }
-
-    for (obj_each(g, o)) { // integrate acc, vel and drag: adds tomove accumulator
-        if (o->flags & OBJ_FLAG_MOVER) {
-            obj_apply_movement(o);
-        }
-    }
-
     for (obj_each(g, o)) {
-        o->moverflags |= OBJ_MOVER_MAP; // TODO: really shouldn't be here...
-        if (!obj_try_wiggle(g, o)) continue;
-        obj_move(g, o, v2_i32_from_i16(o->tomove));
-        o->tomove.x = 0, o->tomove.y = 0;
+        obj_try_wiggle(g, o);
     }
 
     rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
@@ -214,8 +211,14 @@ void game_tick_gameplay(game_s *g)
     }
 
     for (obj_each(g, o)) {
-        if (o->on_animate) {
-            o->on_animate(g, o);
+        switch (o->ID) {
+        case OBJ_ID_HERO: hero_on_animate(g, o); break;
+        case OBJ_ID_HOOK: hook_on_animate(g, o); break;
+        case OBJ_ID_FLYBLOB: flyblob_on_animate(g, o); break;
+        case OBJ_ID_PROJECTILE: projectile_on_animate(g, o); break;
+        case OBJ_ID_BUDPLANT: budplant_on_animate(g, o); break;
+        case OBJ_ID_SPRITEDECAL: spritedecal_on_animate(g, o); break;
+        case OBJ_ID_NPC: npc_on_animate(g, o); break;
         }
     }
 }

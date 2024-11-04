@@ -29,9 +29,6 @@ typedef struct {
     bool8 invincible;
 } flyblob_s;
 
-void flyblob_on_update(game_s *g, obj_s *o);
-void flyblob_on_animate(game_s *g, obj_s *o);
-
 void flyblob_on_hit(game_s *g, obj_s *o, hitbox_s hb)
 {
     flyblob_s *f = (flyblob_s *)o->mem;
@@ -71,11 +68,11 @@ void flyblob_load(game_s *g, map_obj_s *mo)
     o->health     = o->health_max;
     o->facing     = 1;
 
-    o->flags = OBJ_FLAG_MOVER |
-               OBJ_FLAG_SPRITE |
+    o->flags = OBJ_FLAG_SPRITE |
                // OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY | OBJ_FLAG_PLATFORM_HERO_ONLY |
                OBJ_FLAG_CLAMP_TO_ROOM | OBJ_FLAG_CAN_BE_JUMPED_ON;
+    o->moverflags        = OBJ_MOVER_MAP;
     o->n_sprites         = 2;
     tex_s tex            = asset_tex(TEXID_FLYBLOB);
     o->sprites[0].trec.t = tex;
@@ -86,9 +83,6 @@ void flyblob_on_update(game_s *g, obj_s *o)
 {
     flyblob_s *f = (flyblob_s *)o->mem;
     o->timer++;
-    o->drag_q8.x    = 256;
-    o->drag_q8.y    = 256;
-    o->grav_q8.y    = 0;
     obj_s *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
     i32    dsq_hero = I32_MAX;
     v2_i32 vhero    = {0};
@@ -194,10 +188,6 @@ void flyblob_on_update(game_s *g, obj_s *o)
             o->v_q8.x = (f->force_x * 1000) >> 8;
             o->v_q8.y = -600;
         }
-
-        o->grav_q8.y = 40;
-        o->drag_q8.x = 245;
-        o->drag_q8.y = 256;
         break;
     }
     case FLYBLOB_STATE_FALLING: {
@@ -208,12 +198,13 @@ void flyblob_on_update(game_s *g, obj_s *o)
             o->v_q8.y = 0;
             break;
         }
-        o->grav_q8.y = 50;
-        o->drag_q8.x = 240;
-        o->drag_q8.y = 256;
+
+        o->v_q8.y += 50;
+        obj_vx_q8_mul(o, 240);
         break;
     }
     case FLYBLOB_STATE_GROUND: {
+        o->v_q8.y += 50;
         if (o->bumpflags & OBJ_BUMPED_Y) {
             o->v_q8.y = 0;
         }
@@ -233,13 +224,11 @@ void flyblob_on_update(game_s *g, obj_s *o)
         if (vs) {
             o->facing = vs;
         }
-
-        o->grav_q8.y = 50;
-        o->drag_q8.x = 256;
-        o->drag_q8.y = 256;
         break;
     }
     }
+
+    obj_move_by_v_q8(g, o);
 }
 
 void flyblob_on_animate(game_s *g, obj_s *o)

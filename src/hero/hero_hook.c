@@ -16,9 +16,8 @@ enum {
     HOOK_STATE_ATTACHED,
 };
 
-void hook_on_animate(game_s *g, obj_s *o);
-i32  hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
-i32  hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
+i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
+i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
 
 obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
 {
@@ -37,14 +36,10 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->h              = 4;
     o->pos.x          = p.x - o->w / 2;
     o->pos.y          = p.y - o->h / 2;
-    o->drag_q8.x      = 256;
-    o->drag_q8.y      = 256;
-    o->grav_q8.y      = 60;
     o->v_q8           = v2_i16_from_i32(v_q8, 0);
-    o->v_cap_y_q8_pos = 2500;
 
     rope_init(r);
-    r->len_max_q4 = hero_max_rope_len_q4(g);
+    r->len_max_q4 = HERO_ROPE_LEN_LONG;
     r->tail->p    = p;
     r->head->p    = p;
     o->rope       = r;
@@ -160,12 +155,16 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     obj_s  *h = obj_get_tagged(g, OBJ_TAG_HERO);
     rope_s *r = hook->rope;
 
-    obj_apply_movement(hook);
+    hook->v_q8.y += 110;
+    hook->subpos_q8 = v2_i16_add(hook->subpos_q8, hook->v_q8);
+    v2_i32 dtpos    = v2_i32_from_i16(v2_i16_shr(hook->subpos_q8, 8));
+    hook->subpos_q8.x &= 255;
+    hook->subpos_q8.y &= 255;
 
     obj_s *tohook = NULL;
-    i32    attach = hook_move(g, hook, v2_i32_from_i16(hook->tomove), &tohook);
+    i32    attach = hook_move(g, hook, dtpos, &tohook);
     if (attach != HOOK_ATTACH_NONE) {
-        i32 mlen_q4   = hero_max_rope_len_q4(g);
+        i32 mlen_q4   = HERO_ROPE_LEN_LONG;
         i32 clen_q4   = rope_len_q4(g, r);
         i32 herostate = hero_determine_state(g, h, (hero_s *)h->mem);
         if (herostate == HERO_STATE_AIR) {
@@ -181,25 +180,23 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
             if (abs_i32(hook->v_q8.x) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
-            hook->v_q8.x = -hook->v_q8.x / 3;
+            obj_vx_q8_mul(hook, -85);
         }
         if (hook->bumpflags & OBJ_BUMPED_Y) {
             if (abs_i32(hook->v_q8.y) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
-            hook->v_q8.y = -hook->v_q8.y / 3;
+            obj_vy_q8_mul(hook, -85);
         }
         if (obj_grounded(g, hook)) {
-            hook->v_q8.x = (hook->v_q8.x * 240) >> 8;
+            obj_vx_q8_mul(hook, 240);
         }
         break;
     case HOOK_ATTACH_SOLID: {
-        hook->tomove.x = 0;
-        hook->tomove.y = 0;
-        hook->v_q8.x   = 0;
-        hook->v_q8.y   = 0;
-        hook->state    = HOOK_STATE_ATTACHED;
-        snd_play(SNDID_HOOK_ATTACH, 0.5f, 1.f);
+        hook->v_q8.x = 0;
+        hook->v_q8.y = 0;
+        hook->state  = HOOK_STATE_ATTACHED;
+        snd_play(SNDID_HOOK_ATTACH, 0.2f, 1.f);
 
         rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
         for (obj_each(g, solid)) {

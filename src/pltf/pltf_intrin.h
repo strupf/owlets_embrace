@@ -49,23 +49,8 @@ static inline u16x2 u16x2_shr(u16x2 v, i32 s)
 #endif
 
 #if defined(PLTF_PD_HW)
-
-static inline u32 bswap32(u32 v)
-{
-    u32 r = 0;
-    ASM1(rev, r, v);
-    return r;
-}
-
-static inline i32 ssat16(i32 x)
-{
-    u32 r = 0;
-    u32 i = (u32)x;
-    ASM("ssat %0, %1, %2"
-        : "=r"(r)
-        : "I"(16), "r"(i));
-    return (i32)r;
-}
+#define bswap32   __builtin_bswap32
+#define ssat16(X) __ssat(X, 16)
 
 static inline u32 rotr(u32 v, u32 rot)
 {

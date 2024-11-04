@@ -115,10 +115,12 @@ typedef_struct (hero_s) {
     bool8        action_jumpp;
     bool8        action_jump;
     bool8        dropped_weapon;
+    bool8        sprint;
+    i8           pushing;
+    u8           sprint_dtap;
     u8           crouch_standup;
     u8           crouched;
     i8           crawl; // facing sign
-    u8           sprint_dtap;
     u8           stomp;
     u8           holds_weapon;
     u8           swimsfx_delay;
@@ -159,13 +161,14 @@ typedef_struct (hero_s) {
 };
 
 obj_s *hero_create(game_s *g);
+void   hero_on_update(game_s *g, obj_s *o);
+void   hero_on_animate(game_s *g, obj_s *o);
 void   hero_handle_input(game_s *g, obj_s *o);
 void   hero_on_squish(game_s *g, obj_s *o);
 void   hero_check_rope_intact(game_s *g, obj_s *o);
 void   hero_hurt(game_s *g, obj_s *o, i32 damage);
 void   hero_kill(game_s *g, obj_s *o);
 i32    hero_determine_state(game_s *g, obj_s *o, hero_s *h);
-i32    hero_max_rope_len_q4(game_s *g);
 bool32 hero_try_stand_up(game_s *g, obj_s *o);
 void   hero_start_jump(game_s *g, obj_s *o, i32 ID);
 void   hero_flytime_update_ui(game_s *g, obj_s *ohero, i32 amount); // swaps "temporary" flytime to regular flytime -> UI

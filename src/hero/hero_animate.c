@@ -98,6 +98,12 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
+        if (h->pushing) {
+            animID  = 2;
+            frameID = 12 + ((pltf_time() >> 3) & 3);
+            break;
+        }
+
         if (h->crouched) {
             if (h->crawl) {
                 animID = HERO_ANIMID_CRAWL;

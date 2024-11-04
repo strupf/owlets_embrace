@@ -71,6 +71,8 @@ void inp_update()
     if (pltf_sdl_key(SDL_SCANCODE_D)) INP.curri.actions |= INP_DR;
     if (pltf_sdl_key(SDL_SCANCODE_COMMA)) INP.curri.actions |= INP_B;
     if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) INP.curri.actions |= INP_A;
+    if (pltf_sdl_key(SDL_SCANCODE_N)) INP.curri.actions |= INP_B;
+    if (pltf_sdl_key(SDL_SCANCODE_M)) INP.curri.actions |= INP_A;
     INP.curri.actions |= INP_CRANK_DOCK;
 #endif
 

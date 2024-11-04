@@ -33,9 +33,6 @@ typedef struct {
 #define BUDPLANT_TICKS_SHAKING  50
 #define BUDPLANT_TICKS_SHOOTING 25
 
-void budplant_on_update(game_s *g, obj_s *o);
-void budplant_on_animate(game_s *g, obj_s *o);
-
 void budplant_load(game_s *g, map_obj_s *mo)
 {
     obj_s      *o  = obj_create(g);
@@ -47,6 +44,8 @@ void budplant_load(game_s *g, map_obj_s *mo)
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_CAN_BE_JUMPED_ON |
                OBJ_FLAG_PLATFORM_HERO_ONLY;
+    o->moverflags = OBJ_MOVER_MAP;
+
     o->w          = 16;
     o->h          = 16;
     o->pos.x      = mo->x;

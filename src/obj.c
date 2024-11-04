@@ -220,26 +220,26 @@ bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
     const rec_i32 rplat = {o->pos.x, o->pos.y - dy, o->w, 1};
     for (obj_each(g, it)) {
         if (o == it) continue;
-        rec_i32 it_bot  = obj_rec_bottom(it);
-        rec_i32 it_rec  = obj_aabb(it);
-        bool32  linked  = o == obj_from_obj_handle(it->linked_solid);
-        bool32  pushed  = 0;
-        bool32  carried = 0;
+
+        rec_i32 it_bot = obj_rec_bottom(it);
+        rec_i32 it_rec = obj_aabb(it);
+        bool32  linked = o == obj_from_obj_handle(it->linked_solid);
+        bool32  pushed = 0;
 
         switch (it->ID) {
         case OBJ_ID_CRAWLER_CATERPILLAR:
         case OBJ_ID_CRAWLER:
             if (overlap_rec_touch(it_rec, cr))
-                linked = 1;
+                linked |= 1;
             break;
         }
 
         if (o->mass) {
             if (it->mass < o->mass) {
-                pushed = overlap_rec(oaabb, it_rec);
+                pushed |= overlap_rec(oaabb, it_rec);
             }
             if (it->mass <= o->mass) {
-                carried = overlap_rec(cr, it_bot);
+                linked |= overlap_rec(cr, it_bot);
             }
         }
 
@@ -248,10 +248,10 @@ bool32 obj_step_internal(game_s *g, obj_s *o, i32 dx, i32 dy, i32 m)
               it->ID == OBJ_ID_HERO)) &&
             (it->moverflags & OBJ_MOVER_ONE_WAY_PLAT) &&
             overlap_rec(it_bot, rplat)) {
-            carried = 1;
+            linked |= 1;
         }
 
-        if (linked || pushed || carried) {
+        if (linked | pushed) {
             obj_step_x(g, it, dx, 1, pushed ? m : 0);
             obj_step_y(g, it, dy, 1, pushed ? m : 0);
         }
@@ -410,6 +410,53 @@ void obj_apply_movement(obj_s *o)
     o->subpos_q8.y &= 255;
 }
 
+void obj_move_by_q8(game_s *g, obj_s *o, i32 dx_q8, i32 dy_q8)
+{
+    o->subpos_q8.x += dx_q8;
+    o->subpos_q8.y += dy_q8;
+    i32 dx = o->subpos_q8.x >> 8;
+    i32 dy = o->subpos_q8.y >> 8;
+    o->subpos_q8.x &= 0xFF;
+    o->subpos_q8.y &= 0xFF;
+
+    v2_i32 dt = {dx, dy};
+    obj_move(g, o, dt);
+}
+
+void obj_move_by(game_s *g, obj_s *o, i32 dx, i32 dy)
+{
+    v2_i32 dt = {dx, dy};
+    obj_move(g, o, dt);
+}
+
+void obj_move_by_v_q8(game_s *g, obj_s *o)
+{
+    o->subpos_q8 = v2_i16_add(o->subpos_q8, o->v_q8);
+    i32 dx       = o->subpos_q8.x >> 8;
+    i32 dy       = o->subpos_q8.y >> 8;
+    o->subpos_q8.x &= 0xFF;
+    o->subpos_q8.y &= 0xFF;
+
+    v2_i32 dt = {dx, dy};
+    obj_move(g, o, dt);
+}
+
+void obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8)
+{
+    obj_vx_q8_mul(o, mx_q8);
+    obj_vy_q8_mul(o, my_q8);
+}
+
+void obj_vx_q8_mul(obj_s *o, i32 mx_q8)
+{
+    o->v_q8.x = (o->v_q8.x * mx_q8) / 256;
+}
+
+void obj_vy_q8_mul(obj_s *o, i32 my_q8)
+{
+    o->v_q8.y = (o->v_q8.y * my_q8) / 256;
+}
+
 bool32 overlap_obj(obj_s *a, obj_s *b)
 {
     return (overlap_rec(obj_aabb(a), obj_aabb(b)));
@@ -549,16 +596,4 @@ void obj_on_hooked(game_s *g, obj_s *o)
     switch (o->ID) {
     case OBJ_ID_HOOKPLANT: hookplant_on_hook(o); break;
     }
-}
-
-bool32 enemy_vulnerable(obj_s *o)
-{
-    if (!(o->flags & OBJ_FLAG_ENEMY)) return 0;
-
-    switch (o->ID) {
-    default: break;
-    case OBJ_ID_CRAWLER:
-        break;
-    }
-    return 1;
 }

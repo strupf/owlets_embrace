@@ -66,8 +66,8 @@ void assets_export()
     for (u32 n = 0; n < NUM_SNDID; n++) {
         snd_s      s  = ASSETS.snd[n].snd;
         exp_snd_s *es = &coll->snd[n];
-        es->offs      = (u32)((const byte *)s.buf - mbeg);
-        es->len       = s.len;
+        es->offs      = (u32)((const byte *)s.dat - mbeg);
+        es->len       = s.num_samples;
     }
     for (u32 n = 0; n < NUM_FNTID; n++) {
         fnt_s      f  = ASSETS.fnt[n].fnt;
@@ -140,10 +140,10 @@ void assets_import()
         t->wword     = et.wword;
     }
     for (u32 n = 0; n < NUM_SNDID; n++) {
-        snd_s    *s  = &ASSETS.snd[n].snd;
-        exp_snd_s es = coll->snd[n];
-        s->buf       = (u8 *)(mbeg + es.offs);
-        s->len       = es.len;
+        snd_s    *s    = &ASSETS.snd[n].snd;
+        exp_snd_s es   = coll->snd[n];
+        s->dat         = (u8 *)(mbeg + es.offs);
+        s->num_samples = es.len;
     }
     for (u32 n = 0; n < NUM_FNTID; n++) {
         fnt_s    *f  = &ASSETS.fnt[n].fnt;
@@ -163,7 +163,7 @@ void *assetmem_alloc_ctx(void *arg, usize s)
 
 void *assetmem_alloc(usize s)
 {
-    memarena_align(&ASSETS.marena, 4);
+    memarena_align(&ASSETS.marena, 8);
     void *mem = memarena_alloc(&ASSETS.marena, s);
     if (!mem) {
         pltf_log("+++ ran out of asset mem!\n");
@@ -237,7 +237,7 @@ i32 asset_snd_loadID(i32 ID, const char *filename, snd_s *snd)
 #endif
     snd_s s            = snd_load(pathname, asset_allocator);
     ASSETS.snd[ID].snd = s;
-    if (s.buf) {
+    if (s.dat) {
         if (snd) *snd = s;
         return ID;
     }

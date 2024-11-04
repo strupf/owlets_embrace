@@ -134,7 +134,6 @@ struct obj_s {
     i16               w;
     i16               h;
     v2_i32            pos; // position in pixels
-    v2_i32            pos_prev;
     v2_i16            subpos_q8;
     v2_i16            v_q8;
     v2_i16            v_prev_q8;
@@ -209,6 +208,12 @@ void         squish_delete(game_s *g, obj_s *o);
 v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
 void         obj_on_hooked(game_s *g, obj_s *o);
 obj_s       *obj_closest_interactable(game_s *g, v2_i32 pos);
+void         obj_move_by_q8(game_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
+void         obj_move_by(game_s *g, obj_s *o, i32 dx, i32 dy);
+void         obj_move_by_v_q8(game_s *g, obj_s *o);
+void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
+void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
+void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

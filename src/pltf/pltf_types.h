@@ -37,6 +37,10 @@
 #error ALIGNMENT UNAVAILABLE
 #endif
 
+#ifdef PLTF_PD_HW
+#include <arm_acle.h>
+#endif
+
 typedef char           byte;
 typedef float          f32;
 typedef double         f64;

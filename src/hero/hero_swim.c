@@ -26,8 +26,8 @@ i32 hero_breath_tick_max(game_s *g)
 
 void hero_update_swimming(game_s *g, obj_s *o)
 {
-    hero_s *h           = &g->hero_mem;
-    o->v_q8.x           = (o->v_q8.x * 240) >> 8;
+    hero_s *h = &g->hero_mem;
+    obj_vx_q8_mul(o, 240);
     h->flytime          = 0;
     h->flytime_added    = 0;
     h->jump_ui_may_hide = 1;
@@ -41,9 +41,10 @@ void hero_update_swimming(game_s *g, obj_s *o)
         h->diving = 0;
     }
 
-    o->animation++;
     if ((inp_x() == 0 || inp_xp() == 0) && inp_x() != inp_xp()) {
         o->animation = 0;
+    } else {
+        o->animation++;
     }
 
     if (h->swimsfx_delay) {
@@ -66,16 +67,15 @@ void hero_update_swimming(game_s *g, obj_s *o)
     }
 
     if (h->diving && hero_has_upgrade(g, HERO_UPGRADE_DIVE)) {
-        o->v_q8.y    = (o->v_q8.y * 230) >> 8;
-        o->grav_q8.y = 0;
-
+        obj_vy_q8_mul(o, 230);
         if (dpad_y) {
             i32 i0 = (dpad_y == sgn_i32(o->v_q8.y) ? abs_i32(o->v_q8.y) : 0);
             i32 ay = (max_i32(512 - i0, 0) * 128) >> 8;
             o->v_q8.y += ay * dpad_y;
         }
     } else {
-        o->v_q8.y = (o->v_q8.y * 220) >> 8;
+        o->v_q8.y += HERO_GRAVITY;
+        obj_vy_q8_mul(o, 220);
         if (!hero_has_upgrade(g, HERO_UPGRADE_SWIM) && 0 < h->swimticks) {
             h->swimticks--; // swim ticks are reset when grounded later on
         }
@@ -97,7 +97,7 @@ void hero_update_swimming(game_s *g, obj_s *o)
         }
 
         if (hero_has_upgrade(g, HERO_UPGRADE_DIVE) && 0 < inp_y()) {
-            o->tomove.y += 10;
+            obj_move_by(g, o, 0, +10);
             o->v_q8.y = +1000;
             h->diving = 1;
         } else if (inp_action_jp(INP_A)) {
@@ -113,9 +113,7 @@ void hero_update_swimming(game_s *g, obj_s *o)
                     if (g->tiles[i].collision ||
                         (g->tiles[i].type & TILE_WATER_MASK))
                         continue;
-
-                    o->tomove.y  = -12;
-                    o->drag_q8.y = 256;
+                    obj_move_by(g, o, 0, -12);
                     hero_start_jump(g, o, HERO_JUMP_WATER);
                     snd_play(SNDID_WATER_OUT_OF, 0.5f, 1.f);
                     particle_desc_s prt = {0};
