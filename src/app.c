@@ -36,7 +36,7 @@ void app_init()
 #else
     assets_import();
 #endif
-    game_s *g = &APP.game;
+    g_s *g = &APP.game;
 
     pltf_log("Asset mem left: %u kb\n", (u32)memarena_size_rem(&ASSETS.marena) / 1024);
     u32 size_tabs = sizeof(g_tile_corners) +
@@ -77,7 +77,7 @@ static void app_tick_step()
         return;
     }
 
-    game_s *g = &APP.game;
+    g_s *g = &APP.game;
 
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -98,7 +98,7 @@ void app_draw()
 #endif
     tex_clr(asset_tex(0), GFX_COL_WHITE);
     gfx_ctx_s ctx = gfx_ctx_display();
-    game_s   *g   = &APP.game;
+    g_s   *g   = &APP.game;
 
     switch (g->state) {
     case APP_STATE_TITLE:

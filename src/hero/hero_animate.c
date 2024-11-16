@@ -23,10 +23,10 @@ enum {
     HERO_ANIMID_ATTACK,
 };
 
-void hero_on_animate(game_s *g, obj_s *o)
+void hero_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *sprite     = &o->sprites[0];
-    hero_s       *h          = &g->hero_mem;
+    hero_s       *h          = (hero_s *)o->heap;
     const bool32  was_idle   = h->is_idle;
     const u32     idle_animp = h->idle_anim;
 
@@ -86,13 +86,13 @@ void hero_on_animate(game_s *g, obj_s *o)
     switch (state) {
     case HERO_STATE_GROUND: {
         sprite->offs.y -= 16;
-        if (0 < h->ground_impact_ticks && !h->holds_weapon) {
+        if (0 < h->impact_ticks && !h->holds_weapon) {
             if (h->holds_weapon) {
                 animID  = 23;
                 frameID = 0;
             } else {
                 animID  = HERO_ANIMID_AIR; // "oof"
-                frameID = 6;
+                frameID = 7;
             }
 
             break;
@@ -108,14 +108,14 @@ void hero_on_animate(game_s *g, obj_s *o)
             if (h->crawl) {
                 animID = HERO_ANIMID_CRAWL;
                 o->animation += o->v_q8.x;
-                frameID = 8 + ((u32)o->animation / 1500) % 6;
+                frameID = 8 + modu_i32(o->animation / 1500, 6);
             } else {
                 animID = HERO_ANIMID_CRAWL - 1;
                 if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
                     frameID = 11 + (h->crouched * 2) / HERO_CROUCHED_MAX_TICKS;
                 } else {
                     o->animation += 1;
-                    frameID = 13 + (o->animation / 14) % 3;
+                    frameID = 13 + modu_i32(o->animation / 14, 3);
                 }
             }
 
@@ -168,14 +168,8 @@ void hero_on_animate(game_s *g, obj_s *o)
             }
 
             if (h->skidding && !h->holds_weapon) {
-                if (4 <= h->skidding) {
-                    animID  = HERO_ANIMID_RUN;
-                    frameID = 8;
-                } else {
-                    animID  = HERO_ANIMID_RUN;
-                    frameID = 9;
-                }
-
+                animID  = HERO_ANIMID_RUN;
+                frameID = 8 + (h->skidding < 4);
                 break;
             }
 
@@ -258,13 +252,36 @@ void hero_on_animate(game_s *g, obj_s *o)
         }
         break;
     }
+    case HERO_STATE_CLIMB: {
+        i32 climbdir = inp_y();
+        if (!hero_stamina_left(g, o)) {
+            climbdir = +1;
+        }
+        if (h->impact_ticks) {
+            climbdir = 0;
+        }
+
+        switch (climbdir) {
+        case -1:
+            animID  = 9;
+            frameID = 8 + modu_i32(o->animation >> 3, 6);
+            break;
+        case +0:
+            animID  = 8;
+            frameID = h->impact_ticks ? 6 : 8;
+            break;
+        case +1:
+            animID  = 8;
+            frameID = 7;
+            break;
+        }
+        break;
+    }
     case HERO_STATE_AIR: {
         if (o->rope) {
             animID          = HERO_ANIMID_HANG_HOOK;
             ropenode_s *rn2 = ropenode_neighbour(o->rope, o->ropenode);
-            v2_i32      rv1 = o->ropenode->p;
-            v2_i32      rv2 = rn2->p;
-            v2_i32      rdt = v2_sub(rv2, rv1);
+            v2_i32      rdt = v2_sub(rn2->p, o->ropenode->p);
 
             f32 ang = atan2f((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
 
@@ -276,7 +293,7 @@ void hero_on_animate(game_s *g, obj_s *o)
 
         if (h->stomp) {
             animID  = 7;
-            frameID = 7 + min_i32(4, h->stomp >> 2);
+            frameID = 9 + min_i32(4, h->stomp >> 2);
             break;
         }
 
@@ -288,19 +305,34 @@ void hero_on_animate(game_s *g, obj_s *o)
             break;
         }
 
+        if (h->walljump_tick) {
+            i32 wj_s    = sgn_i32(h->walljump_tick);
+            i32 wj_tick = abs_i32(h->walljump_tick) -
+                          (WALLJUMP_MOM_TICKS - WALLJUMP_ANIM_TICKS);
+            if (0 <= wj_tick) {
+                animID       = 8;
+                frameID      = 9 + 1 - (2 * (wj_tick - 1)) / WALLJUMP_ANIM_TICKS;
+                sprite->flip = wj_s == 1 ? SPR_FLIP_X : 0;
+                break;
+            }
+        }
+
         animID = HERO_ANIMID_AIR; // "air"
-        if (0 < h->ground_impact_ticks) {
-            frameID = 0;
-        } else if (+500 <= o->v_q8.y) {
+        if (h->impact_ticks) {
+            frameID   = 0;
+            v2_i32 pc = obj_pos_bottom_center(o);
+            sprite->offs.x -= (pc.x - h->jpos.x) / 2;
+            sprite->offs.y -= (pc.y - h->jpos.y) + 16;
+        } else if (+200 <= o->v_q8.y) {
+            frameID = 6;
+        } else if (0 <= o->v_q8.y) {
             frameID = 5;
-        } else if (+300 <= o->v_q8.y) {
+        } else if (-400 <= o->v_q8.y) {
             frameID = 4;
-        } else if (-200 <= o->v_q8.y) {
+        } else if (-800 <= o->v_q8.y) {
             frameID = 3;
-        } else if (-600 <= o->v_q8.y) {
-            frameID = 2;
         } else {
-            frameID = 1;
+            frameID = 2;
         }
         break;
     }

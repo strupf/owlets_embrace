@@ -45,9 +45,9 @@ typedef struct {
     } inventory;
 } menu_screen_s;
 
-v2_i32 mapview_hero_world_q8(game_s *g);
-void   menu_screen_update(game_s *g, menu_screen_s *m);
-void   menu_screen_draw(game_s *g, menu_screen_s *m);
-void   menu_screen_open(game_s *g, menu_screen_s *m);
+v2_i32 mapview_hero_world_q8(g_s *g);
+void   menu_screen_update(g_s *g, menu_screen_s *m);
+void   menu_screen_draw(g_s *g, menu_screen_s *m);
+void   menu_screen_open(g_s *g, menu_screen_s *m);
 
 #endif

@@ -14,7 +14,7 @@ void textbox_start_writing(textbox_s *tb, dialog_frame_s *frame);
 void textbox_start_exit(textbox_s *tb);
 i32  textbox_dialog_line_len(dialog_str_s *line);
 
-bool32 textbox_load_dialog(game_s *g, const char *fname)
+bool32 textbox_load_dialog(g_s *g, const char *fname)
 {
     FILEPATH_GEN(filepath, FILEPATH_DIALOG, fname);
     str_append(filepath, ".json");
@@ -151,7 +151,7 @@ bool32 textbox_load_dialog(game_s *g, const char *fname)
     return 1;
 }
 
-void textbox_update(game_s *g)
+void textbox_update(g_s *g)
 {
     textbox_s *tb = &g->textbox;
     tb->timer++;
@@ -283,7 +283,7 @@ void textbox_start_exit(textbox_s *tb)
     tb->timer_fade = TEXTBOX_FADE_O;
 }
 
-void textbox_draw(game_s *g, v2_i32 camoffset)
+void textbox_draw(g_s *g, v2_i32 camoffset)
 {
     textbox_s *tb  = &g->textbox;
     gfx_ctx_s  ctx = gfx_ctx_display();

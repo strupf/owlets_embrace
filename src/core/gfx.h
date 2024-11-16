@@ -8,8 +8,6 @@
 #include "pltf/pltf.h"
 #include "util/mem.h"
 
-#define GFX_MEM_KB 1024
-
 enum {
     TEX_FMT_OPAQUE, // only color pixels
     TEX_FMT_MASK,   // color and mask interlaced in words
@@ -137,6 +135,7 @@ void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, 
 void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 x, bool32 y);
 //
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
+void gfx_rec_strip(gfx_ctx_s ctx, i32 rx, i32 ry, i32 rw, i32 mode);
 void gfx_rec_rounded_fill(gfx_ctx_s ctx, rec_i32 rec, i32 r, i32 mode);
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, i32 mode);
 void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode);

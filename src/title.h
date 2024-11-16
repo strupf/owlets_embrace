@@ -57,7 +57,7 @@ typedef struct title_s {
 } title_s;
 
 void title_init(title_s *t);
-void title_update(game_s *g, title_s *t);
+void title_update(g_s *g, title_s *t);
 void title_render(title_s *t);
 
 #endif

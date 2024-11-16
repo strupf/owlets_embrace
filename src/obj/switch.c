@@ -4,8 +4,6 @@
 
 #include "game.h"
 
-#define SWITCH_ANIMATE_TICKS 4
-
 enum {
     SWITCH_ST_OFF = 0,
     SWITCH_ST_ON  = 1,
@@ -17,20 +15,7 @@ typedef struct {
     bool32 once;
 } obj_switch_s;
 
-static void switch_set_sprite(obj_s *o)
-{
-    o->sprites[0].trec.r.x = o->timer ? 64 : 0;
-    o->sprites[0].flip     = o->state ? SPR_FLIP_X : 0;
-}
-
-void switch_on_animate(game_s *g, obj_s *o)
-{
-    if (0 < o->timer)
-        o->timer--;
-    switch_set_sprite(o);
-}
-
-void switch_on_interact(game_s *g, obj_s *o)
+void switch_on_interact(g_s *g, obj_s *o)
 {
     if (!(o->flags & OBJ_FLAG_INTERACTABLE)) return;
     snd_play(SNDID_SWITCH, .5f, 1.f);
@@ -49,26 +34,24 @@ void switch_on_interact(game_s *g, obj_s *o)
         break;
     }
 
-    o->state = 1 - o->state;
-    o->timer = SWITCH_ANIMATE_TICKS;
+    o->state               = 1 - o->state;
+    o->sprites[0].trec.r.x = o->state * 64;
 }
 
-void switch_load(game_s *g, map_obj_s *mo)
+void switch_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_SWITCH;
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->flags           = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
-    o->on_animate        = switch_on_animate;
     o->on_interact       = switch_on_interact;
     o->n_sprites         = 1;
     o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);
     o->sprites[0].offs.x = -32;
     o->sprites[0].offs.y = -64;
-    switch_set_sprite(o);
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
+    o->pos.x             = mo->x;
+    o->pos.y             = mo->y;
 
     obj_switch_s *os       = (obj_switch_s *)o->mem;
     os->trigger_on_enable  = map_obj_i32(mo, "Trigger_enable");

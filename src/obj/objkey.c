@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-void objkey_load(game_s *g, map_obj_s *mo)
+void objkey_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_KEY;
@@ -15,7 +15,7 @@ void objkey_load(game_s *g, map_obj_s *mo)
     o->h     = mo->h;
 }
 
-void objkey_on_update(game_s *g, obj_s *o)
+void objkey_on_update(g_s *g, obj_s *o)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     o->timer++;
@@ -27,6 +27,6 @@ void objkey_on_update(game_s *g, obj_s *o)
     obj_delete(g, o);
 }
 
-void objkey_on_animate(game_s *g, obj_s *o)
+void objkey_on_animate(g_s *g, obj_s *o)
 {
 }

@@ -43,7 +43,7 @@
 #define FILEEXTENSION_AUD ".audio"
 #define NUM_TILES         131072
 
-typedef struct game_s game_s;
+typedef struct g_s g_s;
 typedef struct obj_s  obj_s;
 
 // handle to an object

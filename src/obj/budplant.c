@@ -33,7 +33,7 @@ typedef struct {
 #define BUDPLANT_TICKS_SHAKING  50
 #define BUDPLANT_TICKS_SHOOTING 25
 
-void budplant_load(game_s *g, map_obj_s *mo)
+void budplant_load(g_s *g, map_obj_s *mo)
 {
     obj_s      *o  = obj_create(g);
     budplant_s *bp = (budplant_s *)o->mem;
@@ -82,7 +82,7 @@ void budplant_load(game_s *g, map_obj_s *mo)
     }
 }
 
-void budplant_on_update(game_s *g, obj_s *o)
+void budplant_on_update(g_s *g, obj_s *o)
 {
     budplant_s *bp = (budplant_s *)o->mem;
     o->timer++;
@@ -143,7 +143,7 @@ void budplant_on_update(game_s *g, obj_s *o)
     }
 }
 
-void budplant_on_animate(game_s *g, obj_s *o)
+void budplant_on_animate(g_s *g, obj_s *o)
 {
     budplant_s   *bp  = (budplant_s *)o->mem;
     obj_sprite_s *spr = &o->sprites[0];

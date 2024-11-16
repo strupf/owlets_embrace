@@ -37,7 +37,7 @@ static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
     return p;
 }
 
-void area_setup(game_s *g, area_s *a, i32 ID)
+void area_setup(g_s *g, area_s *a, i32 ID)
 {
     *a    = (area_s){0};
     a->ID = ID;
@@ -63,7 +63,7 @@ void area_setup(game_s *g, area_s *a, i32 ID)
     }
 }
 
-void area_update(game_s *g, area_s *a)
+void area_update(g_s *g, area_s *a)
 {
     if ((g_areafx[a->ID] & AFX_RAIN)) {
 
@@ -87,7 +87,7 @@ void area_update(game_s *g, area_s *a)
     }
 }
 
-void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
+void area_draw_bg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s tdisplay = asset_tex(0);
     i32   clip_y2  = min_i32(g->ocean.y_max, tdisplay.h);
@@ -163,7 +163,7 @@ void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
     }
 }
 
-void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
+void area_draw_mg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     if (g_areafx[a->ID] & AFX_RAIN) {
         areafx_rain_draw(g, &a->fx.rain, cam);
@@ -173,7 +173,7 @@ void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
     }
 }
 
-void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
+void area_draw_fg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s           tdisplay = asset_tex(0);
     const gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);

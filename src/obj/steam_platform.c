@@ -20,14 +20,14 @@ enum {
     STEAM_PLATFORM_DOWN,
 };
 
-void steam_platform_on_update(game_s *g, obj_s *o);
-void steam_platform_on_trigger(game_s *g, obj_s *o, i32 trigger);
-void steam_platform_on_animate(game_s *g, obj_s *o);
-void steam_platform_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void steam_platform_on_update(g_s *g, obj_s *o);
+void steam_platform_on_trigger(g_s *g, obj_s *o, i32 trigger);
+void steam_platform_on_animate(g_s *g, obj_s *o);
+void steam_platform_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
-void steam_platform_on_burst(game_s *g, obj_s *o);
+void steam_platform_on_burst(g_s *g, obj_s *o);
 
-void steam_platform_load(game_s *g, map_obj_s *mo)
+void steam_platform_load(g_s *g, map_obj_s *mo)
 {
     obj_s            *o  = obj_create(g);
     steam_platform_s *sp = (steam_platform_s *)o->mem;
@@ -46,7 +46,7 @@ void steam_platform_load(game_s *g, map_obj_s *mo)
     sp->y_top            = sp->y_og - 120;
 }
 
-void steam_platform_on_update(game_s *g, obj_s *o)
+void steam_platform_on_update(g_s *g, obj_s *o)
 {
     steam_platform_s *sp = (steam_platform_s *)o->mem;
 
@@ -91,20 +91,20 @@ void steam_platform_on_update(game_s *g, obj_s *o)
     }
 }
 
-void steam_platform_on_burst(game_s *g, obj_s *o)
+void steam_platform_on_burst(g_s *g, obj_s *o)
 {
     o->state = STEAM_PLATFORM_UP;
     o->timer = 0;
 }
 
-void steam_platform_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void steam_platform_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
 }
 
-void steam_platform_on_animate(game_s *g, obj_s *o)
+void steam_platform_on_animate(g_s *g, obj_s *o)
 {
 }
 
-void steam_platform_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void steam_platform_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
 }

@@ -47,8 +47,8 @@ bool32 map_obj_bool(map_obj_s *mo, const char *name);
 v2_i16 map_obj_pt(map_obj_s *mo, const char *name);
 void  *map_obj_arr(map_obj_s *mo, const char *name, i32 *num);
 
-void             game_load_map(game_s *g, const char *worldfile);
-void             game_prepare_new_map(game_s *g);
+void             game_load_map(g_s *g, const char *worldfile);
+void             game_prepare_new_map(g_s *g);
 void             map_world_load(map_world_s *world, const char *mapfile);
 map_worldroom_s *map_world_overlapped_room(map_world_s *world, map_worldroom_s *cur, rec_i32 r);
 map_worldroom_s *map_world_find_room(map_world_s *world, const char *mapfile);

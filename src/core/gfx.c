@@ -8,6 +8,7 @@
 #include "util/json.h"
 #include "util/mathfunc.h"
 #include "util/mem.h"
+#include "util/sorting.h"
 #include "util/str.h"
 
 tex_s tex_framebuffer()
@@ -694,6 +695,22 @@ void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode)
     }
 }
 
+void gfx_rec_strip(gfx_ctx_s ctx, i32 rx, i32 ry, i32 rw, i32 mode)
+{
+    i32 x1 = max_i32(rx, ctx.clip_x1); // area bounds on canvas [x1/y1, x2/y2]
+    i32 x2 = min_i32(rx + rw - 1, ctx.clip_x2);
+    if (x2 < x1) return;
+    if (ry < ctx.clip_y1 || ry > ctx.clip_y2) return;
+
+    tex_s       dtex = ctx.dst;
+    span_blit_s info = span_blit_gen(ctx, ry, x1, x2, mode);
+    if (dtex.fmt == TEX_FMT_OPAQUE) {
+        prim_blit_span_X(info);
+    } else {
+        prim_blit_span_Y(info);
+    }
+}
+
 void gfx_rec_rounded_fill(gfx_ctx_s ctx, rec_i32 rec, i32 r, i32 mode)
 {
     i32 rr = r < 0 ? rec.h / 2 : min_i32(r, rec.h / 2);
@@ -1076,12 +1093,10 @@ void gfx_tri(gfx_ctx_s ctx, tri_i32 t, i32 mode)
     gfx_lin_thick(ctx, t.p[1], t.p[2], mode, 2);
 }
 
-void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode)
-{
-    NOT_IMPLEMENTED
-}
+void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode){
+    NOT_IMPLEMENTED}
 
-int cmp_int_poly(const void *a, const void *b)
+i32 cmp_int_poly(const void *a, const void *b)
 {
     i32 x = *(const i32 *)a;
     i32 y = *(const i32 *)b;

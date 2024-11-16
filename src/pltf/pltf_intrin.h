@@ -50,6 +50,7 @@ static inline u16x2 u16x2_shr(u16x2 v, i32 s)
 
 #if defined(PLTF_PD_HW)
 #define bswap32   __builtin_bswap32
+#define clz32     __builtin_clz
 #define ssat16(X) __ssat(X, 16)
 
 static inline u32 rotr(u32 v, u32 rot)
@@ -70,13 +71,6 @@ static inline i32 i32_ssub(i32 x, i32 y)
 {
     i32 r = 0;
     ASM2(qsub, r, x, y);
-    return r;
-}
-
-static inline u32 clz32(u32 v)
-{
-    u32 r = 0;
-    ASM1(clz, r, v);
     return r;
 }
 

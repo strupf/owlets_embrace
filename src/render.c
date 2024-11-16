@@ -6,6 +6,8 @@
 #include "app.h"
 #include "game.h"
 
+void draw_light_circle(gfx_ctx_s ctx, v2_i32 p, i32 radius, i32 strength);
+
 static inline i32 cmp_obj_render_priority(obj_s **a, obj_s **b)
 {
     obj_s *x = *a;
@@ -23,9 +25,9 @@ static inline gfx_pattern_s water_pattern()
                            B4(0010));
 }
 
-void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam);
+void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam);
 
-void game_draw(game_s *g)
+void game_draw(g_s *g)
 {
     if (g->substate == SUBSTATE_MENUSCREEN) {
         menu_screen_draw(g, &g->menu_screen);
@@ -35,12 +37,6 @@ void game_draw(game_s *g)
     rec_i32 camrec_raw    = cam_rec_px(g, &g->cam);
     v2_i32  camoffset_raw = {-camrec_raw.x, -camrec_raw.y};
     rec_i32 camrec        = camrec_raw;
-    if (!g->cam.textboxdown) {
-        v2_i32 camoffsetmax = cam_offset_max(g, &g->cam);
-        assert(0 <= camrec.x && camrec.x <= camoffsetmax.x);
-        assert(0 <= camrec.y && camrec.y <= camoffsetmax.y);
-    }
-
     camrec.x &= ~1;
     camrec.y &= ~1;
 
@@ -69,9 +65,6 @@ void game_draw(game_s *g)
         obj_s *o = g->obj_render[n_obj_render];
         if (0 <= o->render_priority) break;
         obj_draw(ctx, g, o, camoffset);
-        if (o->on_draw) {
-            o->on_draw(g, o, camoffset);
-        }
     }
 
     obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -122,42 +115,33 @@ void game_draw(game_s *g)
     render_water_and_terrain(g, tilebounds, camoffset);
     area_draw_fg(g, &g->area, camoffset_raw, camoffset);
 
-#if LIGHTING_ENABLED
-#if 0
-    {
-        obj_s *ohero              = obj_get_tagged(g, OBJ_TAG_HERO);
-        g->lighting.lights[0].p.x = obj_pos_center(ohero).x;
-        g->lighting.lights[0].p.y = ohero->pos.y;
-        g->lighting.lights[0].r   = 150;
+    if (g->dark) {
+        spm_push();
 
-        g->lighting.lights[1].p.x = 400;
-        g->lighting.lights[1].p.y = 550;
-        g->lighting.lights[1].r   = 150;
+        tex_s tlight = tex_create_opaque(PLTF_DISPLAY_W, PLTF_DISPLAY_H, spm_allocator);
+        tex_clr(tlight, GFX_COL_BLACK);
+        gfx_ctx_s lctx = gfx_ctx_default(tlight);
 
-        g->lighting.lights[2].p.x = 800;
-        g->lighting.lights[2].p.y = 400;
-        g->lighting.lights[2].r   = 200;
-        g->lighting.n_lights      = 3;
-        lighting_shadowcast(g, &g->lighting, camoffset);
+        for (obj_each(g, it)) {
+            if (!(it->flags & OBJ_FLAG_LIGHT)) continue;
+
+            i32    r = it->light_radius;
+            v2_i32 p = v2_add(obj_pos_center(it), camoffset);
+            draw_light_circle(lctx, p, r, it->light_strength);
+        }
+
+        u32 *p1 = ctx.dst.px;
+        u32 *p2 = tlight.px;
+        for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
+            *p1++ &= *p2++;
+        }
+
+        spm_pop();
     }
-
-#else
-
-    static i32 ltick = 0;
-
-    ltick++;
-    if (ltick & 1) {
-        lighting_refresh(g, &g->lighting);
-        lighting_render(&g->lighting, camoffset);
-    }
-    lighting_apply_tex(&g->lighting);
-
-#endif
-#endif
 
     render_ui(g, camoffset);
 
-    i32 breath_t = hero_breath_tick(g);
+    i32 breath_t = hero_breath_tick(ohero);
     if (breath_t) {
         spm_push();
         spm_align(4);
@@ -177,9 +161,10 @@ void game_draw(game_s *g)
 
         gfx_cir_fill(ctx_drown, herop, cird, PRIM_MODE_WHITE);
 
-        i32 N = PLTF_DISPLAY_H * PLTF_DISPLAY_WWORDS;
-        for (i32 n = 0; n < N; n++) {
-            ctx.dst.px[n] &= drowntex.px[n];
+        u32 *p1 = ctx.dst.px;
+        u32 *p2 = drowntex.px;
+        for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
+            *p1++ &= *p2++;
         }
         spm_pop();
     }
@@ -203,16 +188,9 @@ void game_draw(game_s *g)
     g->cam.prev_gfx_offs = camoffset;
 }
 
-void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
+void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam)
 {
-    if (o->on_draw_pre) {
-        o->on_draw_pre(g, o, cam);
-    }
-
     v2_i32 ppos = v2_add(o->pos, cam);
-#if 0
-    ppos.x &= ~1;
-#endif
 
     if (o->enemy.hurt_tick) {
         ppos.x += o->enemy.hurt_shake_offs.x;
@@ -237,13 +215,9 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
         }
     }
 
-    if (o->on_draw) {
-        o->on_draw(g, o, cam);
-    }
-
-    pltf_debugr(ppos.x, ppos.y, o->w, o->h, 0xFF, 0, 0, 1);
-
+    obj_custom_draw(g, o, cam);
 #ifdef PLTF_DEBUG
+    pltf_debugr(ppos.x, ppos.y, o->w, o->h, 0xFF, 0, 0, 1);
     if (o->flags & OBJ_FLAG_RENDER_AABB) {
         gfx_ctx_s ctx_aabb = ctx;
         ctx_aabb.pat       = gfx_pattern_interpolate(1, 4);
@@ -260,7 +234,7 @@ void obj_draw(gfx_ctx_s ctx, game_s *g, obj_s *o, v2_i32 cam)
 #endif
 }
 
-void render_tilemap(game_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camoffset)
+void render_tilemap(g_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
     tex_s tex = {0};
     switch (layer) {
@@ -286,7 +260,7 @@ void render_tilemap(game_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camof
     }
 }
 
-i32 water_render_height(game_s *g, i32 pixel_x)
+i32 water_render_height(g_s *g, i32 pixel_x)
 {
     i32 p = pixel_x;
     i32 t = g->gameplay_tick;
@@ -296,7 +270,7 @@ i32 water_render_height(game_s *g, i32 pixel_x)
     return (y >> 6);
 }
 
-void ocean_calc_spans(game_s *g, rec_i32 camr)
+void ocean_calc_spans(g_s *g, rec_i32 camr)
 {
     ocean_s *oc = &g->ocean;
     if (!oc->active) {
@@ -343,7 +317,7 @@ static inline i32 cmp_tile_spr(tile_spr_s *a, tile_spr_s *b)
 SORT_ARRAY_DEF(tile_spr_s, z_tile_spr, cmp_tile_spr)
 
 #include "core/gfx_1bit.h"
-void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
+void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
     const tex_s     tset = asset_tex(TEXID_TILESET_TERRAIN);
     const tex_s     twat = asset_tex(TEXID_WATER_PRERENDER);
@@ -378,15 +352,16 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
 
             if (rt.u == 0) continue;
 
-            // draw terrain tiles sorted by type, insert in buffer first
-            i32        tt          = rt.type & 31;
-            tile_spr_s sp          = {tt, rt.tx, rt.ty, p.x, p.y};
-            tile_spr[n_tile_spr++] = sp;
 #if defined(PLTF_DEBUG) && 0
             i32 t1 = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t1 && t1 < NUM_TILE_SHAPES)) continue;
             texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
             gfx_spr(ctx, tr1, p, 0, 0);
+#else
+            // draw terrain tiles sorted by type, insert in buffer first
+            i32        tt          = rt.type & 31;
+            tile_spr_s sp          = {tt, rt.tx, rt.ty, p.x, p.y};
+            tile_spr[n_tile_spr++] = sp;
 #endif
         }
     }
@@ -435,7 +410,7 @@ void render_water_and_terrain(game_s *g, tile_map_bounds_s bounds, v2_i32 camoff
 
 #define FLUID_SRC_TILE(X, Y) (X) + (Y) * 16
 
-void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
+void render_fluids(g_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 {
     const tex_s twat = asset_tex(TEXID_FLUIDS);
     u32         tick = pltf_time();
@@ -575,7 +550,7 @@ void render_fluids(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
     }
 }
 
-void render_water_background(game_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
+void render_water_background(g_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 {
     const tex_s twat = asset_tex(TEXID_WATER_PRERENDER);
     i32         tick = g->gameplay_tick;
@@ -709,4 +684,36 @@ v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8)
     v2_i32 p  = {pos.x + ((cx * x_q8) >> 8),
                  pos.y + ((cy * y_q8) >> 8)};
     return p;
+}
+
+void draw_light_circle(gfx_ctx_s ctx, v2_i32 p, i32 radius, i32 strength)
+{
+    i32       str  = min_i32(strength + 1, 4);
+    u32       seed = pltf_time() >> 1;
+    i32       r    = radius;
+    i32       y1   = max_i32(p.y - r, ctx.clip_y1);
+    i32       y2   = min_i32(p.y + r, ctx.clip_y2);
+    gfx_ctx_s ctxw = ctx;
+
+    gfx_pattern_s pts[4] = {
+        gfx_pattern_2x2(B2(00), B2(10)),
+        gfx_pattern_2x2(B2(01), B2(10)),
+        gfx_pattern_2x2(B2(11), B2(10)),
+        gfx_pattern_2x2(B2(11), B2(11))};
+    i32 r2[4] = {
+        pow2_i32((256 * r) >> 8),
+        pow2_i32((220 * r) >> 8),
+        pow2_i32((190 * r) >> 8),
+        pow2_i32((150 * r) >> 8)};
+
+    for (i32 y = y1; y <= y2; y++) {
+        i32 px  = p.x + rngsr_i32(&seed, -1, +1);
+        i32 dy2 = pow2_i32(p.y - y);
+        for (i32 i = 0; i < str; i++) {
+            i32 dx   = sqrt_u32(max_i32(r2[i] - dy2, 0));
+            i32 x1   = px - dx;
+            ctxw.pat = pts[i];
+            gfx_rec_strip(ctxw, x1, y, dx << 1, GFX_COL_WHITE);
+        }
+    }
 }

@@ -38,20 +38,19 @@ void rope_init(rope_s *r)
     for (i32 n = 2; n < NUM_ROPE_NODES - 1; n++) {
         r->nodesraw[n].next = &r->nodesraw[n + 1];
     }
-    r->nodesraw[NUM_ROPE_NODES - 1].next = NULL;
+    r->nodesraw[NUM_ROPE_NODES - 1].next = 0;
     r->pool                              = &r->nodesraw[2];
 
     ropenode_s *rh = &r->nodesraw[0];
     ropenode_s *rt = &r->nodesraw[1];
     rh->next       = rt;
-    rh->prev       = NULL;
+    rh->prev       = 0;
     rt->prev       = rh;
-    rt->next       = NULL;
+    rt->next       = 0;
     r->head        = rh;
     r->tail        = rt;
-    //
-    r->o_head      = obj_handle_from_obj(NULL);
-    r->o_tail      = obj_handle_from_obj(NULL);
+    r->o_head      = obj_handle_from_obj(0);
+    r->o_tail      = obj_handle_from_obj(0);
     r->len_max_q4  = 0;
 }
 
@@ -62,7 +61,7 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
     ropenode_s *rn = r->pool;
     if (!rn) {
         BAD_PATH
-        return NULL;
+        return 0;
     }
     r->pool = rn->next;
     rn->p   = p;
@@ -130,8 +129,6 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
 {
     if (!overlap_tri_pnt_incl(t1, p.p) || !overlap_tri_pnt_incl(t2, p.p))
         return;
-    // nasty with lots of calculations...
-    // ONLY NEEDED FOR SOLID MOVEMENT though
     lineseg_i32 lu = {p.p, p.u};
     lineseg_i32 lv = {p.p, p.v};
     if (!overlap_tri_lineseg_excl(t1, lu) &&
@@ -149,7 +146,7 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
     }
 }
 
-static void rope_points_in_tris(game_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
+static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
 {
     assert(v2_crs(v2_sub(t1.p[2], t1.p[0]), v2_sub(t1.p[1], t1.p[0])) != 0);
     assert(v2_crs(v2_sub(t2.p[2], t2.p[0]), v2_sub(t2.p[1], t2.p[0])) != 0);
@@ -238,7 +235,7 @@ static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
     } while (p != l);
 }
 
-void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
+void ropenode_on_moved(g_s *g, rope_s *r, ropenode_s *rn,
                        v2_i32 p1, v2_i32 p2, ropenode_s *rn_anchor,
                        tri_i32 subtri)
 {
@@ -262,31 +259,28 @@ void ropenode_on_moved(game_s *g, rope_s *r, ropenode_s *rn,
     // add points inside the arc
     tri_i32 tri = {{p0, p1, p2}};
     rope_points_in_tris(g, tri, subtri, pts);
-    if (pts->n == 2) { // encountered to obstacles
-        spm_pop();
-        return;
-    }
+    if (pts->n != 2) {
+        // at this point we have some obstacles
+        // wrap the rope around them - build a convex hull
+        ropepts_s *hull = spm_alloct(ropepts_s, 1);
+        hull->n         = 0;
+        rope_build_convex_hull(pts, p0, p2, dir, hull);
 
-    // at this point we have some obstacles
-    // wrap the rope around them - build a convex hull
-    ropepts_s *hull = spm_alloct(ropepts_s, 1);
-    hull->n         = 0;
-    rope_build_convex_hull(pts, p0, p2, dir, hull);
-
-    // at this point p_ropearc contains the "convex hull" when moving
-    // from p1 around p0 to p2. Points in array are in the correct order
-    ropenode_s *rc = rn;
-    for (i32 i = 0; i < hull->n; i++) {
-        rc = ropenode_insert(r, rn_anchor, rc, hull->pt[i]);
+        // point p_ropearc contains the "convex hull" when moving
+        // from p1 around p0 to p2. Points in array are in the correct order
+        ropenode_s *rc = rn;
+        for (i32 i = 0; i < hull->n; i++) {
+            rc = ropenode_insert(r, rn_anchor, rc, hull->pt[i]);
+        }
     }
     spm_pop();
 }
 
-void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
+void ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy)
 {
     r->dirty     = 1;
     v2_i32 p_old = rn->p;
-    v2_i32 p_new = v2_add(p_old, dt);
+    v2_i32 p_new = {p_old.x + dx, p_old.y + dy};
     rn->p        = p_new;
 
     if (rn->next) {
@@ -299,7 +293,7 @@ void ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt)
     }
 }
 
-static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
+static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
 {
     v2_i32      p_beg  = point;
     v2_i32      p_end  = v2_add(p_beg, dt);
@@ -369,7 +363,7 @@ static void rope_move_vertex(game_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
  *    \|     and ends up being inside the solid
  *     o______
  */
-void rope_moved_by_aabb(game_s *g, rope_s *r, rec_i32 aabb, v2_i32 dt)
+void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
 {
     v2_i32  points_[4];
     rec_i32 rec = aabb;
@@ -377,22 +371,22 @@ void rope_moved_by_aabb(game_s *g, rope_s *r, rec_i32 aabb, v2_i32 dt)
 
     // only consider the points moving "forward" of the solid
     v2_i32 points[2];
-    if (0 < dt.x) {
-        rec.w += dt.x;
+    if (0 < dx) {
+        rec.w += dx;
         points[0] = points_[1];
         points[1] = points_[2];
-    } else if (dt.x < 0) {
-        rec.x -= dt.x;
-        rec.w += dt.x;
+    } else if (dx < 0) {
+        rec.x -= dx;
+        rec.w += dx;
         points[0] = points_[0];
         points[1] = points_[3];
-    } else if (0 < dt.y) {
-        rec.h += dt.y;
+    } else if (0 < dy) {
+        rec.h += dy;
         points[0] = points_[2];
         points[1] = points_[3];
     } else {
-        rec.y -= dt.y;
-        rec.h += dt.y;
+        rec.y -= dy;
+        rec.h += dy;
         points[0] = points_[0];
         points[1] = points_[1];
     }
@@ -404,6 +398,7 @@ void rope_moved_by_aabb(game_s *g, rope_s *r, rec_i32 aabb, v2_i32 dt)
     if (!overlap_rec(rec, ropebounds)) return;
     r->dirty = 1;
 
+    v2_i32 dt = {dx, dy};
     rope_move_vertex(g, r, dt, points[0]);
     rope_move_vertex(g, r, dt, points[1]);
 }
@@ -422,7 +417,7 @@ bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
             (z <= 0 && s1 <= 0 && s2 >= 0 && t1 <= 0 && t2 >= 0));
 }
 
-void tighten_ropesegment(game_s *g, rope_s *r,
+void tighten_ropesegment(g_s *g, rope_s *r,
                          ropenode_s *rp, ropenode_s *rc, ropenode_s *rn)
 {
     assert(rp->next == rc && rn->prev == rc &&
@@ -502,23 +497,19 @@ void tighten_ropesegment(game_s *g, rope_s *r,
     pts->pt[pts->n++] = pnext;
     tri_i32 tri       = {{pprev, pcurr, pnext}};
     rope_points_in_tris(g, tri, tri, pts);
-    ropepts_remove(pts, pcurr); // ignore vertex at p1
-    if (pts->n == 2) {
-        spm_pop(); // no convex hull, direct connection
-        return;
+    ropepts_remove(pts, pcurr);                             // ignore vertex at p1
+    if (pts->n != 2) {                                      // added another point
+        rope_build_convex_hull(pts, pprev, pnext, z, hull); // TODO: verify
+
+        ropenode_s *tmp = rp;
+        for (int i = 0; i < hull->n; i++) {
+            tmp = ropenode_insert(r, tmp, rn, hull->pt[i]);
+        }
     }
-
-    rope_build_convex_hull(pts, pprev, pnext, z, hull); // TODO: verify
-
-    ropenode_s *tmp = rp;
-    for (int i = 0; i < hull->n; i++) {
-        tmp = ropenode_insert(r, tmp, rn, hull->pt[i]);
-    }
-
     spm_pop();
 }
 
-void rope_update(game_s *g, rope_s *r)
+void rope_update(g_s *g, rope_s *r)
 {
     assert(r->head);
     if (!r->dirty) return;
@@ -543,7 +534,7 @@ void rope_update(game_s *g, rope_s *r)
     }
 }
 
-u32 rope_len_q4(game_s *g, rope_s *r)
+u32 rope_len_q4(g_s *g, rope_s *r)
 {
     rope_update(g, r);
     u32 len = 0;
@@ -554,7 +545,7 @@ u32 rope_len_q4(game_s *g, rope_s *r)
     return len;
 }
 
-bool32 rope_intact(game_s *g, rope_s *r)
+bool32 rope_intact(g_s *g, rope_s *r)
 {
     rope_update(g, r);
 
@@ -600,7 +591,7 @@ ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn)
     return (rn->next ? rn->next : rn->prev);
 }
 
-void rope_verletsim(game_s *g, rope_s *r)
+void rope_verletsim(g_s *g, rope_s *r)
 {
     typedef struct {
         i32    i;
@@ -696,7 +687,7 @@ void rope_verletsim(game_s *g, rope_s *r)
     }
 }
 
-i32 rope_stretch_q8(game_s *g, rope_s *r)
+i32 rope_stretch_q8(g_s *g, rope_s *r)
 {
     u32 len_q4 = rope_len_q4(g, r);
     return ((len_q4 << 8) / r->len_max_q4);
@@ -706,22 +697,11 @@ obj_s *rope_obj_connected_to(obj_s *o)
 {
     rope_s     *r  = o->rope;
     ropenode_s *rn = o->ropenode;
-    if (!r || !rn) return NULL;
-
-    obj_s *o1 = obj_from_obj_handle(r->o_head);
-    obj_s *o2 = obj_from_obj_handle(r->o_tail);
-    if (o1 == o) return o2;
-    if (o2 == o) return o1;
+    if (r && rn) {
+        obj_s *o1 = obj_from_obj_handle(r->o_head);
+        obj_s *o2 = obj_from_obj_handle(r->o_tail);
+        if (o1 == o) return o2;
+        if (o2 == o) return o1;
+    }
     return NULL;
-}
-
-v2_i32 rope_obj_dt(obj_s *o)
-{
-    v2_i32      d  = {0};
-    rope_s     *r  = o->rope;
-    ropenode_s *rn = o->ropenode;
-    if (!r || !rn) return d;
-
-    ropenode_s *rno = ropenode_neighbour(r, rn);
-    return v2_sub(rno->p, rn->p);
 }

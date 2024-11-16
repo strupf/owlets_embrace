@@ -17,11 +17,11 @@ typedef struct {
     i32 trigger_off;
 } spikes_s;
 
-void spikes_on_trigger(game_s *g, obj_s *o, i32 trigger);
-void spikes_on_animate(game_s *g, obj_s *o);
-void spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void spikes_on_trigger(g_s *g, obj_s *o, i32 trigger);
+void spikes_on_animate(g_s *g, obj_s *o);
+void spikes_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
-void spikes_load(game_s *g, map_obj_s *mo)
+void spikes_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
     o->ID         = OBJ_ID_SPIKES;
@@ -66,7 +66,7 @@ void spikes_load(game_s *g, map_obj_s *mo)
 }
 
 // only for dynamic spikes
-void spikes_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void spikes_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
     spikes_s *sp = (spikes_s *)o->mem;
 
@@ -88,12 +88,12 @@ void spikes_on_trigger(game_s *g, obj_s *o, i32 trigger)
     }
 }
 
-void spikes_on_animate(game_s *g, obj_s *o)
+void spikes_on_animate(g_s *g, obj_s *o)
 {
     o->timer++;
 }
 
-void spikes_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void spikes_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     switch (o->state) {
     case SPIKES_STATIC:

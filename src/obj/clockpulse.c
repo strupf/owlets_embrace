@@ -13,7 +13,7 @@ typedef struct {
     i32 trigger_on_disable;
 } clockpulse_s;
 
-static void clockpulse_disable(game_s *g, obj_s *o)
+static void clockpulse_disable(g_s *g, obj_s *o)
 {
     o->state         = 0;
     clockpulse_s *cp = (clockpulse_s *)o->mem;
@@ -22,7 +22,7 @@ static void clockpulse_disable(game_s *g, obj_s *o)
     }
 }
 
-void clockpulse_on_update(game_s *g, obj_s *o)
+void clockpulse_on_update(g_s *g, obj_s *o)
 {
     if (o->state == 0) return;
 
@@ -40,7 +40,7 @@ void clockpulse_on_update(game_s *g, obj_s *o)
     }
 }
 
-void clockpulse_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void clockpulse_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
     clockpulse_s *cp = (clockpulse_s *)o->mem;
     switch (o->state) {
@@ -59,7 +59,7 @@ void clockpulse_on_trigger(game_s *g, obj_s *o, i32 trigger)
     }
 }
 
-void clockpulse_load(game_s *g, map_obj_s *mo)
+void clockpulse_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o                = obj_create(g);
     o->ID                   = OBJ_ID_CLOCKPULSE;

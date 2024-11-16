@@ -25,7 +25,7 @@ typedef struct {
     v2_i16 path[16];
 } movingplatform_s;
 
-void movingplatform_on_update(game_s *g, obj_s *o)
+void movingplatform_on_update(g_s *g, obj_s *o)
 {
     movingplatform_s *plat = (movingplatform_s *)o->mem;
     if (plat->v_q4 == 0 || plat->n_path < 2) return;
@@ -102,7 +102,7 @@ void movingplatform_on_update(game_s *g, obj_s *o)
     o->tomove  = v2_i16_sub(pi, v2_i16_from_i32(o->pos, 0));
 }
 
-void movingplatform_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void movingplatform_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
     if (o->trigger != trigger) return;
     movingplatform_s *plat = (movingplatform_s *)o->mem;
@@ -110,7 +110,7 @@ void movingplatform_on_trigger(game_s *g, obj_s *o, i32 trigger)
     plat->v_q4 = plat->v_trg_q4;
 }
 
-void movingplatform_load(game_s *g, map_obj_s *mo)
+void movingplatform_load(g_s *g, map_obj_s *mo)
 {
     obj_s            *o    = obj_create(g);
     movingplatform_s *plat = (movingplatform_s *)o->mem;

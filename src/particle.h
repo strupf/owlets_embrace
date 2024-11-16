@@ -15,6 +15,58 @@ enum {
     PARTICLE_GFX_SPR
 };
 
+enum {
+    PARTICLE_TYPE_CIR,
+    PARTICLE_TYPE_TEX,
+};
+
+enum {
+    PARTICLE_FLAG_COLLISIONS,
+};
+
+typedef struct {
+    u8     typ;
+    u8     cir_r;
+    u8     cir_r_range;
+    u8     cir_col;
+    v2_i16 pos;
+    u8     pos_x_range;
+    u8     pos_y_range;
+    u8     acc_ang;
+    u8     acc_ang_range;
+    u8     acc;
+    u8     acc_range;
+    u8     vel_ang;
+    u8     vel_ang_range;
+    u16    vel;
+    u16    vel_range;
+    u16    tex_frames;
+    u16    texID;
+    u16    tex_x;
+    u16    tex_y;
+    u16    tex_w;
+    u16    tex_h;
+    u16    tic;
+    u16    tic_range;
+} particle_emitter_s;
+
+typedef struct {
+    u8     typ;
+    u8     cir_r;
+    u8     cir_col;
+    v2_i16 pos;
+    v2_i16 subpos;
+    v2_i16 vel;
+    v2_i16 acc;
+    u16    texID;
+    u16    tex_x;
+    u16    tex_y;
+    u16    tex_w;
+    u16    tex_h;
+    u16    tic;
+    u16    tic_max;
+} particle_2_s;
+
 typedef struct {
     v2_i32   p_q8;
     v2_i32   v_q8;
@@ -42,9 +94,9 @@ typedef struct {
     particle_s particles[PARTICLE_NUM];
 } particles_s;
 
-void particles_spawn(game_s *g, particle_desc_s desc, i32 n);
-void particles_update(game_s *g, particles_s *pr);
-void particles_draw(game_s *g, particles_s *pr, v2_i32 cam);
+void particles_spawn(g_s *g, particle_desc_s desc, i32 n);
+void particles_update(g_s *g, particles_s *pr);
+void particles_draw(g_s *g, particles_s *pr, v2_i32 cam);
 
 #define NUM_COINPARTICLE            256
 #define COINPARTICLE_COLLECT_DISTSQ 350
@@ -60,8 +112,8 @@ typedef struct {
     v2_i16 drag_q8;
 } coinparticle_s;
 
-coinparticle_s *coinparticle_create(game_s *g);
-void            coinparticle_update(game_s *g);
-void            coinparticle_draw(game_s *g, v2_i32 cam);
+coinparticle_s *coinparticle_create(g_s *g);
+void            coinparticle_update(g_s *g);
+void            coinparticle_draw(g_s *g, v2_i32 cam);
 
 #endif

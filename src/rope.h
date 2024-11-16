@@ -10,7 +10,7 @@
 #define ROPE_VERLET_IT   20
 #define ROPE_VERLET_N    32
 #define ROPE_VERLET_GRAV 40
-#define NUM_ROPE_NODES   64
+#define NUM_ROPE_NODES   32
 
 typedef struct rope_s     rope_s;
 typedef struct ropenode_s ropenode_s;
@@ -43,15 +43,14 @@ struct rope_s {
 };
 
 void        rope_init(rope_s *r);
-u32         rope_len_q4(game_s *g, rope_s *r);
-void        ropenode_move(game_s *g, rope_s *r, ropenode_s *rn, v2_i32 dt);
-void        rope_update(game_s *g, rope_s *r);
-bool32      rope_intact(game_s *g, rope_s *r);
-void        rope_moved_by_aabb(game_s *g, rope_s *r, rec_i32 aabb, v2_i32 dt);
+u32         rope_len_q4(g_s *g, rope_s *r);
+void        ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy);
+void        rope_update(g_s *g, rope_s *r);
+bool32      rope_intact(g_s *g, rope_s *r);
+void        rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy);
 ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn);
-void        rope_verletsim(game_s *g, rope_s *r);
-i32         rope_stretch_q8(game_s *g, rope_s *r);
+void        rope_verletsim(g_s *g, rope_s *r);
+i32         rope_stretch_q8(g_s *g, rope_s *r);
 obj_s      *rope_obj_connected_to(obj_s *o);
-v2_i32      rope_obj_dt(obj_s *o);
 
 #endif

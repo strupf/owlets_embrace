@@ -183,7 +183,7 @@ void water_step(waterparticle_s *particles, i32 num, i32 steps)
     }
 }
 
-i32 water_depth_rec(game_s *g, rec_i32 r)
+i32 water_depth_rec(g_s *g, rec_i32 r)
 {
     i32 f        = 0;
     i32 y_bottom = r.y + r.h - 1;
@@ -212,13 +212,13 @@ static inline i32 ocean_height_logic_q6(i32 p, i32 t)
            (sin_q6((p >> 0) - (t << 2) + 0x40) << 2);
 }
 
-i32 ocean_height(game_s *g, i32 pixel_x)
+i32 ocean_height(g_s *g, i32 pixel_x)
 {
     i32 h = ocean_height_logic_q6(pixel_x, gameplay_time(g));
     return (h >> 6) + g->ocean.y;
 }
 
-i32 ocean_render_height(game_s *g, i32 pixel_x)
+i32 ocean_render_height(g_s *g, i32 pixel_x)
 {
     i32 p = pixel_x;
     i32 t = gameplay_time(g);

@@ -37,7 +37,7 @@ static inline void qoa_lms_init(qoa_lms_s *lms)
 
 static inline i16 *qoa_decode_sf_tab(u64 *s)
 {
-    i16 *deq = qoa_deq[*s >> 60];
+    i16 *deq = (i16 *)qoa_deq[*s >> 60];
     *s <<= 4;
     return deq;
 }
@@ -85,7 +85,6 @@ void qoa_stream_rewind(qoa_stream_s *q)
     q->slices_read   = 0;
     q->pos           = 0;
     qoa_lms_init(&q->lms);
-    qoa_stream_next_slice(q);
 }
 
 bool32 qoa_stream_start(qoa_stream_s *q, const char *fname, u32 ms, i32 v_q8)
@@ -101,6 +100,7 @@ bool32 qoa_stream_start(qoa_stream_s *q, const char *fname, u32 ms, i32 v_q8)
     pltf_file_r(q->f, &head, sizeof(qoa_file_header_s));
     q->num_slices = head.num_slices;
     qoa_stream_rewind(q);
+    qoa_stream_next_slice(q);
     return 1;
 }
 
@@ -135,12 +135,11 @@ void qoa_stream(qoa_stream_s *q, i16 *buf, i32 len)
             q->cur_slice++;
 
             if (q->cur_slice == q->num_slices) { // new frame
-                if (q->flags & QOA_STREAM_FLAG_REPEAT) {
-                    qoa_stream_rewind(q);
-                } else {
+                if (!(q->flags & QOA_STREAM_FLAG_REPEAT)) {
                     qoa_stream_end(q);
                     break;
                 }
+                qoa_stream_rewind(q);
             }
             qoa_stream_next_slice(q);
         }

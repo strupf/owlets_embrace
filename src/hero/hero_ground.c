@@ -4,9 +4,9 @@
 
 #include "game.h"
 
-void hero_update_ground(game_s *g, obj_s *o)
+void hero_update_ground(g_s *g, obj_s *o)
 {
-    hero_s *h = &g->hero_mem;
+    hero_s *h = (hero_s *)o->heap;
     hero_restore_grounded_stuff(g, o);
     o->v_q8.y += HERO_GRAVITY;
 
@@ -57,7 +57,7 @@ void hero_update_ground(game_s *g, obj_s *o)
         if (0 < dpad_y && h->action_jump && !h->action_jumpp) {
             o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
             h->jump_btn_buffer = 0;
-            obj_move_by(g, o, 0, 1);
+            obj_move(g, o, 0, 1);
         }
 
         if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
@@ -76,7 +76,7 @@ void hero_update_ground(game_s *g, obj_s *o)
         }
 
         if (0 < h->jump_btn_buffer) {
-            h->ground_impact_ticks = 6;
+            h->impact_ticks = 2;
             hero_start_jump(g, o, HERO_JUMP_GROUND);
         }
 
@@ -121,10 +121,8 @@ void hero_update_ground(game_s *g, obj_s *o)
             } else if (va < HERO_VX_WALK) {
                 ax = lerp_i32(200, 20, va, HERO_VX_WALK);
             } else if (va < HERO_VX_SPRINT && h->sprint) {
-                ax = lerp_i32(20, 4, va, HERO_VX_SPRINT);
+                ax = min_i32(20, HERO_VX_SPRINT - va);
             }
-            ax = min_i32(ax, HERO_VX_SPRINT - va);
-
         } else if (dpad_x == -vs && h->skidding < 6) {
             ax = min_i32(70, va);
         }
@@ -140,9 +138,9 @@ void hero_update_ground(game_s *g, obj_s *o)
     }
 }
 
-void hero_restore_grounded_stuff(game_s *g, obj_s *o)
+void hero_restore_grounded_stuff(g_s *g, obj_s *o)
 {
-    hero_s *h    = &g->hero_mem;
+    hero_s *h    = (hero_s *)o->heap;
     h->swimticks = HERO_SWIM_TICKS;
     if (h->stomp) {
         h->stomp = 0;
@@ -171,8 +169,8 @@ void hero_restore_grounded_stuff(game_s *g, obj_s *o)
         }
     }
 
-    hero_flytime_add_ui(g, o, 10000);
-    if (h->flytime_added == 0) {
+    hero_stamina_add_ui(g, o, 10000);
+    if (h->stamina_added == 0) {
         h->jump_ui_may_hide = 1;
     }
     staminarestorer_respawn_all(g, o);

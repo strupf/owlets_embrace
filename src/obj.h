@@ -37,31 +37,43 @@ static inline u32 obj_GID_set(i32 index, i32 gen)
 #define OBJ_FLAG_ENEMY              ((u64)1 << 10)
 #define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
 #define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
-#define OBJ_FLAG_CARRYABLE          ((u64)1 << 13)
-#define OBJ_FLAG_IS_CARRIED         ((u64)1 << 14)
 #define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
 #define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
 #define OBJ_FLAG_BOSS               ((u64)1 << 17)
 #define OBJ_FLAG_HOVER_TEXT         ((u64)1 << 18)
 #define OBJ_FLAG_CAN_BE_JUMPED_ON   ((u64)1 << 19)
+#define OBJ_FLAG_LIGHT              ((u64)1 << 20)
 #define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
 
-#define OBJ_FLAG_CLAMP_TO_ROOM  (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
-#define OBJ_FLAG_ACTOR_PLATFORM (OBJ_FLAG_ACTOR | OBJ_FLAG_PLATFORM)
+#define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
-enum {
-    OBJ_BUMPED_X_NEG     = 1 << 0,
-    OBJ_BUMPED_X_POS     = 1 << 1,
-    OBJ_BUMPED_Y_NEG     = 1 << 2,
-    OBJ_BUMPED_Y_POS     = 1 << 3,
-    OBJ_BUMPED_SQUISH    = 1 << 4,
-    OBJ_BUMPED_ON_HEAD   = 1 << 5,
-    OBJ_BUMPED_X_BOUNDS  = 1 << 6,
-    OBJ_BUMPED_Y_BOUNDS  = 1 << 7,
-    OBJ_BUMPED_JUMPED_ON = 1 << 8,
-    OBJ_BUMPED_X         = OBJ_BUMPED_X_NEG | OBJ_BUMPED_X_POS,
-    OBJ_BUMPED_Y         = OBJ_BUMPED_Y_NEG | OBJ_BUMPED_Y_POS,
+enum obj_bump_flags_e {
+    OBJ_BUMP_X_NEG     = 1 << 0,
+    OBJ_BUMP_X_POS     = 1 << 1,
+    OBJ_BUMP_Y_NEG     = 1 << 2,
+    OBJ_BUMP_Y_POS     = 1 << 3,
+    OBJ_BUMP_SQUISH    = 1 << 4,
+    OBJ_BUMP_ON_HEAD   = 1 << 5,
+    OBJ_BUMP_X_BOUNDS  = 1 << 6,
+    OBJ_BUMP_Y_BOUNDS  = 1 << 7,
+    OBJ_BUMP_JUMPED_ON = 1 << 8,
+    OBJ_BUMP_X         = OBJ_BUMP_X_NEG | OBJ_BUMP_X_POS,
+    OBJ_BUMP_Y         = OBJ_BUMP_Y_NEG | OBJ_BUMP_Y_POS,
 };
+
+static inline i32 obj_bump_x_flag(i32 x)
+{
+    if (0 < x) return OBJ_BUMP_X_POS;
+    if (x < 0) return OBJ_BUMP_X_NEG;
+    return 0;
+}
+
+static inline i32 obj_bump_y_flag(i32 y)
+{
+    if (0 < y) return OBJ_BUMP_Y_POS;
+    if (y < 0) return OBJ_BUMP_Y_NEG;
+    return 0;
+}
 
 enum {
     OBJ_MOVER_GLUE_GROUND  = 1 << 0,
@@ -74,7 +86,7 @@ enum {
 };
 
 #define OBJ_HOVER_TEXT_TICKS 20
-typedef void (*obj_action_s)(game_s *g, obj_s *o);
+typedef void (*obj_action_s)(g_s *g, obj_s *o);
 
 typedef struct {
     texrec_s trec;
@@ -103,11 +115,11 @@ static inline u32 save_ID_gen(i32 roomID, i32 objID)
     return save_ID;
 }
 
-typedef void (*obj_on_update_f)(game_s *g, obj_s *o);
-typedef void (*obj_on_animate_f)(game_s *g, obj_s *o);
-typedef void (*obj_on_draw_f)(game_s *g, obj_s *o, v2_i32 cam);
-typedef void (*obj_on_trigger_f)(game_s *g, obj_s *o, i32 trigger);
-typedef void (*obj_on_interact_f)(game_s *g, obj_s *o);
+typedef void (*obj_on_update_f)(g_s *g, obj_s *o);
+typedef void (*obj_on_animate_f)(g_s *g, obj_s *o);
+typedef void (*obj_on_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
+typedef void (*obj_on_trigger_f)(g_s *g, obj_s *o, i32 trigger);
+typedef void (*obj_on_interact_f)(g_s *g, obj_s *o);
 
 #define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
@@ -130,7 +142,8 @@ struct obj_s {
     i32               render_priority;
     flags16           bumpflags; // has to be cleared manually
     flags16           moverflags;
-    i16               mass; // mass, for solid movement
+    u8                mass_og;
+    u8                mass; // mass, for solid movement
     i16               w;
     i16               h;
     v2_i32            pos; // position in pixels
@@ -159,17 +172,19 @@ struct obj_s {
     u8                health;
     u8                health_max;
     bool8             interactable_hovered;
+    u8                light_radius;
+    u8                light_strength;
     enemy_s           enemy;
     //
     ropenode_s       *ropenode;
     rope_s           *rope;
     obj_handle_s      linked_solid;
-    obj_carry_s       carry;
     //
     i32               n_sprites;
     obj_sprite_s      sprites[4];
     char              filename[64];
     //
+    void             *heap;
     alignas(4) byte   mem[512];
     u32               magic;
 };
@@ -179,12 +194,12 @@ obj_s       *obj_from_obj_handle(obj_handle_s h);
 bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
 //
-obj_s       *obj_create(game_s *g);
-void         obj_delete(game_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
-bool32       obj_tag(game_s *g, obj_s *o, i32 tag);
-bool32       obj_untag(game_s *g, obj_s *o, i32 tag);
-obj_s       *obj_get_tagged(game_s *g, i32 tag);
-void         objs_cull_to_delete(game_s *g); // removes all flagged objects
+obj_s       *obj_create(g_s *g);
+void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
+bool32       obj_tag(g_s *g, obj_s *o, i32 tag);
+bool32       obj_untag(g_s *g, obj_s *o, i32 tag);
+obj_s       *obj_get_tagged(g_s *g, i32 tag);
+void         objs_cull_to_delete(g_s *g); // removes all flagged objects
 bool32       overlap_obj(obj_s *a, obj_s *b);
 rec_i32      obj_aabb(obj_s *o);
 rec_i32      obj_rec_left(obj_s *o);
@@ -193,27 +208,26 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
-bool32       map_blocked(game_s *g, obj_s *o, rec_i32 r, i32 m);
-bool32       map_blocked_pt(game_s *g, obj_s *o, i32 x, i32 y, i32 m);
-bool32       map_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m);
-bool32       obj_step_x(game_s *g, obj_s *o, i32 dx, bool32 slide, i32 mpush);
-bool32       obj_step_y(game_s *g, obj_s *o, i32 dy, bool32 slide, i32 mpush);
-void         obj_move(game_s *g, obj_s *o, v2_i32 dt);
-bool32       obj_try_wiggle(game_s *g, obj_s *o);
-void         obj_on_squish(game_s *g, obj_s *o);
-bool32       obj_grounded(game_s *g, obj_s *o);
-bool32       obj_grounded_at_offs(game_s *g, obj_s *o, v2_i32 offs);
-bool32       obj_would_fall_down_next(game_s *g, obj_s *o, i32 xdir); // not on ground returns false
-void         squish_delete(game_s *g, obj_s *o);
-v2_i32       obj_constrain_to_rope(game_s *g, obj_s *o);
-void         obj_on_hooked(game_s *g, obj_s *o);
-obj_s       *obj_closest_interactable(game_s *g, v2_i32 pos);
-void         obj_move_by_q8(game_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
-void         obj_move_by(game_s *g, obj_s *o, i32 dx, i32 dy);
-void         obj_move_by_v_q8(game_s *g, obj_s *o);
+bool32       map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m);
+bool32       map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m);
+void         obj_move(g_s *g, obj_s *o, i32 dx, i32 dy);
+b32          obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push);
+bool32       obj_try_wiggle(g_s *g, obj_s *o);
+void         obj_on_squish(g_s *g, obj_s *o);
+bool32       obj_grounded(g_s *g, obj_s *o);
+bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
+bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false
+void         squish_delete(g_s *g, obj_s *o);
+v2_i32       obj_constrain_to_rope(g_s *g, obj_s *o);
+void         obj_on_hooked(g_s *g, obj_s *o);
+obj_s       *obj_closest_interactable(g_s *g, v2_i32 pos);
+void         obj_move_by_q8(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
+void         obj_move_by_v_q8(g_s *g, obj_s *o);
 void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
 void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
+bool32       obj_blocked_by_map_or_objs(g_s *g, obj_s *o, i32 sx, i32 sy);
+bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
 
 // apply gravity, drag, modify subposition and write pos_new
 // uses subpixel position:

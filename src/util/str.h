@@ -7,6 +7,15 @@
 
 #include "pltf/pltf.h"
 
+static u32 hash_str(const char *str)
+{
+    u32 h = 0;
+    for (const char *s = str; *s != '\0'; s++) {
+        h = h * 31 + (u32)tolower(*s);
+    }
+    return h;
+}
+
 typedef struct {
     u32 l;
     u32 c;
@@ -327,8 +336,8 @@ static int QX_gen(const char *str, int q)
     return (neg ? -n : +n);
 }
 
-#define Q_4(NUM)  (int)((NUM)*16.f)
-#define Q_8(NUM)  (int)((NUM)*256.f)
-#define Q_16(NUM) (int)((NUM)*65536.f)
+#define Q_4(NUM)  (int)((NUM) * 16.f)
+#define Q_8(NUM)  (int)((NUM) * 256.f)
+#define Q_16(NUM) (int)((NUM) * 65536.f)
 
 #endif

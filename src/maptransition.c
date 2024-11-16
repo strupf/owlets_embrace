@@ -24,7 +24,7 @@ const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     10,
     25};
 
-void maptransition_init(game_s *g, const char *file,
+void maptransition_init(g_s *g, const char *file,
                         i32 type, v2_i32 hero_feet, v2_i16 hero_v, i32 facing)
 {
     maptransition_s *mt = &g->maptransition;
@@ -35,20 +35,20 @@ void maptransition_init(game_s *g, const char *file,
     mt->hero_v           = hero_v;
     mt->hero_face        = facing;
     mt->jump_ui_may_hide = g->hero_mem.jump_ui_may_hide;
-    mt->jump_ui_tick     = g->hero_mem.jump_ui_fade_out;
+    mt->jump_ui_tick     = g->hero_mem.stamina_ui_fade_out;
     mt->fade_tick        = 0;
     mt->fade_phase       = 1;
     g->substate          = SUBSTATE_MAPTRANSITION;
 }
 
-void maptransition_teleport(game_s *g, const char *map, v2_i32 hero_feet)
+void maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet)
 {
     v2_i16 hero_v = {0};
     maptransition_init(g, map, MAPTRANSITION_TYPE_TELEPORT,
                        hero_feet, hero_v, +1);
 }
 
-bool32 maptransition_try_hero_slide(game_s *g)
+bool32 maptransition_try_hero_slide(g_s *g)
 {
     maptransition_s *mt = &g->maptransition;
 
@@ -58,6 +58,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
         BAD_PATH
         return 0;
     }
+    hero_s *h = (hero_s *)o->heap;
 
     i32 touchedbounds = 0;
     if (o->pos.x <= 0)
@@ -103,7 +104,7 @@ bool32 maptransition_try_hero_slide(game_s *g)
         break;
     case DIRECTION_S:
         trgaabb.y = 8;
-        hvel.y    = 256;
+        hvel.y    = 512;
         break;
     }
 
@@ -112,11 +113,11 @@ bool32 maptransition_try_hero_slide(game_s *g)
     maptransition_init(g, nextroom->filename,
                        MAPTRANSITION_TYPE_SLIDE, feet, hvel, o->facing);
     mt->dir     = touchedbounds;
-    mt->flytime = g->hero_mem.flytime;
+    mt->stamina = h->stamina;
     return 1;
 }
 
-void maptransition_update(game_s *g)
+void maptransition_update(g_s *g)
 {
     maptransition_s *mt = &g->maptransition;
     if (!mt->fade_phase) return;
@@ -136,16 +137,16 @@ void maptransition_update(game_s *g)
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
     game_load_map(g, mt->to_load);
-    obj_s  *hero         = hero_create(g);
-    hero_s *hh           = (hero_s *)&g->hero_mem;
-    hero->pos.x          = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y          = mt->hero_feet.y - hero->h;
-    hero->facing         = mt->hero_face;
-    hero->v_q8           = mt->hero_v;
-    hh->flytime          = mt->flytime;
-    hh->jump_ui_may_hide = mt->jump_ui_may_hide;
-    hh->jump_ui_fade_out = mt->jump_ui_tick;
-    v2_i32 hpos          = obj_pos_center(hero);
+    obj_s  *hero            = hero_create(g);
+    hero_s *hh              = (hero_s *)&g->hero_mem;
+    hero->pos.x             = mt->hero_feet.x - hero->w / 2;
+    hero->pos.y             = mt->hero_feet.y - hero->h;
+    hero->facing            = mt->hero_face;
+    hero->v_q8              = mt->hero_v;
+    hh->stamina             = mt->stamina;
+    hh->jump_ui_may_hide    = mt->jump_ui_may_hide;
+    hh->stamina_ui_fade_out = mt->jump_ui_tick;
+    v2_i32 hpos             = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
     v2_i16 *resp_closest = NULL;
@@ -165,7 +166,7 @@ void maptransition_update(game_s *g)
     game_prepare_new_map(g);
 }
 
-void maptransition_draw(game_s *g, v2_i32 cam)
+void maptransition_draw(g_s *g, v2_i32 cam)
 {
     tex_s            display = asset_tex(0);
     maptransition_s *mt      = &g->maptransition;
@@ -184,7 +185,6 @@ void maptransition_draw(game_s *g, v2_i32 cam)
         break;
     case MAPTRANSITION_FADE_IN:
         pat = gfx_pattern_interpolate(ticks - mt->fade_tick, ticks);
-        // pat = gfx_pattern_inv(pat);
         break;
     }
 
@@ -207,12 +207,10 @@ void maptransition_draw(game_s *g, v2_i32 cam)
         gfx_cir_fill(ctxc, cpos, cird, GFX_COL_WHITE);
     }
 
-    for (i32 y = 0; y < tmp.h; y++) {
-        for (i32 x = 0; x < tmp.wword; x++) {
-            i32 i = x + y * tmp.wword;
-            display.px[i] &= tmp.px[i];
-        }
+    u32 *p1 = display.px;
+    u32 *p2 = tmp.px;
+    for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
+        *p1++ &= *p2++;
     }
-
     spm_pop();
 }

@@ -9,7 +9,7 @@ typedef struct {
     v2_i32 p1;
 } flyer_s;
 
-void flyer_on_update(game_s *g, obj_s *o)
+void flyer_on_update(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     o->timer++;
@@ -25,7 +25,7 @@ void flyer_on_update(game_s *g, obj_s *o)
     }
 }
 
-void flyer_on_animate(game_s *g, obj_s *o)
+void flyer_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
 #if 0
@@ -49,7 +49,7 @@ void flyer_on_animate(game_s *g, obj_s *o)
 #endif
 }
 
-void flyer_load(game_s *g, map_obj_s *mo)
+void flyer_load(g_s *g, map_obj_s *mo)
 {
     obj_s   *o = obj_create(g);
     flyer_s *f = (flyer_s *)o->mem;

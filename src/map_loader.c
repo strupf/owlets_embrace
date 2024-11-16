@@ -142,12 +142,12 @@ static inline void map_proptile_decode(u16 t, i32 *tx, i32 *ty, i32 *f)
     *ty = (t >> 7) & B8(01111111);
 }
 
-static void             map_at_background(game_s *g, tilelayer_u8 tiles, i32 x, i32 y);
-static void             map_at_terrain(game_s *g, tilelayer_u16 tiles, i32 x, i32 y);
+static void             map_at_background(g_s *g, tilelayer_u8 tiles, i32 x, i32 y);
+static void             map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y);
 static map_prop_s      *map_prop_get(map_properties_s p, const char *name);
 static map_properties_s map_obj_properties(map_obj_s *mo);
-static void             map_obj_parse(game_s *g, map_obj_s *o);
-static void             map_obj_prop_fg_parse(game_s *g, map_obj_s *o);
+static void             map_obj_parse(g_s *g, map_obj_s *o);
+static void             map_obj_prop_fg_parse(g_s *g, map_obj_s *o);
 //
 static bool32           at_types_blending(i32 a, i32 b);
 
@@ -158,11 +158,15 @@ static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
 static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 
-static void map_obj_parse(game_s *g, map_obj_s *o)
+static void map_obj_parse(g_s *g, map_obj_s *o)
 {
     if (0) {
-    } else if (str_eq_nc(o->name, "Crankswitch")) {
-        crankswitch_load(g, o);
+    } else if (str_eq_nc(o->name, "Fallingblock")) {
+        fallingblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Light")) {
+        light_load(g, o);
+    } else if (str_eq_nc(o->name, "Stompfloor")) {
+        stompable_block_load(g, o);
     } else if (str_eq_nc(o->name, "Staminarestorer")) {
         staminarestorer_load(g, o);
     } else if (str_eq_nc(o->name, "Flyblob")) {
@@ -183,8 +187,6 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
         box_load(g, o);
     } else if (str_eq_nc(o->name, "Hero_Powerup")) {
         hero_powerup_obj_load(g, o);
-    } else if (str_eq_nc(o->name, "Boat")) {
-        boat_load(g, o);
     } else if (str_eq_nc(o->name, "NPC")) {
         npc_load(g, o);
     } else if (str_eq_nc(o->name, "Floater")) {
@@ -258,7 +260,7 @@ static void map_obj_parse(game_s *g, map_obj_s *o)
     }
 }
 
-static void map_obj_prop_fg_parse(game_s *g, map_obj_s *o)
+static void map_obj_prop_fg_parse(g_s *g, map_obj_s *o)
 {
     foreground_prop_s *p = &g->foreground_props[g->n_foreground_props++];
     *p                   = (foreground_prop_s){0};
@@ -271,15 +273,15 @@ static void map_obj_prop_fg_parse(game_s *g, map_obj_s *o)
                                         (i32)o->th << 4);
 }
 
-void game_load_map(game_s *g, const char *mapfile)
+void game_load_map(g_s *g, const char *mapfile)
 {
     g->save.coins += g->coins_added;
     g->coins_added       = 0;
     g->coins_added_ticks = 0;
     g->obj_ndelete       = 0;
     g->n_objrender       = 0;
-    g->obj_head_busy     = NULL;
-    g->obj_head_free     = NULL;
+    g->obj_head_busy     = 0;
+    g->obj_head_free     = 0;
 
     for (i32 n = 0; n < NUM_OBJ; n++) {
         obj_s *o         = &g->obj_raw[n];
@@ -288,9 +290,10 @@ void game_load_map(game_s *g, const char *mapfile)
         g->obj_head_free = o;
     }
 
-    for (i32 n = 0; n < NUM_OBJ_TAGS; n++) {
-        g->obj_tag[n] = NULL;
-    }
+    mclr(g->obj_tag, sizeof(g->obj_tag));
+    mclr(g->tiles, sizeof(g->tiles));
+    mclr(g->rtiles, sizeof(g->rtiles));
+    mclr(g->fluid_streams, sizeof(g->fluid_streams));
     g->n_foreground_props = 0;
     g->n_grass            = 0;
     g->n_deco_verlet      = 0;
@@ -302,9 +305,6 @@ void game_load_map(game_s *g, const char *mapfile)
     g->cam.locked_y       = 0;
     g->n_respawns         = 0;
     g->hero_mem           = (hero_s){0};
-    mclr(g->tiles, sizeof(g->tiles));
-    mclr(g->rtiles, sizeof(g->rtiles));
-    mclr(g->fluid_streams, sizeof(g->fluid_streams));
     g->areaname.fadeticks = 1;
 
     str_cpy(g->areaname.filename, mapfile);
@@ -344,6 +344,7 @@ void game_load_map(game_s *g, const char *mapfile)
     map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
     area_setup(g, &g->area, map_prop_i32(mp, "Area_ID"));
+    g->dark          = map_prop_bool(mp, "Dark");
     char musname[32] = {0};
     map_prop_strs(mp, "Music", musname);
     mus_play(musname);
@@ -367,27 +368,26 @@ void game_load_map(game_s *g, const char *mapfile)
             i32 ttshape = map_terrain_shape(tt);
             switch (ttshape) {
             case TILE_LADDER: {
+                i32 ty                                 = 19 + (y & 3);
                 g->tiles[k].collision                  = TILE_LADDER;
-                g->rtiles[TILELAYER_PROP_BG][k].tx     = 1;
-                g->rtiles[TILELAYER_PROP_BG][k].ty     = 1;
-                g->rtiles[TILELAYER_PROP_BG][k - 1].tx = 0;
-                g->rtiles[TILELAYER_PROP_BG][k - 1].ty = 1;
-                g->rtiles[TILELAYER_PROP_BG][k + 1].tx = 2;
-                g->rtiles[TILELAYER_PROP_BG][k + 1].ty = 1;
+                g->rtiles[TILELAYER_PROP_BG][k].tx     = 5;
+                g->rtiles[TILELAYER_PROP_BG][k].ty     = ty;
+                g->rtiles[TILELAYER_PROP_BG][k - 1].tx = 4;
+                g->rtiles[TILELAYER_PROP_BG][k - 1].ty = ty;
+                g->rtiles[TILELAYER_PROP_BG][k + 1].tx = 6;
+                g->rtiles[TILELAYER_PROP_BG][k + 1].ty = ty;
             } break;
             case TILE_LADDER_ONE_WAY: {
                 g->tiles[k].collision              = TILE_LADDER_ONE_WAY;
-                g->rtiles[TILELAYER_PROP_BG][k].tx = 1;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 6;
+                g->rtiles[TILELAYER_PROP_BG][k].tx = 2;
+                g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
             } break;
             case TILE_ONE_WAY: {
                 g->tiles[k].collision              = TILE_ONE_WAY;
                 g->rtiles[TILELAYER_PROP_BG][k].tx = 3;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 1;
+                g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
             } break;
-            default:
-                map_at_terrain(g, l_terrain, x, y);
-                break;
+            default: map_at_terrain(g, l_terrain, x, y); break;
             }
         }
     }
@@ -458,14 +458,10 @@ void game_load_map(game_s *g, const char *mapfile)
     pltf_file_close(mapf);
 }
 
-void game_prepare_new_map(game_s *g)
+void game_prepare_new_map(g_s *g)
 {
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-    for (obj_each(g, o)) {
-        if (o->on_animate) { // just setting initial sprites for obj
-            o->on_animate(g, o);
-        }
-    }
+    objs_animate(g);
     aud_allow_playing_new_snd(1);
     cam_init_level(g, &g->cam);
 }
@@ -537,7 +533,7 @@ enum {
     AT_NW = B8(10000000)
 };
 
-static void map_at_background(game_s *g, tilelayer_u8 tiles, i32 x, i32 y)
+static void map_at_background(g_s *g, tilelayer_u8 tiles, i32 x, i32 y)
 {
     i32 index = x + y * tiles.w;
     i32 tile  = tiles.t[index];
@@ -602,7 +598,7 @@ static bool32 map_dual_border(tilelayer_u16 tiles, i32 x, i32 y,
     return (march == map_marching_squares(tiles, u, v));
 }
 
-static void map_at_terrain(game_s *g, tilelayer_u16 tiles, i32 x, i32 y)
+static void map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y)
 {
     i32     index  = x + y * tiles.w;
     i32     tile   = tiles.t[index];

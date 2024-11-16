@@ -16,10 +16,10 @@ typedef struct {
     v2_i32 p;
 } hookplant_s;
 
-void hookplant_on_update(game_s *g, obj_s *o);
-void hookplant_on_animate(game_s *g, obj_s *o);
+void hookplant_on_update(g_s *g, obj_s *o);
+void hookplant_on_animate(g_s *g, obj_s *o);
 
-void hookplant_load(game_s *g, map_obj_s *mo)
+void hookplant_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_HOOKPLANT;
@@ -33,7 +33,7 @@ void hookplant_load(game_s *g, map_obj_s *mo)
     o->h          = mo->h + 16;
 }
 
-void hookplant_on_update(game_s *g, obj_s *o)
+void hookplant_on_update(g_s *g, obj_s *o)
 {
     switch (o->state) {
     case HOOKPLANT_IDLE: break;
@@ -72,7 +72,7 @@ void hookplant_on_update(game_s *g, obj_s *o)
     }
 }
 
-void hookplant_on_animate(game_s *g, obj_s *o)
+void hookplant_on_animate(g_s *g, obj_s *o)
 {
     o->flags |= OBJ_FLAG_RENDER_AABB;
     switch (o->state) {

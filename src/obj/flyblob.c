@@ -29,7 +29,7 @@ typedef struct {
     bool8 invincible;
 } flyblob_s;
 
-void flyblob_on_hit(game_s *g, obj_s *o, hitbox_s hb)
+void flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb)
 {
     flyblob_s *f = (flyblob_s *)o->mem;
     switch (o->state) {
@@ -53,7 +53,7 @@ void flyblob_on_hit(game_s *g, obj_s *o, hitbox_s hb)
     o->state     = FLYBLOB_STATE_PROPELLER_POP;
 }
 
-void flyblob_load(game_s *g, map_obj_s *mo)
+void flyblob_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o  = obj_create(g);
     flyblob_s *f  = (flyblob_s *)o->mem;
@@ -69,8 +69,8 @@ void flyblob_load(game_s *g, map_obj_s *mo)
     o->facing     = 1;
 
     o->flags = OBJ_FLAG_SPRITE |
-               // OBJ_FLAG_HURT_ON_TOUCH |
-               OBJ_FLAG_ENEMY | OBJ_FLAG_PLATFORM_HERO_ONLY |
+               OBJ_FLAG_HURT_ON_TOUCH |
+               OBJ_FLAG_ENEMY |
                OBJ_FLAG_CLAMP_TO_ROOM | OBJ_FLAG_CAN_BE_JUMPED_ON;
     o->moverflags        = OBJ_MOVER_MAP;
     o->n_sprites         = 2;
@@ -79,7 +79,7 @@ void flyblob_load(game_s *g, map_obj_s *mo)
     o->sprites[1].trec.t = tex;
 }
 
-void flyblob_on_update(game_s *g, obj_s *o)
+void flyblob_on_update(g_s *g, obj_s *o)
 {
     flyblob_s *f = (flyblob_s *)o->mem;
     o->timer++;
@@ -205,10 +205,10 @@ void flyblob_on_update(game_s *g, obj_s *o)
     }
     case FLYBLOB_STATE_GROUND: {
         o->v_q8.y += 50;
-        if (o->bumpflags & OBJ_BUMPED_Y) {
+        if (o->bumpflags & OBJ_BUMP_Y) {
             o->v_q8.y = 0;
         }
-        if (o->bumpflags & OBJ_BUMPED_X) {
+        if (o->bumpflags & OBJ_BUMP_X) {
             o->v_q8.x = -o->v_q8.x;
         }
         o->bumpflags = 0;
@@ -231,7 +231,7 @@ void flyblob_on_update(game_s *g, obj_s *o)
     obj_move_by_v_q8(g, o);
 }
 
-void flyblob_on_animate(game_s *g, obj_s *o)
+void flyblob_on_animate(g_s *g, obj_s *o)
 {
     flyblob_s    *f  = (flyblob_s *)o->mem;
     obj_sprite_s *s0 = &o->sprites[0];
@@ -298,10 +298,10 @@ void flyblob_on_animate(game_s *g, obj_s *o)
     case FLYBLOB_STATE_FALLING: {
         framey = 2;
         framex = 6 + (((o->timer - FLYBLOB_TICKS_POP) >> 1) & 3);
-        if (o->bumpflags & OBJ_BUMPED_X) {
+        if (o->bumpflags & OBJ_BUMP_X) {
             o->v_q8.x = (-o->v_q8.x * 200) >> 8;
         }
-        if (o->bumpflags & OBJ_BUMPED_Y) {
+        if (o->bumpflags & OBJ_BUMP_Y) {
             o->v_q8.y = (-o->v_q8.y * 200) >> 8;
         }
         o->bumpflags = 0;

@@ -2,18 +2,14 @@
 // Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef FOREGROUND_PROP_H
-#define FOREGROUND_PROP_H
-
 #include "gamedef.h"
 
+#define NUM_LADDERS 16
+
 typedef struct {
-    v2_i16   pos;
-    texrec_s tr;
-} foreground_prop_s;
-
-#define NUM_FOREGROUND_PROPS 1024
-
-void foreground_props_draw(g_s *g, v2_i32 cam);
-
-#endif
+    u16 tx;        // position in tiles
+    u16 ty;        //
+    u8  th;        // height in tiles
+    u8  t_touched; // tile index to be animated - "stepped on"
+    u8  anim;      // animation timer
+} ladder_s;

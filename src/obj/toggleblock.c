@@ -3,112 +3,61 @@
 // =============================================================================
 
 #include "game.h"
+#include "render.h"
 
-#define TOGGLEBLOCK_TICKS 6
+#define TOGGLEBLOCK_TR_ENABLE  0
+#define TOGGLEBLOCK_TR_DISABLE 1
 
 typedef struct {
-    i32 trigger_to_enable;
-    i32 trigger_to_disable;
+    i32 trigger[2];
 } obj_toggleblock_s;
 
-void toggleblock_on_animate(game_s *g, obj_s *o)
+void toggleblock_on_animate(g_s *g, obj_s *o)
 {
-    o->timer++;
 }
 
-void toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
-    int sx = 0;
-
-    switch (o->state) {
-    case 0:
-        sx = o->timer < TOGGLEBLOCK_TICKS ? 64 : 128;
-        break;
-    case 1:
-        sx = o->timer < TOGGLEBLOCK_TICKS ? 64 : 0;
-        break;
-    }
+    if (o->state == 0) return;
 
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_TOGGLE, 0, 0, 16, 16);
     v2_i32    pos = v2_add(o->pos, cam);
     i32       nx  = o->w >> 4;
     i32       ny  = o->h >> 4;
-
-    for (i32 y = 0; y < ny; y++) {
-        for (i32 x = 0; x < nx; x++) {
-            v2_i32 p = {pos.x + (x << 4), pos.y + (y << 4)};
-            if (ny == 1) {
-                tr.r.y = 48;
-            } else if (y == 0) {
-                tr.r.y = 0;
-            } else if (y == ny - 1) {
-                tr.r.y = 32;
-            } else {
-                tr.r.y = 16;
-            }
-            if (nx == 1) {
-                tr.r.x = 48 + sx;
-            } else if (x == 0) {
-                tr.r.x = 0 + sx;
-            } else if (x == nx - 1) {
-                tr.r.x = 32 + sx;
-            } else {
-                tr.r.x = 16 + sx;
-            }
-
-            gfx_spr(ctx, tr, p, 0, 0);
-        }
-    }
+    render_tile_terrain_block(ctx, pos, nx, ny, TILE_TYPE_DIRT);
 }
 
-static void toggleblock_set_state(game_s *g, obj_s *o, int state)
+static void toggleblock_set_state(g_s *g, obj_s *o, i32 state)
 {
     o->state = state;
-    o->timer = 0;
     i32 b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
-
-    tile_map_set_collision(g, obj_aabb(o), b, b == TILE_BLOCK ? TILE_TYPE_DIRT : 0);
+    i32 t    = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
+    tile_map_set_collision(g, obj_aabb(o), b, t);
 }
 
-void toggleblock_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void toggleblock_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
     obj_toggleblock_s *ot = (obj_toggleblock_s *)o->mem;
 
-    switch (o->state) {
-    case 0:
-        if (trigger == ot->trigger_to_enable) {
-            toggleblock_set_state(g, o, 1);
-        }
-        break;
-    case 1:
-        if (trigger == ot->trigger_to_disable) {
-            toggleblock_set_state(g, o, 0);
-        }
-        break;
+    if (trigger == ot->trigger[o->state]) {
+        toggleblock_set_state(g, o, 1 - o->state);
     }
 }
 
-void toggleblock_load(game_s *g, map_obj_s *mo)
+void toggleblock_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_TOGGLEBLOCK;
-    o->on_animate      = toggleblock_on_animate;
-    o->on_draw         = toggleblock_on_draw;
-    o->on_trigger      = toggleblock_on_trigger;
-    o->render_priority = -10;
-    o->w               = 16;
-    o->h               = 16;
-    o->state           = 0;
-    o->timer           = TOGGLEBLOCK_TICKS;
+    obj_s             *o  = obj_create(g);
+    obj_toggleblock_s *ot = (obj_toggleblock_s *)o->mem;
+    o->ID                 = OBJ_ID_TOGGLEBLOCK;
+    o->render_priority    = -10;
+    o->state              = 0;
+    o->pos.x              = mo->x;
+    o->pos.y              = mo->y;
+    o->w                  = mo->w;
+    o->h                  = mo->h;
 
-    obj_toggleblock_s *ot  = (obj_toggleblock_s *)o->mem;
-    o->pos.x               = mo->x;
-    o->pos.y               = mo->y;
-    o->w                   = mo->w;
-    o->h                   = mo->h;
-    ot->trigger_to_enable  = map_obj_i32(mo, "Trigger_enable");
-    ot->trigger_to_disable = map_obj_i32(mo, "Trigger_disable");
+    ot->trigger[TOGGLEBLOCK_TR_ENABLE]  = map_obj_i32(mo, "Trigger_enable");
+    ot->trigger[TOGGLEBLOCK_TR_DISABLE] = map_obj_i32(mo, "Trigger_disable");
     toggleblock_set_state(g, o, map_obj_bool(mo, "Enabled"));
-    o->timer = TOGGLEBLOCK_TICKS;
 }

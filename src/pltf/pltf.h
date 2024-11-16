@@ -14,16 +14,17 @@
 #include "pltf_sdl.h"
 #endif
 
-#define PLTF_ENGINE_ONLY    0  // only compile and run the barebones engine?
-#define PLTF_UPS            50 // ticks per second
-#define PLTF_DISPLAY_W      400
-#define PLTF_DISPLAY_H      240
-#define PLTF_DISPLAY_WBYTES 52
-#define PLTF_DISPLAY_WWORDS 13
+#define PLTF_ENGINE_ONLY       0  // only compile and run the barebones engine?
+#define PLTF_UPS               50 // ticks per second
+#define PLTF_DISPLAY_W         400
+#define PLTF_DISPLAY_H         240
+#define PLTF_DISPLAY_WBYTES    52
+#define PLTF_DISPLAY_WWORDS    13
+#define PLTF_DISPLAY_NUM_WORDS 3120
 //
-#define PLTF_UPS_DT         0.0200f // elapsed seconds per update step (1/UPS)
-#define PLTF_UPS_DT_TEST    0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
-#define PLTF_UPS_DT_CAP     0.0600f // max elapsed seconds
+#define PLTF_UPS_DT            0.0200f // elapsed seconds per update step (1/UPS)
+#define PLTF_UPS_DT_TEST       0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
+#define PLTF_UPS_DT_CAP        0.0600f // max elapsed seconds
 
 #ifdef PLTF_PD
 #define PLTF_ACCELEROMETER_SUPPORT 1

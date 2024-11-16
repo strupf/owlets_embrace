@@ -82,12 +82,12 @@ typedef struct {
     } c;
 } aud_cmd_s;
 
-typedef struct {
+typedef_struct (sndchannel_s) {
     u32        snd_iID;
     qoa_data_s qoa_dat;
-} sndchannel_s;
+};
 
-typedef struct {
+typedef_struct (muschannel_s) {
     void        *stream;
     u32          total_bytes_file;
     qoa_stream_s qoa_str;
@@ -95,7 +95,7 @@ typedef struct {
     char         mus_name[LEN_MUS_NAME];
     i32          trg_vol_q8;
     bool32       looping;
-} muschannel_s;
+};
 
 typedef struct AUD_s {
     muschannel_s muschannel[NUM_MUSCHANNEL];

@@ -28,7 +28,7 @@ const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
     25  // fade
 };
 
-void gameover_start(game_s *g)
+void gameover_start(g_s *g)
 {
     gameover_s *go = &g->gameover;
     go->tick       = 0;
@@ -36,7 +36,7 @@ void gameover_start(game_s *g)
     g->substate    = SUBSTATE_GAMEOVER;
 }
 
-void gameover_update(game_s *g)
+void gameover_update(g_s *g)
 {
     gameover_s *go = &g->gameover;
 
@@ -61,7 +61,7 @@ void gameover_update(game_s *g)
     }
 }
 
-void gameover_draw(game_s *g, v2_i32 cam)
+void gameover_draw(g_s *g, v2_i32 cam)
 {
     gameover_s *go = &g->gameover;
 

@@ -18,14 +18,14 @@ enum {
 #define CHARGER_TRIGGER_AREA_W     100
 #define CHARGER_TRIGGER_AREA_H     50
 
-static void charger_update_normal(game_s *g, obj_s *o);
-static void charger_update_charging(game_s *g, obj_s *o);
-static void charger_update_stunned(game_s *g, obj_s *o);
+static void charger_update_normal(g_s *g, obj_s *o);
+static void charger_update_charging(g_s *g, obj_s *o);
+static void charger_update_stunned(g_s *g, obj_s *o);
 
-static void charger_update_normal(game_s *g, obj_s *o)
+static void charger_update_normal(g_s *g, obj_s *o)
 {
-    bool32 bumpedx = (o->bumpflags & OBJ_BUMPED_X);
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    bool32 bumpedx = (o->bumpflags & OBJ_BUMP_X);
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
     o->bumpflags = 0;
@@ -65,11 +65,11 @@ static void charger_update_normal(game_s *g, obj_s *o)
     }
 }
 
-static void charger_update_charging(game_s *g, obj_s *o)
+static void charger_update_charging(g_s *g, obj_s *o)
 {
     flags32 bflags  = o->bumpflags;
-    bool32  bumpedx = (o->bumpflags & OBJ_BUMPED_X);
-    bool32  bumpedy = (o->bumpflags & OBJ_BUMPED_Y);
+    bool32  bumpedx = (o->bumpflags & OBJ_BUMP_X);
+    bool32  bumpedy = (o->bumpflags & OBJ_BUMP_Y);
     o->bumpflags    = 0;
     if (bumpedy) {
         o->v_q8.y = 0;
@@ -82,8 +82,8 @@ static void charger_update_charging(game_s *g, obj_s *o)
         if (obj_grounded(g, o)) {
             o->v_q8.y = -700;
         }
-        if (bflags & OBJ_BUMPED_X_NEG) o->v_q8.x = +150;
-        if (bflags & OBJ_BUMPED_X_POS) o->v_q8.x = -150;
+        if (bflags & OBJ_BUMP_X_NEG) o->v_q8.x = +150;
+        if (bflags & OBJ_BUMP_X_POS) o->v_q8.x = -150;
         o->state    = CHARGER_STATE_STUNNED;
         o->subtimer = 0;
         return;
@@ -103,12 +103,12 @@ static void charger_update_charging(game_s *g, obj_s *o)
     o->v_q8.x += o->facing * 64;
 }
 
-static void charger_update_stunned(game_s *g, obj_s *o)
+static void charger_update_stunned(g_s *g, obj_s *o)
 {
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = -(o->v_q8.y >> 1);
     }
-    if (o->bumpflags & OBJ_BUMPED_X) {
+    if (o->bumpflags & OBJ_BUMP_X) {
         o->v_q8.x = 0;
     } else if (obj_grounded(g, o)) {
         o->v_q8.x /= 2;
@@ -123,7 +123,7 @@ static void charger_update_stunned(game_s *g, obj_s *o)
     o->subtimer = 0;
 }
 
-void charger_on_update(game_s *g, obj_s *o)
+void charger_on_update(g_s *g, obj_s *o)
 {
     switch (o->state) {
     case CHARGER_STATE_NORMAL: {
@@ -138,7 +138,7 @@ void charger_on_update(game_s *g, obj_s *o)
     }
 }
 
-void charger_on_animate(game_s *g, obj_s *o)
+void charger_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     spr->flip         = o->facing == 1 ? 0 : SPR_FLIP_X;
@@ -168,7 +168,7 @@ void charger_on_animate(game_s *g, obj_s *o)
     spr->trec = asset_texrec(TEXID_CHARGER, frameID * 128, animID * 64, 128, 64);
 }
 
-void charger_load(game_s *g, map_obj_s *mo)
+void charger_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_CHARGER;

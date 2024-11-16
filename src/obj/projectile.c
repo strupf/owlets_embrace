@@ -16,7 +16,7 @@ typedef struct {
 
 static_assert(sizeof(projectile_s) < 512, "");
 
-obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
+obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
 {
     obj_s        *o = obj_create(g);
     projectile_s *p = (projectile_s *)o->mem;
@@ -55,7 +55,7 @@ obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     return o;
 }
 
-void projectile_on_update(game_s *g, obj_s *o)
+void projectile_on_update(g_s *g, obj_s *o)
 {
     switch (o->subID) {
     case PROJECTILE_ID_STALACTITE_BREAK:
@@ -91,7 +91,7 @@ void projectile_on_update(game_s *g, obj_s *o)
     obj_move_by_v_q8(g, o);
 }
 
-void projectile_on_animate(game_s *g, obj_s *o)
+void projectile_on_animate(g_s *g, obj_s *o)
 {
     projectile_s *p   = (projectile_s *)o->mem;
     obj_sprite_s *spr = &o->sprites[0];
@@ -101,7 +101,7 @@ void projectile_on_animate(game_s *g, obj_s *o)
 }
 
 // smear behind projectile
-void projectile_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s     ctx = gfx_ctx_display();
     projectile_s *pr  = (projectile_s *)o->mem;
@@ -132,7 +132,7 @@ void projectile_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     }
 }
 
-void projectile_on_collision(game_s *g, obj_s *o)
+void projectile_on_collision(g_s *g, obj_s *o)
 {
     switch (o->subID) {
     default: break;

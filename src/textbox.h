@@ -86,8 +86,8 @@ typedef struct {
     dialog_frame_s  frames[TEXTBOX_NUM_FRAMES];
 } textbox_s;
 
-bool32 textbox_load_dialog(game_s *g, const char *fname);
-void   textbox_update(game_s *g);
-void   textbox_draw(game_s *g, v2_i32 camoffset);
+bool32 textbox_load_dialog(g_s *g, const char *fname);
+void   textbox_update(g_s *g);
+void   textbox_draw(g_s *g, v2_i32 camoffset);
 
 #endif

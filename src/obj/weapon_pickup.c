@@ -4,12 +4,12 @@
 
 #include "game.h"
 
-obj_s *weapon_pickup_create(game_s *g);
-void   weapon_pickup_on_update(game_s *g, obj_s *o);
-void   weapon_pickup_on_animate(game_s *g, obj_s *o);
-void   weapon_pickup_on_interact(game_s *g, obj_s *o);
+obj_s *weapon_pickup_create(g_s *g);
+void   weapon_pickup_on_update(g_s *g, obj_s *o);
+void   weapon_pickup_on_animate(g_s *g, obj_s *o);
+void   weapon_pickup_on_interact(g_s *g, obj_s *o);
 
-obj_s *weapon_pickup_create(game_s *g)
+obj_s *weapon_pickup_create(g_s *g)
 {
     obj_s *o          = obj_create(g);
     o->ID             = OBJ_ID_WEAPON_PICKUP;
@@ -29,14 +29,14 @@ obj_s *weapon_pickup_create(game_s *g)
     return o;
 }
 
-void weapon_pickup_load(game_s *g, map_obj_s *mo)
+void weapon_pickup_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = weapon_pickup_create(g);
     o->pos.x = mo->x;
     o->pos.y = mo->y;
 }
 
-void weapon_pickup_place(game_s *g, obj_s *ohero)
+void weapon_pickup_place(g_s *g, obj_s *ohero)
 {
     hero_s *h       = &g->hero_mem;
     h->holds_weapon = 0;
@@ -47,7 +47,7 @@ void weapon_pickup_place(game_s *g, obj_s *ohero)
     snd_play(SNDID_WEAPON_UNEQUIP, 1.f, 1.f);
 }
 
-void weapon_pickup_on_pickup(game_s *g, obj_s *o, obj_s *ohero)
+void weapon_pickup_on_pickup(g_s *g, obj_s *o, obj_s *ohero)
 {
     hero_s *h = &g->hero_mem;
     hero_action_ungrapple(g, o);
@@ -56,7 +56,7 @@ void weapon_pickup_on_pickup(game_s *g, obj_s *o, obj_s *ohero)
     snd_play(SNDID_WEAPON_EQUIP, 0.7f, 0.8f);
 }
 
-void weapon_pickup_on_update(game_s *g, obj_s *o)
+void weapon_pickup_on_update(g_s *g, obj_s *o)
 {
     if (o->interactable_hovered) {
         if (o->subtimer == 0) {
@@ -80,13 +80,13 @@ void weapon_pickup_on_update(game_s *g, obj_s *o)
     if (obj_grounded(g, o)) {
     }
 
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
     o->bumpflags = 0;
 }
 
-void weapon_pickup_on_animate(game_s *g, obj_s *o)
+void weapon_pickup_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
 
@@ -104,7 +104,7 @@ void weapon_pickup_on_animate(game_s *g, obj_s *o)
     }
 }
 
-void weapon_pickup_on_interact(game_s *g, obj_s *o)
+void weapon_pickup_on_interact(g_s *g, obj_s *o)
 {
     weapon_pickup_on_pickup(g, o, obj_get_tagged(g, OBJ_TAG_HERO));
 }

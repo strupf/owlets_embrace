@@ -9,7 +9,12 @@
 #include <emscripten.h>
 #endif
 
-#define PLTF_SDL_RECORD_1080P   (0 && !defined(__EMSCRIPTEN__))
+#ifdef __EMSCRIPTEN__
+#define PLTF_SDL_WEB 1
+#else
+#define PLTF_SDL_WEB 0
+#endif
+#define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_NUM_DEBUG_RECS 256

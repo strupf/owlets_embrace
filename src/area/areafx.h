@@ -96,29 +96,29 @@ typedef struct {
     areafx_particle_calm_s p[AREAFX_PT_CALM_N];
 } areafx_particles_calm_s;
 
-void areafx_clouds_setup(game_s *g, areafx_clouds_s *fx);
-void areafx_clouds_update(game_s *g, areafx_clouds_s *fx);
-void areafx_clouds_draw(game_s *g, areafx_clouds_s *fx, v2_i32 cam);
+void areafx_clouds_setup(g_s *g, areafx_clouds_s *fx);
+void areafx_clouds_update(g_s *g, areafx_clouds_s *fx);
+void areafx_clouds_draw(g_s *g, areafx_clouds_s *fx, v2_i32 cam);
 //
-void areafx_rain_setup(game_s *g, areafx_rain_s *fx);
-void areafx_rain_update(game_s *g, areafx_rain_s *fx);
-void areafx_rain_draw(game_s *g, areafx_rain_s *fx, v2_i32 cam);
-void areafx_rain_draw_lightning(game_s *g, areafx_rain_s *fx, v2_i32 cam);
+void areafx_rain_setup(g_s *g, areafx_rain_s *fx);
+void areafx_rain_update(g_s *g, areafx_rain_s *fx);
+void areafx_rain_draw(g_s *g, areafx_rain_s *fx, v2_i32 cam);
+void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam);
 //
-void areafx_wind_setup(game_s *g, areafx_wind_s *fx);
-void areafx_wind_update(game_s *g, areafx_wind_s *fx);
-void areafx_wind_draw(game_s *g, areafx_wind_s *fx, v2_i32 cam);
+void areafx_wind_setup(g_s *g, areafx_wind_s *fx);
+void areafx_wind_update(g_s *g, areafx_wind_s *fx);
+void areafx_wind_draw(g_s *g, areafx_wind_s *fx, v2_i32 cam);
 //
-void areafx_heat_setup(game_s *g, areafx_heat_s *fx);
-void areafx_heat_update(game_s *g, areafx_heat_s *fx);
-void areafx_heat_draw(game_s *g, areafx_heat_s *fx, v2_i32 cam);
+void areafx_heat_setup(g_s *g, areafx_heat_s *fx);
+void areafx_heat_update(g_s *g, areafx_heat_s *fx);
+void areafx_heat_draw(g_s *g, areafx_heat_s *fx, v2_i32 cam);
 //
-void areafx_leaves_setup(game_s *g, areafx_leaves_s *fx);
-void areafx_leaves_update(game_s *g, areafx_leaves_s *fx);
-void areafx_leaves_draw(game_s *g, areafx_leaves_s *fx, v2_i32 cam);
+void areafx_leaves_setup(g_s *g, areafx_leaves_s *fx);
+void areafx_leaves_update(g_s *g, areafx_leaves_s *fx);
+void areafx_leaves_draw(g_s *g, areafx_leaves_s *fx, v2_i32 cam);
 //
-void areafx_particles_calm_setup(game_s *g, areafx_particles_calm_s *fx);
-void areafx_particles_calm_update(game_s *g, areafx_particles_calm_s *fx);
-void areafx_particles_calm_draw(game_s *g, areafx_particles_calm_s *fx, v2_i32 cam);
+void areafx_particles_calm_setup(g_s *g, areafx_particles_calm_s *fx);
+void areafx_particles_calm_update(g_s *g, areafx_particles_calm_s *fx);
+void areafx_particles_calm_draw(g_s *g, areafx_particles_calm_s *fx, v2_i32 cam);
 
 #endif

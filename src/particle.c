@@ -5,7 +5,7 @@
 #include "particle.h"
 #include "game.h"
 
-void particles_spawn(game_s *g, particle_desc_s desc, i32 n)
+void particles_spawn(g_s *g, particle_desc_s desc, i32 n)
 {
     particles_s *pr = &g->particles;
     if (pr->n == PARTICLE_NUM) return;
@@ -29,7 +29,7 @@ void particles_spawn(game_s *g, particle_desc_s desc, i32 n)
     }
 }
 
-void particles_update(game_s *g, particles_s *pr)
+void particles_update(g_s *g, particles_s *pr)
 {
     for (i32 i = pr->n - 1; 0 <= i; i--) {
         particle_s *p  = &pr->particles[i];
@@ -68,7 +68,7 @@ void particles_update(game_s *g, particles_s *pr)
     }
 }
 
-void particles_draw(game_s *g, particles_s *pr, v2_i32 cam)
+void particles_draw(g_s *g, particles_s *pr, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     for (i32 i = 0; i < pr->n; i++) {
@@ -92,7 +92,7 @@ void particles_draw(game_s *g, particles_s *pr, v2_i32 cam)
     }
 }
 
-coinparticle_s *coinparticle_create(game_s *g)
+coinparticle_s *coinparticle_create(g_s *g)
 {
     if (NUM_COINPARTICLE <= g->n_coinparticles) return NULL;
     coinparticle_s *c = &g->coinparticles[g->n_coinparticles++];
@@ -100,7 +100,7 @@ coinparticle_s *coinparticle_create(game_s *g)
     return c;
 }
 
-void coinparticle_update(game_s *g)
+void coinparticle_update(g_s *g)
 {
     obj_s *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
     v2_i32 heropos = {0};
@@ -156,7 +156,7 @@ void coinparticle_update(game_s *g)
     }
 }
 
-void coinparticle_draw(game_s *g, v2_i32 cam)
+void coinparticle_draw(g_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_MISCOBJ, 0, 160, 16, 16);

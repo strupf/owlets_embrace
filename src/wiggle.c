@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-void grass_put(game_s *g, i32 tx, i32 ty)
+void grass_put(g_s *g, i32 tx, i32 ty)
 {
     if (g->n_grass >= NUM_GRASS) return;
     grass_s *gr = &g->grass[g->n_grass++];
@@ -14,7 +14,7 @@ void grass_put(game_s *g, i32 tx, i32 ty)
     gr->type    = rngr_i32(0, 2);
 }
 
-void grass_animate(game_s *g)
+void grass_animate(g_s *g)
 {
     for (u32 n = 0; n < g->n_grass; n++) {
         grass_s *gr = &g->grass[n];
@@ -33,7 +33,7 @@ void grass_animate(game_s *g)
     }
 }
 
-void grass_draw(game_s *g, rec_i32 camrec, v2_i32 camoffset)
+void grass_draw(g_s *g, rec_i32 camrec, v2_i32 camoffset)
 {
     gfx_ctx_s ctx     = gfx_ctx_display();
     texrec_s  trgrass = {0};
@@ -57,9 +57,9 @@ void grass_draw(game_s *g, rec_i32 camrec, v2_i32 camoffset)
     }
 }
 
-void deco_verlet_animate_single(game_s *g, deco_verlet_s *d);
+void deco_verlet_animate_single(g_s *g, deco_verlet_s *d);
 
-void deco_verlet_obj_collision(game_s *g, obj_s *o, i32 r)
+void deco_verlet_obj_collision(g_s *g, obj_s *o, i32 r)
 {
     v2_i32 po = v2_shl(obj_pos_center(o), 6);
     i32    r2 = pow2_i32(r);
@@ -82,7 +82,7 @@ void deco_verlet_obj_collision(game_s *g, obj_s *o, i32 r)
     }
 }
 
-void deco_verlet_animate(game_s *g)
+void deco_verlet_animate(g_s *g)
 {
     for (u32 n = 0; n < g->n_deco_verlet; n++) {
         deco_verlet_s *d = &g->deco_verlet[n];
@@ -95,7 +95,7 @@ void deco_verlet_animate(game_s *g)
     }
 }
 
-void deco_verlet_animate_single(game_s *g, deco_verlet_s *d)
+void deco_verlet_animate_single(g_s *g, deco_verlet_s *d)
 {
     for (u32 n = 1; n < d->n_pt; n++) {
         deco_verlet_pt_s *pt  = &d->pt[n];
@@ -135,7 +135,7 @@ void deco_verlet_animate_single(game_s *g, deco_verlet_s *d)
     }
 }
 
-void deco_verlet_draw(game_s *g, v2_i32 cam)
+void deco_verlet_draw(g_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
 

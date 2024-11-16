@@ -15,7 +15,7 @@ typedef struct {
     u16          h;
 } spritedecal_s;
 
-void spritedecal_on_update(game_s *g, obj_s *o)
+void spritedecal_on_update(g_s *g, obj_s *o)
 {
     spritedecal_s *sd = (spritedecal_s *)o->mem;
     sd->t++;
@@ -24,7 +24,7 @@ void spritedecal_on_update(game_s *g, obj_s *o)
     }
 }
 
-void spritedecal_on_animate(game_s *g, obj_s *o)
+void spritedecal_on_animate(g_s *g, obj_s *o)
 {
     spritedecal_s *sd     = (spritedecal_s *)o->mem;
     obj_sprite_s  *spr    = &o->sprites[0];
@@ -35,7 +35,7 @@ void spritedecal_on_animate(game_s *g, obj_s *o)
     spr->trec.r.x = sd->x + sd->w * ((sd->t * sd->n_frames) / sd->t_og);
 }
 
-obj_s *spritedecal_create(game_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
+obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                           i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip)
 {
     obj_s         *o   = obj_create(g);

@@ -4,19 +4,19 @@
 
 #include "game.h"
 
-void hero_update_ladder(game_s *g, obj_s *o)
+void hero_update_ladder(g_s *g, obj_s *o)
 {
     hero_s *h = &g->hero_mem;
     o->flags &= ~OBJ_FLAG_MOVER;
     hero_restore_grounded_stuff(g, o);
 
-    if (o->pos.x != h->ladderx) {
-        h->onladder = 0;
+    if (h->ladder_type == HERO_LADDER_VERTICAL && o->pos.x != h->ladderx) {
+        h->ladder_type = 0;
         return;
     }
 
     if (inp_action_jp(INP_A)) {
-        h->onladder = 0;
+        h->ladder_type = 0;
         hero_start_jump(g, o, 0);
         i32 dpad_x = inp_x();
         o->v_q8.x  = dpad_x * 200;
@@ -24,7 +24,7 @@ void hero_update_ladder(game_s *g, obj_s *o)
     }
 
     if (inp_action_jp(INP_B)) {
-        h->onladder = 0;
+        h->ladder_type = 0;
         return;
     }
 
@@ -37,7 +37,7 @@ void hero_update_ladder(game_s *g, obj_s *o)
         if (!map_traversable(g, aabb)) break;
         if (obj_grounded_at_offs(g, o, (v2_i32){0, dpad_y})) {
             o->pos.y += dpad_y;
-            h->onladder = 0;
+            h->ladder_type = 0;
             break;
         }
         if (!tile_map_ladder_overlaps_rec(g, aabb, NULL)) break;
@@ -49,7 +49,7 @@ void hero_update_ladder(game_s *g, obj_s *o)
     }
 }
 
-bool32 hero_try_snap_to_ladder(game_s *g, obj_s *o, i32 diry)
+bool32 hero_try_snap_to_ladder(g_s *g, obj_s *o, i32 diry)
 {
     rec_i32 aabb    = obj_aabb(o);
     rec_i32 rladder = aabb;
@@ -75,20 +75,20 @@ bool32 hero_try_snap_to_ladder(game_s *g, obj_s *o, i32 diry)
     o->v_q8.x         = 0;
     o->v_q8.y         = 0;
     o->animation      = 0;
-    hero->onladder    = 1;
+    hero->ladder_type = HERO_LADDER_VERTICAL;
     hero->ladderx     = posx;
     hero->attack_tick = 0;
     return 1;
 }
 
 // tries to calculate a snapped ladder position
-bool32 hero_rec_ladder(game_s *g, obj_s *o, rec_i32 *rout)
+bool32 hero_rec_ladder(g_s *g, obj_s *o, rec_i32 *rout)
 {
     return hero_rec_on_ladder(g, obj_aabb(o), rout);
 }
 
 // tries to calculate a snapped ladder position
-bool32 hero_rec_on_ladder(game_s *g, rec_i32 aabb, rec_i32 *rout)
+bool32 hero_rec_on_ladder(g_s *g, rec_i32 aabb, rec_i32 *rout)
 {
     i32 tx1 = (aabb.x >> 4);
     i32 tx2 = ((aabb.x + aabb.w - 1) >> 4);

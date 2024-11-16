@@ -14,8 +14,8 @@ typedef struct hero_powerup_s {
     i32 tick_total;
 } hero_powerup_s;
 
-void hero_powerup_collected(game_s *g, i32 ID);
-void hero_powerup_update(game_s *g);
-void hero_powerup_draw(game_s *g, v2_i32 cam);
+void hero_powerup_collected(g_s *g, i32 ID);
+void hero_powerup_update(g_s *g);
+void hero_powerup_draw(g_s *g, v2_i32 cam);
 
 #endif

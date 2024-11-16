@@ -12,9 +12,9 @@
 #define ITEM_Y_OFFS      180
 #define FNTID_AREA_LABEL FNTID_LARGE
 
-void render_weapon_drop_ui(game_s *g, obj_s *o, v2_i32 camoff);
+void render_weapon_drop_ui(g_s *g, obj_s *o, v2_i32 camoff);
 
-void render_ui(game_s *g, v2_i32 camoff)
+void render_ui(g_s *g, v2_i32 camoff)
 {
     const gfx_ctx_s ctx    = gfx_ctx_display();
     obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -31,8 +31,8 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx, tui, posi, 0, 0);
     }
 
-    if (ohero && g->save.flyupgrades && g->hero_mem.jump_ui_fade_out) {
-        render_jump_ui(g, ohero, camoff);
+    if (ohero && g->save.stamina_upgrades && g->hero_mem.stamina_ui_fade_out) {
+        render_stamina_ui(g, ohero, camoff);
     }
 
     if (ohero) {
@@ -57,7 +57,7 @@ void render_ui(game_s *g, v2_i32 camoff)
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 
-    if (g->save_ticks && 0) {
+    if (g->save_ticks) {
         i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
         gfx_ctx_s ctx_save  = ctx;
         if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
@@ -102,14 +102,6 @@ void render_ui(game_s *g, v2_i32 camoff)
             gfx_cir_fill(ctx, aimpos, 20, GFX_COL_WHITE);
             gfx_cir_fill(ctx, aimpos, 14, GFX_COL_BLACK);
         }
-        char momentumtxt[6] = {0};
-        if (hhero->momentum == 0) {
-            momentumtxt[0] = '0';
-        } else {
-            strs_from_u32(hhero->momentum, momentumtxt);
-        }
-
-        // fnt_draw_ascii(ctx, font_1, (v2_i32){360, 0}, momentumtxt, SPR_MODE_BLACK);
 
         texrec_s trheart = asset_texrec(TEXID_UI, 400, 240, 32, 32);
         for (i32 n = 0; n < ohero->health_max; n++) {
@@ -125,7 +117,7 @@ void render_ui(game_s *g, v2_i32 camoff)
     }
 }
 
-void render_weapon_drop_ui(game_s *g, obj_s *o, v2_i32 camoff)
+void render_weapon_drop_ui(g_s *g, obj_s *o, v2_i32 camoff)
 {
     hero_s *h = &g->hero_mem;
     if (h->holds_weapon < 2) return;
@@ -149,26 +141,26 @@ void render_weapon_drop_ui(game_s *g, obj_s *o, v2_i32 camoff)
     fnt_draw_ascii(ctx, fnt, pf, "DROP", SPR_MODE_XOR);
 }
 
-void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
+void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
     v2_i32    p   = v2_add(o->pos, camoff);
 
 #if 1
-    i32 wi_total = 28 + (g->save.flyupgrades - 1) * 3;
+    i32 wi_total = 28 + (g->save.stamina_upgrades - 1) * 3;
 #else
     i32 wi_total = g->save.flyupgrades * 12;
 #endif
 
-    i32 wi = (wi_total * g->hero_mem.jump_ui_fade_out) / JUMP_UI_TICKS_HIDE;
+    i32 wi = (wi_total * g->hero_mem.stamina_ui_fade_out) / STAMINA_UI_TICKS_HIDE;
 
-    i32     ft0    = hero_flytime_max(g, o);
-    i32     ftx    = hero_flytime_ui_full(g, o);
-    i32     fty    = hero_flytime_ui_added(g, o);
-    rec_i32 rfly   = {p.x + 5 - (wi) / 2, p.y - 32, wi, 10};
-    rec_i32 rfly_1 = {rfly.x - 2, rfly.y - 2, rfly.w + 4, rfly.h + 4};
-    rec_i32 rfly_2 = {rfly.x + 2, rfly.y + 2, (ftx * (rfly.w - 4)) / ft0, rfly.h - 4};
-    rec_i32 rfly_3 = {rfly.x + 2, rfly.y + 2, ((ftx + fty) * (rfly.w - 4)) / ft0, rfly.h - 4};
+    i32     ft0    = hero_stamina_max(g, o);
+    i32     ftx    = hero_stamina_ui_full(g, o);
+    i32     fty    = hero_stamina_ui_added(g, o);
+    rec_i32 rsta   = {p.x + 5 - (wi) / 2, p.y - 32, wi, 10};
+    rec_i32 rsta_1 = {rsta.x - 2, rsta.y - 2, rsta.w + 4, rsta.h + 4};
+    rec_i32 rsta_2 = {rsta.x + 2, rsta.y + 2, (ftx * (rsta.w - 4)) / ft0, rsta.h - 4};
+    rec_i32 rsta_3 = {rsta.x + 2, rsta.y + 2, ((ftx + fty) * (rsta.w - 4)) / ft0, rsta.h - 4};
 
     gfx_ctx_s ctxb = ctx;
     gfx_ctx_s ctxc = ctx;
@@ -179,19 +171,19 @@ void render_jump_ui(game_s *g, obj_s *o, v2_i32 camoff)
         ctxb.pat = gfx_pattern_interpolate(i, 65536);
     }
 
-    gfx_rec_rounded_fill(ctx, rfly_1, -1, GFX_COL_WHITE);
-    gfx_rec_rounded_fill(ctxb, rfly, -1, GFX_COL_BLACK);
-    gfx_rec_rounded_fill(ctxc, rfly_3, -1, GFX_COL_WHITE);
-    gfx_rec_rounded_fill(ctxb, rfly_2, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctx, rsta_1, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctxb, rsta, -1, GFX_COL_BLACK);
+    gfx_rec_rounded_fill(ctxc, rsta_3, -1, GFX_COL_WHITE);
+    gfx_rec_rounded_fill(ctxb, rsta_2, -1, GFX_COL_WHITE);
 
-    for (i32 n = 0; n < g->save.flyupgrades - 1; n++) {
-        i32     pp = (rfly.w * (n + 1)) / g->save.flyupgrades;
-        rec_i32 rr = {rfly.x + pp, rfly.y + 3, 1, rfly.h - 6};
+    for (i32 n = 0; n < g->save.stamina_upgrades - 1; n++) {
+        i32     pp = (rsta.w * (n + 1)) / g->save.stamina_upgrades;
+        rec_i32 rr = {rsta.x + pp, rsta.y + 3, 1, rsta.h - 6};
         gfx_rec_fill(ctx, rr, GFX_COL_BLACK);
     }
 }
 
-void prerender_area_label(game_s *g)
+void prerender_area_label(g_s *g)
 {
     fnt_s     font_1 = asset_fnt(FNTID_AREA_LABEL);
     gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
@@ -224,7 +216,7 @@ v2_i32 mapview_screen_from_world_q8(v2_i32 wpos_q8, v2_i32 ctr_wpos_q8, i32 w, i
     return p;
 }
 
-void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, v2_i32 c_q8)
+void render_map(g_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, v2_i32 c_q8)
 {
 
     rec_i32 rfill = {0, 0, ctx.dst.w, ctx.dst.h};
@@ -309,7 +301,7 @@ void render_map(game_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, 
     }
 }
 
-void render_pause(game_s *g)
+void render_pause(g_s *g)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 

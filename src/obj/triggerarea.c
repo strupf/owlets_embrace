@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-void triggerarea_on_update(game_s *g, obj_s *o)
+void triggerarea_on_update(g_s *g, obj_s *o)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!ohero) return;
@@ -17,7 +17,7 @@ void triggerarea_on_update(game_s *g, obj_s *o)
     }
 }
 
-void triggerarea_load(game_s *g, map_obj_s *mo)
+void triggerarea_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o     = obj_create(g);
     o->ID        = OBJ_ID_TRIGGERAREA;

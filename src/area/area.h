@@ -33,10 +33,10 @@ typedef struct {
     } fx;
 } area_s;
 
-void area_setup(game_s *g, area_s *a, i32 ID);
-void area_update(game_s *g, area_s *a);
-void area_draw_bg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
-void area_draw_mg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
-void area_draw_fg(game_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
+void area_setup(g_s *g, area_s *a, i32 ID);
+void area_update(g_s *g, area_s *a);
+void area_draw_bg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
+void area_draw_mg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
+void area_draw_fg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
 
 #endif

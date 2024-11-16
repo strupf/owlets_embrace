@@ -14,7 +14,6 @@ enum {
     OBJ_ID_HOOK,
     OBJ_ID_SIGN,
     OBJ_ID_SIGN_POPUP,
-    OBJ_ID_SOLID,
     OBJ_ID_DOOR_SWING,
     OBJ_ID_CRUMBLEBLOCK,
     OBJ_ID_SWITCH,
@@ -38,7 +37,6 @@ enum {
     OBJ_ID_PUSHBLOCK,
     OBJ_ID_SPIKES,
     OBJ_ID_KEY,
-    OBJ_ID_BOAT,
     OBJ_ID_HOOKLEVER,
     OBJ_ID_SPRITEDECAL,
     OBJ_ID_FLOATER,
@@ -56,6 +54,9 @@ enum {
     OBJ_ID_FROG,
     OBJ_ID_WEAPON_PICKUP,
     OBJ_ID_FLYBLOB,
+    OBJ_ID_STOMPABLE_BLOCK,
+    OBJ_ID_LIGHT,
+    OBJ_ID_FALLINGBLOCK,
 };
 
 enum {
@@ -80,84 +81,99 @@ enum {
     PICKUP_ID_WEAPON,
 };
 
-void   floater_load(game_s *g, map_obj_s *mo);
-void   boat_load(game_s *g, map_obj_s *mo);
-void   box_load(game_s *g, map_obj_s *mo);
-void   box_on_lift(game_s *g, obj_s *o);
-void   box_on_drop(game_s *g, obj_s *o);
-void   clockpulse_load(game_s *g, map_obj_s *mo);
-void   crumbleblock_load(game_s *g, map_obj_s *mo);
+void   floater_load(g_s *g, map_obj_s *mo);
+void   box_load(g_s *g, map_obj_s *mo);
+void   box_on_lift(g_s *g, obj_s *o);
+void   box_on_drop(g_s *g, obj_s *o);
+void   clockpulse_load(g_s *g, map_obj_s *mo);
+void   crumbleblock_load(g_s *g, map_obj_s *mo);
 void   crumbleblock_on_hooked(obj_s *o);
-void   crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-void   switch_load(game_s *g, map_obj_s *mo);
-void   switch_on_interact(game_s *g, obj_s *o);
-void   toggleblock_load(game_s *g, map_obj_s *mo);
-void   toggleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-void   shroomy_load(game_s *g, map_obj_s *mo);
+void   crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   crumbleblock_on_update(g_s *g, obj_s *o);
+void   crumbleblock_on_animate(g_s *g, obj_s *o);
+void   switch_load(g_s *g, map_obj_s *mo);
+void   switch_on_interact(g_s *g, obj_s *o);
+void   toggleblock_load(g_s *g, map_obj_s *mo);
+void   toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   toggleblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
+void   toggleblock_on_animate(g_s *g, obj_s *o);
+void   shroomy_load(g_s *g, map_obj_s *mo);
 void   shroomy_bounced_on(obj_s *o);
-void   crawler_load(game_s *g, map_obj_s *mo);
-void   crawler_caterpillar_load(game_s *g, map_obj_s *mo);
-void   crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb);
-void   carrier_load(game_s *g, map_obj_s *mo);
-void   hero_powerup_obj_load(game_s *g, map_obj_s *mo);
-void   hero_powerup_obj_on_update(game_s *g, obj_s *o);
-void   hero_powerup_obj_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void   crawler_load(g_s *g, map_obj_s *mo);
+void   crawler_on_update(g_s *g, obj_s *o);
+void   crawler_on_animate(g_s *g, obj_s *o);
+void   crawler_caterpillar_load(g_s *g, map_obj_s *mo);
+void   crawler_on_weapon_hit(g_s *g, obj_s *o, hitbox_s hb);
+void   carrier_load(g_s *g, map_obj_s *mo);
+void   hero_powerup_obj_load(g_s *g, map_obj_s *mo);
+void   hero_powerup_obj_on_update(g_s *g, obj_s *o);
+void   hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 i32    hero_powerup_obj_ID(obj_s *o);
-void   movingplatform_load(game_s *g, map_obj_s *mo);
-void   npc_load(game_s *g, map_obj_s *mo);
-void   npc_on_update(game_s *g, obj_s *o);
-void   npc_on_animate(game_s *g, obj_s *o);
-void   charger_load(game_s *g, map_obj_s *mo);
-obj_s *sign_popup_create(game_s *g);
-void   sign_popup_load(game_s *g, map_obj_s *mo);
-void   sign_popup_on_update(game_s *g, obj_s *o);
-void   sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-obj_s *sign_create(game_s *g);
-void   sign_load(game_s *g, map_obj_s *mo);
-void   swingdoor_load(game_s *g, map_obj_s *mo);
-void   teleport_load(game_s *g, map_obj_s *mo);
-void   stalactite_load(game_s *g, map_obj_s *mo);
-void   walker_load(game_s *g, map_obj_s *mo);
-void   flyer_load(game_s *g, map_obj_s *mo);
-void   triggerarea_load(game_s *g, map_obj_s *mo);
-void   spikes_load(game_s *g, map_obj_s *mo);
-void   hooklever_load(game_s *g, map_obj_s *mo);
-obj_s *spritedecal_create(game_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
+void   movingplatform_load(g_s *g, map_obj_s *mo);
+void   npc_load(g_s *g, map_obj_s *mo);
+void   npc_on_update(g_s *g, obj_s *o);
+void   npc_on_animate(g_s *g, obj_s *o);
+void   charger_load(g_s *g, map_obj_s *mo);
+obj_s *sign_popup_create(g_s *g);
+void   sign_popup_load(g_s *g, map_obj_s *mo);
+void   sign_popup_on_update(g_s *g, obj_s *o);
+void   sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+obj_s *sign_create(g_s *g);
+void   sign_load(g_s *g, map_obj_s *mo);
+void   swingdoor_load(g_s *g, map_obj_s *mo);
+void   teleport_load(g_s *g, map_obj_s *mo);
+void   stalactite_load(g_s *g, map_obj_s *mo);
+void   walker_load(g_s *g, map_obj_s *mo);
+void   flyer_load(g_s *g, map_obj_s *mo);
+void   triggerarea_load(g_s *g, map_obj_s *mo);
+void   spikes_load(g_s *g, map_obj_s *mo);
+void   hooklever_load(g_s *g, map_obj_s *mo);
+obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                           i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip);
-void   spritedecal_on_update(game_s *g, obj_s *o);
-void   spritedecal_on_animate(game_s *g, obj_s *o);
-void   wallworm_load(game_s *g, map_obj_s *mo);
-void   hookplant_load(game_s *g, map_obj_s *mo);
+void   spritedecal_on_update(g_s *g, obj_s *o);
+void   spritedecal_on_animate(g_s *g, obj_s *o);
+void   wallworm_load(g_s *g, map_obj_s *mo);
+void   hookplant_load(g_s *g, map_obj_s *mo);
 void   hookplant_on_hook(obj_s *o);
-void   blockswing_load(game_s *g, map_obj_s *mo);
-void   pushblock_load(game_s *g, map_obj_s *mo);
-void   pushblock_on_update(game_s *g, obj_s *o);
-void   pushblock_on_animate(game_s *g, obj_s *o);
-void   steam_platform_load(game_s *g, map_obj_s *mo);
-void   budplant_load(game_s *g, map_obj_s *mo);
-void   budplant_on_update(game_s *g, obj_s *o);
-void   budplant_on_animate(game_s *g, obj_s *o);
-obj_s *projectile_create(game_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
-void   projectile_on_update(game_s *g, obj_s *o);
-void   projectile_on_animate(game_s *g, obj_s *o);
-void   projectile_on_draw(game_s *g, obj_s *o, v2_i32 cam);
-void   projectile_on_collision(game_s *g, obj_s *o);
-void   flyblob_load(game_s *g, map_obj_s *mo);
-void   flyblob_on_update(game_s *g, obj_s *o);
-void   flyblob_on_animate(game_s *g, obj_s *o);
-void   flyblob_on_hit(game_s *g, obj_s *o, hitbox_s hb);
-void   staminarestorer_load(game_s *g, map_obj_s *mo);
-void   staminarestorer_try_collect_any(game_s *g, obj_s *ohero);
-void   staminarestorer_respawn_all(game_s *g, obj_s *o);
-void   crankswitch_load(game_s *g, map_obj_s *mo);
-void   crankswitch_on_turn(game_s *g, obj_s *o, i32 angle_q8);
-void   camattractor_static_load(game_s *g, map_obj_s *mo);
+void   blockswing_load(g_s *g, map_obj_s *mo);
+void   pushblock_load(g_s *g, map_obj_s *mo);
+void   pushblock_on_update(g_s *g, obj_s *o);
+void   pushblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   steam_platform_load(g_s *g, map_obj_s *mo);
+void   budplant_load(g_s *g, map_obj_s *mo);
+void   budplant_on_update(g_s *g, obj_s *o);
+void   budplant_on_animate(g_s *g, obj_s *o);
+obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
+void   projectile_on_update(g_s *g, obj_s *o);
+void   projectile_on_animate(g_s *g, obj_s *o);
+void   projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   projectile_on_collision(g_s *g, obj_s *o);
+void   flyblob_load(g_s *g, map_obj_s *mo);
+void   flyblob_on_update(g_s *g, obj_s *o);
+void   flyblob_on_animate(g_s *g, obj_s *o);
+void   flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb);
+void   staminarestorer_load(g_s *g, map_obj_s *mo);
+void   staminarestorer_on_animate(g_s *g, obj_s *o);
+bool32 staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero);
+void   staminarestorer_respawn_all(g_s *g, obj_s *o);
+void   camattractor_static_load(g_s *g, map_obj_s *mo);
 v2_i32 camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
-void   frog_load(game_s *g, map_obj_s *mo);
-obj_s *hero_pickup_create(game_s *g, v2_i32 pos, i32 pickupID);
-void   hero_pickup_load(game_s *g, map_obj_s *mo);
-void   weapon_pickup_load(game_s *g, map_obj_s *mo);
-void   weapon_pickup_place(game_s *g, obj_s *ohero);
-void   weapon_pickup_on_pickup(game_s *g, obj_s *o, obj_s *ohero);
+void   frog_load(g_s *g, map_obj_s *mo);
+void   frog_on_update(g_s *g, obj_s *o);
+void   frog_on_animate(g_s *g, obj_s *o);
+obj_s *hero_pickup_create(g_s *g, v2_i32 pos, i32 pickupID);
+void   hero_pickup_load(g_s *g, map_obj_s *mo);
+void   weapon_pickup_load(g_s *g, map_obj_s *mo);
+void   weapon_pickup_place(g_s *g, obj_s *ohero);
+void   weapon_pickup_on_pickup(g_s *g, obj_s *o, obj_s *ohero);
+void   stompable_block_load(g_s *g, map_obj_s *mo);
+void   stompable_block_on_update(g_s *g, obj_s *o);
+void   stompable_block_on_animate(g_s *g, obj_s *o);
+void   stompable_block_on_destroy(g_s *g, obj_s *o);
+void   light_load(g_s *g, map_obj_s *mo);
+void   light_update(g_s *g, obj_s *o);
+void   fallingblock_load(g_s *g, map_obj_s *mo);
+void   fallingblock_on_update(g_s *g, obj_s *o);
+void   fallingblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 #endif

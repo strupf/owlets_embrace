@@ -23,11 +23,11 @@ enum {
     CRABLER_ST_IDLE,
 };
 
-void crabler_on_update(game_s *g, obj_s *o);
-void crabler_on_animate(game_s *g, obj_s *o);
-void crabler_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void crabler_on_update(g_s *g, obj_s *o);
+void crabler_on_animate(g_s *g, obj_s *o);
+void crabler_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
-void crabler_load(game_s *g, map_obj_s *mo)
+void crabler_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o  = obj_create(g);
     crabler_s *c  = (crabler_s *)o->mem;
@@ -37,7 +37,7 @@ void crabler_load(game_s *g, map_obj_s *mo)
     o->on_animate = crabler_on_animate;
 }
 
-void crabler_on_update(game_s *g, obj_s *o)
+void crabler_on_update(g_s *g, obj_s *o)
 {
     crabler_s *c = (crabler_s *)o->mem;
 
@@ -48,7 +48,7 @@ void crabler_on_update(game_s *g, obj_s *o)
     }
 }
 
-void crabler_on_animate(game_s *g, obj_s *o)
+void crabler_on_animate(g_s *g, obj_s *o)
 {
     crabler_s *c = (crabler_s *)o->mem;
 
@@ -59,7 +59,7 @@ void crabler_on_animate(game_s *g, obj_s *o)
     }
 }
 
-void crabler_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void crabler_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
 
     gfx_ctx_s  ctx    = gfx_ctx_display();

@@ -104,7 +104,7 @@ const i32 g_tile_tris[NUM_TILE_SHAPES * 12] = {
     //
 };
 
-bool32 tile_map_hookable(game_s *g, rec_i32 r)
+bool32 tile_map_hookable(g_s *g, rec_i32 r)
 {
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
     rec_i32 ri;
@@ -140,7 +140,19 @@ bool32 tile_map_hookable(game_s *g, rec_i32 r)
     return 0;
 }
 
-bool32 tile_map_solid(game_s *g, rec_i32 r)
+bool32 tile_map_solidr(g_s *g, i32 x, i32 y, i32 w, i32 h)
+{
+    rec_i32 r = {x, y, w, h};
+    return tile_map_solid(g, r);
+}
+
+bool32 tile_map_solido(g_s *g, obj_s *o, i32 dx, i32 dy)
+{
+    rec_i32 r = {o->pos.x + dx, o->pos.y + dy, o->w, o->h};
+    return tile_map_solid(g, r);
+}
+
+bool32 tile_map_solid(g_s *g, rec_i32 r)
 {
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
     rec_i32 ri;
@@ -170,35 +182,14 @@ bool32 tile_map_solid(game_s *g, rec_i32 r)
     return 0;
 }
 
-bool32 tile_map_solid_pt(game_s *g, i32 x, i32 y)
+bool32 tile_map_solid_pt(g_s *g, i32 x, i32 y)
 {
     if (!(0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y)) return 0;
     i32 ID = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x].collision;
     return (tile_solid_pt(ID, x & 15, y & 15));
 }
 
-bool32 tile_map_platform(game_s *g, rec_i32 r)
-{
-    rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
-    rec_i32 ri;
-    if (!intersect_rec(r, rgrid, &ri)) return 0;
-
-    i32 tx0 = (ri.x) >> 4;
-    i32 ty0 = (ri.y) >> 4;
-    i32 tx1 = (ri.x + ri.w - 1) >> 4;
-    i32 ty1 = (ri.y + ri.h - 1) >> 4;
-
-    for (i32 ty = ty0; ty <= ty1; ty++) {
-        for (i32 tx = tx0; tx <= tx1; tx++) {
-            i32 t = g->tiles[tx + ty * g->tiles_x].collision;
-            if (t == TILE_ONE_WAY || t == TILE_LADDER_ONE_WAY)
-                return 1;
-        }
-    }
-    return 0;
-}
-
-bool32 tile_map_ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos)
+bool32 tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos)
 {
     rec_i32 ri;
     rec_i32 rroom = {0, 0, g->pixel_x, g->pixel_y};
@@ -211,7 +202,11 @@ bool32 tile_map_ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos)
     for (i32 ty = ty1; ty <= ty2; ty++) {
         for (i32 tx = tx1; tx <= tx2; tx++) {
             i32 t = g->tiles[tx + ty * g->tiles_x].collision;
-            if (t == TILE_LADDER || t == TILE_LADDER_ONE_WAY) {
+            switch (t) {
+            default: break;
+            case TILE_CLIMBWALL:
+            case TILE_LADDER:
+            case TILE_LADDER_ONE_WAY:
                 if (tpos) {
                     tpos->x = tx;
                     tpos->y = ty;
@@ -223,7 +218,7 @@ bool32 tile_map_ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos)
     return 0;
 }
 
-void tile_map_set_collision(game_s *g, rec_i32 r, i32 shape, i32 type)
+void tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type)
 {
     i32 tx = r.x >> 4;
     i32 ty = r.y >> 4;
@@ -243,12 +238,7 @@ void tile_map_set_collision(game_s *g, rec_i32 r, i32 shape, i32 type)
     }
 }
 
-bool32 map_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m)
-{
-    return map_blocked(g, NULL, r, m);
-}
-
-bool32 map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m)
+bool32 map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m)
 {
     for (obj_each(g, it)) {
         if (it == o) continue;
@@ -260,7 +250,7 @@ bool32 map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m)
     return 0;
 }
 
-bool32 map_blocked_by_any_solid(game_s *g, rec_i32 r)
+bool32 map_blocked_by_any_solid(g_s *g, rec_i32 r)
 {
     for (obj_each(g, it)) {
         if (it->mass == 0) continue;
@@ -271,7 +261,7 @@ bool32 map_blocked_by_any_solid(game_s *g, rec_i32 r)
     return 0;
 }
 
-bool32 map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y)
+bool32 map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y)
 {
     v2_i32 pt = {x, y};
     for (obj_each(g, it)) {
@@ -283,58 +273,41 @@ bool32 map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y)
     return 0;
 }
 
-bool32 map_platform(game_s *g, obj_s *o, i32 x, i32 y, i32 w)
-{
-    if ((y & 15)) return 0;
-    rec_i32 r = {x, y, w, 1};
-    if (tile_map_platform(g, r)) return 1;
-    for (obj_each(g, it)) {
-        if (!((it->flags & OBJ_FLAG_PLATFORM) ||
-              ((it->flags & OBJ_FLAG_PLATFORM_HERO_ONLY) &&
-               o->ID == OBJ_ID_HERO))) continue;
-        rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
-        if (overlap_rec(r, rplat)) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-bool32 map_blocked(game_s *g, obj_s *o, rec_i32 r, i32 m)
+bool32 map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m)
 {
     if (tile_map_solid(g, r)) return 1;
     return (map_blocked_by_solid(g, o, r, m));
 }
 
-bool32 map_blocked_pt(game_s *g, obj_s *o, i32 x, i32 y, i32 m)
+bool32 map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m)
 {
     if (tile_map_solid_pt(g, x, y)) return 0;
     rec_i32 r = {x, y, 1, 1};
     return (map_blocked_by_solid(g, NULL, r, 0));
 }
 
-bool32 map_traversable(game_s *g, rec_i32 r)
+bool32 map_traversable(g_s *g, rec_i32 r)
 {
     if (tile_map_solid(g, r)) return 0;
     if (map_blocked_by_any_solid(g, r)) return 0;
     return 1;
 }
 
-bool32 map_traversable_pt(game_s *g, i32 x, i32 y)
+bool32 map_traversable_pt(g_s *g, i32 x, i32 y)
 {
     if (tile_map_solid_pt(g, x, y)) return 0;
     if (map_blocked_by_any_solid_pt(g, x, y)) return 0;
     return 1;
 }
 
-tile_map_bounds_s tile_map_bounds_rec(game_s *g, rec_i32 r)
+tile_map_bounds_s tile_map_bounds_rec(g_s *g, rec_i32 r)
 {
     v2_i32 pmin = {r.x, r.y};
     v2_i32 pmax = {r.x + r.w, r.y + r.h};
     return tile_map_bounds_pts(g, pmin, pmax);
 }
 
-tile_map_bounds_s tile_map_bounds_pts(game_s *g, v2_i32 p0, v2_i32 p1)
+tile_map_bounds_s tile_map_bounds_pts(g_s *g, v2_i32 p0, v2_i32 p1)
 {
     tile_map_bounds_s b = {max_i32(p0.x - 1, 0) >> 4, // div 16
                            max_i32(p0.y - 1, 0) >> 4,
@@ -343,7 +316,7 @@ tile_map_bounds_s tile_map_bounds_pts(game_s *g, v2_i32 p0, v2_i32 p1)
     return b;
 }
 
-tile_map_bounds_s tile_map_bounds_tri(game_s *g, tri_i32 t)
+tile_map_bounds_s tile_map_bounds_tri(g_s *g, tri_i32 t)
 {
     v2_i32 pmin = v2_min3(t.p[0], t.p[1], t.p[2]);
     v2_i32 pmax = v2_max3(t.p[0], t.p[1], t.p[2]);

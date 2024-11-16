@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-bool32 hero_is_submerged(game_s *g, obj_s *o, i32 *water_depth)
+bool32 hero_is_submerged(g_s *g, obj_s *o, i32 *water_depth)
 {
     i32 wd = water_depth_rec(g, obj_aabb(o));
     if (water_depth) {
@@ -13,23 +13,25 @@ bool32 hero_is_submerged(game_s *g, obj_s *o, i32 *water_depth)
     return (o->h <= wd);
 }
 
-i32 hero_breath_tick(game_s *g)
+i32 hero_breath_tick(obj_s *o)
 {
-    hero_s *h = &g->hero_mem;
+    hero_s *h = (hero_s *)o->heap;
     return h->breath_ticks;
 }
 
-i32 hero_breath_tick_max(game_s *g)
+i32 hero_breath_tick_max(g_s *g)
 {
     return (hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 2500 : 100);
 }
 
-void hero_update_swimming(game_s *g, obj_s *o)
+void hero_update_swimming(g_s *g, obj_s *o)
 {
-    hero_s *h = &g->hero_mem;
+    hero_s *h = (hero_s *)o->heap;
     obj_vx_q8_mul(o, 240);
-    h->flytime          = 0;
-    h->flytime_added    = 0;
+    h->stamina          = 0;
+    h->stamina_added    = 0;
+    h->stomp            = 0;
+    h->impact_ticks     = 0;
     h->jump_ui_may_hide = 1;
 
     i32    dpad_x      = inp_x();
@@ -97,7 +99,7 @@ void hero_update_swimming(game_s *g, obj_s *o)
         }
 
         if (hero_has_upgrade(g, HERO_UPGRADE_DIVE) && 0 < inp_y()) {
-            obj_move_by(g, o, 0, +10);
+            obj_move(g, o, 0, +10);
             o->v_q8.y = +1000;
             h->diving = 1;
         } else if (inp_action_jp(INP_A)) {
@@ -113,7 +115,7 @@ void hero_update_swimming(game_s *g, obj_s *o)
                     if (g->tiles[i].collision ||
                         (g->tiles[i].type & TILE_WATER_MASK))
                         continue;
-                    obj_move_by(g, o, 0, -12);
+                    obj_move(g, o, 0, -12);
                     hero_start_jump(g, o, HERO_JUMP_WATER);
                     snd_play(SNDID_WATER_OUT_OF, 0.5f, 1.f);
                     particle_desc_s prt = {0};

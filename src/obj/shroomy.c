@@ -18,11 +18,11 @@ static const frame_ticks_s g_shroomyhide = {{30, 7, 3, 2, 2, 2, 2, 2}};
 #define SHROOMY_TICKS_HIDDEN   50
 #define SHROOMY_NOTICE_RANGE_X 100
 
-void shroomy_on_update(game_s *g, obj_s *o);
-void shroomy_on_animate(game_s *g, obj_s *o);
+void shroomy_on_update(g_s *g, obj_s *o);
+void shroomy_on_animate(g_s *g, obj_s *o);
 void shroomy_bounced_on(obj_s *o);
 
-void shroomy_load(game_s *g, map_obj_s *mo)
+void shroomy_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_SHROOMY;
@@ -52,13 +52,13 @@ void shroomy_load(game_s *g, map_obj_s *mo)
     o->pos.y    = mo->y - mo->h;
 }
 
-void shroomy_on_update(game_s *g, obj_s *o)
+void shroomy_on_update(g_s *g, obj_s *o)
 {
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
 
-    if ((o->bumpflags & OBJ_BUMPED_X) ||
+    if ((o->bumpflags & OBJ_BUMP_X) ||
         obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
@@ -117,7 +117,7 @@ void shroomy_on_update(game_s *g, obj_s *o)
     }
 }
 
-void shroomy_on_animate(game_s *g, obj_s *o)
+void shroomy_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     spr->flip         = o->facing == 1 ? SPR_FLIP_X : 0;

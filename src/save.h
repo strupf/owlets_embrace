@@ -20,7 +20,7 @@ typedef_struct (save_s) {
     u32              tick;
     flags32          upgrades;
     u8               health;
-    u8               flyupgrades;
+    u8               stamina_upgrades;
     u8               n_map_pins;
     u8               n_items;
     u16              coins;
@@ -33,18 +33,20 @@ typedef_struct (save_s) {
     map_pin_s        map_pins[NUM_MAP_PINS];
 };
 
-bool32 hero_has_upgrade(game_s *g, i32 ID);
-void   hero_add_upgrade(game_s *g, i32 ID);
-void   hero_rem_upgrade(game_s *g, i32 ID);
-void   hero_set_name(game_s *g, const char *name);
-char  *hero_get_name(game_s *g);
-void   hero_inv_add(game_s *g, i32 ID, i32 n);
-void   hero_inv_rem(game_s *g, i32 ID, i32 n);
-i32    hero_inv_count_of(game_s *g, i32 ID);
-void   hero_coins_change(game_s *g, i32 n);
-i32    hero_coins(game_s *g);
-i32    saveID_put(game_s *g, u32 ID);
-bool32 saveID_has(game_s *g, u32 ID);
+bool32 hero_has_upgrade(g_s *g, i32 ID);
+void   hero_add_upgrade(g_s *g, i32 ID);
+void   hero_rem_upgrade(g_s *g, i32 ID);
+void   hero_set_name(g_s *g, const char *name);
+char  *hero_get_name(g_s *g);
+void   hero_inv_add(g_s *g, i32 ID, i32 n);
+void   hero_inv_rem(g_s *g, i32 ID, i32 n);
+i32    hero_inv_count_of(g_s *g, i32 ID);
+void   hero_coins_change(g_s *g, i32 n);
+i32    hero_coins(g_s *g);
+i32    saveID_put(g_s *g, u32 ID);
+bool32 saveID_has(g_s *g, u32 ID);
+void   saveID_putstr(g_s *g, const char *str);
+bool32 saveID_hasstr(g_s *g, const char *str);
 //
 void   savefile_empty(save_s *s);
 bool32 savefile_read(i32 slot, save_s *s);

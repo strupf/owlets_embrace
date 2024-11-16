@@ -4,66 +4,56 @@
 
 #include "game.h"
 
-bool32 hero_has_upgrade(game_s *g, i32 ID)
+bool32 hero_has_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     return (hs->upgrades & ((flags32)1 << ID));
 }
 
-void hero_add_upgrade(game_s *g, i32 ID)
+void hero_add_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     hs->upgrades |= (flags32)1 << ID;
-    switch (ID) {
-    case HERO_UPGRADE_FLY: {
-        hs->flyupgrades = 2;
-        break;
-    case HERO_UPGRADE_SWIM: {
-        hs->upgrades |= (flags32)1 << HERO_UPGRADE_DIVE;
-        break;
-    }
-    }
-    }
 }
 
-void hero_rem_upgrade(game_s *g, i32 ID)
+void hero_rem_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     hs->upgrades &= ~((flags32)1 << ID);
 }
 
-void hero_set_name(game_s *g, const char *name)
+void hero_set_name(g_s *g, const char *name)
 {
     save_s *hs = &g->save;
     str_cpy(hs->name, name);
 }
 
-char *hero_get_name(game_s *g)
+char *hero_get_name(g_s *g)
 {
     save_s *hs = &g->save;
     return &hs->name[0];
 }
 
-void hero_inv_add(game_s *g, i32 ID, i32 n)
+void hero_inv_add(g_s *g, i32 ID, i32 n)
 {
     save_s *hs = &g->save;
     hs->items[ID].n += n;
 }
 
-void hero_inv_rem(game_s *g, i32 ID, i32 n)
+void hero_inv_rem(g_s *g, i32 ID, i32 n)
 {
     save_s *hs = &g->save;
     assert(n <= hero_inv_count_of(g, ID));
     hs->items[ID].n -= n;
 }
 
-i32 hero_inv_count_of(game_s *g, i32 ID)
+i32 hero_inv_count_of(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     return hs->items[ID].n;
 }
 
-void hero_coins_change(game_s *g, i32 n)
+void hero_coins_change(g_s *g, i32 n)
 {
     if (n == 0) return;
 
@@ -76,14 +66,14 @@ void hero_coins_change(game_s *g, i32 n)
     g->coins_added += n;
 }
 
-i32 hero_coins(game_s *g)
+i32 hero_coins(g_s *g)
 {
     i32 c = g->save.coins + g->coins_added;
     assert(0 <= c);
     return c;
 }
 
-i32 saveID_put(game_s *g, u32 ID)
+i32 saveID_put(g_s *g, u32 ID)
 {
     save_s *hs = &g->save;
     if (saveID_has(g, ID)) return 2;
@@ -92,13 +82,23 @@ i32 saveID_put(game_s *g, u32 ID)
     return 1;
 }
 
-bool32 saveID_has(game_s *g, u32 ID)
+bool32 saveID_has(g_s *g, u32 ID)
 {
     save_s *hs = &g->save;
     for (i32 n = 0; n < hs->n_saveIDs; n++) {
         if (hs->saveIDs[n] == ID) return 1;
     }
     return 0;
+}
+
+void saveID_putstr(g_s *g, const char *str)
+{
+    saveID_put(g, hash_str(str));
+}
+
+bool32 saveID_hasstr(g_s *g, const char *str)
+{
+    return saveID_has(g, hash_str(str));
 }
 
 void savefile_empty(save_s *s)

@@ -6,30 +6,23 @@
 
 #include "game.h"
 
-#define CRAWLER_TICKS_BOUNCING 200  // minimum time bouncing
-#define CRAWLER_DISTSQ_CURL    2000 // distance^2 to player to curl
-#define CRAWLER_DISTSQ_UNCURL  2000 // distance^2 to player to uncurl
-#define CRAWLER_TICKS_TO_CURL  25   // ticks when crawler is still killable while curling
-
 enum {
     CRAWLER_STATE_FALLING,
     CRAWLER_STATE_CRAWLING,
-    CRAWLER_STATE_BOUNCING,
 };
 
 enum {
     CRAWLER_SUBSTATE_NORMAL,
-    CRAWLER_SUBSTATE_CURLED,
 };
 
-static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir);
+static i32 crawler_find_crawl_direction(g_s *g, obj_s *o, i32 dir);
 
 typedef struct {
     i32 bounce_rotation_q12; // in turns
     i32 bounce_angle_q12;    // in turns
 } obj_crawler_s;
 
-static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, i32 dir)
+static bool32 crawler_can_crawl(g_s *g, obj_s *o, rec_i32 aabb, i32 dir)
 {
     v2_i32  cp = direction_v2(dir);
     rec_i32 rr = translate_rec(aabb, cp);
@@ -39,7 +32,7 @@ static bool32 crawler_can_crawl(game_s *g, obj_s *o, rec_i32 aabb, i32 dir)
     return !(map_traversable(g, r1) && map_traversable(g, r2));
 }
 
-static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir)
+static i32 crawler_find_crawl_direction(g_s *g, obj_s *o, i32 dir)
 {
     // const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
     const rec_i32 rbounds = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
@@ -66,7 +59,7 @@ static i32 crawler_find_crawl_direction(game_s *g, obj_s *o, i32 dir)
     return 0;
 }
 
-static void crawler_do_normal(game_s *g, obj_s *o)
+static void crawler_do_normal(g_s *g, obj_s *o)
 {
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
 
@@ -92,87 +85,26 @@ static void crawler_do_normal(game_s *g, obj_s *o)
         o->state = CRAWLER_STATE_CRAWLING;
         o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
 
-        if (o->ID == OBJ_ID_CRAWLER) {
-            obj_s *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
-            u32    distsq = U32_MAX;
-            if (ohero) {
-                distsq = v2_distancesq(obj_pos_center(o), obj_pos_center(ohero));
-            }
-
-            switch (o->substate) {
-            case CRAWLER_SUBSTATE_NORMAL: {
-                if (distsq <= CRAWLER_DISTSQ_CURL) {
-                    o->substate = CRAWLER_SUBSTATE_CURLED;
-                    o->subtimer = 0;
-                }
-            } break;
-            case CRAWLER_SUBSTATE_CURLED: {
-                if (CRAWLER_DISTSQ_UNCURL < distsq) {
-                    o->substate = CRAWLER_SUBSTATE_NORMAL;
-                    o->subtimer = 0;
-                }
-            } break;
-            }
-        }
-
         if (domove && dir_to_crawl) {
             o->pos = v2_add(o->pos, direction_v2(dir_to_crawl));
         }
     } else { // free fall
-        o->state    = CRAWLER_STATE_FALLING;
-        o->substate = CRAWLER_SUBSTATE_CURLED;
+        o->state = CRAWLER_STATE_FALLING;
         o->flags |= OBJ_FLAG_MOVER; // enable gravity and physics
-    }
-}
-
-static void crawler_do_bounce(game_s *g, obj_s *o)
-{
-    obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
-    o->timer--;
-    i32 mx = (o->timer <= 0 ? 150 : 255);
-    i32 my = (o->timer <= 0 ? 150 : 255);
-
-    if (o->timer <= 0) {
-        o->drag_q8.x = 250;
-    }
-
-    if (o->bumpflags & OBJ_BUMPED_X) {
-        o->v_q8.x = -(o->v_q8.x * mx) >> 8;
-    }
-    if (o->bumpflags & OBJ_BUMPED_Y) {
-        o->v_q8.y = -(o->v_q8.y * my) >> 8;
-    }
-    if (o->bumpflags & (OBJ_BUMPED_X | OBJ_BUMPED_Y)) {
-        crawler->bounce_rotation_q12 = rngr_sym_i32(2000);
-    }
-    o->bumpflags = 0;
-
-    // try to return to crawling if not bouncing too much
-    if (o->timer < 0 && abs_i32(o->v_q8.x) < 100 && abs_i32(o->v_q8.y) < 5) {
-        o->timer                     = 0;
-        o->state                     = CRAWLER_STATE_FALLING;
-        o->substate                  = CRAWLER_SUBSTATE_CURLED;
-        o->action                    = DIRECTION_NONE;
-        crawler->bounce_rotation_q12 = 0;
-        crawler->bounce_angle_q12    = 0;
     }
 }
 
 // Walk in a straight path along the wall. If it bumps against
 // a wall or just stepped into empty space it'll try to change directions
 // to continue crawling.
-void crawler_on_update(game_s *g, obj_s *o)
+void crawler_on_update(g_s *g, obj_s *o)
 {
     o->drag_q8.y = 255;
     o->drag_q8.x = 255;
-    if (o->state == CRAWLER_STATE_BOUNCING) {
-        crawler_do_bounce(g, o);
-    } else {
-        crawler_do_normal(g, o);
-    }
+    crawler_do_normal(g, o);
 }
 
-void crawler_on_animate(game_s *g, obj_s *o)
+void crawler_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s  *spr     = &o->sprites[0];
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
@@ -255,18 +187,10 @@ void crawler_on_animate(game_s *g, obj_s *o)
         spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
     }
 
-    if (o->ID == OBJ_ID_CRAWLER && o->substate == CRAWLER_SUBSTATE_CURLED) {
-        if (o->subtimer < CRAWLER_TICKS_TO_CURL) {
-            spr->trec.r.x = 2 * 64;
-        } else {
-            spr->trec.r.x = 3 * 64;
-        }
-    }
-
     spr->trec.r.y = imgy * 64;
 }
 
-static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
+static void crawler_load_i(g_s *g, map_obj_s *mo, i32 ID)
 {
     assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
@@ -276,8 +200,6 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY;
-    o->on_update       = crawler_on_update;
-    o->on_animate      = crawler_on_animate;
     o->render_priority = 1;
     o->grav_q8.y       = 30;
     o->drag_q8.y       = 255;
@@ -308,23 +230,20 @@ static void crawler_load_i(game_s *g, map_obj_s *mo, i32 ID)
     }
 }
 
-void crawler_load(game_s *g, map_obj_s *mo)
+void crawler_load(g_s *g, map_obj_s *mo)
 {
     crawler_load_i(g, mo, OBJ_ID_CRAWLER);
 }
 
-void crawler_caterpillar_load(game_s *g, map_obj_s *mo)
+void crawler_caterpillar_load(g_s *g, map_obj_s *mo)
 {
     crawler_load_i(g, mo, OBJ_ID_CRAWLER_CATERPILLAR);
 }
 
-void crawler_on_weapon_hit(game_s *g, obj_s *o, hitbox_s hb)
+void crawler_on_weapon_hit(g_s *g, obj_s *o, hitbox_s hb)
 {
     obj_crawler_s *crawler = (obj_crawler_s *)o->mem;
     o->flags |= OBJ_FLAG_MOVER;
-    o->state                     = CRAWLER_STATE_BOUNCING;
-    o->substate                  = CRAWLER_SUBSTATE_CURLED;
-    o->timer                     = CRAWLER_TICKS_BOUNCING;
     o->v_q8.y                    = (hb.force_q8.y * 800) >> 8;
     o->v_q8.x                    = (hb.force_q8.x * 1000) >> 8;
     o->drag_q8.y                 = 255;

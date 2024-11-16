@@ -15,7 +15,7 @@ typedef struct {
     rec_i32 checkr;
 } stalactite_s;
 
-void stalactite_on_update(game_s *g, obj_s *o)
+void stalactite_on_update(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
 
@@ -66,10 +66,10 @@ void stalactite_on_update(game_s *g, obj_s *o)
 
             o->v_q8.y = 0;
         }
-        if (o->bumpflags & OBJ_BUMPED_X) {
+        if (o->bumpflags & OBJ_BUMP_X) {
             o->v_q8.x = 0;
         }
-        if (o->bumpflags & OBJ_BUMPED_Y) {
+        if (o->bumpflags & OBJ_BUMP_Y) {
             o->v_q8.y = 0;
         }
         o->bumpflags = 0;
@@ -84,7 +84,7 @@ void stalactite_on_update(game_s *g, obj_s *o)
     }
 }
 
-void stalactite_load(game_s *g, map_obj_s *mo)
+void stalactite_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_STALACTITE;

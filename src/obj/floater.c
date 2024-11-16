@@ -13,10 +13,10 @@ typedef struct {
     i32 vel_amount;
 } floater_s;
 
-void floater_on_update(game_s *g, obj_s *o);
-void floater_on_animate(game_s *g, obj_s *o);
+void floater_on_update(g_s *g, obj_s *o);
+void floater_on_animate(g_s *g, obj_s *o);
 
-void floater_load(game_s *g, map_obj_s *mo)
+void floater_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o  = obj_create(g);
     floater_s *fl = (floater_s *)o->mem;
@@ -44,7 +44,7 @@ void floater_load(game_s *g, map_obj_s *mo)
     fl->steer_ang_q16  = 20000;
 }
 
-void floater_on_update(game_s *g, obj_s *o)
+void floater_on_update(g_s *g, obj_s *o)
 {
     obj_s     *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     floater_s *fl    = (floater_s *)o->mem;
@@ -60,21 +60,21 @@ void floater_on_update(game_s *g, obj_s *o)
 
     if (o->bumpflags) {
         o->subtimer = 1;
-        if (o->bumpflags & OBJ_BUMPED_X) {
-            if (o->bumpflags & OBJ_BUMPED_X_POS) {
-                o->substate = OBJ_BUMPED_X_POS;
+        if (o->bumpflags & OBJ_BUMP_X) {
+            if (o->bumpflags & OBJ_BUMP_X_POS) {
+                o->substate = OBJ_BUMP_X_POS;
             }
-            if (o->bumpflags & OBJ_BUMPED_X_NEG) {
-                o->substate = OBJ_BUMPED_X_NEG;
+            if (o->bumpflags & OBJ_BUMP_X_NEG) {
+                o->substate = OBJ_BUMP_X_NEG;
             }
             o->v_q8.x = -o->v_q8.x;
         }
-        if (o->bumpflags & OBJ_BUMPED_Y) {
-            if (o->bumpflags & OBJ_BUMPED_Y_POS) {
-                o->substate = OBJ_BUMPED_Y_POS;
+        if (o->bumpflags & OBJ_BUMP_Y) {
+            if (o->bumpflags & OBJ_BUMP_Y_POS) {
+                o->substate = OBJ_BUMP_Y_POS;
             }
-            if (o->bumpflags & OBJ_BUMPED_Y_NEG) {
-                o->substate = OBJ_BUMPED_Y_NEG;
+            if (o->bumpflags & OBJ_BUMP_Y_NEG) {
+                o->substate = OBJ_BUMP_Y_NEG;
             }
             o->v_q8.y = -o->v_q8.y;
         }
@@ -100,20 +100,20 @@ void floater_on_update(game_s *g, obj_s *o)
     o->bumpflags = 0;
 }
 
-void floater_on_animate(game_s *g, obj_s *o)
+void floater_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     switch (o->substate) {
-    case OBJ_BUMPED_X_POS: {
+    case OBJ_BUMP_X_POS: {
         break;
     }
-    case OBJ_BUMPED_X_NEG: {
+    case OBJ_BUMP_X_NEG: {
         break;
     }
-    case OBJ_BUMPED_Y_POS: {
+    case OBJ_BUMP_Y_POS: {
         break;
     }
-    case OBJ_BUMPED_Y_NEG: {
+    case OBJ_BUMP_Y_NEG: {
         break;
     }
     default: break;

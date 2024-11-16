@@ -16,10 +16,10 @@ enum {
     HOOK_STATE_ATTACHED,
 };
 
-i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
-i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
+i32 hook_move(g_s *g, obj_s *o, v2_i32 dt, obj_s **ohook);
+i32 hook_can_attach(g_s *g, obj_s *o, rec_i32 r, obj_s **ohook);
 
-obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
+obj_s *hook_create(g_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
 {
     obj_s *o      = obj_create(g);
     o->ID         = OBJ_ID_HOOK;
@@ -53,7 +53,7 @@ obj_s *hook_create(game_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     return o;
 }
 
-void hook_on_animate(game_s *g, obj_s *o)
+void hook_on_animate(g_s *g, obj_s *o)
 {
     rope_s *r = o->rope;
     assert(r && r->head && r->tail);
@@ -81,7 +81,7 @@ void hook_on_animate(game_s *g, obj_s *o)
 
 void hookplant_on_hook(obj_s *o);
 
-i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
+i32 hook_can_attach(g_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
 {
     assert(o && o->ropenode);
     v2_i32 ph = o->ropenode->p;
@@ -108,7 +108,7 @@ i32 hook_can_attach(game_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
     return tile_map_hookable(g, r);
 }
 
-i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
+i32 hook_move(g_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
 {
     for (i32 m = abs_i32(dt.x), sx = sgn_i32(dt.x); 0 < m; m--) {
         rec_i32 r = obj_aabb(o);
@@ -116,11 +116,10 @@ i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
         r.x += sx;
 
         if (!map_traversable(g, r)) {
-            o->bumpflags |= 0 < sx ? OBJ_BUMPED_X_POS : OBJ_BUMPED_X_NEG;
+            o->bumpflags |= 0 < sx ? OBJ_BUMP_X_POS : OBJ_BUMP_X_NEG;
             return hook_can_attach(g, o, r, ohook);
         }
-
-        obj_step_x(g, o, sx, 0, 0);
+        obj_step(g, o, sx, 0, 0, 0);
         rec_i32 hookr = {r.x - 1, r.y - 1, r.w + 2, r.h + 2};
         i32     res   = hook_can_attach(g, o, hookr, ohook);
         if (res) {
@@ -134,11 +133,11 @@ i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
         r.y += sy;
 
         if (!map_traversable(g, r)) {
-            o->bumpflags |= 0 < sy ? OBJ_BUMPED_Y_POS : OBJ_BUMPED_Y_NEG;
+            o->bumpflags |= 0 < sy ? OBJ_BUMP_Y_POS : OBJ_BUMP_Y_NEG;
             return hook_can_attach(g, o, r, ohook);
         }
 
-        obj_step_y(g, o, sy, 0, 0);
+        obj_step(g, o, 0, sy, 0, 0);
         rec_i32 hookr = {r.x - 1, r.y - 1, r.w + 2, r.h + 2};
         i32     res   = hook_can_attach(g, o, hookr, ohook);
         if (res) {
@@ -150,7 +149,7 @@ i32 hook_move(game_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
     return hook_can_attach(g, o, hookrend, ohook);
 }
 
-bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
+bool32 hook_update_nonhooked(g_s *g, obj_s *hook)
 {
     obj_s  *h = obj_get_tagged(g, OBJ_TAG_HERO);
     rope_s *r = hook->rope;
@@ -176,13 +175,13 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
 
     switch (attach) {
     case HOOK_ATTACH_NONE:
-        if (hook->bumpflags & OBJ_BUMPED_X) {
+        if (hook->bumpflags & OBJ_BUMP_X) {
             if (abs_i32(hook->v_q8.x) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
             obj_vx_q8_mul(hook, -85);
         }
-        if (hook->bumpflags & OBJ_BUMPED_Y) {
+        if (hook->bumpflags & OBJ_BUMP_Y) {
             if (abs_i32(hook->v_q8.y) > 700) {
                 snd_play(SNDID_DOOR_TOGGLE, 1.f, 0.7f);
             }
@@ -223,7 +222,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     case HOOK_ATTACH_OBJ: {
         v2_i32 ctr = obj_pos_center(tohook);
         v2_i32 dt  = v2_sub(ctr, hook->ropenode->p);
-        ropenode_move(g, r, hook->ropenode, dt);
+        ropenode_move(g, r, hook->ropenode, dt.x, dt.y);
         tohook->rope     = r;
         tohook->ropenode = hook->ropenode;
         g->hero_mem.hook = obj_handle_from_obj(tohook);
@@ -235,7 +234,7 @@ bool32 hook_update_nonhooked(game_s *g, obj_s *hook)
     return 0;
 }
 
-void hook_update_hooked_solid(game_s *g, obj_s *hook)
+void hook_update_hooked_solid(g_s *g, obj_s *hook)
 {
     obj_s  *h = obj_get_tagged(g, OBJ_TAG_HERO);
     rope_s *r = hook->rope;
@@ -257,7 +256,7 @@ void hook_update_hooked_solid(game_s *g, obj_s *hook)
     }
 }
 
-void hook_update(game_s *g, obj_s *hook)
+void hook_update(g_s *g, obj_s *hook)
 {
     switch (hook->state) {
     case HOOK_STATE_FREE:
@@ -277,7 +276,7 @@ void hook_update(game_s *g, obj_s *hook)
     }
 }
 
-void hook_destroy(game_s *g, obj_s *ohero, obj_s *ohook)
+void hook_destroy(g_s *g, obj_s *ohero, obj_s *ohook)
 {
     if (ohook->ID == OBJ_ID_HOOK) {
         obj_delete(g, ohook);
@@ -296,11 +295,11 @@ bool32 hook_is_attached(obj_s *o)
     return o->state == HOOK_STATE_ATTACHED;
 }
 
-i32 hook_is_stretched(game_s *g, obj_s *o)
+i32 hook_is_stretched(g_s *g, obj_s *o)
 {
     rope_s *r = o->rope;
     if (!r) return 0;
-    i32 l = rope_len_q4(g, r);
+    u32 l = rope_len_q4(g, r);
     if (l <= r->len_max_q4) return 0;
-    return ((l << 8) / r->len_max_q4 - 256);
+    return ((i32)((l << 8) / r->len_max_q4) - 256);
 }

@@ -35,10 +35,10 @@ typedef struct {
     i32    v_q8;
 } grass_s;
 
-void grass_put(game_s *g, i32 tx, i32 ty);
-void grass_animate(game_s *g);
-void grass_draw(game_s *g, rec_i32 camrec, v2_i32 camoffset);
+void grass_put(g_s *g, i32 tx, i32 ty);
+void grass_animate(g_s *g);
+void grass_draw(g_s *g, rec_i32 camrec, v2_i32 camoffset);
 //
-void deco_verlet_animate(game_s *g);
-void deco_verlet_draw(game_s *g, v2_i32 cam);
+void deco_verlet_animate(g_s *g);
+void deco_verlet_draw(g_s *g, v2_i32 cam);
 #endif

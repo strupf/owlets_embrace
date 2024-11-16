@@ -4,11 +4,11 @@
 
 #include "game.h"
 
-void herowind_on_animate(game_s *g, obj_s *o);
-void herowind_on_update(game_s *g, obj_s *o);
-void herowind_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void herowind_on_animate(g_s *g, obj_s *o);
+void herowind_on_update(g_s *g, obj_s *o);
+void herowind_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
-void herowind_load(game_s *g, map_obj_s *mo)
+void herowind_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
     o->ID         = 1;
@@ -17,14 +17,14 @@ void herowind_load(game_s *g, map_obj_s *mo)
     o->on_animate = herowind_on_animate;
 }
 
-void herowind_on_animate(game_s *g, obj_s *o)
+void herowind_on_animate(g_s *g, obj_s *o)
 {
 }
 
-void herowind_on_update(game_s *g, obj_s *o)
+void herowind_on_update(g_s *g, obj_s *o)
 {
 }
 
-void herowind_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void herowind_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
 }

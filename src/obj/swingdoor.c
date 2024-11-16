@@ -23,7 +23,7 @@ typedef struct {
     v2_i32 key_open_origin;
 } swingdoor_s;
 
-void swingdoor_toggle(game_s *g, obj_s *o)
+void swingdoor_toggle(g_s *g, obj_s *o)
 {
     snd_play(SNDID_DOOR_SQUEEK, 1.f, rngr_f32(0.4f, 0.6f));
     o->timer   = 0;
@@ -32,7 +32,7 @@ void swingdoor_toggle(game_s *g, obj_s *o)
     tile_map_set_collision(g, obj_aabb(o), to_set, 0);
 }
 
-void swingdoor_on_update(game_s *g, obj_s *o)
+void swingdoor_on_update(g_s *g, obj_s *o)
 {
     o->timer++;
     swingdoor_s *od = (swingdoor_s *)o->mem;
@@ -66,7 +66,7 @@ void swingdoor_on_update(game_s *g, obj_s *o)
     }
 }
 
-void swingdoor_on_animate(game_s *g, obj_s *o)
+void swingdoor_on_animate(g_s *g, obj_s *o)
 {
     if (o->timer == SWINGDOOR_TICKS) {
         f32 pitch = o->state == SWINGDOOR_OPEN ? 0.5f : 1.f;
@@ -96,7 +96,7 @@ void swingdoor_on_animate(game_s *g, obj_s *o)
     sprk->offs  = v2_i16_from_i32(v2_sub(keyd, o->pos), 0);
 }
 
-void swingdoor_on_trigger(game_s *g, obj_s *o, i32 trigger)
+void swingdoor_on_trigger(g_s *g, obj_s *o, i32 trigger)
 {
     swingdoor_s *od = (swingdoor_s *)o->mem;
 
@@ -106,13 +106,13 @@ void swingdoor_on_trigger(game_s *g, obj_s *o, i32 trigger)
     }
 }
 
-void swingdoor_on_interact(game_s *g, obj_s *o)
+void swingdoor_on_interact(g_s *g, obj_s *o)
 {
     if (o->timer <= SWINGDOOR_TICKS) return;
     swingdoor_toggle(g, o);
 }
 
-void swingdoor_load(game_s *g, map_obj_s *mo)
+void swingdoor_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_DOOR_SWING;

@@ -4,10 +4,10 @@
 
 #include "game.h"
 
-void hero_powerup_obj_on_update(game_s *g, obj_s *o);
-void hero_powerup_obj_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void hero_powerup_obj_on_update(g_s *g, obj_s *o);
+void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
-void hero_powerup_obj_load(game_s *g, map_obj_s *mo)
+void hero_powerup_obj_load(g_s *g, map_obj_s *mo)
 {
     i32 upgrade = map_obj_i32(mo, "ID");
     // if (hero_has_upgrade(g, upgrade)) return;
@@ -31,7 +31,7 @@ void hero_powerup_obj_load(game_s *g, map_obj_s *mo)
     o->state          = upgrade;
 }
 
-void hero_powerup_obj_on_update(game_s *g, obj_s *o)
+void hero_powerup_obj_on_update(g_s *g, obj_s *o)
 {
     particle_desc_s prt = {0};
     {
@@ -59,7 +59,7 @@ void hero_powerup_obj_on_update(game_s *g, obj_s *o)
     }
 }
 
-void hero_powerup_obj_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s ctx  = gfx_ctx_display();
     v2_i32    pos  = v2_add(obj_pos_center(o), cam);

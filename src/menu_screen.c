@@ -7,7 +7,7 @@
 
 #define MAP_PIN_DELETE_TICKS 25
 
-v2_i32 mapview_hero_world_q8(game_s *g)
+v2_i32 mapview_hero_world_q8(g_s *g)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     v2_i32 vres  = {0};
@@ -21,7 +21,7 @@ v2_i32 mapview_hero_world_q8(game_s *g)
     return vres;
 }
 
-void menu_screen_update(game_s *g, menu_screen_s *m)
+void menu_screen_update(g_s *g, menu_screen_s *m)
 {
     if (inp_action_jp(INP_B)) {
         g->substate = 0;
@@ -156,7 +156,7 @@ void menu_screen_update(game_s *g, menu_screen_s *m)
     }
 }
 
-void menu_screen_draw(game_s *g, menu_screen_s *m)
+void menu_screen_draw(g_s *g, menu_screen_s *m)
 {
     const gfx_ctx_s ctx = gfx_ctx_display();
     tex_s           tui = asset_tex(TEXID_UI);
@@ -223,7 +223,7 @@ void menu_screen_draw(game_s *g, menu_screen_s *m)
     }
 }
 
-void menu_screen_open(game_s *g, menu_screen_s *m)
+void menu_screen_open(g_s *g, menu_screen_s *m)
 {
     g->substate      = SUBSTATE_MENUSCREEN;
     m->tab           = MENU_SCREEN_TAB_MAP;

@@ -4,10 +4,10 @@
 
 #include "game.h"
 
-void walker_on_update(game_s *g, obj_s *o);
-void walker_on_animate(game_s *g, obj_s *o);
+void walker_on_update(g_s *g, obj_s *o);
+void walker_on_animate(g_s *g, obj_s *o);
 
-void walker_load(game_s *g, map_obj_s *mo)
+void walker_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_WALKER;
@@ -34,13 +34,13 @@ void walker_load(game_s *g, map_obj_s *mo)
     o->n_sprites  = 1;
 }
 
-void walker_on_update(game_s *g, obj_s *o)
+void walker_on_update(g_s *g, obj_s *o)
 {
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
 
-    if ((o->bumpflags & OBJ_BUMPED_X) || obj_would_fall_down_next(g, o, o->facing)) {
+    if ((o->bumpflags & OBJ_BUMP_X) || obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
 
@@ -48,7 +48,7 @@ void walker_on_update(game_s *g, obj_s *o)
     o->tomove.x  = time_now() & 1 ? o->facing : 0;
 }
 
-void walker_on_animate(game_s *g, obj_s *o)
+void walker_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr     = &o->sprites[0];
     i32           frameID = (time_now() >> 3) & 3;

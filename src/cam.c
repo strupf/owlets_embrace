@@ -10,7 +10,7 @@
 #define CAM_WH (PLTF_DISPLAY_W >> 1)
 #define CAM_HH (PLTF_DISPLAY_H >> 1)
 
-static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center);
+static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
 
 void cam_screenshake(cam_s *c, i32 ticks, i32 str)
 {
@@ -19,25 +19,23 @@ void cam_screenshake(cam_s *c, i32 ticks, i32 str)
     c->shake_str       = str;
 }
 
-v2_i32 cam_pos_px(game_s *g, cam_s *c)
+v2_i32 cam_pos_px(g_s *g, cam_s *c)
 {
     v2_i32 pos_q8 = c->pos_q8;
     pos_q8        = v2_add(pos_q8, c->attract);
     v2_i32 pos    = v2_shr(pos_q8, 8);
     pos           = v2_add(pos, c->shake);
+    pos.x += c->offs_x;
 
-    if (30 <= c->lookdown) {
-        // pos.y += min_i32((c->lookdown - 30), 30) * 2;
+    if (40 <= c->lookdown) {
+        pos.y += min_i32((c->lookdown - 40), 40) * 2;
     }
 
     pos = cam_constrain_to_room(g, pos);
-    if (30 <= c->textboxdown) {
-        pos.y += min_i32((c->textboxdown - 30), 30) * 2;
-    }
     return pos;
 }
 
-rec_i32 cam_rec_px(game_s *g, cam_s *c)
+rec_i32 cam_rec_px(g_s *g, cam_s *c)
 {
     v2_i32  p = cam_pos_px(g, c);
     rec_i32 r = {p.x - CAM_WH, p.y - CAM_HH, CAM_W, CAM_H};
@@ -50,7 +48,7 @@ void cam_set_pos_px(cam_s *c, i32 x, i32 y)
     c->pos_q8.y = y << 8;
 }
 
-void cam_init_level(game_s *g, cam_s *c)
+void cam_init_level(g_s *g, cam_s *c)
 {
     for (i32 n = 0; n < 128; n++) {
         cam_update(g, c);
@@ -59,18 +57,17 @@ void cam_init_level(game_s *g, cam_s *c)
 
 #define CAM_Y_NEW_BASE_MIN_SPEED  (1 << 7)
 #define CAM_X_LOOKAHEAD_MIN_SPEED (1 << 7)
-#define CAM_HERO_Y_BOT            180 // camera pushing boundaries, absolute pixels
-#define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 70)
+#define CAM_HERO_Y_BOT            172                   // lower = camera positioned lower
+#define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 74) // tune for jump height
 #define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) << 8)
 #define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) << 8)
 
-void cam_update(game_s *g, cam_s *c)
+void cam_update(g_s *g, cam_s *c)
 {
-    obj_s    *hero             = obj_get_tagged(g, OBJ_TAG_HERO);
-    v2_i32    ppos             = c->pos_q8;
-    v2_i32    padd             = {0};
-    const i32 lookdown_prev    = c->lookdown;
-    const i32 textboxdown_prev = c->textboxdown;
+    obj_s    *hero          = obj_get_tagged(g, OBJ_TAG_HERO);
+    v2_i32    ppos          = c->pos_q8;
+    v2_i32    padd          = {0};
+    const i32 lookdown_prev = c->lookdown;
 
     switch (c->mode) {
     case CAM_MODE_FOLLOW_HERO: {
@@ -95,7 +92,7 @@ void cam_update(game_s *g, cam_s *c)
             c->pos_q8.y += y_add;
 
             if (hero->v_q8.x == 0 && inp_action(INP_DD)) {
-                c->lookdown += 3;
+                c->lookdown += 2;
             }
         }
 
@@ -103,26 +100,17 @@ void cam_update(game_s *g, cam_s *c)
         i32 cam_y_max = hero_bot_q8 - CAM_OFFS_Q8_TOP;
         c->pos_q8.y   = clamp_i32(c->pos_q8.y, cam_y_min, cam_y_max);
 
-        i32 trgx_q8  = (herop.x + hero->facing * 30) << 8;
-        // trgx_q8 += hero->v_q8.x << 3;
-        i32 diffx_q8 = trgx_q8 - c->pos_q8.x;
-        i32 x_to_add = (diffx_q8 * 20) >> 8;
-        if (diffx_q8 < 0) {
-            x_to_add = min_i32(x_to_add, -CAM_X_LOOKAHEAD_MIN_SPEED);
-        }
-        if (diffx_q8 > 0) {
-            x_to_add = max_i32(x_to_add, +CAM_X_LOOKAHEAD_MIN_SPEED);
-        }
+        i32 va = abs_i32(hero->v_q8.x);
+        i32 vs = sgn_i32(hero->v_q8.x);
 
-        if (abs_i32(diffx_q8) <= abs_i32(x_to_add)) {
-            c->pos_q8.x = trgx_q8;
+        if (vs == 0) {
+            c->offs_x += hero->facing;
         } else {
-            c->pos_q8.x += x_to_add;
+            c->offs_x += vs * (-sgn_i32(c->offs_x) == vs ? 1 : 1);
         }
 
-#if 0
-        c->pos_q8.x = trgx_q8;
-#endif
+        c->offs_x   = clamp_i32(c->offs_x, -50, +50);
+        c->pos_q8.x = herop.x << 8;
 
         // cam attractors
         v2_i32 pos_px    = v2_shr(c->pos_q8, 8);
@@ -170,11 +158,6 @@ void cam_update(game_s *g, cam_s *c)
         // c->textboxdown += 3;
     }
 
-    if (0 < textboxdown_prev && textboxdown_prev == c->textboxdown) {
-        c->textboxdown = min_i32(c->textboxdown, 256);
-        c->textboxdown = max_i32(c->textboxdown - 2, 0);
-    }
-
     if (0 < lookdown_prev && lookdown_prev == c->lookdown) {
         c->lookdown = min_i32(c->lookdown, 256);
         c->lookdown = max_i32(c->lookdown - 2, 0);
@@ -195,21 +178,21 @@ void cam_update(game_s *g, cam_s *c)
     }
 }
 
-static v2_i32 cam_constrain_to_room(game_s *g, v2_i32 p_center)
+static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center)
 {
     v2_i32 v = {clamp_i32(p_center.x, CAM_WH, g->pixel_x - CAM_WH),
                 clamp_i32(p_center.y, CAM_HH, g->pixel_y - CAM_HH)};
     return v;
 }
 
-v2_i32 cam_offset_max(game_s *g, cam_s *c)
+v2_i32 cam_offset_max(g_s *g, cam_s *c)
 {
     v2_i32 o = {g->pixel_x - CAM_W,
                 g->pixel_y - CAM_H};
     return o;
 }
 
-f32 cam_snd_scale(game_s *g, v2_i32 p, u32 dst_max)
+f32 cam_snd_scale(g_s *g, v2_i32 p, u32 dst_max)
 {
     f32 dsq = sqrt_f32(pow_f32((f32)p.x - (f32)g->cam_prev_world.x, 2) +
                        pow_f32((f32)p.y - (f32)g->cam_prev_world.y, 2));

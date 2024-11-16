@@ -12,7 +12,7 @@ enum {
     CHEST_OPENED,
 };
 
-void chest_load(game_s *g, map_obj_s *mo)
+void chest_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = 0;
@@ -27,11 +27,11 @@ void chest_load(game_s *g, map_obj_s *mo)
     o->mass      = 1;
 }
 
-void chest_on_update(game_s *g, obj_s *o)
+void chest_on_update(g_s *g, obj_s *o)
 {
     switch (o->state) {
     case CHEST_CLOSED: {
-        if (!(o->bumpflags & OBJ_BUMPED_JUMPED_ON)) break;
+        if (!(o->bumpflags & OBJ_BUMP_JUMPED_ON)) break;
         o->state = CHEST_OPENING;
         break;
     }
@@ -50,7 +50,7 @@ void chest_on_update(game_s *g, obj_s *o)
     o->bumpflags = 0;
 }
 
-void chest_on_animate(game_s *g, obj_s *o)
+void chest_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
 

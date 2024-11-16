@@ -91,6 +91,13 @@ static inline f32 sgn_f32(f32 a)
     return 0.f;
 }
 
+// v % m but result is always positive
+static inline i32 modu_i32(i32 v, i32 m)
+{
+    i32 r = v % m;
+    return (0 <= r ? r : r + m);
+}
+
 static inline i32 mul_ratio(i32 x, ratio_s r)
 {
     return ((x * r.num) / r.den);

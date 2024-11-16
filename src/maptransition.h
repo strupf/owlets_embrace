@@ -7,24 +7,24 @@
 
 #include "gamedef.h"
 
-typedef struct {
-    i16    fade_phase;
-    i16    fade_tick;
-    i16    type;
-    i16    hero_face;
-    i16    flytime;
-    u8     jump_ui_tick;
+typedef struct maptransition_s {
+    u8     fade_phase;
+    u8     type;
+    i32    hero_face;
     bool8  jump_ui_may_hide;
+    i32    dir;
+    u16    jump_ui_tick;
+    i16    fade_tick;
+    u16    stamina;
     v2_i16 hero_v;
     v2_i32 hero_feet;
     i32    teleport_ID;
     char   to_load[64];
-    i32    dir;
 } maptransition_s;
 
-void   maptransition_teleport(game_s *g, const char *map, v2_i32 hero_feet);
-bool32 maptransition_try_hero_slide(game_s *g);
-void   maptransition_update(game_s *g);
-void   maptransition_draw(game_s *g, v2_i32 cam);
+void   maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet);
+bool32 maptransition_try_hero_slide(g_s *g);
+void   maptransition_update(g_s *g);
+void   maptransition_draw(g_s *g, v2_i32 cam);
 
 #endif

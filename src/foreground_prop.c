@@ -5,7 +5,7 @@
 #include "game.h"
 #include "render.h"
 
-void foreground_props_draw(game_s *g, v2_i32 cam)
+void foreground_props_draw(g_s *g, v2_i32 cam)
 {
     gfx_ctx_s ctx  = gfx_ctx_display();
     gfx_ctx_s ctxp = ctx;

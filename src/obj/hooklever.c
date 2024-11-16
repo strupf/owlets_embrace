@@ -11,7 +11,7 @@ typedef struct {
 
 #define HOOKLEVER_TICKS 30
 
-void hooklever_on_update(game_s *g, obj_s *o)
+void hooklever_on_update(g_s *g, obj_s *o)
 {
     const i32 subt = o->subtimer;
 
@@ -68,7 +68,7 @@ void hooklever_on_update(game_s *g, obj_s *o)
     }
 }
 
-void hooklever_load(game_s *g, map_obj_s *mo)
+void hooklever_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o   = obj_create(g);
     o->ID      = OBJ_ID_HOOKLEVER;

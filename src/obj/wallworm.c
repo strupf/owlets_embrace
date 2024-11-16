@@ -29,12 +29,12 @@ typedef struct {
 
 static_assert(sizeof(wallworm_s) <= 512, "M");
 
-void wallworm_on_update(game_s *g, obj_s *o);
-void wallworm_on_animate(game_s *g, obj_s *o);
-void wallworm_on_draw(game_s *g, obj_s *o, v2_i32 cam);
+void wallworm_on_update(g_s *g, obj_s *o);
+void wallworm_on_animate(g_s *g, obj_s *o);
+void wallworm_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void wallworm_constrain_to(obj_s *o, wallworm_seg_s *seg);
 
-void wallworm_load(game_s *g, map_obj_s *mo)
+void wallworm_load(g_s *g, map_obj_s *mo)
 {
     sizeof(wallworm_s);
     obj_s      *o      = obj_create(g);
@@ -56,7 +56,7 @@ void wallworm_load(game_s *g, map_obj_s *mo)
     v2_i16 *pt   = (v2_i16 *)map_obj_arr(mo, "P", &n_pt);
 }
 
-void wallworm_on_update(game_s *g, obj_s *o)
+void wallworm_on_update(g_s *g, obj_s *o)
 {
     wallworm_s *w = (wallworm_s *)o->mem;
 
@@ -92,12 +92,12 @@ void wallworm_on_update(game_s *g, obj_s *o)
     }
 }
 
-void wallworm_on_animate(game_s *g, obj_s *o)
+void wallworm_on_animate(g_s *g, obj_s *o)
 {
     wallworm_s *w = (wallworm_s *)o->mem;
 }
 
-void wallworm_draw_segs(game_s *g, obj_s *o, v2_i32 cam, i32 srcx)
+void wallworm_draw_segs(g_s *g, obj_s *o, v2_i32 cam, i32 srcx)
 {
     gfx_ctx_s   ctx = gfx_ctx_display();
     texrec_s    tr  = asset_texrec(TEXID_WALLWORM, 0, 0, 32, 32);
@@ -137,7 +137,7 @@ void wallworm_draw_segs(game_s *g, obj_s *o, v2_i32 cam, i32 srcx)
     }
 }
 
-void wallworm_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void wallworm_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     wallworm_draw_segs(g, o, cam, 512);
     wallworm_draw_segs(g, o, cam, 0);

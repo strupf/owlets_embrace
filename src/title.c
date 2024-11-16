@@ -14,11 +14,11 @@
 #define TITLE_SLOT_Y_SPACING 50
 #define TITLE_MSG_TICK       150
 
-void title_start_game(game_s *g, i32 slot);
+void title_start_game(g_s *g, i32 slot);
 void title_to_state(title_s *t, i32 state, i32 fade);
-void title_pressed_A(game_s *g, title_s *t);
+void title_pressed_A(g_s *g, title_s *t);
 void title_pressed_B(title_s *t);
-void title_navigate(game_s *g, title_s *t, i32 dx, i32 dy);
+void title_navigate(g_s *g, title_s *t, i32 dx, i32 dy);
 void title_load(title_s *t);
 void title_log(title_s *t, const char *msg);
 void title_render_savefile(title_s *t, i32 slot);
@@ -54,17 +54,22 @@ void title_init(title_s *t)
     save_s *s = spm_alloct(save_s, 1);
     savefile_empty(s);
     str_cpy(s->name, "Lukas");
-    str_cpy(s->hero_mapfile, "L_0");
-    s->hero_pos.x  = 130;
-    s->hero_pos.y  = 600;
-    s->flyupgrades = 1;
-    s->health      = 3;
+    str_cpy(s->hero_mapfile, "START");
+    s->hero_pos.x       = 200;
+    s->hero_pos.y       = 200;
+    s->stamina_upgrades = 2;
+    s->health           = 3;
+#if 1
     s->upgrades =
-        //  ((flags32)1 << HERO_UPGRADE_HOOK) |
-        //  ((flags32)1 << HERO_UPGRADE_SWIM) |
-        //  ((flags32)1 << HERO_UPGRADE_DIVE) |
-        //((flags32)1 << HERO_UPGRADE_SPRINT) |
+        ((flags32)1 << HERO_UPGRADE_HOOK) |
+        ((flags32)1 << HERO_UPGRADE_STOMP) |
+        ((flags32)1 << HERO_UPGRADE_DIVE) |
+        ((flags32)1 << HERO_UPGRADE_SPRINT) |
+        ((flags32)1 << HERO_UPGRADE_SWIM) |
+        ((flags32)1 << HERO_UPGRADE_FLY) |
+        ((flags32)1 << HERO_UPGRADE_CLIMB) |
         0;
+#endif
     savefile_write(0, s);
     spm_pop();
 #endif
@@ -89,7 +94,7 @@ void title_load(title_s *t)
     spm_pop();
 }
 
-void title_start_game(game_s *g, i32 slot)
+void title_start_game(g_s *g, i32 slot)
 {
     g->save_slot = slot;
     g->state     = APP_STATE_GAME;
@@ -97,7 +102,7 @@ void title_start_game(game_s *g, i32 slot)
     game_load_savefile(g);
 }
 
-void title_update(game_s *g, title_s *t)
+void title_update(g_s *g, title_s *t)
 {
 #if TITLE_SKIP_TO_GAME
     title_start_game(g, 0);
@@ -159,7 +164,7 @@ void title_update(game_s *g, title_s *t)
     }
 }
 
-void title_pressed_A(game_s *g, title_s *t)
+void title_pressed_A(g_s *g, title_s *t)
 {
     switch (t->state) {
     case TITLE_ST_PRESS_START: {
@@ -350,7 +355,7 @@ void title_pressed_B(title_s *t)
     }
 }
 
-void title_navigate(game_s *g, title_s *t, i32 dx, i32 dy)
+void title_navigate(g_s *g, title_s *t, i32 dx, i32 dy)
 {
     switch (t->state) {
     case TITLE_ST_PRESS_START: {

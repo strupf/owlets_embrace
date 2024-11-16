@@ -21,6 +21,8 @@ enum {
     TILE_LADDER = NUM_TILE_SHAPES,
     TILE_LADDER_ONE_WAY,
     TILE_ONE_WAY,
+    TILE_CLIMBWALL,
+    TILE_CLIMBWALL_ONEWAY,
     TILE_SPIKES,
 };
 
@@ -119,20 +121,19 @@ bool32       tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1);
 tile_walls_s tile_walls_get(i32 ID);
 tile_tris_s  tile_tris_get(i32 ID);
 //
-bool32       tile_map_hookable(game_s *g, rec_i32 r);
-bool32       tile_map_solid(game_s *g, rec_i32 r);
-bool32       tile_map_solid_pt(game_s *g, i32 x, i32 y);
-bool32       tile_map_platform(game_s *g, rec_i32 r);
-bool32       tile_map_ladder_overlaps_rec(game_s *g, rec_i32 r, v2_i32 *tpos);
-void         tile_map_set_collision(game_s *g, rec_i32 r, i32 shape, i32 type);
+bool32       tile_map_hookable(g_s *g, rec_i32 r);
+bool32       tile_map_solidr(g_s *g, i32 x, i32 y, i32 w, i32 h);
+bool32       tile_map_solido(g_s *g, obj_s *o, i32 dx, i32 dy);
+bool32       tile_map_solid(g_s *g, rec_i32 r);
+bool32       tile_map_solid_pt(g_s *g, i32 x, i32 y);
+bool32       tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos);
+void         tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type);
 //
-bool32       map_platform(game_s *g, obj_s *o, i32 x, i32 y, i32 w);
-bool32       map_overlaps_mass_eq_or_higher(game_s *g, rec_i32 r, i32 m);
-bool32       map_blocked_by_solid(game_s *g, obj_s *o, rec_i32 r, i32 m);
-bool32       map_blocked_by_any_solid(game_s *g, rec_i32 r);
-bool32       map_blocked_by_any_solid_pt(game_s *g, i32 x, i32 y);
-bool32       map_traversable(game_s *g, rec_i32 r);
-bool32       map_traversable_pt(game_s *g, i32 x, i32 y);
+bool32       map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m);
+bool32       map_blocked_by_any_solid(g_s *g, rec_i32 r);
+bool32       map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y);
+bool32       map_traversable(g_s *g, rec_i32 r);
+bool32       map_traversable_pt(g_s *g, i32 x, i32 y);
 
 extern const tile_corners_s g_tile_corners[NUM_TILE_SHAPES];
 extern const i32            g_tile_tris[NUM_TILE_SHAPES * 12];
@@ -141,8 +142,8 @@ typedef struct {
     i32 x1, y1, x2, y2;
 } tile_map_bounds_s;
 
-tile_map_bounds_s tile_map_bounds_rec(game_s *g, rec_i32 r);
-tile_map_bounds_s tile_map_bounds_pts(game_s *g, v2_i32 p0, v2_i32 p1);
-tile_map_bounds_s tile_map_bounds_tri(game_s *g, tri_i32 t);
+tile_map_bounds_s tile_map_bounds_rec(g_s *g, rec_i32 r);
+tile_map_bounds_s tile_map_bounds_pts(g_s *g, v2_i32 p0, v2_i32 p1);
+tile_map_bounds_s tile_map_bounds_tri(g_s *g, tri_i32 t);
 
 #endif

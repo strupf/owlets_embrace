@@ -4,23 +4,19 @@
 
 #include "game.h"
 
-obj_s *shortcut_create(game_s *g)
+void webbounce_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-
-    o->flags = OBJ_FLAG_RENDER_AABB;
-
-    o->w = 32;
-    o->h = 32;
-
-    return o;
-}
-
-void shortcut_load(game_s *g, map_obj_s *mo)
-{
-    obj_s *o = shortcut_create(g);
+    o->w     = mo->w;
+    o->h     = 16;
     o->pos.x = mo->x;
     o->pos.y = mo->y;
+}
 
-    o->substate = map_obj_i32(mo, "ID");
+void webbounce_on_animate(g_s *g, obj_s *o)
+{
+}
+
+void webbounce_on_bounced(g_s *g, obj_s *o)
+{
 }

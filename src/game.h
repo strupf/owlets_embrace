@@ -13,6 +13,7 @@
 #include "hero/hero.h"
 #include "hero/hero_hook.h"
 #include "hero_powerup.h"
+#include "ladder.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"
@@ -53,7 +54,7 @@ enum {
     SUBSTATE_MENUSCREEN
 };
 
-struct game_s {
+struct g_s {
     u32               gameplay_tick;
     u32               state;
     v2_i32            cam_prev;
@@ -78,6 +79,7 @@ struct game_s {
     u16               tiles_y;
     u16               pixel_x;
     u16               pixel_y;
+    bool32            dark;
     tile_s            tiles[NUM_TILES];
     rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
     u8                fluid_streams[NUM_TILES];
@@ -107,6 +109,8 @@ struct game_s {
     coinparticle_s    coinparticles[NUM_COINPARTICLE];
     u32               n_deco_verlet;
     deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
+    u32               n_ladders;
+    ladder_s          ladders[NUM_LADDERS];
     //
     i32               save_slot;
     save_s            save;
@@ -133,21 +137,25 @@ struct game_s {
     alignas(4) byte mem[64 * 1024];
 };
 
-void   game_init(game_s *g);
-void   game_tick(game_s *g);
-void   game_draw(game_s *g);
-void   game_resume(game_s *g);
-void   game_paused(game_s *g);
+void   game_init(g_s *g);
+void   game_tick(g_s *g);
+void   game_draw(g_s *g);
+void   game_resume(g_s *g);
+void   game_paused(g_s *g);
 //
-i32    gameplay_time(game_s *g);
-i32    gameplay_time_since(game_s *g, i32 t);
-void   game_load_savefile(game_s *g);
-bool32 game_save_savefile(game_s *g);
-void   game_on_trigger(game_s *g, i32 trigger);
-void   game_on_solid_appear(game_s *g);
-bool32 obj_game_enemy_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
-bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb);
-bool32 obj_game_player_attackbox(game_s *g, hitbox_s box);
+i32    gameplay_time(g_s *g);
+i32    gameplay_time_since(g_s *g, i32 t);
+void   game_load_savefile(g_s *g);
+bool32 game_save_savefile(g_s *g);
+void   game_on_trigger(g_s *g, i32 trigger);
+void   game_on_solid_appear(g_s *g);
+bool32 obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
+bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
+bool32 obj_game_player_attackbox(g_s *g, hitbox_s box);
+void   objs_update(g_s *g);
+void   objs_animate(g_s *g);
+void   objs_trigger(g_s *g, i32 trigger);
+void   obj_custom_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

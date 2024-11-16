@@ -5,9 +5,9 @@
 #include "game.h"
 #include "hero_hook.h"
 
-void hero_handle_input(game_s *g, obj_s *o)
+void hero_handle_input(g_s *g, obj_s *o)
 {
-    hero_s *h      = &g->hero_mem;
+    hero_s *h      = (hero_s *)o->heap;
     i32     dpad_x = inp_x();
     i32     dpad_y = inp_y();
     i32     state  = hero_determine_state(g, o, h);
@@ -85,57 +85,130 @@ void hero_handle_input(game_s *g, obj_s *o)
             o->rope->len_max_q4 = clamp_i32(ll + (dt >> 6), 500, 6000);
         }
     }
-
-#if 0
-    if (h->b_hold_tick) {
-        if (!inp_action(INP_B)) {
-            if (12 < h->b_hold_tick) {
-                if (inp_x() | inp_y()) {
-                    hero_action_throw_grapple(g, o);
-                }
-            } else {
-                hero_action_attack(g, o);
-                h->attack_flipflop = 1 - h->attack_flipflop;
-            }
-
-            h->b_hold_tick = 0;
-        } else if (h->b_hold_tick < U8_MAX) {
-            h->b_hold_tick++;
-        }
-    } else if (inp_action_jp(INP_B)) {
-        if (o->rope) {
-            hero_action_ungrapple(g, o);
-        } else {
-            h->b_hold_tick = 1;
-        }
-    }
-#endif
 }
 
-void hero_process_hurting_things(game_s *g, obj_s *o)
+bool32 hero_try_stomp(g_s *g, obj_s *o)
 {
-    hero_s *h = (hero_s *)&g->hero_mem;
-    if (o->health == 0 || h->invincibility_ticks) return;
-
-    v2_i32  hcenter        = obj_pos_center(o);
-    rec_i32 heroaabb       = obj_aabb(o);
-    i32     hero_dmg       = 0;
-    v2_i32  hero_knockback = {0};
+    hero_s *h           = (hero_s *)o->heap;
+    rec_i32 aabb        = obj_aabb(o);
+    i32     hbot        = aabb.y + aabb.h;
+    bool32  stomped_obj = 0;
 
     for (obj_each(g, it)) {
-        if (!(it->flags & OBJ_FLAG_HURT_ON_TOUCH)) continue;
+        rec_i32 itrec = {it->pos.x, it->pos.y, it->w, 1};
+        rec_i32 iaabb = obj_aabb(it);
+        if (!overlap_rec(iaabb, aabb)) continue;
+        if (it->ID == OBJ_ID_FLYBLOB) {
+            i32 dy = hbot - iaabb.y;
+            obj_move(g, o, 0, -dy);
+            aabb        = obj_aabb(o);
+            h->stomp    = 0;
+            o->v_q8.y   = -1500;
+            stomped_obj = 1;
+        }
+    }
+
+    if (stomped_obj) return 1;
+
+    rec_i32 rbot = obj_rec_bottom(o);
+
+    obj_s *stompable_block  = NULL;
+    bool32 blocked_by_other = tile_map_solid(g, rbot);
+    for (obj_each(g, it)) {
+        rec_i32 rit = obj_aabb(it);
+        if (!overlap_rec(rit, rbot)) continue;
+        if (it->ID == OBJ_ID_STOMPABLE_BLOCK) {
+            stompable_block = it;
+        } else {
+            blocked_by_other |= it->mass;
+            break;
+        }
+    }
+
+    objs_cull_to_delete(g);
+    if (blocked_by_other) {
+        if (obj_grounded(g, o)) {
+            h->stomp = 0;
+        }
+    } else if (stompable_block) {
+        stompable_block_on_destroy(g, stompable_block);
+        obj_delete(g, stompable_block);
+    }
+
+    objs_cull_to_delete(g);
+    return 0;
+}
+
+void hero_post_update(g_s *g, obj_s *o)
+{
+    hero_s *h = (hero_s *)o->heap;
+
+    if (h->stomp) {
+        // bool32 stomped = hero_try_stomp(g, o);
+        if (obj_grounded(g, o)) {
+            h->stomp = 0;
+        }
+    }
+
+    v2_i32  hcenter  = obj_pos_center(o);
+    rec_i32 heroaabb = obj_aabb(o);
+
+    // rope
+    obj_s *ohook = obj_from_obj_handle(h->hook);
+    if (o->rope && ohook) {
+        rope_update(g, &g->rope);
+        rope_verletsim(g, &g->rope);
+        hero_check_rope_intact(g, o);
+        if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
+            ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
+        } else {
+            if (obj_grounded(g, o)) {
+                if (271 <= rope_stretch_q8(g, o->rope))
+                    o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
+            } else {
+                o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
+            }
+        }
+        if (!rope_intact(g, o->rope)) {
+            hero_action_ungrapple(g, ohook);
+        }
+    }
+
+    bool32 collected_upgrade = 0;
+    i32    hero_dmg          = 0;
+    v2_i32 hero_knockback    = {0};
+
+    for (obj_each(g, it)) {
         if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
 
-        v2_i32 ocenter   = obj_pos_center(it);
-        v2_i32 dt        = v2_sub(hcenter, ocenter);
-        hero_knockback.x = 1000 * sgn_i32(dt.x);
-        hero_knockback.y = 1000 * sgn_i32(dt.y);
-        hero_dmg         = max_i32(hero_dmg, 1);
-
         switch (it->ID) {
-        case OBJ_ID_PROJECTILE:
-            projectile_on_collision(g, it);
+        case OBJ_ID_HERO_POWERUP: {
+            hero_powerup_collected(g, hero_powerup_obj_ID(it));
+            obj_delete(g, it);
+            objs_cull_to_delete(g);
+            collected_upgrade = 1;
             break;
+        }
+        case OBJ_ID_STAMINARESTORER: {
+            staminarestorer_try_collect(g, it, o);
+            break;
+        }
+        }
+
+        if (it->flags & OBJ_FLAG_HURT_ON_TOUCH) {
+            assert(h->stomp == 0);
+
+            v2_i32 ocenter   = obj_pos_center(it);
+            v2_i32 dt        = v2_sub(hcenter, ocenter);
+            hero_knockback.x = 1000 * sgn_i32(dt.x);
+            hero_knockback.y = 1000 * sgn_i32(dt.y);
+            hero_dmg         = max_i32(hero_dmg, 1);
+
+            switch (it->ID) {
+            case OBJ_ID_PROJECTILE:
+                projectile_on_collision(g, it);
+                break;
+            }
         }
     }
 
@@ -152,138 +225,27 @@ void hero_process_hurting_things(game_s *g, obj_s *o)
         }
     }
 
+    if (!collected_upgrade) {
+        bool32 t = maptransition_try_hero_slide(g);
+        if (t == 0 && inp_action_jp(INP_DU)) { // nothing happended
+            obj_s *interactable = obj_from_obj_handle(h->interactable);
+            if (interactable && interactable->on_interact) {
+                interactable->on_interact(g, interactable);
+                h->interactable = obj_handle_from_obj(NULL);
+            }
+        }
+    }
+
     if (hero_dmg) {
         hero_hurt(g, o, hero_dmg);
         snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
         o->v_q8 = v2_i16_from_i32(hero_knockback, 0);
-        o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+        o->bumpflags &= ~OBJ_BUMP_Y; // have to clr y bump
         g->events_frame |= EVENT_HERO_DAMAGE;
     }
 }
 
-void hero_post_update(game_s *g, obj_s *o)
-{
-    if (!o) return;
-    assert(0 < o->health);
-
-    v2_i32  hcenter  = obj_pos_center(o);
-    hero_s *hero     = &g->hero_mem;
-    rec_i32 heroaabb = obj_aabb(o);
-
-    // hero touching other objects
-    for (i32 n = 0; n < hero->n_bounced_on; n++) {
-        obj_s *it = obj_from_obj_handle(hero->bounced_on[n]);
-        if (!it) continue;
-
-        hitbox_s hb   = {0};
-        hb.damage     = hero->stomp ? 2 : 1;
-        hb.r.x        = o->pos.x - 8;
-        hb.r.y        = o->pos.y + o->h;
-        hb.r.w        = o->w + 16;
-        hb.r.h        = 16;
-        hb.force_q8.y = 256;
-
-        if (it->flags & OBJ_FLAG_ENEMY) {
-            o->v_q8.y = -1600;
-            obj_game_player_attackbox(g, hb);
-        }
-
-        switch (it->ID) {
-        case OBJ_ID_SHROOMY: {
-            o->v_q8.y = hero->stomp ? -2000 : -1500;
-            shroomy_bounced_on(it);
-            break;
-        }
-        }
-    }
-    if (hero->n_bounced_on) {
-        hero->n_bounced_on = 0;
-        if (hero->stomp) {
-            hero_on_stomped(g, o);
-        } else {
-            particle_desc_s prt = {0};
-            {
-                prt.p.p_q8      = v2_shl(obj_pos_bottom_center(o), 8);
-                prt.p.v_q8.x    = 0;
-                prt.p.v_q8.y    = -450;
-                prt.p.a_q8.y    = 20;
-                prt.p.size      = 3;
-                prt.p.ticks_max = 30;
-                prt.ticksr      = 10;
-                prt.pr_q8.x     = 2000;
-                prt.pr_q8.y     = 1000;
-                prt.vr_q8.x     = 150;
-                prt.vr_q8.y     = 100;
-                prt.ar_q8.y     = 5;
-                prt.sizer       = 1;
-                prt.p.gfx       = PARTICLE_GFX_CIR;
-                prt.p.col       = GFX_COL_WHITE;
-                particles_spawn(g, prt, 15);
-                prt.p.col = GFX_COL_BLACK;
-                particles_spawn(g, prt, 15);
-            }
-        }
-    }
-
-    // possibly enter new substates
-    hero_check_rope_intact(g, o);
-    obj_s *ohook = obj_from_obj_handle(hero->hook);
-    if (o->rope && ohook) {
-        if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
-            ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
-        } else {
-            if (obj_grounded(g, o)) {
-                if (271 <= rope_stretch_q8(g, o->rope))
-                    o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
-            } else {
-                o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
-            }
-        }
-        if (!rope_intact(g, o->rope)) {
-            hero_action_ungrapple(g, ohook);
-        }
-    }
-
-    for (obj_each(g, it)) {
-        if (!(it->flags & OBJ_FLAG_HOVER_TEXT)) continue;
-        v2_i32 ocenter = obj_pos_center(it);
-        u32    dist    = v2_distancesq(hcenter, ocenter);
-#if 0
-        if (dist < 3000 && it->hover_text_tick < OBJ_HOVER_TEXT_TICKS) {
-            it->hover_text_tick++;
-        } else if (it->hover_text_tick) {
-            it->hover_text_tick--;
-        }
-#endif
-    }
-
-    staminarestorer_try_collect_any(g, o);
-    bool32 collected_upgrade = 0;
-
-    for (obj_each(g, it)) {
-        if (it->ID != OBJ_ID_HERO_POWERUP) continue;
-        if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
-
-        hero_powerup_collected(g, hero_powerup_obj_ID(it));
-        obj_delete(g, it);
-        objs_cull_to_delete(g);
-        collected_upgrade = 1;
-        break;
-    }
-
-    if (!collected_upgrade) {
-        bool32 t = maptransition_try_hero_slide(g);
-        if (t == 0 && inp_action_jp(INP_DU)) { // nothing happended
-            obj_s *interactable = obj_from_obj_handle(hero->interactable);
-            if (interactable && interactable->on_interact) {
-                interactable->on_interact(g, interactable);
-                hero->interactable = obj_handle_from_obj(NULL);
-            }
-        }
-    }
-}
-
-obj_s *hero_pickup_available(game_s *g, obj_s *o)
+obj_s *hero_pickup_available(g_s *g, obj_s *o)
 {
     u32          d_sq = HERO_DISTSQ_PICKUP;
     obj_s       *res  = NULL;
@@ -302,7 +264,7 @@ obj_s *hero_pickup_available(game_s *g, obj_s *o)
     return res;
 }
 
-obj_s *hero_interactable_available(game_s *g, obj_s *o)
+obj_s *hero_interactable_available(g_s *g, obj_s *o)
 {
     u32          d_sq = HERO_DISTSQ_INTERACT;
     obj_s       *res  = NULL;
@@ -326,10 +288,10 @@ obj_s *hero_interactable_available(game_s *g, obj_s *o)
     return res;
 }
 
-void hero_start_item_pickup(game_s *g, obj_s *o)
+void hero_start_item_pickup(g_s *g, obj_s *o)
 {
 }
 
-void hero_drop_item(game_s *g, obj_s *o)
+void hero_drop_item(g_s *g, obj_s *o)
 {
 }

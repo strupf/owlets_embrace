@@ -15,7 +15,7 @@ typedef struct {
 } app_menu_s;
 
 typedef struct {
-    game_s game;
+    g_s game;
 
     title_s    title;
     settings_s settings;

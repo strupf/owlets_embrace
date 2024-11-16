@@ -12,7 +12,7 @@ typedef struct {
     v2_i32 v_q8;
 } blockswing_s;
 
-void blockswing_load(game_s *g, map_obj_s *mo)
+void blockswing_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o  = obj_create(g);
     blockswing_s *bs = (blockswing_s *)o->mem;
@@ -25,7 +25,7 @@ void blockswing_load(game_s *g, map_obj_s *mo)
     o->flags         = OBJ_FLAG_RENDER_AABB;
 }
 
-void blockswing_on_update(game_s *g, obj_s *o)
+void blockswing_on_update(g_s *g, obj_s *o)
 {
     obj_s        *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     blockswing_s *bs    = (blockswing_s *)o->mem;
@@ -39,7 +39,7 @@ void blockswing_on_update(game_s *g, obj_s *o)
     dt        = v2_setlen(dt, bs->len << 8);
 }
 
-void blockswing_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void blockswing_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     blockswing_s *bs  = (blockswing_s *)o->mem;
     gfx_ctx_s     ctx = gfx_ctx_display();

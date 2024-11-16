@@ -7,6 +7,33 @@
 
 #include "pltf/pltf_types.h"
 
+#ifdef PLTF_PD_HW
+#define mcpy_aligned_32(D, S) mcpy(D, __builtin_assume_aligned(S, 4), 4)
+#else
+#define mcpy_aligned_32(D, S) mcpy(D, S, 4)
+#endif
+
+static inline u32 v32_ld(const void *p)
+{
+    u32 x = 0;
+    mcpy_aligned_32(&x, p);
+    return x;
+}
+
+static inline void v32_st(u32 x, void *p)
+{
+    mcpy_aligned_32(p, &x);
+}
+
+#define i16x2_ld v32_ld
+#define u16x2_ld v32_ld
+#define i8x4_ld  v32_ld
+#define u8x4_ld  v32_ld
+#define i16x2_st v32_st
+#define u16x2_st v32_st
+#define i8x4_st  v32_st
+#define u8x4_st  v32_st
+
 typedef union vec32 {
     u32 u_32;
     u16 u_16[2];

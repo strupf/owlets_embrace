@@ -6,32 +6,15 @@
 #include "app.h"
 #include "render.h"
 
-void game_tick_gameplay(game_s *g);
+void game_tick_gameplay(g_s *g);
 
-void game_init(game_s *g)
+void game_init(g_s *g)
 {
     map_world_load(&g->map_world, "world.world");
-    pltf_log("GAME VERSION %u\n", GAME_VERSION);
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
-#if 0
-    g->n_deco_verlet = 1;
-    for (u32 k = 0; k < g->n_deco_verlet; k++) {
-        g->deco_verlet[k].n_pt     = 10;
-        g->deco_verlet[k].dist     = 128 << 2;
-        g->deco_verlet[k].n_it     = 3;
-        g->deco_verlet[k].grav.y   = 8 << 2;
-        g->deco_verlet[k].haspos_2 = 1;
-        g->deco_verlet[k].pos_2    = (v2_i16){64 << 6, 32};
-        g->deco_verlet[k].pos      = (v2_i32){64 + k * 16, 32};
-        for (u32 n = 0; n < g->deco_verlet[k].n_pt; n++) {
-            g->deco_verlet[k].pt[n].p  = (v2_i16){0};
-            g->deco_verlet[k].pt[n].pp = (v2_i16){0};
-        }
-    }
-#endif
 }
 
-void game_tick(game_s *g)
+void game_tick(g_s *g)
 {
     g->n_hitboxes = 0;
     g->save.tick++;
@@ -92,28 +75,12 @@ void game_tick(game_s *g)
     area_update(g, &g->area);
 }
 
-void game_tick_gameplay(game_s *g)
+void game_tick_gameplay(g_s *g)
 {
     g->gameplay_tick++;
-    g->events_frame          = 0;
-    g->hero_mem.interactable = obj_handle_from_obj(NULL);
-    g->hero_mem.pushing      = 0;
+    g->events_frame = 0;
 
-    for (obj_each(g, o)) {
-        o->v_prev_q8 = o->v_q8;
-
-        switch (o->ID) {
-        case OBJ_ID_HERO: hero_on_update(g, o); break;
-        case OBJ_ID_HOOK: hook_update(g, o); break;
-        case OBJ_ID_FLYBLOB: flyblob_on_update(g, o); break;
-        case OBJ_ID_PROJECTILE: projectile_on_update(g, o); break;
-        case OBJ_ID_BUDPLANT: budplant_on_update(g, o); break;
-        case OBJ_ID_SPRITEDECAL: spritedecal_on_update(g, o); break;
-        case OBJ_ID_PUSHBLOCK: pushblock_on_update(g, o); break;
-        case OBJ_ID_NPC: npc_on_update(g, o); break;
-        case OBJ_ID_HERO_POWERUP: hero_powerup_obj_on_update(g, o); break;
-        }
-    }
+    objs_update(g);
     for (obj_each(g, o)) {
         obj_try_wiggle(g, o);
     }
@@ -165,23 +132,13 @@ void game_tick_gameplay(game_s *g)
     coinparticle_update(g);
     particles_update(g, &g->particles);
 
-    if (g->rope.active) {
-        rope_update(g, &g->rope);
-        rope_verletsim(g, &g->rope);
-    }
-
     obj_s *ohero = NULL;
-
     if (hero_present_and_alive(g, &ohero)) {
-        hero_process_hurting_things(g, ohero);
+        hero_post_update(g, ohero);
 
         if (ohero->health == 0) {
             gameover_start(g);
         }
-    }
-
-    if (hero_present_and_alive(g, &ohero)) {
-        hero_post_update(g, ohero);
     }
 
 #ifdef PLTF_DEBUG
@@ -210,38 +167,28 @@ void game_tick_gameplay(game_s *g)
         }
     }
 
-    for (obj_each(g, o)) {
-        switch (o->ID) {
-        case OBJ_ID_HERO: hero_on_animate(g, o); break;
-        case OBJ_ID_HOOK: hook_on_animate(g, o); break;
-        case OBJ_ID_FLYBLOB: flyblob_on_animate(g, o); break;
-        case OBJ_ID_PROJECTILE: projectile_on_animate(g, o); break;
-        case OBJ_ID_BUDPLANT: budplant_on_animate(g, o); break;
-        case OBJ_ID_SPRITEDECAL: spritedecal_on_animate(g, o); break;
-        case OBJ_ID_NPC: npc_on_animate(g, o); break;
-        }
-    }
+    objs_animate(g);
 }
 
-void game_resume(game_s *g)
+void game_resume(g_s *g)
 {
 }
 
-void game_paused(game_s *g)
+void game_paused(g_s *g)
 {
 }
 
-i32 gameplay_time(game_s *g)
+i32 gameplay_time(g_s *g)
 {
     return g->gameplay_tick;
 }
 
-i32 gameplay_time_since(game_s *g, i32 t)
+i32 gameplay_time_since(g_s *g, i32 t)
 {
     return (g->gameplay_tick - t);
 }
 
-void game_load_savefile(game_s *g)
+void game_load_savefile(g_s *g)
 {
     save_s *s = &g->save;
 
@@ -251,15 +198,14 @@ void game_load_savefile(game_s *g)
     }
 
     game_load_map(g, s->hero_mapfile);
-    obj_s  *oh   = hero_create(g);
-    hero_s *hero = &g->hero_mem;
+    obj_s *oh = hero_create(g);
 
     oh->pos.x = s->hero_pos.x - oh->w / 2;
     oh->pos.y = s->hero_pos.y - oh->h;
     game_prepare_new_map(g);
 }
 
-bool32 game_save_savefile(game_s *g)
+bool32 game_save_savefile(g_s *g)
 {
     str_cpy(g->save.hero_mapfile, g->areaname.filename);
     g->save_ticks = 1;
@@ -268,13 +214,10 @@ bool32 game_save_savefile(game_s *g)
     return (r);
 }
 
-void game_on_trigger(game_s *g, i32 trigger)
+void game_on_trigger(g_s *g, i32 trigger)
 {
-    if (!trigger) return;
-    for (obj_each(g, o)) {
-        if (o->on_trigger) {
-            o->on_trigger(g, o, trigger);
-        }
+    if (trigger) {
+        objs_trigger(g, trigger);
     }
 }
 
@@ -285,7 +228,7 @@ i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks)
     return i;
 }
 
-void game_on_solid_appear(game_s *g)
+void game_on_solid_appear(g_s *g)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (ohero) {
@@ -297,7 +240,7 @@ void game_on_solid_appear(game_s *g)
     }
 }
 
-bool32 obj_game_enemy_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
+bool32 obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
 {
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!o) return 0;
@@ -322,16 +265,16 @@ bool32 obj_game_enemy_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
         hero_hurt(g, o, 1);
         snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
         o->v_q8.x = (boxes[strongest].force_q8.x);
-        o->bumpflags &= ~OBJ_BUMPED_Y; // have to clr y bump
+        o->bumpflags &= ~OBJ_BUMP_Y; // have to clr y bump
         g->events_frame |= EVENT_HERO_DAMAGE;
         return 1;
     }
     return 0;
 }
 
-bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box);
+bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box);
 
-bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
+bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
 {
     bool32 res = 0;
 
@@ -360,16 +303,16 @@ bool32 obj_game_player_attackboxes(game_s *g, hitbox_s *boxes, i32 nb)
     return res;
 }
 
-bool32 obj_game_player_attackbox(game_s *g, hitbox_s box)
+bool32 obj_game_player_attackbox(g_s *g, hitbox_s box)
 {
     return obj_game_player_attackboxes(g, &box, 1);
 }
 
-bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
+bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
 {
     switch (o->ID) {
-    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     default: break;
+    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
     }
 
     if ((o->flags & OBJ_FLAG_ENEMY) && 0 < o->health && !o->enemy.invincible) {
@@ -384,9 +327,9 @@ bool32 obj_game_player_attackbox_o(game_s *g, obj_s *o, hitbox_s box)
         snd_play(SNDID_ENEMY_HURT, 1.f, 1.f);
 
         switch (o->ID) {
+        default: break;
         case OBJ_ID_CRAWLER: crawler_on_weapon_hit(g, o, box); break;
         case OBJ_ID_FLYBLOB: flyblob_on_hit(g, o, box); break;
-        default: break;
         }
         return 1;
     }

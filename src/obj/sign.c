@@ -9,7 +9,7 @@ typedef struct {
     u8  text[128];
 } sign_popup_s;
 
-obj_s *sign_popup_create(game_s *g)
+obj_s *sign_popup_create(g_s *g)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_SIGN_POPUP;
@@ -26,12 +26,12 @@ obj_s *sign_popup_create(game_s *g)
     return o;
 }
 
-void sign_popup_load(game_s *g, map_obj_s *mo)
+void sign_popup_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = sign_popup_create(g);
 }
 
-void sign_popup_on_update(game_s *g, obj_s *o)
+void sign_popup_on_update(g_s *g, obj_s *o)
 {
     sign_popup_s *s     = (sign_popup_s *)o->mem;
     obj_s        *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -47,7 +47,7 @@ void sign_popup_on_update(game_s *g, obj_s *o)
     o->timer--;
 }
 
-void sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     if (o->timer <= 0) return;
 
@@ -61,14 +61,14 @@ void sign_popup_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     fnt_draw_ascii(ctx, fnt, v2_add(pos, cam), NULL, 0);
 }
 
-void sign_on_interact(game_s *g, obj_s *o)
+void sign_on_interact(g_s *g, obj_s *o)
 {
     textbox_load_dialog(g, o->filename);
 }
 
 // interactable sign
 
-obj_s *sign_create(game_s *g)
+obj_s *sign_create(g_s *g)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_SIGN;
@@ -87,7 +87,7 @@ obj_s *sign_create(game_s *g)
     return o;
 }
 
-void sign_load(game_s *g, map_obj_s *mo)
+void sign_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = sign_create(g);
     o->pos.x = mo->x;

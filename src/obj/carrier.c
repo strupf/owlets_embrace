@@ -4,10 +4,10 @@
 
 #include "game.h"
 
-void carrier_on_update(game_s *g, obj_s *o)
+void carrier_on_update(g_s *g, obj_s *o)
 {
-    bool32 bumpedx = (o->bumpflags & OBJ_BUMPED_X);
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    bool32 bumpedx = (o->bumpflags & OBJ_BUMP_X);
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
     if (bumpedx) {
@@ -35,12 +35,12 @@ void carrier_on_update(game_s *g, obj_s *o)
     }
 }
 
-void carrier_on_animate(game_s *g, obj_s *o)
+void carrier_on_animate(g_s *g, obj_s *o)
 {
     o->sprites[0].flip = o->v_q8.x < 0 ? SPR_FLIP_X : 0;
 }
 
-void carrier_load(game_s *g, map_obj_s *mo)
+void carrier_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_CARRIER;

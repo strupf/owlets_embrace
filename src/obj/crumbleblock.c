@@ -10,7 +10,7 @@ enum {
     CRUMBLE_STATE_RESPAWNING,
 };
 
-#define CRUMBLE_TICKS_BREAK   75
+#define CRUMBLE_TICKS_BREAK   35
 #define CRUMBLE_TICKS_RESPAWN 100
 
 static void crumbleblock_start_breaking(obj_s *o)
@@ -28,7 +28,7 @@ void crumbleblock_on_hooked(obj_s *o)
     }
 }
 
-void crumbleblock_on_update(game_s *g, obj_s *o)
+void crumbleblock_on_update(g_s *g, obj_s *o)
 {
     switch (o->state) {
     case CRUMBLE_STATE_IDLE: {
@@ -61,7 +61,11 @@ void crumbleblock_on_update(game_s *g, obj_s *o)
     }
 }
 
-void crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
+void crumbleblock_on_animate(g_s *g, obj_s *o)
+{
+}
+
+void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     if (o->state == CRUMBLE_STATE_RESPAWNING) return;
 
@@ -93,12 +97,10 @@ void crumbleblock_on_draw(game_s *g, obj_s *o, v2_i32 cam)
     }
 }
 
-void crumbleblock_load(game_s *g, map_obj_s *mo)
+void crumbleblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJ_ID_CRUMBLEBLOCK;
-    o->on_update       = crumbleblock_on_update;
-    o->on_draw         = crumbleblock_on_draw;
     o->render_priority = 0;
     o->w               = 16;
     o->state           = CRUMBLE_STATE_IDLE;

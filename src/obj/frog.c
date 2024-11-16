@@ -4,14 +4,16 @@
 
 #include "game.h"
 
+enum {
+    FROG_STATE_SLURP,
+    FROG_STATE_,
+};
+
 typedef struct {
     i32 x;
 } frog_s;
 
-void frog_on_update(game_s *g, obj_s *o);
-void frog_on_animate(game_s *g, obj_s *o);
-
-void frog_load(game_s *g, map_obj_s *mo)
+void frog_load(g_s *g, map_obj_s *mo)
 {
     obj_s  *o     = obj_create(g);
     frog_s *f     = (frog_s *)o->mem;
@@ -26,12 +28,12 @@ void frog_load(game_s *g, map_obj_s *mo)
         OBJ_FLAG_MOVER;
 }
 
-void frog_on_update(game_s *g, obj_s *o)
+void frog_on_update(g_s *g, obj_s *o)
 {
     frog_s *f = (frog_s *)o->mem;
 }
 
-void frog_on_animate(game_s *g, obj_s *o)
+void frog_on_animate(g_s *g, obj_s *o)
 {
     frog_s *f = (frog_s *)o->mem;
 }

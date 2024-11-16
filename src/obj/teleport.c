@@ -5,18 +5,18 @@
 #include "game.h"
 
 typedef struct {
-    int tx;
-    int ty;
+    i32 tx;
+    i32 ty;
 } teleport_s;
 
-void teleport_on_interact(game_s *g, obj_s *o)
+void teleport_on_interact(g_s *g, obj_s *o)
 {
     teleport_s *t   = (teleport_s *)o->mem;
     v2_i32      pos = {t->tx, t->ty};
     maptransition_teleport(g, o->filename, pos);
 }
 
-void teleport_load(game_s *g, map_obj_s *mo)
+void teleport_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o       = obj_create(g);
     o->ID          = OBJ_ID_TELEPORT;

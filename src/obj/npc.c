@@ -19,17 +19,17 @@ typedef struct {
     i32 movedir;
 } npc_s;
 
-static int npc_get_state(game_s *g, obj_s *o)
+static i32 npc_get_state(g_s *g, obj_s *o)
 {
     bool32 grounded = obj_grounded(g, o);
     if (!grounded) return NPC_AIR;
     return NPC_GROUNDED;
 }
 
-void npc_on_update(game_s *g, obj_s *o)
+void npc_on_update(g_s *g, obj_s *o)
 {
-    bool32 bumpedx = o->bumpflags & OBJ_BUMPED_X;
-    if (o->bumpflags & OBJ_BUMPED_Y) {
+    bool32 bumpedx = o->bumpflags & OBJ_BUMP_X;
+    if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
     }
     if (bumpedx) {
@@ -75,7 +75,7 @@ void npc_on_update(game_s *g, obj_s *o)
     }
 }
 
-void npc_on_animate(game_s *g, obj_s *o)
+void npc_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr   = &o->sprites[0];
     i32           frame = 0;
@@ -104,7 +104,7 @@ void npc_on_animate(game_s *g, obj_s *o)
     // spr->flip     = o->facing == 1 ? 0 : SPR_FLIP_X;
 }
 
-void npc_on_interact(game_s *g, obj_s *o)
+void npc_on_interact(g_s *g, obj_s *o)
 {
     npc_s *npc   = (npc_s *)o->mem;
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
@@ -115,7 +115,7 @@ void npc_on_interact(game_s *g, obj_s *o)
     textbox_load_dialog(g, o->filename);
 }
 
-void npc_load(game_s *g, map_obj_s *mo)
+void npc_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o   = obj_create(g);
     npc_s        *npc = (npc_s *)o->mem;

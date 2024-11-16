@@ -29,8 +29,8 @@ typedef struct {
 
 void water_prerender_tiles();
 i32  water_tile_get(i32 x, i32 y, i32 tick);
-i32  water_depth_rec(game_s *g, rec_i32 r);
-i32  ocean_height(game_s *g, i32 pixel_x);
-i32  ocean_render_height(game_s *g, i32 pixel_x);
+i32  water_depth_rec(g_s *g, rec_i32 r);
+i32  ocean_height(g_s *g, i32 pixel_x);
+i32  ocean_render_height(g_s *g, i32 pixel_x);
 
 #endif
