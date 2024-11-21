@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -42,6 +42,43 @@ void hero_on_animate(g_s *g, obj_s *o)
     i32 frameID_add = 0;
     i32 state       = hero_determine_state(g, o, h);
 
+#if 0
+    if (h->attack_tick || h->b_hold_tick) {
+        state = HERO_STATE_NULL; // override other states
+        sprite->offs.y -= 16;
+        // sprite->offs.x += o->facing == 1 ? 0 : -60;
+        sprite->offs.x += o->facing * 12;
+
+        u32 attack_hold = h->attack_hold_tick + h->b_hold_tick;
+        if (attack_hold) {
+            frameID = (attack_hold < 6 ? 0 : (attack_hold < 10 ? 1 : 2));
+            if (h->attack_flipflop == 0 && 10 <= attack_hold) {
+                frameID = 2;
+            }
+            h->attack_hold_frame = frameID;
+        } else {
+            static const u8 frametimes[2][8] = {{0, 1, 2, 4, 6, 8, 10, 12},
+                                                {0, 1, 2, 3, 4, 5, 7, 9}};
+
+            for (i32 n = 8 - 1; 0 <= n; n--) {
+                if (frametimes[0][n] <= h->attack_tick) {
+                    frameID = n;
+                    break;
+                }
+            }
+            frameID = max_i32(frameID, h->attack_hold_frame);
+        }
+        frameID += 8 * h->attack_flipflop;
+        animID = 16;
+
+        rec_i32 frame_attack = {64 * frameID,
+                                64 * animID,
+                                64,
+                                64};
+        sprite->trec.r       = frame_attack;
+        return;
+    }
+#else
     if (h->attack_tick || h->b_hold_tick) {
         state = HERO_STATE_NULL; // override other states
         sprite->offs.y -= 16;
@@ -80,7 +117,7 @@ void hero_on_animate(g_s *g, obj_s *o)
         sprite->trec.r       = frame_attack;
         return;
     }
-
+#endif
     h->attack_hold_frame = 0;
 
     switch (state) {
@@ -107,7 +144,7 @@ void hero_on_animate(g_s *g, obj_s *o)
         if (h->crouched) {
             if (h->crawl) {
                 animID = HERO_ANIMID_CRAWL;
-                o->animation += o->v_q8.x;
+                o->animation += o->v_q8.x * o->facing;
                 frameID = 8 + modu_i32(o->animation / 1500, 6);
             } else {
                 animID = HERO_ANIMID_CRAWL - 1;
@@ -319,13 +356,11 @@ void hero_on_animate(g_s *g, obj_s *o)
 
         animID = HERO_ANIMID_AIR; // "air"
         if (h->impact_ticks) {
-            frameID   = 0;
-            v2_i32 pc = obj_pos_bottom_center(o);
-            sprite->offs.x -= (pc.x - h->jpos.x) / 2;
-            sprite->offs.y -= (pc.y - h->jpos.y) + 16;
-        } else if (+200 <= o->v_q8.y) {
+            frameID = 0;
+            sprite->offs.y -= 16;
+        } else if (+100 <= o->v_q8.y) {
             frameID = 6;
-        } else if (0 <= o->v_q8.y) {
+        } else if (-100 <= o->v_q8.y) {
             frameID = 5;
         } else if (-400 <= o->v_q8.y) {
             frameID = 4;

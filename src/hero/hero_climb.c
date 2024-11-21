@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -13,7 +13,7 @@ void hero_walljump(g_s *g, obj_s *o, i32 dir)
     o->animation     = 0;
     o->facing        = dir;
     o->v_q8.x        = dir * 600;
-    hero_start_jump(g, o, HERO_JUMP_GROUND);
+    hero_start_jump(g, o, HERO_JUMP_WALL);
 }
 
 void hero_update_climb(g_s *g, obj_s *o)
@@ -84,8 +84,8 @@ bool32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
     if (obj_grounded(g, o)) return 0;
 
     i32 x  = dx + (0 < facing ? o->pos.x + o->w : o->pos.x - 1);
-    i32 y1 = o->pos.y + dy;
-    i32 y2 = o->pos.y + dy + o->h - 1;
+    i32 y1 = dy + o->pos.y + 2;
+    i32 y2 = dy + o->pos.y + o->h - 1 - 4;
 
     for (i32 y = y1; y <= y2; y++) {
         if (map_traversable_pt(g, x, y)) {

@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -8,10 +8,10 @@ void grass_put(g_s *g, i32 tx, i32 ty)
 {
     if (g->n_grass >= NUM_GRASS) return;
     grass_s *gr = &g->grass[g->n_grass++];
-    *gr         = (grass_s){0};
-    gr->pos.x   = tx * 16;
-    gr->pos.y   = ty * 16;
-    gr->type    = rngr_i32(0, 2);
+    mclr(gr, sizeof(grass_s));
+    gr->pos.x = tx * 16;
+    gr->pos.y = ty * 16;
+    gr->type  = rngr_i32(0, 2);
 }
 
 void grass_animate(g_s *g)
@@ -77,7 +77,7 @@ void deco_verlet_obj_collision(g_s *g, obj_s *o, i32 r)
             dt    = v2_setlen(dt, r);
             dt    = v2_add(dt, po);
             dt    = v2_sub(dt, p);
-            pt->p = v2_i16_from_i32(dt, 0);
+            pt->p = v2_i16_from_i32(dt);
         }
     }
 }

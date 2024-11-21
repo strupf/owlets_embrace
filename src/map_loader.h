@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef MAP_LOADER_H
@@ -39,6 +39,7 @@ typedef struct {
 } map_obj_s;
 
 #define map_obj_strs(MO, NAME, B) map_obj_str(MO, NAME, B, sizeof(B))
+u32    map_obj_saveID(map_obj_s *mo, const char *name);
 bool32 map_obj_has_nonnull_prop(map_obj_s *mo, const char *name);
 void   map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs);
 i32    map_obj_i32(map_obj_s *mo, const char *name);

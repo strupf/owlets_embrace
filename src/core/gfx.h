@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef GFX_H
@@ -7,6 +7,15 @@
 
 #include "pltf/pltf.h"
 #include "util/mem.h"
+
+// endianness requirements of display
+// bswap during rendering or at the end of a frame?
+#define GFX_ENDIAN_AT_END 0
+#if GFX_ENDIAN_AT_END
+#define gfx_endian(X) (X)
+#else
+#define gfx_endian bswap32
+#endif
 
 enum {
     TEX_FMT_OPAQUE, // only color pixels
@@ -152,27 +161,6 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 
 void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode, i32 spacing);
 i32  fnt_length_px(fnt_s fnt, const char *txt);
 i32  fnt_length_px_mono(fnt_s fnt, const char *txt, i32 spacing);
-
-static void spr_blit(u32 *dp, u32 *dm, u32 sp, u32 sm, i32 mode)
-{
-    switch (mode) {
-    case SPR_MODE_INV: sp = ~sp; // fallthrough
-    case SPR_MODE_COPY: *dp = (*dp & ~sm) | (sp & sm); break;
-    case SPR_MODE_XOR: sp = ~sp; // fallthrough
-    case SPR_MODE_NXOR: *dp = (*dp & ~sm) | ((*dp ^ sp) & sm); break;
-    case SPR_MODE_WHITE_ONLY: sm &= sp; // fallthrough
-    case SPR_MODE_WHITE: *dp |= sm; break;
-    case SPR_MODE_BLACK_ONLY: sm &= ~sp; // fallthrough
-    case SPR_MODE_BLACK: *dp &= ~sm; break;
-    }
-
-    if (dm) *dm |= sm;
-}
-
-static void spr_blit_ff(u32 *dp, u32 sp, u32 sm)
-{
-    *dp = (*dp & ~sm) | (sp & sm);
-}
 
 static void spr_blit_p(u32 *dp, u32 sp, u32 sm, i32 mode)
 {

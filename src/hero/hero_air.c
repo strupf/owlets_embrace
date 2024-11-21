@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -45,7 +45,6 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
 
         o->v_q8.x += ((dtrope_s == dpad_x) ? 40 : 5) * dpad_x;
     } else if (h->stomp) {
-        o->flags &= ~OBJ_FLAG_MOVER;
         if (h->stomp < U8_MAX) {
             h->stomp++;
         }
@@ -106,8 +105,10 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
             ax = min_i32(100, va);
         }
 
-        if (h->walljump_tick) {
-            ax = lerp_i32(ax, 0, abs_i32(h->walljump_tick), WALLJUMP_MOM_TICKS);
+        if (h->walljump_tick && sgn_i32(h->walljump_tick) == -dpad_x) {
+            i32 i0 = WALLJUMP_MOM_TICKS - abs_i32(h->walljump_tick);
+            i32 i1 = WALLJUMP_MOM_TICKS;
+            ax     = lerp_i32(0, ax, POW2(i0), POW2(i1));
         }
         o->v_q8.x += ax * dpad_x;
     }
@@ -137,7 +138,7 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
         bool32 jump_ground = 0 < h->edgeticks;
         bool32 jump_midair = !usinghook &&   // not hooked
                              !jump_ground && // jump in air?
-                             !h->holds_weapon &&
+                             //! h->holds_weapon &&
                              !h->jumpticks &&
                              !h->stomp &&
                              hero_has_upgrade(g, HERO_UPGRADE_FLY) &&

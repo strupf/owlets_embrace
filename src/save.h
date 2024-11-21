@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef SAVE_H
@@ -19,7 +19,6 @@ typedef struct {
 typedef_struct (save_s) {
     u32              tick;
     flags32          upgrades;
-    u8               health;
     u8               stamina_upgrades;
     u8               n_map_pins;
     u8               n_items;

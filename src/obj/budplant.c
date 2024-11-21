@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -41,9 +41,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->ID    = OBJ_ID_BUDPLANT;
     o->flags = OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_SPRITE |
-               OBJ_FLAG_CAN_BE_JUMPED_ON |
-               OBJ_FLAG_PLATFORM_HERO_ONLY;
+               OBJ_FLAG_HERO_JUMPABLE;
     o->moverflags = OBJ_MOVER_MAP;
 
     o->w          = 16;

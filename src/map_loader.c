@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "map_loader.h"
@@ -161,6 +161,12 @@ static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 static void map_obj_parse(g_s *g, map_obj_s *o)
 {
     if (0) {
+    } else if (str_eq_nc(o->name, "Windarea")) {
+        windarea_load(g, o);
+    } else if (str_eq_nc(o->name, "Waterleaf")) {
+        waterleaf_load(g, o);
+    } else if (str_eq_nc(o->name, "Chest")) {
+        chest_load(g, o);
     } else if (str_eq_nc(o->name, "Fallingblock")) {
         fallingblock_load(g, o);
     } else if (str_eq_nc(o->name, "Light")) {
@@ -300,7 +306,6 @@ void game_load_map(g_s *g, const char *mapfile)
     g->rope.active        = 0;
     g->particles.n        = 0;
     g->ocean.active       = 0;
-    g->n_coinparticles    = 0;
     g->cam.locked_x       = 0;
     g->cam.locked_y       = 0;
     g->n_respawns         = 0;
@@ -749,7 +754,7 @@ static void map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y)
 
 static map_prop_s *map_prop_get(map_properties_s p, const char *name)
 {
-    if (p.p == NULL) return NULL;
+    if (!p.p) return 0;
     char *ptr = (char *)p.p;
     for (i32 n = 0; n < p.n; n++) {
         map_prop_s *prop = (map_prop_s *)ptr;
@@ -759,14 +764,14 @@ static map_prop_s *map_prop_get(map_properties_s p, const char *name)
         ptr += prop->bytes;
     }
     pltf_log("No property: %s\n", name);
-    return NULL;
+    return 0;
 }
 
 static void map_prop_str(map_properties_s p, const char *name, void *b, u32 bs)
 {
     if (!b || bs == 0) return;
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == NULL || prop->type != MAP_PROP_STRING) return;
+    if (prop == 0 || prop->type != MAP_PROP_STRING) return;
     char *s       = (char *)(prop + 1);
     char *d       = (char *)b;
     i32   written = 0;
@@ -783,35 +788,35 @@ static void map_prop_str(map_properties_s p, const char *name, void *b, u32 bs)
 static i32 map_prop_i32(map_properties_s p, const char *name)
 {
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == NULL || prop->type != MAP_PROP_INT) return 0;
+    if (!prop || prop->type != MAP_PROP_INT) return 0;
     return prop->u.i;
 }
 
 static f32 map_prop_f32(map_properties_s p, const char *name)
 {
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == NULL || prop->type != MAP_PROP_FLOAT) return 0.f;
+    if (!prop || prop->type != MAP_PROP_FLOAT) return 0.f;
     return prop->u.f;
 }
 
 static bool32 map_prop_bool(map_properties_s p, const char *name)
 {
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == NULL || prop->type != MAP_PROP_BOOL) return 0;
+    if (!prop || prop->type != MAP_PROP_BOOL) return 0;
     return prop->u.b;
 }
 
 static v2_i16 map_prop_pt(map_properties_s p, const char *name)
 {
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == NULL || prop->type != MAP_PROP_POINT) return (v2_i16){0};
+    if (!prop || prop->type != MAP_PROP_POINT) return (v2_i16){0};
     v2_i16 pt = {(i16)(prop->u.p & 0xFFFFU), (i16)(prop->u.p >> 16)};
     return pt;
 }
 
 static map_properties_s map_obj_properties(map_obj_s *mo)
 {
-    map_properties_s p = {(void *)(mo + 1), mo->n_prop};
+    map_properties_s p = {mo + 1, mo->n_prop};
     return p;
 }
 
@@ -820,6 +825,13 @@ bool32 map_obj_has_nonnull_prop(map_obj_s *mo, const char *name)
     map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
     if (!prop) return 0;
     return (prop->type != MAP_PROP_NULL);
+}
+
+u32 map_obj_saveID(map_obj_s *mo, const char *name)
+{
+    char b[64] = {0};
+    map_obj_strs(mo, name, b);
+    return hash_str(b);
 }
 
 void map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs)
@@ -850,7 +862,7 @@ v2_i16 map_obj_pt(map_obj_s *mo, const char *name)
 void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
 {
     map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
-    if (prop == NULL || prop->type != MAP_PROP_ARRAY) return NULL;
+    if (!prop || prop->type != MAP_PROP_ARRAY) return 0;
     *num = prop->u.n;
     return (prop + 1);
 }

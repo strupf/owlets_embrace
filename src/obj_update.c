@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -24,6 +24,10 @@ void objs_update(g_s *g)
         case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         case OBJ_ID_FROG: frog_on_update(g, o); break;
         case OBJ_ID_FALLINGBLOCK: fallingblock_on_update(g, o); break;
+        case OBJ_ID_CHEST: chest_on_update(g, o); break;
+        case OBJ_ID_WATERLEAF: waterleaf_on_update(g, o); break;
+        case OBJ_ID_WINDAREA: windarea_on_update(g, o); break;
+        case OBJ_ID_COIN: coin_on_update(g, o); break;
         }
     }
 }

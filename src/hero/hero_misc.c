@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -27,11 +27,15 @@ void hero_handle_input(g_s *g, obj_s *o)
         return;
     }
 
+    i32 crank       = inp_crank_q16();
+    h->holds_weapon = 0 < crank && crank <= 0x8000;
+
     if (h->holds_weapon) { // weapon equipped
         if (h->b_hold_tick) {
             if (!inp_action(INP_B)) {
                 if (h->b_hold_tick < 7) {
                     h->attack_ID = 1;
+                    // h->attack_ID = 0;
                 }
                 hero_action_attack(g, o);
                 h->b_hold_tick = 0;
@@ -143,8 +147,51 @@ void hero_post_update(g_s *g, obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
 
+    b32 stomped_on = 0;
+    for (i32 n = 0; n < h->n_stomped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->stomped_on[n]);
+        if (!i) continue;
+
+        stomped_on = 1;
+        switch (i->ID) {
+        default: break;
+        case OBJ_ID_FLYBLOB: {
+            hitbox_s hb = {0};
+            hb.damage   = 1;
+            flyblob_on_hit(g, i, hb);
+        } break;
+        }
+    }
+
+    b32 jumped_on = 0;
+    for (i32 n = 0; n < h->n_jumped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->jumped_on[n]);
+        if (!i) continue;
+
+        jumped_on = 1;
+        switch (i->ID) {
+        default: break;
+        case OBJ_ID_CHEST:
+            chest_on_open(g, i);
+            break;
+        }
+    }
+
+    h->n_stomped_on = 0;
+    h->n_jumped_on  = 0;
+
+    if (stomped_on) {
+        o->v_q8.y = -1000;
+        o->bumpflags &= ~OBJ_BUMP_Y_POS;
+        h->stomp = 0;
+    }
+
+    if (jumped_on) {
+        o->v_q8.y = -1000;
+        o->bumpflags &= ~OBJ_BUMP_Y_POS;
+    }
+
     if (h->stomp) {
-        // bool32 stomped = hero_try_stomp(g, o);
         if (obj_grounded(g, o)) {
             h->stomp = 0;
         }
@@ -160,13 +207,13 @@ void hero_post_update(g_s *g, obj_s *o)
         rope_verletsim(g, &g->rope);
         hero_check_rope_intact(g, o);
         if (ohook->ID == OBJ_ID_HOOK && ohook->state == 0) {
-            ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook), 0);
+            ohook->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, ohook));
         } else {
             if (obj_grounded(g, o)) {
                 if (271 <= rope_stretch_q8(g, o->rope))
-                    o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
+                    o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o));
             } else {
-                o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o), 0);
+                o->v_q8 = v2_i16_from_i32(obj_constrain_to_rope(g, o));
             }
         }
         if (!rope_intact(g, o->rope)) {
@@ -177,6 +224,17 @@ void hero_post_update(g_s *g, obj_s *o)
     bool32 collected_upgrade = 0;
     i32    hero_dmg          = 0;
     v2_i32 hero_knockback    = {0};
+
+    for (obj_each(g, it)) {
+        switch (it->ID) {
+        case OBJ_ID_COIN: {
+            if (!overlap_rec(heroaabb, obj_aabb(it))) break;
+            hero_coins_change(g, 1);
+            snd_play(SNDID_COIN, 1.f, 1.f);
+            break;
+        }
+        }
+    }
 
     for (obj_each(g, it)) {
         if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
@@ -239,7 +297,7 @@ void hero_post_update(g_s *g, obj_s *o)
     if (hero_dmg) {
         hero_hurt(g, o, hero_dmg);
         snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
-        o->v_q8 = v2_i16_from_i32(hero_knockback, 0);
+        o->v_q8 = v2_i16_from_i32(hero_knockback);
         o->bumpflags &= ~OBJ_BUMP_Y; // have to clr y bump
         g->events_frame |= EVENT_HERO_DAMAGE;
     }

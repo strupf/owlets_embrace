@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -26,10 +26,8 @@ void shroomy_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_SHROOMY;
-    o->flags = OBJ_FLAG_MOVER |
-               OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_SPRITE |
-               OBJ_FLAG_CAN_BE_JUMPED_ON | OBJ_FLAG_PLATFORM_HERO_ONLY;
+    o->flags = OBJ_FLAG_KILL_OFFSCREEN |
+               OBJ_FLAG_HERO_JUMPABLE;
     o->on_update       = shroomy_on_update;
     o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;

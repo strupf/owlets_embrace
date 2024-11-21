@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "aud.h"
@@ -148,7 +148,7 @@ void aud_cmd_queue_commit()
 #ifdef PLTF_PD_HW
     // data memory barrier; prevent memory access reordering
     // ensures all commands are fully written before making them visible
-    ASM("dmb");
+    ASM volatile("dmb");
 #endif
     pltf_audio_lock();
     AUD.i_cmd_w = AUD.i_cmd_w_tmp;
@@ -233,7 +233,7 @@ snd_s snd_load(const char *pathname, alloc_s ma)
 
     qoa_file_header_s head = {0};
     pltf_file_r(f, &head, sizeof(qoa_file_header_s));
-    u32 bytes = head.num_slices * sizeof(u64);
+    u32 bytes = qoa_num_slices(head.num_samples) * sizeof(u64);
 
     void *buf = ma.allocf(ma.ctx, bytes);
     if (!buf) {

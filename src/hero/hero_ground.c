@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -134,6 +134,13 @@ void hero_update_ground(g_s *g, obj_s *o)
                 sgn_i32(rn->p.x - o->pos.x) == -sgn_i32(o->v_q8.x)) {
                 o->v_q8.x = 0;
             }
+        }
+    }
+
+    if (HERO_VX_MAX_GROUND < abs_i32(o->v_q8.x)) {
+        obj_vx_q8_mul(o, 252);
+        if (abs_i32(o->v_q8.x) < HERO_VX_MAX_GROUND) {
+            o->v_q8.x = sgn_i32(o->v_q8.x) * HERO_VX_MAX_GROUND;
         }
     }
 }

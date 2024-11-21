@@ -1,11 +1,12 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 // https://qoaformat.org/
 
 #include "qoa.h"
 #include "pltf/pltf.h"
+#include "pltf/pltf_intrin.h"
 #include "util/mathfunc.h"
 
 static const i16 qoa_deq[16][8] = {
@@ -44,18 +45,11 @@ static inline i16 *qoa_decode_sf_tab(u64 *s)
 
 static inline i32 qoa_decode_sample(qoa_lms_s *lms, u64 *s, i16 *deq)
 {
-    u32 dq = deq[*s >> 61];
+    i32 dq = deq[*s >> 61];
     *s <<= 3;
-#if defined(PLTF_PD_HW)
-    u32 w, h;
-    mcpy(&w, __builtin_assume_aligned(&lms->w[0], 4), 4);
-    mcpy(&h, __builtin_assume_aligned(&lms->h[0], 4), 4);
-    i32 pr = __smuad(w, h);
-#else
-    i32 pr = lms->w[0] * lms->h[0] + lms->w[1] * lms->h[1];
-#endif
-    i32 sp = ssat16((pr >> 13) + (i32)dq);
-    i32 dt = (i32)(dq >> 4);
+    i32 pr = i16x2_dot(i16x2_ld(&lms->w[0]), i16x2_ld(&lms->h[0])) >> 13;
+    i32 sp = ssat(pr + dq, 16);
+    i32 dt = dq >> 4;
     lms->w[0] += lms->h[0] < 0 ? -dt : +dt;
     lms->w[1] += lms->h[1] < 0 ? -dt : +dt;
     lms->h[0] = lms->h[1];
@@ -98,7 +92,7 @@ bool32 qoa_stream_start(qoa_stream_s *q, const char *fname, u32 ms, i32 v_q8)
     qoa_stream_fade_to_vol(q, ms, v_q8);
     qoa_file_header_s head = {0};
     pltf_file_r(q->f, &head, sizeof(qoa_file_header_s));
-    q->num_slices = head.num_slices;
+    q->num_slices = qoa_num_slices(head.num_samples);
     qoa_stream_rewind(q);
     qoa_stream_next_slice(q);
     return 1;
@@ -108,7 +102,7 @@ void qoa_stream_end(qoa_stream_s *q)
 {
     if (q->f) {
         pltf_file_close(q->f);
-        q->f = NULL;
+        q->f = 0;
     }
 }
 
@@ -119,6 +113,7 @@ void qoa_stream(qoa_stream_s *q, i16 *buf, i32 len)
     u32        l   = (u32)len;
     q->pos += len;
 
+    i32 vol = (i32)q->v_q8 << 8;
     while (l) {
         u32 n_samples = min_u32(QOA_SLICE_LEN - q->spos, l);
         l -= n_samples;
@@ -126,8 +121,8 @@ void qoa_stream(qoa_stream_s *q, i16 *buf, i32 len)
 
         for (u32 n = 0; n < n_samples; n++) {
             i32 s = qoa_decode_sample(lms, &q->slice, q->deq);
-            i32 v = (i32)*b + ((s * q->v_q8) >> 8);
-            *b++  = ssat16(v);
+            i32 v = i16_adds((i32)*b, mul_q16(vol, s));
+            *b++  = v;
         }
 
         if (q->spos == QOA_SLICE_LEN) { // decode a new slice
@@ -162,7 +157,7 @@ void qoa_stream(qoa_stream_s *q, i16 *buf, i32 len)
 
 bool32 qoa_stream_active(qoa_stream_s *q)
 {
-    return (q->f != NULL);
+    return (q->f != 0);
 }
 
 void qoa_stream_fade_to_vol(qoa_stream_s *q, u32 ms, i32 v_q8)
@@ -183,7 +178,7 @@ void qoa_stream_fade_to_vol(qoa_stream_s *q, u32 ms, i32 v_q8)
 void qoa_stream_seek(qoa_stream_s *q, u32 p)
 {
     if (!qoa_stream_active(q)) return;
-    if (q->num_slices <= ((p + QOA_SLICE_LEN - 1) / QOA_SLICE_LEN)) return;
+    if (q->num_slices <= qoa_num_slices(p)) return;
 
     qoa_stream_rewind(q);
     qoa_lms_s *lms = &q->lms;
@@ -209,9 +204,9 @@ void qoa_stream_seek(qoa_stream_s *q, u32 p)
 bool32 qoa_data_start(qoa_data_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat)
 {
     if (!q || !n_samples || !dat || p_q8 <= 0) return 0;
-    assert(((uptr)dat & 7) == 0); // alignment
+    assert(((uptr)dat & 7) == 0); // 8 byte alignment
     q->slices      = (u64 *)dat;
-    q->num_slices  = (n_samples + QOA_SLICE_LEN - 1) / QOA_SLICE_LEN;
+    q->num_slices  = qoa_num_slices(n_samples);
     q->len         = n_samples;
     q->len_pitched = (n_samples * p_q8) >> 8;
     q->ipitch_q8   = 65536 / p_q8;
@@ -237,6 +232,7 @@ void qoa_data_play(qoa_data_s *q, i16 *buf, i32 len)
     qoa_lms_s *lms = &q->lms;
     i16       *b   = buf;
 
+    i32 vol_q16 = (i32)q->vol_q8 << 8;
     for (i32 n = 0; n < len; n++) {
         u32 p = (q->pos_pitched++ * q->ipitch_q8) >> 8;
         assert(p <= q->len);
@@ -258,8 +254,8 @@ void qoa_data_play(qoa_data_s *q, i16 *buf, i32 len)
             }
         }
 
-        i32 v = (i32)*b + ((q->sample * q->vol_q8) >> 8);
-        *b++  = ssat16(v);
+        i32 v = i16_adds((i32)*b, mul_q16(vol_q16, q->sample));
+        *b++  = v;
 
         if (q->pos_pitched == q->len_pitched) {
             qoa_data_end(q);
@@ -270,5 +266,5 @@ void qoa_data_play(qoa_data_s *q, i16 *buf, i32 len)
 
 bool32 qoa_data_active(qoa_data_s *q)
 {
-    return (q->slices != NULL);
+    return (q->slices != 0);
 }

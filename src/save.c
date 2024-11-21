@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -14,12 +14,14 @@ void hero_add_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     hs->upgrades |= (flags32)1 << ID;
+    pltf_log("# ADD UPGRADE: %i\n", ID);
 }
 
 void hero_rem_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
     hs->upgrades &= ~((flags32)1 << ID);
+    pltf_log("# DEL UPGRADE: %i\n", ID);
 }
 
 void hero_set_name(g_s *g, const char *name)
@@ -104,7 +106,6 @@ bool32 saveID_hasstr(g_s *g, const char *str)
 void savefile_empty(save_s *s)
 {
     mset(s, 0, sizeof(save_s));
-    s->health = 3;
     str_cpy(s->hero_mapfile, "L_0");
 }
 

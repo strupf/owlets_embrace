@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -38,6 +38,8 @@ void maptransition_init(g_s *g, const char *file,
     mt->jump_ui_tick     = g->hero_mem.stamina_ui_fade_out;
     mt->fade_tick        = 0;
     mt->fade_phase       = 1;
+    obj_s *o             = obj_get_hero(g);
+    mt->health           = o->health;
     g->substate          = SUBSTATE_MAPTRANSITION;
 }
 
@@ -146,10 +148,11 @@ void maptransition_update(g_s *g)
     hh->stamina             = mt->stamina;
     hh->jump_ui_may_hide    = mt->jump_ui_may_hide;
     hh->stamina_ui_fade_out = mt->jump_ui_tick;
+    hero->health            = mt->health;
     v2_i32 hpos             = obj_pos_center(hero);
 
     u32     respawn_d    = U32_MAX;
-    v2_i16 *resp_closest = NULL;
+    v2_i16 *resp_closest = 0;
     for (u32 n = 0; n < g->n_respawns; n++) {
         v2_i16 *rp = &g->respawns[n];
         u32     d  = v2_distancesq(hpos, v2_i32_from_i16(*rp));

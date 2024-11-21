@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef STR_H
@@ -289,17 +289,21 @@ static u32 u32_from_str(const char *str)
 #define strs_from_u32(V, BUF) str_from_u32(V, BUF, sizeof(BUF))
 static i32 str_from_u32(u32 v, char *buf, u32 bufsize)
 {
-    if (!buf || !bufsize) return 0;
+    if (!buf || bufsize < 2) return 0;
+    if (v == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return 2;
+    }
     i32  n     = 0;
     char b[16] = {0};
 
     for (u32 x = v; x && (u32)n < bufsize; x /= 10) {
-        u32 u  = x % 10;
-        b[n++] = '0' + u;
+        b[n++] = '0' + (x % 10);
     }
 
     i32 len = --n;
-    while (0 <= n) {
+    while (0 <= n) { // reverse
         buf[len - n] = b[n];
         n--;
     }

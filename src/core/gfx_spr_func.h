@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "gfx.h"
@@ -25,7 +25,7 @@
 #define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p(DP, SP, (SM) & (PT), M)
 #endif
 
-#define SPR_USE_ASSERT 1
+#define SPR_USE_ASSERT 0
 
 #if SPR_USE_ASSERT
 #ifndef spr_assert
@@ -60,8 +60,8 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
     i32   id   = dst.wword;
     i32   is   = src.wword * sy;
     i32   ww   = (x2 >> 5) - (x1 >> 5); // number of destination words - 1
-    u32   cl   = bswap32(0xFFFFFFFFU >> (31 & x1));
-    u32   cr   = bswap32(0xFFFFFFFFU << (31 & (u32)(-x2 - 1)));
+    u32   cl   = gfx_endian(0xFFFFFFFFU >> (31 & x1));
+    u32   cr   = gfx_endian(0xFFFFFFFFU << (31 & (u32)(-x2 - 1)));
     i32   u1   = rx - sx * px + (SPRBLIT_FLIPPEDX ? rw - (x2 + 1) : x1); // first bit index in src row
     i32   os   = 31 & (sx * u1 - SPRBLIT_FLIPPEDX * (x2 - x1 + 1));
     i32   of   = os - (x1 & 31);
@@ -88,10 +88,10 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #endif
 
         u32 pt = pt_y[yd & 7];
-        u32 zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
+        u32 zp = SPRBLIT_GET_WORD(gfx_endian(*(ps + 0)));
         u32 sp = zp << ll;
 #if SPRBLIT_SRC_MASK
-        u32 zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
+        u32 zm = SPRBLIT_GET_WORD(gfx_endian(*(ps + 1)));
         u32 sm = zm << ll;
 #else
         u32 sm = cl;
@@ -100,17 +100,17 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
         if (0 < sn && 0 <= of) {
             ps += si;
             spr_assert(ps_a <= ps && ps <= ps_b);
-            zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
+            zp = SPRBLIT_GET_WORD(gfx_endian(*(ps + 0)));
 #if SPRBLIT_SRC_MASK
-            zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
+            zm = SPRBLIT_GET_WORD(gfx_endian(*(ps + 1)));
 #endif
         }
 
         sp |= (u32)((u64)zp >> rr); // shifting 32 bit types by 32+ undefined
-        sp = bswap32(sp);
+        sp = gfx_endian(sp);
 #if SPRBLIT_SRC_MASK
         sm |= (u32)((u64)zm >> rr);
-        sm = bswap32(sm) & cl; // apply left clip
+        sm = gfx_endian(sm) & cl; // apply left clip
 #endif
 
         if (ww) { // bitmap spans over 2+ dst words
@@ -121,14 +121,14 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
                 sp = zp << ll;
                 ps += si;
                 spr_assert(ps_a <= ps && ps <= ps_b);
-                zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
+                zp = SPRBLIT_GET_WORD(gfx_endian(*(ps + 0)));
                 sp |= (u32)((u64)zp >> rr);
-                sp = bswap32(sp);
+                sp = gfx_endian(sp);
 #if SPRBLIT_SRC_MASK
                 sm = zm << ll;
-                zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
+                zm = SPRBLIT_GET_WORD(gfx_endian(*(ps + 1)));
                 sm |= (u32)((u64)zm >> rr);
-                sm = bswap32(sm);
+                sm = gfx_endian(sm);
 #endif
                 SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
             }
@@ -142,16 +142,16 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
             if (SPRBLIT_CHECK_PS(ps, ps_l, ps_r)) {
                 ps += si;
                 spr_assert(ps_a <= ps && ps <= ps_b);
-                zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
+                zp = SPRBLIT_GET_WORD(gfx_endian(*(ps + 0)));
                 sp |= (u32)((u64)zp >> rr);
 #if SPRBLIT_SRC_MASK
-                zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
+                zm = SPRBLIT_GET_WORD(gfx_endian(*(ps + 1)));
                 sm |= (u32)((u64)zm >> rr);
 #endif
             }
-            sp = bswap32(sp);
+            sp = gfx_endian(sp);
 #if SPRBLIT_SRC_MASK
-            sm = bswap32(sm);
+            sm = gfx_endian(sm);
 #endif
         }
         sm &= cr; // apply right clip

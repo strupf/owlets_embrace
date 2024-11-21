@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "obj.h"
@@ -8,24 +8,20 @@
 
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
-    obj_handle_s h = {0};
-    if (o) {
-        h.o   = o;
-        h.GID = o->GID;
-    }
+    obj_handle_s h = {o, o ? o->GID : 0};
     return h;
 }
 
 obj_s *obj_from_obj_handle(obj_handle_s h)
 {
-    return (obj_handle_valid(h) ? h.o : NULL);
+    return (obj_handle_valid(h) ? h.o : 0);
 }
 
 bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
 {
     obj_s *o = obj_from_obj_handle(h);
     if (o_out) *o_out = o;
-    return (o != NULL);
+    return (o != 0);
 }
 
 bool32 obj_handle_valid(obj_handle_s h)
@@ -38,23 +34,18 @@ obj_s *obj_create(g_s *g)
     obj_s *o = g->obj_head_free;
     if (!o) {
         BAD_PATH
-        return NULL;
+        return 0;
     }
 
     g->objrender_dirty              = 1;
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
 
-    u32 GID           = o->GID;
-    *o                = (obj_s){0};
-    o->GID            = GID;
-    o->next           = g->obj_head_busy;
-    g->obj_head_busy  = o;
-    o->drag_q8.x      = 256;
-    o->drag_q8.y      = 256;
-    o->v_cap_y_q8_neg = -32768;
-    o->v_cap_y_q8_pos = +32767;
-    o->v_cap_x_q8     = +32767;
+    u32 GID = o->GID;
+    mclr(o, sizeof(obj_s));
+    o->GID           = GID;
+    o->next          = g->obj_head_busy;
+    g->obj_head_busy = o;
 #ifdef PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 
@@ -94,7 +85,7 @@ bool32 obj_untag(g_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag] != o) return 0;
     o->tags &= ~((flags32)1 << tag);
-    g->obj_tag[tag] = NULL;
+    g->obj_tag[tag] = 0;
     return 1;
 }
 
@@ -110,8 +101,9 @@ void objs_cull_to_delete(g_s *g)
         obj_s *o = g->obj_to_delete[n];
 
         for (u32 k = 0; k < NUM_OBJ_TAGS; k++) {
-            if (g->obj_tag[k] == o)
-                g->obj_tag[k] = NULL;
+            if (g->obj_tag[k] == o) {
+                g->obj_tag[k] = 0;
+            }
         }
         for (u32 k = 0; k < g->n_objrender; k++) {
             if (g->obj_render[k] == o) {
@@ -155,10 +147,10 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
             for (i32 xn = -n; xn <= +n; xn += n) {
                 rec_i32 rr = {r.x + xn, r.y + yn, r.w, r.h};
                 if (map_blocked(g, o, rr, o->mass)) continue;
-                v2_i32 dt = {xn, yn};
-                u32    u  = (o->moverflags & OBJ_MOVER_MAP);
-                i32    m  = o->mass;
-                o->mass   = 0;
+
+                u32 u   = (o->moverflags & OBJ_MOVER_MAP);
+                i32 m   = o->mass;
+                o->mass = 0;
                 o->moverflags &= ~OBJ_MOVER_MAP;
                 obj_move(g, o, xn, yn);
                 o->moverflags |= u;
@@ -195,26 +187,6 @@ void obj_on_squish(g_s *g, obj_s *o)
 void squish_delete(g_s *g, obj_s *o)
 {
     obj_delete(g, o);
-}
-
-// apply gravity, drag, modify subposition and write pos_new
-// uses subpixel position:
-// subposition is [0, 255]. If the boundaries are exceeded
-// the goal is to move a whole pixel left or right
-void obj_apply_movement(obj_s *o)
-{
-    o->v_prev_q8 = o->v_q8;
-    o->v_q8      = v2_i16_add(o->v_q8, o->grav_q8);
-    o->v_q8.x    = ((i32)o->v_q8.x * (i32)o->drag_q8.x) >> 8;
-    o->v_q8.y    = ((i32)o->v_q8.y * (i32)o->drag_q8.y) >> 8;
-    o->v_q8.x    = clamp_i32(o->v_q8.x, -o->v_cap_x_q8, +o->v_cap_x_q8);
-    o->v_q8.y    = clamp_i32(o->v_q8.y, o->v_cap_y_q8_neg, o->v_cap_y_q8_pos);
-
-    o->subpos_q8 = v2_i16_add(o->subpos_q8, o->v_q8);
-    o->tomove.x += o->subpos_q8.x >> 8;
-    o->tomove.y += o->subpos_q8.y >> 8;
-    o->subpos_q8.x &= 255;
-    o->subpos_q8.y &= 255;
 }
 
 void obj_move_by_q8(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8)

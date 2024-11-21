@@ -1,12 +1,11 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef MATHFUNC_H
 #define MATHFUNC_H
 
-#include "pltf/pltf.h"
-#include "util/simd.h"
+#include "pltf/pltf_intrin.h"
 
 #define PI_FLOAT  3.1415927f
 #define PI2_FLOAT 6.2831853f
@@ -240,6 +239,7 @@ static inline u32 sqrt_u32(u32 x)
 
 static u32 sqrt_u32_exact(u32 x)
 {
+    if (x == 0) return 0;
     u32 y = 0;
     for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
         u32 b = y | m;
@@ -571,30 +571,31 @@ static v2_i32 v2_lerpl(v2_i32 a, v2_i32 b, i32 num, i32 den)
 
 static inline i32 v2_i16_dot(v2_i16 a, v2_i16 b)
 {
-    return i16x2_muad(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
+    return i16x2_dot(i16x2_ld(&a), i16x2_ld(&b));
 }
 
 static inline i32 v2_i16_crs(v2_i16 a, v2_i16 b)
 {
-    return i16x2_musdx(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
+    return i16x2_crs(i16x2_ld(&a), i16x2_ld(&b));
 }
 
 static inline i32 v2_i16_lensq(v2_i16 a)
 {
-    vec32 va = vec32_from_v2_i16(a);
-    return i16x2_muad(va, va);
+    return v2_i16_dot(a, a);
 }
 
 static inline v2_i16 v2_i16_add(v2_i16 a, v2_i16 b)
 {
-    vec32 r = i16x2_add(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
-    return v2_i16_from_vec32(r);
+    v2_i16 r = {0};
+    i16x2_st(i16x2_add(i16x2_ld(&a), i16x2_ld(&b)), &r);
+    return r;
 }
 
 static inline v2_i16 v2_i16_sub(v2_i16 a, v2_i16 b)
 {
-    vec32 r = i16x2_sub(vec32_from_v2_i16(a), vec32_from_v2_i16(b));
-    return v2_i16_from_vec32(r);
+    v2_i16 r = {0};
+    i16x2_st(i16x2_sub(i16x2_ld(&a), i16x2_ld(&b)), &r);
+    return r;
 }
 
 static inline bool32 v2_i16_eq(v2_i16 a, v2_i16 b)

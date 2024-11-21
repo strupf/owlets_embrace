@@ -1,10 +1,9 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "app.h"
 #include "core/assets.h"
-#include "core/gfx_1bit.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "render.h"
@@ -89,8 +88,6 @@ static void app_tick_step()
     }
 }
 
-void gfx_fill_r(tex_s dst, rec_i32 rsrc);
-
 void app_draw()
 {
 #ifdef PLTF_PD
@@ -98,7 +95,7 @@ void app_draw()
 #endif
     tex_clr(asset_tex(0), GFX_COL_WHITE);
     gfx_ctx_s ctx = gfx_ctx_display();
-    g_s   *g   = &APP.game;
+    g_s      *g   = &APP.game;
 
     switch (g->state) {
     case APP_STATE_TITLE:
@@ -112,6 +109,16 @@ void app_draw()
     if (textinput_active()) {
         textinput_draw();
     }
+
+#if GFX_ENDIAN_AT_END
+    u32 *p = pltf_1bit_buffer();
+    for (u32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n += 4) {
+        *p = bswap32(*p), p++;
+        *p = bswap32(*p), p++;
+        *p = bswap32(*p), p++;
+        *p = bswap32(*p), p++;
+    }
+#endif
 }
 
 void app_close()
@@ -135,11 +142,12 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 }
 
 #if PLTF_DEV_ENV
+// preprocess textures
 void app_load_tex()
 {
-    asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", NULL);
-    asset_tex_loadID(TEXID_TILESET_BG_AUTO, "TILESET_BG_AUTO", NULL);
-    asset_tex_loadID(TEXID_TILESET_PROPS, "TILESET_PROPS", NULL);
+    asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", 0);
+    asset_tex_loadID(TEXID_TILESET_BG_AUTO, "TILESET_BG_AUTO", 0);
+    asset_tex_loadID(TEXID_TILESET_PROPS, "TILESET_PROPS", 0);
 
 #if PLTF_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -157,10 +165,13 @@ void app_load_tex()
     }
 #endif
 
-    asset_tex_loadID(TEXID_MAINMENU, "mainmenu", NULL);
-    asset_tex_loadID(TEXID_CRUMBLE, "crumbleblock", NULL);
+    asset_tex_loadID(TEXID_MAINMENU, "mainmenu", 0);
+    asset_tex_loadID(TEXID_CRUMBLE, "crumbleblock", 0);
+    tex_s tchest;
+    asset_tex_loadID(TEXID_CHEST, "chest", &tchest);
+    tex_outline(tchest, 0, 0, 96, 32, 1, 1);
 
-    asset_tex_loadID(TEXID_UI, "ui", NULL);
+    asset_tex_loadID(TEXID_UI, "ui", 0);
     asset_tex_putID(TEXID_PAUSE_TEX, tex_create_opaque(400, 240, asset_allocator));
 
     tex_s texswitch;
@@ -172,9 +183,9 @@ void app_load_tex()
     tex_outline(tflyblob, 0, 0, 1024, 512, 1, 1);
 
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
-    asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", NULL);
-    asset_tex_loadID(TEXID_PLANTS, "plants", NULL);
-    asset_tex_loadID(TEXID_CRABLER, "crabler", NULL);
+    asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", 0);
+    asset_tex_loadID(TEXID_PLANTS, "plants", 0);
+    asset_tex_loadID(TEXID_CRABLER, "crabler", 0);
 
     tex_s tcharger;
     asset_tex_loadID(TEXID_CHARGER, "charger", &tcharger);
@@ -192,16 +203,16 @@ void app_load_tex()
         }
     }
 
-    asset_tex_loadID(TEXID_CARRIER, "carrier", NULL);
-    asset_tex_loadID(TEXID_CLOUDS, "clouds", NULL);
-    asset_tex_loadID(TEXID_TITLE, "title", NULL);
-    asset_tex_loadID(TEXID_TOGGLE, "toggle", NULL);
-    asset_tex_loadID(TEXID_BG_CAVE, "bg_cave", NULL);
-    asset_tex_loadID(TEXID_BG_MOUNTAINS, "bg_mountains", NULL);
-    asset_tex_loadID(TEXID_BG_DEEP_FOREST, "bg_deep_forest", NULL);
-    asset_tex_loadID(TEXID_BG_CAVE_DEEP, "bg_cave_deep", NULL);
-    asset_tex_loadID(TEXID_BG_FOREST, "bg_forest", NULL);
-    asset_tex_loadID(TEXID_FLUIDS, "fluids", NULL);
+    asset_tex_loadID(TEXID_CARRIER, "carrier", 0);
+    asset_tex_loadID(TEXID_CLOUDS, "clouds", 0);
+    asset_tex_loadID(TEXID_TITLE, "title", 0);
+    asset_tex_loadID(TEXID_TOGGLE, "toggle", 0);
+    asset_tex_loadID(TEXID_BG_CAVE, "bg_cave", 0);
+    asset_tex_loadID(TEXID_BG_MOUNTAINS, "bg_mountains", 0);
+    asset_tex_loadID(TEXID_BG_DEEP_FOREST, "bg_deep_forest", 0);
+    asset_tex_loadID(TEXID_BG_CAVE_DEEP, "bg_cave_deep", 0);
+    asset_tex_loadID(TEXID_BG_FOREST, "bg_forest", 0);
+    asset_tex_loadID(TEXID_FLUIDS, "fluids", 0);
 
     tex_s texpl;
     asset_tex_loadID(TEXID_EXPLOSIONS, "explosions", &texpl);
@@ -308,7 +319,7 @@ void app_load_tex()
         }
     }
 
-    asset_tex_loadID(TEXID_KEYBOARD, "keyboard", NULL);
+    asset_tex_loadID(TEXID_KEYBOARD, "keyboard", 0);
 
     tex_s tnpc;
     asset_tex_loadID(TEXID_NPC, "npc", &tnpc);
@@ -340,7 +351,7 @@ void app_load_tex()
     tex_outline(tflyingbug, 0, 96, 96 * 6, 96 * 2, 1, 1);
 
     // prerender 8 rotations
-    asset_tex_loadID(TEXID_CRAWLER, "crawler", NULL);
+    asset_tex_loadID(TEXID_CRAWLER, "crawler", 0);
     {
         texrec_s  trcrawler   = asset_texrec(TEXID_CRAWLER, 0, 0, 64, 64);
         gfx_ctx_s ctx_crawler = gfx_ctx_default(trcrawler.t);
@@ -356,69 +367,69 @@ void app_load_tex()
         }
         tex_outline(trcrawler.t, 0, 0, trcrawler.t.w, trcrawler.t.h, 1, 1);
     }
-    asset_tex_loadID(TEXID_WINDGUSH, "windgush", NULL);
-    asset_tex_loadID(TEXID_TITLE_SCREEN, "titlescreen", NULL);
+    asset_tex_loadID(TEXID_WINDGUSH, "windgush", 0);
+    asset_tex_loadID(TEXID_TITLE_SCREEN, "titlescreen", 0);
     water_prerender_tiles();
 }
 
 void app_load_snd()
 {
-    asset_snd_loadID(SNDID_ENEMY_DIE, "enemy_die", NULL);
-    asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt", NULL);
-    asset_snd_loadID(SNDID_BASIC_ATTACK, "basic_attack", NULL);
-    asset_snd_loadID(SNDID_COIN, "coin", NULL);
-    asset_snd_loadID(SNDID_SHROOMY_JUMP, "shroomyjump", NULL);
-    asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach", NULL);
-    asset_snd_loadID(SNDID_SPEAK, "speak", NULL);
-    asset_snd_loadID(SNDID_STEP, "step", NULL);
-    asset_snd_loadID(SNDID_SWITCH, "switch", NULL);
-    asset_snd_loadID(SNDID_SWOOSH, "swoosh_0", NULL);
-    asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy", NULL);
-    asset_snd_loadID(SNDID_DOOR_TOGGLE, "doortoggle", NULL);
-    asset_snd_loadID(SNDID_DOOR_SQUEEK, "doorsqueek", NULL);
-    asset_snd_loadID(SNDID_SELECT, "select", NULL);
-    asset_snd_loadID(SNDID_MENU_NEXT_ITEM, "menu_next_item", NULL);
-    asset_snd_loadID(SNDID_MENU_NONEXT_ITEM, "menu_no_next_item", NULL);
-    asset_snd_loadID(SNDID_DOOR_UNLOCKED, "unlockdoor", NULL);
-    asset_snd_loadID(SNDID_DOOR_KEY_SPAWNED, "keyspawn", NULL);
-    asset_snd_loadID(SNDID_UPGRADE, "upgrade", NULL);
-    asset_snd_loadID(SNDID_HOOK_THROW, "throw_hook", NULL);
-    asset_snd_loadID(SNDID_KB_KEY, "key", NULL);
-    asset_snd_loadID(SNDID_KB_DENIAL, "denial", NULL);
-    asset_snd_loadID(SNDID_KB_CLICK, "click", NULL);
-    asset_snd_loadID(SNDID_KB_SELECTION, "selection", NULL);
-    asset_snd_loadID(SNDID_KB_SELECTION_REV, "selection-reverse", NULL);
-    asset_snd_loadID(SNDID_FOOTSTEP_LEAVES, "footstep_leaves", NULL);
-    asset_snd_loadID(SNDID_FOOTSTEP_GRASS, "footstep_grass", NULL);
-    asset_snd_loadID(SNDID_FOOTSTEP_MUD, "footstep_mud", NULL);
-    asset_snd_loadID(SNDID_FOOTSTEP_SAND, "footstep_sand", NULL);
-    asset_snd_loadID(SNDID_FOOTSTEP_DIRT, "footstep_dirt", NULL);
-    asset_snd_loadID(SNDID_OWLET_ATTACK_1, "owlet_attack_1", NULL);
-    asset_snd_loadID(SNDID_OWLET_ATTACK_2, "owlet_attack_2", NULL);
-    asset_snd_loadID(SNDID_ENEMY_EXPLO, "enemy_explo", NULL);
-    asset_snd_loadID(SNDID_WING, "wing_sfx", NULL);
-    asset_snd_loadID(SNDID_WING1, "wing_sfx1", NULL);
-    asset_snd_loadID(SNDID_HOOK_READY, "hook_ready", NULL);
-    asset_snd_loadID(SNDID_WATER_SPLASH_BIG, "water_splash_big", NULL);
-    asset_snd_loadID(SNDID_WATER_SPLASH_SMALL, "water_splash_small", NULL);
-    asset_snd_loadID(SNDID_WATER_SWIM_1, "water_swim_1", NULL);
-    asset_snd_loadID(SNDID_WATER_SWIM_2, "water_swim_2", NULL);
-    asset_snd_loadID(SNDID_WATER_OUT_OF, "water_out_of", NULL);
-    asset_snd_loadID(SNDID_WEAPON_UNEQUIP, "weapon_unequip", NULL);
-    asset_snd_loadID(SNDID_WEAPON_EQUIP, "weapon_equip", NULL);
-    asset_snd_loadID(SNDID_WOOSH_1, "woosh_1", NULL);
-    asset_snd_loadID(SNDID_WOOSH_2, "woosh_3", NULL);
-    asset_snd_loadID(SNDID_STOMP_START, "stomp_start", NULL);
-    asset_snd_loadID(SNDID_STOMP, "stomp", NULL);
-    asset_snd_loadID(SNDID_SKID, "skid", NULL);
-    asset_snd_loadID(SNDID_PROJECTILE_SPIT, "projectile_spit", NULL);
-    asset_snd_loadID(SNDID_PROJECTILE_WALL, "projectile_wall", NULL);
+    asset_snd_loadID(SNDID_ENEMY_DIE, "enemy_die", 0);
+    asset_snd_loadID(SNDID_ENEMY_HURT, "enemy_hurt", 0);
+    asset_snd_loadID(SNDID_BASIC_ATTACK, "basic_attack", 0);
+    asset_snd_loadID(SNDID_COIN, "coin", 0);
+    asset_snd_loadID(SNDID_SHROOMY_JUMP, "shroomyjump", 0);
+    asset_snd_loadID(SNDID_HOOK_ATTACH, "hookattach", 0);
+    asset_snd_loadID(SNDID_SPEAK, "speak", 0);
+    asset_snd_loadID(SNDID_STEP, "step", 0);
+    asset_snd_loadID(SNDID_SWITCH, "switch", 0);
+    asset_snd_loadID(SNDID_SWOOSH, "swoosh_0", 0);
+    asset_snd_loadID(SNDID_HIT_ENEMY, "hitenemy", 0);
+    asset_snd_loadID(SNDID_DOOR_TOGGLE, "doortoggle", 0);
+    asset_snd_loadID(SNDID_DOOR_SQUEEK, "doorsqueek", 0);
+    asset_snd_loadID(SNDID_SELECT, "select", 0);
+    asset_snd_loadID(SNDID_MENU_NEXT_ITEM, "menu_next_item", 0);
+    asset_snd_loadID(SNDID_MENU_NONEXT_ITEM, "menu_no_next_item", 0);
+    asset_snd_loadID(SNDID_DOOR_UNLOCKED, "unlockdoor", 0);
+    asset_snd_loadID(SNDID_DOOR_KEY_SPAWNED, "keyspawn", 0);
+    asset_snd_loadID(SNDID_UPGRADE, "upgrade", 0);
+    asset_snd_loadID(SNDID_HOOK_THROW, "throw_hook", 0);
+    asset_snd_loadID(SNDID_KB_KEY, "key", 0);
+    asset_snd_loadID(SNDID_KB_DENIAL, "denial", 0);
+    asset_snd_loadID(SNDID_KB_CLICK, "click", 0);
+    asset_snd_loadID(SNDID_KB_SELECTION, "selection", 0);
+    asset_snd_loadID(SNDID_KB_SELECTION_REV, "selection-reverse", 0);
+    asset_snd_loadID(SNDID_FOOTSTEP_LEAVES, "footstep_leaves", 0);
+    asset_snd_loadID(SNDID_FOOTSTEP_GRASS, "footstep_grass", 0);
+    asset_snd_loadID(SNDID_FOOTSTEP_MUD, "footstep_mud", 0);
+    asset_snd_loadID(SNDID_FOOTSTEP_SAND, "footstep_sand", 0);
+    asset_snd_loadID(SNDID_FOOTSTEP_DIRT, "footstep_dirt", 0);
+    asset_snd_loadID(SNDID_OWLET_ATTACK_1, "owlet_attack_1", 0);
+    asset_snd_loadID(SNDID_OWLET_ATTACK_2, "owlet_attack_2", 0);
+    asset_snd_loadID(SNDID_ENEMY_EXPLO, "enemy_explo", 0);
+    asset_snd_loadID(SNDID_WING, "wing_sfx", 0);
+    asset_snd_loadID(SNDID_WING1, "wing_sfx1", 0);
+    asset_snd_loadID(SNDID_HOOK_READY, "hook_ready", 0);
+    asset_snd_loadID(SNDID_WATER_SPLASH_BIG, "water_splash_big", 0);
+    asset_snd_loadID(SNDID_WATER_SPLASH_SMALL, "water_splash_small", 0);
+    asset_snd_loadID(SNDID_WATER_SWIM_1, "water_swim_1", 0);
+    asset_snd_loadID(SNDID_WATER_SWIM_2, "water_swim_2", 0);
+    asset_snd_loadID(SNDID_WATER_OUT_OF, "water_out_of", 0);
+    asset_snd_loadID(SNDID_WEAPON_UNEQUIP, "weapon_unequip", 0);
+    asset_snd_loadID(SNDID_WEAPON_EQUIP, "weapon_equip", 0);
+    asset_snd_loadID(SNDID_WOOSH_1, "woosh_1", 0);
+    asset_snd_loadID(SNDID_WOOSH_2, "woosh_3", 0);
+    asset_snd_loadID(SNDID_STOMP_START, "stomp_start", 0);
+    asset_snd_loadID(SNDID_STOMP, "stomp", 0);
+    asset_snd_loadID(SNDID_SKID, "skid", 0);
+    asset_snd_loadID(SNDID_PROJECTILE_SPIT, "projectile_spit", 0);
+    asset_snd_loadID(SNDID_PROJECTILE_WALL, "projectile_wall", 0);
 }
 
 void app_load_fnt()
 {
-    asset_fnt_loadID(FNTID_SMALL, "font_small", NULL);
-    asset_fnt_loadID(FNTID_MEDIUM, "font_med", NULL);
-    asset_fnt_loadID(FNTID_LARGE, "font_large", NULL);
+    asset_fnt_loadID(FNTID_SMALL, "font_small", 0);
+    asset_fnt_loadID(FNTID_MEDIUM, "font_med", 0);
+    asset_fnt_loadID(FNTID_LARGE, "font_large", 0);
 }
 #endif

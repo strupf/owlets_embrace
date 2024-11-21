@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -21,6 +21,7 @@ void objs_animate(g_s *g)
         case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
         case OBJ_ID_FROG: frog_on_animate(g, o); break;
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+        case OBJ_ID_CHEST: chest_on_animate(g, o); break;
         }
     }
 }

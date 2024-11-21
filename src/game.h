@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef GAME_H
@@ -13,7 +13,6 @@
 #include "hero/hero.h"
 #include "hero/hero_hook.h"
 #include "hero_powerup.h"
-#include "ladder.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"
@@ -21,7 +20,6 @@
 #include "particle.h"
 #include "rope.h"
 #include "save.h"
-#include "settings.h"
 #include "textbox.h"
 #include "tile_map.h"
 #include "title.h"
@@ -105,27 +103,18 @@ struct g_s {
     v2_i16            respawns[NUM_RESPAWNS];
     u32               n_grass;
     grass_s           grass[NUM_GRASS];
-    u32               n_coinparticles;
-    coinparticle_s    coinparticles[NUM_COINPARTICLE];
     u32               n_deco_verlet;
     deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
     u32               n_ladders;
-    ladder_s          ladders[NUM_LADDERS];
     //
     i32               save_slot;
     save_s            save;
     hero_s            hero_mem;
     rope_s            rope;
     i32               n_ropes;
-    rope_s            ropes[8];
+    rope_s            ropes[4];
     particles_s       particles;
     ocean_s           ocean;
-    //
-    i32               n_hitboxes;
-    hitbox_s          hitboxes[256];
-#if LIGHTING_ENABLED
-    lighting_s lighting;
-#endif
 
     struct areaname {
         char filename[LEN_AREA_FILENAME];

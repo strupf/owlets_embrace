@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef OBJDEF_H
@@ -38,6 +38,7 @@ enum {
     OBJ_ID_SPIKES,
     OBJ_ID_KEY,
     OBJ_ID_HOOKLEVER,
+    OBJ_ID_COIN,
     OBJ_ID_SPRITEDECAL,
     OBJ_ID_FLOATER,
     OBJ_ID_WALLWORM,
@@ -57,6 +58,9 @@ enum {
     OBJ_ID_STOMPABLE_BLOCK,
     OBJ_ID_LIGHT,
     OBJ_ID_FALLINGBLOCK,
+    OBJ_ID_CHEST,
+    OBJ_ID_WATERLEAF,
+    OBJ_ID_WINDAREA,
 };
 
 enum {
@@ -175,5 +179,18 @@ void   light_update(g_s *g, obj_s *o);
 void   fallingblock_load(g_s *g, map_obj_s *mo);
 void   fallingblock_on_update(g_s *g, obj_s *o);
 void   fallingblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-
+void   chest_load(g_s *g, map_obj_s *mo);
+void   chest_on_update(g_s *g, obj_s *o);
+void   chest_on_animate(g_s *g, obj_s *o);
+void   chest_on_open(g_s *g, obj_s *o);
+void   waterleaf_load(g_s *g, map_obj_s *mo);
+void   waterleaf_on_update(g_s *g, obj_s *o);
+void   waterleaf_on_animate(g_s *g, obj_s *o);
+void   windarea_load(g_s *g, map_obj_s *mo);
+void   windarea_on_animate(g_s *g, obj_s *o);
+void   windarea_on_update(g_s *g, obj_s *o);
+void   windarea_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+obj_s *coin_create(g_s *g);
+void   coin_on_animate(g_s *g, obj_s *o);
+void   coin_on_update(g_s *g, obj_s *o);
 #endif

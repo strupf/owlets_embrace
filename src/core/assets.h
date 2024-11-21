@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef ASSETS_H
@@ -56,6 +56,7 @@ enum {
     TEXID_EXPLOSIONS,
     TEXID_CRABLER,
     TEXID_FLUIDS,
+    TEXID_CHEST,
     //
     NUM_TEXID_EXPLICIT,
     //

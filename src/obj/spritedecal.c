@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -50,7 +50,7 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
     spr->flip          = flip;
     if (oparent) {
         sd->parent = obj_handle_from_obj(oparent);
-        spr->offs  = v2_i16_from_i32(pos, 0);
+        spr->offs  = v2_i16_from_i32(pos);
     } else {
         o->pos = pos;
     }

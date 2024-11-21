@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "title.h"
@@ -57,8 +57,7 @@ void title_init(title_s *t)
     str_cpy(s->hero_mapfile, "START");
     s->hero_pos.x       = 200;
     s->hero_pos.y       = 200;
-    s->stamina_upgrades = 2;
-    s->health           = 3;
+    s->stamina_upgrades = 1;
 #if 1
     s->upgrades =
         ((flags32)1 << HERO_UPGRADE_HOOK) |
@@ -85,8 +84,7 @@ void title_load(title_s *t)
         save_preview_s pr = {0};
 
         if (savefile_read(n, s)) {
-            pr.tick   = s->tick;
-            pr.health = s->health;
+            pr.tick = s->tick;
             str_cpy(pr.name, s->name);
         }
         t->saves[n] = pr;

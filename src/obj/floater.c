@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -25,7 +25,7 @@ void floater_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_HURT_ON_TOUCH |
-               OBJ_FLAG_PLATFORM_HERO_ONLY |
+               OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_CLAMP_TO_ROOM;
     o->on_update       = floater_on_update;

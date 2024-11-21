@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "hero_hook.h"
@@ -36,7 +36,7 @@ obj_s *hook_create(g_s *g, rope_s *r, v2_i32 p, v2_i32 v_q8)
     o->h              = 4;
     o->pos.x          = p.x - o->w / 2;
     o->pos.y          = p.y - o->h / 2;
-    o->v_q8           = v2_i16_from_i32(v_q8, 0);
+    o->v_q8           = v2_i16_from_i32(v_q8);
 
     rope_init(r);
     r->len_max_q4 = HERO_ROPE_LEN_LONG;

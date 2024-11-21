@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "hero.h"
@@ -12,13 +12,13 @@ typedef struct {
     i16 ticks;
 } hero_jump_s;
 
-const hero_jumpvar_s g_herovar[NUM_HERO_JUMP + 1] = {
+const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
     {800, 30, 100, 30}, // out of water
     {1100, 35, 65, 30}, // ground
     {1500, 40, 50, 20}, // ground boosted
     {600, 50, 140, 20}, // fly
-    {1000, 25, 80, 30},
-    {1300, 35, 50, 20}}; // ground original
+    {1100, 35, 65, 20}, // wall
+};
 
 void hero_update_ground(g_s *g, obj_s *o);
 void hero_update_climb(g_s *g, obj_s *o);
@@ -44,7 +44,7 @@ obj_s *hero_create(g_s *g)
                     OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_SLIDE_Y_NEG;
-    o->health_max      = g->save.health;
+    o->health_max      = 2;
     o->health          = o->health_max;
     o->render_priority = RENDER_PRIO_HERO;
     o->w               = 12;
@@ -77,8 +77,8 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
 {
     hero_s *h = (hero_s *)o->heap;
     if (h->invincibility_ticks) return;
-    o->health = max_i32((i32)o->health - damage, 0);
-
+    o->health              = max_i32((i32)o->health - damage, 0);
+    h->health_restore_tick = 0;
     if (o->health) {
         h->invincibility_ticks = ticks_from_ms(1000);
     } else {
@@ -145,7 +145,6 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
     if (ID == HERO_JUMP_GROUND) {
         snd_play(SNDID_SPEAK, 1.f, 0.5f);
         v2_i32 posc = obj_pos_bottom_center(o);
-        h->jpos     = posc;
         posc.x -= 16;
         posc.y -= 32;
         rec_i32 trp = {0, 284, 32, 32};
@@ -195,6 +194,15 @@ void hero_on_update(g_s *g, obj_s *o)
 
     if (h->stamina_ui_collected_tick) {
         h->stamina_ui_collected_tick--;
+    }
+
+    if (1 <= o->health && o->health < o->health_max) {
+        if (HERO_HEALTH_RESTORE_TICKS <= ++h->health_restore_tick) {
+            o->health++;
+            h->health_restore_tick = 0;
+        }
+    } else if (o->health == o->health_max) {
+        h->health_restore_tick = 0;
     }
 
     if (state == HERO_STATE_AIR) {
@@ -318,10 +326,10 @@ void hero_on_update(g_s *g, obj_s *o)
                 f32 vol = (1.f * (f32)o->v_q8.y) / 2000.f;
                 snd_play(SNDID_STEP, min_f32(vol, 1.f) * 1.2f, 1.f);
             }
-
+            h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
             if (500 <= o->v_q8.y) {
-                h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
-                v2_i32 posc     = obj_pos_bottom_center(o);
+
+                v2_i32 posc = obj_pos_bottom_center(o);
                 posc.x -= 16;
                 posc.y -= 32;
                 rec_i32 trp = {0, 284, 32, 32};
@@ -650,4 +658,33 @@ void hero_stomped_ground(g_s *g, obj_s *o)
             particles_spawn(g, prt, 15);
         }
     }
+}
+
+bool32 hero_stomping(obj_s *o)
+{
+    return ((hero_s *)o->heap)->stomp;
+}
+
+i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
+{
+    hero_s *h = (hero_s *)ohero->heap;
+    for (i32 n = 0; n < h->n_jumped_on; n++) {
+        if (obj_from_obj_handle(h->jumped_on[n]) == o)
+            return 1;
+    }
+    if (h->n_jumped_on == HERO_NUM_JUMPED_ON) return 0;
+    h->jumped_on[h->n_jumped_on++] = obj_handle_from_obj(o);
+    return 2;
+}
+
+i32 hero_register_stomped_on(obj_s *ohero, obj_s *o)
+{
+    hero_s *h = (hero_s *)ohero->heap;
+    for (i32 n = 0; n < h->n_stomped_on; n++) {
+        if (obj_from_obj_handle(h->stomped_on[n]) == o)
+            return 1;
+    }
+    if (h->n_stomped_on == HERO_NUM_JUMPED_ON) return 0;
+    h->stomped_on[h->n_stomped_on++] = obj_handle_from_obj(o);
+    return 2;
 }

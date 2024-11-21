@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "pltf_sdl.h"
@@ -58,12 +58,15 @@ typedef_struct (pltf_sdl_s) {
     void (*char_del)(void *ctx);
     void (*close_inp)(void *ctx);
     void            *ctx;
+    u8               keyp[SDL_NUM_SCANCODES];
+    u8               keyc[SDL_NUM_SCANCODES];
     i32              n_debug_recs;
     pltf_debug_rec_s debug_recs[PLTF_SDL_NUM_DEBUG_RECS];
 };
 
 pltf_sdl_s g_SDL;
 
+void pltf_sdl_input_flush();
 void pltf_sdl_step();
 void pltf_sdl_resize();
 void pltf_sdl_set_FPS_cap(i32 fps);
@@ -207,7 +210,13 @@ void pltf_sdl_step()
         }
     }
 
+    const Uint8 *ks = SDL_GetKeyboardState(0);
+    for (i32 n = 0; n < SDL_NUM_SCANCODES; n++) {
+        g_SDL.keyc[n] |= ks[n];
+    }
+
     if (pltf_internal_update()) {
+        pltf_sdl_input_flush();
         int   pitch;
         void *pixelsptr;
         SDL_LockTexture(g_SDL.tex, NULL, &pixelsptr, &pitch);
@@ -335,12 +344,6 @@ void pltf_sdl_set_FPS_cap(i32 fps)
     g_SDL.fps_cap_dt    = 1.f / (f32)fps;
 }
 
-bool32 pltf_sdl_key(i32 k)
-{
-    const u8 *keys = SDL_GetKeyboardState(NULL);
-    return keys[k];
-}
-
 // stream is an interlaced byte buffer: LLRRLLRRLL...
 // len is buffer length in bytes (datatype size * channels * length)
 void pltf_sdl_audio(void *u, u8 *stream, int len)
@@ -358,8 +361,8 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
     i16 *r = rbuf;
 
     for (i32 n = 0; n < samples; n++) {
-        i32 vl = i16_sat((i32)((f32)*l++ * g_SDL.vol));
-        i32 vr = g_SDL.is_mono ? vl : i16_sat((i32)((f32)*r++ * g_SDL.vol));
+        i32 vl = (i32)((f32)*l++ * g_SDL.vol);
+        i32 vr = g_SDL.is_mono ? vl : (i32)((f32)*r++ * g_SDL.vol);
         *s++   = vl;
         *s++   = vr;
     }
@@ -508,4 +511,20 @@ void pltf_audio_lock()
 void pltf_audio_unlock()
 {
     SDL_UnlockAudioDevice(g_SDL.audiodevID);
+}
+
+bool32 pltf_sdl_key(i32 k)
+{
+    return g_SDL.keyc[k];
+}
+
+bool32 pltf_sdl_jkey(i32 k)
+{
+    return (g_SDL.keyc[k] && !g_SDL.keyp[k]);
+}
+
+void pltf_sdl_input_flush()
+{
+    mcpy(g_SDL.keyp, g_SDL.keyc, sizeof(g_SDL.keyc));
+    mclr(g_SDL.keyc, sizeof(g_SDL.keyc));
 }

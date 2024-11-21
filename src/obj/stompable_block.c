@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -11,9 +11,7 @@ typedef struct {
 
 void stompable_block_load(g_s *g, map_obj_s *mo)
 {
-    char saveID[64] = {0};
-    map_obj_strs(mo, "SaveID", saveID);
-    u32 hash = hash_str(saveID);
+    u32 hash = map_obj_saveID(mo, "SaveID");
     if (saveID_has(g, hash)) return;
 
     obj_s             *o = obj_create(g);

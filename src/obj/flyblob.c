@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -71,7 +71,8 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     o->flags = OBJ_FLAG_SPRITE |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_CLAMP_TO_ROOM | OBJ_FLAG_CAN_BE_JUMPED_ON;
+               OBJ_FLAG_HERO_STOMPABLE |
+               OBJ_FLAG_CLAMP_TO_ROOM;
     o->moverflags        = OBJ_MOVER_MAP;
     o->n_sprites         = 2;
     tex_s tex            = asset_tex(TEXID_FLYBLOB);
@@ -165,7 +166,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
             i32 dt = clamp_i32(hoverd / 2, 8, 256);
             vv     = v2_setlen(vhero, dt);
         }
-        o->v_q8 = v2_i16_from_i32(vv, 0);
+        o->v_q8 = v2_i16_from_i32(vv);
 
         if (f->attack_timer) {
             f->attack_timer--;

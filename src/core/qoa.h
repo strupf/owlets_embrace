@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 // A modified version of the .qoa format (qoaformat.org).
@@ -23,9 +23,14 @@
 #define QOA_SLICE_LEN 20 // num of samples in a slice
 
 typedef struct {
-    u32 num_samples;
-    u32 num_slices;
+    u32  num_samples;
+    byte unused[4];
 } qoa_file_header_s;
+
+static inline i32 qoa_num_slices(u32 num_samples)
+{
+    return (i32)((num_samples + QOA_SLICE_LEN - 1) / QOA_SLICE_LEN);
+}
 
 // qoa predictor values
 typedef struct {

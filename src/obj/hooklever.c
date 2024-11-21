@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -38,7 +38,7 @@ void hooklever_on_update(g_s *g, obj_s *o)
             o->state    = 1;
             o->timer    = 0;
             o->tomove.y = 16;
-            saveID_put(g, o->save_ID);
+            // saveID_put(g, o->save_ID);
         }
         break;
     }
@@ -70,10 +70,9 @@ void hooklever_on_update(g_s *g, obj_s *o)
 
 void hooklever_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o   = obj_create(g);
-    o->ID      = OBJ_ID_HOOKLEVER;
-    o->save_ID = mo->ID;
-    o->flags   = OBJ_FLAG_HOOKABLE |
+    obj_s *o = obj_create(g);
+    o->ID    = OBJ_ID_HOOKLEVER;
+    o->flags = OBJ_FLAG_HOOKABLE |
                OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_SPRITE;
     o->on_update    = hooklever_on_update;
@@ -90,7 +89,7 @@ void hooklever_load(g_s *g, map_obj_s *mo)
     obj_sprite_s *spr = &o->sprites[0];
     o->n_sprites      = 1;
 
-    if (saveID_has(g, o->save_ID)) {
+    if (1) { // saveid has
         o->pos.y += 16;
         o->state = 1;
     }

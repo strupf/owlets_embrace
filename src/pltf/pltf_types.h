@@ -1,11 +1,11 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef PLTF_TYPES_H
 #define PLTF_TYPES_H
 
-#if 0 // edit PD code files?
+#if 0 // edit PD code files? -> enable PLTF_PD_HW code paths
 #undef PLTF_SDL
 #define PLTF_PD
 #define PLTF_PD_HW
@@ -29,16 +29,12 @@
 #include <stdint.h>
 #include <string.h>
 
-#if (202311L <= __STDC_VERSION__) // C23
-
-#elif (201112L <= __STDC_VERSION__) // C11
+#if (201112L <= __STDC_VERSION__) // C11 or later
+#if (__STDC_VERSION__ < 202311L)
 #include <stdalign.h>
-#else
-#error ALIGNMENT UNAVAILABLE
 #endif
-
-#ifdef PLTF_PD_HW
-#include <arm_acle.h>
+#else
+#error UNSUPPORTED C STANDARD
 #endif
 
 typedef char           byte;
@@ -49,6 +45,7 @@ typedef intptr_t       iptr;
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned int   uint;
+typedef unsigned long  ulong;
 typedef size_t         usize;
 typedef uint8_t        u8;
 typedef uint16_t       u16;
@@ -70,13 +67,19 @@ typedef u32            flags32;
 typedef u64            flags64;
 
 #ifdef PLTF_PD_HW
-#define ASM           __asm volatile
+#define ASM           __asm
 #define ASM1(I, R, A) ASM(#I " %0, %1" \
                           : "=r"(R)    \
                           : "r"(A))
 #define ASM2(I, R, A, B) ASM(#I " %0, %1, %2" \
                              : "=r"(R)        \
                              : "r"(A), "r"(B))
+#define ASM1V(I, R, A) ASM volatile(#I " %0, %1" \
+                                    : "=r"(R)    \
+                                    : "r"(A))
+#define ASM2V(I, R, A, B) ASM volatile(#I " %0, %1, %2" \
+                                       : "=r"(R)        \
+                                       : "r"(A), "r"(B))
 
 void (*PD_system_error)(const char *format, ...);
 #if 1
@@ -136,7 +139,7 @@ typedef struct {
 
 // clang-format off
 #define typedef_struct(NAME)  typedef struct NAME NAME; struct NAME
-#define typedef_union(NAME)  typedef union NAME NAME; union NAME
+#define typedef_union(NAME)   typedef union NAME NAME; union NAME
 #define mset                  memset
 #define mcpy                  memcpy
 #define mmov                  memmove
@@ -169,48 +172,6 @@ typedef struct {
         assert(0);                    \
     } while (0);
 
-static inline i32 i8_sat(i32 x)
-{
-    if (x < I8_MIN) return I8_MIN;
-    if (x > I8_MAX) return I8_MAX;
-    return x;
-}
-
-static inline i32 u8_sat(i32 x)
-{
-    if (x < 0) return 0;
-    if (x > U8_MAX) return U8_MAX;
-    return x;
-}
-
-static inline i32 i16_sat(i32 x)
-{
-    if (x < I16_MIN) return I16_MIN;
-    if (x > I16_MAX) return I16_MAX;
-    return x;
-}
-
-static inline i32 u16_sat(i32 x)
-{
-    if (x < 0) return 0;
-    if (x > U16_MAX) return U16_MAX;
-    return x;
-}
-
-static inline i32 i32_sat(i64 x)
-{
-    if (x < I32_MIN) return I32_MIN;
-    if (x > I32_MAX) return I32_MAX;
-    return (i32)x;
-}
-
-static inline u32 u32_sat(i64 x)
-{
-    if (x < 0) return 0;
-    if (x > U32_MAX) return U32_MAX;
-    return (u32)x;
-}
-
 typedef struct {
     i32 num;
     i32 den;
@@ -234,11 +195,6 @@ typedef struct {
     i32 x;
     i32 y;
 } v2_i32;
-
-typedef struct {
-    i64 x;
-    i64 y;
-} v2_i64;
 
 typedef struct {
     f32 x;
@@ -310,15 +266,10 @@ static inline v2_i32 v2_i32_from_i16(v2_i16 a)
     return r;
 }
 
-static inline v2_i16 v2_i16_from_i32(v2_i32 a, bool32 sat)
+static inline v2_i16 v2_i16_from_i32(v2_i32 a)
 {
-    if (sat) {
-        v2_i16 r = {i16_sat(a.x), i16_sat(a.y)};
-        return r;
-    } else {
-        v2_i16 r = {(i16)a.x, (i16)a.y};
-        return r;
-    }
+    v2_i16 r = {(i16)a.x, (i16)a.y};
+    return r;
 }
 
 static inline v2_f32 v2_f32_from_i32(v2_i32 a)

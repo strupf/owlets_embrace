@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "render.h"
@@ -103,7 +103,6 @@ void game_draw(g_s *g)
 
     render_fluids(g, camoffset, tilebounds);
     particles_draw(g, &g->particles, camoffset);
-    coinparticle_draw(g, camoffset);
 
     for (; n_obj_render < g->n_objrender; n_obj_render++) {
         obj_draw(ctx, g, g->obj_render[n_obj_render], camoffset);
@@ -197,21 +196,19 @@ void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam)
         ppos.y += o->enemy.hurt_shake_offs.y;
     }
 
-    if (o->flags & OBJ_FLAG_SPRITE) {
-        for (i32 n = 0; n < o->n_sprites; n++) {
-            obj_sprite_s sprite = o->sprites[n];
-            if (sprite.trec.t.px == NULL) continue;
+    for (i32 n = 0; n < o->n_sprites; n++) {
+        obj_sprite_s sprite = o->sprites[n];
+        if (sprite.trec.t.px == NULL) continue;
 
-            v2_i32 sprpos = v2_add(ppos, v2_i32_from_i16(sprite.offs));
-            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, 0);
+        v2_i32 sprpos = v2_add(ppos, v2_i32_from_i16(sprite.offs));
+        gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, 0);
 
-            // player low health blinking
-            if (o->ID == OBJ_ID_HERO && o->health == 1) {
-                gfx_ctx_s cs = ctx;
-                i32       s  = (sin_q16(g->gameplay_tick << 13) + 65536) >> 1;
-                cs.pat       = gfx_pattern_interpolate(s, 65536 * 3);
-                gfx_spr(cs, sprite.trec, sprpos, sprite.flip, SPR_MODE_BLACK);
-            }
+        // player low health blinking
+        if (o->ID == OBJ_ID_HERO && o->health == 1) {
+            gfx_ctx_s cs = ctx;
+            i32       s  = (sin_q16(g->gameplay_tick << 13) + 65536) >> 1;
+            cs.pat       = gfx_pattern_interpolate(s, 65536 * 3);
+            gfx_spr(cs, sprite.trec, sprpos, sprite.flip, SPR_MODE_BLACK);
         }
     }
 
@@ -316,7 +313,6 @@ static inline i32 cmp_tile_spr(tile_spr_s *a, tile_spr_s *b)
 
 SORT_ARRAY_DEF(tile_spr_s, z_tile_spr, cmp_tile_spr)
 
-#include "core/gfx_1bit.h"
 void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
     const tex_s     tset = asset_tex(TEXID_TILESET_TERRAIN);

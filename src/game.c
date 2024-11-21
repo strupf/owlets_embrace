@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -16,7 +16,44 @@ void game_init(g_s *g)
 
 void game_tick(g_s *g)
 {
-    g->n_hitboxes = 0;
+#ifdef PLTF_SDL
+    i32 ab = -1;
+    if (pltf_sdl_jkey(SDL_SCANCODE_0)) ab = 0;
+    if (pltf_sdl_jkey(SDL_SCANCODE_1)) ab = 1;
+    if (pltf_sdl_jkey(SDL_SCANCODE_2)) ab = 2;
+    if (pltf_sdl_jkey(SDL_SCANCODE_3)) ab = 3;
+    if (pltf_sdl_jkey(SDL_SCANCODE_4)) ab = 4;
+    if (pltf_sdl_jkey(SDL_SCANCODE_5)) ab = 5;
+    if (pltf_sdl_jkey(SDL_SCANCODE_6)) ab = 6;
+    if (pltf_sdl_jkey(SDL_SCANCODE_7)) ab = 7;
+    if (pltf_sdl_jkey(SDL_SCANCODE_8)) ab = 8;
+    if (pltf_sdl_jkey(SDL_SCANCODE_9)) ab = 9;
+    if (0 <= ab) {
+        if (8 <= ab) {
+            i32 dt                    = ab == 8 ? -1 : +1;
+            g->save.stamina_upgrades  = max_i32(g->save.stamina_upgrades + dt, 0);
+            g->hero_mem.stamina       = hero_stamina_max(g, obj_get_hero(g));
+            g->hero_mem.stamina_added = 0;
+            pltf_log("# STAMINA: %i\n", g->save.stamina_upgrades);
+        } else {
+            if (hero_has_upgrade(g, ab)) {
+                hero_rem_upgrade(g, ab);
+            } else {
+                hero_add_upgrade(g, ab);
+            }
+        }
+    }
+
+    if (pltf_sdl_jkey(SDL_SCANCODE_SPACE)) {
+        obj_s *cp    = coin_create(g);
+        obj_s *ohero = obj_get_hero(g);
+        cp->pos.x    = (ohero->pos.x) + 50;
+        cp->pos.y    = ohero->pos.y;
+        cp->v_q8.y   = -300;
+        cp->v_q8.x   = rngr_i32(-200, +200);
+    }
+#endif
+
     g->save.tick++;
     if (g->hero_hurt_lowpass_tick) {
         g->hero_hurt_lowpass_tick--;
@@ -129,7 +166,6 @@ void game_tick_gameplay(g_s *g)
     }
 
     objs_cull_to_delete(g);
-    coinparticle_update(g);
     particles_update(g, &g->particles);
 
     obj_s *ohero = NULL;

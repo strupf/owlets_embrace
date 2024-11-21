@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -26,7 +26,7 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     o->on_update  = projectile_on_update;
     o->on_animate = projectile_on_animate;
     o->on_draw    = projectile_on_draw;
-    o->v_q8       = v2_i16_from_i32(vel, 0);
+    o->v_q8       = v2_i16_from_i32(vel);
     o->subID      = subID;
     //
     o->flags |= OBJ_FLAG_HURT_ON_TOUCH;

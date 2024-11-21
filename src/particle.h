@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef PARTICLE_H
@@ -97,23 +97,5 @@ typedef struct {
 void particles_spawn(g_s *g, particle_desc_s desc, i32 n);
 void particles_update(g_s *g, particles_s *pr);
 void particles_draw(g_s *g, particles_s *pr, v2_i32 cam);
-
-#define NUM_COINPARTICLE            256
-#define COINPARTICLE_COLLECT_DISTSQ 350
-
-typedef struct {
-    u16    type;
-    u16    amount;
-    i32    tick;
-    v2_i32 pos;
-    v2_i16 pos_q8;
-    v2_i16 vel_q8;
-    v2_i16 acc_q8;
-    v2_i16 drag_q8;
-} coinparticle_s;
-
-coinparticle_s *coinparticle_create(g_s *g);
-void            coinparticle_update(g_s *g);
-void            coinparticle_draw(g_s *g, v2_i32 cam);
 
 #endif

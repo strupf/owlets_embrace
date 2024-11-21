@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "gfx.h"
@@ -72,7 +72,7 @@ tex_s tex_load(const char *path, alloc_s ma)
 
 static i32 tex_px_at_unsafe(tex_s tex, i32 x, i32 y)
 {
-    u32 b = bswap32(0x80000000U >> (x & 31));
+    u32 b = gfx_endian(0x80000000U >> (x & 31));
     switch (tex.fmt) {
     case TEX_FMT_MASK: return (tex.px[y * tex.wword + ((x >> 5) << 1)] & b);
     case TEX_FMT_OPAQUE: return (tex.px[y * tex.wword + (x >> 5)] & b);
@@ -84,13 +84,13 @@ static i32 tex_mk_at_unsafe(tex_s tex, i32 x, i32 y)
 {
     if (tex.fmt == TEX_FMT_OPAQUE) return 1;
 
-    u32 b = bswap32(0x80000000U >> (x & 31));
+    u32 b = gfx_endian(0x80000000U >> (x & 31));
     return (tex.px[y * tex.wword + ((x >> 5) << 1) + 1] & b);
 }
 
 static void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 {
-    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000U >> (x & 31));
     u32 *p = NULL;
     switch (tex.fmt) {
     case TEX_FMT_MASK: p = &tex.px[y * tex.wword + ((x >> 5) << 1)]; break;
@@ -102,7 +102,7 @@ static void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 
 void tex_px_unsafe_display(tex_s tex, i32 x, i32 y, i32 col)
 {
-    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000U >> (x & 31));
     u32 *p = &tex.px[y * tex.wword + (x >> 5)];
     *p     = (col == 0 ? *p & ~b : *p | b);
 }
@@ -110,7 +110,7 @@ void tex_px_unsafe_display(tex_s tex, i32 x, i32 y, i32 col)
 static void tex_mk_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 {
     if (tex.fmt == TEX_FMT_OPAQUE) return;
-    u32  b = bswap32(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000U >> (x & 31));
     u32 *p = &tex.px[y * tex.wword + ((x >> 5) << 1) + 1];
     *p     = (col == 0 ? *p & ~b : *p | b);
 }
@@ -204,7 +204,7 @@ void tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
                     i32 v = yy + yi;
                     if (!(x1 <= u && u <= x2 &&
                           y1 <= v && v <= y2)) continue;
-                    u32 k = bswap32(src.px[(u << 1) + v * src.wword + 1]);
+                    u32 k = gfx_endian(src.px[(u << 1) + v * src.wword + 1]);
                     switch (xi) {
                     case -1: m |= k << 31; break;
                     case +1: m |= k >> 31; break;
@@ -212,7 +212,7 @@ void tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
                     }
                 }
             }
-            m = bswap32(m) & ~*dm;
+            m = gfx_endian(m) & ~*dm;
             *dm |= m;
             if (col) {
                 *dp |= m;
@@ -249,7 +249,7 @@ void tex_outline_all(tex_s tex, i32 col)
                     i32 v = yy + yi;
                     if (!(x1 <= u && u <= x2 &&
                           y1 <= v && v <= y2)) continue;
-                    u32 k = bswap32(src.px[(u << 1) + v * src.wword + 1]);
+                    u32 k = gfx_endian(src.px[(u << 1) + v * src.wword + 1]);
                     switch (xi) {
                     case -1: m |= k << 31; break;
                     case +1: m |= k >> 31; break;
@@ -257,7 +257,7 @@ void tex_outline_all(tex_s tex, i32 col)
                     }
                 }
             }
-            m = bswap32(m) & ~*dm;
+            m = gfx_endian(m) & ~*dm;
             *dm |= m;
             if (col) {
                 *dp |= m;
@@ -492,10 +492,10 @@ static span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
     span_blit_s info = {0};
     info.y           = y;
     info.doff        = x1 & 31;
-    info.dmax        = (info.doff + nbit - 1) >> 5;                        // number of touched dst words -1
-    info.mode        = mode;                                               // sprite masking mode
-    info.ml          = bswap32(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
-    info.mr          = bswap32(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
+    info.dmax        = (info.doff + nbit - 1) >> 5;                           // number of touched dst words -1
+    info.mode        = mode;                                                  // sprite masking mode
+    info.ml          = gfx_endian(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
+    info.mr          = gfx_endian(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
     info.dst_wword   = ctx.dst.wword;
     info.dp          = &ctx.dst.px[((x1 >> 5) << lsh) + y * ctx.dst.wword];
     info.dadd        = 1 + lsh;
@@ -585,8 +585,8 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
                 if (tex_mk_at_unsafe(src.t, u, v)) sm |= bit;
             }
 
-            u32 *dp = NULL;
-            u32 *dm = NULL;
+            u32 *dp = 0;
+            u32 *dm = 0;
             switch (ctx.dst.fmt) {
             case TEX_FMT_OPAQUE:
                 dp = &ctx.dst.px[y * dst.wword + wi];
@@ -598,7 +598,11 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
             default: BAD_PATH
             }
 
-            spr_blit(dp, dm, bswap32(sp), bswap32(sm) & pat, 0);
+            if (dm) {
+                spr_blit_pm(dp, dm, gfx_endian(sp), gfx_endian(sm) & pat, 0);
+            } else {
+                spr_blit_p(dp, gfx_endian(sp), gfx_endian(sm) & pat, 0);
+            }
         }
     }
 }
@@ -1224,18 +1228,18 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
 
     tex_s dtex    = ctx.dst;
     tex_s stex    = src.t;
-    i32   nb      = (x2 + 1) - x1;                                        // number of bits in a row
-    i32   u1      = src.r.x - pos.x + x1;                                 // first bit index in src row
-    i32   src_wy1 = src.r.y - pos.y + y1;                                 //
-    i32   od      = x1 & 31;                                              // bitoffset in dst
-    i32   os      = u1 & 31;                                              // bitoffset in src
-    i32   dm      = ((od + nb - 1) >> 5);                                 // number of touched dst words -1
-    i32   sm      = ((os + nb - 1) >> 5) << 1;                            // number of touched src words -1
-    u32   ml      = bswap32(U32_C(0xFFFFFFFF) >> (31 & od));              // mask to cut off boundary left
-    u32   mr      = bswap32(U32_C(0xFFFFFFFF) << (31 & (u32)(-od - nb))); // mask to cut off boundary right
-    i32   of      = os - od;                                              // alignment difference
-    i32   l       = of & 31;                                              // word left shift amount
-    i32   r       = 32 - l;                                               // word rght shift amound
+    i32   nb      = (x2 + 1) - x1;                                           // number of bits in a row
+    i32   u1      = src.r.x - pos.x + x1;                                    // first bit index in src row
+    i32   src_wy1 = src.r.y - pos.y + y1;                                    //
+    i32   od      = x1 & 31;                                                 // bitoffset in dst
+    i32   os      = u1 & 31;                                                 // bitoffset in src
+    i32   dm      = ((od + nb - 1) >> 5);                                    // number of touched dst words -1
+    i32   sm      = ((os + nb - 1) >> 5) << 1;                               // number of touched src words -1
+    u32   ml      = gfx_endian(U32_C(0xFFFFFFFF) >> (31 & od));              // mask to cut off boundary left
+    u32   mr      = gfx_endian(U32_C(0xFFFFFFFF) << (31 & (u32)(-od - nb))); // mask to cut off boundary right
+    i32   of      = os - od;                                                 // alignment difference
+    i32   l       = of & 31;                                                 // word left shift amount
+    i32   r       = 32 - l;                                                  // word rght shift amound
 
     u32 *restrict dp       = &dtex.px[((x1 >> 5) << 0) + dtex.wword * y1];      // dst pixel words
     const u32 *restrict sp = &stex.px[((u1 >> 5) << 1) + stex.wword * src_wy1]; // src pixel words
@@ -1248,18 +1252,18 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
             continue;
         }
 
-        u32 zp = bswap32(*(sp));
-        u32 zm = bswap32(*(sp + 1));
+        u32 zp = gfx_endian(*(sp));
+        u32 zm = gfx_endian(*(sp + 1));
         u32 p  = (0 < of ? zp << l : 0);
         u32 m  = (0 < of ? zm << l : 0);
 
-        p = bswap32(p | (zp >> r));
-        m = bswap32(m | (zm >> r)) & ml;
+        p = gfx_endian(p | (zp >> r));
+        m = gfx_endian(m | (zm >> r)) & ml;
         if (dm == 0) { // only one word long
             spr_blit_tile(dp, p, m & mr);
         } else {
             spr_blit_tile(dp, p, m);
-            spr_blit_tile(dp + 1, bswap32(zp << l), bswap32(zm << l) & mr);
+            spr_blit_tile(dp + 1, gfx_endian(zp << l), gfx_endian(zm << l) & mr);
         }
     }
 }

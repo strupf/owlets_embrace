@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -122,10 +122,8 @@ void npc_load(g_s *g, map_obj_s *mo)
     obj_sprite_s *spr = &o->sprites[0];
 
     o->ID    = OBJ_ID_NPC;
-    o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_INTERACTABLE |
-               OBJ_FLAG_MOVER |
-               OBJ_FLAG_CAN_BE_JUMPED_ON;
+    o->flags = OBJ_FLAG_INTERACTABLE |
+               OBJ_FLAG_MOVER;
     o->moverflags = OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_SLIDE_Y_NEG;
@@ -138,10 +136,6 @@ void npc_load(g_s *g, map_obj_s *mo)
     o->h               = 20;
     o->pos.x           = mo->x;
     o->pos.y           = mo->y + mo->h - o->h;
-    o->grav_q8.y       = 50;
-    o->drag_q8.x       = 256;
-    o->drag_q8.y       = 255;
-    o->v_cap_x_q8      = 96; // don't move faster than 1 pixel per frame -> falls down
     o->facing          = 1;
     o->n_sprites       = 1;
     spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);

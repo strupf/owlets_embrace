@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -75,7 +75,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
 
             i32 scl_q8             = m->map.scl_q12 >> 4;
             u32 closest_dist       = 50; // snap distance squared
-            m->map.pin             = NULL;
+            m->map.pin             = 0;
             m->map.pin_delete_tick = 0;
             for (int n = 0; n < g->save.n_map_pins; n++) {
                 map_pin_s *p      = &g->save.map_pins[n];

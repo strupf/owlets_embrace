@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -22,6 +22,8 @@ bool32 obj_blocked_by_map_or_objs(g_s *g, obj_s *o, i32 sx, i32 sy)
 
 bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
 {
+    if (!(o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) return 0;
+
     rec_i32 r     = {x, y, w, 1};
     rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
     rec_i32 ri;
@@ -31,23 +33,34 @@ bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
         i32 tx1 = (ri.x + ri.w - 1) >> 4;
 
         for (i32 tx = tx0; tx <= tx1; tx++) {
-            i32 t = g->tiles[tx + ty * g->tiles_x].collision;
-            if (t == TILE_ONE_WAY || t == TILE_LADDER_ONE_WAY)
+            switch (g->tiles[tx + ty * g->tiles_x].collision) {
+            case TILE_ONE_WAY:
+            case TILE_LADDER_ONE_WAY:
                 return 1;
+            }
         }
     }
 
+    bool32 is_plat = 0;
     for (obj_each(g, it)) {
-        bool32 is_plat = it->flags & OBJ_FLAG_PLATFORM;
-        is_plat |= (o->ID == OBJ_ID_HERO) &&
-                   (it->flags & OBJ_FLAG_PLATFORM_HERO_ONLY);
-
+        if (it == o) continue;
         rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
-        if (is_plat && overlap_rec(r, rplat)) {
-            return 1;
+        if (!overlap_rec(r, rplat)) continue;
+
+        is_plat |= it->flags & OBJ_FLAG_PLATFORM;
+        if (o->ID == OBJ_ID_HERO) {
+            is_plat |= (it->flags & OBJ_FLAG_HERO_PLATFORM);
+            if (hero_stomping(o) && (it->flags & OBJ_FLAG_HERO_STOMPABLE)) {
+                is_plat |= 1;
+                hero_register_stomped_on(o, it);
+            }
+            if ((it->flags & OBJ_FLAG_HERO_JUMPABLE)) {
+                is_plat |= 1;
+                hero_register_jumped_on(o, it);
+            }
         }
     }
-    return 0;
+    return is_plat;
 }
 
 void obj_move(g_s *g, obj_s *o, i32 dx, i32 dy)
@@ -90,14 +103,10 @@ b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
         }
     }
 
-    b32 blocked_oneway = 0;
-    if (0 < sy && !m_push && (o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) {
-        if (obj_on_platform(g, o, o->pos.x, o->pos.y + o->h, o->w)) {
-            blocked_oneway = 1;
-        }
-    }
+    b32 blocked_oneway = 0 < sy &&
+                         obj_on_platform(g, o, o->pos.x, o->pos.y + o->h, o->w);
 
-    if (blocked | blocked_oneway) {
+    if (blocked || (blocked_oneway && !m_push)) {
         o->bumpflags |= obj_bump_x_flag(sx);
         o->bumpflags |= obj_bump_y_flag(sy);
     } else {
@@ -113,7 +122,7 @@ b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
             ropenode_move(g, o->rope, o->ropenode, sx, sy);
         }
 
-        if (o->mass) { // solid pushing
+        if (o->mass || (o->flags & OBJ_FLAG_PLATFORM)) { // solid pushing
             rec_i32 oaabb = obj_aabb(o);
             rec_i32 rplat = {o->pos.x, o->pos.y - sy, o->w, 1};
             for (obj_each(g, i)) {
@@ -137,7 +146,7 @@ b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
                     b32 is_plat = 0;
                     is_plat |= o->flags & OBJ_FLAG_PLATFORM;
                     is_plat |= (i->ID == OBJ_ID_HERO) &&
-                               (o->flags & OBJ_FLAG_PLATFORM_HERO_ONLY);
+                               (o->flags & OBJ_FLAG_HERO_PLATFORM);
                     linked |= (is_plat && overlap_rec(it_bot, rplat));
                 }
 

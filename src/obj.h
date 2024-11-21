@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef OBJ_H
@@ -27,23 +27,24 @@ static inline u32 obj_GID_set(i32 index, i32 gen)
     return (((u32)index << OBJ_ID_INDEX_SH) | ((u32)gen));
 }
 
-#define OBJ_FLAG_MOVER              ((u64)1 << 0)
-#define OBJ_FLAG_INTERACTABLE       ((u64)1 << 2)
-#define OBJ_FLAG_PLATFORM           ((u64)1 << 5)
-#define OBJ_FLAG_PLATFORM_HERO_ONLY ((u64)1 << 6) // only acts as a platform for the hero
-#define OBJ_FLAG_KILL_OFFSCREEN     ((u64)1 << 7)
-#define OBJ_FLAG_HOOKABLE           ((u64)1 << 8)
-#define OBJ_FLAG_SPRITE             ((u64)1 << 9)
-#define OBJ_FLAG_ENEMY              ((u64)1 << 10)
-#define OBJ_FLAG_COLLECTIBLE        ((u64)1 << 11)
-#define OBJ_FLAG_HURT_ON_TOUCH      ((u64)1 << 12)
-#define OBJ_FLAG_CLAMP_ROOM_X       ((u64)1 << 15)
-#define OBJ_FLAG_CLAMP_ROOM_Y       ((u64)1 << 16)
-#define OBJ_FLAG_BOSS               ((u64)1 << 17)
-#define OBJ_FLAG_HOVER_TEXT         ((u64)1 << 18)
-#define OBJ_FLAG_CAN_BE_JUMPED_ON   ((u64)1 << 19)
-#define OBJ_FLAG_LIGHT              ((u64)1 << 20)
-#define OBJ_FLAG_RENDER_AABB        ((u64)1 << 63)
+#define OBJ_FLAG_MOVER          ((u64)1 << 0)
+#define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
+#define OBJ_FLAG_PLATFORM       ((u64)1 << 3)
+#define OBJ_FLAG_HERO_PLATFORM  ((u64)1 << 4) // platform for the hero only
+#define OBJ_FLAG_HERO_STOMPABLE ((u64)1 << 5) // platform for the hero only while stomping
+#define OBJ_FLAG_HERO_JUMPABLE  ((u64)1 << 6) // platform for the hero only while falling
+#define OBJ_FLAG_KILL_OFFSCREEN ((u64)1 << 7)
+#define OBJ_FLAG_HOOKABLE       ((u64)1 << 8)
+#define OBJ_FLAG_SPRITE         ((u64)1 << 9)
+#define OBJ_FLAG_ENEMY          ((u64)1 << 10)
+#define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
+#define OBJ_FLAG_HURT_ON_TOUCH  ((u64)1 << 12)
+#define OBJ_FLAG_CLAMP_ROOM_X   ((u64)1 << 15)
+#define OBJ_FLAG_CLAMP_ROOM_Y   ((u64)1 << 16)
+#define OBJ_FLAG_BOSS           ((u64)1 << 17)
+#define OBJ_FLAG_HOVER_TEXT     ((u64)1 << 18)
+#define OBJ_FLAG_LIGHT          ((u64)1 << 20)
+#define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
 #define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
@@ -123,18 +124,15 @@ typedef void (*obj_on_interact_f)(g_s *g, obj_s *o);
 
 #define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
-    obj_s            *next; // linked list
-    //
-    u32               GID;     // generational index
-    u16               ID;      // type of object
-    u16               subID;   // subtype of object
-    u32               save_ID; // used to register save events
+    obj_s            *next;  // linked list
+    u32               GID;   // generational index
+    u16               ID;    // type of object
+    u16               subID; // subtype of object
     flags64           flags;
     flags32           tags;
     //
     obj_on_update_f   on_update;
     obj_on_animate_f  on_animate;
-    obj_on_draw_f     on_draw_pre;
     obj_on_draw_f     on_draw;
     obj_on_trigger_f  on_trigger;
     obj_on_interact_f on_interact;
@@ -153,21 +151,16 @@ struct obj_s {
     v2_i16            drag_q8;
     v2_i16            grav_q8;
     v2_i16            tomove;
-    v2_i16            knockback_q8;
-    u16               knockback_tick;
-    i16               v_cap_x_q8;
-    i16               v_cap_y_q8_pos;
-    i16               v_cap_y_q8_neg;
     // some generic behaviour fields
-    i32               facing; // -1 left, +1 right
     i32               trigger;
-    i32               action;
-    i32               subaction;
+    i16               state;
+    i16               substate;
+    i16               action;
+    i16               subaction;
+    i16               facing; // -1 left, +1 right
     i32               animation;
     i32               timer;
     i32               subtimer;
-    i16               state;
-    i16               substate;
     u16               cam_attract_r;
     u8                health;
     u8                health_max;
@@ -185,15 +178,16 @@ struct obj_s {
     char              filename[64];
     //
     void             *heap;
-    alignas(4) byte   mem[512];
+    byte              mem[512];
     u32               magic;
 };
+
+#define obj_get_hero(G) obj_get_tagged(G, OBJ_TAG_HERO)
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);
 bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
-//
 obj_s       *obj_create(g_s *g);
 void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
 bool32       obj_tag(g_s *g, obj_s *o, i32 tag);
@@ -228,12 +222,6 @@ void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
 bool32       obj_blocked_by_map_or_objs(g_s *g, obj_s *o, i32 sx, i32 sy);
 bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
-
-// apply gravity, drag, modify subposition and write pos_new
-// uses subpixel position:
-// subposition is [0, 255]. If the boundaries are exceeded
-// the goal is to move a whole pixel left or right
-void    obj_apply_movement(obj_s *o);
-enemy_s enemy_default();
+enemy_s      enemy_default();
 
 #endif

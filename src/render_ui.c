@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -19,6 +19,7 @@ void render_ui(g_s *g, v2_i32 camoff)
     const gfx_ctx_s ctx    = gfx_ctx_display();
     obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
     fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
+    hero_s         *h      = ohero ? (hero_s *)ohero->heap : 0;
 
     obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
     if (interactable) {
@@ -74,28 +75,55 @@ void render_ui(g_s *g, v2_i32 camoff)
     }
 
 #define COIN_MONO_SPACING 8
-#define COIN_POS_END_X    60
-    fnt_s font_c      = asset_fnt(FNTID_SMALL);
+#define COIN_POS_END_X    392
+
+    fnt_s font_c      = asset_fnt(FNTID_MEDIUM);
     char  coins_l[16] = {0};
     strs_from_u32(g->save.coins, coins_l);
     i32    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
-    v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 15};
+    v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 8};
+    for (i32 yy = -1; yy <= +1; yy++) {
+        for (i32 xx = -1; xx <= +1; xx++) {
+            v2_i32 cp = coinpos;
+            cp.x += xx;
+            cp.y += yy;
+            // fnt_draw_ascii_mono(ctx, font_c, cp, coins_l, SPR_MODE_WHITE, COIN_MONO_SPACING);
+        }
+    }
     // fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+
     if (g->coins_added) {
         char coins_add_l[16] = {0};
         strs_from_u32(abs_i32(g->coins_added), coins_add_l);
         i32    coinastrl = fnt_length_px_mono(font_c, coins_add_l, COIN_MONO_SPACING);
-        v2_i32 coinposa  = {COIN_POS_END_X - coinastrl, 30};
+        v2_i32 coinposa  = {COIN_POS_END_X - coinastrl, coinpos.y + 20};
+
+        for (i32 yy = -1; yy <= +1; yy++) {
+            for (i32 xx = -1; xx <= +1; xx++) {
+                v2_i32 cp = coinposa;
+                cp.x += xx;
+                cp.y += yy;
+                fnt_draw_ascii_mono(ctx, font_c, cp, coins_add_l, SPR_MODE_WHITE, COIN_MONO_SPACING);
+            }
+        }
         fnt_draw_ascii_mono(ctx, font_c, coinposa, coins_add_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
-        v2_i32      coinposplus = {10, coinposa.y};
+        v2_i32      coinposplus = {COIN_POS_END_X - 50, coinposa.y};
         const char *strsig      = 0 < g->coins_added ? "+" : "-";
+
+        for (i32 yy = -1; yy <= +1; yy++) {
+            for (i32 xx = -1; xx <= +1; xx++) {
+                v2_i32 cp = coinposplus;
+                cp.x += xx;
+                cp.y += yy;
+                fnt_draw_ascii_mono(ctx, font_c, cp, strsig, SPR_MODE_WHITE, COIN_MONO_SPACING);
+            }
+        }
         fnt_draw_ascii_mono(ctx, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
     }
 
-    if (ohero) {
-        hero_s *hhero = (hero_s *)&g->hero_mem;
-        if (hhero->aim_mode) {
-            v2_i32 aimpos  = hero_hook_aim_dir(hhero);
+    if (hero_present_and_alive(g, &ohero)) {
+        if (h->aim_mode) {
+            v2_i32 aimpos  = hero_hook_aim_dir(h);
             v2_i32 heropos = v2_add(obj_pos_center(ohero), camoff);
             aimpos         = v2_setlen(aimpos, 100);
             aimpos         = v2_add(aimpos, heropos);
@@ -103,6 +131,10 @@ void render_ui(g_s *g, v2_i32 camoff)
             gfx_cir_fill(ctx, aimpos, 14, GFX_COL_BLACK);
         }
 
+        if (ohero->health < ohero->health_max) {
+            // low health indicator
+        }
+#if 0
         texrec_s trheart = asset_texrec(TEXID_UI, 400, 240, 32, 32);
         for (i32 n = 0; n < ohero->health_max; n++) {
             i32 frameID = 0;
@@ -114,6 +146,7 @@ void render_ui(g_s *g, v2_i32 camoff)
             trheart.r.x = 400 + frameID * 32;
             gfx_spr(ctx, trheart, (v2_i32){n * 20 - 3, -4}, 0, 0);
         }
+#endif
     }
 }
 

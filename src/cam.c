@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "cam.h"
@@ -82,7 +82,7 @@ void cam_update(g_s *g, cam_s *c)
             // "new base height"
             i32 cam_y_bot_q8 = c->pos_q8.y + CAM_OFFS_Q8_BOT; // align bottom with platform
             i32 diffy_q8     = hero_bot_q8 - cam_y_bot_q8;
-            i32 y_add        = (diffy_q8 * 20) >> 8;
+            i32 y_add        = (diffy_q8 * 15) >> 8;
             if (diffy_q8 < 0) {
                 y_add = min_i32(y_add, -CAM_Y_NEW_BASE_MIN_SPEED);
             }

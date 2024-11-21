@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #include "game.h"
@@ -21,8 +21,9 @@ void blockswing_load(g_s *g, map_obj_s *mo)
     o->pos.y         = mo->y;
     o->w             = mo->w;
     o->h             = mo->h;
-    o->mass          = 2;
+    o->mass          = 1;
     o->flags         = OBJ_FLAG_RENDER_AABB;
+    v2_i16 v         = map_obj_pt(mo, "P");
 }
 
 void blockswing_on_update(g_s *g, obj_s *o)

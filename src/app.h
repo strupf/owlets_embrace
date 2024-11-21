@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef APP_H
@@ -7,19 +7,11 @@
 
 #include "game.h"
 #include "pltf/pltf.h"
-#include "settings.h"
 #include "title.h"
 
 typedef struct {
-    i32 x;
-} app_menu_s;
-
-typedef struct {
-    g_s game;
-
-    title_s    title;
-    settings_s settings;
-    app_menu_s menu; // playdate sidebar menu
+    g_s     game;
+    title_s title;
 } app_s;
 
 extern app_s APP;

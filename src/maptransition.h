@@ -1,5 +1,5 @@
 // =============================================================================
-// Copyright (C) 2023, Strupf (the.strupf@proton.me). All rights reserved.
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
 #ifndef _MAPTRANSITION_H
@@ -10,6 +10,7 @@
 typedef struct maptransition_s {
     u8     fade_phase;
     u8     type;
+    u8     health;
     i32    hero_face;
     bool8  jump_ui_may_hide;
     i32    dir;
