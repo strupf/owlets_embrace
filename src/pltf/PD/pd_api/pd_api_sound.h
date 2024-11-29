@@ -133,7 +133,7 @@ typedef struct PDSynthSignal PDSynthSignal;
 
 typedef float (*signalStepFunc)(void* userdata, int* ioframes, float* ifval);
 typedef void (*signalNoteOnFunc)(void* userdata, MIDINote note, float vel, float len); // len = -1 for indefinite
-typedef void (*signalNoteOffFunc)(void* userdata, int stop, int offset); // stop = 0 for note release, = 1 when note stops playing
+typedef void (*signalNoteOffFunc)(void* userdata, int stopped, int offset); // stopped = 0 on note release, = 1 when note actually stops playing; offset is # of frames into the current cycle
 typedef void (*signalDeallocFunc)(void* userdata);
 
 struct playdate_sound_signal
@@ -143,6 +143,9 @@ struct playdate_sound_signal
 	float (*getValue)(PDSynthSignal* signal);
 	void (*setValueScale)(PDSynthSignal* signal, float scale);
 	void (*setValueOffset)(PDSynthSignal* signal, float offset);
+
+	// 2.6
+	PDSynthSignal* (*newSignalForValue)(PDSynthSignalValue* value);
 };
 
 #if TARGET_EXTENSION
@@ -287,6 +290,9 @@ struct playdate_sound_synth // PDSynth extends SoundSource
 	// 2.4
 	void (*setGenerator)(PDSynth* synth, int stereo, synthRenderFunc render, synthNoteOnFunc noteOn, synthReleaseFunc release, synthSetParameterFunc setparam, synthDeallocFunc dealloc, synthCopyUserdata copyUserdata, void* userdata);
 	PDSynth* (*copy)(PDSynth* synth);
+	
+	// 2.6
+	void (*clearEnvelope)(PDSynth* synth);
 };
 
 

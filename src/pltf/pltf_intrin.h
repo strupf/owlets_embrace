@@ -41,23 +41,22 @@ static inline i32 i16_adds(i32 a, i32 b)
 static inline u32 brev32(u32 v)
 {
     u32 r = 0;
-    ASM1(rbit, r, v);
-    return r;
-}
-
-static inline i32 mul_q16(i32 a, i16 b)
-{
-    i32 r = 0;
-    ASM2(smulwb, r, a, (i32)b);
+    __asm("rbit %0, %1" : "=r"(r) : "r"(v));
     return r;
 }
 
 static inline i32 smulwb(i32 a, i16x2 b)
 {
     i32 r = 0;
-    ASM2(smulwb, r, a, b);
+    __asm("smulwb %0, %1, %2" : "=r"(r) : "r"(a), "r"((i32)b));
     return r;
 }
+
+static inline i32 mul_q16(i32 a, i16 b)
+{
+    return smulwb(a, (i16x2)b);
+}
+
 #else
 typedef struct {
     alignas(4) i16 v[2];

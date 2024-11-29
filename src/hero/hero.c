@@ -158,8 +158,7 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
 
 void hero_on_update(g_s *g, obj_s *o)
 {
-    hero_s *h = (hero_s *)o->heap;
-
+    hero_s *h       = (hero_s *)o->heap;
     h->interactable = obj_handle_from_obj(NULL);
     h->pushing      = 0;
     hero_handle_input(g, o);
@@ -180,6 +179,10 @@ void hero_on_update(g_s *g, obj_s *o)
             h->climbing = 0;
             state       = hero_determine_state(g, o, h);
         }
+    }
+
+    if (h->gliding) {
+        h->gliding--;
     }
 
     if (h->invincibility_ticks) {
@@ -206,10 +209,10 @@ void hero_on_update(g_s *g, obj_s *o)
     }
 
     if (state == HERO_STATE_AIR) {
-        hero_stamina_update_ui(g, o, !h->stamina_ui_collected_tick);
+        hero_stamina_update_ui(g, o, !h->stamina_ui_collected_tick << 3);
     } else {
         h->stamina_ui_collected_tick = 0;
-        hero_stamina_update_ui(g, o, g->save.stamina_upgrades << 6);
+        hero_stamina_update_ui(g, o, g->save.stamina_upgrades << 7);
     }
 
     if (state == HERO_STATE_SWIMMING && h->statep == HERO_STATE_AIR) {
@@ -321,14 +324,15 @@ void hero_on_update(g_s *g, obj_s *o)
 
         if (state == HERO_STATE_AIR && rope_stretched) {
             obj_vy_q8_mul(o, -64);
-        } else if (!(o->bumpflags & OBJ_BUMP_ON_HEAD)) {
+        } else {
+            h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
+
             if (1000 <= o->v_q8.y) {
                 f32 vol = (1.f * (f32)o->v_q8.y) / 2000.f;
                 snd_play(SNDID_STEP, min_f32(vol, 1.f) * 1.2f, 1.f);
             }
-            h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
-            if (500 <= o->v_q8.y) {
 
+            if (500 <= o->v_q8.y) {
                 v2_i32 posc = obj_pos_bottom_center(o);
                 posc.x -= 16;
                 posc.y -= 32;
@@ -665,12 +669,28 @@ bool32 hero_stomping(obj_s *o)
     return ((hero_s *)o->heap)->stomp;
 }
 
-i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
+i32 hero_register_jumped_or_stomped_on(obj_s *ohero, obj_s *o)
 {
     hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_jumped_on; n++) {
-        if (obj_from_obj_handle(h->jumped_on[n]) == o)
+    for (i32 n = 0; n < h->n_jumped_or_stomped_on; n++) {
+        if (obj_from_obj_handle(h->jumped_or_stomped_on[n]) == o) {
             return 1;
+        }
+    }
+    if (h->n_jumped_or_stomped_on == HERO_NUM_JUMPED_ON) return 0;
+    h->jumped_or_stomped_on[h->n_jumped_or_stomped_on++] =
+        obj_handle_from_obj(o);
+    return 2;
+}
+
+i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
+{
+    hero_register_jumped_or_stomped_on(ohero, o);
+    hero_s *h = (hero_s *)ohero->heap;
+    for (i32 n = 0; n < h->n_jumped_on; n++) {
+        if (obj_from_obj_handle(h->jumped_on[n]) == o) {
+            return 1;
+        }
     }
     if (h->n_jumped_on == HERO_NUM_JUMPED_ON) return 0;
     h->jumped_on[h->n_jumped_on++] = obj_handle_from_obj(o);
@@ -679,6 +699,7 @@ i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
 
 i32 hero_register_stomped_on(obj_s *ohero, obj_s *o)
 {
+    hero_register_jumped_or_stomped_on(ohero, o);
     hero_s *h = (hero_s *)ohero->heap;
     for (i32 n = 0; n < h->n_stomped_on; n++) {
         if (obj_from_obj_handle(h->stomped_on[n]) == o)

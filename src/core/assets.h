@@ -57,6 +57,7 @@ enum {
     TEXID_CRABLER,
     TEXID_FLUIDS,
     TEXID_CHEST,
+    TEXID_TRAMPOLINE,
     //
     NUM_TEXID_EXPLICIT,
     //

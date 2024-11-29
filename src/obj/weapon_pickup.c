@@ -16,8 +16,6 @@ obj_s *weapon_pickup_create(g_s *g)
     o->w              = 16;
     o->h              = 16;
     o->flags          = OBJ_FLAG_MOVER | OBJ_FLAG_SPRITE | OBJ_FLAG_INTERACTABLE;
-    o->grav_q8.y      = 60;
-    o->drag_q8.y      = 256;
     o->on_animate     = weapon_pickup_on_animate;
     o->on_update      = weapon_pickup_on_update;
     o->on_interact    = weapon_pickup_on_interact;

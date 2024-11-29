@@ -4,34 +4,27 @@
 
 #include "game.h"
 
-void walker_on_update(g_s *g, obj_s *o);
-void walker_on_animate(g_s *g, obj_s *o);
-
 void walker_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_WALKER;
     o->flags = OBJ_FLAG_MOVER |
-               // OBJ_FLAG_RENDER_AABB |
+               OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_SPRITE |
+               OBJ_FLAG_HERO_STOMPABLE |
                OBJ_FLAG_KILL_OFFSCREEN;
-    o->on_update  = walker_on_update;
-    o->on_animate = walker_on_animate;
+    o->moverflags = OBJ_MOVER_MAP | OBJ_MOVER_ONE_WAY_PLAT;
+    o->w          = 20;
+    o->h          = 30;
+    o->pos.x      = mo->x;
+    o->pos.y      = mo->y + mo->h - o->h;
 
-    o->w     = 20;
-    o->h     = 30;
-    o->pos.x = mo->x;
-    o->pos.y = mo->y + mo->h - o->h;
-
-    o->drag_q8.y  = 255;
-    o->health_max = 5;
+    o->health_max = 3;
     o->health     = o->health_max;
     o->enemy      = enemy_default();
-    o->grav_q8.y  = 70;
     o->facing     = 1;
-    o->n_sprites  = 1;
+    o->n_sprites  = 0;
 }
 
 void walker_on_update(g_s *g, obj_s *o)
@@ -45,15 +38,16 @@ void walker_on_update(g_s *g, obj_s *o)
     }
 
     o->bumpflags = 0;
-    o->tomove.x  = time_now() & 1 ? o->facing : 0;
+
+    o->timer++;
+    if (o->timer & 1) {
+        obj_move(g, o, o->facing, 0);
+    }
+
+    o->v_q8.y += 60;
+    obj_move_by_v_q8(g, o);
 }
 
 void walker_on_animate(g_s *g, obj_s *o)
 {
-    obj_sprite_s *spr     = &o->sprites[0];
-    i32           frameID = (time_now() >> 3) & 3;
-    spr->flip             = 0 < o->facing ? 0 : SPR_FLIP_X;
-    spr->trec             = asset_texrec(TEXID_SKELETON, frameID * 64, 64, 64, 64);
-    spr->offs.y           = -(spr->trec.r.h - o->h);
-    spr->offs.x           = -(spr->trec.r.w - o->w) / 2;
 }

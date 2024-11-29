@@ -16,7 +16,7 @@
 #endif
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
-#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
+#define PLTF_SDL_USE_DEBUG_RECS 1 && !PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_NUM_DEBUG_RECS 256
 #define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
 
@@ -423,10 +423,10 @@ void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
     rec.col              = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
                                       r, g, b);
     rec.ticks            = 0 < t ? t : 1;
-    rec.x                = ssat16(x);
-    rec.y                = ssat16(y);
-    rec.w                = ssat16(w);
-    rec.h                = ssat16(h);
+    rec.x                = ssat(x, 16);
+    rec.y                = ssat(y, 16);
+    rec.w                = ssat(w, 16);
+    rec.h                = ssat(h, 16);
 
     g_SDL.debug_recs[g_SDL.n_debug_recs++] = rec;
 #endif

@@ -28,6 +28,11 @@ void objs_update(g_s *g)
         case OBJ_ID_WATERLEAF: waterleaf_on_update(g, o); break;
         case OBJ_ID_WINDAREA: windarea_on_update(g, o); break;
         case OBJ_ID_COIN: coin_on_update(g, o); break;
+        case OBJ_ID_DOOR: door_on_update(g, o); break;
+        case OBJ_ID_TRIGGERAREA: triggerarea_on_update(g, o); break;
+        case OBJ_ID_WALKER: walker_on_update(g, o); break;
+        case OBJ_ID_SPIDERBOSS: spiderboss_on_update(g, o); break;
+        case OBJ_ID_TRAMPOLINE: trampoline_on_update(g, o); break;
         }
     }
 }

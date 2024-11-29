@@ -30,7 +30,7 @@ void hero_handle_input(g_s *g, obj_s *o)
     i32 crank       = inp_crank_q16();
     h->holds_weapon = 0 < crank && crank <= 0x8000;
 
-    if (h->holds_weapon) { // weapon equipped
+    if (0) { // weapon equipped
         if (h->b_hold_tick) {
             if (!inp_action(INP_B)) {
                 if (h->b_hold_tick < 7) {
@@ -91,61 +91,22 @@ void hero_handle_input(g_s *g, obj_s *o)
     }
 }
 
-bool32 hero_try_stomp(g_s *g, obj_s *o)
-{
-    hero_s *h           = (hero_s *)o->heap;
-    rec_i32 aabb        = obj_aabb(o);
-    i32     hbot        = aabb.y + aabb.h;
-    bool32  stomped_obj = 0;
-
-    for (obj_each(g, it)) {
-        rec_i32 itrec = {it->pos.x, it->pos.y, it->w, 1};
-        rec_i32 iaabb = obj_aabb(it);
-        if (!overlap_rec(iaabb, aabb)) continue;
-        if (it->ID == OBJ_ID_FLYBLOB) {
-            i32 dy = hbot - iaabb.y;
-            obj_move(g, o, 0, -dy);
-            aabb        = obj_aabb(o);
-            h->stomp    = 0;
-            o->v_q8.y   = -1500;
-            stomped_obj = 1;
-        }
-    }
-
-    if (stomped_obj) return 1;
-
-    rec_i32 rbot = obj_rec_bottom(o);
-
-    obj_s *stompable_block  = NULL;
-    bool32 blocked_by_other = tile_map_solid(g, rbot);
-    for (obj_each(g, it)) {
-        rec_i32 rit = obj_aabb(it);
-        if (!overlap_rec(rit, rbot)) continue;
-        if (it->ID == OBJ_ID_STOMPABLE_BLOCK) {
-            stompable_block = it;
-        } else {
-            blocked_by_other |= it->mass;
-            break;
-        }
-    }
-
-    objs_cull_to_delete(g);
-    if (blocked_by_other) {
-        if (obj_grounded(g, o)) {
-            h->stomp = 0;
-        }
-    } else if (stompable_block) {
-        stompable_block_on_destroy(g, stompable_block);
-        obj_delete(g, stompable_block);
-    }
-
-    objs_cull_to_delete(g);
-    return 0;
-}
-
 void hero_post_update(g_s *g, obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
+
+    trampolines_do_bounce(g);
+
+    for (i32 n = 0; n < h->n_jumped_or_stomped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->jumped_or_stomped_on[n]);
+        if (!i) continue;
+
+        switch (i->ID) {
+        default: break;
+        case OBJ_ID_SWITCH: switch_on_interact(g, i); break;
+        case OBJ_ID_CHEST: chest_on_open(g, i); break;
+        }
+    }
 
     b32 stomped_on = 0;
     for (i32 n = 0; n < h->n_stomped_on; n++) {
@@ -171,23 +132,21 @@ void hero_post_update(g_s *g, obj_s *o)
         jumped_on = 1;
         switch (i->ID) {
         default: break;
-        case OBJ_ID_CHEST:
-            chest_on_open(g, i);
-            break;
         }
     }
 
-    h->n_stomped_on = 0;
-    h->n_jumped_on  = 0;
+    h->n_jumped_or_stomped_on = 0;
+    h->n_stomped_on           = 0;
+    h->n_jumped_on            = 0;
 
     if (stomped_on) {
-        o->v_q8.y = -1000;
+        o->v_q8.y = min_i32(o->v_q8.y, -1000);
         o->bumpflags &= ~OBJ_BUMP_Y_POS;
         h->stomp = 0;
     }
 
     if (jumped_on) {
-        o->v_q8.y = -1000;
+        o->v_q8.y = min_i32(o->v_q8.y, -1000);
         o->bumpflags &= ~OBJ_BUMP_Y_POS;
     }
 

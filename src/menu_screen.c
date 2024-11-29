@@ -171,7 +171,8 @@ void menu_screen_draw(g_s *g, menu_screen_s *m)
                                                            PLTF_DISPLAY_W, PLTF_DISPLAY_H, scl_q8);
 
         gfx_ctx_s ctx_cir = ctx;
-        ctx_cir.pat       = gfx_pattern_interpolate(sin_q16(time_now() << 13) + 65526, 65536 * 2);
+
+        ctx_cir.pat = gfx_pattern_interpolate(sin_q16(pltf_time() << 13) + 65526, 65536 * 2);
         herop_screen.x -= 16;
         herop_screen.y -= 16;
         texrec_s theropin = asset_texrec(TEXID_UI, 320, 160, 32, 32);

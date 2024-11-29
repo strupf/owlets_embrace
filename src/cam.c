@@ -5,10 +5,11 @@
 #include "cam.h"
 #include "game.h"
 
-#define CAM_W  PLTF_DISPLAY_W
-#define CAM_H  PLTF_DISPLAY_H
-#define CAM_WH (PLTF_DISPLAY_W >> 1)
-#define CAM_HH (PLTF_DISPLAY_H >> 1)
+#define CAM_W           PLTF_DISPLAY_W
+#define CAM_H           PLTF_DISPLAY_H
+#define CAM_WH          (PLTF_DISPLAY_W >> 1)
+#define CAM_HH          (PLTF_DISPLAY_H >> 1)
+#define CAM_FACE_OFFS_X 50
 
 static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
 
@@ -59,8 +60,8 @@ void cam_init_level(g_s *g, cam_s *c)
 #define CAM_X_LOOKAHEAD_MIN_SPEED (1 << 7)
 #define CAM_HERO_Y_BOT            172                   // lower = camera positioned lower
 #define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 74) // tune for jump height
-#define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) << 8)
-#define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) << 8)
+#define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) * 256)
+#define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) * 256)
 
 void cam_update(g_s *g, cam_s *c)
 {
@@ -68,6 +69,10 @@ void cam_update(g_s *g, cam_s *c)
     v2_i32    ppos          = c->pos_q8;
     v2_i32    padd          = {0};
     const i32 lookdown_prev = c->lookdown;
+    c->can_align_x          = 0;
+    c->can_align_y          = 0;
+    c->hero_align_x         = 0;
+    c->hero_align_y         = 0;
 
     switch (c->mode) {
     case CAM_MODE_FOLLOW_HERO: {
@@ -98,7 +103,14 @@ void cam_update(g_s *g, cam_s *c)
 
         i32 cam_y_min = hero_bot_q8 - CAM_OFFS_Q8_BOT;
         i32 cam_y_max = hero_bot_q8 - CAM_OFFS_Q8_TOP;
-        c->pos_q8.y   = clamp_i32(c->pos_q8.y, cam_y_min, cam_y_max);
+        if (c->pos_q8.y <= cam_y_min) {
+            c->pos_q8.y    = cam_y_min;
+            c->can_align_y = 1;
+        }
+        if (c->pos_q8.y >= cam_y_max) {
+            c->pos_q8.y    = cam_y_max;
+            c->can_align_y = 1;
+        }
 
         i32 va = abs_i32(hero->v_q8.x);
         i32 vs = sgn_i32(hero->v_q8.x);
@@ -109,7 +121,15 @@ void cam_update(g_s *g, cam_s *c)
             c->offs_x += vs * (-sgn_i32(c->offs_x) == vs ? 1 : 1);
         }
 
-        c->offs_x   = clamp_i32(c->offs_x, -50, +50);
+        if (c->offs_x <= -CAM_FACE_OFFS_X) {
+            c->offs_x      = -CAM_FACE_OFFS_X;
+            c->can_align_x = 1;
+        }
+        if (c->offs_x >= +CAM_FACE_OFFS_X) {
+            c->offs_x      = +CAM_FACE_OFFS_X;
+            c->can_align_x = 1;
+        }
+
         c->pos_q8.x = herop.x << 8;
 
         // cam attractors

@@ -37,7 +37,6 @@ void hooklever_on_update(g_s *g, obj_s *o)
             o->subtimer = 0;
             o->state    = 1;
             o->timer    = 0;
-            o->tomove.y = 16;
             // saveID_put(g, o->save_ID);
         }
         break;

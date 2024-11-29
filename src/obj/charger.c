@@ -59,10 +59,6 @@ static void charger_update_normal(g_s *g, obj_s *o)
     if (bumpedx || obj_would_fall_down_next(g, o, o->facing)) {
         o->facing = -o->facing;
     }
-
-    if ((o->timer & 3) == 0) {
-        o->tomove.x = o->facing;
-    }
 }
 
 static void charger_update_charging(g_s *g, obj_s *o)
@@ -183,9 +179,6 @@ void charger_load(g_s *g, map_obj_s *mo)
     o->on_animate     = charger_on_animate;
     o->w              = 48;
     o->h              = 32;
-    o->grav_q8.y      = 80;
-    o->drag_q8.y      = 255;
-    o->drag_q8.x      = 256;
     o->moverflags     = OBJ_MOVER_GLUE_GROUND | OBJ_MOVER_SLIDE_Y_NEG;
     o->facing         = -1;
     o->health_max     = 3;

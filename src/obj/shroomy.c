@@ -32,9 +32,6 @@ void shroomy_load(g_s *g, map_obj_s *mo)
     o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->facing          = 1;
-    o->grav_q8.y       = 30;
-    o->drag_q8.y       = 255;
-    o->drag_q8.x       = 200;
     o->w               = 16;
     o->h               = 16;
     o->moverflags      = OBJ_MOVER_SLIDE_Y_NEG |

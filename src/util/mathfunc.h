@@ -179,6 +179,7 @@ static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
     i64 j = (i64)(b - a) * (i64)num;
     assert((i64)i == j);
 #endif
+
     return (a + i / den);
 }
 
@@ -1088,6 +1089,32 @@ static bool32 overlap_rec_lineseg_excl(rec_i32 r, lineseg_i32 l)
     bool32 separated = (a0 | a1 | a2 | a3) >= 0 ||
                        (a0 <= 0 && a1 <= 0 && a2 <= 0 && a3 <= 0);
     return !separated;
+}
+
+// paulbourke.net/geometry/circlesphere/
+static i32 intersect_cir(v2_i32 a, i32 ra, v2_i32 b, i32 rb,
+                         v2_i32 *u, v2_i32 *v)
+{
+    v2_i32 ab = v2_sub(b, a);
+    i32    ls = v2_lensq(ab);
+    if (pow2_i32(ra + rb) < ls || ls < pow2_i32(ra - rb)) return 0;
+    if (ls == 0) return (ra == rb ? -1 : 0);
+    i32 ls2 = ls << 1;
+    i32 ls4 = ls << 2;
+    i32 k   = ra * ra - rb * rb + ls;
+    i32 h   = sqrt_i32(ra * ra - (k * k + ls2) / ls4);
+    i32 l   = sqrt_i32(ls);
+    i32 px  = a.x + (k * ab.x + ls) / ls2;
+    i32 py  = a.y + (k * ab.y + ls) / ls2;
+    i32 dx  = (h * ab.y) / l;
+    i32 dy  = (h * ab.x) / l;
+    if (u) {
+        u->x = px + dx, u->y = py - dy;
+    }
+    if (v) {
+        v->x = px - dx, v->y = py + dy;
+    }
+    return (1 + (dx != 0 || dy != 0));
 }
 
 static m33_f32 m33_identity()

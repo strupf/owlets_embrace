@@ -52,14 +52,12 @@ void npc_on_update(g_s *g, obj_s *o)
         // ramp up velocity
 
         if (--o->timer <= 0) {
-            o->drag_q8.x = 180; // slowly stop movement
             if (abs_i32(o->v_q8.x) < 10) {
                 o->v_q8.x = 0;
             }
             if (o->timer < -100) {
-                o->timer     = rngr_i32(80, 150);
-                o->v_q8.x    = rngr_i32(-1, +1);
-                o->drag_q8.x = 256;
+                o->timer  = rngr_i32(80, 150);
+                o->v_q8.x = rngr_i32(-1, +1);
                 if (o->v_q8.x != 0) {
                     o->facing = sgn_i32(o->v_q8.x);
                 }

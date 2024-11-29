@@ -49,6 +49,7 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
             h->stomp++;
         }
         if (HERO_TICKS_STOMP_INIT <= h->stomp) {
+            pltf_log("stomp");
             obj_move(g, o,
                      dpad_x,
                      min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10));
@@ -92,10 +93,6 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
         i32 va = abs_i32(o->v_q8.x);
         i32 ax = 0;
 
-        if (dpad_x != vs) {
-            obj_vx_q8_mul(o, 246);
-        }
-
         if (vs == 0) {
             ax = 200;
         } else if (dpad_x == +vs && va < HERO_VX_WALK) { // press same dir as velocity
@@ -110,28 +107,28 @@ void hero_update_air(g_s *g, obj_s *o, bool32 rope_stretched)
             i32 i1 = WALLJUMP_MOM_TICKS;
             ax     = lerp_i32(0, ax, POW2(i0), POW2(i1));
         }
+
+        if (dpad_x != vs) {
+            obj_vx_q8_mul(o, 235);
+        }
         o->v_q8.x += ax * dpad_x;
     }
 
     o->v_q8.y = min_i32(o->v_q8.y, 1792);
 
-    bool32 start_climbing = 0;
-    if (hero_has_upgrade(g, HERO_UPGRADE_CLIMB) && dpad_x) {
-        if (hero_is_climbing(g, o, dpad_x)) {
-            start_climbing  = 1;
-            o->animation    = 0;
-            h->impact_ticks = 5;
-        }
-    }
+    bool32 start_climbing = dpad_x &&
+                            hero_has_upgrade(g, HERO_UPGRADE_CLIMB) &&
+                            hero_is_climbing(g, o, dpad_x);
 
     if (start_climbing) {
+        o->animation = 0;
         if (inp_action_jp(INP_A)) {
             hero_walljump(g, o, -dpad_x);
         } else {
             o->v_q8.y       = 0;
             o->v_q8.x       = 0;
             o->facing       = dpad_x;
-            h->impact_ticks = 4;
+            h->impact_ticks = 5;
             h->climbing     = 1;
         }
     } else if (0 < h->jump_btn_buffer) {

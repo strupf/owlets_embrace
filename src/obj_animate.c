@@ -22,6 +22,7 @@ void objs_animate(g_s *g)
         case OBJ_ID_FROG: frog_on_animate(g, o); break;
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
         case OBJ_ID_CHEST: chest_on_animate(g, o); break;
+        case OBJ_ID_DOOR: door_on_animate(g, o); break;
         }
     }
 }

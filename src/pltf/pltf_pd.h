@@ -11,25 +11,13 @@
 #include "PD/pd_api.h"
 #include "pltf_types.h"
 
-#if 0
+extern PlaydateAPI *PD;
 extern void (*PD_system_logToConsole)(const char *fmt, ...);
-extern void *(*PD_system_realloc)(void *ptr, size_t s);
-extern int (*PD_system_formatString)(char **outstr, const char *fmt, ...);
-
-#define pltf_log(...)                                 \
-    {                                                 \
-        char *strret;                                 \
-        PD_system_formatString(&strret, __VA_ARGS__); \
-        PD_system_logToConsole(__VA_ARGS__);          \
-        PD_system_realloc(strret, 0);                 \
-    }
-#elif 1
+#if 1
 #define pltf_log PD_system_logToConsole
 #else
 #define pltf_log(...)
 #endif
-
-extern PlaydateAPI *PD;
 
 enum {
     PLTF_PD_BTN_DL = kButtonLeft,

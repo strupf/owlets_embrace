@@ -43,16 +43,16 @@
 #define FILEEXTENSION_AUD ".audio"
 #define NUM_TILES         131072
 
-typedef struct g_s g_s;
-typedef struct obj_s  obj_s;
+typedef struct g_s   g_s;
+typedef struct obj_s obj_s;
 
 // handle to an object
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
-typedef_struct (obj_handle_s) {
+typedef struct obj_handle_s {
     obj_s *o;
     u32    GID;
-};
+} obj_handle_s;
 
 enum {
     APP_STATE_TITLE,
@@ -67,16 +67,12 @@ enum {
     GAME_STATE_GAMEOVER,
 };
 
-#define LEN_HERO_NAME             16
-#define LEN_AREA_FILENAME         64
-#define FADETICKS_MM_GAME         40
-#define FADETICKS_MM_GAME_BLACK   20
-#define FADETICKS_GAME_IN         40
-#define FADETICKS_AREALABEL       150
-#define RENDER_PRIO_HERO          0x100
-#define ITEM_SWAP_DOUBLETAP_TICKS 15
-#define NUM_WORLD_ROOMS           64
-#define NUM_WORLD_ROOM_TILES      256
+#define LEN_HERO_NAME        16
+#define LEN_AREA_FILENAME    64
+#define FADETICKS_AREALABEL  150
+#define RENDER_PRIO_HERO     0x100
+#define NUM_WORLD_ROOMS      64
+#define NUM_WORLD_ROOM_TILES 256
 
 enum {
     DIRECTION_NONE,
@@ -90,27 +86,19 @@ enum {
     DIRECTION_NW,
 };
 
+enum {
+    DIR_NONE  = 0,
+    DIR_X_POS = 1,
+    DIR_Y_POS = 2,
+    DIR_X_NEG = 4,
+    DIR_Y_NEG = 8,
+};
+
 static i32 direction_nearest(i32 dir, bool32 cw)
 {
     if (dir == DIRECTION_NONE) return 0;
     return ((dir + (cw ? 0 : 6)) & 7) + 1;
 }
-
-static i32 time_now()
-{
-    return (i32)0;
-}
-
-static i32 time_since(i32 t)
-{
-    i32 time = time_now();
-    return (time - t);
-}
-
-enum {
-    MENUITEM_GAME_INVENTORY,
-    MENUITEM_REDUCE_FLICKER,
-};
 
 static i32 ticks_from_seconds(f32 s)
 {

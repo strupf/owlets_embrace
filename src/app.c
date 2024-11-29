@@ -369,6 +369,9 @@ void app_load_tex()
     }
     asset_tex_loadID(TEXID_WINDGUSH, "windgush", 0);
     asset_tex_loadID(TEXID_TITLE_SCREEN, "titlescreen", 0);
+    tex_s ttrampoline;
+    asset_tex_loadID(TEXID_TRAMPOLINE, "trampoline", &ttrampoline);
+    tex_outline(ttrampoline, 0, 0, 64, 160, 1, 1);
     water_prerender_tiles();
 }
 

@@ -34,7 +34,9 @@ void game_draw(g_s *g)
         return;
     }
 
-    rec_i32 camrec_raw    = cam_rec_px(g, &g->cam);
+    cam_s  *cam           = &g->cam;
+    hero_s *hero          = &g->hero_mem;
+    rec_i32 camrec_raw    = cam_rec_px(g, cam);
     v2_i32  camoffset_raw = {-camrec_raw.x, -camrec_raw.y};
     rec_i32 camrec        = camrec_raw;
     camrec.x &= ~1;
@@ -42,6 +44,17 @@ void game_draw(g_s *g)
 
     v2_i32 camoffset = {-camrec.x, -camrec.y};
     g->cam_prev      = camoffset;
+    obj_s  *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
+    rope_s *rope     = ohero ? ohero->rope : NULL;
+    obj_s  *ohook    = ohero ? obj_from_obj_handle(hero->hook) : NULL;
+    if (ohero) {
+        // snap player sprite to multiple of 2 like the camera
+        // in certain situations to reduce flickering
+        v2_i32 oh         = v2_add(camoffset_raw, ohero->pos);
+        cam->hero_align_x = oh.x == cam->hero_off.x && cam->can_align_x;
+        cam->hero_align_y = oh.y == cam->hero_off.y && cam->can_align_y;
+        cam->hero_off     = oh;
+    }
 
     tex_s             texdisplay = asset_tex(0);
     gfx_ctx_s         ctx        = gfx_ctx_default(texdisplay);
@@ -67,11 +80,8 @@ void game_draw(g_s *g)
         obj_draw(ctx, g, o, camoffset);
     }
 
-    obj_s  *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-    rope_s *rope  = ohero ? ohero->rope : NULL;
-    obj_s  *ohook = ohero ? obj_from_obj_handle(g->hero_mem.hook) : NULL;
     if (rope && ohook) {
-        v2_i32 ropepts[64];
+        v2_i32 ropepts[ROPE_VERLET_N];
         u32    n_ropepts = 0;
 
         for (u32 k = 1; k < ROPE_VERLET_N; k++) {
@@ -184,12 +194,16 @@ void game_draw(g_s *g)
         break;
     }
 
-    g->cam.prev_gfx_offs = camoffset;
+    cam->prev_gfx_offs = camoffset;
 }
 
 void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam)
 {
     v2_i32 ppos = v2_add(o->pos, cam);
+    if (o->ID == OBJ_ID_HERO) {
+        ppos.x &= ~(i32)g->cam.hero_align_x;
+        ppos.y &= ~(i32)g->cam.hero_align_y;
+    }
 
     if (o->enemy.hurt_tick) {
         ppos.x += o->enemy.hurt_shake_offs.x;
@@ -367,8 +381,6 @@ void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset
         tile_spr_s sp   = tile_spr[n];
         texrec_s   trec = {tset, {sp.tx << 5, sp.ty << 5, 32, 32}};
         v2_i32     pos  = {sp.x - 8, sp.y - 8};
-
-        // gfx_1b_b(ctx.dst, trec.t, trec.r, pos);
         gfx_spr_tile_32x32(ctx, trec, pos);
     }
     spm_pop();

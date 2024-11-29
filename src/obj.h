@@ -15,6 +15,7 @@
 #define NUM_OBJ         (1 << NUM_OBJ_POW_2)
 #define OBJ_ID_INDEX_SH (32 - NUM_OBJ_POW_2)
 #define OBJ_ID_GEN_MASK (((u32)1 << OBJ_ID_INDEX_SH) - 1)
+#define OBJ_MEM_BYTES   512
 
 static inline u32 obj_GID_incr_gen(u32 gid)
 {
@@ -43,6 +44,7 @@ static inline u32 obj_GID_set(i32 index, i32 gen)
 #define OBJ_FLAG_CLAMP_ROOM_Y   ((u64)1 << 16)
 #define OBJ_FLAG_BOSS           ((u64)1 << 17)
 #define OBJ_FLAG_HOVER_TEXT     ((u64)1 << 18)
+#define OBJ_FLAG_CLIMBABLE      ((u64)1 << 19)
 #define OBJ_FLAG_LIGHT          ((u64)1 << 20)
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
@@ -104,12 +106,6 @@ typedef struct enemy_s {
     bool8 invincible;
 } enemy_s;
 
-typedef struct {
-    v2_i32 offs;
-    i16    tick;
-    i16    time;
-} obj_carry_s;
-
 static inline u32 save_ID_gen(i32 roomID, i32 objID)
 {
     u32 save_ID = ((u32)roomID << 16) | ((u32)objID);
@@ -148,9 +144,6 @@ struct obj_s {
     v2_i16            subpos_q8;
     v2_i16            v_q8;
     v2_i16            v_prev_q8;
-    v2_i16            drag_q8;
-    v2_i16            grav_q8;
-    v2_i16            tomove;
     // some generic behaviour fields
     i32               trigger;
     i16               state;
@@ -178,7 +171,7 @@ struct obj_s {
     char              filename[64];
     //
     void             *heap;
-    byte              mem[512];
+    byte              mem[OBJ_MEM_BYTES];
     u32               magic;
 };
 
@@ -221,6 +214,7 @@ void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
 void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
 bool32       obj_blocked_by_map_or_objs(g_s *g, obj_s *o, i32 sx, i32 sy);
+bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
 bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
 enemy_s      enemy_default();
 

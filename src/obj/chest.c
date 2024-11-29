@@ -23,11 +23,14 @@ void chest_load(g_s *g, map_obj_s *mo)
     o->w         = mo->w;
     o->h         = mo->h;
     o->n_sprites = 1;
-    c->saveID    = map_obj_saveID(mo, "SaveID");
-    if (saveID_has(g, c->saveID)) {
-        o->state = CHEST_OPENED;
-    } else {
-        o->flags = OBJ_FLAG_HERO_JUMPABLE;
+    u32 save_hash;
+    if (map_obj_saveID(mo, "SaveID", &save_hash)) {
+        c->saveID = save_hash;
+        if (saveID_has(g, save_hash)) {
+            o->state = CHEST_OPENED;
+        } else {
+            o->flags = OBJ_FLAG_HERO_JUMPABLE;
+        }
     }
 }
 

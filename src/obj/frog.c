@@ -22,7 +22,6 @@ void frog_load(g_s *g, map_obj_s *mo)
     o->on_update  = frog_on_update;
     o->w          = 16;
     o->h          = 16;
-    o->grav_q8.y  = 80;
     o->flags =
         OBJ_FLAG_ENEMY |
         OBJ_FLAG_MOVER;

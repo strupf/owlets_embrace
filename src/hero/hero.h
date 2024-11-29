@@ -61,8 +61,8 @@ enum {
 #define HERO_TICKS_STOMP_INIT          6
 #define STAMINA_UI_TICKS_HIDE          12
 #define WALLJUMP_ANIM_TICKS            10
-#define WALLJUMP_MOM_TICKS             42
-#define HERO_NUM_JUMPED_ON             4
+#define WALLJUMP_MOM_TICKS             37
+#define HERO_NUM_JUMPED_ON             8
 #define HERO_HEALTH_RESTORE_TICKS      250
 
 typedef struct {
@@ -95,6 +95,7 @@ typedef_struct (hero_s) {
     obj_handle_s interactable;
     obj_handle_s hook;
 
+    u8     gliding;
     b8     is_idle;
     b8     diving;
     u8     ladder_type; // while climbing: 1 if on ladder, 0 if on wall
@@ -148,8 +149,10 @@ typedef_struct (hero_s) {
 
     u16          n_jumped_on;
     u16          n_stomped_on;
+    u16          n_jumped_or_stomped_on;
     obj_handle_s jumped_on[HERO_NUM_JUMPED_ON];
     obj_handle_s stomped_on[HERO_NUM_JUMPED_ON];
+    obj_handle_s jumped_or_stomped_on[HERO_NUM_JUMPED_ON];
 };
 
 obj_s *hero_create(g_s *g);

@@ -46,13 +46,16 @@ i32 pltf_internal_update()
 #if PLTF_SHOW_FPS
     f32 tu1 = pltf_seconds();
 #endif
-    bool32 updated = 0;
+    i32 updated = 0;
     while (PLTF_UPS_DT_TEST <= g_pltf.ups_timeacc) {
         g_pltf.ups_timeacc -= PLTF_UPS_DT;
         g_pltf.tick++;
         g_pltf.ups_counter++;
-        updated = 1;
+        updated++;
         app_tick();
+    }
+    if (1 < updated) {
+        pltf_log("SKIPPED %i\n", updated - 1);
     }
 #if PLTF_SHOW_FPS
     f32 tu2 = pltf_seconds();

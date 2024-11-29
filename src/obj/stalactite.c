@@ -97,8 +97,6 @@ void stalactite_load(g_s *g, map_obj_s *mo)
     o->n_sprites       = 1;
     o->w               = 32;
     o->h               = 16;
-    o->grav_q8.y       = 70;
-    o->drag_q8.y       = 255;
     spr->trec          = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
     o->pos.x           = mo->x;
     o->pos.y           = mo->y;

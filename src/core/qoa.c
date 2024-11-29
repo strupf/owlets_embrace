@@ -178,7 +178,7 @@ void qoa_stream_fade_to_vol(qoa_stream_s *q, u32 ms, i32 v_q8)
 void qoa_stream_seek(qoa_stream_s *q, u32 p)
 {
     if (!qoa_stream_active(q)) return;
-    if (q->num_slices <= qoa_num_slices(p)) return;
+    if ((i32)q->num_slices <= qoa_num_slices(p)) return;
 
     qoa_stream_rewind(q);
     qoa_lms_s *lms = &q->lms;

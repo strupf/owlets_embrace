@@ -273,6 +273,19 @@ bool32 map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y)
     return 0;
 }
 
+bool32 map_blocked_by_any_climbable_pt(g_s *g, i32 x, i32 y)
+{
+    v2_i32 pt = {x, y};
+    for (obj_each(g, it)) {
+        if (it->mass == 0) continue;
+        if (!(it->flags & OBJ_FLAG_CLIMBABLE)) continue;
+        if (overlap_rec_pnt(obj_aabb(it), pt)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 bool32 map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m)
 {
     if (tile_map_solid(g, r)) return 1;
@@ -297,6 +310,14 @@ bool32 map_traversable_pt(g_s *g, i32 x, i32 y)
 {
     if (tile_map_solid_pt(g, x, y)) return 0;
     if (map_blocked_by_any_solid_pt(g, x, y)) return 0;
+    return 1;
+}
+
+bool32 map_climbable_pt(g_s *g, i32 x, i32 y)
+{
+    if (!tile_map_solid_pt(g, x, y) &&
+        !map_blocked_by_any_climbable_pt(g, x, y))
+        return 0;
     return 1;
 }
 

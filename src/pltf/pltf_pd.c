@@ -14,7 +14,7 @@ typedef struct {
 
 static PD_s g_PD;
 
-void (*PD_system_error)(const char *format, ...);
+void (*PD_system_error)(const char *fmt, ...);
 void (*PD_system_logToConsole)(const char *fmt, ...);
 void *(*PD_system_realloc)(void *ptr, size_t s);
 int (*PD_system_formatString)(char **outstr, const char *fmt, ...);
@@ -48,20 +48,14 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_file_write               = PD->file->write;
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD->system->setUpdateCallback(pltf_pd_update, PD);
-        PD->sound->addSource(pltf_pd_audio, NULL, 0);
+        PD->sound->addSource(pltf_pd_audio, 0, 0);
         PD->display->setRefreshRate(0.f);
         PD->system->resetElapsedTime();
         pltf_internal_init();
         break;
-    case kEventTerminate:
-        pltf_internal_close();
-        break;
-    case kEventPause:
-        pltf_internal_pause();
-        break;
-    case kEventResume:
-        pltf_internal_resume();
-        break;
+    case kEventTerminate: pltf_internal_close(); break;
+    case kEventPause: pltf_internal_pause(); break;
+    case kEventResume: pltf_internal_resume(); break;
     default: break;
     }
     return 0;
@@ -70,7 +64,7 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
 int pltf_pd_update(void *user)
 {
     PDButtons cur;
-    PD_system_getButtonState(&cur, NULL, NULL);
+    PD_system_getButtonState(&cur, 0, 0);
     g_PD.b |= cur;
     return pltf_internal_update();
 }

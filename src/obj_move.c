@@ -41,6 +41,37 @@ bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
         }
     }
 
+    for (obj_each(g, it)) {
+        if (it == o) continue;
+        if (!(it->flags & OBJ_FLAG_PLATFORM)) continue;
+        rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
+        if (!overlap_rec(r, rplat)) continue;
+        return 1;
+    }
+    return 0;
+}
+
+bool32 obj_blocked_by_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
+{
+    if (!(o->moverflags & OBJ_MOVER_ONE_WAY_PLAT)) return 0;
+
+    rec_i32 r     = {x, y, w, 1};
+    rec_i32 rgrid = {0, 0, g->pixel_x, g->pixel_y};
+    rec_i32 ri;
+    if ((y & 15) == 0 && intersect_rec(r, rgrid, &ri)) {
+        i32 ty  = (ri.y) >> 4;
+        i32 tx0 = (ri.x) >> 4;
+        i32 tx1 = (ri.x + ri.w - 1) >> 4;
+
+        for (i32 tx = tx0; tx <= tx1; tx++) {
+            switch (g->tiles[tx + ty * g->tiles_x].collision) {
+            case TILE_ONE_WAY:
+            case TILE_LADDER_ONE_WAY:
+                return 1;
+            }
+        }
+    }
+
     bool32 is_plat = 0;
     for (obj_each(g, it)) {
         if (it == o) continue;
@@ -66,16 +97,17 @@ bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
 void obj_move(g_s *g, obj_s *o, i32 dx, i32 dy)
 {
     for (i32 m = abs_i32(dx), sx = sgn_i32(dx); 0 < m; m--) {
-        obj_step(g, o, sx, +0, 1, 0);
+        if (!obj_step(g, o, sx, +0, 1, 0)) break;
     }
 
     for (i32 m = abs_i32(dy), sy = sgn_i32(dy); 0 < m; m--) {
-        obj_step(g, o, +0, sy, 1, 0);
+        if (!obj_step(g, o, +0, sy, 1, 0)) break;
     }
 }
 
 b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
 {
+
     b32 slide_l = sy && can_slide && (o->moverflags & OBJ_MOVER_SLIDE_X_NEG);
     b32 slide_r = sy && can_slide && (o->moverflags & OBJ_MOVER_SLIDE_X_POS);
     b32 slide_u = sx && can_slide && (o->moverflags & OBJ_MOVER_SLIDE_Y_NEG);
@@ -88,7 +120,16 @@ b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
     }
 
     b32 blocked = 0;
-    if (collmap && obj_blocked_by_map_or_objs(g, o, sx, sy)) {
+    if (o->flags & OBJ_FLAG_CLAMP_ROOM_X) {
+        blocked |= (o->pos.x + sx < 0);
+        blocked |= (g->pixel_x < o->pos.x + sx + o->w);
+    }
+    if (o->flags & OBJ_FLAG_CLAMP_ROOM_Y) {
+        blocked |= (o->pos.y + sy < 0);
+        blocked |= (g->pixel_y < o->pos.y + sy + o->h);
+    }
+
+    if (!blocked && collmap && obj_blocked_by_map_or_objs(g, o, sx, sy)) {
         if (0) {
         } else if (slide_u && !obj_blocked_by_map_or_objs(g, o, sx, -1)) {
             obj_step(g, o, +0, -1, 0, o->mass);
@@ -104,9 +145,10 @@ b32 obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push)
     }
 
     b32 blocked_oneway = 0 < sy &&
-                         obj_on_platform(g, o, o->pos.x, o->pos.y + o->h, o->w);
+                         obj_blocked_by_platform(g, o, o->pos.x, o->pos.y + o->h, o->w);
 
-    if (blocked || (blocked_oneway && !m_push)) {
+    blocked |= (blocked_oneway && !m_push);
+    if (blocked) {
         o->bumpflags |= obj_bump_x_flag(sx);
         o->bumpflags |= obj_bump_y_flag(sy);
     } else {

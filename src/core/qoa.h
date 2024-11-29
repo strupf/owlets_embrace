@@ -10,7 +10,7 @@
 // struct qoa_file {
 //    struct {
 //        u32 num_samples;
-//        u32 num_slices;
+//        u32 unused;
 //    } file_header;
 //    u64 slices[N];
 // };

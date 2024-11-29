@@ -13,11 +13,16 @@ enum {
     CAM_MODE_PIN_TO_TARGET,
 };
 
-typedef struct {
+typedef struct cam_s {
     v2_i32 prev_gfx_offs;
     v2_i32 pos_q8;
     v2_i32 shake;
     v2_i32 attract;
+    v2_i32 hero_off;
+    bool8  can_align_x;
+    bool8  can_align_y;
+    bool8  hero_align_x;
+    bool8  hero_align_y;
     i32    lookdown;
     i16    mode;
     u16    shake_ticks;

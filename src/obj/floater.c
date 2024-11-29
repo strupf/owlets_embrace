@@ -37,8 +37,6 @@ void floater_load(g_s *g, map_obj_s *mo)
     o->health_max      = 1;
     o->health          = o->health_max;
     o->enemy           = enemy_default();
-    o->drag_q8.y       = 256;
-    o->drag_q8.x       = 256;
     o->render_priority = 1;
     o->n_sprites       = 1;
     fl->steer_ang_q16  = 20000;

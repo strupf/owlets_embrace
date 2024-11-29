@@ -14,7 +14,7 @@ enum {
     OBJ_ID_HOOK,
     OBJ_ID_SIGN,
     OBJ_ID_SIGN_POPUP,
-    OBJ_ID_DOOR_SWING,
+    OBJ_ID_DOOR,
     OBJ_ID_CRUMBLEBLOCK,
     OBJ_ID_SWITCH,
     OBJ_ID_TOGGLEBLOCK,
@@ -61,6 +61,8 @@ enum {
     OBJ_ID_CHEST,
     OBJ_ID_WATERLEAF,
     OBJ_ID_WINDAREA,
+    OBJ_ID_TRAMPOLINE,
+    OBJ_ID_SPIDERBOSS,
 };
 
 enum {
@@ -124,12 +126,15 @@ void   sign_popup_on_update(g_s *g, obj_s *o);
 void   sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 obj_s *sign_create(g_s *g);
 void   sign_load(g_s *g, map_obj_s *mo);
-void   swingdoor_load(g_s *g, map_obj_s *mo);
 void   teleport_load(g_s *g, map_obj_s *mo);
 void   stalactite_load(g_s *g, map_obj_s *mo);
 void   walker_load(g_s *g, map_obj_s *mo);
+void   walker_on_update(g_s *g, obj_s *o);
+void   walker_on_animate(g_s *g, obj_s *o);
 void   flyer_load(g_s *g, map_obj_s *mo);
+obj_s *triggerarea_spawn(g_s *g, rec_i32 r, i32 tr_enter, i32 tr_leave, b32 once);
 void   triggerarea_load(g_s *g, map_obj_s *mo);
+void   triggerarea_on_update(g_s *g, obj_s *o);
 void   spikes_load(g_s *g, map_obj_s *mo);
 void   hooklever_load(g_s *g, map_obj_s *mo);
 obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
@@ -193,4 +198,16 @@ void   windarea_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 obj_s *coin_create(g_s *g);
 void   coin_on_animate(g_s *g, obj_s *o);
 void   coin_on_update(g_s *g, obj_s *o);
+void   door_load(g_s *g, map_obj_s *mo);
+void   door_on_update(g_s *g, obj_s *o);
+void   door_on_animate(g_s *g, obj_s *o);
+void   door_on_trigger(g_s *g, obj_s *o, i32 trigger);
+void   door_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   trampoline_load(g_s *g, map_obj_s *mo);
+void   trampoline_on_update(g_s *g, obj_s *o);
+void   trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   trampolines_do_bounce(g_s *g);
+void   spiderboss_load(g_s *g, map_obj_s *mo);
+void   spiderboss_on_update(g_s *g, obj_s *o);
+void   spiderboss_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 #endif

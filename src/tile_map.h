@@ -132,8 +132,10 @@ void         tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type);
 bool32       map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m);
 bool32       map_blocked_by_any_solid(g_s *g, rec_i32 r);
 bool32       map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y);
+bool32       map_blocked_by_any_climbable_pt(g_s *g, i32 x, i32 y);
 bool32       map_traversable(g_s *g, rec_i32 r);
 bool32       map_traversable_pt(g_s *g, i32 x, i32 y);
+bool32       map_climbable_pt(g_s *g, i32 x, i32 y);
 
 extern const tile_corners_s g_tile_corners[NUM_TILE_SHAPES];
 extern const i32            g_tile_tris[NUM_TILE_SHAPES * 12];

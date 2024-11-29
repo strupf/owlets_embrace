@@ -82,7 +82,7 @@ void hero_on_animate(g_s *g, obj_s *o)
     if (h->attack_tick || h->b_hold_tick) {
         state = HERO_STATE_NULL; // override other states
         sprite->offs.y -= 16;
-        sprite->offs.x += o->facing == 1 ? 0 : -60;
+        sprite->offs.x += o->facing * 12;
 
         u32 attack_hold = h->attack_hold_tick + h->b_hold_tick;
         if (attack_hold) {
@@ -92,11 +92,10 @@ void hero_on_animate(g_s *g, obj_s *o)
             }
             h->attack_hold_frame = frameID;
         } else {
-            static const u8 frametimes[2][8] = {{0, 1, 2, 4, 6, 8, 10, 12},
-                                                {0, 1, 2, 3, 4, 5, 7, 9}};
+            static const u8 frametimes[8] = {0, 1, 2, 4, 6, 8, 10, 12};
 
             for (i32 n = 8 - 1; 0 <= n; n--) {
-                if (frametimes[h->attack_ID][n] <= h->attack_tick) {
+                if (frametimes[n] <= h->attack_tick) {
                     frameID = n;
                     break;
                 }
@@ -104,15 +103,12 @@ void hero_on_animate(g_s *g, obj_s *o)
             frameID = max_i32(frameID, h->attack_hold_frame);
         }
 
-        if (h->attack_ID == 1) {
-            animID = 31;
-        } else {
-            animID = 29 + h->attack_flipflop;
-        }
+        frameID += h->attack_flipflop * 8;
+        animID = 16;
 
-        rec_i32 frame_attack = {128 * frameID,
+        rec_i32 frame_attack = {64 * frameID,
                                 64 * animID,
-                                128,
+                                64,
                                 64};
         sprite->trec.r       = frame_attack;
         return;
@@ -354,17 +350,19 @@ void hero_on_animate(g_s *g, obj_s *o)
             }
         }
 
-        animID = HERO_ANIMID_AIR; // "air"
+        animID    = HERO_ANIMID_AIR; // "air"
+        i32 vanim = o->v_q8.y + pow2_i32(h->gliding) * 10;
+
         if (h->impact_ticks) {
             frameID = 0;
             sprite->offs.y -= 16;
-        } else if (+100 <= o->v_q8.y) {
+        } else if (+100 <= vanim) {
             frameID = 6;
-        } else if (-100 <= o->v_q8.y) {
+        } else if (-100 <= vanim) {
             frameID = 5;
-        } else if (-400 <= o->v_q8.y) {
+        } else if (-400 <= vanim) {
             frameID = 4;
-        } else if (-800 <= o->v_q8.y) {
+        } else if (-800 <= vanim) {
             frameID = 3;
         } else {
             frameID = 2;

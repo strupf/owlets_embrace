@@ -12,7 +12,7 @@
 #define TEXTBOX_FNTID             FNTID_LARGE
 #define TEXTBOX_NUM_FRAMES        64
 #define DIALOG_NUM_LINES          4
-#define DIALOG_NUM_CHARS_PER_LINE 32
+#define DIALOG_NUM_CHARS_PER_LINE 48
 #define DIALOG_NUM_CHOICES        4
 
 typedef struct {

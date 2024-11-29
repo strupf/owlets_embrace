@@ -14,7 +14,6 @@ void carrier_on_update(g_s *g, obj_s *o)
         o->v_q8.x = 0;
     }
     o->bumpflags = 0;
-    o->drag_q8.x = 250;
 
     obj_s *hero = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!hero) return;
@@ -29,7 +28,6 @@ void carrier_on_update(g_s *g, obj_s *o)
 
     if (obj_grounded(g, o)) {
         o->v_q8.x += hero->facing * 50;
-        o->drag_q8.x = 256;
     } else {
         o->v_q8.x += hero->facing * 15;
     }
@@ -57,8 +55,6 @@ void carrier_load(g_s *g, map_obj_s *mo)
     o->on_animate      = carrier_on_animate;
     o->w               = 40;
     o->h               = 24;
-    o->drag_q8.y       = 255;
-    o->grav_q8.y       = 60;
     o->render_priority = 2;
 
     o->n_sprites      = 1;

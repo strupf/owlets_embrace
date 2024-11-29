@@ -97,6 +97,20 @@ typedef enum
 	kPolygonFillEvenOdd
 } LCDPolygonFillRule;
 
+typedef enum
+{
+	kWrapClip,
+	kWrapCharacter,
+	kWrapWord,
+} PDTextWrappingMode;
+
+typedef enum
+{
+	kAlignTextLeft,
+	kAlignTextCenter,
+	kAlignTextRight
+} PDTextAlignment;
+
 #endif
 
 typedef struct LCDBitmap LCDBitmap;
@@ -213,6 +227,9 @@ struct playdate_graphics
 	void (*setPixel)(int x, int y, LCDColor c);
 	LCDSolidColor (*getBitmapPixel)(LCDBitmap* bitmap, int x, int y);
 	void (*getBitmapTableInfo)(LCDBitmapTable* table, int* count, int* width);
+	
+	// 2.6
+	void (*drawTextInRect)(const void* text, size_t len, PDStringEncoding encoding, int x, int y, int width, int height, PDTextWrappingMode wrap, PDTextAlignment align);
 };
 
 #endif /* pdext_gfx_h */

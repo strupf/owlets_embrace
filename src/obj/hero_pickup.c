@@ -16,7 +16,6 @@ obj_s *hero_pickup_create(g_s *g, v2_i32 pos, i32 pickupID)
     o->h     = 16;
     o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_RENDER_AABB;
-    o->grav_q8.y = 80;
     return o;
 }
 

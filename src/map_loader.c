@@ -152,7 +152,7 @@ static void             map_obj_prop_fg_parse(g_s *g, map_obj_s *o);
 static bool32           at_types_blending(i32 a, i32 b);
 
 #define map_prop_strs(P, NAME, B) map_prop_str(P, NAME, B, sizeof(B))
-static void   map_prop_str(map_properties_s p, const char *name, void *b, u32 bs);
+static bool32 map_prop_str(map_properties_s p, const char *name, void *b, u32 bs);
 static i32    map_prop_i32(map_properties_s p, const char *name);
 static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
@@ -161,6 +161,12 @@ static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 static void map_obj_parse(g_s *g, map_obj_s *o)
 {
     if (0) {
+    } else if (str_eq_nc(o->name, "Spiderboss")) {
+        spiderboss_load(g, o);
+    } else if (str_eq_nc(o->name, "Door")) {
+        door_load(g, o);
+    } else if (str_eq_nc(o->name, "Trampoline")) {
+        trampoline_load(g, o);
     } else if (str_eq_nc(o->name, "Windarea")) {
         windarea_load(g, o);
     } else if (str_eq_nc(o->name, "Waterleaf")) {
@@ -213,8 +219,6 @@ static void map_obj_parse(g_s *g, map_obj_s *o)
         toggleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Moving_Plat")) {
         movingplatform_load(g, o);
-    } else if (str_eq_nc(o->name, "Door_Swing")) {
-        swingdoor_load(g, o);
     } else if (str_contains(o->name, "Spikes_")) {
         spikes_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
@@ -231,7 +235,7 @@ static void map_obj_parse(g_s *g, map_obj_s *o)
         flyer_load(g, o);
     } else if (str_eq_nc(o->name, "Clockpulse")) {
         clockpulse_load(g, o);
-    } else if (str_eq_nc(o->name, "Trigger_Area")) {
+    } else if (str_eq_nc(o->name, "Triggerarea")) {
         triggerarea_load(g, o);
     } else if (str_eq_nc(o->name, "Hooklever")) {
         hooklever_load(g, o);
@@ -373,7 +377,12 @@ void game_load_map(g_s *g, const char *mapfile)
             i32 ttshape = map_terrain_shape(tt);
             switch (ttshape) {
             case TILE_LADDER: {
-                i32 ty                                 = 19 + (y & 3);
+                i32 ty = 19 + (y & 3);
+                if (0 < y &&
+                    map_terrain_shape(l_terrain.t[k - w]) != TILE_LADDER) {
+                    ty = 18;
+                }
+
                 g->tiles[k].collision                  = TILE_LADDER;
                 g->rtiles[TILELAYER_PROP_BG][k].tx     = 5;
                 g->rtiles[TILELAYER_PROP_BG][k].ty     = ty;
@@ -381,17 +390,20 @@ void game_load_map(g_s *g, const char *mapfile)
                 g->rtiles[TILELAYER_PROP_BG][k - 1].ty = ty;
                 g->rtiles[TILELAYER_PROP_BG][k + 1].tx = 6;
                 g->rtiles[TILELAYER_PROP_BG][k + 1].ty = ty;
-            } break;
+                break;
+            }
             case TILE_LADDER_ONE_WAY: {
                 g->tiles[k].collision              = TILE_LADDER_ONE_WAY;
                 g->rtiles[TILELAYER_PROP_BG][k].tx = 2;
                 g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
-            } break;
+                break;
+            }
             case TILE_ONE_WAY: {
                 g->tiles[k].collision              = TILE_ONE_WAY;
                 g->rtiles[TILELAYER_PROP_BG][k].tx = 3;
                 g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
-            } break;
+                break;
+            }
             default: map_at_terrain(g, l_terrain, x, y); break;
             }
         }
@@ -411,9 +423,7 @@ void game_load_map(g_s *g, const char *mapfile)
     spm_pop();
 
     // FLUIDS ==================================================================
-    spm_push();
     map_rle_u8_uncompress(g->fluid_streams, &mapdata[hd.offs_fluids], hd.n_rle_fluids);
-    spm_pop();
 
     // PROPS_BG ================================================================
     map_prop_tile_s *props_bg = (map_prop_tile_s *)&mapdata[hd.offs_bg];
@@ -767,11 +777,11 @@ static map_prop_s *map_prop_get(map_properties_s p, const char *name)
     return 0;
 }
 
-static void map_prop_str(map_properties_s p, const char *name, void *b, u32 bs)
+static bool32 map_prop_str(map_properties_s p, const char *name, void *b, u32 bs)
 {
-    if (!b || bs == 0) return;
+    if (!b || bs == 0) return 0;
     map_prop_s *prop = map_prop_get(p, name);
-    if (prop == 0 || prop->type != MAP_PROP_STRING) return;
+    if (!prop || prop->type != MAP_PROP_STRING) return 0;
     char *s       = (char *)(prop + 1);
     char *d       = (char *)b;
     i32   written = 0;
@@ -783,6 +793,7 @@ static void map_prop_str(map_properties_s p, const char *name, void *b, u32 bs)
         written++;
     }
     ((char *)b)[bs - 1] = '\0';
+    return 1;
 }
 
 static i32 map_prop_i32(map_properties_s p, const char *name)
@@ -827,16 +838,21 @@ bool32 map_obj_has_nonnull_prop(map_obj_s *mo, const char *name)
     return (prop->type != MAP_PROP_NULL);
 }
 
-u32 map_obj_saveID(map_obj_s *mo, const char *name)
+bool32 map_obj_saveID(map_obj_s *mo, const char *name, u32 *save_hash)
 {
     char b[64] = {0};
-    map_obj_strs(mo, name, b);
-    return hash_str(b);
+    if (map_obj_strs(mo, name, b)) {
+        *save_hash = hash_str(b);
+        return 1;
+    } else {
+        *save_hash = 0;
+    }
+    return 0;
 }
 
-void map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs)
+bool32 map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs)
 {
-    map_prop_str(map_obj_properties(mo), name, b, bs);
+    return map_prop_str(map_obj_properties(mo), name, b, bs);
 }
 
 i32 map_obj_i32(map_obj_s *mo, const char *name)

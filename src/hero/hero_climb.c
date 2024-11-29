@@ -12,7 +12,7 @@ void hero_walljump(g_s *g, obj_s *o, i32 dir)
     h->walljump_tick = dir * WALLJUMP_MOM_TICKS;
     o->animation     = 0;
     o->facing        = dir;
-    o->v_q8.x        = dir * 600;
+    o->v_q8.x        = dir * 700;
     hero_start_jump(g, o, HERO_JUMP_WALL);
 }
 
@@ -28,7 +28,7 @@ void hero_update_climb(g_s *g, obj_s *o)
     } else if (dpad_y && sta) {
         i32 N = 3;
         if (dpad_y < 0) {
-            hero_stamina_modify(g, o, -32);
+            hero_stamina_modify(g, o, -24);
             N = 2;
             o->animation += 2;
         } else {
@@ -88,7 +88,7 @@ bool32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
     i32 y2 = dy + o->pos.y + o->h - 1 - 4;
 
     for (i32 y = y1; y <= y2; y++) {
-        if (map_traversable_pt(g, x, y)) {
+        if (!map_climbable_pt(g, x, y)) {
             return 0;
         }
     }

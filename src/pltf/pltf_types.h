@@ -67,20 +67,6 @@ typedef u32            flags32;
 typedef u64            flags64;
 
 #ifdef PLTF_PD_HW
-#define ASM           __asm
-#define ASM1(I, R, A) ASM(#I " %0, %1" \
-                          : "=r"(R)    \
-                          : "r"(A))
-#define ASM2(I, R, A, B) ASM(#I " %0, %1, %2" \
-                             : "=r"(R)        \
-                             : "r"(A), "r"(B))
-#define ASM1V(I, R, A) ASM volatile(#I " %0, %1" \
-                                    : "=r"(R)    \
-                                    : "r"(A))
-#define ASM2V(I, R, A, B) ASM volatile(#I " %0, %1, %2" \
-                                       : "=r"(R)        \
-                                       : "r"(A), "r"(B))
-
 void (*PD_system_error)(const char *format, ...);
 #if 1
 #undef assert

@@ -10,6 +10,7 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
+    pltf_log("init");
     map_world_load(&g->map_world, "world.world");
     g->cam.mode = CAM_MODE_FOLLOW_HERO;
 }

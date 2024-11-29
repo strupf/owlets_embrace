@@ -58,9 +58,9 @@ void steam_platform_on_update(g_s *g, obj_s *o)
         break;
     case STEAM_PLATFORM_UP: {
         o->timer++;
-        i32 tp      = ease_out_quad(sp->y_og, sp->y_top,
-                                    o->timer, STEAM_PLAT_TICKS_UP);
-        o->tomove.y = tp - o->pos.y;
+        i32 tp = ease_out_quad(sp->y_og, sp->y_top,
+                               o->timer, STEAM_PLAT_TICKS_UP);
+        // o->tomove.y = tp - o->pos.y;
         if (STEAM_PLAT_TICKS_UP <= o->timer) {
             o->state++;
             o->timer = 0;
@@ -69,8 +69,8 @@ void steam_platform_on_update(g_s *g, obj_s *o)
     }
     case STEAM_PLATFORM_HOLD: {
         o->timer++;
-        i32 tp      = sp->y_top + ((o->timer >> 2) & 1) * 2;
-        o->tomove.y = tp - o->pos.y;
+        i32 tp = sp->y_top + ((o->timer >> 2) & 1) * 2;
+        // o->tomove.y = tp - o->pos.y;
         if (STEAM_PLAT_TICKS_HOLD <= o->timer) {
             o->state++;
             o->timer = 0;
@@ -79,9 +79,9 @@ void steam_platform_on_update(g_s *g, obj_s *o)
     }
     case STEAM_PLATFORM_DOWN: {
         o->timer++;
-        i32 tp      = ease_in_quad(sp->y_top, sp->y_og,
-                                   o->timer, STEAM_PLAT_TICKS_DOWN);
-        o->tomove.y = tp - o->pos.y;
+        i32 tp = ease_in_quad(sp->y_top, sp->y_og,
+                              o->timer, STEAM_PLAT_TICKS_DOWN);
+        // o->tomove.y = tp - o->pos.y;
         if (STEAM_PLAT_TICKS_DOWN <= o->timer) {
             o->state = STEAM_PLATFORM_IDLE;
             o->timer = 0;

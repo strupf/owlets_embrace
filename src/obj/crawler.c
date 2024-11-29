@@ -99,8 +99,6 @@ static void crawler_do_normal(g_s *g, obj_s *o)
 // to continue crawling.
 void crawler_on_update(g_s *g, obj_s *o)
 {
-    o->drag_q8.y = 255;
-    o->drag_q8.x = 255;
     crawler_do_normal(g, o);
 }
 
@@ -201,9 +199,6 @@ static void crawler_load_i(g_s *g, map_obj_s *mo, i32 ID)
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY;
     o->render_priority = 1;
-    o->grav_q8.y       = 30;
-    o->drag_q8.y       = 255;
-    o->drag_q8.x       = 255;
     o->w               = 15;
     o->h               = 15;
     o->health_max      = ID == OBJ_ID_CRAWLER ? 2 : 1;
@@ -246,7 +241,5 @@ void crawler_on_weapon_hit(g_s *g, obj_s *o, hitbox_s hb)
     o->flags |= OBJ_FLAG_MOVER;
     o->v_q8.y                    = (hb.force_q8.y * 800) >> 8;
     o->v_q8.x                    = (hb.force_q8.x * 1000) >> 8;
-    o->drag_q8.y                 = 255;
-    o->drag_q8.x                 = 255;
     crawler->bounce_rotation_q12 = rngr_sym_i32(2000);
 }

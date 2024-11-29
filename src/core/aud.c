@@ -148,7 +148,8 @@ void aud_cmd_queue_commit()
 #ifdef PLTF_PD_HW
     // data memory barrier; prevent memory access reordering
     // ensures all commands are fully written before making them visible
-    ASM volatile("dmb");
+    // -> needed because of interrupts
+    __asm volatile("dmb");
 #endif
     pltf_audio_lock();
     AUD.i_cmd_w = AUD.i_cmd_w_tmp;

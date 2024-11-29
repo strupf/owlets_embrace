@@ -99,7 +99,7 @@ void movingplatform_on_update(g_s *g, obj_s *o)
     i32    den = v2_distance(p0, p1);
     v2_i16 pi  = {p0.x + ((p1.x - p0.x) * num) / den,
                   p0.y + ((p1.y - p0.y) * num) / den};
-    o->tomove  = v2_i16_sub(pi, v2_i16_from_i32(o->pos));
+    // o->tomove  = v2_i16_sub(pi, v2_i16_from_i32(o->pos));
 }
 
 void movingplatform_on_trigger(g_s *g, obj_s *o, i32 trigger)
