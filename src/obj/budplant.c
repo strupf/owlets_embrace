@@ -42,7 +42,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->flags = OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_JUMPABLE;
-    o->moverflags = OBJ_MOVER_MAP;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
 
     o->w          = 16;
     o->h          = 16;

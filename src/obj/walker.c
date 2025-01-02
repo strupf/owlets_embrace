@@ -14,7 +14,7 @@ void walker_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_STOMPABLE |
                OBJ_FLAG_KILL_OFFSCREEN;
-    o->moverflags = OBJ_MOVER_MAP | OBJ_MOVER_ONE_WAY_PLAT;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS | OBJ_MOVER_ONE_WAY_PLAT;
     o->w          = 20;
     o->h          = 30;
     o->pos.x      = mo->x;

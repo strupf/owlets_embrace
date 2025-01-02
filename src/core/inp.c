@@ -3,93 +3,79 @@
 // =============================================================================
 
 #include "inp.h"
+#include "settings.h"
 #include "util/mathfunc.h"
 
-#define INP_ACC_K 0.35f // accelerometer smoothing: A * (1-K) + B * K
-
 static struct {
-    inp_state_s  curri;
-    inp_state_s  previ;
-    inp_config_s cfg;
-    f32          acc_x;
-    f32          acc_y;
-    f32          acc_z;
+    inp_state_s curri;
+    inp_state_s previ;
+    f32         acc_x;
+    f32         acc_y;
+    f32         acc_z;
 } INP;
 
 void inp_init()
 {
-    INP.cfg = inp_config_default();
-}
-
-inp_config_s inp_config_default()
-{
-    inp_config_s c    = {0};
-    c.acc_sensitivity = 0.80f;
-    return c;
-}
-
-inp_config_s inp_config_get()
-{
-    return INP.cfg;
-}
-
-void inp_config_set(inp_config_s c)
-{
-    INP.cfg = c;
 }
 
 void inp_update()
 {
-    INP.previ = INP.curri;
-    INP.curri = (inp_state_s){0};
+    INP.previ      = INP.curri;
+    inp_state_s *i = &INP.curri;
+    mclr(i, sizeof(inp_state_s));
 #ifdef PLTF_PD
-    INP.curri.actions = pltf_pd_btn() & B8(00111111);
+    i->actions = pltf_pd_btn() & B8(00111111);
 
-    if (pltf_pd_crank_docked()) INP.curri.actions |= INP_CRANK_DOCK;
-    INP.curri.crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
+    if (pltf_pd_crank_docked()) i->actions |= INP_CRANK_DOCK;
+    i->crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
 #else
+    // makeshift controller support for now
     static SDL_GameController *gc;
     static i32                 once = 0;
     if (once == 0) {
         once = 1;
         gc   = SDL_GameControllerOpen(0);
     }
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_UP) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) < 0) INP.curri.actions |= INP_DU;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) > 0) INP.curri.actions |= INP_DD;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) < 0) INP.curri.actions |= INP_DL;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) > 0) INP.curri.actions |= INP_DR;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_A)) INP.curri.actions |= INP_B;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_B)) INP.curri.actions |= INP_A;
 
-    if (pltf_sdl_key(SDL_SCANCODE_W)) INP.curri.actions |= INP_DU;
-    if (pltf_sdl_key(SDL_SCANCODE_S)) INP.curri.actions |= INP_DD;
-    if (pltf_sdl_key(SDL_SCANCODE_A)) INP.curri.actions |= INP_DL;
-    if (pltf_sdl_key(SDL_SCANCODE_D)) INP.curri.actions |= INP_DR;
-    if (pltf_sdl_key(SDL_SCANCODE_COMMA)) INP.curri.actions |= INP_B;
-    if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) INP.curri.actions |= INP_A;
-    if (pltf_sdl_key(SDL_SCANCODE_N)) INP.curri.actions |= INP_B;
-    if (pltf_sdl_key(SDL_SCANCODE_M)) INP.curri.actions |= INP_A;
-    INP.curri.actions |= INP_CRANK_DOCK;
+#if 0
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_UP) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) < 0) i->actions |= INP_DU;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) > 0) i->actions |= INP_DD;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) < 0) i->actions |= INP_DL;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
+        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) > 0) i->actions |= INP_DR;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_A)) i->actions |= INP_B;
+    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_B)) i->actions |= INP_A;
+#endif
+    if (pltf_sdl_key(SDL_SCANCODE_W)) i->actions |= INP_DU;
+    if (pltf_sdl_key(SDL_SCANCODE_S)) i->actions |= INP_DD;
+    if (pltf_sdl_key(SDL_SCANCODE_A)) i->actions |= INP_DL;
+    if (pltf_sdl_key(SDL_SCANCODE_D)) i->actions |= INP_DR;
+    if (pltf_sdl_key(SDL_SCANCODE_COMMA)) i->actions |= INP_B;
+    if (pltf_sdl_key(SDL_SCANCODE_PERIOD)) i->actions |= INP_A;
+    if (pltf_sdl_key(SDL_SCANCODE_N)) i->actions |= INP_B;
+    if (pltf_sdl_key(SDL_SCANCODE_M)) i->actions |= INP_A;
+    i->actions |= INP_CRANK_DOCK;
 #endif
 
-#if PLTF_ACCELEROMETER_SUPPORT
+    // accelerometer (0 if not available)
     f32 x, y, z;
     pltf_accelerometer(&x, &y, &z);
-
-    INP.acc_x = INP.acc_x + (x - INP.acc_x) * INP_ACC_K;
-    INP.acc_y = INP.acc_y + (y - INP.acc_y) * INP_ACC_K;
-    INP.acc_z = INP.acc_z + (z - INP.acc_z) * INP_ACC_K;
-    f32 dx    = x - INP.acc_x;
-    f32 dy    = y - INP.acc_y;
-    f32 dz    = z - INP.acc_z;
-    if (INP.cfg.acc_sensitivity <= (dx * dx + dy * dy + dz * dz)) {
-        INP.curri.actions |= INP_SHAKE;
+    f32 k = 1.0f * (f32)SETTINGS.shake_smooth /
+            (f32)SETTINGS_SHAKE_SMOOTH_MAX;
+    INP.acc_x     = INP.acc_x + (x - INP.acc_x) * k;
+    INP.acc_y     = INP.acc_y + (y - INP.acc_y) * k;
+    INP.acc_z     = INP.acc_z + (z - INP.acc_z) * k;
+    f32 dx        = x - INP.acc_x;
+    f32 dy        = y - INP.acc_y;
+    f32 dz        = z - INP.acc_z;
+    f32 threshold = 0.5f * (f32)SETTINGS.shake_sensitivity /
+                    (f32)SETTINGS_SHAKE_SENS_MAX;
+    if (threshold <= (dx * dx + dy * dy + dz * dz)) {
+        i->actions |= INP_SHAKE;
     }
-#endif
 }
 
 void inp_on_resume()
@@ -99,29 +85,29 @@ void inp_on_resume()
 
 i32 inp_x()
 {
-    if (inp_action(INP_DL)) return -1;
-    if (inp_action(INP_DR)) return +1;
+    if (inp_btn(INP_DL)) return -1;
+    if (inp_btn(INP_DR)) return +1;
     return 0;
 }
 
 i32 inp_y()
 {
-    if (inp_action(INP_DU)) return -1;
-    if (inp_action(INP_DD)) return +1;
+    if (inp_btn(INP_DU)) return -1;
+    if (inp_btn(INP_DD)) return +1;
     return 0;
 }
 
 i32 inp_xp()
 {
-    if (inp_actionp(INP_DL)) return -1;
-    if (inp_actionp(INP_DR)) return +1;
+    if (inp_btnp(INP_DL)) return -1;
+    if (inp_btnp(INP_DR)) return +1;
     return 0;
 }
 
 i32 inp_yp()
 {
-    if (inp_actionp(INP_DU)) return -1;
-    if (inp_actionp(INP_DD)) return +1;
+    if (inp_btnp(INP_DU)) return -1;
+    if (inp_btnp(INP_DD)) return +1;
     return 0;
 }
 
@@ -137,24 +123,24 @@ v2_i32 inp_dirp()
     return v;
 }
 
-bool32 inp_action(i32 b)
+bool32 inp_btn(i32 b)
 {
     return (INP.curri.actions & b);
 }
 
-bool32 inp_actionp(i32 b)
+bool32 inp_btnp(i32 b)
 {
     return (INP.previ.actions & b);
 }
 
-bool32 inp_action_jp(i32 b)
+bool32 inp_btn_jp(i32 b)
 {
-    return (inp_action(b) && !inp_actionp(b));
+    return (inp_btn(b) && !inp_btnp(b));
 }
 
-bool32 inp_action_jr(i32 b)
+bool32 inp_btn_jr(i32 b)
 {
-    return (!inp_action(b) && inp_actionp(b));
+    return (!inp_btn(b) && inp_btnp(b));
 }
 
 i32 inp_crank_q16()
@@ -246,4 +232,91 @@ i32 inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16)
         }
     }
     return dt;
+}
+
+static inline i32 inpst_x(inp_state_s i)
+{
+    if (i.actions & INP_DR) return +1;
+    if (i.actions & INP_DL) return -1;
+    return 0;
+}
+
+static inline i32 inpst_y(inp_state_s i)
+{
+    if (i.actions & INP_DD) return +1;
+    if (i.actions & INP_DU) return -1;
+    return 0;
+}
+
+static inline i32 inpst_btn(inp_state_s i, i32 b)
+{
+    return (i.actions & b);
+}
+
+static inline i32 inpst_crank_q16(inp_state_s i)
+{
+    return i.crank_q16;
+}
+
+inp_s inp_cur()
+{
+    inp_s i = {INP.previ, INP.curri};
+    return i;
+}
+
+i32 inps_x(inp_s i)
+{
+    return inpst_x(i.c);
+}
+
+i32 inps_y(inp_s i)
+{
+    return inpst_y(i.c);
+}
+
+i32 inps_xp(inp_s i)
+{
+    return inpst_x(i.p);
+}
+
+i32 inps_yp(inp_s i)
+{
+    return inpst_y(i.p);
+}
+
+i32 inps_btn(inp_s i, i32 b)
+{
+    return inpst_btn(i.c, b);
+}
+
+i32 inps_btnp(inp_s i, i32 b)
+{
+    return inpst_btn(i.p, b);
+}
+
+i32 inps_btn_jp(inp_s i, i32 b)
+{
+    return (inps_btn(i, b) && !inps_btnp(i, b));
+}
+
+i32 inps_btn_jr(inp_s i, i32 b)
+{
+    return (!inps_btn(i, b) && inps_btnp(i, b));
+}
+
+i32 inps_crank_q16(inp_s i)
+{
+    return inpst_crank_q16(i.c);
+}
+
+i32 inps_crankp_q16(inp_s i)
+{
+    return inpst_crank_q16(i.p);
+}
+
+i32 inps_crankdt_q16(inp_s i)
+{
+    i32 ac = inps_crank_q16(i);
+    i32 ap = inps_crankp_q16(i);
+    return inp_crank_calc_dt_q16(ap, ac);
 }

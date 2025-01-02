@@ -7,21 +7,33 @@
 bool32 hero_has_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
-    return (hs->upgrades & ((flags32)1 << ID));
+    return (hs->upgrades & ((u32)1 << ID));
 }
 
 void hero_add_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
-    hs->upgrades |= (flags32)1 << ID;
+    hs->upgrades |= (u32)1 << ID;
     pltf_log("# ADD UPGRADE: %i\n", ID);
 }
 
 void hero_rem_upgrade(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
-    hs->upgrades &= ~((flags32)1 << ID);
+    hs->upgrades &= ~((u32)1 << ID);
     pltf_log("# DEL UPGRADE: %i\n", ID);
+}
+
+bool32 hero_has_charm(g_s *g, i32 ID)
+{
+    save_s *hs = &g->save;
+    return (hs->charms & ((u32)1 << ID));
+}
+
+void hero_add_charm(g_s *g, i32 ID)
+{
+    save_s *hs = &g->save;
+    hs->charms |= (u32)1 << ID;
 }
 
 void hero_set_name(g_s *g, const char *name)
@@ -39,20 +51,17 @@ char *hero_get_name(g_s *g)
 void hero_inv_add(g_s *g, i32 ID, i32 n)
 {
     save_s *hs = &g->save;
-    hs->items[ID].n += n;
 }
 
 void hero_inv_rem(g_s *g, i32 ID, i32 n)
 {
     save_s *hs = &g->save;
-    assert(n <= hero_inv_count_of(g, ID));
-    hs->items[ID].n -= n;
 }
 
 i32 hero_inv_count_of(g_s *g, i32 ID)
 {
     save_s *hs = &g->save;
-    return hs->items[ID].n;
+    return 0;
 }
 
 void hero_coins_change(g_s *g, i32 n)
@@ -75,8 +84,10 @@ i32 hero_coins(g_s *g)
     return c;
 }
 
-i32 saveID_put(g_s *g, u32 ID)
+i32 saveID_put(g_s *g, i32 ID)
 {
+    if (ID == 0) return 0;
+
     save_s *hs = &g->save;
     if (saveID_has(g, ID)) return 2;
     if (hs->n_saveIDs == NUM_SAVEIDS) return 0;
@@ -84,23 +95,15 @@ i32 saveID_put(g_s *g, u32 ID)
     return 1;
 }
 
-bool32 saveID_has(g_s *g, u32 ID)
+bool32 saveID_has(g_s *g, i32 ID)
 {
+    if (ID == 0) return 0;
+
     save_s *hs = &g->save;
     for (i32 n = 0; n < hs->n_saveIDs; n++) {
         if (hs->saveIDs[n] == ID) return 1;
     }
     return 0;
-}
-
-void saveID_putstr(g_s *g, const char *str)
-{
-    saveID_put(g, hash_str(str));
-}
-
-bool32 saveID_hasstr(g_s *g, const char *str)
-{
-    return saveID_has(g, hash_str(str));
 }
 
 void savefile_empty(save_s *s)
@@ -112,41 +115,56 @@ void savefile_empty(save_s *s)
 static inline const char *savefile_name(i32 slot)
 {
     switch (slot) {
-    case 0: return "save_0.sav";
-    case 1: return "save_1.sav";
-    case 2: return "save_2.sav";
+    case 0: return "save_0.bin";
+    case 1: return "save_1.bin";
+    case 2: return "save_2.bin";
     }
-    return NULL;
+    return 0;
+}
+
+bool32 savefile_exists(i32 slot)
+{
+    void *f = pltf_file_open_r(savefile_name(slot));
+    if (f) {
+        pltf_file_close(f);
+        return 1;
+    }
+    return 0;
 }
 
 bool32 savefile_read(i32 slot, save_s *s)
 {
+    if (!s) return 0;
+
     void *f = pltf_file_open_r(savefile_name(slot));
-
     if (!f) return 0;
-    if (!s) {
-        pltf_file_close(f);
-        return 1;
-    }
 
-    u32 ver = 0;
-    pltf_file_r(f, &ver, sizeof(u32)); // convert savefiles with old version
-    switch (ver) {
-    default:
+    bool32 res     = 1;
+    u32    version = 0;
+    pltf_file_r(f, &version, sizeof(u32));
+
+    switch (version) {
+    case GAME_VERSION:
         pltf_file_r(f, s, sizeof(save_s));
         break;
+    default: // reading unsupported savefile
+        res = 0;
+        break;
     }
+
     pltf_file_close(f);
-    return 1;
+    return res;
 }
 
 bool32 savefile_write(i32 slot, const save_s *s)
 {
-    void *f = pltf_file_open_w(savefile_name(slot));
+    if (!s) return 0;
 
+    void *f = pltf_file_open_w(savefile_name(slot));
     if (!f) return 0;
-    u32 ver = GAME_VERSION;
-    pltf_file_w(f, &ver, sizeof(u32));
+
+    u32 version = GAME_VERSION;
+    pltf_file_w(f, &version, sizeof(u32));
     pltf_file_w(f, s, sizeof(save_s));
     pltf_file_close(f);
     return 1;
@@ -159,7 +177,13 @@ bool32 savefile_del(i32 slot)
 
 bool32 savefile_cpy(i32 slot_from, i32 slot_to)
 {
-    save_s sav = {0};
-    if (!savefile_read(slot_from, &sav)) return 0;
-    return savefile_write(slot_to, &sav);
+    spm_push();
+    bool32  res = 0;
+    save_s *s   = spm_alloct(save_s, 1);
+    if (savefile_read(slot_from, s)) {
+        savefile_write(slot_to, s);
+        res = 1;
+    }
+    spm_pop();
+    return res;
 }

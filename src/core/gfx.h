@@ -32,8 +32,8 @@ typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     u16  wword;
     u16  fmt;
-    u16  w;
-    u16  h;
+    i32  w;
+    i32  h;
 } tex_s;
 
 typedef struct {
@@ -71,8 +71,9 @@ typedef struct {
 } fntstr_s;
 
 enum {
-    SPR_FLIP_X = 1, // kBitmapFlippedX
-    SPR_FLIP_Y = 2, // kBitmapFlippedY
+    SPR_FLIP_X  = 1, // kBitmapFlippedX
+    SPR_FLIP_Y  = 2, // kBitmapFlippedY
+    SPR_FLIP_XY = SPR_FLIP_X | SPR_FLIP_Y
 };
 
 enum {                   // pattern holes always transparent
@@ -111,8 +112,7 @@ i32           tex_mk_at(tex_s tex, i32 x, i32 y);
 void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
-void          tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
-void          tex_outline_all(tex_s tex, i32 col);
+void          tex_outline_white(tex_s tex);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);
@@ -156,6 +156,8 @@ void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode);
 void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, i32 n_pt, i32 mode);
 void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2);
 void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
+void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
+                             i32 a1, i32 a2, i32 mode);
 //
 void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode);
 void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode, i32 spacing);

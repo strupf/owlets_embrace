@@ -9,6 +9,7 @@ enum {
     HOOK_ATTACH_NONE,
     HOOK_ATTACH_SOLID,
     HOOK_ATTACH_OBJ,
+    HOOK_ATTACH_COLLISION,
 };
 
 enum {
@@ -105,7 +106,10 @@ i32 hook_can_attach(g_s *g, obj_s *o, rec_i32 r, obj_s **ohook)
         }
     }
 
-    return tile_map_hookable(g, r);
+    if (tile_map_hookable(g, r)) {
+        return HOOK_ATTACH_SOLID;
+    }
+    return 0;
 }
 
 i32 hook_move(g_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
@@ -149,7 +153,7 @@ i32 hook_move(g_s *g, obj_s *o, v2_i32 dt, obj_s **ohook)
     return hook_can_attach(g, o, hookrend, ohook);
 }
 
-bool32 hook_update_nonhooked(g_s *g, obj_s *hook)
+i32 hook_update_nonhooked(g_s *g, obj_s *hook)
 {
     obj_s  *h = obj_get_tagged(g, OBJ_TAG_HERO);
     rope_s *r = hook->rope;
@@ -160,13 +164,13 @@ bool32 hook_update_nonhooked(g_s *g, obj_s *hook)
     hook->subpos_q8.x &= 255;
     hook->subpos_q8.y &= 255;
 
-    obj_s *tohook = NULL;
+    obj_s *tohook = 0;
     i32    attach = hook_move(g, hook, dtpos, &tohook);
     if (attach != HOOK_ATTACH_NONE) {
         i32 mlen_q4   = HERO_ROPE_LEN_LONG;
         i32 clen_q4   = rope_len_q4(g, r);
-        i32 herostate = hero_determine_state(g, h, (hero_s *)h->mem);
-        if (herostate == HERO_STATE_AIR) {
+        i32 herostate = hero_get_actual_state(g, h);
+        if (herostate == HERO_ST_AIR) {
             clen_q4 = (clen_q4 * 240) >> 8;
         }
         i32 newlen_q4 = clamp_i32(clen_q4, HERO_ROPE_LEN_MIN_JUST_HOOKED, mlen_q4);
@@ -174,6 +178,7 @@ bool32 hook_update_nonhooked(g_s *g, obj_s *hook)
     }
 
     switch (attach) {
+    case HOOK_ATTACH_COLLISION: break;
     case HOOK_ATTACH_NONE:
         if (hook->bumpflags & OBJ_BUMP_X) {
             if (abs_i32(hook->v_q8.x) > 700) {
@@ -228,10 +233,10 @@ bool32 hook_update_nonhooked(g_s *g, obj_s *hook)
         g->hero_mem.hook = obj_handle_from_obj(tohook);
         obj_delete(g, hook);
         obj_on_hooked(g, tohook);
-        return 1;
+        break;
     }
     }
-    return 0;
+    return attach;
 }
 
 void hook_update_hooked_solid(g_s *g, obj_s *hook)
@@ -242,25 +247,32 @@ void hook_update_hooked_solid(g_s *g, obj_s *hook)
     // check if still attached
     rec_i32 hookrec = {hook->pos.x - 1, hook->pos.y - 1, hook->w + 2, hook->h + 2};
 
-    obj_s *tohook = NULL;
+    obj_s *tohook = 0;
     if (hook_can_attach(g, hook, hookrec, &tohook) == HOOK_ATTACH_SOLID) {
         obj_s *solid;
         if (obj_try_from_obj_handle(hook->linked_solid, &solid) &&
             !overlap_rec(hookrec, obj_aabb(solid))) {
             hook->state          = HOOK_STATE_FREE;
-            hook->linked_solid.o = NULL;
+            hook->linked_solid.o = 0;
         }
     } else {
         hook->state          = HOOK_STATE_FREE;
-        hook->linked_solid.o = NULL;
+        hook->linked_solid.o = 0;
     }
 }
 
 void hook_update(g_s *g, obj_s *hook)
 {
+    obj_s *h = obj_get_tagged(g, OBJ_TAG_HERO);
+
     switch (hook->state) {
     case HOOK_STATE_FREE:
-        if (hook_update_nonhooked(g, hook)) return;
+        i32 r = hook_update_nonhooked(g, hook);
+        if (r == HOOK_ATTACH_COLLISION) {
+            hook_destroy(g, h, hook);
+            return;
+        }
+        if (r) return;
         break;
     case HOOK_STATE_ATTACHED: {
         hook_update_hooked_solid(g, hook);
@@ -269,10 +281,10 @@ void hook_update(g_s *g, obj_s *hook)
     }
 
     hook->bumpflags = 0;
-    obj_s  *h       = obj_get_tagged(g, OBJ_TAG_HERO);
-    rec_i32 r_room  = {0, 0, g->pixel_x, g->pixel_y};
+
+    rec_i32 r_room = {0, 0, g->pixel_x, g->pixel_y};
     if (!overlap_rec_pnt(r_room, obj_pos_center(hook))) {
-        hero_action_ungrapple(g, h);
+        hook_destroy(g, h, hook);
     }
 }
 
@@ -283,10 +295,10 @@ void hook_destroy(g_s *g, obj_s *ohero, obj_s *ohook)
     }
 
     g->rope.active  = 0;
-    ohero->ropenode = NULL;
-    ohero->rope     = NULL;
-    ohook->rope     = NULL;
-    ohook->ropenode = NULL;
+    ohero->ropenode = 0;
+    ohero->rope     = 0;
+    ohook->rope     = 0;
+    ohook->ropenode = 0;
 }
 
 bool32 hook_is_attached(obj_s *o)
@@ -295,11 +307,90 @@ bool32 hook_is_attached(obj_s *o)
     return o->state == HOOK_STATE_ATTACHED;
 }
 
-i32 hook_is_stretched(g_s *g, obj_s *o)
+i32 hero_hook_pulling_force(g_s *g, obj_s *ohero)
 {
-    rope_s *r = o->rope;
+    rope_s *r = ohero->rope;
     if (!r) return 0;
-    u32 l = rope_len_q4(g, r);
-    if (l <= r->len_max_q4) return 0;
-    return ((i32)((l << 8) / r->len_max_q4) - 256);
+    i32 rl  = rope_len_q4(g, r);
+    i32 rlm = r->len_max_q4;
+    if (rl < rlm) return 0;
+
+    ropenode_s *rn1 = ohero->ropenode;
+    ropenode_s *rn2 = ropenode_neighbour(r, rn1);
+    v2_i32      v12 = v2_sub(rn2->p, rn1->p);
+
+    v2_i32 v_hero        = v2_i32_from_i16(ohero->v_q8);
+    v2_i32 tang          = {v12.y, -v12.x};
+    v2_i32 v_proj        = project_pnt_line(v_hero, (v2_i32){0}, tang);
+    i32    rad           = v2_len(v12);
+    i32    f_grav        = (-HERO_GRAVITY * v12.y) / rad; // component of gravity
+    i32    f_centripetal = v2_lensq(v_proj) / (rad << 8);
+    i32    f_stretch     = (2 * (rl - rlm));
+    return max_i32(f_grav + f_centripetal + f_stretch, 0);
+}
+
+bool32 pnt_along_array(v2_i32 *pt, i32 n_pt, i32 dst, v2_i32 *p_out)
+{
+    i32 dst_total = 0;
+    for (i32 n = 1; n < n_pt; n++) {
+        v2_i32 p0            = pt[n - 1];
+        v2_i32 p1            = pt[n];
+        i32    d             = v2_distance(p0, p1);
+        i32    dst_total_new = dst_total + d;
+
+        if (dst_total <= dst && dst <= dst_total_new) {
+            v2_i32 p = v2_lerp(p0, p1, dst - dst_total, d);
+            *p_out   = p;
+            return 1;
+        }
+
+        dst_total = dst_total_new;
+    }
+    return 0;
+}
+
+void hero_hook_preview_throw(g_s *g, obj_s *ohero, v2_i32 cam)
+{
+    spm_push();
+    i32     ang   = -inp_crank_q16();
+    v2_i32  p     = v2_shl(obj_pos_center(ohero), 8);
+    v2_i32  v     = hook_launch_vel_from_angle(ang, 2500);
+    v2_i32 *pts   = spm_alloct(v2_i32, 256);
+    i32     n_pts = 0;
+
+    pts[n_pts++] = p;
+    i32 length   = 0;
+
+    for (i32 n = 0; n < 128; n++) {
+        p.x += v.x;
+        p.y += v.y;
+        v.y += 60;
+        length += v2_distance(pts[n_pts - 1], p);
+        pts[n_pts++] = p;
+    }
+
+    gfx_ctx_s ctx = gfx_ctx_display();
+
+#define HOOK_PREVIEW_DST 3500
+
+    i32    d = (pltf_cur_tick() * 500) % HOOK_PREVIEW_DST;
+    v2_i32 pa;
+    if (pnt_along_array(pts, n_pts, d, &pa)) {
+        d += HOOK_PREVIEW_DST;
+        v2_i32 pb;
+        while (pnt_along_array(pts, n_pts, d, &pb)) {
+            v2_i32 p0 = v2_add(cam, v2_shr(pa, 8));
+            gfx_cir_fill(ctx, p0, 5, GFX_COL_BLACK);
+            pa = pb;
+            d += HOOK_PREVIEW_DST;
+        }
+    }
+    spm_pop();
+}
+
+v2_i32 hook_launch_vel_from_angle(i32 a_q16, i32 vel)
+{
+    v2_i32 v = {(-vel * sin_q16(a_q16 << 2)) / 65536,
+                (-vel * cos_q16(a_q16 << 2)) / 65536};
+    return v;
 }

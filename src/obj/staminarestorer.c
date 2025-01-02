@@ -18,8 +18,6 @@ void staminarestorer_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJ_ID_STAMINARESTORER;
-    o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_RENDER_AABB;
     o->w     = 16;
     o->h     = 16;
     o->pos.x = mo->x;
@@ -27,30 +25,35 @@ void staminarestorer_load(g_s *g, map_obj_s *mo)
 
     obj_sprite_s *spr = &o->sprites[0];
     o->n_sprites      = 1;
+    spr->offs.x       = -(o->w - 32) / 2;
+    spr->offs.y       = -(o->h - 32) / 2;
 }
 
 void staminarestorer_on_animate(g_s *g, obj_s *o)
 {
-    obj_sprite_s *spr = &o->sprites[0];
-
-    u32 animID  = 0;
-    u32 frameID = 0;
-    o->flags |= OBJ_FLAG_RENDER_AABB;
-    o->n_sprites = 1;
+    obj_sprite_s *spr     = &o->sprites[0];
+    i32           frameID = 0;
     o->timer++;
+
     switch (o->state) {
+    case STAMINARESTORER_ACTIVE:
+        i32 t = o->timer & 127;
+        if (t < 18) {
+            frameID = (4 * t) / 18;
+        }
+        break;
     case STAMINARESTORER_HIDDEN:
-        o->flags &= ~OBJ_FLAG_RENDER_AABB;
-        o->n_sprites = 0;
-        return;
+        frameID = 4;
+        break;
     case STAMINARESTORER_COLLECT:
-        o->flags &= ~OBJ_FLAG_RENDER_AABB;
+        frameID = 4;
         if (STAMINARESTORER_TICK_COLLECT <= o->timer) {
             o->state = STAMINARESTORER_HIDDEN;
             o->timer = 0;
         }
         break;
     case STAMINARESTORER_RESPAWN:
+        frameID = 4;
         if (STAMINARESTORER_TICK_RESPAWN <= o->timer) {
             o->state = STAMINARESTORER_ACTIVE;
             o->timer = 0;
@@ -58,6 +61,8 @@ void staminarestorer_on_animate(g_s *g, obj_s *o)
         break;
     default: break;
     }
+
+    spr->trec = asset_texrec(TEXID_STAMINARESTORE, frameID * 32, 0, 32, 32);
 }
 
 bool32 staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero)

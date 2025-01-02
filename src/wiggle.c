@@ -16,14 +16,13 @@ void grass_put(g_s *g, i32 tx, i32 ty)
 
 void grass_animate(g_s *g)
 {
+    obj_s *ohero = obj_get_hero(g);
     for (u32 n = 0; n < g->n_grass; n++) {
         grass_s *gr = &g->grass[n];
         rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
 
-        for (obj_each(g, o)) {
-            if ((o->flags & OBJ_FLAG_MOVER) && overlap_rec(r, obj_aabb(o))) {
-                gr->v_q8 += o->v_q8.x >> 4;
-            }
+        if (ohero && overlap_rec(r, obj_aabb(ohero))) {
+            gr->v_q8 += ohero->v_q8.x >> 4;
         }
 
         gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);

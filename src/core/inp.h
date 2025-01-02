@@ -40,12 +40,9 @@ enum {
 };
 
 typedef struct {
-    f32 acc_sensitivity;
-} inp_config_s;
-
-typedef struct {
-    alignas(4) u16 actions;
-    u16            crank_q16;
+    ALIGNAS(4)
+    u16 actions;
+    u16 crank_q16;
 } inp_state_s;
 
 typedef struct {
@@ -61,30 +58,39 @@ typedef struct {
     u8  n; // current segment
 } inp_crank_click_s;
 
-void         inp_init();
-inp_config_s inp_config_default();
-inp_config_s inp_config_get();
-void         inp_config_set(inp_config_s c);
-void         inp_update();
-void         inp_on_resume();
-i32          inp_x();    // [-1,+1]
-i32          inp_y();    // [-1,+1]
-i32          inp_xp();   // [-1,+1]
-i32          inp_yp();   // [-1,+1]
-v2_i32       inp_dir();  // [-1,+1]
-v2_i32       inp_dirp(); // [-1,+1]
-bool32       inp_action(i32 b);
-bool32       inp_actionp(i32 b);
-bool32       inp_action_jp(i32 b);
-bool32       inp_action_jr(i32 b);
-i32          inp_crank_q16();      // curr crank angle in Q16, turns
-i32          inp_crankp_q16();     // prev crank angle in Q16, turns
-i32          inp_crank_qx(i32 q);  // curr crank angle in QXX, turns
-i32          inp_crankp_qx(i32 q); // prev crank angle in QXX, turns
-i32          inp_crank_dt_q16();
-i32          inp_crank_calc_dt_q16(i32 ang_from, i32 ang_to);
-i32          inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to);
-void         inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs);
-i32          inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16);
-
+void   inp_init();
+void   inp_update();
+void   inp_on_resume();
+i32    inp_x();    // [-1,+1]
+i32    inp_y();    // [-1,+1]
+i32    inp_xp();   // [-1,+1]
+i32    inp_yp();   // [-1,+1]
+v2_i32 inp_dir();  // [-1,+1]
+v2_i32 inp_dirp(); // [-1,+1]
+bool32 inp_btn(i32 b);
+bool32 inp_btnp(i32 b);
+bool32 inp_btn_jp(i32 b);
+bool32 inp_btn_jr(i32 b);
+i32    inp_crank_q16();      // curr crank angle in Q16, turns
+i32    inp_crankp_q16();     // prev crank angle in Q16, turns
+i32    inp_crank_qx(i32 q);  // curr crank angle in QXX, turns
+i32    inp_crankp_qx(i32 q); // prev crank angle in QXX, turns
+i32    inp_crank_dt_q16();
+i32    inp_crank_calc_dt_q16(i32 ang_from, i32 ang_to);
+i32    inp_crank_calc_dt_qx(i32 q, i32 ang_from, i32 ang_to);
+void   inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs);
+i32    inp_crank_click_turn_by(inp_crank_click_s *c, i32 dt_q16);
+//
+inp_s  inp_cur();
+i32    inps_x(inp_s i);
+i32    inps_y(inp_s i);
+i32    inps_xp(inp_s i);
+i32    inps_yp(inp_s i);
+i32    inps_btn(inp_s i, i32 b);
+i32    inps_btnp(inp_s i, i32 b);
+i32    inps_btn_jp(inp_s i, i32 b);
+i32    inps_btn_jr(inp_s i, i32 b);
+i32    inps_crank_q16(inp_s i);
+i32    inps_crankp_q16(inp_s i);
+i32    inps_crankdt_q16(inp_s i);
 #endif

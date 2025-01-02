@@ -17,7 +17,7 @@ void pushblock_load(g_s *g, map_obj_s *mo)
     o->pos.y      = mo->y;
     o->w          = mo->w;
     o->h          = mo->h;
-    o->moverflags = OBJ_MOVER_MAP;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
 }
 
 void pushblock_on_update(g_s *g, obj_s *o)
@@ -49,13 +49,11 @@ void pushblock_on_update(g_s *g, obj_s *o)
         i32     dpad_x   = inp_x();
 
         if (dpad_x == +1 && overlap_rec(heroaabb, rl)) {
-            h->pushing = dpad_x;
             if (obj_step(g, o, +1, +0, 0, 0)) {
                 obj_step(g, ohero, +1, +0, 1, 0);
             }
         }
         if (dpad_x == -1 && overlap_rec(heroaabb, rr)) {
-            h->pushing = dpad_x;
             if (obj_step(g, o, -1, +0, 0, 0)) {
                 obj_step(g, ohero, -1, +0, 1, 0);
             }
@@ -66,5 +64,5 @@ void pushblock_on_update(g_s *g, obj_s *o)
 void pushblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     v2_i32 pos = v2_add(o->pos, cam);
-    render_tile_terrain_block(gfx_ctx_display(), pos, o->w / 16, o->h / 16, TILE_TYPE_STONE_SQUARE_DARK);
+    // render_tile_terrain_block(gfx_ctx_display(), pos, o->w / 16, o->h / 16, TILE_TYPE_STONE_SQUARE_DARK);
 }

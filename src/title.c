@@ -60,13 +60,13 @@ void title_init(title_s *t)
     s->stamina_upgrades = 1;
 #if 1
     s->upgrades =
-        ((flags32)1 << HERO_UPGRADE_HOOK) |
-        ((flags32)1 << HERO_UPGRADE_STOMP) |
-        ((flags32)1 << HERO_UPGRADE_DIVE) |
-        ((flags32)1 << HERO_UPGRADE_SPRINT) |
-        ((flags32)1 << HERO_UPGRADE_SWIM) |
-        ((flags32)1 << HERO_UPGRADE_FLY) |
-        ((flags32)1 << HERO_UPGRADE_CLIMB) |
+        ((u32)1 << HERO_UPGRADE_HOOK) |
+        ((u32)1 << HERO_UPGRADE_STOMP) |
+        ((u32)1 << HERO_UPGRADE_DIVE) |
+        ((u32)1 << HERO_UPGRADE_SPRINT) |
+        ((u32)1 << HERO_UPGRADE_SWIM) |
+        ((u32)1 << HERO_UPGRADE_FLY) |
+        ((u32)1 << HERO_UPGRADE_CLIMB) |
         0;
 #endif
     savefile_write(0, s);
@@ -84,7 +84,8 @@ void title_load(title_s *t)
         save_preview_s pr = {0};
 
         if (savefile_read(n, s)) {
-            pr.tick = s->tick;
+            pr.tick   = s->tick;
+            pr.exists = 1;
             str_cpy(pr.name, s->name);
         }
         t->saves[n] = pr;
@@ -134,17 +135,17 @@ void title_update(g_s *g, title_s *t)
     i32 optionp = t->option;
     i32 statep  = t->state;
 
-    if (inp_action_jp(INP_B)) { // back or abort
+    if (inp_btn_jp(INP_B)) { // back or abort
         title_pressed_B(t);
-    } else if (inp_action_jp(INP_A)) { // select or confirm
+    } else if (inp_btn_jp(INP_A)) { // select or confirm
         title_pressed_A(g, t);
     } else {
         i32 dx = 0;
         i32 dy = 0;
-        if (inp_action_jp(INP_DL)) dx = -1;
-        if (inp_action_jp(INP_DR)) dx = +1;
-        if (inp_action_jp(INP_DU)) dy = -1;
-        if (inp_action_jp(INP_DD)) dy = +1;
+        if (inp_btn_jp(INP_DL)) dx = -1;
+        if (inp_btn_jp(INP_DR)) dx = +1;
+        if (inp_btn_jp(INP_DU)) dy = -1;
+        if (inp_btn_jp(INP_DD)) dy = +1;
 
         if (dx | dy) {
             title_navigate(g, t, dx, dy);
@@ -276,11 +277,11 @@ void title_pressed_A(g_s *g, title_s *t)
             s->hero_pos.x = 100;
             s->hero_pos.y = 500;
             s->upgrades =
-                ((flags32)1 << HERO_UPGRADE_SPRINT) |
-                ((flags32)1 << HERO_UPGRADE_FLY) |
-                ((flags32)1 << HERO_UPGRADE_HOOK) |
-                ((flags32)1 << HERO_UPGRADE_SWIM) |
-                ((flags32)1 << HERO_UPGRADE_DIVE);
+                ((u32)1 << HERO_UPGRADE_SPRINT) |
+                ((u32)1 << HERO_UPGRADE_FLY) |
+                ((u32)1 << HERO_UPGRADE_HOOK) |
+                ((u32)1 << HERO_UPGRADE_SWIM) |
+                ((u32)1 << HERO_UPGRADE_DIVE);
 
             savefile_write(t->selected, s);
             spm_pop();     // fallthrough
@@ -360,10 +361,10 @@ void title_navigate(g_s *g, title_s *t, i32 dx, i32 dy)
         break;
     }
     case TITLE_ST_FILE_SELECT:
-        t->option = clamp_i32(t->option + dy, 0, 3);
+        t->option = clamp_i32(t->option + dy, 0, 2);
         break;
     case TITLE_ST_FILE_SELECTED:
-        if (t->saves[t->selected].health) {
+        if (t->saves[t->selected].exists) {
             t->option = clamp_i32(t->option + dx, 0, 2);
         } else {
             t->option = 0;
@@ -411,8 +412,9 @@ void title_navigate(g_s *g, title_s *t, i32 dx, i32 dy)
 
 void title_render(title_s *t)
 {
-    gfx_ctx_s ctx = gfx_ctx_default(asset_tex(0));
-    tex_clr(asset_tex(0), GFX_COL_WHITE);
+    tex_s     tdisplay = asset_tex(0);
+    gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
+    tex_clr(tdisplay, GFX_COL_WHITE);
     fnt_s   font  = asset_fnt(FNTID_LARGE);
     rec_i32 rfull = {0, 0, 400, 240};
 
@@ -737,7 +739,7 @@ void title_render_file_selected(title_s *t, bool32 fade_out)
     ctx_start.pat    = gfx_pattern_interpolate(blerp_q8, 256);
     ctx_copy_del.pat = gfx_pattern_interpolate(blerp_q8, 256);
 
-    if (!t->saves[t->selected].health) {
+    if (!t->saves[t->selected].exists) {
         ctx_copy_del.pat = gfx_pattern_interpolate(min_i32(128, blerp_q8), 256);
     }
 

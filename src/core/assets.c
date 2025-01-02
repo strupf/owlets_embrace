@@ -94,7 +94,7 @@ void assets_export()
 
     pltf_file_w(fil, coll, sizeof(asset_collection_s));
 #if 1 // compression
-    static alignas(4) byte compressed[0x800000];
+    static ALIGNAS(4) byte compressed[0x800000];
 
     usize stotal = mem_compress(compressed, mbeg, coll->size);
     pltf_file_w(fil, compressed, stotal);

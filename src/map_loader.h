@@ -39,7 +39,6 @@ typedef struct {
 } map_obj_s;
 
 #define map_obj_strs(MO, NAME, B) map_obj_str(MO, NAME, B, sizeof(B))
-bool32 map_obj_saveID(map_obj_s *mo, const char *name, u32 *save_hash);
 bool32 map_obj_has_nonnull_prop(map_obj_s *mo, const char *name);
 bool32 map_obj_str(map_obj_s *mo, const char *name, void *b, u32 bs);
 i32    map_obj_i32(map_obj_s *mo, const char *name);

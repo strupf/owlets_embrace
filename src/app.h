@@ -7,6 +7,7 @@
 
 #include "game.h"
 #include "pltf/pltf.h"
+#include "settings.h"
 #include "title.h"
 
 typedef struct {

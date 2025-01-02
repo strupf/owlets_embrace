@@ -18,14 +18,14 @@ typedef struct {
 } fluid_particle_s;
 
 typedef struct {
-    alignas(32)
-        fluid_particle_s *pt;
-    i32                   num;
-    i32                   steps;
-    i32                   substeps;
-    i32                   dampening;
-    u32                   rng_seed;
-    i32                   rng_range;
+    ALIGNAS(32)
+    fluid_particle_s *pt;
+    i32               num;
+    i32               steps;
+    i32               substeps;
+    i32               dampening;
+    u32               rng_seed;
+    i32               rng_range;
 } fluid_particles_s;
 
 void fluid_particles_step(fluid_particles_s *fp)
@@ -183,26 +183,26 @@ void water_step(waterparticle_s *particles, i32 num, i32 steps)
     }
 }
 
+// returns [0, r.h] indicating water height inside of rec
 i32 water_depth_rec(g_s *g, rec_i32 r)
 {
-    i32 f        = 0;
-    i32 y_bottom = r.y + r.h - 1;
-    i32 px       = r.x + (r.w >> 1);
-    if (g->ocean.active) {
-        f = max_i32(0, y_bottom - ocean_height(g, px));
-    }
+    i32               depth = 0;
+    tile_map_bounds_s bd    = tile_map_bounds_rec(g, r);
+    for (i32 ty = bd.y1; ty <= bd.y2; ty++) {
+        bool32 is_water_row = 0;
+        for (i32 tx = bd.x1; tx <= bd.x2; tx++) {
+            tile_s t = g->tiles[tx + ty * g->tiles_x];
+            is_water_row |= (t.type & TILE_WATER_MASK);
+        }
 
-    i32 d = 0;
-    i32 i = (px >> 4) + (y_bottom >> 4) * g->tiles_x;
-    if (g->tiles[i].type & TILE_WATER_MASK) {
-        d = (y_bottom & 15);
-        for (i -= g->tiles_x; 0 <= i; i -= g->tiles_x) {
-            if (!(g->tiles[i].type & TILE_WATER_MASK)) break;
-            d += 16;
+        rec_i32 rtilerow = {r.x, ty << 4, r.w, 16};
+        if (is_water_row && overlap_rec(r, rtilerow)) {
+            depth = r.y + r.h - max_i32(rtilerow.y, r.y);
+            break;
         }
     }
 
-    return max_i32(f, d);
+    return depth;
 }
 
 static inline i32 ocean_height_logic_q6(i32 p, i32 t)

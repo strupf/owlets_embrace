@@ -33,9 +33,18 @@
 #if (__STDC_VERSION__ < 202311L)
 #include <stdalign.h>
 #endif
+#define ALIGNAS alignas
+#elif defined(_MSC_VER)
+#define ALIGNAS(X) __declspec(align(X))
+#elif defined(__GNUC__)
+#define ALIGNAS(X) __attribute__((aligned(X)))
 #else
-#error UNSUPPORTED C STANDARD
+#error NO ALIGNMENT ATTRIBUTE
 #endif
+
+#define PLTF_SIZE_CL 32
+#define ALIGNCL      ALIGNAS(PLTF_SIZE_CL) // align on PD cache line boundaries
+#define ALIGNT(T)    ALIGNAS(sizeof(T))
 
 typedef char           byte;
 typedef float          f32;
@@ -61,10 +70,26 @@ typedef u32            bool32;
 typedef bool8          b8;
 typedef bool16         b16;
 typedef bool32         b32;
-typedef u8             flags8;
-typedef u16            flags16;
-typedef u32            flags32;
-typedef u64            flags64;
+
+#define I64_MAX  INT64_MAX
+#define I64_MIN  INT64_MIN
+#define U64_MAX  UINT64_MAX
+#define U64_MIN  0
+#define I32_MAX  INT32_MAX
+#define I32_MIN  INT32_MIN
+#define U32_MAX  UINT32_MAX
+#define U32_MIN  0
+#define I16_MAX  INT16_MAX
+#define I16_MIN  INT16_MIN
+#define U16_MAX  UINT16_MAX
+#define U16_MIN  0
+#define I8_MAX   INT8_MAX
+#define I8_MIN   INT8_MIN
+#define U8_MAX   UINT8_MAX
+#define U8_MIN   0
+#define U32_C(X) (X##U)
+#define I64_C(X) (X##LL)
+#define U64_C(X) (X##ULL)
 
 #ifdef PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
@@ -90,31 +115,6 @@ void (*PD_system_error)(const char *format, ...);
 #undef assert
 #define assert(X)
 #endif
-
-#define I64_MAX  INT64_MAX
-#define I64_MIN  INT64_MIN
-#define U64_MAX  UINT64_MAX
-#define U64_MIN  0
-#define I32_MAX  INT32_MAX
-#define I32_MIN  INT32_MIN
-#define U32_MAX  UINT32_MAX
-#define U32_MIN  0
-#define I16_MAX  INT16_MAX
-#define I16_MIN  INT16_MIN
-#define U16_MAX  UINT16_MAX
-#define U16_MIN  0
-#define I8_MAX   INT8_MAX
-#define I8_MIN   INT8_MIN
-#define U8_MAX   UINT8_MAX
-#define U8_MIN   0
-//
-#define U32_C(X) (X##U)
-#define I64_C(X) (X##LL)
-#define U64_C(X) (X##ULL)
-
-#define PLTF_SIZE_CL 32
-#define ALIGNCL      alignas(PLTF_SIZE_CL) // align on PD cache line boundaries
-#define ALIGNT(T)    alignas(sizeof(T))
 
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
@@ -161,20 +161,29 @@ typedef struct {
 typedef struct {
     i32 num;
     i32 den;
-} ratio_s;
+} ratio_i32;
+
+typedef struct {
+    i64 num;
+    i64 den;
+} ratio_i64;
+
+typedef ratio_i32 ratio_s;
 
 typedef struct {
     i32 x, y, w, h;
 } rec_i32;
 
 typedef struct {
-    alignas(2) i8 x;
-    i8            y;
+    ALIGNAS(2)
+    i8 x;
+    i8 y;
 } v2_i8;
 
 typedef struct {
-    alignas(4) i16 x; // word alignment for ARM intrinsics
-    i16            y;
+    ALIGNAS(4)
+    i16 x; // word alignment for ARM intrinsics
+    i16 y;
 } v2_i16;
 
 typedef struct {

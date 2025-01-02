@@ -282,7 +282,7 @@ i32 json_i32(json_s tok)
     }
     while (c <= tok.c1) {
         res *= 10;
-        res += char_int_from_hex(*c);
+        res += num_from_hex(*c);
         c++;
     }
     return (res * s);
@@ -296,7 +296,7 @@ u32 json_u32(json_s tok)
     u32 res = 0;
     while (c <= tok.c1) {
         res *= 10;
-        res += char_int_from_hex(*c);
+        res += num_from_hex(*c);
         c++;
     }
     return res;
@@ -319,7 +319,7 @@ f32 json_f32(json_s j)
             pt = 1;
         } else {
             if (pt) fact *= .1f;
-            res = res * 10.f + (f32)char_int_from_hex(*c);
+            res = res * 10.f + (f32)num_from_hex(*c);
         }
         c++;
     }

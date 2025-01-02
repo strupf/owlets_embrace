@@ -11,7 +11,7 @@ void fallingblock_load(g_s *g, map_obj_s *mo)
 
     o->ID         = OBJ_ID_FALLINGBLOCK;
     o->mass       = 1;
-    o->moverflags = OBJ_MOVER_MAP;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->w          = mo->w;
@@ -36,5 +36,5 @@ void fallingblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     gfx_ctx_s ctx = gfx_ctx_display();
     render_tile_terrain_block(ctx, v2_add(o->pos, cam),
                               o->w >> 4, o->h >> 4,
-                              TILE_TYPE_STONE_ROUND_DARK);
+                              3);
 }

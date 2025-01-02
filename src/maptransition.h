@@ -8,19 +8,13 @@
 #include "gamedef.h"
 
 typedef struct maptransition_s {
+    v2_i32 hero_feet;
+    char   to_load[32];
     u8     fade_phase;
     u8     type;
-    u8     health;
-    i32    hero_face;
-    bool8  jump_ui_may_hide;
-    i32    dir;
-    u16    jump_ui_tick;
-    i16    fade_tick;
-    u16    stamina;
-    v2_i16 hero_v;
-    v2_i32 hero_feet;
+    u8     dir;
+    u8     fade_tick;
     i32    teleport_ID;
-    char   to_load[64];
 } maptransition_s;
 
 void   maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet);

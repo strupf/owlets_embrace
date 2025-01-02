@@ -7,7 +7,7 @@
 
 #include "mem.h"
 
-typedef struct memarena_s {
+typedef struct marena_s {
     void *buf_og;
     void *buf;
     usize bufsize;

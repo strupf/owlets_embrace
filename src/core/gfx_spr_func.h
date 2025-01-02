@@ -59,9 +59,9 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
     i32   ws   = src.wword >> SPRBLIT_SRC_MASK;
     i32   id   = dst.wword;
     i32   is   = src.wword * sy;
-    i32   ww   = (x2 >> 5) - (x1 >> 5); // number of destination words - 1
-    u32   cl   = gfx_endian(0xFFFFFFFFU >> (31 & x1));
-    u32   cr   = gfx_endian(0xFFFFFFFFU << (31 & (u32)(-x2 - 1)));
+    u32   ww   = (x2 >> 5) - (x1 >> 5); // number of destination words - 1
+    u32   cl   = gfx_endian(0xFFFFFFFF >> (31 & x1));
+    u32   cr   = gfx_endian(0xFFFFFFFF << (31 & (u32)(-x2 - 1)));
     i32   u1   = rx - sx * px + (SPRBLIT_FLIPPEDX ? rw - (x2 + 1) : x1); // first bit index in src row
     i32   os   = 31 & (sx * u1 - SPRBLIT_FLIPPEDX * (x2 - x1 + 1));
     i32   of   = os - (x1 & 31);
@@ -70,8 +70,8 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
     i32   rr   = 32 - ll;
     i32   ys   = ry + sy * (y1 - py) + (sy < 0) * (rh - 1);
     u32  *pt_y = ctx.pat.p;
-    u32  *pd_y = &((u32 *)dst.px)[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
-    u32  *ps_y = &((u32 *)src.px)[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
+    u32  *pd_y = &dst.px[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
+    u32  *ps_y = &src.px[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
 
     spr_assert(0 <= (u1 >> 5) && ((u1 >> 5) + (sn >> SPRBLIT_SRC_MASK)) < ws);
 
@@ -82,11 +82,10 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
         u32 *ps   = ps_y + sn * SPRBLIT_FLIPPEDX;
         u32 *pd   = pd_y;
 #if SPR_USE_ASSERT
-        u32 *ps_a = &((u32 *)src.px)[(0 + ys * ws) << SPRBLIT_SRC_MASK];
-        u32 *ps_b = &((u32 *)src.px)[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
+        u32 *ps_a = &src.px[(0 + ys * ws) << SPRBLIT_SRC_MASK];
+        u32 *ps_b = &src.px[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
         spr_assert(ps_a <= ps && ps <= ps_b);
 #endif
-
         u32 pt = pt_y[yd & 7];
         u32 zp = SPRBLIT_GET_WORD(gfx_endian(*(ps + 0)));
         u32 sp = zp << ll;
@@ -136,7 +135,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #if SPRBLIT_SRC_MASK
             sm = zm << ll;
 #else
-            sm = 0xFFFFFFFFU;
+            sm = 0xFFFFFFFF;
 #endif
 
             if (SPRBLIT_CHECK_PS(ps, ps_l, ps_r)) {

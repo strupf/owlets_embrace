@@ -24,7 +24,7 @@ void memarena_align(marena_s *m, usize alignment)
 
 void *memarena_alloc(marena_s *m, usize s)
 {
-    if (m->rem < s) return NULL;
+    if (m->rem < s) return 0;
     void *mem = m->p;
     m->p += s;
     m->rem -= s;
@@ -34,7 +34,7 @@ void *memarena_alloc(marena_s *m, usize s)
 void *memarena_alloc_aligned(marena_s *m, usize s, usize alignment)
 {
     void *p = memarena_alloc(m, s + alignment);
-    return (p ? align_ptr(p, alignment) : NULL);
+    return (p ? align_ptr(p, alignment) : 0);
 }
 
 void *memarena_state(marena_s *m)

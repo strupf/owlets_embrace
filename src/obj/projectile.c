@@ -7,11 +7,11 @@
 #define PROJ_SMEAR_LEN 16
 
 typedef struct {
-    flags32 f;
-    u16     n_hist;   // current pos in array
-    u16     hist_len; // smear entries = length of smear
-    u16     d_smear;
-    v2_i32  pos_hist[PROJ_SMEAR_LEN];
+    u32    f;
+    u16    n_hist;   // current pos in array
+    u16    hist_len; // smear entries = length of smear
+    u16    d_smear;
+    v2_i32 pos_hist[PROJ_SMEAR_LEN];
 } projectile_s;
 
 static_assert(sizeof(projectile_s) < 512, "");
@@ -30,7 +30,7 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     o->subID      = subID;
     //
     o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
-    o->moverflags = OBJ_MOVER_MAP;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
 
     switch (subID) {
     case PROJECTILE_ID_STALACTITE_BREAK:

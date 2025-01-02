@@ -10,14 +10,21 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
-    pltf_log("init");
     map_world_load(&g->map_world, "world.world");
-    g->cam.mode = CAM_MODE_FOLLOW_HERO;
+    g->cam.mode      = CAM_MODE_FOLLOW_HERO;
+    g->obj_head_free = &g->obj_raw[0];
+    for (i32 n = 0; n < NUM_OBJ; n++) {
+        obj_s *o = &g->obj_raw[n];
+        o->GID   = (u32)n << OBJ_ID_INDEX_SH;
+        if (n < NUM_OBJ - 1) {
+            o->next = &g->obj_raw[n + 1];
+        }
+    }
 }
 
 void game_tick(g_s *g)
 {
-#ifdef PLTF_SDL
+#if PLTF_DEV_ENV
     i32 ab = -1;
     if (pltf_sdl_jkey(SDL_SCANCODE_0)) ab = 0;
     if (pltf_sdl_jkey(SDL_SCANCODE_1)) ab = 1;
@@ -61,7 +68,7 @@ void game_tick(g_s *g)
         aud_set_lowpass(((g->hero_hurt_lowpass_tick * 12) / 30));
     }
 
-    if (g->substate) {
+    if (g->substate && g->substate != SUBSTATE_GAMEOVER) {
         g->freeze_tick = 0;
     } else if (0 < g->freeze_tick) {
         g->freeze_tick--;
@@ -71,7 +78,7 @@ void game_tick(g_s *g)
 
     switch (g->substate) {
     case SUBSTATE_TEXTBOX:
-        textbox_update(g);
+        dialog_update(g);
         break;
     case SUBSTATE_MAPTRANSITION:
         maptransition_update(g);
@@ -107,9 +114,9 @@ void game_tick(g_s *g)
     if (g->gameplay_tick & 1) {
         grass_animate(g);
     } else {
+        deco_verlet_animate(g);
     }
 
-    deco_verlet_animate(g);
     area_update(g, &g->area);
 }
 
@@ -117,6 +124,8 @@ void game_tick_gameplay(g_s *g)
 {
     g->gameplay_tick++;
     g->events_frame = 0;
+
+    boss_update(g, &g->boss);
 
     objs_update(g);
     for (obj_each(g, o)) {
@@ -130,7 +139,7 @@ void game_tick_gameplay(g_s *g)
             if (o->ID == OBJ_ID_HERO) {
                 rec_i32 roombounds_hero = {0, 0, g->pixel_x, g->pixel_y + 64};
                 if (!overlap_rec(obj_aabb(o), roombounds_hero)) {
-                    hero_kill(g, o);
+                    // hero_kill(g, o);
                 }
 
             } else {
@@ -149,7 +158,7 @@ void game_tick_gameplay(g_s *g)
                 v2_i32  pos    = obj_pos_center(o);
                 pos.x -= 32;
                 pos.y -= 32;
-                spritedecal_create(g, 0x10000, NULL, pos, TEXID_EXPLOSIONS, rdecal, 30, 14, 0);
+                spritedecal_create(g, 0x10000, 0, pos, TEXID_EXPLOSIONS, rdecal, 30, 14, 0);
                 // snd_play(SNDID_ENEMY_EXPLO, 4.f, 1.f);
                 obj_delete(g, o);
                 continue;
@@ -169,7 +178,7 @@ void game_tick_gameplay(g_s *g)
     objs_cull_to_delete(g);
     particles_update(g, &g->particles);
 
-    obj_s *ohero = NULL;
+    obj_s *ohero = 0;
     if (hero_present_and_alive(g, &ohero)) {
         hero_post_update(g, ohero);
 
@@ -186,25 +195,24 @@ void game_tick_gameplay(g_s *g)
 
     if (g->events_frame & EVENT_HERO_DAMAGE) {
         g->freeze_tick            = 4;
-        g->hero_hurt_lowpass_tick = 40;
+        g->hero_hurt_lowpass_tick = 60;
     } else if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = 2;
     }
 
     objs_cull_to_delete(g);
+    objs_animate(g);
 
     // animate coin counter ui
     if (g->coins_added) {
         if (g->coins_added_ticks) {
             g->coins_added_ticks--;
         } else {
-            i32 to_add = clamp_i32(g->coins_added, -2, +2);
+            i32 to_add = clamp_i32(g->coins_added, -1, +1);
             g->save.coins += to_add;
             g->coins_added -= to_add;
         }
     }
-
-    objs_animate(g);
 }
 
 void game_resume(g_s *g)
@@ -218,6 +226,21 @@ void game_paused(g_s *g)
 i32 gameplay_time(g_s *g)
 {
     return g->gameplay_tick;
+}
+
+void *game_alloc(g_s *g, usize s)
+{
+    return memarena_alloc(&g->memarena, s);
+}
+
+void *game_alloc_aligned(g_s *g, usize s, usize alignment)
+{
+    return memarena_alloc_aligned(&g->memarena, s, alignment);
+}
+
+void game_allocator_reset(g_s *g)
+{
+    memarena_init(&g->memarena, g->mem, sizeof(g->mem));
 }
 
 i32 gameplay_time_since(g_s *g, i32 t)
@@ -236,7 +259,6 @@ void game_load_savefile(g_s *g)
 
     game_load_map(g, s->hero_mapfile);
     obj_s *oh = hero_create(g);
-
     oh->pos.x = s->hero_pos.x - oh->w / 2;
     oh->pos.y = s->hero_pos.y - oh->h;
     game_prepare_new_map(g);
@@ -254,6 +276,7 @@ bool32 game_save_savefile(g_s *g)
 void game_on_trigger(g_s *g, i32 trigger)
 {
     if (trigger) {
+        pltf_log("trigger %i\n", trigger);
         objs_trigger(g, trigger);
     }
 }
@@ -371,4 +394,18 @@ bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
         return 1;
     }
     return 0;
+}
+
+void game_open_map(void *ctx, i32 opt)
+{
+    g_s *g = (g_s *)ctx;
+    pltf_log("Open MAP!\n");
+}
+
+void game_unlock_map(g_s *g)
+{
+    saveID_put(g, SAVEID_UNLOCKED_MAP);
+#ifdef PLTF_PD
+    pltf_pd_menu_add("Map", game_open_map, g);
+#endif
 }

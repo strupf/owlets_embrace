@@ -72,7 +72,7 @@ tex_s tex_load(const char *path, alloc_s ma)
 
 static i32 tex_px_at_unsafe(tex_s tex, i32 x, i32 y)
 {
-    u32 b = gfx_endian(0x80000000U >> (x & 31));
+    u32 b = gfx_endian(0x80000000 >> (x & 31));
     switch (tex.fmt) {
     case TEX_FMT_MASK: return (tex.px[y * tex.wword + ((x >> 5) << 1)] & b);
     case TEX_FMT_OPAQUE: return (tex.px[y * tex.wword + (x >> 5)] & b);
@@ -84,13 +84,13 @@ static i32 tex_mk_at_unsafe(tex_s tex, i32 x, i32 y)
 {
     if (tex.fmt == TEX_FMT_OPAQUE) return 1;
 
-    u32 b = gfx_endian(0x80000000U >> (x & 31));
+    u32 b = gfx_endian(0x80000000 >> (x & 31));
     return (tex.px[y * tex.wword + ((x >> 5) << 1) + 1] & b);
 }
 
 static void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 {
-    u32  b = gfx_endian(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000 >> (x & 31));
     u32 *p = NULL;
     switch (tex.fmt) {
     case TEX_FMT_MASK: p = &tex.px[y * tex.wword + ((x >> 5) << 1)]; break;
@@ -102,7 +102,7 @@ static void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 
 void tex_px_unsafe_display(tex_s tex, i32 x, i32 y, i32 col)
 {
-    u32  b = gfx_endian(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000 >> (x & 31));
     u32 *p = &tex.px[y * tex.wword + (x >> 5)];
     *p     = (col == 0 ? *p & ~b : *p | b);
 }
@@ -110,7 +110,7 @@ void tex_px_unsafe_display(tex_s tex, i32 x, i32 y, i32 col)
 static void tex_mk_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 {
     if (tex.fmt == TEX_FMT_OPAQUE) return;
-    u32  b = gfx_endian(0x80000000U >> (x & 31));
+    u32  b = gfx_endian(0x80000000 >> (x & 31));
     u32 *p = &tex.px[y * tex.wword + ((x >> 5) << 1) + 1];
     *p     = (col == 0 ? *p & ~b : *p | b);
 }
@@ -179,53 +179,9 @@ void tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
 }
 
 // only works if x and w are multiple of 32 right now
-void tex_outline_f(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
+void tex_outline_white(tex_s tex)
 {
-    spm_push();
-    tex_s src  = tex; // need to work off of a copy
-    u32   size = sizeof(u32) * tex.wword * tex.h;
-    src.px     = (u32 *)spm_alloc_aligned(size, 4);
-    mcpy(src.px, tex.px, size);
-
-    i32 x1 = x >> 5;
-    i32 y1 = y;
-    i32 x2 = (x + w - 1) >> 5;
-    i32 y2 = (y + h - 1);
-
-    for (i32 yy = y1; yy <= y2; yy++) {
-        for (i32 xx = x1; xx <= x2; xx++) {
-            u32 *dp = &tex.px[(xx << 1) + (yy * src.wword)];
-            u32 *dm = dp + 1;
-
-            u32 m = 0;
-            for (i32 yi = -1; yi <= +1; yi++) {
-                for (i32 xi = -1; xi <= +1; xi++) {
-                    i32 u = xx + xi;
-                    i32 v = yy + yi;
-                    if (!(x1 <= u && u <= x2 &&
-                          y1 <= v && v <= y2)) continue;
-                    u32 k = gfx_endian(src.px[(u << 1) + v * src.wword + 1]);
-                    switch (xi) {
-                    case -1: m |= k << 31; break;
-                    case +1: m |= k >> 31; break;
-                    case +0: m |= (k >> 1) | (k << 1); break;
-                    }
-                }
-            }
-            m = gfx_endian(m) & ~*dm;
-            *dm |= m;
-            if (col) {
-                *dp |= m;
-            } else {
-                *dp &= ~m;
-            }
-        }
-    }
-    spm_pop();
-}
-
-void tex_outline_all(tex_s tex, i32 col)
-{
+    assert(tex.fmt == TEX_FMT_MASK);
     spm_push();
     tex_s src  = tex; // need to work off of a copy
     u32   size = sizeof(u32) * tex.wword * tex.h;
@@ -234,36 +190,39 @@ void tex_outline_all(tex_s tex, i32 col)
 
     i32 x1 = 0;
     i32 y1 = 0;
-    i32 x2 = (src.wword - 1) >> 5;
-    i32 y2 = src.h - 1;
+    i32 x2 = tex.wword - 1;
+    i32 y2 = tex.h - 1;
 
     for (i32 yy = y1; yy <= y2; yy++) {
-        for (i32 xx = x1; xx <= x2; xx++) {
-            u32 *dp = &tex.px[(xx << 1) + (yy * src.wword)];
+        i32 yi1 = yy == y1 ? 0 : -1;
+        i32 yi2 = yy == y2 ? 0 : +1;
+
+        for (i32 xx = x1; xx <= x2; xx += 2) {
+            u32 *dp = &tex.px[xx + (yy * src.wword)];
             u32 *dm = dp + 1;
 
             u32 m = 0;
-            for (i32 yi = -1; yi <= +1; yi++) {
-                for (i32 xi = -1; xi <= +1; xi++) {
-                    i32 u = xx + xi;
-                    i32 v = yy + yi;
-                    if (!(x1 <= u && u <= x2 &&
-                          y1 <= v && v <= y2)) continue;
-                    u32 k = gfx_endian(src.px[(u << 1) + v * src.wword + 1]);
-                    switch (xi) {
-                    case -1: m |= k << 31; break;
-                    case +1: m |= k >> 31; break;
-                    case +0: m |= (k >> 1) | (k << 1); break;
-                    }
+            for (i32 yi = yi1; yi <= yi2; yi++) {
+                i32 v  = yy + yi;
+                i32 ua = xx - 2;
+                i32 ub = xx + 0;
+                i32 uc = xx + 2;
+                if (x1 <= ua && ua <= x2) {
+                    u32 k = gfx_endian(src.px[ua + v * src.wword + 1]);
+                    m |= k << 31;
+                }
+                if (x1 <= ub && ub <= x2) {
+                    u32 k = gfx_endian(src.px[ub + v * src.wword + 1]);
+                    m |= (k >> 1) | (k << 1);
+                }
+                if (x1 <= uc && uc <= x2) {
+                    u32 k = gfx_endian(src.px[uc + v * src.wword + 1]);
+                    m |= k >> 31;
                 }
             }
             m = gfx_endian(m) & ~*dm;
             *dm |= m;
-            if (col) {
-                *dp |= m;
-            } else {
-                *dp &= ~m;
-            }
+            *dp |= m;
         }
     }
     spm_pop();
@@ -391,23 +350,23 @@ gfx_pattern_s gfx_pattern_8x8(i32 p0, i32 p1, i32 p2, i32 p3,
 gfx_pattern_s gfx_pattern_bayer_4x4(i32 i)
 {
     static const u32 ditherpat[GFX_PATTERN_NUM * 4] = {
-        0x00000000U, 0x00000000U, 0x00000000U, 0x00000000U,
-        0x88888888U, 0x00000000U, 0x00000000U, 0x00000000U,
-        0x88888888U, 0x00000000U, 0x22222222U, 0x00000000U,
-        0xAAAAAAAAU, 0x00000000U, 0x22222222U, 0x00000000U,
-        0xAAAAAAAAU, 0x00000000U, 0xAAAAAAAAU, 0x00000000U,
-        0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x00000000U,
-        0xAAAAAAAAU, 0x44444444U, 0xAAAAAAAAU, 0x11111111U,
-        0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x11111111U,
-        0xAAAAAAAAU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-        0xEEEEEEEEU, 0x55555555U, 0xAAAAAAAAU, 0x55555555U,
-        0xEEEEEEEEU, 0x55555555U, 0xBBBBBBBBU, 0x55555555U,
-        0xFFFFFFFFU, 0x55555555U, 0xBBBBBBBBU, 0x55555555U,
-        0xFFFFFFFFU, 0x55555555U, 0xFFFFFFFFU, 0x55555555U,
-        0xFFFFFFFFU, 0xDDDDDDDDU, 0xFFFFFFFFU, 0x55555555U,
-        0xFFFFFFFFU, 0xDDDDDDDDU, 0xFFFFFFFFU, 0x77777777U,
-        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0x77777777U,
-        0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
+        0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        0x88888888, 0x00000000, 0x00000000, 0x00000000,
+        0x88888888, 0x00000000, 0x22222222, 0x00000000,
+        0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
+        0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
+        0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
+        0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
+        0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
+        0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+        0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+        0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+        0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+        0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
+        0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
+        0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
+        0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
+        0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
 
     const u32    *p   = &ditherpat[clamp_i32(i, 0, GFX_PATTERN_MAX) << 2];
     gfx_pattern_s pat = {{p[0], p[1], p[2], p[3], p[0], p[1], p[2], p[3]}};
@@ -431,18 +390,17 @@ void tex_clr(tex_s dst, i32 col)
     i32  N = dst.wword * dst.h;
     u32 *p = dst.px;
     if (!p) return;
+
     switch (col) {
     case GFX_COL_BLACK:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
-            for (i32 n = 0; n < N; n++) {
-                *p++ = 0U;
-            }
+            mclr(p, sizeof(u32) * N);
             break;
         case TEX_FMT_MASK:
             for (i32 n = 0; n < N; n += 2) {
-                *p++ = 0U;          // data
-                *p++ = 0xFFFFFFFFU; // mask
+                *p++ = 0;          // data
+                *p++ = 0xFFFFFFFF; // mask
             }
             break;
         }
@@ -450,23 +408,16 @@ void tex_clr(tex_s dst, i32 col)
     case GFX_COL_WHITE:
         switch (dst.fmt) {
         case TEX_FMT_OPAQUE:
-            for (i32 n = 0; n < N; n++) {
-                *p++ = 0xFFFFFFFFU;
-            }
+            mset(p, 0xFF, sizeof(u32) * N);
             break;
         case TEX_FMT_MASK:
-            for (i32 n = 0; n < N; n += 2) {
-                *p++ = 0xFFFFFFFFU; // data
-                *p++ = 0xFFFFFFFFU; // mask
-            }
+            mset(p, 0xFF, sizeof(u32) * N);
             break;
         }
         break;
     case GFX_COL_CLEAR:
         if (dst.fmt == TEX_FMT_OPAQUE) break;
-        for (i32 n = 0; n < N; n++) {
-            *p++ = 0;
-        }
+        mclr(p, sizeof(u32) * N);
         break;
     }
 }
@@ -492,10 +443,10 @@ static span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
     span_blit_s info = {0};
     info.y           = y;
     info.doff        = x1 & 31;
-    info.dmax        = (info.doff + nbit - 1) >> 5;                           // number of touched dst words -1
-    info.mode        = mode;                                                  // sprite masking mode
-    info.ml          = gfx_endian(0xFFFFFFFFU >> (31 & info.doff));           // mask to cut off boundary left
-    info.mr          = gfx_endian(0xFFFFFFFFU << (31 & (-info.doff - nbit))); // mask to cut off boundary right
+    info.dmax        = (info.doff + nbit - 1) >> 5;                          // number of touched dst words -1
+    info.mode        = mode;                                                 // sprite masking mode
+    info.ml          = gfx_endian(0xFFFFFFFF >> (31 & info.doff));           // mask to cut off boundary left
+    info.mr          = gfx_endian(0xFFFFFFFF << (31 & (-info.doff - nbit))); // mask to cut off boundary right
     info.dst_wword   = ctx.dst.wword;
     info.dp          = &ctx.dst.px[((x1 >> 5) << lsh) + y * ctx.dst.wword];
     info.dadd        = 1 + lsh;
@@ -579,7 +530,7 @@ void gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 
                 i32 v = (i32)(t * m.m[3] + s * m.m[4] + m.m[5] + .5f);
                 if (!(u1 <= u && u < u2)) continue;
                 if (!(v1 <= v && v < v2)) continue;
-                u32 bit = 0x80000000U >> p;
+                u32 bit = 0x80000000 >> p;
 
                 if (tex_px_at_unsafe(src.t, u, v)) sp |= bit;
                 if (tex_mk_at_unsafe(src.t, u, v)) sm |= bit;
@@ -632,7 +583,7 @@ static void prim_blit_span(span_blit_s info)
     u32 m            = info.ml;
     for (i32 i = 0; i < info.dmax; i++) {
         apply_prim_mode(dp, info.dadd == 2 ? dp + 1 : NULL, m, info.mode, pt);
-        m = 0xFFFFFFFFU;
+        m = 0xFFFFFFFF;
         dp += info.dadd;
     }
     apply_prim_mode(dp, info.dadd == 2 ? dp + 1 : NULL, m & info.mr, info.mode, pt);
@@ -656,7 +607,7 @@ static void prim_blit_span_X(span_blit_s info)
     u32 m            = info.ml;
     for (i32 i = 0; i < info.dmax; i++) {
         apply_prim_mode_X(dp, m, info.mode, pt);
-        m = 0xFFFFFFFFU;
+        m = 0xFFFFFFFF;
         dp++;
     }
     apply_prim_mode_X(dp, m & info.mr, info.mode, pt);
@@ -669,7 +620,7 @@ static void prim_blit_span_Y(span_blit_s info)
     u32 m            = info.ml;
     for (i32 i = 0; i < info.dmax; i++) {
         apply_prim_mode(dp, dp + 1, m, info.mode, pt);
-        m = 0xFFFFFFFFU;
+        m = 0xFFFFFFFF;
         dp += 2;
     }
     apply_prim_mode(dp, dp + 1, m & info.mr, info.mode, pt);
@@ -703,8 +654,7 @@ void gfx_rec_strip(gfx_ctx_s ctx, i32 rx, i32 ry, i32 rw, i32 mode)
 {
     i32 x1 = max_i32(rx, ctx.clip_x1); // area bounds on canvas [x1/y1, x2/y2]
     i32 x2 = min_i32(rx + rw - 1, ctx.clip_x2);
-    if (x2 < x1) return;
-    if (ry < ctx.clip_y1 || ry > ctx.clip_y2) return;
+    if (x2 < x1 || ry < ctx.clip_y1 || ry > ctx.clip_y2) return;
 
     tex_s       dtex = ctx.dst;
     span_blit_s info = span_blit_gen(ctx, ry, x1, x2, mode);
@@ -743,7 +693,7 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2)
     assert(0 <= y1 && y2 <= dst.h);
     u32 *px = &dst.px[y1 * dst.wword];
     for (i32 y = y1; y < y2; y++) {
-        const u32 p = pat.p[y & 7];
+        u32 p = pat.p[y & 7];
         for (i32 x = 0; x < dst.wword; x++) {
             *px++ = p;
         }
@@ -782,11 +732,8 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 
 void fnt_draw_str_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode, i32 spacing)
 {
     v2_i32   p = pos;
-    texrec_s t;
-    t.t   = fnt.t;
-    t.r.w = fnt.grid_w;
-    t.r.h = fnt.grid_h;
-    i32 s = spacing ? spacing : fnt.grid_w;
+    texrec_s t = {fnt.t, {0, 0, fnt.grid_w, fnt.grid_h}};
+    i32      s = spacing ? spacing : fnt.grid_w;
     for (i32 n = 0; n < str.n; n++) {
         i32 ci = str.buf[n];
         t.r.x  = (ci & 31) * fnt.grid_w;
@@ -1013,7 +960,7 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
         cirx[1] = r;
     } else {
         // Jesko's Method - schwarzers.com/algorithms
-        mset(cirx, 0, r);
+        mclr(cirx, r);
         i32 x = r;
         i32 y = 0;
         i32 t = r >> 4;
@@ -1211,8 +1158,8 @@ static inline void spr_blit_tile(u32 *restrict dp, u32 sp, u32 sm)
     *dp = (*dp & ~sm) | (sp & sm); // copy
 }
 
-// special case: drawing tiles equal or smaller than 32x32 to an opaque target texture
-// no XY flipping supported
+// special case: drawing tiles <= 32x32 (aligned on texture) to an opaque target texture
+// neither XY flipping nor draw modes
 void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
 {
     assert((src.r.x >> 5) == ((src.r.x + src.r.w - 1) >> 5));
@@ -1224,46 +1171,88 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
     i32 y1 = max_i32(pos.y, ctx.clip_y1);               // inclusive
     i32 x2 = min_i32(pos.x + src.r.w - 1, ctx.clip_x2); // inclusive
     i32 y2 = min_i32(pos.y + src.r.h - 1, ctx.clip_y2); // inclusive
-    if (x2 < x1) return;
+    if (x2 < x1 || y2 < y1) return;
 
-    tex_s dtex    = ctx.dst;
-    tex_s stex    = src.t;
-    i32   nb      = (x2 + 1) - x1;                                           // number of bits in a row
-    i32   u1      = src.r.x - pos.x + x1;                                    // first bit index in src row
-    i32   src_wy1 = src.r.y - pos.y + y1;                                    //
-    i32   od      = x1 & 31;                                                 // bitoffset in dst
-    i32   os      = u1 & 31;                                                 // bitoffset in src
-    i32   dm      = ((od + nb - 1) >> 5);                                    // number of touched dst words -1
-    i32   sm      = ((os + nb - 1) >> 5) << 1;                               // number of touched src words -1
-    u32   ml      = gfx_endian(U32_C(0xFFFFFFFF) >> (31 & od));              // mask to cut off boundary left
-    u32   mr      = gfx_endian(U32_C(0xFFFFFFFF) << (31 & (u32)(-od - nb))); // mask to cut off boundary right
-    i32   of      = os - od;                                                 // alignment difference
-    i32   l       = of & 31;                                                 // word left shift amount
-    i32   r       = 32 - l;                                                  // word rght shift amound
+    tex_s dt = ctx.dst;
+    tex_s st = src.t;
+    i32   nb = x2 - x1 + 1;                                      // number of bits in a row
+    i32   u1 = src.r.x - pos.x + x1;                             // first bit index in src row
+    i32   v1 = src.r.y - pos.y + y1;                             //
+    i32   od = x1 & 31;                                          // bitoffset in dst
+    i32   os = u1 & 31;                                          // bitoffset in src
+    i32   dm = (od + nb - 1) >> 5;                               // number of touched dst words -1
+    u32   ml = gfx_endian(0xFFFFFFFF >> od);                     // mask to cut off boundary left
+    u32   mr = gfx_endian(0xFFFFFFFF << (31 & (u32)(-od - nb))); // mask to cut off boundary right
+    i32   of = os - od;                                          // alignment difference
+    i32   l  = of & 31;                                          // word left shift amount
+    i32   r  = 32 - l;                                           // word rght shift amound
 
-    u32 *restrict dp       = &dtex.px[((x1 >> 5) << 0) + dtex.wword * y1];      // dst pixel words
-    const u32 *restrict sp = &stex.px[((u1 >> 5) << 1) + stex.wword * src_wy1]; // src pixel words
-    assert(sm == 0);
+    u32 *restrict dp = &dt.px[((x1 >> 5) << 0) + dt.wword * y1]; // dst pixel words
+    u32 *restrict sp = &st.px[((u1 >> 5) << 1) + st.wword * v1]; // src pixel words
     assert(dm <= 1);
+    if (dm == 0) { // combine mask left and right into one
+        ml &= mr;
+    }
 
-    for (i32 y = y1; y <= y2; y++, sp += stex.wword, dp += dtex.wword) {
-        if (l == 0) { // same alignment, fast path
-            spr_blit_tile(dp, *sp, (ml & *(sp + 1)) & mr);
-            continue;
-        }
-
+    for (i32 y = y1; y <= y2; y++, sp += st.wword, dp += dt.wword) {
         u32 zp = gfx_endian(*(sp));
         u32 zm = gfx_endian(*(sp + 1));
-        u32 p  = (0 < of ? zp << l : 0);
-        u32 m  = (0 < of ? zm << l : 0);
+        u32 p1 = (u32)((u64)zp << l);
+        u32 m1 = (u32)((u64)zm << l);
+        u32 p2 = (u32)((u64)zp >> r);
+        u32 m2 = (u32)((u64)zm >> r);
 
-        p = gfx_endian(p | (zp >> r));
-        m = gfx_endian(m | (zm >> r)) & ml;
-        if (dm == 0) { // only one word long
-            spr_blit_tile(dp, p, m & mr);
-        } else {
-            spr_blit_tile(dp, p, m);
-            spr_blit_tile(dp + 1, gfx_endian(zp << l), gfx_endian(zm << l) & mr);
+        spr_blit_tile(dp, gfx_endian(p1 | p2), gfx_endian(m1 | m2) & ml);
+        if (0 < dm) {
+            spr_blit_tile(dp + 1, gfx_endian(p1), gfx_endian(m1) & mr);
+        }
+    }
+}
+
+// counter clockwise filled from a1 to a2
+void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
+                             i32 a1_q18, i32 a2_q18, i32 mode)
+{
+    i32 y1 = max_i32(ctx.clip_y1, p.y - r);
+    i32 y2 = min_i32(ctx.clip_y2, p.y + r);
+    i32 x1 = max_i32(ctx.clip_x1, p.x - r);
+    i32 x2 = min_i32(ctx.clip_x2, p.x + r);
+    u32 r2 = (u32)(r * r);
+
+    // >> 2 -> avoid overflow during multiplication
+    v2_i32 a = {sin_q16(a1_q18) >> 2, cos_q16(a1_q18) >> 2};
+    v2_i32 b = {sin_q16(a2_q18) >> 2, cos_q16(a2_q18) >> 2};
+    i32    w = v2_crs(a, b);
+
+    // blit rectangle strips once the x iterator first entered and then
+    // leaves the circle segment
+    for (i32 y = y1; y <= y2; y++) {
+        b32 inside = 0;
+        i32 xi     = 0;
+
+        for (i32 x = x1; x <= x2; x++) {
+            v2_i32 s = {x - p.x, y - p.y};
+            i32    u = v2_crs(a, s);
+            i32    v = v2_crs(b, s);
+
+            if (v2_lensq(s) <= r2 &&
+                ((0 <= w && (0 <= u && v <= 0)) ||
+                 (0 >= w && (0 <= u || v <= 0)))) {
+                if (!inside) {
+                    inside = 1;
+                    xi     = x;
+                }
+            } else {
+                if (inside) {
+                    inside = 0;
+                    gfx_rec_strip(ctx, xi, y, x - xi, mode);
+                }
+            }
+        }
+
+        // if still inside draw remaining widest strip up to x2
+        if (inside) {
+            gfx_rec_strip(ctx, xi, y, x2 - xi, mode);
         }
     }
 }

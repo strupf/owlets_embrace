@@ -7,9 +7,26 @@
 
 PlaydateAPI *PD;
 
+#define PD_NUM_MENU_ITEMS 3
+
+enum {
+    PD_MENU_ITEM_NONE,
+    PD_MENU_ITEM_SIMPLE,
+    PD_MENU_ITEM_OPTION,
+    PD_MENU_ITEM_CHECKMARK
+};
+
 typedef struct {
-    PDButtons b;
-    bool32    acc_active;
+    u32         type;
+    PDMenuItem *itemp;
+    void (*func)(void *ctx, i32 opt);
+    void *ctx;
+} PD_menu_item_s;
+
+typedef struct {
+    PDButtons      b;
+    bool32         acc_active;
+    PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
 } PD_s;
 
 static PD_s g_PD;
@@ -203,4 +220,83 @@ i32 pltf_file_w(void *f, const void *buf, usize bsize)
 i32 pltf_file_r(void *f, void *buf, usize bsize)
 {
     return (i32)PD_file_read(f, buf, (uint)bsize);
+}
+
+PD_menu_item_s *pltf_pd_try_menu_add(void (*func)(void *ctx, i32 opt), void *ctx)
+{
+    for (i32 n = 0; n < PD_NUM_MENU_ITEMS; n++) {
+        PD_menu_item_s *i = &g_PD.menu_items[n];
+        if (i->type == PD_MENU_ITEM_NONE) {
+            i->func = func;
+            i->ctx  = ctx;
+            return i;
+        }
+    }
+    return 0;
+}
+
+void pltf_pd_menu_cb(void *ctx)
+{
+    PD_menu_item_s *i = (PD_menu_item_s *)ctx;
+    i32             v = pltf_pd_menu_opt_val(i);
+    i->func(i->ctx, v);
+}
+
+void *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
+                           void (*func)(void *ctx, i32 opt), void *ctx)
+{
+    PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
+    if (!i) return 0;
+
+    i->type  = PD_MENU_ITEM_OPTION;
+    i->itemp = PD->system->addOptionsMenuItem(title, opt, n_opt,
+                                              pltf_pd_menu_cb, (void *)i);
+    return i;
+}
+
+void *pltf_pd_menu_add(const char *title,
+                       void (*func)(void *ctx, i32 opt), void *ctx)
+{
+    PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
+    if (!i) return 0;
+
+    i->type  = PD_MENU_ITEM_SIMPLE;
+    i->itemp = PD->system->addMenuItem(title, pltf_pd_menu_cb, (void *)i);
+    return i;
+}
+
+i32 pltf_pd_menu_opt_val(void *itemp)
+{
+    PD_menu_item_s *i = (PD_menu_item_s *)itemp;
+    switch (i->type) {
+    case PD_MENU_ITEM_OPTION:
+    case PD_MENU_ITEM_CHECKMARK: return PD->system->getMenuItemValue(i->itemp);
+    }
+    return 0;
+}
+
+void pltf_pd_menu_opt_val_set(void *itemp, i32 v)
+{
+    PD_menu_item_s *i = (PD_menu_item_s *)itemp;
+    switch (i->type) {
+    case PD_MENU_ITEM_OPTION:
+    case PD_MENU_ITEM_CHECKMARK: PD->system->setMenuItemValue(i->itemp, v);
+    }
+}
+
+void pltf_pd_menu_rem(void *itemp)
+{
+    for (i32 n = 0; n < PD_NUM_MENU_ITEMS; n++) {
+        PD_menu_item_s *i = &g_PD.menu_items[n];
+        if (i == itemp) {
+            mclr(i, sizeof(PD_menu_item_s));
+            break;
+        }
+    }
+}
+
+void pltf_pd_menu_clr()
+{
+    PD->system->removeAllMenuItems();
+    mclr(g_PD.menu_items, sizeof(g_PD.menu_items));
 }

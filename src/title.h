@@ -33,6 +33,7 @@ enum {
 };
 
 typedef struct {
+    b32  exists;
     u32  health;
     u32  tick;
     char name[32];

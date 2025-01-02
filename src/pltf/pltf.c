@@ -8,7 +8,7 @@
 
 typedef struct pltf_s {
     void *framebuffer;
-    u32   tick;
+    i32   tick;
     f32   lasttime;
     f32   ups_timeacc;
     f32   fps_timeacc;
@@ -149,7 +149,7 @@ void *pltf_file_open(const char *path, i32 pltf_file_mode)
     return NULL;
 }
 
-u32 pltf_time()
+i32 pltf_cur_tick()
 {
     return g_pltf.tick;
 }

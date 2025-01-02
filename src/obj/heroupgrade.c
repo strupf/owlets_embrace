@@ -9,8 +9,8 @@ void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 void hero_powerup_obj_load(g_s *g, map_obj_s *mo)
 {
-    i32 upgrade = map_obj_i32(mo, "ID");
-    // if (hero_has_upgrade(g, upgrade)) return;
+    i32 saveID = map_obj_i32(mo, "saveID");
+    if (saveID_has(g, saveID)) return;
 
     obj_s *o     = obj_create(g);
     o->on_update = hero_powerup_obj_on_update;
@@ -28,7 +28,8 @@ void hero_powerup_obj_load(g_s *g, map_obj_s *mo)
     spr->offs.y       = -8;
     o->pos.x          = mo->x;
     o->pos.y          = mo->y;
-    o->state          = upgrade;
+    o->state          = map_obj_i32(mo, "ID");
+    o->substate       = saveID;
 }
 
 void hero_powerup_obj_on_update(g_s *g, obj_s *o)
@@ -76,4 +77,9 @@ void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 i32 hero_powerup_obj_ID(obj_s *o)
 {
     return o->state;
+}
+
+i32 hero_powerup_saveID(obj_s *o)
+{
+    return o->substate;
 }

@@ -12,7 +12,7 @@
 #include "pltf_types.h"
 
 extern PlaydateAPI *PD;
-extern void (*PD_system_logToConsole)(const char *fmt, ...);
+extern void         (*PD_system_logToConsole)(const char *fmt, ...);
 #if 1
 #define pltf_log PD_system_logToConsole
 #else
@@ -34,5 +34,12 @@ f32    pltf_pd_crank_deg();
 f32    pltf_pd_crank();
 bool32 pltf_pd_crank_docked();
 u32    pltf_pd_btn();
+void  *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
+                            void (*func)(void *ctx, i32 opt), void *ctx);
+void  *pltf_pd_menu_add(const char *title,
+                        void (*func)(void *ctx, i32 opt), void *ctx);
+i32    pltf_pd_menu_opt_val(void *itemp);
+void   pltf_pd_menu_opt_val_set(void *itemp, i32 v);
+void   pltf_pd_menu_rem(void *itemp);
 
 #endif

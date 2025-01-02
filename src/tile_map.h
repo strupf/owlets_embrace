@@ -28,6 +28,7 @@ enum {
 
 enum {
     TILELAYER_BG,
+    TILELAYER_BG_TILE,
     TILELAYER_PROP_BG,
     TILELAYER_PROP_FG,
     //
@@ -35,31 +36,32 @@ enum {
 };
 
 enum {
-    TILE_TYPE_NONE,
-    TILE_TYPE_INVISIBLE_NON_CONNECTING,
-    TILE_TYPE_INVISIBLE_CONNECTING,
-    TILE_TYPE_DEBUG,
-    TILE_TYPE_THORNS,
-    TILE_TYPE_SPIKES,
-    TILE_TYPE_______1,
-    TILE_TYPE_______2,
-    TILE_TYPE_DIRT,
-    TILE_TYPE_LEAVES,
-    TILE_TYPE_STONE_SQUARE_LIGHT,
-    TILE_TYPE_______3,
-    TILE_TYPE_______4,
-    TILE_TYPE_______5,
-    TILE_TYPE_______6,
-    TILE_TYPE_STONE_ROUND_DARK,
-    TILE_TYPE_STONE_SQUARE_DARK,
+    TILE_TYPE_NONE                     = 0,
+    TILE_TYPE_INVISIBLE_NON_CONNECTING = 1,
+    TILE_TYPE_INVISIBLE_CONNECTING     = 2,
     //
-    NUM_TILE_TYPES = 24
+    TILE_TYPE_DARK_BEG                 = 3,
+    TILE_TYPE_DARK_LEAVES              = 3,
+    TILE_TYPE_DARK_STONE               = 4,
+    TILE_TYPE_DARK_STONE_PEBBLE        = 5,
+    TILE_TYPE_DARK_OBSIDIAN            = 6,
+    TILE_TYPE_DARK_2                   = 7,
+    TILE_TYPE_DARK_3                   = 8,
+    TILE_TYPE_DARK_4                   = 9,
+    TILE_TYPE_DARK_5                   = 10,
+    TILE_TYPE_DARK_END                 = 10,
+    //
+    TILE_TYPE_BRIGHT_BEG               = 11,
+    TILE_TYPE_BRIGHT_STONE             = 11,
+    TILE_TYPE_BRIGHT_END               = 18,
+    //
+    TILE_TYPE_THORNS                   = 19,
+    TILE_TYPE_THORNS1                  = 20,
+    TILE_TYPE_THORNS2                  = 21,
+    TILE_TYPE_CRUMBLE                  = 22,
+    //
+    NUM_TILE_TYPES                     = 24
 };
-
-static const u8 tile_type_connects_to[] = {
-    //
-
-    /* */ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static inline i32 tile_type_render_priority(i32 type)
 {
@@ -116,26 +118,29 @@ typedef union {
     u16 u;
 } rtile_s;
 
-bool32       tile_solid_pt(i32 ID, i32 x, i32 y);
-bool32       tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1);
-tile_walls_s tile_walls_get(i32 ID);
-tile_tris_s  tile_tris_get(i32 ID);
+bool32  tile_solid_pt(i32 ID, i32 x, i32 y);
+bool32  tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1);
 //
-bool32       tile_map_hookable(g_s *g, rec_i32 r);
-bool32       tile_map_solidr(g_s *g, i32 x, i32 y, i32 w, i32 h);
-bool32       tile_map_solido(g_s *g, obj_s *o, i32 dx, i32 dy);
-bool32       tile_map_solid(g_s *g, rec_i32 r);
-bool32       tile_map_solid_pt(g_s *g, i32 x, i32 y);
-bool32       tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos);
-void         tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type);
+bool32  tile_map_hookable(g_s *g, rec_i32 r);
+bool32  tile_map_solid(g_s *g, rec_i32 r);
+bool32  tile_map_solid_pt(g_s *g, i32 x, i32 y);
+bool32  tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos);
+void    tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type);
+tile_s *tile_map_at_pos(g_s *g, v2_i32 p);
 //
-bool32       map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m);
-bool32       map_blocked_by_any_solid(g_s *g, rec_i32 r);
-bool32       map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y);
-bool32       map_blocked_by_any_climbable_pt(g_s *g, i32 x, i32 y);
-bool32       map_traversable(g_s *g, rec_i32 r);
-bool32       map_traversable_pt(g_s *g, i32 x, i32 y);
-bool32       map_climbable_pt(g_s *g, i32 x, i32 y);
+bool32  map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m);
+bool32  map_blocked_by_any_solid(g_s *g, rec_i32 r);
+bool32  map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y);
+bool32  map_traversable(g_s *g, rec_i32 r);
+bool32  map_traversable_pt(g_s *g, i32 x, i32 y);
+
+enum {
+    MAP_CLIMBABLE_NO_TERRAIN,
+    MAP_CLIMBABLE_SUCCESS,
+    MAP_CLIMBABLE_SLIPPERY,
+};
+
+i32 map_climbable_pt(g_s *g, i32 x, i32 y);
 
 extern const tile_corners_s g_tile_corners[NUM_TILE_SHAPES];
 extern const i32            g_tile_tris[NUM_TILE_SHAPES * 12];

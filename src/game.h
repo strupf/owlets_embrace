@@ -6,10 +6,14 @@
 #define GAME_H
 
 #include "area/area.h"
+#include "boss/battleroom.h"
+#include "boss/boss.h"
 #include "cam.h"
+#include "dialog.h"
 #include "foreground_prop.h"
 #include "gamedef.h"
 #include "gameover.h"
+#include "hero/grapplinghook.h"
 #include "hero/hero.h"
 #include "hero/hero_hook.h"
 #include "hero_powerup.h"
@@ -20,7 +24,8 @@
 #include "particle.h"
 #include "rope.h"
 #include "save.h"
-#include "textbox.h"
+#include "settings.h"
+#include "shop.h"
 #include "tile_map.h"
 #include "title.h"
 #include "water.h"
@@ -53,8 +58,8 @@ enum {
 };
 
 struct g_s {
-    u32               gameplay_tick;
-    u32               state;
+    i32               gameplay_tick;
+    i32               state;
     v2_i32            cam_prev;
     v2_i32            cam_prev_world;
     //
@@ -64,20 +69,20 @@ struct g_s {
     //
     gameover_s        gameover;
     maptransition_s   maptransition;
-    textbox_s         textbox;
     menu_screen_s     menu_screen;
     hero_powerup_s    powerup;
+    dialog_s          dialog;
     u16               freeze_tick;
     u16               substate;
     cam_s             cam;
     u32               events_frame; // flags
     u32               hero_hurt_lowpass_tick;
-    //
-    u16               tiles_x;
-    u16               tiles_y;
-    u16               pixel_x;
-    u16               pixel_y;
     bool32            dark;
+    //
+    i32               tiles_x;
+    i32               tiles_y;
+    i32               pixel_x;
+    i32               pixel_y;
     tile_s            tiles[NUM_TILES];
     rtile_s           rtiles[NUM_TILELAYER][NUM_TILES];
     u8                fluid_streams[NUM_TILES];
@@ -96,6 +101,8 @@ struct g_s {
     i32               n_foreground_props;
     foreground_prop_s foreground_props[NUM_FOREGROUND_PROPS];
     //
+    boss_s            boss;
+    battleroom_s      battleroom;
     u16               coins_added;
     u16               coins_added_ticks;
     u16               save_ticks;
@@ -107,12 +114,11 @@ struct g_s {
     deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
     u32               n_ladders;
     //
+    grapplinghook_s   grapple;
     i32               save_slot;
     save_s            save;
     hero_s            hero_mem;
     rope_s            rope;
-    i32               n_ropes;
-    rope_s            ropes[4];
     particles_s       particles;
     ocean_s           ocean;
 
@@ -123,7 +129,7 @@ struct g_s {
     } areaname;
 
     marena_s        memarena;
-    alignas(4) byte mem[64 * 1024];
+    ALIGNAS(4) byte mem[MKILOBYTE(1024)];
 };
 
 void   game_init(g_s *g);
@@ -131,6 +137,10 @@ void   game_tick(g_s *g);
 void   game_draw(g_s *g);
 void   game_resume(g_s *g);
 void   game_paused(g_s *g);
+// allocate static memory (per level)
+void  *game_alloc_aligned(g_s *g, usize s, usize alignment);
+void  *game_alloc(g_s *g, usize s);
+void   game_allocator_reset(g_s *g);
 //
 i32    gameplay_time(g_s *g);
 i32    gameplay_time_since(g_s *g, i32 t);
@@ -145,6 +155,9 @@ void   objs_update(g_s *g);
 void   objs_animate(g_s *g);
 void   objs_trigger(g_s *g, i32 trigger);
 void   obj_custom_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   obj_interact(g_s *g, obj_s *o, obj_s *ohero);
+void   game_open_map(void *ctx, i32 opt);
+void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

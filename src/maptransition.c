@@ -24,30 +24,21 @@ const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     10,
     25};
 
-void maptransition_init(g_s *g, const char *file,
-                        i32 type, v2_i32 hero_feet, v2_i16 hero_v, i32 facing)
+void maptransition_init(g_s *g, const char *file, i32 type, v2_i32 hero_feet)
 {
     maptransition_s *mt = &g->maptransition;
     str_cpy(mt->to_load, file);
-    mt->dir              = 0;
-    mt->type             = type;
-    mt->hero_feet        = hero_feet;
-    mt->hero_v           = hero_v;
-    mt->hero_face        = facing;
-    mt->jump_ui_may_hide = g->hero_mem.jump_ui_may_hide;
-    mt->jump_ui_tick     = g->hero_mem.stamina_ui_fade_out;
-    mt->fade_tick        = 0;
-    mt->fade_phase       = 1;
-    obj_s *o             = obj_get_hero(g);
-    mt->health           = o->health;
-    g->substate          = SUBSTATE_MAPTRANSITION;
+    mt->dir        = 0;
+    mt->type       = type;
+    mt->hero_feet  = hero_feet;
+    mt->fade_tick  = 0;
+    mt->fade_phase = 1;
+    g->substate    = SUBSTATE_MAPTRANSITION;
 }
 
 void maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet)
 {
-    v2_i16 hero_v = {0};
-    maptransition_init(g, map, MAPTRANSITION_TYPE_TELEPORT,
-                       hero_feet, hero_v, +1);
+    maptransition_init(g, map, MAPTRANSITION_TYPE_TELEPORT, hero_feet);
 }
 
 bool32 maptransition_try_hero_slide(g_s *g)
@@ -60,7 +51,6 @@ bool32 maptransition_try_hero_slide(g_s *g)
         BAD_PATH
         return 0;
     }
-    hero_s *h = (hero_s *)o->heap;
 
     i32 touchedbounds = 0;
     if (o->pos.x <= 0)
@@ -83,7 +73,6 @@ bool32 maptransition_try_hero_slide(g_s *g)
 
     if (!nextroom) {
         pltf_log("no room\n");
-        nextroom = map_world_overlapped_room(&g->map_world, g->map_worldroom, aabb);
         return 0;
     }
 
@@ -111,11 +100,8 @@ bool32 maptransition_try_hero_slide(g_s *g)
     }
 
     v2_i32 feet = {trgaabb.x + trgaabb.w / 2, trgaabb.y + trgaabb.h};
-
-    maptransition_init(g, nextroom->filename,
-                       MAPTRANSITION_TYPE_SLIDE, feet, hvel, o->facing);
-    mt->dir     = touchedbounds;
-    mt->stamina = h->stamina;
+    maptransition_init(g, nextroom->filename, MAPTRANSITION_TYPE_SLIDE, feet);
+    mt->dir = touchedbounds;
     return 1;
 }
 
@@ -139,18 +125,10 @@ void maptransition_update(g_s *g)
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
     game_load_map(g, mt->to_load);
-    obj_s  *hero            = hero_create(g);
-    hero_s *hh              = (hero_s *)&g->hero_mem;
-    hero->pos.x             = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y             = mt->hero_feet.y - hero->h;
-    hero->facing            = mt->hero_face;
-    hero->v_q8              = mt->hero_v;
-    hh->stamina             = mt->stamina;
-    hh->jump_ui_may_hide    = mt->jump_ui_may_hide;
-    hh->stamina_ui_fade_out = mt->jump_ui_tick;
-    hero->health            = mt->health;
-    v2_i32 hpos             = obj_pos_center(hero);
-
+    obj_s *hero          = obj_get_hero(g);
+    hero->pos.x          = mt->hero_feet.x - hero->w / 2;
+    hero->pos.y          = mt->hero_feet.y - hero->h;
+    v2_i32  hpos         = obj_pos_center(hero);
     u32     respawn_d    = U32_MAX;
     v2_i16 *resp_closest = 0;
     for (u32 n = 0; n < g->n_respawns; n++) {

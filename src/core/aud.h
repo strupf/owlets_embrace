@@ -71,9 +71,9 @@ typedef struct {
 } aud_cmd_lowpass_s;
 
 typedef struct {
-    alignas(32) // cache line on Cortex M7
-        u16 type;
-    u16     priority; // for dropping unimportant commands when the queue is full
+    ALIGNAS(32) // cache line on Cortex M7
+    u16 type;
+    u16 priority; // for dropping unimportant commands when the queue is full
     union {
         aud_cmd_snd_play_s   snd_play;
         aud_cmd_snd_modify_s snd_modify;

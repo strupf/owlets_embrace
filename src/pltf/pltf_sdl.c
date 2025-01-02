@@ -14,9 +14,10 @@
 #else
 #define PLTF_SDL_WEB 0
 #endif
+#define PLTF_SDL_SCALE_LAUNCH   1
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
-#define PLTF_SDL_USE_DEBUG_RECS 1 && !PLTF_SDL_RECORD_1080P
+#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_NUM_DEBUG_RECS 256
 #define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
 
@@ -90,8 +91,8 @@ int main(int argc, char **argv)
                                     PLTF_DISPLAY_W,
                                     PLTF_DISPLAY_H,
 #else
-                                    PLTF_DISPLAY_W * 2,
-                                    PLTF_DISPLAY_H * 2,
+                                    PLTF_DISPLAY_W * PLTF_SDL_SCALE_LAUNCH,
+                                    PLTF_DISPLAY_H * PLTF_SDL_SCALE_LAUNCH,
 #endif
                                     SDL_WINDOW_ALLOW_HIGHDPI |
                                         SDL_WINDOW_RESIZABLE |

@@ -24,6 +24,7 @@ void objs_update(g_s *g)
         case OBJ_ID_CRAWLER: crawler_on_update(g, o); break;
         case OBJ_ID_FROG: frog_on_update(g, o); break;
         case OBJ_ID_FALLINGBLOCK: fallingblock_on_update(g, o); break;
+        case OBJ_ID_ROTOR: rotor_on_update(g, o); break;
         case OBJ_ID_CHEST: chest_on_update(g, o); break;
         case OBJ_ID_WATERLEAF: waterleaf_on_update(g, o); break;
         case OBJ_ID_WINDAREA: windarea_on_update(g, o); break;
@@ -33,6 +34,13 @@ void objs_update(g_s *g)
         case OBJ_ID_WALKER: walker_on_update(g, o); break;
         case OBJ_ID_SPIDERBOSS: spiderboss_on_update(g, o); break;
         case OBJ_ID_TRAMPOLINE: trampoline_on_update(g, o); break;
+        case OBJ_ID_CLOCKPULSE: clockpulse_on_update(g, o); break;
+        case OBJ_ID_SAVEPOINT: savepoint_on_update(g, o); break;
+        case OBJ_ID_BOULDER: boulder_on_update(g, o); break;
+        case OBJ_ID_HOOKLEVER: hooklever_on_update(g, o); break;
+        case OBJ_ID_FALLINGSTONE: fallingstone_on_update(g, o); break;
+        case OBJ_ID_STALACTITE: stalactite_on_update(g, o); break;
+        case OBJ_ID_BITER: biter_on_update(g, o); break;
         }
     }
 }

@@ -28,8 +28,9 @@ const u8 powerup_phase[NUM_POWERUP_PHASES] = {
 #define NUM_POWERUP_LINES 8
 
 typedef struct {
-    alignas(4) char title[32];
-    char            txt[NUM_POWERUP_LINES][64];
+    ALIGNAS(4)
+    char title[32];
+    char txt[NUM_POWERUP_LINES][64];
 } powerup_text_s;
 
 const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS];
@@ -66,7 +67,7 @@ void hero_powerup_update(g_s *g)
     pu->tick_total++;
 
     if (pu->phase == POWERUP_PHASE_TEXT_INPUT && pu->tick == 0) {
-        if (inp_action_jp(INP_A)) {
+        if (inp_btn_jp(INP_A)) {
             pu->tick++;
         }
         return;
@@ -200,26 +201,4 @@ void hero_powerup_draw_text(gfx_ctx_s ctx, i32 ID)
     }
 }
 
-const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS] = {
-    //
-    {"Grappling Hook",
-     {"Use the grappling hook with B while holding",
-      "any of the 8 directions on the DPad. You",
-      "can change its length using the crank while",
-      "it's active."}},
-    //
-    {"Swimming",
-     {
-         "Water isn't too bad after all.",
-         "So easy it almost works as if by itself.",
-     }},
-    //
-    {0},
-    //
-    {0},
-    //
-    {"Air Jump",
-     {"You can now flap your wings in the air to",
-      "gain more height and reach new areas."}},
-    //
-};
+const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS];

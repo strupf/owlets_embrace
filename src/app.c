@@ -19,11 +19,12 @@ void app_load_snd();
 
 void app_init()
 {
-    pltf_audio_set_volume(1.f);
+    pltf_audio_set_volume(0.f);
     pltf_accelerometer_set(1);
     spm_init();
     assets_init();
     inp_init();
+    settings_load();
 
 #if PLTF_DEV_ENV
     SPM.lowestleft_disabled = 1;
@@ -145,9 +146,17 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 // preprocess textures
 void app_load_tex()
 {
-    asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", 0);
+    tex_s tterrain;
+    asset_tex_loadID(TEXID_TILESET_TERRAIN, "TILESET_TERRAIN", &tterrain);
+
+    gfx_ctx_s ctxterrain = gfx_ctx_default(tterrain);
+    texrec_s  trterrain  = {tterrain, {0, (TILE_TYPE_THORNS - 2) * 256, 416, 256}};
+    gfx_spr(ctxterrain, trterrain, (v2_i32){0, (TILE_TYPE_THORNS + 4 - 2) * 256}, 0, SPR_MODE_WHITE_ONLY);
+    ctxterrain.pat = gfx_pattern_2x2(B2(00), B2(10));
+    // gfx_spr(ctxterrain, trterrain, (v2_i32){0, (TILE_TYPE_THORNS - 2) * 256}, 0, SPR_MODE_BLACK);
     asset_tex_loadID(TEXID_TILESET_BG_AUTO, "TILESET_BG_AUTO", 0);
     asset_tex_loadID(TEXID_TILESET_PROPS, "TILESET_PROPS", 0);
+    asset_tex_loadID(TEXID_TILESET_DECO, "TILESET_DECO", 0);
 
 #if PLTF_DEBUG
     tex_s tcoll = tex_create(16, 16 * 32, asset_allocator);
@@ -165,6 +174,11 @@ void app_load_tex()
     }
 #endif
 
+    tex_s tstalactite;
+    asset_tex_loadID(TEXID_STALACTITE, "stalactite_sheet", &tstalactite);
+    tex_outline(tstalactite, 0, 32, 32 * 4, 32, 1, 1);
+    tex_outline(tstalactite, 64, 0, 32 * 2, 32, 1, 1);
+
     asset_tex_loadID(TEXID_MAINMENU, "mainmenu", 0);
     asset_tex_loadID(TEXID_CRUMBLE, "crumbleblock", 0);
     tex_s tchest;
@@ -178,12 +192,16 @@ void app_load_tex()
     asset_tex_loadID(TEXID_SWITCH, "switch", &texswitch);
     tex_outline(texswitch, 0, 0, 128, 64, 1, 1);
 
+    tex_s tstaminarestore;
+    asset_tex_loadID(TEXID_STAMINARESTORE, "staminarestore", &tstaminarestore);
+    // tex_outline_white(tstaminarestore);
+    tex_outline(tstaminarestore, 0, 0, 160, 32, 1, 1);
+
     tex_s tflyblob;
     asset_tex_loadID(TEXID_FLYBLOB, "flyblob", &tflyblob);
     tex_outline(tflyblob, 0, 0, 1024, 512, 1, 1);
 
     asset_tex_putID(TEXID_AREALABEL, tex_create(256, 64, asset_allocator));
-    asset_tex_loadID(TEXID_JUGGERNAUT, "juggernaut", 0);
     asset_tex_loadID(TEXID_PLANTS, "plants", 0);
     asset_tex_loadID(TEXID_CRABLER, "crabler", 0);
 
@@ -200,6 +218,14 @@ void app_load_tex()
     for (i32 y = 0; y < 4; y++) {
         for (i32 x = 0; x < 8; x++) {
             tex_outline(tshroomy, x * 64, y * 48, 64, 48, 1, 1);
+        }
+    }
+
+    tex_s trotor;
+    asset_tex_loadID(TEXID_ROTOR, "rotor_sheet", &trotor);
+    for (i32 y = 0; y < 4; y++) {
+        for (i32 x = 0; x < 4; x++) {
+            tex_outline(trotor, x * 48, y * 48, 48, 48, 1, 1);
         }
     }
 
@@ -235,6 +261,10 @@ void app_load_tex()
     tex_outline(tmisc, 0, 192, 64 * 2, 64, 1, 1);
     tex_outline(tmisc, 0, 384, 64 * 6, 128, 0, 1);
     tex_outline(tmisc, 0, 384, 64 * 6, 128, 0, 1);
+
+    tex_s tsavepoint;
+    asset_tex_loadID(TEXID_SAVEPOINT, "savepoint", &tsavepoint);
+    tex_outline_white(tsavepoint);
 
     tex_s texhero;
     asset_tex_loadID(TEXID_HERO, "player", &texhero);
@@ -371,7 +401,7 @@ void app_load_tex()
     asset_tex_loadID(TEXID_TITLE_SCREEN, "titlescreen", 0);
     tex_s ttrampoline;
     asset_tex_loadID(TEXID_TRAMPOLINE, "trampoline", &ttrampoline);
-    tex_outline(ttrampoline, 0, 0, 64, 160, 1, 1);
+    tex_outline_white(ttrampoline);
     water_prerender_tiles();
 }
 

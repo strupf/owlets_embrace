@@ -47,36 +47,6 @@ bool32 tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1)
     return 0;
 }
 
-tile_walls_s tile_walls_get(i32 ID)
-{
-    tile_walls_s   res = {0};
-    tile_corners_s tc  = g_tile_corners[ID];
-    res.n              = tc.n;
-    for (i32 i = 0; i < tc.n; i++) {
-        v2_i32      a = v2_i32_from_v2_i8(tc.c[i]);
-        v2_i32      b = v2_i32_from_v2_i8(tc.c[(i + 1) % tc.n]);
-        v2_i32      d = {b.y - a.y, a.x - b.x};
-        i32         l = v2_len(d);
-        v2_i32      n = {((d.x << 8) + 1) / l, ((d.y << 8) + 1) / l};
-        tile_wall_s w = {a, b, n};
-        res.w[i]      = w;
-    }
-    return res;
-}
-
-tile_tris_s tile_tris_get(i32 ID)
-{
-    tile_corners_s tc   = g_tile_corners[ID];
-    v2_i32         p[4] = {v2_i32_from_v2_i8(tc.c[0]),
-                           v2_i32_from_v2_i8(tc.c[1]),
-                           v2_i32_from_v2_i8(tc.c[2]),
-                           v2_i32_from_v2_i8(tc.c[3])};
-    tri_i32        t1   = {{p[0], p[1], p[2]}};
-    tri_i32        t2   = {{p[0], p[2], p[3]}};
-    tile_tris_s    res  = {tc.n - 2, {t1, t2}};
-    return res;
-}
-
 #define TC(X, Y) \
     {            \
         X << 3, Y << 3}
@@ -128,8 +98,7 @@ bool32 tile_map_hookable(g_s *g, rec_i32 r)
             i32    ID   = tile.collision;
             i32    t    = tile.type;
             if (!TILE_IS_SHAPE(ID)) continue;
-            if (t == TILE_TYPE_THORNS ||
-                t == TILE_TYPE_SPIKES) continue;
+            // if (t == TILE_TYPE_THORNS || t == TILE_TYPE_SPIKES) continue;
 
             i32 x0 = (tx == tx0 ? px0 & 15 : 0);
             i32 x1 = (tx == tx1 ? px1 & 15 : 15);
@@ -138,18 +107,6 @@ bool32 tile_map_hookable(g_s *g, rec_i32 r)
         }
     }
     return 0;
-}
-
-bool32 tile_map_solidr(g_s *g, i32 x, i32 y, i32 w, i32 h)
-{
-    rec_i32 r = {x, y, w, h};
-    return tile_map_solid(g, r);
-}
-
-bool32 tile_map_solido(g_s *g, obj_s *o, i32 dx, i32 dy)
-{
-    rec_i32 r = {o->pos.x + dx, o->pos.y + dy, o->w, o->h};
-    return tile_map_solid(g, r);
 }
 
 bool32 tile_map_solid(g_s *g, rec_i32 r)
@@ -185,7 +142,8 @@ bool32 tile_map_solid(g_s *g, rec_i32 r)
 bool32 tile_map_solid_pt(g_s *g, i32 x, i32 y)
 {
     if (!(0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y)) return 0;
-    i32 ID = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x].collision;
+    tile_s t  = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x];
+    i32    ID = t.collision;
     return (tile_solid_pt(ID, x & 15, y & 15));
 }
 
@@ -240,11 +198,14 @@ void tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type)
 
 bool32 map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m)
 {
-    for (obj_each(g, it)) {
-        if (it == o) continue;
-        if (it->mass == 0) continue;
-        if (m <= it->mass && overlap_rec(r, obj_aabb(it))) {
-            return 1;
+    if (o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) {
+        for (obj_each(g, it)) {
+            if (it != o &&
+                0 < it->mass &&
+                m <= it->mass &&
+                overlap_rec(r, obj_aabb(it))) {
+                return 1;
+            }
         }
     }
     return 0;
@@ -263,40 +224,20 @@ bool32 map_blocked_by_any_solid(g_s *g, rec_i32 r)
 
 bool32 map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y)
 {
-    v2_i32 pt = {x, y};
-    for (obj_each(g, it)) {
-        if (it->mass == 0) continue;
-        if (overlap_rec_pnt(obj_aabb(it), pt)) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-bool32 map_blocked_by_any_climbable_pt(g_s *g, i32 x, i32 y)
-{
-    v2_i32 pt = {x, y};
-    for (obj_each(g, it)) {
-        if (it->mass == 0) continue;
-        if (!(it->flags & OBJ_FLAG_CLIMBABLE)) continue;
-        if (overlap_rec_pnt(obj_aabb(it), pt)) {
-            return 1;
-        }
-    }
-    return 0;
+    rec_i32 r = {x, y, 1, 1};
+    return map_blocked_by_any_solid(g, r);
 }
 
 bool32 map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m)
 {
-    if (tile_map_solid(g, r)) return 1;
-    return (map_blocked_by_solid(g, o, r, m));
+    return ((o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) &&
+            (tile_map_solid(g, r) || map_blocked_by_solid(g, o, r, m)));
 }
 
 bool32 map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m)
 {
-    if (tile_map_solid_pt(g, x, y)) return 0;
     rec_i32 r = {x, y, 1, 1};
-    return (map_blocked_by_solid(g, NULL, r, 0));
+    return map_blocked(g, o, r, m);
 }
 
 bool32 map_traversable(g_s *g, rec_i32 r)
@@ -308,17 +249,33 @@ bool32 map_traversable(g_s *g, rec_i32 r)
 
 bool32 map_traversable_pt(g_s *g, i32 x, i32 y)
 {
-    if (tile_map_solid_pt(g, x, y)) return 0;
-    if (map_blocked_by_any_solid_pt(g, x, y)) return 0;
-    return 1;
+    rec_i32 r = {x, y, 1, 1};
+    return map_traversable(g, r);
 }
 
-bool32 map_climbable_pt(g_s *g, i32 x, i32 y)
+i32 map_climbable_pt(g_s *g, i32 x, i32 y)
 {
-    if (!tile_map_solid_pt(g, x, y) &&
-        !map_blocked_by_any_climbable_pt(g, x, y))
-        return 0;
-    return 1;
+    if (0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y) {
+        tile_s t = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x];
+        if (tile_solid_pt(t.collision, x & 15, y & 15)) {
+            switch (t.type) {
+            case TILE_TYPE_DARK_OBSIDIAN:
+                return MAP_CLIMBABLE_SLIPPERY;
+            default:
+                return MAP_CLIMBABLE_SUCCESS;
+            }
+        }
+    }
+
+    v2_i32 pt = {x, y};
+    for (obj_each(g, it)) {
+        if (it->mass == 0) continue;
+        if (!(it->flags & OBJ_FLAG_CLIMBABLE)) continue;
+        if (overlap_rec_pnt(obj_aabb(it), pt)) {
+            return MAP_CLIMBABLE_SUCCESS;
+        }
+    }
+    return MAP_CLIMBABLE_NO_TERRAIN;
 }
 
 tile_map_bounds_s tile_map_bounds_rec(g_s *g, rec_i32 r)
@@ -342,4 +299,14 @@ tile_map_bounds_s tile_map_bounds_tri(g_s *g, tri_i32 t)
     v2_i32 pmin = v2_min3(t.p[0], t.p[1], t.p[2]);
     v2_i32 pmax = v2_max3(t.p[0], t.p[1], t.p[2]);
     return tile_map_bounds_pts(g, pmin, pmax);
+}
+
+tile_s *tile_map_at_pos(g_s *g, v2_i32 p)
+{
+    if (!(0 <= p.x && p.x < g->pixel_x)) return 0;
+    if (!(0 <= p.y && p.y < g->pixel_y)) return 0;
+
+    i32 tx = p.x / 16;
+    i32 ty = p.y / 16;
+    return &g->tiles[tx + ty * g->tiles_x];
 }

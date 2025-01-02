@@ -7,17 +7,32 @@
 
 #include "pltf/pltf.h"
 
-#define GAME_VERSION_MAJ 0
-#define GAME_VERSION_MIN 1
+#define GAME_VERSION_MAJOR 0
+#define GAME_VERSION_MINOR 1
+#define GAME_VERSION_PATCH 0
 
-// game version - important once released
-#define GAME_VERSION_GEN(P, MAJ, MIN) (u32)(((P) << 16) | ((MAJ) << 8 | (MIN)))
+#define GAME_VERSION_GEN(MAJ, MIN, PAT) \
+    (u32)(((MAJ) << 16) | ((MIN) << 8) | (PAT))
+#define GAME_VERSION        \
+    GAME_VERSION_GEN(       \
+        GAME_VERSION_MAJOR, \
+        GAME_VERSION_MINOR, \
+        GAME_VERSION_PATCH)
 
-#if defined(PLTF_PD)
-#define GAME_VERSION GAME_VERSION_GEN(1, GAME_VERSION_MAJ, GAME_VERSION_MIN) // 2: SDL
-#elif defined(PLTF_SDL)
-#define GAME_VERSION GAME_VERSION_GEN(2, GAME_VERSION_MAJ, GAME_VERSION_MIN) // 2: SDL
-#endif
+static u32 game_version_encode(i32 major, i32 minor, i32 patch)
+{
+    assert(0 <= major && major < 256);
+    assert(0 <= minor && minor < 256);
+    assert(0 <= patch && patch < 256);
+    return GAME_VERSION_GEN(major, minor, patch);
+}
+
+static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
+{
+    if (major) *major = 0xFF & (v >> 16);
+    if (minor) *minor = 0xFF & (v >> 8);
+    if (patch) *patch = 0xFF & (v);
+}
 
 #include "core/assets.h"
 #include "core/aud.h"

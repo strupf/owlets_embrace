@@ -110,7 +110,8 @@ void npc_on_interact(g_s *g, obj_s *o)
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }
     o->v_q8.x = 0;
-    textbox_load_dialog(g, o->filename);
+    dialog_open(g, o->filename);
+    // textbox_load_dialog(g, o->filename);
 }
 
 void npc_load(g_s *g, map_obj_s *mo)
@@ -119,10 +120,10 @@ void npc_load(g_s *g, map_obj_s *mo)
     npc_s        *npc = (npc_s *)o->mem;
     obj_sprite_s *spr = &o->sprites[0];
 
-    o->ID    = OBJ_ID_NPC;
-    o->flags = OBJ_FLAG_INTERACTABLE |
-               OBJ_FLAG_MOVER;
-    o->moverflags = OBJ_MOVER_GLUE_GROUND |
+    o->ID         = OBJ_ID_NPC;
+    o->flags      = OBJ_FLAG_INTERACTABLE;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
+                    OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_SLIDE_Y_NEG;
 

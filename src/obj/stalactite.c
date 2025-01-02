@@ -8,100 +8,47 @@ enum {
     STALACTITE_IDLE,
     STALACTITE_SHAKING,
     STALACTITE_FALLING,
-    STALACTITE_STUCK,
 };
 
+#define STALACTITE_TICKS_SHAKE 30
+#define STALACTITE_W           24
+#define STALACTITE_H           16
+#define STALACTITE_SPR_OFFX    -8
+#define STALACTITE_SPR_OFFY    -8
+
 typedef struct {
+    i32     og_x;
+    i32     og_y;
     rec_i32 checkr;
 } stalactite_s;
 
-void stalactite_on_update(g_s *g, obj_s *o)
-{
-    obj_sprite_s *spr = &o->sprites[0];
-
-    o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-    o->flags &= ~OBJ_FLAG_MOVER;
-
-    switch (o->state) {
-    case STALACTITE_IDLE: {
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-        if (!ohero) break;
-
-        stalactite_s *s = (stalactite_s *)o->mem;
-        if (overlap_rec(s->checkr, obj_aabb(ohero))) {
-            o->state = STALACTITE_SHAKING;
-        }
-        break;
-    }
-    case STALACTITE_SHAKING: {
-        spr->offs.x = rngr_i32(-1, +1);
-        spr->offs.y = rngr_i32(-1, +1);
-        o->timer++;
-        if (o->timer < 30) break;
-        o->state = STALACTITE_FALLING;
-        o->flags |= OBJ_FLAG_MOVER;
-        spr->offs.x = 0;
-        spr->offs.y = 0;
-        break;
-    }
-    case STALACTITE_FALLING: {
-        o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
-        o->flags |= OBJ_FLAG_MOVER;
-        if (obj_grounded(g, o)) {
-            o->state = STALACTITE_STUCK;
-            o->flags &= ~OBJ_FLAG_MOVER;
-            if (1000 < o->v_q8.y) {
-                cam_screenshake(&g->cam, 10, 3);
-            }
-
-            for (i32 yy = -1; yy <= +1; yy += 2) {
-                for (i32 xx = -1; xx <= +1; xx += 2) {
-                    v2_i32 vel = {xx * 200, yy * 200};
-                    projectile_create(g,
-                                      obj_pos_center(o),
-                                      vel,
-                                      PROJECTILE_ID_STALACTITE_BREAK);
-                }
-            }
-
-            o->v_q8.y = 0;
-        }
-        if (o->bumpflags & OBJ_BUMP_X) {
-            o->v_q8.x = 0;
-        }
-        if (o->bumpflags & OBJ_BUMP_Y) {
-            o->v_q8.y = 0;
-        }
-        o->bumpflags = 0;
-        break;
-    }
-    case STALACTITE_STUCK: {
-        if (obj_grounded(g, o)) break;
-        o->state = STALACTITE_FALLING;
-
-        break;
-    }
-    }
-}
-
 void stalactite_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_STALACTITE;
-    o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_KILL_OFFSCREEN;
-    o->on_update       = stalactite_on_update;
-    obj_sprite_s *spr  = &o->sprites[0];
-    o->render_priority = -1;
-    o->moverflags      = OBJ_MOVER_ONE_WAY_PLAT;
-    o->n_sprites       = 1;
-    o->w               = 32;
-    o->h               = 16;
-    spr->trec          = asset_texrec(TEXID_MISCOBJ, 224, 0, 32, 32);
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y;
+    obj_s *o_spawn          = obj_create(g);
+    o_spawn->ID             = OBJ_ID_STALACTITE_SPAWN;
+    o_spawn->w              = STALACTITE_W;
+    o_spawn->h              = STALACTITE_H;
+    o_spawn->pos.x          = mo->x + (mo->w - STALACTITE_W) / 2;
+    o_spawn->pos.y          = mo->y;
+    o_spawn->n_sprites      = 1;
+    obj_sprite_s *spr_spawn = &o_spawn->sprites[0];
+    spr_spawn->trec         = asset_texrec(TEXID_STALACTITE, 0, 0, 32, 32);
+    spr_spawn->offs.x       = STALACTITE_SPR_OFFX;
+    spr_spawn->offs.y       = STALACTITE_SPR_OFFY;
 
+    obj_s        *o = obj_create(g);
     stalactite_s *s = (stalactite_s *)o->mem;
+    o->ID           = OBJ_ID_STALACTITE;
+    o->flags        = OBJ_FLAG_KILL_OFFSCREEN;
+    o->w            = STALACTITE_W;
+    o->h            = STALACTITE_H;
+    o->pos.x        = o_spawn->pos.x;
+    o->pos.y        = o_spawn->pos.y;
+    o->moverflags =
+        OBJ_MOVER_ONE_WAY_PLAT |
+        OBJ_MOVER_TERRAIN_COLLISIONS;
+    o->n_sprites       = 1;
+    o->render_priority = 100000;
 
     i32 tx      = o->pos.x >> 4;
     s->checkr.x = o->pos.x;
@@ -113,4 +60,78 @@ void stalactite_load(g_s *g, map_obj_s *mo)
         if (TILE_IS_SHAPE(t)) break;
         s->checkr.h += 16;
     }
+}
+
+void stalactite_on_update(g_s *g, obj_s *o)
+{
+    stalactite_s *s = (stalactite_s *)o->mem;
+
+    if (o->bumpflags) {
+        stalactite_burst(g, o);
+        return;
+    }
+
+    switch (o->state) {
+    case STALACTITE_IDLE: {
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        if (ohero && overlap_rec(s->checkr, obj_aabb(ohero))) {
+            o->state = STALACTITE_SHAKING;
+            o->timer = 0;
+        }
+        break;
+    }
+    case STALACTITE_SHAKING: {
+        o->timer++;
+        if (STALACTITE_TICKS_SHAKE <= o->timer) {
+            o->state = STALACTITE_FALLING;
+            o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
+            o->timer = 0;
+        }
+        break;
+    }
+    case STALACTITE_FALLING: {
+        o->timer++;
+        o->v_q8.y = min_i32(o->v_q8.y + 70, 256 * 5);
+        obj_move_by_v_q8(g, o);
+        break;
+    }
+    }
+}
+
+void stalactite_on_animate(g_s *g, obj_s *o)
+{
+    i32           fr_x = 0;
+    i32           fr_y = 0;
+    obj_sprite_s *spr  = &o->sprites[0];
+    o->n_sprites       = 1;
+    spr->offs.x        = STALACTITE_SPR_OFFX;
+    spr->offs.y        = STALACTITE_SPR_OFFY;
+
+    switch (o->state) {
+    case STALACTITE_IDLE: {
+        fr_x = 1;
+        break;
+    }
+    case STALACTITE_SHAKING: {
+        i32 i1 = STALACTITE_TICKS_SHAKE / 2;
+        i32 i0 = min_i32(o->timer, i1);
+        fr_x   = lerp_i32(1, 3, i0, i1);
+        spr->offs.x += rngr_i32(-1, +1);
+        break;
+    }
+    case STALACTITE_FALLING: {
+        i32 a_add = min_i32(o->timer >> 3, 4);
+        o->animation += a_add;
+        fr_y = 1;
+        fr_x = (o->animation >> 3) & 3;
+        break;
+    }
+    }
+
+    spr->trec = asset_texrec(TEXID_STALACTITE, fr_x * 32, fr_y * 32, 32, 32);
+}
+
+void stalactite_burst(g_s *g, obj_s *o)
+{
+    obj_delete(g, o);
 }

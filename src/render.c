@@ -21,8 +21,8 @@ SORT_ARRAY_DEF(obj_s *, obj_render, cmp_obj_render_priority)
 
 static inline gfx_pattern_s water_pattern()
 {
-    return gfx_pattern_2x2(B4(0011),
-                           B4(0010));
+    return gfx_pattern_2x2(B2(11),
+                           B2(10));
 }
 
 void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam);
@@ -44,7 +44,7 @@ void game_draw(g_s *g)
 
     v2_i32 camoffset = {-camrec.x, -camrec.y};
     g->cam_prev      = camoffset;
-    obj_s  *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s  *ohero    = obj_get_hero(g);
     rope_s *rope     = ohero ? ohero->rope : NULL;
     obj_s  *ohook    = ohero ? obj_from_obj_handle(hero->hook) : NULL;
     if (ohero) {
@@ -66,6 +66,7 @@ void game_draw(g_s *g)
     render_water_background(g, camoffset, tilebounds);
     render_tilemap(g, TILELAYER_BG, tilebounds, camoffset);
     render_tilemap(g, TILELAYER_PROP_BG, tilebounds, camoffset);
+    render_tilemap(g, TILELAYER_BG_TILE, tilebounds, camoffset);
     deco_verlet_draw(g, camoffset);
 
     if (g->objrender_dirty) {
@@ -118,8 +119,15 @@ void game_draw(g_s *g)
         obj_draw(ctx, g, g->obj_render[n_obj_render], camoffset);
     }
 
+    if (ohero) {
+        if (hero->aim_mode) {
+            hero_hook_preview_throw(g, ohero, camoffset);
+        }
+    }
+
     grass_draw(g, camrec, camoffset);
     foreground_props_draw(g, camoffset);
+    boss_draw(g, &g->boss, camoffset);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoffset);
     render_water_and_terrain(g, tilebounds, camoffset);
     area_draw_fg(g, &g->area, camoffset_raw, camoffset);
@@ -146,6 +154,24 @@ void game_draw(g_s *g)
         }
 
         spm_pop();
+    }
+
+    // fill out of bounds with black
+    if (0 < camoffset.x) {
+        rec_i32 rfilloff = {0, 0, camoffset.x, PLTF_DISPLAY_H};
+        gfx_rec_fill(ctx, rfilloff, GFX_COL_BLACK);
+    } else if (g->pixel_x + camoffset.x < PLTF_DISPLAY_W) {
+        rec_i32 rfilloff = {PLTF_DISPLAY_W - (g->pixel_x + camoffset.x), 0,
+                            PLTF_DISPLAY_W, PLTF_DISPLAY_H};
+        gfx_rec_fill(ctx, rfilloff, GFX_COL_BLACK);
+    }
+    if (0 < camoffset.y) {
+        rec_i32 rfilloff = {0, 0, PLTF_DISPLAY_W, camoffset.y};
+        gfx_rec_fill(ctx, rfilloff, GFX_COL_BLACK);
+    } else if (g->pixel_y + camoffset.y < PLTF_DISPLAY_H) {
+        rec_i32 rfilloff = {0, (g->pixel_y + camoffset.y),
+                            PLTF_DISPLAY_W, PLTF_DISPLAY_H};
+        gfx_rec_fill(ctx, rfilloff, GFX_COL_BLACK);
     }
 
     render_ui(g, camoffset);
@@ -181,7 +207,7 @@ void game_draw(g_s *g)
     switch (g->substate) {
     case 0: break;
     case SUBSTATE_TEXTBOX:
-        textbox_draw(g, (v2_i32){0});
+        dialog_draw(g);
         break;
     case SUBSTATE_GAMEOVER:
         gameover_draw(g, camoffset);
@@ -247,17 +273,21 @@ void obj_draw(gfx_ctx_s ctx, g_s *g, obj_s *o, v2_i32 cam)
 
 void render_tilemap(g_s *g, int layer, tile_map_bounds_s bounds, v2_i32 camoffset)
 {
-    tex_s tex = {0};
+    i32 texID = 0;
     switch (layer) {
     default: return;
     case TILELAYER_BG:
-        tex = asset_tex(TEXID_TILESET_BG_AUTO);
+        texID = TEXID_TILESET_BG_AUTO;
+        break;
+    case TILELAYER_BG_TILE:
+        texID = TEXID_TILESET_DECO;
         break;
     case TILELAYER_PROP_FG:
     case TILELAYER_PROP_BG:
-        tex = asset_tex(TEXID_TILESET_PROPS);
+        texID = TEXID_TILESET_PROPS;
         break;
     }
+    tex_s     tex = asset_tex(texID);
     gfx_ctx_s ctx = gfx_ctx_display();
 
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
@@ -334,7 +364,7 @@ void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset
     const gfx_ctx_s ctx  = gfx_ctx_display();
     gfx_ctx_s       ctxw = ctx;
     ctxw.pat             = water_pattern();
-    i32 tick             = pltf_time();
+    i32 tick             = pltf_cur_tick();
 
     spm_push();
     u32         n_tile_spr = 0;
@@ -377,11 +407,58 @@ void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset
     }
 
     sort_z_tile_spr(tile_spr, n_tile_spr);
+    tex_s     tglare   = tex_create(32, 16, spm_allocator);
+    gfx_ctx_s ctxglare = gfx_ctx_default(tglare);
+    texrec_s  trglare  = {tglare, {0, 0, 32, 16}};
+
     for (u32 n = 0; n < n_tile_spr; n++) {
         tile_spr_s sp   = tile_spr[n];
         texrec_s   trec = {tset, {sp.tx << 5, sp.ty << 5, 32, 32}};
         v2_i32     pos  = {sp.x - 8, sp.y - 8};
         gfx_spr_tile_32x32(ctx, trec, pos);
+
+        switch (sp.z) {
+        case TILE_TYPE_DARK_OBSIDIAN: {
+            tex_clr(tglare, GFX_COL_CLEAR);
+            ctxglare.pat = gfx_pattern_2x2(B2(00), B2(10));
+
+            for (i32 h = 0; h < 16; h++) {
+                i32 gl_x = sp.y - sp.x + h - 400 + ((g->gameplay_tick * 14) & 2047);
+                gfx_rec_strip(ctxglare, gl_x, h, 30, GFX_COL_WHITE);
+            }
+
+            u32 *ptilem = tset.px + ((sp.tx << 1) + (trec.r.y + 256 + 8) * tset.wword) + 1;
+            u32 *pglare = tglare.px + 1;
+            for (i32 h = 0; h < 16; h++) {
+                *pglare &= *ptilem; // mask
+                ptilem += tset.wword;
+                pglare += 2;
+            }
+            v2_i32 glarepos = {pos.x, pos.y + 8};
+            gfx_spr(ctx, trglare, glarepos, 0, SPR_MODE_WHITE_ONLY);
+            break;
+        }
+        case TILE_TYPE_THORNS: {
+            tex_clr(tglare, GFX_COL_CLEAR);
+            ctxglare.pat = gfx_pattern_bayer_4x4(2);
+
+            for (i32 h = 0; h < 16; h++) {
+                i32 gl_x = sp.y - sp.x + h - 400 + ((g->gameplay_tick * 20) & 1023);
+                gfx_rec_strip(ctxglare, gl_x, h, 90, GFX_COL_BLACK);
+            }
+
+            u32 *ptilem = tset.px + ((sp.tx << 1) + (trec.r.y + 256 * 4 + 8) * tset.wword) + 1;
+            u32 *pglare = tglare.px + 1;
+            for (i32 h = 0; h < 16; h++) {
+                *pglare &= *ptilem; // mask
+                ptilem += tset.wword;
+                pglare += 2;
+            }
+            v2_i32 glarepos = {pos.x, pos.y + 8};
+            gfx_spr(ctx, trglare, glarepos, 0, SPR_MODE_BLACK_ONLY);
+            break;
+        }
+        }
     }
     spm_pop();
 
@@ -421,7 +498,7 @@ void render_water_and_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset
 void render_fluids(g_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 {
     const tex_s twat = asset_tex(TEXID_FLUIDS);
-    u32         tick = pltf_time();
+    u32         tick = pltf_cur_tick();
     gfx_ctx_s   ctx  = gfx_ctx_display();
     tex_s       t    = ctx.dst;
 
@@ -610,7 +687,7 @@ void render_water_background(g_s *g, v2_i32 camoff, tile_map_bounds_s bounds)
 // renders a block of tiles dressed up as tile_type
 void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type)
 {
-    if (tile_type < TILE_TYPE_DEBUG) return;
+    // if (tile_type < TILE_TYPE_DEBUG) return;
 
     // check if visible at all
     rec_i32 visible_geometry = {pos.x - 8,
@@ -664,9 +741,9 @@ void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 ti
                 } else if (x == 0) { // left
                     tilex = 0, tiley = 4;
                 } else if (y == 0) { // top
-                    tilex = 4, tiley = 0;
+                    tilex = 3, tiley = 5;
                 } else if (x == tx - 1) { // right
-                    tilex = 2, tiley = 4;
+                    tilex = 6, tiley = 1;
                 } else if (y == ty - 1) { // bottom
                     tilex = 1, tiley = 6;
                 } else { // middle
@@ -697,7 +774,7 @@ v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8)
 void draw_light_circle(gfx_ctx_s ctx, v2_i32 p, i32 radius, i32 strength)
 {
     i32       str  = min_i32(strength + 1, 4);
-    u32       seed = pltf_time() >> 1;
+    u32       seed = pltf_cur_tick() >> 1;
     i32       r    = radius;
     i32       y1   = max_i32(p.y - r, ctx.clip_y1);
     i32       y2   = min_i32(p.y + r, ctx.clip_y2);

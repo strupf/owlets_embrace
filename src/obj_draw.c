@@ -15,5 +15,7 @@ void obj_custom_draw(g_s *g, obj_s *o, v2_i32 cam)
     case OBJ_ID_DOOR: door_on_draw(g, o, cam); break;
     case OBJ_ID_SPIDERBOSS: spiderboss_on_draw(g, o, cam); break;
     case OBJ_ID_TRAMPOLINE: trampoline_on_draw(g, o, cam); break;
+    case OBJ_ID_SAVEPOINT: savepoint_on_draw(g, o, cam); break;
+    case OBJ_ID_BITER: biter_on_draw(g, o, cam); break;
     }
 }

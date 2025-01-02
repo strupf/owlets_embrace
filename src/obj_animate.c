@@ -21,8 +21,13 @@ void objs_animate(g_s *g)
         case OBJ_ID_CRAWLER: crawler_on_animate(g, o); break;
         case OBJ_ID_FROG: frog_on_animate(g, o); break;
         case OBJ_ID_TOGGLEBLOCK: toggleblock_on_animate(g, o); break;
+        case OBJ_ID_ROTOR: rotor_on_animate(g, o); break;
         case OBJ_ID_CHEST: chest_on_animate(g, o); break;
         case OBJ_ID_DOOR: door_on_animate(g, o); break;
+        case OBJ_ID_BOULDER: boulder_on_animate(g, o); break;
+        case OBJ_ID_FALLINGSTONE: fallingstone_on_animate(g, o); break;
+        case OBJ_ID_STALACTITE: stalactite_on_animate(g, o); break;
+        case OBJ_ID_BITER: biter_on_animate(g, o); break;
         }
     }
 }

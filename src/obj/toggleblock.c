@@ -25,14 +25,16 @@ void toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     v2_i32    pos = v2_add(o->pos, cam);
     i32       nx  = o->w >> 4;
     i32       ny  = o->h >> 4;
-    render_tile_terrain_block(ctx, pos, nx, ny, TILE_TYPE_DIRT);
+
+    render_tile_terrain_block(ctx, pos, nx, ny, TILE_TYPE_CRUMBLE);
 }
 
 static void toggleblock_set_state(g_s *g, obj_s *o, i32 state)
 {
     o->state = state;
     i32 b    = state == 1 ? TILE_BLOCK : TILE_EMPTY;
-    i32 t    = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
+    // i32 t    = b == TILE_BLOCK ? TILE_TYPE_DIRT : 0;
+    i32 t    = 0;
     tile_map_set_collision(g, obj_aabb(o), b, t);
 }
 

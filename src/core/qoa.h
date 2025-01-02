@@ -34,8 +34,9 @@ static inline i32 qoa_num_slices(u32 num_samples)
 
 // qoa predictor values
 typedef struct {
-    alignas(4) i16 h[2];
-    i16            w[2];
+    ALIGNAS(4)
+    i16 h[2];
+    i16 w[2];
 } qoa_lms_s;
 
 #define QOA_SLICE_BUFFER 32 // how many slices to buffer in stream

@@ -196,7 +196,7 @@ static void str_append_i(char *dst, i32 i)
     str_append(dst, &b2[0]);
 }
 
-static i32 char_hex_to_int(int c)
+static i32 num_from_hex(i32 c)
 {
     switch (c) {
     case '0': return 0;
@@ -225,7 +225,11 @@ static i32 char_hex_to_int(int c)
     return -1;
 }
 
-#define char_int_from_hex char_hex_to_int
+static i32 hex_from_num(i32 c)
+{
+    static const char *g_hex = "0123456789ABCDEF";
+    return (0x0 <= c && c <= 0xF ? g_hex[c] : 0);
+}
 
 static f32 f32_from_str(const char *str)
 {
@@ -245,7 +249,7 @@ static f32 f32_from_str(const char *str)
             pt = 1;
         } else if (isdigit((int)*c)) {
             if (pt) fact *= .1f;
-            res = res * 10.f + (f32)char_int_from_hex(*c);
+            res = res * 10.f + (f32)num_from_hex(*c);
         } else {
             break;
         }

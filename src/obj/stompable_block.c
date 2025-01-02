@@ -6,19 +6,17 @@
 #include "render.h"
 
 typedef struct {
-    u32 save_hash;
+    i32 saveID;
 } stompable_block_s;
 
 void stompable_block_load(g_s *g, map_obj_s *mo)
 {
-    u32 save_hash;
-    if (map_obj_saveID(mo, "SaveID", &save_hash)) {
-        if (saveID_has(g, save_hash)) return;
-    }
+    i32 saveID = map_obj_i32(mo, "saveID");
+    if (saveID_has(g, saveID)) return;
 
     obj_s             *o = obj_create(g);
     stompable_block_s *b = (stompable_block_s *)o->mem;
-    b->save_hash         = save_hash;
+    b->saveID            = saveID;
     o->w                 = mo->w;
     o->h                 = 16;
     o->pos.x             = mo->x;
@@ -43,5 +41,5 @@ void stompable_block_on_animate(g_s *g, obj_s *o)
 void stompable_block_on_destroy(g_s *g, obj_s *o)
 {
     stompable_block_s *b = (stompable_block_s *)o->mem;
-    saveID_put(g, b->save_hash);
+    saveID_put(g, b->saveID);
 }

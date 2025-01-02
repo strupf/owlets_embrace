@@ -74,52 +74,36 @@ void render_ui(g_s *g, v2_i32 camoff)
         gfx_spr(ctx_save, trsave, (v2_i32){16, 200}, 0, 0);
     }
 
-#define COIN_MONO_SPACING 8
-#define COIN_POS_END_X    392
+    // coin UI
 
-    fnt_s font_c      = asset_fnt(FNTID_MEDIUM);
-    char  coins_l[16] = {0};
+#define COIN_MONO_SPACING 8
+#define COIN_POS_END_X    92
+    spm_push();
+    tex_s cointex = tex_create(100, 60, spm_allocator);
+    tex_clr(cointex, GFX_COL_CLEAR);
+    gfx_ctx_s ctxcoin     = gfx_ctx_default(cointex);
+    fnt_s     font_c      = asset_fnt(FNTID_SMALL);
+    char      coins_l[16] = {0};
     strs_from_u32(g->save.coins, coins_l);
     i32    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
     v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 8};
-    for (i32 yy = -1; yy <= +1; yy++) {
-        for (i32 xx = -1; xx <= +1; xx++) {
-            v2_i32 cp = coinpos;
-            cp.x += xx;
-            cp.y += yy;
-            // fnt_draw_ascii_mono(ctx, font_c, cp, coins_l, SPR_MODE_WHITE, COIN_MONO_SPACING);
-        }
-    }
-    // fnt_draw_ascii_mono(ctx, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+    fnt_draw_ascii_mono(ctxcoin, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
 
     if (g->coins_added) {
         char coins_add_l[16] = {0};
         strs_from_u32(abs_i32(g->coins_added), coins_add_l);
         i32    coinastrl = fnt_length_px_mono(font_c, coins_add_l, COIN_MONO_SPACING);
         v2_i32 coinposa  = {COIN_POS_END_X - coinastrl, coinpos.y + 20};
-
-        for (i32 yy = -1; yy <= +1; yy++) {
-            for (i32 xx = -1; xx <= +1; xx++) {
-                v2_i32 cp = coinposa;
-                cp.x += xx;
-                cp.y += yy;
-                fnt_draw_ascii_mono(ctx, font_c, cp, coins_add_l, SPR_MODE_WHITE, COIN_MONO_SPACING);
-            }
-        }
-        fnt_draw_ascii_mono(ctx, font_c, coinposa, coins_add_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
-        v2_i32      coinposplus = {COIN_POS_END_X - 50, coinposa.y};
+        fnt_draw_ascii_mono(ctxcoin, font_c, coinposa, coins_add_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
+        v2_i32      coinposplus = {COIN_POS_END_X - 40, coinposa.y};
         const char *strsig      = 0 < g->coins_added ? "+" : "-";
-
-        for (i32 yy = -1; yy <= +1; yy++) {
-            for (i32 xx = -1; xx <= +1; xx++) {
-                v2_i32 cp = coinposplus;
-                cp.x += xx;
-                cp.y += yy;
-                fnt_draw_ascii_mono(ctx, font_c, cp, strsig, SPR_MODE_WHITE, COIN_MONO_SPACING);
-            }
-        }
-        fnt_draw_ascii_mono(ctx, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
+        fnt_draw_ascii_mono(ctxcoin, font_c, coinposplus, strsig, SPR_MODE_BLACK, COIN_MONO_SPACING);
     }
+    tex_outline_white(cointex);
+    tex_outline_white(cointex);
+    texrec_s trcoin = {cointex, {0, 0, 100, 60}};
+    gfx_spr(ctx, trcoin, (v2_i32){300, 0}, 0, 0);
+    spm_pop();
 
     if (hero_present_and_alive(g, &ohero)) {
         if (h->aim_mode) {
@@ -200,7 +184,7 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
     ctxc.pat       = gfx_pattern_2x2(B4(0001),
                                      B4(0010));
     if (ftx == 0) {
-        i32 i    = max_i32(40000, sin_q16(pltf_time() << 14));
+        i32 i    = max_i32(40000, sin_q16(pltf_cur_tick() << 14));
         ctxb.pat = gfx_pattern_interpolate(i, 65536);
     }
 
@@ -222,14 +206,9 @@ void prerender_area_label(g_s *g)
     gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
     tex_clr(ctx.dst, GFX_COL_CLEAR);
     v2_i32 loc = {2, 2};
-
-    for (i32 yy = -2; yy <= +2; yy++) {
-        for (i32 xx = -2; xx <= +2; xx++) {
-            v2_i32 locbg = {loc.x + xx, loc.y + yy};
-            fnt_draw_ascii(ctx, font_1, locbg, g->areaname.label, SPR_MODE_WHITE);
-        }
-    }
     fnt_draw_ascii(ctx, font_1, loc, g->areaname.label, SPR_MODE_BLACK);
+    tex_outline_white(ctx.dst);
+    tex_outline_white(ctx.dst);
 }
 
 #define WORLD_GRID_W PLTF_DISPLAY_W

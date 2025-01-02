@@ -1,0 +1,35 @@
+// =============================================================================
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
+// =============================================================================
+
+#ifndef SETTINGS_H
+#define SETTINGS_H
+
+#include "pltf/pltf_types.h"
+
+enum {
+    SETTINGS_MODE_NORMAL,
+    SETTINGS_MODE_STREAMING,
+};
+
+#define SETTINGS_TICKS_HOOK_CONTROL 15
+#define SETTINGS_VOL_MAX            8
+#define SETTINGS_SHAKE_SENS_MAX     8
+#define SETTINGS_SHAKE_SMOOTH_MAX   8
+
+typedef struct {
+    ALIGNAS(4)
+    u8 shake_sensitivity;
+    u8 shake_smooth;
+    u8 mode;
+    u8 vol_sfx;
+    u8 vol_mus;
+    u8 ticks_hook_hold;
+} settings_s;
+
+extern settings_s SETTINGS;
+
+void settings_load();
+void settings_save();
+
+#endif

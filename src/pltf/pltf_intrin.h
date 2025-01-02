@@ -59,19 +59,23 @@ static inline i32 mul_q16(i32 a, i16 b)
 
 #else
 typedef struct {
-    alignas(4) i16 v[2];
+    ALIGNAS(4)
+    i16 v[2];
 } i16x2;
 
 typedef struct {
-    alignas(4) u16 v[2];
+    ALIGNAS(4)
+    u16 v[2];
 } u16x2;
 
 typedef struct {
-    alignas(4) i8 v[4];
+    ALIGNAS(4)
+    i8 v[4];
 } i8x4;
 
 typedef struct {
-    alignas(4) u8 v[4];
+    ALIGNAS(4)
+    u8 v[4];
 } u8x4;
 
 #define mcpy_t(T, D, S) mcpy(D, S, sizeof(T))
@@ -244,7 +248,7 @@ static inline i16x2 i16x2_shl(i16x2 v, i32 s)
 static inline i16x2 i16x2_shr(i16x2 v, i32 s)
 {
     i16x2          r    = {0};
-    alignas(4) i16 a[2] = {0};
+    ALIGNAS(4) i16 a[2] = {0};
     mcpy_t(u32, a, &v);
     a[0] >>= s, a[1] >>= s;
     mcpy_t(u32, &r, a);

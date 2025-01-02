@@ -19,6 +19,7 @@ enum {
     TEXID_TILESET_TERRAIN,
     TEXID_TILESET_BG_AUTO,
     TEXID_TILESET_PROPS,
+    TEXID_TILESET_DECO,
     TEXID_PAUSE_TEX,
     TEXID_UI,
     TEXID_PLANTS,
@@ -31,7 +32,7 @@ enum {
     TEXID_HOOK,
     TEXID_MAINMENU,
     TEXID_AREALABEL,
-    TEXID_UPGRADELABEL,
+    TEXID_SAVEPOINT,
     TEXID_BG_CAVE,
     TEXID_BG_MOUNTAINS,
     TEXID_BG_DEEP_FOREST,
@@ -40,11 +41,11 @@ enum {
     TEXID_CARRIER,
     TEXID_CRUMBLE,
     TEXID_NPC,
-    TEXID_JUGGERNAUT,
     TEXID_WATER_PRERENDER,
     TEXID_TOGGLE,
     TEXID_SKELETON,
     TEXID_CHARGER,
+    TEXID_ROTOR,
     TEXID_FLYER,
     TEXID_WINDGUSH,
     TEXID_COLLISION_TILES,
@@ -58,6 +59,8 @@ enum {
     TEXID_FLUIDS,
     TEXID_CHEST,
     TEXID_TRAMPOLINE,
+    TEXID_STALACTITE,
+    TEXID_STAMINARESTORE,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -148,7 +151,7 @@ typedef struct {
     asset_fnt_s fnt[NUM_FNTID];
 
     marena_s        marena;
-    alignas(8) byte mem[6 * 1024 * 1024];
+    ALIGNAS(8) byte mem[6 * 1024 * 1024];
 } ASSETS_s;
 
 extern ASSETS_s      ASSETS;

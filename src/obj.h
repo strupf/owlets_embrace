@@ -11,23 +11,11 @@
 #include "objdef.h"
 #include "rope.h"
 
-#define NUM_OBJ_POW_2   9 // = 2^N
-#define NUM_OBJ         (1 << NUM_OBJ_POW_2)
-#define OBJ_ID_INDEX_SH (32 - NUM_OBJ_POW_2)
-#define OBJ_ID_GEN_MASK (((u32)1 << OBJ_ID_INDEX_SH) - 1)
-#define OBJ_MEM_BYTES   512
-
-static inline u32 obj_GID_incr_gen(u32 gid)
-{
-    return ((gid & ~OBJ_ID_GEN_MASK) | ((gid + 1) & OBJ_ID_GEN_MASK));
-}
-
-static inline u32 obj_GID_set(i32 index, i32 gen)
-{
-    assert(0 <= index && index < NUM_OBJ);
-    return (((u32)index << OBJ_ID_INDEX_SH) | ((u32)gen));
-}
-
+#define NUM_OBJ_POW_2           9 // = 2^N
+#define NUM_OBJ                 (1 << NUM_OBJ_POW_2)
+#define OBJ_ID_INDEX_SH         (32 - NUM_OBJ_POW_2)
+#define OBJ_ID_GEN_MASK         (((u32)1 << OBJ_ID_INDEX_SH) - 1)
+#define OBJ_MEM_BYTES           512
 #define OBJ_FLAG_MOVER          ((u64)1 << 0)
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
 #define OBJ_FLAG_PLATFORM       ((u64)1 << 3)
@@ -62,6 +50,7 @@ enum obj_bump_flags_e {
     OBJ_BUMP_JUMPED_ON = 1 << 8,
     OBJ_BUMP_X         = OBJ_BUMP_X_NEG | OBJ_BUMP_X_POS,
     OBJ_BUMP_Y         = OBJ_BUMP_Y_NEG | OBJ_BUMP_Y_POS,
+    OBJ_BUMP_XY        = OBJ_BUMP_X | OBJ_BUMP_Y
 };
 
 static inline i32 obj_bump_x_flag(i32 x)
@@ -79,13 +68,14 @@ static inline i32 obj_bump_y_flag(i32 y)
 }
 
 enum {
-    OBJ_MOVER_GLUE_GROUND  = 1 << 0,
-    OBJ_MOVER_ONE_WAY_PLAT = 1 << 1,
-    OBJ_MOVER_SLIDE_Y_POS  = 1 << 2,
-    OBJ_MOVER_SLIDE_Y_NEG  = 1 << 3,
-    OBJ_MOVER_SLIDE_X_POS  = 1 << 4,
-    OBJ_MOVER_SLIDE_X_NEG  = 1 << 5,
-    OBJ_MOVER_MAP          = 1 << 6,
+    OBJ_MOVER_GLUE_GROUND        = 1 << 0,
+    OBJ_MOVER_ONE_WAY_PLAT       = 1 << 1,
+    OBJ_MOVER_SLIDE_Y_POS        = 1 << 2,
+    OBJ_MOVER_SLIDE_Y_NEG        = 1 << 3,
+    OBJ_MOVER_SLIDE_X_POS        = 1 << 4,
+    OBJ_MOVER_SLIDE_X_NEG        = 1 << 5,
+    OBJ_MOVER_AVOID_HEADBUMP     = 1 << 7,
+    OBJ_MOVER_TERRAIN_COLLISIONS = 1 << 9,
 };
 
 #define OBJ_HOVER_TEXT_TICKS 20
@@ -124,8 +114,8 @@ struct obj_s {
     u32               GID;   // generational index
     u16               ID;    // type of object
     u16               subID; // subtype of object
-    flags64           flags;
-    flags32           tags;
+    u64               flags;
+    u32               tags;
     //
     obj_on_update_f   on_update;
     obj_on_animate_f  on_animate;
@@ -134,8 +124,8 @@ struct obj_s {
     obj_on_interact_f on_interact;
     //
     i32               render_priority;
-    flags16           bumpflags; // has to be cleared manually
-    flags16           moverflags;
+    u16               bumpflags; // has to be cleared manually
+    u16               moverflags;
     u8                mass_og;
     u8                mass; // mass, for solid movement
     i16               w;
@@ -200,7 +190,6 @@ bool32       map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m);
 void         obj_move(g_s *g, obj_s *o, i32 dx, i32 dy);
 b32          obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push);
 bool32       obj_try_wiggle(g_s *g, obj_s *o);
-void         obj_on_squish(g_s *g, obj_s *o);
 bool32       obj_grounded(g_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false

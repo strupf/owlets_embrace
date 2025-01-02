@@ -23,7 +23,7 @@ v2_i32 mapview_hero_world_q8(g_s *g)
 
 void menu_screen_update(g_s *g, menu_screen_s *m)
 {
-    if (inp_action_jp(INP_B)) {
+    if (inp_btn_jp(INP_B)) {
         g->substate = 0;
         return;
     }
@@ -64,7 +64,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
     case MENU_SCREEN_TAB_MAP: {
         switch (m->map.mode) {
         case MAP_MODE_SCROLL: {
-            if (inp_action(INP_A) && m->map.pin_delete_tick && m->map.pin) {
+            if (inp_btn(INP_A) && m->map.pin_delete_tick && m->map.pin) {
                 m->map.pin_delete_tick++;
                 if (MAP_PIN_DELETE_TICKS <= m->map.pin_delete_tick) {
                     *m->map.pin            = g->save.map_pins[--g->save.n_map_pins];
@@ -106,7 +106,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                 m->map.pos.y += dpady << 4;
             }
 
-            if (inp_action_jp(INP_A)) {
+            if (inp_btn_jp(INP_A)) {
 
                 if (m->map.pin && pin_snap) {
                     m->map.pin_delete_tick = 1; // start holding A
@@ -121,12 +121,12 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
         case MAP_MODE_PIN_SELECT: {
             m->map.pin_delete_tick = 0;
             m->map.cursoranimtick++;
-            if (inp_action_jp(INP_B)) {
+            if (inp_btn_jp(INP_B)) {
                 m->map.mode           = MAP_MODE_SCROLL;
                 m->map.cursoranimtick = 0;
                 break;
             }
-            if (inp_action_jp(INP_A)) {
+            if (inp_btn_jp(INP_A)) {
                 map_pin_s *pin = &g->save.map_pins[g->save.n_map_pins++];
 
                 pin->pos    = mapview_world_q8_from_screen(ctr_screen, m->map.pos,
@@ -136,11 +136,11 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                 break;
             }
 
-            if (inp_action_jp(INP_DL)) {
+            if (inp_btn_jp(INP_DL)) {
                 m->map.pin_type--;
                 m->map.pin_type = max_i32(m->map.pin_type, 0);
             }
-            if (inp_action_jp(INP_DR)) {
+            if (inp_btn_jp(INP_DR)) {
                 m->map.pin_type++;
                 m->map.pin_type = min_i32(m->map.pin_type, NUM_MAP_PIN_TYPES - 1);
             }
@@ -172,7 +172,7 @@ void menu_screen_draw(g_s *g, menu_screen_s *m)
 
         gfx_ctx_s ctx_cir = ctx;
 
-        ctx_cir.pat = gfx_pattern_interpolate(sin_q16(pltf_time() << 13) + 65526, 65536 * 2);
+        ctx_cir.pat = gfx_pattern_interpolate(sin_q16(pltf_cur_tick() << 13) + 65526, 65536 * 2);
         herop_screen.x -= 16;
         herop_screen.y -= 16;
         texrec_s theropin = asset_texrec(TEXID_UI, 320, 160, 32, 32);

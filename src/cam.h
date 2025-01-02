@@ -27,13 +27,15 @@ typedef struct cam_s {
     i16    mode;
     u16    shake_ticks;
     u16    shake_ticks_max;
-    u16    shake_str;
+    u16    shake_str_x;
+    u16    shake_str_y;
     i16    offs_x;
     bool8  locked_x;
     bool8  locked_y;
 } cam_s;
 
 void    cam_screenshake(cam_s *c, i32 ticks, i32 str);
+void    cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y);
 v2_i32  cam_pos_px(g_s *g, cam_s *c);
 rec_i32 cam_rec_px(g_s *g, cam_s *c);
 void    cam_set_pos_px(cam_s *c, i32 x, i32 y);

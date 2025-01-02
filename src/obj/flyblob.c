@@ -68,12 +68,12 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     o->health     = o->health_max;
     o->facing     = 1;
 
-    o->flags = OBJ_FLAG_SPRITE |
-               OBJ_FLAG_HURT_ON_TOUCH |
+    o->flags = OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_STOMPABLE |
+               OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_CLAMP_TO_ROOM;
-    o->moverflags        = OBJ_MOVER_MAP;
+    o->moverflags        = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->n_sprites         = 2;
     tex_s tex            = asset_tex(TEXID_FLYBLOB);
     o->sprites[0].trec.t = tex;
@@ -230,6 +230,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
     }
 
     obj_move_by_v_q8(g, o);
+    obj_move(g, o, 0, -1);
 }
 
 void flyblob_on_animate(g_s *g, obj_s *o)

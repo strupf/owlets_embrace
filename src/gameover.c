@@ -19,8 +19,8 @@ enum {
 
 const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
     0,
-    30, // dying
-    20, // fade gameover
+    70, // dying
+    40, // fade gameover
     80, // gameover
     10, // gameover input
     10, // fade gameover
@@ -41,7 +41,7 @@ void gameover_update(g_s *g)
     gameover_s *go = &g->gameover;
 
     if (go->phase == GAMEOVER_GAMEOVER_INPUT) {
-        if (!(inp_action_jp(INP_A) || 1)) return;
+        if (!(inp_btn_jp(INP_A) || 1)) return;
         go->tick = gameover_phase[go->phase];
     }
 

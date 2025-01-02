@@ -24,6 +24,13 @@ static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
     return x;
 }
 
+static inline i64 clamp_i64(i64 x, i64 lo, i64 hi)
+{
+    if (x < lo) return lo;
+    if (x > hi) return hi;
+    return x;
+}
+
 static inline f32 clamp_f32(f32 x, f32 lo, f32 hi)
 {
     if (x < lo) return lo;
@@ -90,6 +97,31 @@ static inline f32 sgn_f32(f32 a)
     return 0.f;
 }
 
+#define SAT_ADD_SUB_IMPL(T, MINV, MAXV)           \
+    static inline i32 T##_adds(T a, i32 b)        \
+    {                                             \
+        return clamp_i32((i32)a + b, MINV, MAXV); \
+    }                                             \
+                                                  \
+    static inline i32 T##_subs(T a, i32 b)        \
+    {                                             \
+        return clamp_i32((i32)a - b, MINV, MAXV); \
+    }
+
+SAT_ADD_SUB_IMPL(u8, 0, U8_MAX)
+SAT_ADD_SUB_IMPL(i8, I8_MIN, I8_MAX)
+SAT_ADD_SUB_IMPL(u16, 0, U16_MAX)
+
+static inline i32 i32_adds(i32 a, i32 b)
+{
+    return (i32)clamp_i64((i64)a + b, (i64)I32_MIN, (i64)I32_MAX);
+}
+
+static inline i32 i32_subs(i32 a, i32 b)
+{
+    return (i32)clamp_i64((i64)a - b, (i64)I32_MIN, (i64)I32_MAX);
+}
+
 // v % m but result is always positive
 static inline i32 modu_i32(i32 v, i32 m)
 {
@@ -98,6 +130,11 @@ static inline i32 modu_i32(i32 v, i32 m)
 }
 
 static inline i32 mul_ratio(i32 x, ratio_s r)
+{
+    return ((x * r.num) / r.den);
+}
+
+static inline i32 ratio_i32_mul(i32 x, ratio_i32 r)
 {
     return ((x * r.num) / r.den);
 }
@@ -151,14 +188,6 @@ static inline bool32 is_pow2_u32(u32 v)
 
 // convert fixed point numbers without rounding
 static inline i32 q_convert_i32(i32 v, i32 qfrom, i32 qto)
-{
-    if (qfrom < qto) return (v >> (qto - qfrom));
-    if (qfrom > qto) return (v << (qfrom - qto));
-    return v;
-}
-
-// convert fixed point numbers without rounding
-static inline u32 q_convert_u32(u32 v, i32 qfrom, i32 qto)
 {
     if (qfrom < qto) return (v >> (qto - qfrom));
     if (qfrom > qto) return (v << (qfrom - qto));
@@ -486,6 +515,11 @@ static inline i32 v2_crs(v2_i32 a, v2_i32 b)
     return a.x * b.y - a.y * b.x;
 }
 
+static inline i64 v2_crsl(v2_i32 a, v2_i32 b)
+{
+    return (i64)a.x * b.y - (i64)a.y * b.x;
+}
+
 static inline u64 v2_lensql(v2_i32 a)
 {
     i64 x = (i64)a.x;
@@ -496,7 +530,7 @@ static inline u64 v2_lensql(v2_i32 a)
 static inline u32 v2_lensq(v2_i32 a)
 {
     u64 r = v2_lensql(a);
-    assert((u64)((u32)r) == r);
+    assert(r <= U32_MAX);
     return (u32)r;
 }
 

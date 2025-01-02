@@ -19,7 +19,7 @@ enum {
     NUM_AREA_ID
 };
 
-static flags32 g_areafx[NUM_AREA_ID] = {
+static u32 g_areafx[NUM_AREA_ID] = {
     0,                     // none
     0,                     // white
     0,                     // black
