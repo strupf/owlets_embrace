@@ -27,7 +27,7 @@ void grass_animate(g_s *g)
 
         gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);
         gr->x_q8 += gr->v_q8;
-        gr->x_q8 = clamp_i32(gr->x_q8, -256, +256);
+        gr->x_q8 = clamp_sym_i32(gr->x_q8, 256);
         gr->v_q8 = (gr->v_q8 * 230) >> 8;
     }
 }
@@ -49,8 +49,10 @@ void grass_draw(g_s *g, rec_i32 camrec, v2_i32 camoffset)
             v2_i32 p = pos;
             p.y += i;
             p.x += (gr->x_q8 * (15 - i)) >> 8; // shear
-            rec_i32 rg = {224 + 8, i + gr->type * 16, 16, 1};
-            trgrass.r  = rg;
+            trgrass.x = 224 + 8;
+            trgrass.y = i + gr->type * 16;
+            trgrass.w = 16;
+            trgrass.h = 1;
             gfx_spr(ctx, trgrass, p, 0, 0);
         }
     }

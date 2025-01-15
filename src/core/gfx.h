@@ -8,15 +8,6 @@
 #include "pltf/pltf.h"
 #include "util/mem.h"
 
-// endianness requirements of display
-// bswap during rendering or at the end of a frame?
-#define GFX_ENDIAN_AT_END 0
-#if GFX_ENDIAN_AT_END
-#define gfx_endian(X) (X)
-#else
-#define gfx_endian bswap32
-#endif
-
 enum {
     TEX_FMT_OPAQUE, // only color pixels
     TEX_FMT_MASK,   // color and mask interlaced in words
@@ -37,8 +28,11 @@ typedef struct {
 } tex_s;
 
 typedef struct {
-    tex_s   t;
-    rec_i32 r;
+    tex_s t;
+    i32   x;
+    i32   y;
+    i32   w;
+    i32   h;
 } texrec_s;
 
 #define GFX_PATTERN_NUM 17
@@ -51,10 +45,10 @@ typedef struct {
 typedef struct {
     tex_s         dst;
     gfx_pattern_s pat;
-    u16           clip_x1;
-    u16           clip_x2;
-    u16           clip_y1;
-    u16           clip_y2;
+    i32           clip_x1;
+    i32           clip_x2;
+    i32           clip_y1;
+    i32           clip_y2;
 } gfx_ctx_s;
 
 typedef struct {
@@ -104,6 +98,7 @@ enum {
 #define gfx_pattern_black() gfx_pattern_0()
 
 tex_s         tex_framebuffer();
+i32           tex_create_ext(i32 w, i32 h, b32 mask, allocator_s a, tex_s *o_t);
 tex_s         tex_create(i32 w, i32 h, alloc_s ma);
 tex_s         tex_create_opaque(i32 w, i32 h, alloc_s ma);
 tex_s         tex_load(const char *path, alloc_s ma);
@@ -113,6 +108,8 @@ void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
 void          tex_outline_white(tex_s tex);
+void          tex_merge_to_opaque(tex_s dst, tex_s src);
+void          tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);

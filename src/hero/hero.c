@@ -5,7 +5,6 @@
 #include "hero.h"
 #include "app.h"
 #include "game.h"
-#include "hero_hook.h"
 
 typedef struct {
     i16 index;
@@ -20,32 +19,37 @@ const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
     {1100, 35, 65, 20}, // wall
 };
 
-void hero_do_swimming(g_s *g, obj_s *o, inp_s inp);
-void hero_do_climbing(g_s *g, obj_s *o, inp_s inp);
-void hero_do_crawling(g_s *g, obj_s *o, inp_s inp);
-void hero_do_walking(g_s *g, obj_s *o, inp_s inp);
-void hero_do_ladder(g_s *g, obj_s *o, inp_s inp);
-void hero_do_inair(g_s *g, obj_s *o, inp_s inp);
-void hero_do_dead_on_ground(g_s *g, obj_s *o);
-void hero_do_dead_in_air(g_s *g, obj_s *o);
-void hero_do_dead_in_water(g_s *g, obj_s *o);
+void   hero_do_swimming(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_climbing(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_crawling(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_walking(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_ladder(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_inair(g_s *g, obj_s *o, inp_s inp);
+void   hero_do_dead_on_ground(g_s *g, obj_s *o);
+void   hero_do_dead_in_air(g_s *g, obj_s *o);
+void   hero_do_dead_in_water(g_s *g, obj_s *o);
+i32    hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o);
+i32    hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy,
+                                         i32 *dt_snap_x);
+bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy);
 
 obj_s *hero_create(g_s *g)
 {
     obj_s  *o = obj_create(g);
-    hero_s *h = (hero_s *)&g->hero_mem;
-    o->ID     = OBJ_ID_HERO;
+    hero_s *h = (hero_s *)&g->hero;
+    o->ID     = OBJID_HERO;
     obj_tag(g, o, OBJ_TAG_HERO);
     o->heap = h;
 
-    o->flags = // OBJ_FLAG_MOVER |
+    o->flags =
+        OBJ_FLAG_ACTOR |
         OBJ_FLAG_CLAMP_ROOM_X |
         OBJ_FLAG_KILL_OFFSCREEN |
-        // OBJ_FLAG_RENDER_AABB |
         OBJ_FLAG_LIGHT |
         OBJ_FLAG_SPRITE;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_GLUE_GROUND |
+                    OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_AVOID_HEADBUMP |
                     OBJ_MOVER_SLIDE_Y_NEG;
@@ -61,16 +65,39 @@ obj_s *hero_create(g_s *g)
     return o;
 }
 
+i32 hero_item_button(g_s *g, inp_s inp, obj_s *o)
+{
+    hero_s *h      = (hero_s *)o->heap;
+    i32     dpad_x = inps_x(inp);
+
+    if (inps_btn_jp(inp, INP_B)) {
+        if (o->rope) {
+            hero_action_ungrapple(g, o);
+        } else {
+            h->b_hold_tick = 1;
+            // g->grapple_tick = 1;
+        }
+        return 1;
+    } else if (h->b_hold_tick) {
+        if (inps_btn(inp, INP_B)) {
+            h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
+        } else {
+            h->b_hold_tick = 0;
+            i32 ang        = -(dpad_x ? dpad_x : o->facing) * 8000;
+            hero_action_throw_grapple(g, o, ang, 5000);
+        }
+        return 1;
+    }
+    return 0;
+}
+
 void hero_check_rope_intact(g_s *g, obj_s *o)
 {
     if (!o->rope || !o->ropenode) return;
-    hero_s *h     = (hero_s *)o->heap;
-    obj_s  *ohook = obj_from_obj_handle(h->hook);
-    if (!ohook) return;
-
+    hero_s *h = (hero_s *)o->heap;
     rope_s *r = o->rope;
-    if (!rope_intact(g, r)) {
-        hook_destroy(g, o, ohook);
+    if (!rope_is_intact(g, r)) {
+        grapplinghook_destroy(g, &g->ghook);
     }
 }
 
@@ -91,6 +118,7 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
         h->invincibility_ticks = HERO_INVINCIBILITY_TICKS;
     } else {
         h->dead_bounce = 0;
+        o->animation   = 0;
         o->bumpflags   = 0;
         o->v_q8.y      = -1800;
         o->flags &= ~OBJ_FLAG_CLAMP_ROOM_Y; // let hero fall through floor
@@ -144,6 +172,7 @@ i32 hero_get_actual_state(g_s *g, obj_s *o)
             h->edgeticks           = 0;
             h->jumpticks           = 0;
             h->jump_btn_buffer     = 0;
+            grapplinghook_destroy(g, &g->ghook);
         }
         h->swimming = 1;
         return HERO_ST_WATER;
@@ -214,7 +243,7 @@ i32 hero_can_grab(g_s *g, obj_s *o, i32 dirx)
     i32 y2 = o->pos.y + o->h - 1;
 
     for (i32 y = y1; y <= y2; y++) {
-        if (!map_blocked_pt(g, o, x, y, o->mass)) return 0;
+        if (map_blocked_pt(g, x, y)) return 0;
     }
     return dirx;
 }
@@ -236,7 +265,7 @@ i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
 {
     if (!facing) return 0;
     rec_i32 r = {o->pos.x + dx, o->pos.y + dy, o->w, o->h};
-    if (map_blocked(g, o, r, 0)) return 0;
+    if (!!map_blocked(g, r)) return 0;
     if (obj_grounded(g, o)) return 0;
 
     i32 x  = dx + (0 < facing ? o->pos.x + o->w : o->pos.x - 1);
@@ -273,10 +302,9 @@ i32 hero_swim_frameID_idle(i32 animation)
     return ((animation >> 4) & 7);
 }
 
-void hero_on_update(g_s *g, obj_s *o)
+void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 {
     hero_s *h      = (hero_s *)o->heap;
-    inp_s   inp    = inp_cur();
     i32     dpad_x = inps_x(inp);
     i32     dpad_y = inps_y(inp);
     i32     st     = hero_get_actual_state(g, o);
@@ -299,7 +327,7 @@ void hero_on_update(g_s *g, obj_s *o)
         hero_stamina_update_ui(g, o, (i32)!h->stamina_ui_collected_tick << 7);
     } else {
         h->stamina_ui_collected_tick = 0;
-        hero_stamina_update_ui(g, o, g->save.stamina_upgrades << 7);
+        hero_stamina_update_ui(g, o, g->hero.stamina_upgrades << 7);
     }
 
     if (o->health && o->health < o->health_max) {
@@ -325,7 +353,8 @@ void hero_on_update(g_s *g, obj_s *o)
     bool32  rope_stretched = (r && (r->len_max_q4 * 254) <= (rope_len_q4(g, r) << 8));
 
     // facing
-    bool32 facing_locked = st == HERO_ST_CLIMB ||
+    bool32 facing_locked = o->health == 0 ||
+                           st == HERO_ST_CLIMB ||
                            st == HERO_ST_LADDER ||
                            h->skidding ||
                            h->crawl ||
@@ -363,9 +392,13 @@ void hero_on_update(g_s *g, obj_s *o)
         } else {
             if (h->dead_bounce) {
                 o->v_q8.y = 0;
+                if (h->dead_bounce == 1) {
+                    o->animation = 0;
+                    h->dead_bounce++;
+                }
             } else {
                 h->dead_bounce++;
-                o->v_q8.y = -(o->v_q8.y * 2) / 3;
+                o->v_q8.y = -(o->v_q8.y * 3) / 4;
             }
         }
     }
@@ -484,7 +517,7 @@ bool32 hero_try_stand_up(g_s *g, obj_s *o)
                           o->pos.y - (HERO_HEIGHT - HERO_HEIGHT_CROUCHED),
                           o->w,
                           HERO_HEIGHT};
-    if (!map_traversable(g, aabb_stand)) return 0;
+    if (!!map_blocked(g, aabb_stand)) return 0;
     obj_move(g, o, 0, -(HERO_HEIGHT - HERO_HEIGHT_CROUCHED));
     o->h              = HERO_HEIGHT;
     h->crouched       = 0;
@@ -555,7 +588,7 @@ i32 hero_stamina_ui_added(g_s *g, obj_s *o)
 
 i32 hero_stamina_max(g_s *g, obj_s *o)
 {
-    return g->save.stamina_upgrades * HERO_TICKS_PER_STAMINA_UPGRADE;
+    return g->hero.stamina_upgrades * HERO_TICKS_PER_STAMINA_UPGRADE;
 }
 
 bool32 hero_present_and_alive(g_s *g, obj_s **o)
@@ -578,47 +611,25 @@ v2_i32 hero_hook_aim_dir(hero_s *h)
 void hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel)
 {
     hero_s *h       = (hero_s *)o->heap;
-    v2_i32  vlaunch = vlaunch = hook_launch_vel_from_angle(ang_q16, vel);
+    v2_i32  vlaunch = grapplinghook_vlaunch_from_angle(ang_q16, vel);
     snd_play(SNDID_HOOK_THROW, 1.f, 1.f);
     v2_i32 center = obj_pos_center(o);
-
-    g->rope.active = 1;
-    rope_s *rope   = &g->rope;
-    obj_s  *hook   = hook_create(g, rope, center, vlaunch);
-    h->hook        = obj_handle_from_obj(hook);
-    h->grabbing    = 0;
-    o->rope        = rope;
-    o->ropenode    = rope->head;
 
     if (0 < o->v_q8.y) {
         o->v_q8.y >>= 1;
     }
-
-    v2_i32 pcurr = v2_shl(center, 8);
-
-    for (i32 n = 0; n < ROPE_VERLET_N; n++) {
-        rope->ropept[n].p = pcurr;
-        // "hint" the direction to the verlet sim
-        i32 k             = ROPE_VERLET_N - 1 - n;
-#if HERO_HOOK_OLD_AIM
-        rope->ropept[n].pp.x = pcurr.x - ((dirx << 12) * k) / ROPE_VERLET_N;
-        rope->ropept[n].pp.y = pcurr.y - ((diry << 12) * k) / ROPE_VERLET_N;
-#else
-        rope->ropept[n].pp.x = pcurr.x - ((vlaunch.x << 1) * k) / ROPE_VERLET_N;
-        rope->ropept[n].pp.y = pcurr.y - ((vlaunch.y << 1) * k) / ROPE_VERLET_N;
-#endif
-    }
+    grapplinghook_create(g, &g->ghook, o, center, vlaunch);
 }
 
 bool32 hero_action_ungrapple(g_s *g, obj_s *o)
 {
-    hero_s *h = (hero_s *)o->heap;
-    if (!obj_handle_valid(h->hook)) return 0;
+    if (!o->rope) return 0;
 
-    obj_s *ohook;
-    if (!obj_try_from_obj_handle(h->hook, &ohook)) return 0;
-    bool32 attached = hook_is_attached(ohook);
-    hook_destroy(g, o, ohook);
+    hero_s          *h  = (hero_s *)o->heap;
+    grapplinghook_s *gh = &g->ghook;
+
+    bool32 attached = gh->state && gh->state != GRAPPLINGHOOK_FLYING;
+    grapplinghook_destroy(g, gh);
 
     if (obj_grounded(g, o) || !attached) return 1;
 
@@ -775,12 +786,9 @@ void hero_inair_jump(g_s *g, obj_s *o, inp_s inp);
 
 void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
 {
-    hero_s *h              = (hero_s *)o->heap;
-    i32     dpad_x         = inps_x(inp);
-    i32     dpad_y         = inps_y(inp);
-    rope_s *r              = o->rope;
-    bool32  usinghook      = r != 0;
-    bool32  rope_stretched = (r && (r->len_max_q4 * 254) <= (rope_len_q4(g, r) << 8));
+    hero_s *h      = (hero_s *)o->heap;
+    i32     dpad_x = inps_x(inp);
+    i32     dpad_y = inps_y(inp);
 
     o->animation++;
     if (h->impact_ticks) {
@@ -796,10 +804,14 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
         h->air_block_ticks -= sgn_i32(h->air_block_ticks);
     }
 
+    i32    ibutton   = hero_item_button(g, inp, o);
     i32    staminap  = hero_stamina_left(g, o);
     bool32 can_stomp = hero_has_upgrade(g, HERO_UPGRADE_STOMP) &&
                        !h->holds_weapon &&
-                       !usinghook;
+                       !h->b_hold_tick &&
+                       !o->rope &&
+                       !ibutton;
+    bool32 rope_stretched = (o->rope && (o->rope->len_max_q4 * 254) <= (rope_len_q4(g, o->rope) << 8));
 
     if (rope_stretched) { // swinging
         h->jumpticks     = 0;
@@ -822,10 +834,13 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
         hero_leave_and_clear_inair(o);
     } else if (inp_btn_jp(INP_DU) && hero_try_snap_to_ladder_or_climbwall(g, o)) {
         // snapped to ladder
+        grapplinghook_destroy(g, &g->ghook);
     } else {
         bool32 do_x_movement  = 1;
         bool32 start_climbing = hero_has_upgrade(g, HERO_UPGRADE_CLIMB) &&
-                                hero_is_climbing_offs(g, o, dpad_x, 0, 0);
+                                hero_is_climbing_offs(g, o, dpad_x, 0, 0) &&
+                                !o->rope &&
+                                !ibutton;
 
         if (start_climbing) {
             do_x_movement = 0;
@@ -840,7 +855,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                 hero_leave_and_clear_inair(o);
                 // hero_start_climbing(g, o, dpad_x);
             }
-        } else if (0 < h->jump_btn_buffer) {
+        } else if (!ibutton && !o->rope && h->jump_btn_buffer) {
             hero_inair_jump(g, o, inp);
         } else {
             if (staminap <= 0 && h->jump_index == HERO_JUMP_FLY) {
@@ -906,7 +921,7 @@ void hero_inair_jump(g_s *g, obj_s *o, inp_s inp)
     for (i32 y = 0; y < 6; y++) {
         rec_i32 rr = {o->pos.x, o->pos.y + o->h + y, o->w, 1};
         v2_i32  pp = {0, y + 1};
-        if (map_traversable(g, rr) && obj_grounded_at_offs(g, o, pp)) {
+        if (!map_blocked(g, rr) && obj_grounded_at_offs(g, o, pp)) {
             ground_jump = 1;
             break;
         }
@@ -1106,7 +1121,7 @@ void hero_do_climbing(g_s *g, obj_s *o, inp_s inp)
         i32 n_moved = 0;
         for (i32 n = 0; n < N; n++) {
             rec_i32 r = {o->pos.x, o->pos.y + dpad_y, o->w, o->h};
-            if (!map_traversable(g, r) ||
+            if (!!map_blocked(g, r) ||
                 !hero_is_climbing_offs(g, o, o->facing, 0, dpad_y))
                 break;
             obj_move(g, o, 0, dpad_y);
@@ -1131,7 +1146,7 @@ void hero_do_climbing(g_s *g, obj_s *o, inp_s inp)
     o->linked_solid = obj_handle_from_obj(0);
     if (h->climbing) {
         for (obj_each(g, it)) {
-            if (it->mass == 0 || it == o) continue;
+            if (!(it->flags & OBJ_FLAG_SOLID)) continue;
             rec_i32 r = o->facing == 1 ? obj_rec_right(o) : obj_rec_left(o);
             if (overlap_rec(r, obj_aabb(it))) {
                 o->linked_solid = obj_handle_from_obj(it);
@@ -1164,38 +1179,48 @@ void hero_do_crawling(g_s *g, obj_s *o, inp_s inp)
 
 void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
 {
-    hero_s *h      = (hero_s *)o->heap;
-    i32     dpad_x = inps_x(inp);
-    i32     dpad_y = inps_y(inp);
+    hero_s *h               = (hero_s *)o->heap;
+    i32     dpad_x          = inps_x(inp);
+    i32     dpad_y          = inps_y(inp);
+    rope_s *r               = o->rope;
+    bool32  can_start_crawl = !inps_btn(inp, INP_B) &&
+                             !o->rope;
 
     if (o->v_prev_q8.x == 0 && o->v_q8.x != 0) {
         o->animation = 0;
     }
 
-    if (0 < dpad_y && !o->rope) { // start crawling
+    if (h->stomp_landing_ticks) {
+        h->stomp_landing_ticks++;
+        if (HERO_STOMP_LANDING_TICKS <= h->stomp_landing_ticks) {
+            h->stomp_landing_ticks = 0;
+        }
+    } else if (0 < dpad_y && !r) { // start crawling
         o->pos.y += HERO_HEIGHT - HERO_HEIGHT_CROUCHED;
         o->h              = HERO_HEIGHT_CROUCHED;
         h->crouched       = 1;
         h->crouch_standup = 0;
         h->sprint         = 0;
-    } else if (h->stomp_landing_ticks) {
-        h->stomp_landing_ticks++;
-        if (HERO_STOMP_LANDING_TICKS <= h->stomp_landing_ticks) {
-            h->stomp_landing_ticks = 0;
-        }
-    } else if (0 < h->jump_btn_buffer) {
+        h->b_hold_tick    = 0;
+    } else if (h->jump_btn_buffer) {
         h->impact_ticks = 2;
         hero_start_jump(g, o, HERO_JUMP_GROUND);
     } else if (inp_btn_jp(INP_DU) && hero_try_snap_to_ladder_or_climbwall(g, o)) {
         // snapped to ladder
+        h->b_hold_tick = 0;
         obj_move(g, o, 0, -1); // move upwards so player isn't grounded anymore
     } else {
+        i32    ibutton    = hero_item_button(g, inp, o);
+        bool32 can_sprint = !ibutton & !o->rope;
+
         if (h->crouch_standup) {
             h->crouch_standup--;
             obj_vx_q8_mul(o, 220);
         }
 
-        if (!h->sprint) {
+        if (!can_sprint) {
+            h->sprint = 0;
+        } else if (!h->sprint) {
             if (h->sprint_dtap) {
                 h->sprint_dtap--;
             }
@@ -1265,10 +1290,15 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
 
 void hero_do_dead_on_ground(g_s *g, obj_s *o)
 {
+    obj_vx_q8_mul(o, 192);
+    if (o->v_q8.x == 0) {
+        o->animation++;
+    }
 }
 
 void hero_do_dead_in_air(g_s *g, obj_s *o)
 {
+    o->animation++;
 }
 
 void hero_do_dead_in_water(g_s *g, obj_s *o)
@@ -1278,7 +1308,7 @@ void hero_do_dead_in_water(g_s *g, obj_s *o)
 bool32 hero_step_on_ladder(g_s *g, obj_s *o, i32 sx, i32 sy)
 {
     rec_i32 r = {o->pos.x + sx, o->pos.y + sy, o->w, o->h};
-    if (map_traversable(g, r) &&
+    if (!map_blocked(g, r) &&
         hero_on_valid_ladder_or_climbwall(g, o, sx, sy)) {
         o->pos.x += sx;
         o->pos.y += sy;
@@ -1355,14 +1385,14 @@ i32 hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o)
         } else if (0 < dt_x) {
             rec_i32 rsnap = {o->pos.x, o->pos.y,
                              o->w + dt_x, o->h};
-            if (!map_blocked(g, o, rsnap, o->mass)) {
+            if (!map_blocked(g, rsnap)) {
                 o->pos.x += dt_x;
                 snap_to = HERO_LADDER_VERTICAL;
             }
         } else if (dt_x < 0) {
             rec_i32 rsnap = {o->pos.x + dt_x, o->pos.y,
                              o->w - dt_x, o->h};
-            if (!map_blocked(g, o, rsnap, o->mass)) {
+            if (!map_blocked(g, rsnap)) {
                 o->pos.x += dt_x;
                 snap_to = HERO_LADDER_VERTICAL;
             }
@@ -1443,4 +1473,91 @@ bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy)
     i32 dt_x = 0;
     i32 t    = hero_ladder_or_climbwall_snapdata(g, o, offx, offy, &dt_x);
     return (t && dt_x == 0);
+}
+
+bool32 hero_has_upgrade(g_s *g, i32 ID)
+{
+    hero_s *h = &g->hero;
+    return (h->upgrades & ((u32)1 << ID));
+}
+
+void hero_add_upgrade(g_s *g, i32 ID)
+{
+    hero_s *h = &g->hero;
+    h->upgrades |= (u32)1 << ID;
+    pltf_log("# ADD UPGRADE: %i\n", ID);
+}
+
+void hero_rem_upgrade(g_s *g, i32 ID)
+{
+    hero_s *h = &g->hero;
+    h->upgrades &= ~((u32)1 << ID);
+    pltf_log("# DEL UPGRADE: %i\n", ID);
+}
+
+void hero_set_name(g_s *g, const char *name)
+{
+    hero_s *h = &g->hero;
+    str_cpy((char *)h->name, name);
+}
+
+char *hero_get_name(g_s *g)
+{
+    hero_s *h = &g->hero;
+    return (char *)&h->name[0];
+}
+
+void hero_inv_add(g_s *g, i32 ID, i32 n)
+{
+}
+
+void hero_inv_rem(g_s *g, i32 ID, i32 n)
+{
+}
+
+i32 hero_inv_count_of(g_s *g, i32 ID)
+{
+
+    return 0;
+}
+
+void hero_coins_change(g_s *g, i32 n)
+{
+    if (n == 0) return;
+    hero_s *h  = &g->hero;
+    i32     ct = h->coins + g->coins_added + n;
+    if (ct < 0) return;
+
+    if (g->coins_added == 0 || g->coins_added_ticks) {
+        g->coins_added_ticks = 100;
+    }
+    g->coins_added += n;
+}
+
+i32 hero_coins(g_s *g)
+{
+    hero_s *h = &g->hero;
+    i32     c = h->coins + g->coins_added;
+    assert(0 <= c);
+    return c;
+}
+
+i32 saveID_put(g_s *g, i32 ID)
+{
+    if (ID == 0) return 0;
+
+    if (saveID_has(g, ID)) return 2;
+    if (g->n_saveIDs == NUM_SAVEIDS) return 0;
+    g->saveIDs[g->n_saveIDs++] = ID;
+    return 1;
+}
+
+bool32 saveID_has(g_s *g, i32 ID)
+{
+    if (ID == 0) return 0;
+
+    for (i32 n = 0; n < g->n_saveIDs; n++) {
+        if (g->saveIDs[n] == ID) return 1;
+    }
+    return 0;
 }

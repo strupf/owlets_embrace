@@ -25,7 +25,7 @@ typedef struct {
 void stalactite_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o_spawn          = obj_create(g);
-    o_spawn->ID             = OBJ_ID_STALACTITE_SPAWN;
+    o_spawn->ID             = OBJID_STALACTITE_SPAWN;
     o_spawn->w              = STALACTITE_W;
     o_spawn->h              = STALACTITE_H;
     o_spawn->pos.x          = mo->x + (mo->w - STALACTITE_W) / 2;
@@ -38,7 +38,7 @@ void stalactite_load(g_s *g, map_obj_s *mo)
 
     obj_s        *o = obj_create(g);
     stalactite_s *s = (stalactite_s *)o->mem;
-    o->ID           = OBJ_ID_STALACTITE;
+    o->ID           = OBJID_STALACTITE;
     o->flags        = OBJ_FLAG_KILL_OFFSCREEN;
     o->w            = STALACTITE_W;
     o->h            = STALACTITE_H;

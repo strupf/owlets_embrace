@@ -7,17 +7,18 @@
 
 #include "pltf/pltf.h"
 
-#define GAME_VERSION_MAJOR 0
-#define GAME_VERSION_MINOR 1
-#define GAME_VERSION_PATCH 0
+#define GAME_V_MAJOR 0
+#define GAME_V_MINOR 1
+#define GAME_V_PATCH 0
 
-#define GAME_VERSION_GEN(MAJ, MIN, PAT) \
-    (u32)(((MAJ) << 16) | ((MIN) << 8) | (PAT))
-#define GAME_VERSION        \
-    GAME_VERSION_GEN(       \
-        GAME_VERSION_MAJOR, \
-        GAME_VERSION_MINOR, \
-        GAME_VERSION_PATCH)
+#define GAME_VERSION_GEN(MAJOR, MINOR, PATCH) \
+    (u32)(((MAJOR) << 16) |                   \
+          ((MINOR) << 8) |                    \
+          ((PATCH)))
+#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJOR, GAME_V_MINOR, GAME_V_PATCH)
+
+// used to mask any flags and only check raw version number
+#define GAME_VERSION_REV_MASK (u32)0xFFFFF
 
 static u32 game_version_encode(i32 major, i32 minor, i32 patch)
 {
@@ -42,9 +43,9 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #include "textinput.h"
 #include "util/easing.h"
 #include "util/json.h"
+#include "util/marena.h"
 #include "util/mathfunc.h"
 #include "util/mem.h"
-#include "util/memarena.h"
 #include "util/rng.h"
 #include "util/sorting.h"
 #include "util/str.h"
@@ -55,8 +56,10 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #define FILEPATH_TEX      "assets/tex/"
 #define FILEPATH_FNT      "assets/fnt/"
 #define FILEPATH_DIALOG   "assets/dialog/"
-#define FILEEXTENSION_AUD ".audio"
+#define FILEEXTENSION_AUD ".aud"
 #define NUM_TILES         131072
+#define NUM_SAVEIDS       256
+#define NUM_MAP_NEIGHBORS 16
 
 typedef struct g_s   g_s;
 typedef struct obj_s obj_s;
@@ -152,7 +155,7 @@ static v2_i32 direction_v2(i32 dir)
     return v;
 }
 
-static i32 ptr_index_in_arr(void *arr, void *p, i32 len)
+static i32 find_ptr_in_array(void *arr, void *p, i32 len)
 {
     void **a = (void **)arr;
     for (i32 i = 0; i < len; i++) {
@@ -168,24 +171,24 @@ enum {
     HITBOX_FLAG_HERO             = 1 << 3,
 };
 
-typedef_struct (hitbox_s) {
+typedef struct hitbox_s {
     rec_i32 r;
     i32     damage;
     u32     flags;
     v2_i16  force_q8;
-};
+} hitbox_s;
 
-typedef_struct (map_pin_s) {
+typedef struct map_pin_s {
     u32    type;
     v2_i32 pos;
-};
+} map_pin_s;
 
-typedef_struct (time_real_s) {
-    u16 h;
-    u16 m;
-    u16 s;
-    u16 ms;
-};
+typedef struct time_real_s {
+    u32 h;
+    u32 m;
+    u32 s;
+    u32 ms;
+} time_real_s;
 
 #define TIME_K_S ((u32)PLTF_UPS)
 #define TIME_K_M ((u32)60 * TIME_K_S)

@@ -6,6 +6,7 @@
 #define HERO_H
 
 #include "gamedef.h"
+#include "grapplinghook.h"
 #include "obj.h"
 #include "rope.h"
 
@@ -45,6 +46,7 @@ enum {
     HERO_LADDER_WALL,
 };
 
+#define HERO_HURT_LP_TICKS             100
 #define HERO_WATER_THRESHOLD           18
 #define HERO_WIDTH                     14
 #define HERO_X_OFFS_LADDER             ((16 - HERO_WIDTH) >> 1)
@@ -168,6 +170,12 @@ typedef struct hero_s {
     u8  n_jumped_on;
     u8  n_stomped_on;
     u8  n_jumped_or_stomped_on;
+    u16 coins;
+    u32 charms;
+    u8  stamina_upgrades;
+    u8  n_map_pins;
+    u8  name[LEN_HERO_NAME];
+    u32 upgrades;
 
     obj_handle_s jumped_on[HERO_NUM_JUMPED_ON];
     obj_handle_s stomped_on[HERO_NUM_JUMPED_ON];
@@ -175,10 +183,10 @@ typedef struct hero_s {
 } hero_s;
 
 obj_s *hero_create(g_s *g);
-void   hero_on_update(g_s *g, obj_s *o);
+void   hero_on_update(g_s *g, obj_s *o, inp_s inp);
+void   hero_post_update(g_s *g, obj_s *o, inp_s inp);
 void   hero_on_animate(g_s *g, obj_s *o);
 i32    hero_get_actual_state(g_s *g, obj_s *o);
-void   hero_handle_input(g_s *g, obj_s *o);
 void   hero_on_squish(g_s *g, obj_s *o);
 void   hero_check_rope_intact(g_s *g, obj_s *o);
 void   hero_hurt(g_s *g, obj_s *o, i32 damage);
@@ -194,11 +202,7 @@ i32    hero_stamina_max(g_s *g, obj_s *o);
 bool32 hero_present_and_alive(g_s *g, obj_s **o);
 void   hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel);
 bool32 hero_action_ungrapple(g_s *g, obj_s *o);
-void   hero_post_update(g_s *g, obj_s *o);
-obj_s *hero_pickup_available(g_s *g, obj_s *o);
 obj_s *hero_interactable_available(g_s *g, obj_s *o);
-void   hero_start_item_pickup(g_s *g, obj_s *o);
-void   hero_drop_item(g_s *g, obj_s *o);
 i32    hero_breath_tick(obj_s *o);
 i32    hero_breath_tick_max(g_s *g);
 void   hero_restore_grounded_stuff(g_s *g, obj_s *o);
@@ -212,7 +216,17 @@ bool32 hero_stomping(obj_s *o);
 i32    hero_register_jumped_on(obj_s *ohero, obj_s *o);
 i32    hero_register_stomped_on(obj_s *ohero, obj_s *o);
 i32    hero_can_grab(g_s *g, obj_s *o, i32 dirx);
-void   hero_on_game_unfreeze(g_s *g);
+i32    hero_item_button(g_s *g, inp_s inp, obj_s *o);
+bool32 hero_has_upgrade(g_s *g, i32 ID);
+void   hero_add_upgrade(g_s *g, i32 ID);
+void   hero_rem_upgrade(g_s *g, i32 ID);
+void   hero_set_name(g_s *g, const char *name);
+char  *hero_get_name(g_s *g);
+void   hero_inv_add(g_s *g, i32 ID, i32 n);
+void   hero_inv_rem(g_s *g, i32 ID, i32 n);
+i32    hero_inv_count_of(g_s *g, i32 ID);
+void   hero_coins_change(g_s *g, i32 n);
+i32    hero_coins(g_s *g);
 
 enum {
     HERO_INTERACTION_NONE,

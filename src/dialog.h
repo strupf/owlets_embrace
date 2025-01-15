@@ -54,6 +54,7 @@ typedef struct {
 
 typedef struct dialog_s {
     i32 state;
+    i32 ticks_auto; // auto playing cutscene textbox
     i32 tick;
     i32 tick_char;
     i32 cur_char;

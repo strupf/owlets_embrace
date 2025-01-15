@@ -28,36 +28,35 @@ static const i16 qoa_deq[16][8] = {
     {1536, -1536, 5120, -5120, 9216, -9216, 14336, -14336},
 };
 
-static inline void qoa_lms_init(qoa_lms_s *lms)
+static void qoa_decode_init(qoa_dec_s *d)
 {
-    lms->h[0] = 0;
-    lms->h[1] = 0;
-    lms->w[0] = -(1 << 13);
-    lms->w[1] = +(2 << 13);
+    d->h[0] = 0;
+    d->h[1] = 0;
+    d->w[0] = -(1 << 13);
+    d->w[1] = +(2 << 13);
 }
 
-static inline i16 *qoa_decode_sf_tab(u64 *s)
+static void qoa_decode_init_slice(qoa_dec_s *d, u64 s)
 {
-    i16 *deq = (i16 *)qoa_deq[*s >> 60];
-    *s <<= 4;
-    return deq;
+    d->deq = (i16 *)qoa_deq[s >> 60];
+    d->s   = s << 4;
 }
 
-static inline i32 qoa_decode_sample(qoa_lms_s *lms, u64 *s, i16 *deq)
+static inline i32 qoa_decode_sample(qoa_dec_s *d)
 {
-    i32 dq = deq[*s >> 61];
-    *s <<= 3;
-    i32 pr = i16x2_dot(i16x2_ld(&lms->w[0]), i16x2_ld(&lms->h[0])) >> 13;
+    i32 dq = d->deq[d->s >> 61];
+    d->s <<= 3;
+    i32 pr = i16x2_dot(i16x2_ld(&d->w[0]), i16x2_ld(&d->h[0])) >> 13;
     i32 sp = ssat(pr + dq, 16);
     i32 dt = dq >> 4;
-    lms->w[0] += lms->h[0] < 0 ? -dt : +dt;
-    lms->w[1] += lms->h[1] < 0 ? -dt : +dt;
-    lms->h[0] = lms->h[1];
-    lms->h[1] = sp;
+    d->w[0] += d->h[0] < 0 ? -dt : +dt;
+    d->w[1] += d->h[1] < 0 ? -dt : +dt;
+    d->h[0] = d->h[1];
+    d->h[1] = sp;
     return sp;
 }
 
-void qoa_stream_next_slice(qoa_stream_s *q)
+void qoa_mus_next_slice(qoa_mus_s *q)
 {
     if (q->slices_polled == q->slices_read) {
         u32 left = q->num_slices - q->cur_slice;
@@ -66,142 +65,147 @@ void qoa_stream_next_slice(qoa_stream_s *q)
         q->slices_read   = read;
         q->slices_polled = 0;
     }
-    q->slice = q->slices[q->slices_polled++];
-    q->deq   = qoa_decode_sf_tab(&q->slice);
+    for (i32 n = 0; n < q->n_channels; n++) {
+        qoa_decode_init_slice(&q->ds[n], q->slices[q->slices_polled++]);
+    }
 }
 
-void qoa_stream_rewind(qoa_stream_s *q)
+void qoa_mus_rewind(qoa_mus_s *q)
 {
-    pltf_file_seek_set(q->f, sizeof(qoa_file_header_s));
+    pltf_file_seek_set(q->f, q->seek + sizeof(qoa_file_header_s));
     q->cur_slice     = 0;
     q->spos          = 0;
     q->slices_polled = 0;
     q->slices_read   = 0;
     q->pos           = 0;
-    qoa_lms_init(&q->lms);
+    qoa_decode_init(&q->ds[0]);
+    qoa_decode_init(&q->ds[1]);
 }
 
-bool32 qoa_stream_start(qoa_stream_s *q, const char *fname, u32 ms, i32 v_q8)
+bool32 qoa_mus_start(qoa_mus_s *q, void *f)
 {
-    void *f = pltf_file_open_r(fname);
     if (!f) return 0;
 
-    q->f     = f;
-    q->v_q8  = 0;
-    q->flags = QOA_STREAM_FLAG_REPEAT;
-    qoa_stream_fade_to_vol(q, ms, v_q8);
+    q->f                   = f;
+    q->seek                = pltf_file_tell(f);
+    q->v_q8                = 256;
+    q->flags               = 1;
     qoa_file_header_s head = {0};
-    pltf_file_r(q->f, &head, sizeof(qoa_file_header_s));
-    q->num_slices = qoa_num_slices(head.num_samples);
-    qoa_stream_rewind(q);
-    qoa_stream_next_slice(q);
+    pltf_file_seek_set(f, q->seek);
+    pltf_file_r(f, &head, sizeof(qoa_file_header_s));
+    q->num_slices = qoa_num_slices(head.num_samples) * 2;
+    q->n_channels = head.num_channels;
+    qoa_mus_rewind(q);
+    qoa_mus_next_slice(q);
     return 1;
 }
 
-void qoa_stream_end(qoa_stream_s *q)
+void qoa_mus_end(qoa_mus_s *q)
 {
     if (q->f) {
         pltf_file_close(q->f);
         q->f = 0;
     }
+    q->seek = 0;
 }
 
-void qoa_stream(qoa_stream_s *q, i16 *buf, i32 len)
+static void qoa_mus_mo_st(qoa_dec_s *d, i32 n, i32 v, i16 *l, i16 *r)
 {
-    qoa_lms_s *lms = &q->lms;
-    i16       *b   = buf;
-    u32        l   = (u32)len;
+    for (i32 k = 0; k < n; k++) {
+        i32 s = qoa_decode_sample(d);
+        i32 z = mul_q16(v, s);
+        l[k]  = i16_adds((i32)l[k], z);
+        r[k]  = i16_adds((i32)r[k], z);
+    }
+}
+
+static void qoa_mus_mo_mo(qoa_dec_s *d, i32 n, i32 v, i16 *b)
+{
+    for (i32 k = 0; k < n; k++) {
+        i32 s = qoa_decode_sample(d);
+        i32 z = mul_q16(v, s);
+        b[k]  = i16_adds((i32)b[k], z);
+    }
+}
+
+static void qoa_mus_st_mo(qoa_dec_s *dl, qoa_dec_s *dr, i32 n, i32 v, i16 *b)
+{
+    for (i32 k = 0; k < n; k++) {
+        i32 s = (qoa_decode_sample(dl) + qoa_decode_sample(dr)) >> 1;
+        i32 z = mul_q16(v, s);
+        b[k]  = i16_adds((i32)b[k], z);
+    }
+}
+
+void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len)
+{
+    if (!q->seek) return;
+
+    i16 *br    = rbuf;
+    i16 *bl    = lbuf;
+    u32  l     = (u32)len;
+    i32  v_q16 = (i32)q->v_q8 << 8;
+    i32  mode  = 0;
+    switch (q->n_channels) {
+    case 1: mode = (rbuf ? QOA_MUS_MODE_MO_ST : QOA_MUS_MODE_MO_MO); break;
+    case 2: mode = (rbuf ? QOA_MUS_MODE_ST_ST : QOA_MUS_MODE_ST_MO); break;
+    }
+
     q->pos += len;
-
-    i32 vol = (i32)q->v_q8 << 8;
     while (l) {
-        u32 n_samples = min_u32(QOA_SLICE_LEN - q->spos, l);
-        l -= n_samples;
-        q->spos += n_samples;
+        u32 n = min_u32(QOA_SLICE_LEN - q->spos, l);
+        l -= n;
+        q->spos += n;
 
-        for (u32 n = 0; n < n_samples; n++) {
-            i32 s = qoa_decode_sample(lms, &q->slice, q->deq);
-            i32 v = i16_adds((i32)*b, mul_q16(vol, s));
-            *b++  = v;
+        switch (mode) {
+        case QOA_MUS_MODE_ST_MO:
+            qoa_mus_st_mo(&q->ds[0], &q->ds[1], n, v_q16, bl);
+            bl += n;
+            break;
+        case QOA_MUS_MODE_MO_ST:
+            qoa_mus_mo_st(&q->ds[0], n, v_q16, bl, br);
+            bl += n;
+            br += n;
+            break;
+        case QOA_MUS_MODE_MO_MO:
+            qoa_mus_mo_mo(&q->ds[0], n, v_q16, bl);
+            bl += n;
+            break;
+        case QOA_MUS_MODE_ST_ST:
+            qoa_mus_mo_mo(&q->ds[0], n, v_q16, bl);
+            qoa_mus_mo_mo(&q->ds[1], n, v_q16, br);
+            bl += n;
+            br += n;
+            break;
         }
 
         if (q->spos == QOA_SLICE_LEN) { // decode a new slice
             q->spos = 0;
-            q->cur_slice++;
+            q->cur_slice += q->n_channels;
 
             if (q->cur_slice == q->num_slices) { // new frame
-                if (!(q->flags & QOA_STREAM_FLAG_REPEAT)) {
-                    qoa_stream_end(q);
+                if (0) {
+                    qoa_mus_end(q);
                     break;
                 }
-                qoa_stream_rewind(q);
+                qoa_mus_rewind(q);
             }
-            qoa_stream_next_slice(q);
-        }
-    }
-
-    if (q->v_fade_t_total) {
-        q->v_fade_t += len;
-        if (q->v_fade_t < q->v_fade_t_total) {
-            i32 d   = ((q->v_q8_fade_d - q->v_q8_fade_s) * q->v_fade_t) / q->v_fade_t_total;
-            q->v_q8 = q->v_q8_fade_s + d;
-        } else {
-            q->v_q8           = q->v_q8_fade_s + q->v_q8_fade_d;
-            q->v_fade_t_total = 0;
-            if (q->flags & QOA_STREAM_FLAG_FADE_OUT) {
-                qoa_stream_end(q);
-            }
+            qoa_mus_next_slice(q);
         }
     }
 }
 
-bool32 qoa_stream_active(qoa_stream_s *q)
+bool32 qoa_mus_active(qoa_mus_s *q)
 {
-    return (q->f != 0);
+    return (q->seek != 0);
 }
 
-void qoa_stream_fade_to_vol(qoa_stream_s *q, u32 ms, i32 v_q8)
+void qoa_mus_set_vol(qoa_mus_s *q, i32 v)
 {
-    if (v_q8 < 0) {
-        q->flags |= QOA_STREAM_FLAG_FADE_OUT;
-    }
-    if (ms == 0) {
-        q->v_q8 = max_i32(v_q8, 0);
-    } else {
-        q->v_q8_fade_s = q->v_q8;
-        q->v_q8_fade_d = max_i32(v_q8, 0);
-    }
-    q->v_fade_t       = 0;
-    q->v_fade_t_total = (ms * 44100) / 1000;
+    q->v_q8 = v;
 }
 
-void qoa_stream_seek(qoa_stream_s *q, u32 p)
-{
-    if (!qoa_stream_active(q)) return;
-    if ((i32)q->num_slices <= qoa_num_slices(p)) return;
-
-    qoa_stream_rewind(q);
-    qoa_lms_s *lms = &q->lms;
-    u32        l   = p;
-
-    while (QOA_SLICE_LEN <= l) {
-        l -= QOA_SLICE_LEN;
-        for (u32 n = 0; n < QOA_SLICE_LEN; n++) {
-            qoa_decode_sample(lms, &q->slice, q->deq);
-        }
-        q->cur_slice++;
-        qoa_stream_next_slice(q);
-    }
-
-    for (u32 n = 0; n < l; n++) {
-        qoa_decode_sample(lms, &q->slice, q->deq);
-    }
-
-    q->spos = l;
-    q->pos  = p;
-}
-
-bool32 qoa_data_start(qoa_data_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat)
+bool32 qoa_sfx_start(qoa_sfx_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat)
 {
     if (!q || !n_samples || !dat || p_q8 <= 0) return 0;
     assert(((uptr)dat & 7) == 0); // 8 byte alignment
@@ -211,28 +215,34 @@ bool32 qoa_data_start(qoa_data_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q
     q->len_pitched = (n_samples * p_q8) >> 8;
     q->ipitch_q8   = 65536 / p_q8;
     q->vol_q8      = v_q8;
-    q->slice       = q->slices[0];
-    q->deq         = qoa_decode_sf_tab(&q->slice);
     q->cur_slice   = 0;
     q->spos        = 0;
     q->pos_pitched = 0;
     q->pos         = 0;
-    qoa_lms_init(&q->lms);
+    qoa_decode_init(&q->ds);
+    qoa_decode_init_slice(&q->ds, q->slices[0]);
     assert((((q->len_pitched - 1) * q->ipitch_q8) >> 8) < n_samples);
     return 1;
 }
 
-void qoa_data_end(qoa_data_s *q)
+void qoa_sfx_end(qoa_sfx_s *q)
 {
-    q->slices = NULL;
+    q->slices = 0;
 }
 
-void qoa_data_play(qoa_data_s *q, i16 *buf, i32 len)
+void qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len)
 {
-    qoa_lms_s *lms = &q->lms;
-    i16       *b   = buf;
+    i32 n_channels = 1 + (rbuf != 0);
+    i32 pan_q8_l   = (0 < q->pan_q8 ? 256 - q->pan_q8 : 256);
+    i32 pan_q8_r   = (0 > q->pan_q8 ? 256 + q->pan_q8 : 256);
 
-    i32 vol_q16 = (i32)q->vol_q8 << 8;
+    if (n_channels == 1) {
+        pan_q8_l = (pan_q8_l + pan_q8_r) >> 1; // average the volume of l/r for mono
+    }
+
+    i32  v_q16[2] = {(i32)q->vol_q8 * pan_q8_l, (i32)q->vol_q8 * pan_q8_r};
+    i16 *b[2]     = {lbuf, rbuf};
+
     for (i32 n = 0; n < len; n++) {
         u32 p = (q->pos_pitched++ * q->ipitch_q8) >> 8;
         assert(p <= q->len);
@@ -243,28 +253,29 @@ void qoa_data_play(qoa_data_s *q, i16 *buf, i32 len)
             q->spos += n_samples;
 
             for (u32 n = 0; n < n_samples; n++) {
-                q->sample = qoa_decode_sample(lms, &q->slice, q->deq);
+                q->sample = qoa_decode_sample(&q->ds);
             }
 
             if (q->spos == QOA_SLICE_LEN) { // decode a new slice
                 q->spos = 0;
                 q->cur_slice++;
-                q->slice = q->slices[q->cur_slice];
-                q->deq   = qoa_decode_sf_tab(&q->slice);
+                qoa_decode_init_slice(&q->ds, q->slices[q->cur_slice]);
             }
         }
 
-        i32 v = i16_adds((i32)*b, mul_q16(vol_q16, q->sample));
-        *b++  = v;
+        for (u32 c = 0; c < n_channels; c++) {
+            *b[c] = i16_adds((i32)*b[c], mul_q16(v_q16[c], q->sample));
+            (b[c])++;
+        }
 
         if (q->pos_pitched == q->len_pitched) {
-            qoa_data_end(q);
+            qoa_sfx_end(q);
             break;
         }
     }
 }
 
-bool32 qoa_data_active(qoa_data_s *q)
+bool32 qoa_sfx_active(qoa_sfx_s *q)
 {
     return (q->slices != 0);
 }

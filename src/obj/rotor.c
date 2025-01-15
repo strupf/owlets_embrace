@@ -33,7 +33,7 @@ void rotor_load(g_s *g, map_obj_s *mo)
     obj_s   *o = obj_create(g);
     rotor_s *r = (rotor_s *)o->mem;
 
-    o->ID         = OBJ_ID_ROTOR;
+    o->ID         = OBJID_ROTOR;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->w          = 26;

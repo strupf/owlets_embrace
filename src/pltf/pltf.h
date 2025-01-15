@@ -24,7 +24,7 @@
 //
 #define PLTF_UPS_DT            0.0200f // elapsed seconds per update step (1/UPS)
 #define PLTF_UPS_DT_TEST       0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
-#define PLTF_UPS_DT_CAP        0.0600f // max elapsed seconds
+#define PLTF_UPS_DT_CAP        0.1000f // max elapsed seconds before slowing down
 
 #ifdef PLTF_PD
 #define PLTF_ACCELEROMETER_SUPPORT 1
@@ -50,7 +50,7 @@ void pltf_audio_lock();
 void pltf_audio_unlock();
 #endif
 
-void   app_init();
+i32    app_init();
 void   app_tick();
 void   app_draw();
 void   app_audio(i16 *lbuf, i16 *rbuf, i32 len);
@@ -60,6 +60,7 @@ void   app_resume();
 // to be implemented by platform
 void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
+void   pltf_sync_timestep();
 i32    pltf_cur_tick();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
@@ -79,65 +80,13 @@ i32    pltf_file_seek_cur(void *f, i32 pos);
 i32    pltf_file_seek_end(void *f, i32 pos);
 i32    pltf_file_w(void *f, const void *buf, usize bsize);
 i32    pltf_file_r(void *f, void *buf, usize bsize);
-//
-void   pltf_internal_init();
+b32    pltf_file_ws(void *f, const void *buf, usize bsize);
+b32    pltf_file_rs(void *f, void *buf, usize bsize);
+i32    pltf_internal_init();
 i32    pltf_internal_update();
 void   pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   pltf_internal_close();
 void   pltf_internal_pause();
 void   pltf_internal_resume();
-
-typedef struct {
-    u8   n; // maximum 8 bits per run
-    byte b;
-} mem_rle_s;
-
-static usize mem_compress(void *dst, const void *src, usize sizesrc)
-{
-    if (!dst || !src || !sizesrc) return 0;
-
-    u32         n = 0;
-    mem_rle_s  *r = (mem_rle_s *)((byte *)dst + sizeof(u32));
-    const byte *s = (const byte *)src;
-
-    for (u32 l = 0; l < sizesrc; l++) {
-        const byte b = *s++;
-        if (0 < n && r->b == b && r->n < 255) {
-            r->n++;
-        } else {
-            if (0 < n) {
-                r++;
-            }
-            r->b = b;
-            r->n = 0;
-            n++;
-        }
-    }
-    *(u32 *)dst = n;
-    return (sizeof(u32) + sizeof(mem_rle_s) * n);
-}
-
-// buf = working memory
-static void mem_decompress_block_from_file(void *f, void *dst, void *buf, usize bsize)
-{
-    u32 num = 0;
-    pltf_file_r(f, &num, sizeof(u32));
-
-    // number of rles which can be read into the working buffer
-    u32        num_blocks = (u32)(bsize / (sizeof(mem_rle_s)));
-    mem_rle_s *r          = (mem_rle_s *)buf;
-    byte      *d          = (byte *)dst;
-
-    while (num) {
-        u32 numb = num <= num_blocks ? num : num_blocks;
-        num -= numb;
-        pltf_file_r(f, r, numb * sizeof(mem_rle_s));
-        for (u32 n = 0; n < numb; n++) {
-            mem_rle_s rle = r[n];
-            mset(d, rle.b, (usize)rle.n + 1);
-            d += rle.n + 1;
-        }
-    }
-}
 
 #endif

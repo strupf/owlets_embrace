@@ -46,7 +46,7 @@ void        rope_init(rope_s *r);
 u32         rope_len_q4(g_s *g, rope_s *r);
 void        ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy);
 void        rope_update(g_s *g, rope_s *r);
-bool32      rope_intact(g_s *g, rope_s *r);
+bool32      rope_is_intact(g_s *g, rope_s *r);
 void        rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy);
 ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn);
 void        rope_verletsim(g_s *g, rope_s *r);

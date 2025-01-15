@@ -7,7 +7,7 @@
 void objkey_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_KEY;
+    o->ID    = OBJID_KEY;
     o->flags = OBJ_FLAG_RENDER_AABB;
     o->pos.x = mo->x;
     o->pos.y = mo->y;

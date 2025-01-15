@@ -57,7 +57,7 @@ void flyblob_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o  = obj_create(g);
     flyblob_s *f  = (flyblob_s *)o->mem;
-    o->ID         = OBJ_ID_FLYBLOB;
+    o->ID         = OBJID_FLYBLOB;
     o->on_animate = flyblob_on_animate;
     o->on_update  = flyblob_on_update;
     o->w          = 24;
@@ -289,7 +289,10 @@ void flyblob_on_animate(g_s *g, obj_s *o)
 
         s1->offs.x = s0->offs.x;
         s1->offs.y = s0->offs.y + propeller_offs[framex];
-        s1->trec.r = (rec_i32){frameprop * 64, 0, 64, 64};
+        s1->trec.x = frameprop * 64;
+        s1->trec.y = 0;
+        s1->trec.w = 64;
+        s1->trec.h = 64;
         break;
     }
     case FLYBLOB_STATE_PROPELLER_POP: {
@@ -321,6 +324,8 @@ void flyblob_on_animate(g_s *g, obj_s *o)
         break;
     }
     }
-
-    s0->trec.r = (rec_i32){framex * 64, framey * 64, 64, 64};
+    s0->trec.x = framex * 64;
+    s0->trec.y = framey * 64;
+    s0->trec.w = 64;
+    s0->trec.h = 64;
 }

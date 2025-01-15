@@ -10,7 +10,7 @@ void hero_pickup_on_animate(g_s *g, obj_s *o);
 obj_s *hero_pickup_create(g_s *g, v2_i32 pos, i32 pickupID)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_HERO_PICKUP;
+    o->ID    = OBJID_HERO_PICKUP;
     o->subID = pickupID;
     o->w     = 16;
     o->h     = 16;

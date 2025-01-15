@@ -18,7 +18,7 @@ void spiderboss_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o = obj_create(g);
     spiderboss_s *s = (spiderboss_s *)o->mem;
-    o->ID           = OBJ_ID_SPIDERBOSS;
+    o->ID           = OBJID_SPIDERBOSS;
     o->w            = 32;
     o->h            = 32;
     o->pos.x        = mo->x;
@@ -33,8 +33,8 @@ void spiderboss_on_update(g_s *g, obj_s *o)
 {
     spiderboss_s *s = (spiderboss_s *)o->mem;
     for (i32 n = 0; n < 8; n++) {
-        s->legs[n].p.x = -55 + ((45 * sin_q16(g->gameplay_tick << 10)) >> 16);
-        s->legs[n].p.y = 0 + ((20 * sin_q16(g->gameplay_tick << 11)) >> 16);
+        s->legs[n].p.x = -55 + ((45 * sin_q16(g->tick << 10)) >> 16);
+        s->legs[n].p.y = 0 + ((20 * sin_q16(g->tick << 11)) >> 16);
     }
 }
 

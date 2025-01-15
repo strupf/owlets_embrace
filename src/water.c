@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "water.h"
+#include "app.h"
 #include "game.h"
 
 #define NUM_WATER_TILES 128
@@ -92,7 +93,8 @@ void water_step(waterparticle_s *particles, i32 num, i32 steps);
 
 void water_prerender_tiles()
 {
-    tex_s wtex = tex_create(32, NUM_WATER_TILES * 16, asset_allocator);
+    tex_s wtex;
+    app_texID_create_put(TEXID_WATER_PRERENDER, 32, NUM_WATER_TILES * 16, 1, app_allocator(), &wtex);
     tex_clr(wtex, GFX_COL_CLEAR);
     asset_tex_putID(TEXID_WATER_PRERENDER, wtex);
 
@@ -127,7 +129,7 @@ void water_prerender_tiles()
         for (i32 k = 0; k < 16; k += WATER_RENDER_STEP) {
 
             i32 hh = particles[((k + WATER_NUM_P) >> 1)].y_q12 >> 12;
-            hh     = clamp_i32(hh, -4, +4);
+            hh     = clamp_sym_i32(hh, 4);
             i32 yy = n * 16 + 4 + hh;
 
             // filled tile silhouette background

@@ -6,23 +6,24 @@
 #define SPM_H
 
 #include "pltf/pltf.h"
-#include "util/memarena.h"
+#include "util/marena.h"
 
 typedef struct {
-    void  *stack[8];
-    u16    n_stack;
-    bool16 lowestleft_disabled;
+#if PLTF_DEV_ENV
+    bool32 lowestleft_disabled;
     usize  lowestleft;
+#endif
+    void    *stack[8];
+    u32      n_stack;
+    marena_s m;
+    ALIGNAS(4)
+    byte mem[MKILOBYTE(1024)];
+} spm_s;
 
-    marena_s        m;
-    ALIGNAS(4) byte mem[1024 * 1024];
-} SPM_s;
-
-extern SPM_s         SPM;
 extern const alloc_s spm_allocator;
 
-#define spm_alloct(T, N)  (T *)spm_alloc_aligned(sizeof(T) * (N), alignof(T))
-#define spm_alloctz(T, N) (T *)spm_allocz_aligned(sizeof(T) * (N), alignof(T))
+#define spm_alloct(T, N)  (T *)spm_alloc_aligned(sizeof(T) * (N), ALIGNOF(T))
+#define spm_alloctz(T, N) (T *)spm_allocz_aligned(sizeof(T) * (N), ALIGNOF(T))
 
 void  spm_init();
 void  spm_push();
@@ -33,6 +34,6 @@ void *spm_allocz(usize s);
 void *spm_alloc_aligned(usize s, usize alignment);
 void *spm_allocz_aligned(usize s, usize alignment);
 void *spm_alloc_rem(usize *s);
-void  spm_reset();
+void  spm_reset(void *p);
 
 #endif

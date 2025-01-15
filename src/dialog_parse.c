@@ -133,7 +133,7 @@ void dialog_parse_cmd(g_s *g, dialog_s *d, dialog_parser_s *p)
         if (0) {
         } else if (dialog_str_equals(p->c, "Player")) {
             p->c += 6; // + "Player"
-            for (u8 *pc = &g->save.name[0]; *pc != '\0'; pc++) {
+            for (u8 *pc = &g->hero.name[0]; *pc != '\0'; pc++) {
                 dialog_char_s namec = {*pc, p->flags_ticks};
                 dialog_line_try_add_char(p, namec);
             }

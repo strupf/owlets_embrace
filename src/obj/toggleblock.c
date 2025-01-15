@@ -51,7 +51,7 @@ void toggleblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s             *o  = obj_create(g);
     obj_toggleblock_s *ot = (obj_toggleblock_s *)o->mem;
-    o->ID                 = OBJ_ID_TOGGLEBLOCK;
+    o->ID                 = OBJID_TOGGLEBLOCK;
     o->render_priority    = -10;
     o->state              = 0;
     o->pos.x              = mo->x;

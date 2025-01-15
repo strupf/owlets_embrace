@@ -12,7 +12,7 @@ obj_s *timerobj_create(g_s *g)
 {
     obj_s      *o = obj_create(g);
     timerobj_s *t = (timerobj_s *)o->mem;
-    o->ID         = OBJ_ID_TIMER;
+    o->ID         = OBJID_TIMER;
 
     return o;
 }

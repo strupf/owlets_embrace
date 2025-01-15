@@ -9,7 +9,7 @@
 #include "save.h"
 #include "textinput.h"
 
-#define TITLE_SKIP_TO_GAME 1
+#define TITLE_SKIP_TO_GAME 0
 
 // mainmenu state machine
 enum {
@@ -33,11 +33,10 @@ enum {
 };
 
 typedef struct {
-    b32  exists;
-    u32  health;
-    u32  tick;
-    char name[32];
-    char areaname[64];
+    b32 exists;
+    u32 tick;
+    u8  name[LEN_HERO_NAME];
+    u8  map_file[32];
 } save_preview_s;
 
 typedef struct title_s {

@@ -114,7 +114,7 @@ void movingplatform_load(g_s *g, map_obj_s *mo)
 {
     obj_s            *o    = obj_create(g);
     movingplatform_s *plat = (movingplatform_s *)o->mem;
-    o->ID                  = OBJ_ID_MOVINGPLATFORM;
+    o->ID                  = OBJID_MOVINGPLATFORM;
     o->flags               = OBJ_FLAG_RENDER_AABB;
     o->on_trigger          = movingplatform_on_trigger;
     if (map_obj_bool(mo, "Solid")) {
@@ -122,7 +122,7 @@ void movingplatform_load(g_s *g, map_obj_s *mo)
     } else {
         o->flags |= OBJ_FLAG_PLATFORM;
     }
-    o->mass        = 1;
+
     o->on_update   = movingplatform_on_update;
     o->w           = 64;
     o->h           = 16;

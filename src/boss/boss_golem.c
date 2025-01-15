@@ -51,7 +51,7 @@ void boss_golem_init(g_s *g, boss_golem_s *b)
     obj_s *o = obj_create(g);
     b->golem = o;
 
-    o->ID    = OBJ_ID_BOSS_GOLEM;
+    o->ID    = OBJID_BOSS_GOLEM;
     o->pos.x = 400;
     o->pos.y = 360;
     o->w     = 64;
@@ -83,8 +83,7 @@ void boss_golem_slam_cracking(g_s *g, boss_golem_s *b)
         boss_golem_platform_param_s param = g_bgp_1[n];
 
         obj_s *o                 = obj_create(g);
-        o->ID                    = OBJ_ID_BOSS_GOLEM_PLATFORM;
-        o->mass                  = 2;
+        o->ID                    = OBJID_BOSS_GOLEM_PLATFORM;
         boss_golem_platform_s *p = (boss_golem_platform_s *)o->mem;
 
         b->platforms[n] = o;
@@ -107,7 +106,7 @@ void boss_golem_slam_cracking(g_s *g, boss_golem_s *b)
         for (i32 x = x1; x <= x2; x++) {
             i32 i         = x + y * g->tiles_x;
             b->tiles[n]   = g->tiles[i];
-            g->tiles[i].U = 0;
+            g->tiles[i].u = 0;
             n++;
         }
     }

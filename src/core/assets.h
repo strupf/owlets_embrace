@@ -7,10 +7,15 @@
 
 #include "aud.h"
 #include "gfx.h"
-#include "util/memarena.h"
+#include "util/lzss.h"
+#include "util/marena.h"
 
-#define ASSET_FILENAME     "assets/assets/assets.dat"
 #define ASSETS_LOG_LOADING 0
+#if PLTF_DEV_ENV && 0
+#define ASSETS_LOAD_FROM_WAD 0
+#else
+#define ASSETS_LOAD_FROM_WAD 1
+#endif
 
 enum {
     TEXID_DISPLAY,
@@ -24,6 +29,7 @@ enum {
     TEXID_UI,
     TEXID_PLANTS,
     TEXID_CLOUDS,
+    TEXID_WATERCOL,
     TEXID_TITLE,
     TEXID_SWITCH,
     TEXID_SHROOMY,
@@ -149,34 +155,20 @@ typedef struct {
     asset_tex_s tex[NUM_TEXID];
     asset_snd_s snd[NUM_SNDID];
     asset_fnt_s fnt[NUM_FNTID];
+} assets_s;
 
-    marena_s        marena;
-    ALIGNAS(8) byte mem[6 * 1024 * 1024];
-} ASSETS_s;
-
-extern ASSETS_s      ASSETS;
-extern const alloc_s asset_allocator;
-
-void assets_init();
-#if PLTF_DEV_ENV
-void assets_export();
-#else
-void assets_import();
-#endif
-//
-void    *assetmem_alloc(usize s);
+i32      assets_init();
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);
 fnt_s    asset_fnt(i32 ID);
-i32      asset_tex_load(const char *filename, tex_s *tex);
-i32      asset_tex_loadID(i32 ID, const char *filename, tex_s *tex);
-i32      asset_snd_loadID(i32 ID, const char *filename, snd_s *snd);
-i32      asset_fnt_loadID(i32 ID, const char *filename, fnt_s *fnt);
 i32      asset_tex_put(tex_s t);
 tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
-fnt_s    fnt_load(const char *filename, alloc_s ma);
-
-u32 snd_play(i32 ID, f32 vol, f32 pitch);
+u32      snd_play(i32 ID, f32 vol, f32 pitch);
+//
+i32      tex_from_wad(void *f, wad_el_s *wf, const void *name,
+                      allocator_s a, tex_s *o_t);
+i32      snd_from_wad(void *f, wad_el_s *wf, const void *name,
+                      allocator_s a, snd_s *o_s);
 
 #endif

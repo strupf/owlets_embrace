@@ -46,7 +46,7 @@ void hero_on_animate(g_s *g, obj_s *o)
     if (h->b_hold_tick) {
         state = 0;
         fr_x  = min_i32(h->b_hold_tick >> 2, 2) + 8;
-        fr_y  = 16;
+        fr_y  = 15 + obj_grounded(g, o);
         sprite->offs.y -= 16;
     }
 
@@ -55,6 +55,10 @@ void hero_on_animate(g_s *g, obj_s *o)
         sprite->offs.y -= 16;
         fr_y = 0;
         fr_x = 12;
+    } else if (o->health == 1) {
+        // o->n_sprites = 1 <= (g->gameplay_tick % 4);
+    } else {
+        o->n_sprites = 1;
     }
 
     if (o->health == 0) {
@@ -62,12 +66,17 @@ void hero_on_animate(g_s *g, obj_s *o)
         case HERO_ST_GROUND: {
             sprite->offs.y -= 16;
             fr_y = 0;
-            fr_x = 14;
+            if (h->dead_bounce) {
+                fr_x = 13 + (10 <= o->animation);
+            } else {
+                fr_x = 12;
+            }
+
             break;
         }
         case HERO_ST_AIR: {
             fr_y = 0;
-            fr_x = 8 + ((pltf_cur_tick() / 4) & 3);
+            fr_x = 8 + ((o->animation / 4) & 3);
             break;
         }
         case HERO_ST_WATER: {
@@ -147,7 +156,7 @@ void hero_on_animate(g_s *g, obj_s *o)
                 fr_y         = 1;
                 fr_x         = 12;
                 if (260 <= ropestretch) {
-                    fr_x += (g->gameplay_tick >> 4) & 1;
+                    fr_x += (g->tick >> 4) & 1;
                 }
 
                 break;
@@ -349,9 +358,8 @@ void hero_on_animate(g_s *g, obj_s *o)
     }
     }
 
-    rec_i32 frame  = {64 * (fr_x + fr_x_add),
-                      64 * fr_y,
-                      64,
-                      64};
-    sprite->trec.r = frame;
+    sprite->trec.x = 64 * (fr_x + fr_x_add);
+    sprite->trec.y = 64 * fr_y;
+    sprite->trec.w = 64;
+    sprite->trec.h = 64;
 }

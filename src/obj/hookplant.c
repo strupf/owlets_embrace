@@ -22,7 +22,7 @@ void hookplant_on_animate(g_s *g, obj_s *o);
 void hookplant_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_HOOKPLANT;
+    o->ID    = OBJID_HOOKPLANT;
     o->flags = OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_HOOKABLE;
     o->on_update  = hookplant_on_update;
@@ -46,6 +46,7 @@ void hookplant_on_update(g_s *g, obj_s *o)
             break;
         }
 
+#if 0
         o->timer++;
         if (o->timer < 10) {
             g->rope.len_max_q4 = (g->rope.len_max_q4 * 260) >> 8;
@@ -59,7 +60,7 @@ void hookplant_on_update(g_s *g, obj_s *o)
             o->state = HOOKPLANT_HIDDEN;
             o->timer = 0;
         }
-
+#endif
         break;
     }
     case HOOKPLANT_HIDDEN:

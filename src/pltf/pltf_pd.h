@@ -12,12 +12,16 @@
 #include "pltf_types.h"
 
 extern PlaydateAPI *PD;
-extern void         (*PD_system_logToConsole)(const char *fmt, ...);
-#if 1
+extern void (*PD_system_logToConsole)(const char *fmt, ...);
+extern void *(*PD_system_realloc)(void *ptr, size_t size);
+#if PLTF_ENABLE_LOG
 #define pltf_log PD_system_logToConsole
 #else
 #define pltf_log(...)
 #endif
+
+#define pltf_mem_alloc(S) PD_system_realloc(0, S)
+#define pltf_mem_free(P)  PD_system_realloc(P, 0)
 
 enum {
     PLTF_PD_BTN_DL = kButtonLeft,

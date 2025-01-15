@@ -53,7 +53,7 @@ void flyer_load(g_s *g, map_obj_s *mo)
 {
     obj_s   *o = obj_create(g);
     flyer_s *f = (flyer_s *)o->mem;
-    o->ID      = OBJ_ID_FLYER;
+    o->ID      = OBJID_FLYER;
     o->flags   = OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_SPRITE |

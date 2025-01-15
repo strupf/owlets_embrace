@@ -52,6 +52,17 @@ static inline i32 smulwb(i32 a, i16x2 b)
     return r;
 }
 
+#define smulwbs smulwb
+
+static inline i32 smlawb(i32 a, i16x2 b, i32 c)
+{
+    i32 r = 0;
+    __asm("smlawb %0, %1, %2, %3" : "=r"(r) : "r"(a), "r"(b), "r"(c));
+    return r;
+}
+
+#define smlawbs smlawb
+
 static inline i32 mul_q16(i32 a, i16 b)
 {
     return smulwb(a, (i16x2)b);
@@ -172,13 +183,31 @@ static inline i32 i16_adds(i32 a, i32 b)
 
 static inline i32 mul_q16(i32 a, i16 b)
 {
-    i32 r = (i32)(((i64)a * (i64)b) >> 16);
+    i32 r = (i32)(((i64)a * b) >> 16);
     return r;
 }
 
 static inline i32 smulwb(i32 a, i16x2 b)
 {
-    i32 r = (a * (i32)b.v[0]) >> 16;
+    i32 r = (i32)(((i64)a * b.v[0]) >> 16);
+    return r;
+}
+
+static inline i32 smulwbs(i32 a, i16 b)
+{
+    i32 r = (i32)(((i64)a * b) >> 16);
+    return r;
+}
+
+static inline i32 smlawb(i32 a, i16x2 b, i32 c)
+{
+    i32 r = (i32)(((i64)a * b.v[0]) >> 16) + c;
+    return r;
+}
+
+static inline i32 smlawbs(i32 a, i16 b, i32 c)
+{
+    i32 r = (i32)(((i64)a * b) >> 16) + c;
     return r;
 }
 #endif

@@ -340,7 +340,7 @@ void textinput_pd_draw(textinput_handler_s *hdl)
     i32 col1 = hdl->only_letters ? 1 : 0;
 
     for (i32 n = col1; n < 4; n++) {
-        texrec_s tr_util = {tex, {608, 32 * n, 64, 32}};
+        texrec_s tr_util = {tex, 608, 32 * n, 64, 32};
         i32      offs_y  = (n - hdl->pos_y[TI_PD_COL_UTIL]) * TI_PD_SPACE_Y;
         if (hdl->pos_x == 3) {
             offs_y += y_scroll;
@@ -373,7 +373,7 @@ void textinput_pd_draw(textinput_handler_s *hdl)
             char     c        = g_kbrd[xx][gID];
             i32      glyphx   = ((u32)c - 32) & 15;
             i32      glyphy   = ((u32)c - 32) >> 4;
-            texrec_s tr_glyph = {tex, {glyphx * 36, glyphy * 36, 36, 36}};
+            texrec_s tr_glyph = {tex, glyphx * 36, glyphy * 36, 36, 36};
             gfx_spr(ctx, tr_glyph, pglyph, 0, SPR_MODE_WHITE);
         }
     }

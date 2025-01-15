@@ -15,10 +15,10 @@ enum {
 obj_s *coin_create(g_s *g)
 {
     obj_s *o      = obj_create(g);
-    o->ID         = OBJ_ID_COIN;
+    o->ID         = OBJID_COIN;
     o->w          = 16;
     o->h          = 16;
-    o->flags      = OBJ_FLAG_RENDER_AABB;
+    o->flags      = OBJ_FLAG_RENDER_AABB | OBJ_FLAG_ACTOR;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS | OBJ_MOVER_ONE_WAY_PLAT;
     o->timer      = COIN_TIME;
     return o;
@@ -39,7 +39,7 @@ void coin_on_update(g_s *g, obj_s *o)
 {
     switch (o->state) {
     case COIN_ST_IDLE: {
-        if (hero_has_charm(g, HERO_CHARM_ATTRACT_COINS)) {
+        if (1) { // hero attract coins
             obj_s *ohero = obj_get_hero(g);
             if (ohero) {
                 v2_i32 phero = obj_pos_center(ohero);

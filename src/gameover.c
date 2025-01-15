@@ -19,13 +19,13 @@ enum {
 
 const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
     0,
-    70, // dying
-    40, // fade gameover
-    80, // gameover
-    10, // gameover input
-    10, // fade gameover
-    10, // black
-    25  // fade
+    120, // dying
+    40,  // fade gameover
+    80,  // gameover
+    10,  // gameover input
+    10,  // fade gameover
+    10,  // black
+    25   // fade
 };
 
 void gameover_start(g_s *g)
@@ -75,9 +75,13 @@ void gameover_draw(g_s *g, v2_i32 cam)
 
     switch (go->phase) {
     case GAMEOVER_DYING: {
-        i32 p     = lerp_i32(0, p_gameover, go->tick, ticks);
-        ctx_r.pat = gfx_pattern_bayer_4x4(p);
-        gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
+        i32 tt = (ticks * 3) / 4;
+        if (tt <= go->tick) {
+            i32 p     = lerp_i32(0, p_gameover, go->tick - tt, ticks - tt);
+            ctx_r.pat = gfx_pattern_bayer_4x4(p);
+            gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
+        }
+
         break;
     }
     case GAMEOVER_GAMEOVER_FADE_IN:

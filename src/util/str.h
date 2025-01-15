@@ -7,145 +7,129 @@
 
 #include "pltf/pltf.h"
 
-static u32 hash_str(const char *str)
+static inline u32 hash_str(const char *s)
 {
     u32 h = 0;
-    for (const char *s = str; *s != '\0'; s++) {
-        h = h * 31 + (u32)tolower(*s);
+    for (i32 n = 0; s[n] != '\0'; n++) {
+        h = h * 101 + (u32)s[n];
     }
     return h;
 }
-
-typedef struct {
-    u32 l;
-    u32 c;
-    u8 *s;
-} str8_s;
-
-str8_s str8_alloc(u32 c, alloc_s a)
-{
-    str8_s r = {0};
-    r.s      = (u8 *)a.allocf(a.ctx, sizeof(u8) * c);
-    if (!r.s) return r;
-    r.c = c;
-    return r;
-}
-
-static bool32 str8_append(str8_s *dst, str8_s *src)
-{
-    if (!dst || !src) return 0;
-    if (dst->c - dst->l < src->l) return 0;
-
-    for (u32 n = 0; n < src->l; n++) {
-        dst->s[dst->l++] = src->s[n];
-    }
-    return 1;
-}
-
-static bool32 c_str_from_str8(str8_s *s, char *buf, u32 bufsize)
-{
-    if (!s || !buf || bufsize == 0) return 0;
-    if (bufsize <= s->l) return 0;
-
-    for (u32 n = 0; n < s->l; n++) {
-        buf[n] = s->s[n];
-    }
-    buf[s->l] = '\0';
-    return 1;
-}
-
-static bool32 str8_append_c_str(str8_s *dst, const char *buf)
-{
-    if (!dst || !buf) return 0;
-    u32 strl = 0;
-    for (const char *c = buf; *c != '\0'; c++) {
-        strl++;
-    }
-
-    if (dst->c - dst->l < strl) return 0;
-    for (u32 n = 0; n < strl; n++) {
-        dst->s[dst->l++] = buf[n];
-    }
-    return 1;
-}
-
-#define STR_DEF_LEN(L)                                                          \
-    typedef struct {                                                            \
-        u32 l;                                                                  \
-        u8  s[L];                                                               \
-    } str8_l##L##_s;                                                            \
-                                                                                \
-    static str8_s str8_from_str8_l##L(str8_l##L##_s *s)                         \
-    {                                                                           \
-        str8_s r = {0};                                                         \
-        r.l      = s->l;                                                        \
-        r.c      = L;                                                           \
-        r.s      = &s->s[0];                                                    \
-        return r;                                                               \
-    }                                                                           \
-                                                                                \
-    static str8_s str8_from_str8_l##L##_cpy(str8_l##L##_s *s, u32 c, alloc_s a) \
-    {                                                                           \
-        str8_s r = str8_alloc(c, a);                                            \
-        if (r.c) {                                                              \
-            str8_s sc = str8_from_str8_l##L(s);                                 \
-            str8_append(&r, &sc);                                               \
-        }                                                                       \
-        return r;                                                               \
-    }
 
 #define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
     char NAME[128];                            \
     str_cpy(NAME, PATHNAME);                   \
     str_append(NAME, FILENAME)
 
-static bool32 char_is_any(int c, const char *chars)
+static inline i32 char_upper(i32 c)
+{
+    return ((i32)'a' <= c && c <= (i32)'z' ? c - (i32)'a' + (i32)'A' : c);
+}
+
+static inline i32 char_lower(i32 c)
+{
+    return ((i32)'A' <= c && c <= (i32)'Z' ? c - (i32)'A' + (i32)'a' : c);
+}
+
+static bool32 char_is_any(i32 c, const char *chars)
 {
     if (!chars) return 0;
     for (const char *a = chars; *a != '\0'; a++) {
-        if (c == (int)*a) return 1;
+        if (c == (i32)*a) return 1;
     }
     return 0;
 }
 
-static inline bool32 str_eq(const char *a, const char *b)
+static inline i32 str_cmp(const void *a, const void *b)
 {
-    return (strcmp(a, b) == 0);
-}
-
-// ignore lower/upper case when comparing
-static bool32 str_eq_nc(const char *a, const char *b)
-{
-    for (const char *x = a, *y = b;; x++, y++) {
-        if (((uint)(*x) & B8(11011111)) != ((uint)(*y) & B8(11011111)))
-            return 0;
-        if (*x == '\0') break;
+    const u8 *x = (const u8 *)a;
+    const u8 *y = (const u8 *)b;
+    while (1) {
+        if (*x != *y) return ((i32)*x - (i32)*y);
+        if (*x == '\0') return 0;
+        x++;
+        y++;
     }
-    return 1;
 }
 
-static inline bool32 str_contains(const char *str, const char *sequence)
+// if equal including the null terminators!
+static inline bool32 str_eq(const void *a, const void *b)
 {
-    return (strstr(str, sequence) != NULL);
+    return str_cmp(a, b) == 0;
+}
+
+// if equal (no case) including the null terminators!
+static inline bool32 str_eq_nc(const void *a, const void *b)
+{
+    const u8 *x = (const u8 *)a;
+    const u8 *y = (const u8 *)b;
+    while (1) {
+        if (char_upper(*x) != char_upper(*y)) return 0;
+        if (*x == '\0') return 1;
+        x++;
+        y++;
+    }
+}
+
+// finds a character inside a str (including the null terminator)
+static inline void *str_chr(const void *str, i32 c)
+{
+    const u8 *x = (const u8 *)str;
+    while (1) {
+        if (*x == c) return (void *)x;
+        if (*x == '\0') return 0;
+        x++;
+    }
+    return 0;
+}
+
+static inline void *str_contains(const void *str, const void *sequence)
+{
+    const u8 *x  = (const u8 *)str;
+    i32       fc = *(const u8 *)sequence;
+    while (1) {
+        x = str_chr(x, fc);
+        if (!x) return 0;
+
+        i32 e = str_cmp(x, sequence);
+        if (0 <= e) return (void *)x; // equal until null of sequence
+
+        x++;
+    }
+    return 0;
 }
 
 // number of characters excluding null-char
-static inline i32 str_len(const char *a)
+static inline i32 str_len(const void *a)
 {
-    return (i32)strlen(a);
+    const u8 *x = (const u8 *)a;
+    while (1) {
+        if (*x == '\0') return (i32)(x - (const u8 *)a);
+        x++;
+    }
 }
 
-static inline void str_cpy(char *dst, const char *src)
+static void str_cpy(void *dst, const void *src)
 {
-    strcpy(dst, src);
+    u8       *d = (u8 *)dst;
+    const u8 *s = (const u8 *)src;
+    while (1) {
+        *d = *s;
+        if (*s == '\0') break;
+        d++;
+        s++;
+    }
 }
 
-static void str_cpys(char *dst, u32 dstsize, const char *src)
+static void str_cpys(void *dst, usize dstsize, const void *src)
 {
-    char       *d = dst;
-    const char *s = src;
-    while (*s != '\0' && (d + 1) < (dst + dstsize))
+    u8       *d = (u8 *)dst;
+    const u8 *s = (const u8 *)src;
+    usize     n = 0;
+    while (*s != '\0' && n < dstsize - 1) {
         *d++ = *s++;
+        n++;
+    }
     *d = '\0';
 }
 
@@ -166,21 +150,24 @@ static void str_extract_filename(const char *src, char *buf, u32 bufsize)
 }
 
 // appends string b -> overwrites null-char and places a new null-char
-static inline void str_append(char *dst, const char *src)
+static inline void str_append(void *dst, const void *src)
 {
-    strcat(dst, src);
+    u8 *d = (u8 *)str_chr(dst, '\0');
+    if (d) {
+        str_cpy(d, src);
+    }
 }
 
 // appends string b -> overwrites null-char and places a new null-char
-static void str_append_i(char *dst, i32 i)
+static void str_append_i(void *dst, i32 i)
 {
     if (i == 0) {
         str_append(dst, "0");
         return;
     }
-    char b1[16] = {0};
-    char b2[16] = {0};
-    i32  l      = 0;
+    u8  b1[16] = {0};
+    u8  b2[16] = {0};
+    i32 l      = 0;
     for (i32 j = 0 <= i ? +i : -i; 0 < j; j /= 10) {
         b1[l++] = '0' + (j % 10);
     }
@@ -231,9 +218,9 @@ static i32 hex_from_num(i32 c)
     return (0x0 <= c && c <= 0xF ? g_hex[c] : 0);
 }
 
-static f32 f32_from_str(const char *str)
+static f32 f32_from_str(const void *str)
 {
-    const char *c = str;
+    const u8 *c = (const u8 *)str;
     while (isspace((int)*c))
         c++;
 
@@ -257,9 +244,9 @@ static f32 f32_from_str(const char *str)
     return res * fact;
 }
 
-static i32 i32_from_str(const char *str)
+static i32 i32_from_str(const void *str)
 {
-    const char *c = str;
+    const u8 *c = (const u8 *)str;
     while (isspace((int)*c))
         c++;
     i32 res = 0;
@@ -276,9 +263,9 @@ static i32 i32_from_str(const char *str)
     return (res * s);
 }
 
-static u32 u32_from_str(const char *str)
+static u32 u32_from_str(const void *str)
 {
-    const char *c = str;
+    const u8 *c = (const u8 *)str;
     while (isspace((int)*c))
         c++;
     u32 res = 0;
@@ -291,18 +278,19 @@ static u32 u32_from_str(const char *str)
 }
 
 #define strs_from_u32(V, BUF) str_from_u32(V, BUF, sizeof(BUF))
-static i32 str_from_u32(u32 v, char *buf, u32 bufsize)
+static i32 str_from_u32(u32 v, void *dst, u32 dstsize)
 {
-    if (!buf || bufsize < 2) return 0;
+    if (!dst || dstsize < 2) return 0;
+    u8 *buf = (u8 *)dst;
     if (v == 0) {
         buf[0] = '0';
         buf[1] = '\0';
         return 2;
     }
-    i32  n     = 0;
-    char b[16] = {0};
+    i32 n     = 0;
+    u8  b[16] = {0};
 
-    for (u32 x = v; x && (u32)n < bufsize; x /= 10) {
+    for (u32 x = v; x && (u32)n < dstsize; x /= 10) {
         b[n++] = '0' + (x % 10);
     }
 

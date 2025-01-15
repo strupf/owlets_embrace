@@ -17,7 +17,7 @@ enum {
 void staminarestorer_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_STAMINARESTORER;
+    o->ID    = OBJID_STAMINARESTORER;
     o->w     = 16;
     o->h     = 16;
     o->pos.x = mo->x;
@@ -80,7 +80,7 @@ bool32 staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero)
 void staminarestorer_respawn_all(g_s *g, obj_s *o)
 {
     for (obj_each(g, o)) {
-        if (o->ID != OBJ_ID_STAMINARESTORER) continue;
+        if (o->ID != OBJID_STAMINARESTORER) continue;
         if (o->state != STAMINARESTORER_HIDDEN) continue;
 
         o->state = STAMINARESTORER_RESPAWN;

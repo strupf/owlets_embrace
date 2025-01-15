@@ -12,7 +12,7 @@ void windarea_load(g_s *g, map_obj_s *mo)
 {
     obj_s      *o = obj_create(g);
     windarea_s *w = (windarea_s *)o->mem;
-    o->ID         = OBJ_ID_WINDAREA;
+    o->ID         = OBJID_WINDAREA;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->w          = mo->w;

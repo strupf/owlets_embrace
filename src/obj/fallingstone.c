@@ -9,7 +9,7 @@
 obj_s *fallingstone_spawn(g_s *g)
 {
     obj_s *o      = obj_create(g);
-    o->ID         = OBJ_ID_FALLINGSTONE;
+    o->ID         = OBJID_FALLINGSTONE;
     o->w          = 8;
     o->h          = 8;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;

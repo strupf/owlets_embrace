@@ -16,13 +16,12 @@ void blockswing_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o  = obj_create(g);
     blockswing_s *bs = (blockswing_s *)o->mem;
-    o->ID            = OBJ_ID_BLOCKSWING;
+    o->ID            = OBJID_BLOCKSWING;
     o->pos.x         = mo->x;
     o->pos.y         = mo->y;
     o->w             = mo->w;
     o->h             = mo->h;
-    o->mass          = 1;
-    o->flags         = OBJ_FLAG_RENDER_AABB;
+    o->flags         = OBJ_FLAG_SOLID | OBJ_FLAG_RENDER_AABB;
     v2_i16 v         = map_obj_pt(mo, "P");
 }
 

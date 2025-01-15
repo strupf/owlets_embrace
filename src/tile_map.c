@@ -5,44 +5,26 @@
 #include "tile_map.h"
 #include "game.h"
 
-bool32 tile_solid_pt(i32 ID, i32 x, i32 y)
+bool32 tile_solid_pt(i32 shape, i32 x, i32 y)
 {
-    switch (ID) {
-    case TILE_EMPTY: return 0;
+    switch (shape) {
     case TILE_BLOCK: return 1;
-    case TILE_SLOPE_45_0:
-        if ((15 - x) <= y) return 1;
-        break;
-    case TILE_SLOPE_45_3:
-        if ((15 - x) >= y) return 1;
-        break;
-    case TILE_SLOPE_45_1:
-        if (x >= y) return 1;
-        break;
-    case TILE_SLOPE_45_2:
-        if (x <= y) return 1;
-        break;
+    case TILE_SLOPE_45_0: return ((15 - x) <= y);
+    case TILE_SLOPE_45_3: return ((15 - x) >= y);
+    case TILE_SLOPE_45_1: return (x >= y);
+    case TILE_SLOPE_45_2: return (x <= y);
     }
     return 0;
 }
 
-bool32 tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1)
+bool32 tile_solid_r(i32 shape, i32 x0, i32 y0, i32 x1, i32 y1)
 {
-    switch (ID) {
-    case TILE_EMPTY: return 0;
+    switch (shape) {
     case TILE_BLOCK: return 1;
-    case TILE_SLOPE_45_0:
-        if ((15 - x1) <= y1) return 1;
-        break;
-    case TILE_SLOPE_45_3:
-        if ((15 - x0) >= y0) return 1;
-        break;
-    case TILE_SLOPE_45_1:
-        if (x1 >= y0) return 1;
-        break;
-    case TILE_SLOPE_45_2:
-        if (x0 <= y1) return 1;
-        break;
+    case TILE_SLOPE_45_0: return ((15 - x1) <= y1);
+    case TILE_SLOPE_45_3: return ((15 - x0) >= y0);
+    case TILE_SLOPE_45_1: return (x1 >= y0);
+    case TILE_SLOPE_45_2: return (x0 <= y1);
     }
     return 0;
 }
@@ -142,38 +124,8 @@ bool32 tile_map_solid(g_s *g, rec_i32 r)
 bool32 tile_map_solid_pt(g_s *g, i32 x, i32 y)
 {
     if (!(0 <= x && x < g->pixel_x && 0 <= y && y < g->pixel_y)) return 0;
-    tile_s t  = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x];
-    i32    ID = t.collision;
-    return (tile_solid_pt(ID, x & 15, y & 15));
-}
-
-bool32 tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos)
-{
-    rec_i32 ri;
-    rec_i32 rroom = {0, 0, g->pixel_x, g->pixel_y};
-    if (!intersect_rec(rroom, r, &ri)) return 0;
-
-    i32 tx1 = (ri.x) >> 4;
-    i32 ty1 = (ri.y) >> 4;
-    i32 tx2 = (ri.x + ri.w - 1) >> 4;
-    i32 ty2 = (ri.y + ri.h - 1) >> 4;
-    for (i32 ty = ty1; ty <= ty2; ty++) {
-        for (i32 tx = tx1; tx <= tx2; tx++) {
-            i32 t = g->tiles[tx + ty * g->tiles_x].collision;
-            switch (t) {
-            default: break;
-            case TILE_CLIMBWALL:
-            case TILE_LADDER:
-            case TILE_LADDER_ONE_WAY:
-                if (tpos) {
-                    tpos->x = tx;
-                    tpos->y = ty;
-                }
-                return 1;
-            }
-        }
-    }
-    return 0;
+    tile_s t = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x];
+    return (tile_solid_pt(t.collision, x & 15, y & 15));
 }
 
 void tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type)
@@ -196,61 +148,41 @@ void tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type)
     }
 }
 
-bool32 map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m)
+bool32 map_blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy)
 {
-    if (o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) {
-        for (obj_each(g, it)) {
-            if (it != o &&
-                0 < it->mass &&
-                m <= it->mass &&
-                overlap_rec(r, obj_aabb(it))) {
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
+    if (o && !(o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS)) return 0;
 
-bool32 map_blocked_by_any_solid(g_s *g, rec_i32 r)
-{
-    for (obj_each(g, it)) {
-        if (it->mass == 0) continue;
-        if (overlap_rec(r, obj_aabb(it))) {
+    rec_i32 ri = {r.x + dx, r.y + dy, r.w, r.h};
+    if (tile_map_solid(g, ri)) return 1;
+
+    for (obj_each(g, i)) {
+        if (i != o &&
+            (i->flags & OBJ_FLAG_SOLID) &&
+            overlap_rec(r, obj_aabb(i)))
             return 1;
-        }
     }
     return 0;
 }
 
-bool32 map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y)
+bool32 map_blocked_offs(g_s *g, rec_i32 r, i32 dx, i32 dy)
+{
+    return map_blocked_excl_offs(g, r, 0, dx, dy);
+}
+
+bool32 map_blocked_excl(g_s *g, rec_i32 r, obj_s *o)
+{
+    return map_blocked_excl_offs(g, r, o, 0, 0);
+}
+
+bool32 map_blocked(g_s *g, rec_i32 r)
+{
+    return map_blocked_excl_offs(g, r, 0, 0, 0);
+}
+
+bool32 map_blocked_pt(g_s *g, i32 x, i32 y)
 {
     rec_i32 r = {x, y, 1, 1};
-    return map_blocked_by_any_solid(g, r);
-}
-
-bool32 map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m)
-{
-    return ((o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) &&
-            (tile_map_solid(g, r) || map_blocked_by_solid(g, o, r, m)));
-}
-
-bool32 map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m)
-{
-    rec_i32 r = {x, y, 1, 1};
-    return map_blocked(g, o, r, m);
-}
-
-bool32 map_traversable(g_s *g, rec_i32 r)
-{
-    if (tile_map_solid(g, r)) return 0;
-    if (map_blocked_by_any_solid(g, r)) return 0;
-    return 1;
-}
-
-bool32 map_traversable_pt(g_s *g, i32 x, i32 y)
-{
-    rec_i32 r = {x, y, 1, 1};
-    return map_traversable(g, r);
+    return map_blocked_excl_offs(g, r, 0, 0, 0);
 }
 
 i32 map_climbable_pt(g_s *g, i32 x, i32 y)
@@ -269,7 +201,7 @@ i32 map_climbable_pt(g_s *g, i32 x, i32 y)
 
     v2_i32 pt = {x, y};
     for (obj_each(g, it)) {
-        if (it->mass == 0) continue;
+        if (!(it->flags & OBJ_FLAG_SOLID)) continue;
         if (!(it->flags & OBJ_FLAG_CLIMBABLE)) continue;
         if (overlap_rec_pnt(obj_aabb(it), pt)) {
             return MAP_CLIMBABLE_SUCCESS;

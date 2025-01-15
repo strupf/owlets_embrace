@@ -13,7 +13,7 @@ void particles_spawn(g_s *g, particle_desc_s desc, i32 n)
         v2_i32 pos = desc.p.p_q8;
         pos.x += rngr_sym_i32(desc.pr_q8.x);
         pos.y += rngr_sym_i32(desc.pr_q8.y);
-        if (map_traversable_pt(g, pos.x >> 8, pos.y >> 8)) {
+        if (map_blocked_pt(g, pos.x >> 8, pos.y >> 8)) {
             particle_s *p = &pr->particles[pr->n++];
             *p            = desc.p;
             p->p_q8       = pos;
@@ -34,7 +34,7 @@ void particles_update(g_s *g, particles_s *pr)
     for (i32 i = pr->n - 1; 0 <= i; i--) {
         particle_s *p  = &pr->particles[i];
         v2_i32      p0 = v2_shr(p->p_q8, 8);
-        if (--p->ticks <= 0 || !map_traversable_pt(g, p0.x, p0.y)) {
+        if (--p->ticks <= 0 || !map_blocked_pt(g, p0.x, p0.y)) {
             *p = pr->particles[--pr->n];
             continue;
         }
@@ -44,7 +44,7 @@ void particles_update(g_s *g, particles_s *pr)
         v2_i32 pd = v2_sub(v2_shr(pp, 8), p0); // delta in pixels
 
         for (i32 m = abs_i32(pd.x), s = sgn_i32(pd.x); m; m--) {
-            if (map_traversable_pt(g, p0.x + s, p0.y)) {
+            if (map_blocked_pt(g, p0.x + s, p0.y)) {
                 p0.x += s;
             } else {
                 p->v_q8.x = -(p->v_q8.x >> 1); // bounce off
@@ -54,7 +54,7 @@ void particles_update(g_s *g, particles_s *pr)
         }
 
         for (i32 m = abs_i32(pd.y), s = sgn_i32(pd.y); m; m--) {
-            if (map_traversable_pt(g, p0.x, p0.y + s)) {
+            if (map_blocked_pt(g, p0.x, p0.y + s)) {
                 p0.y += s;
             } else {
                 p->v_q8.y = -(p->v_q8.y >> 1); // bounce off

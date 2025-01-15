@@ -16,7 +16,7 @@ obj_s *triggerarea_spawn(g_s *g, rec_i32 r, i32 tr_enter, i32 tr_leave, b32 once
 {
     obj_s         *o = obj_create(g);
     triggerarea_s *t = (triggerarea_s *)&o->mem;
-    o->ID            = OBJ_ID_TRIGGERAREA;
+    o->ID            = OBJID_TRIGGERAREA;
     o->pos.x         = r.x;
     o->pos.y         = r.y;
     o->w             = r.w;

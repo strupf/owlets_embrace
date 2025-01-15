@@ -32,7 +32,7 @@ void spritedecal_on_animate(g_s *g, obj_s *o)
     if (parent) {
         o->pos = parent->pos;
     }
-    spr->trec.r.x = sd->x + sd->w * ((sd->t * sd->n_frames) / sd->t_og);
+    spr->trec.x = sd->x + sd->w * ((sd->t * sd->n_frames) / sd->t_og);
 }
 
 obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
@@ -40,7 +40,7 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
 {
     obj_s         *o   = obj_create(g);
     spritedecal_s *sd  = (spritedecal_s *)o->mem;
-    o->ID              = OBJ_ID_SPRITEDECAL;
+    o->ID              = OBJID_SPRITEDECAL;
     o->flags           = OBJ_FLAG_SPRITE;
     o->n_sprites       = 1;
     o->render_priority = render_priority;

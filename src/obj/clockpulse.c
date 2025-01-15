@@ -21,7 +21,7 @@ void clockpulse_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o        = obj_create(g);
     clockpulse_s *cp       = (clockpulse_s *)o->mem;
-    o->ID                  = OBJ_ID_CLOCKPULSE;
+    o->ID                  = OBJID_CLOCKPULSE;
     i32 period_ms          = map_obj_i32(mo, "Period");
     o->state               = map_obj_bool(mo, "enabled");
     o->subtimer            = max_i32(ticks_from_ms(period_ms), 1);

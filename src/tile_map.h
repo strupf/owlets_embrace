@@ -97,42 +97,27 @@ typedef struct {
 
 typedef union {
     struct {
-        union {
-            struct {
-                u8 tx; // autotile x
-                u8 ty; // autotile y
-            };
-            u16 u;
-        };
-        u8 type;      // 6 bits for type, 1 bit for water, 1 bit for iced
-        u8 collision; // collision shape
+        u16 ty;
+        u8  type;      // 6 bits for type, 1 bit for water, 1 bit for iced
+        u8  collision; // collision shape
     };
-    u32 U;
+    u32 u;
 } tile_s;
 
-typedef union {
-    struct {
-        u8 tx;
-        u8 ty;
-    };
-    u16 u;
-} rtile_s;
-
-bool32  tile_solid_pt(i32 ID, i32 x, i32 y);
-bool32  tile_solid_r(i32 ID, i32 x0, i32 y0, i32 x1, i32 y1);
+bool32  tile_solid_pt(i32 shape, i32 x, i32 y);
+bool32  tile_solid_r(i32 shape, i32 x0, i32 y0, i32 x1, i32 y1);
 //
 bool32  tile_map_hookable(g_s *g, rec_i32 r);
 bool32  tile_map_solid(g_s *g, rec_i32 r);
 bool32  tile_map_solid_pt(g_s *g, i32 x, i32 y);
-bool32  tile_map_ladder_overlaps_rec(g_s *g, rec_i32 r, v2_i32 *tpos);
 void    tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type);
 tile_s *tile_map_at_pos(g_s *g, v2_i32 p);
 //
-bool32  map_blocked_by_solid(g_s *g, obj_s *o, rec_i32 r, i32 m);
-bool32  map_blocked_by_any_solid(g_s *g, rec_i32 r);
-bool32  map_blocked_by_any_solid_pt(g_s *g, i32 x, i32 y);
-bool32  map_traversable(g_s *g, rec_i32 r);
-bool32  map_traversable_pt(g_s *g, i32 x, i32 y);
+bool32  map_blocked_excl(g_s *g, rec_i32 r, obj_s *o);
+bool32  map_blocked(g_s *g, rec_i32 r);
+bool32  map_blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy);
+bool32  map_blocked_offs(g_s *g, rec_i32 r, i32 dx, i32 dy);
+bool32  map_blocked_pt(g_s *g, i32 x, i32 y);
 
 enum {
     MAP_CLIMBABLE_NO_TERRAIN,

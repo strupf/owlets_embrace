@@ -7,7 +7,7 @@
 void walker_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_WALKER;
+    o->ID    = OBJID_WALKER;
     o->flags = OBJ_FLAG_MOVER |
                OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_HURT_ON_TOUCH |

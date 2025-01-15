@@ -6,6 +6,7 @@
 #define MAP_LOADER_H
 
 #include "gamedef.h"
+#include "util/lzss.h"
 
 typedef struct {
     i32 ID; // 1...
@@ -23,19 +24,19 @@ typedef struct {
 } map_world_s;
 
 typedef struct {
-    u32  IID[4];
-    u32  ID;
-    u16  bytes;  // total size in bytes
-    u16  n_prop; // number of properties
-    i16  x;
-    i16  y;
-    u16  w;
-    u16  h;
-    u8   tx; // tile data
-    u8   ty;
-    u8   tw;
-    u8   th;
-    char name[32];
+    u32 IID[4];
+    u32 ID;
+    u8  name[24];
+    u16 bytes;  // total size in bytes
+    u16 n_prop; // number of properties
+    i16 x;
+    i16 y;
+    u16 w;
+    u16 h;
+    u8  tx; // tile data
+    u8  ty;
+    u8  tw;
+    u8  th;
 } map_obj_s;
 
 #define map_obj_strs(MO, NAME, B) map_obj_str(MO, NAME, B, sizeof(B))
@@ -47,7 +48,7 @@ bool32 map_obj_bool(map_obj_s *mo, const char *name);
 v2_i16 map_obj_pt(map_obj_s *mo, const char *name);
 void  *map_obj_arr(map_obj_s *mo, const char *name, i32 *num);
 
-void             game_load_map(g_s *g, const char *worldfile);
+void             game_load_map(g_s *g, u32 map_hash);
 void             game_prepare_new_map(g_s *g);
 void             map_world_load(map_world_s *world, const char *mapfile);
 map_worldroom_s *map_world_overlapped_room(map_world_s *world, map_worldroom_s *cur, rec_i32 r);

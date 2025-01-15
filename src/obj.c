@@ -46,7 +46,7 @@ obj_s *obj_create(g_s *g)
     o->GID           = GID;
     o->next          = g->obj_head_busy;
     g->obj_head_busy = o;
-#ifdef PLTF_DEBUG
+#if PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 
     static u32 n_warn = NUM_OBJ / 2;
@@ -65,11 +65,11 @@ obj_s *obj_create(g_s *g)
 void obj_delete(g_s *g, obj_s *o)
 {
     if (!o) return;
-    if (ptr_index_in_arr(g->obj_to_delete, o, g->obj_ndelete) < 0) {
+    if (find_ptr_in_array(g->obj_to_delete, o, g->obj_ndelete) < 0) {
         g->obj_to_delete[g->obj_ndelete++] = o;
 
         // increase gen to devalidate existing handles
-        o->GID = (o->ID & ~OBJ_ID_GEN_MASK) | ((o->ID + 1) & OBJ_ID_GEN_MASK);
+        o->GID = (o->ID & ~OBJ_GID_GEN_MASK) | ((o->ID + 1) & OBJ_GID_GEN_MASK);
     } else {
         pltf_log("already deleted\n");
     }
@@ -98,7 +98,6 @@ obj_s *obj_get_tagged(g_s *g, i32 tag)
 
 void objs_cull_to_delete(g_s *g)
 {
-    if (g->obj_ndelete <= 0) return;
     for (u32 n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
 
@@ -135,25 +134,22 @@ void objs_cull_to_delete(g_s *g)
 bool32 obj_try_wiggle(g_s *g, obj_s *o)
 {
     if (!(o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS)) return 1;
-    if (o->mass) return 1;
+    if (o->flags & OBJ_FLAG_SOLID) return 1;
 
     rec_i32 r = obj_aabb(o);
-    if (!map_blocked(g, o, r, o->mass)) return 1;
+    if (!map_blocked(g, r)) return 1;
 
-    i32 nw = o->ID == OBJ_ID_HERO ? 6 : 4;
+    i32 nw = o->ID == OBJID_HERO ? 6 : 4;
 
     for (i32 n = 1; n <= nw; n++) {
         for (i32 yn = -n; yn <= +n; yn += n) {
             for (i32 xn = -n; xn <= +n; xn += n) {
                 rec_i32 rr = {r.x + xn, r.y + yn, r.w, r.h};
-                if (map_blocked(g, o, rr, o->mass)) continue;
+                if (!!map_blocked(g, rr)) continue;
 
-                i32 m   = o->mass;
-                o->mass = 0;
                 o->moverflags &= ~OBJ_MOVER_TERRAIN_COLLISIONS;
                 obj_move(g, o, xn, yn);
                 o->moverflags |= OBJ_MOVER_TERRAIN_COLLISIONS;
-                o->mass = m;
                 return 1;
             }
         }
@@ -161,16 +157,16 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
 
     o->bumpflags |= OBJ_BUMP_SQUISH;
     switch (o->ID) {
-    case OBJ_ID_FALLINGSTONE:
+    case OBJID_FALLINGSTONE:
         fallingstone_burst(g, o);
         break;
-    case OBJ_ID_HERO:
+    case OBJID_HERO:
         hero_on_squish(g, o);
         break;
-    case OBJ_ID_HOOK: {
+    case OBJID_HOOK: {
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         assert(ohero);
-        hook_destroy(g, ohero, o);
+        // hook_destroy(g, ohero, o);
         break;
     }
     default:
@@ -280,12 +276,10 @@ bool32 obj_grounded(g_s *g, obj_s *o)
 
 bool32 obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs)
 {
-    rec_i32 rbot = obj_rec_bottom(o);
-    rbot.x += offs.x;
-    rbot.y += offs.y;
-    if (map_blocked(g, o, rbot, o->mass)) return 1;
-    if (obj_on_platform(g, o, rbot.x, rbot.y, rbot.w)) return 1;
-    return 0;
+    if (map_blocked_excl_offs(g, obj_aabb(o), o, offs.x, offs.y)) return 0;
+
+    rec_i32 r = {o->pos.x + offs.x, o->pos.y + o->h + offs.y, o->w, 1};
+    return (map_blocked_excl(g, r, o) || obj_on_platform(g, o, r.x, r.y, r.w));
 }
 
 bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
@@ -296,59 +290,9 @@ bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
     v2_i32  off1 = {xdir, 0};
     v2_i32  off2 = {xdir, 1};
 
-    return (map_traversable(g, r1) &&
+    return (!map_blocked(g, r1) &&
             !obj_grounded_at_offs(g, o, off1) &&
             !obj_grounded_at_offs(g, o, off2));
-}
-
-obj_s *obj_closest_interactable(g_s *g, v2_i32 pos)
-{
-    u32    interactable_dt = pow2_i32(INTERACTABLE_DIST); // max distance
-    obj_s *interactable    = NULL;
-    for (obj_each(g, o)) {
-        if (!(o->flags & OBJ_FLAG_INTERACTABLE)) continue;
-        u32 d = v2_distancesq(pos, o->pos);
-        if (d < interactable_dt) {
-            interactable_dt = d;
-            interactable    = o;
-        }
-    }
-    return interactable;
-}
-
-v2_i32 obj_constrain_to_rope(g_s *g, obj_s *o)
-{
-    v2_i32 v_q8 = v2_i32_from_i16(o->v_q8);
-    if (!o->rope || !o->ropenode) return v_q8;
-
-    rope_s     *r          = o->rope;
-    ropenode_s *rn         = o->ropenode;
-    i32         len_q4     = rope_len_q4(g, r);
-    i32         len_max_q4 = r->len_max_q4;
-    i32         dt_len     = len_q4 - len_max_q4;
-    if (dt_len <= 0) return v_q8; // rope is not stretched
-
-    ropenode_s *rprev = rn->next ? rn->next : rn->prev;
-    assert(rprev);
-
-    v2_i32 ropedt = v2_sub(rn->p, rprev->p);
-    v2_i32 dt_q4  = v2_add(v2_shl(ropedt, 4), v2_shr(v2_i32_from_i16(o->subpos_q8), 4));
-
-    // damping force
-
-    v2_i32 fdamp = {0};
-    if (v2_dot(ropedt, v_q8) > 0) {
-        v2_i32 vrad = project_pnt_line(v_q8, (v2_i32){0}, dt_q4);
-        fdamp       = v2_mulq(vrad, 210, 8);
-    }
-
-    // spring force
-    i32    fspring_scalar = (dt_len * 250) >> 8;
-    v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
-
-    v2_i32 frope   = v2_add(fdamp, fspring);
-    v2_i32 vel_new = v2_sub(v_q8, frope);
-    return vel_new;
 }
 
 enemy_s enemy_default()
@@ -362,6 +306,6 @@ enemy_s enemy_default()
 void obj_on_hooked(g_s *g, obj_s *o)
 {
     switch (o->ID) {
-    case OBJ_ID_HOOKPLANT: hookplant_on_hook(o); break;
+    case OBJID_HOOKPLANT: hookplant_on_hook(o); break;
     }
 }

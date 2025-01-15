@@ -16,7 +16,7 @@ enum {
 void trampoline_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_TRAMPOLINE;
+    o->ID    = OBJID_TRAMPOLINE;
     o->pos.x = mo->x;
     o->pos.y = mo->y;
 
@@ -33,7 +33,7 @@ void trampoline_load(g_s *g, map_obj_s *mo)
     } else {
         BAD_PATH
     }
-    o->mass = 1;
+    o->flags = OBJ_FLAG_SOLID;
 }
 
 void trampoline_on_update(g_s *g, obj_s *o)
@@ -96,10 +96,10 @@ void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     switch (o->state) {
     case TRAMPOLINE_HOR: {
         texrec_s tr = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 16, 32);
-        tr.r.y      = frameID * 32;
+        tr.y        = frameID * 32;
         p.y -= (32 - TRAMPOLINE_THICKNESS) / 2;
         for (i32 n = 0; n < N; n++) {
-            tr.r.x = ((0 < n) + (n == N - 1)) * 16;
+            tr.x = ((0 < n) + (n == N - 1)) * 16;
             gfx_spr(ctx, tr, p, fl, 0);
             p.x += 16;
         }
@@ -107,10 +107,10 @@ void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
     case TRAMPOLINE_VER: {
         texrec_s tr = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 32, 16);
-        tr.r.x      = frameID * 32 + 64;
+        tr.x        = frameID * 32 + 64;
         p.x -= (32 - TRAMPOLINE_THICKNESS) / 2;
         for (i32 n = 0; n < N; n++) {
-            tr.r.y = ((0 < n) + (n == N - 1)) * 16;
+            tr.y = ((0 < n) + (n == N - 1)) * 16;
             gfx_spr(ctx, tr, p, fl, 0);
             p.y += 16;
         }
@@ -124,7 +124,7 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
     rec_i32 r = obj_aabb(o);
 
     for (obj_each(g, i)) {
-        if (i->ID != OBJ_ID_HERO) continue;
+        if (i->ID != OBJID_HERO) continue;
         hero_s *h = (hero_s *)i->heap;
 
         switch (o->state) {
@@ -184,7 +184,7 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
 void trampolines_do_bounce(g_s *g)
 {
     for (obj_each(g, o)) {
-        if (o->ID != OBJ_ID_TRAMPOLINE) continue;
+        if (o->ID != OBJID_TRAMPOLINE) continue;
         trampoline_do_bounce(g, o);
     }
 }

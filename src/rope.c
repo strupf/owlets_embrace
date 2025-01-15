@@ -35,23 +35,18 @@ void ropepts_remove(ropepts_s *pts, v2_i32 p)
 
 void rope_init(rope_s *r)
 {
+    mclr(r, sizeof(rope_s));
     for (i32 n = 2; n < NUM_ROPE_NODES - 1; n++) {
         r->nodesraw[n].next = &r->nodesraw[n + 1];
     }
-    r->nodesraw[NUM_ROPE_NODES - 1].next = 0;
-    r->pool                              = &r->nodesraw[2];
+    r->pool = &r->nodesraw[2];
 
     ropenode_s *rh = &r->nodesraw[0];
     ropenode_s *rt = &r->nodesraw[1];
     rh->next       = rt;
-    rh->prev       = 0;
     rt->prev       = rh;
-    rt->next       = 0;
     r->head        = rh;
     r->tail        = rt;
-    r->o_head      = obj_handle_from_obj(0);
-    r->o_tail      = obj_handle_from_obj(0);
-    r->len_max_q4  = 0;
 }
 
 ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
@@ -101,7 +96,7 @@ void ropenode_delete(rope_s *r, ropenode_s *rn)
 
 // checks collinearity of a point and returns whether to add the point
 // and at which position
-static int rope_points_collinearity(ropepts_s *pts, v2_i32 c)
+static i32 rope_points_collinearity(ropepts_s *pts, v2_i32 c)
 {
     for (i32 n = 0; n < pts->n - 1; n++) {
         v2_i32 a   = pts->pt[n];
@@ -159,9 +154,9 @@ static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
                                                    v2_min(pmin1, pmin2),
                                                    v2_max(pmax1, pmax2));
 
-    for (int y = bounds.y1; y <= bounds.y2; y++) {
-        for (int x = bounds.x1; x <= bounds.x2; x++) {
-            int t = g->tiles[x + y * g->tiles_x].collision;
+    for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+        for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+            i32 t = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t && t < NUM_TILE_SHAPES)) continue;
             v2_i32 pos = {x << 4, y << 4};
             if (TILE_IS_BLOCK(t)) {
@@ -192,7 +187,7 @@ static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
     }
 
     for (obj_each(g, o)) {
-        if (o->mass <= 0) continue;
+        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
         v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
 
@@ -326,7 +321,7 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
     // now check penetrating segments
     for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
          r1 = r2, r2 = r2->next) {
-        const lineseg_i32 ls = {r1->p, r2->p};
+        lineseg_i32 ls = {r1->p, r2->p};
 
         // shall not overlap "piston" ray
         if (overlap_lineseg_lineray_excl(ls, lr_pst))
@@ -425,6 +420,7 @@ void tighten_ropesegment(g_s *g, rope_s *r,
     v2_i32 pprev = rp->p;
     v2_i32 pcurr = rc->p;
     v2_i32 pnext = rn->p;
+
     // check if the three points are collinear
     if (v2_crs(v2_sub(pprev, pcurr), v2_sub(pnext, pcurr)) == 0) {
         ropenode_delete(r, rc);
@@ -476,7 +472,7 @@ void tighten_ropesegment(g_s *g, rope_s *r,
     }
 
     for (obj_each(g, o)) {
-        if (o->mass <= 0) continue;
+        if (!(o->flags & OBJ_FLAG_SOLID)) continue;
         v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
         if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
@@ -545,20 +541,19 @@ u32 rope_len_q4(g_s *g, rope_s *r)
     return len;
 }
 
-bool32 rope_intact(g_s *g, rope_s *r)
+bool32 rope_is_intact(g_s *g, rope_s *r)
 {
-    rope_update(g, r);
-
     for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
         lineseg_i32       ls     = {a->p, b->p};
         tile_map_bounds_s bounds = tile_map_bounds_pts(g,
                                                        v2_min(a->p, b->p),
                                                        v2_max(a->p, b->p));
 
-        for (int y = bounds.y1; y <= bounds.y2; y++) {
-            for (int x = bounds.x1; x <= bounds.x2; x++) {
-                int t = g->tiles[x + y * g->tiles_x].collision;
+        for (i32 y = bounds.y1; y <= bounds.y2; y++) {
+            for (i32 x = bounds.x1; x <= bounds.x2; x++) {
+                i32 t = g->tiles[x + y * g->tiles_x].collision;
                 if (!(0 < t && t < NUM_TILE_SHAPES)) continue;
+
                 v2_i32 pos = {x << 4, y << 4};
                 if (TILE_IS_BLOCK(t)) {
                     rec_i32 rr = {pos.x, pos.y, 16, 16};
@@ -576,8 +571,8 @@ bool32 rope_intact(g_s *g, rope_s *r)
         }
 
         for (obj_each(g, o)) {
-            if (o->mass <= 0) continue;
-            if (overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
+            if ((o->flags & OBJ_FLAG_SOLID) &&
+                overlap_rec_lineseg_excl(obj_aabb(o), ls)) {
                 return 0;
             }
         }
@@ -591,12 +586,13 @@ ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn)
     return (rn->next ? rn->next : rn->prev);
 }
 
+typedef struct {
+    i32    i;
+    v2_i32 p;
+} verlet_pos_s;
+
 void rope_verletsim(g_s *g, rope_s *r)
 {
-    typedef struct {
-        i32    i;
-        v2_i32 p;
-    } verlet_pos_s;
 
     // calculated current length in Q8
     u32          ropelen_q8 = 1 + (rope_len_q4(g, r) << 4); // +1 to avoid div 0

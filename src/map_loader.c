@@ -14,37 +14,16 @@ typedef struct {
 } map_prop_tile_s;
 
 typedef struct map_header_s {
-    u16 w;
-    u16 h;
-    u16 n_prop;
-    u16 n_obj;
-    u16 n_obj_fg;
-    u16 n_bg;
-    u16 n_fg;
-    u32 offs_bg;
-    u32 offs_fg;
-    u32 offs_obj;
-    u32 offs_obj_fg;
-    u32 offs_terrain;
-    u32 n_rle_terrain;
-    u32 offs_bgauto;
-    u32 n_rle_bgauto;
-    u32 offs_bgtiles;
-    u32 n_rle_bgtiles;
-    u32 offs_fluids;
-    u32 n_rle_fluids;
-    u32 bytes_data;
+    u32            hash;
+    map_neighbor_s map_neighbors[16];
+    u8             name[32];
+    u8             music[8];
+    i32            x;
+    i32            y;
+    u16            w;
+    u16            h;
+    u16            n_obj;
 } map_header_s;
-
-typedef struct {
-    u8 n; // run length - 1
-    u8 b;
-} map_rle_u8;
-
-typedef struct {
-    u16 n; // run length - 1
-    u16 b;
-} map_rle_u16;
 
 typedef struct {
     u8 *t;
@@ -57,28 +36,6 @@ typedef struct {
     i32  w;
     i32  h;
 } tilelayer_u16;
-
-static void map_rle_u8_uncompress(u8 *dst, void *rle_src, u32 n_rle)
-{
-    map_rle_u8 *r = (map_rle_u8 *)rle_src;
-    u8         *d = dst;
-    for (u32 n = 0; n < n_rle; n++, r++) {
-        for (u32 k = 0; k <= r->n; k++) {
-            *d++ = r->b;
-        }
-    }
-}
-
-static void map_rle_u16_uncompress(u16 *dst, void *rle_src, u32 n_rle)
-{
-    map_rle_u16 *r = (map_rle_u16 *)rle_src;
-    u16         *d = dst;
-    for (u32 n = 0; n < n_rle; n++, r++) {
-        for (u32 k = 0; k <= r->n; k++) {
-            *d++ = r->b;
-        }
-    }
-}
 
 static inline i32 map_terrain_pack(i32 type, i32 shape)
 {
@@ -95,6 +52,9 @@ static inline i32 map_terrain_shape(u16 t)
     return (t & B16(00000000, 11111111));
 }
 
+#define tileID_prop(X, Y) ((X) + (Y) * 64)
+#define tileID_deco(X, Y) ((X) + (Y) * 128)
+
 enum {
     MAP_PROP_NULL,
     MAP_PROP_INT,
@@ -107,9 +67,9 @@ enum {
 };
 
 typedef struct {
-    u16  bytes;
-    u16  type;
-    char name[32];
+    u16 bytes;
+    u16 type;
+    u8  name[24];
     union {
         i32 n; // array: num elements
         i32 i;
@@ -126,7 +86,7 @@ typedef struct {
 } map_properties_s;
 
 typedef struct {
-    char c[64];
+    u8 c[64];
 } map_string_s;
 
 enum {
@@ -149,7 +109,6 @@ static void             map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y
 static map_prop_s      *map_prop_get(map_properties_s p, const char *name);
 static map_properties_s map_obj_properties(map_obj_s *mo);
 static void             map_obj_parse(g_s *g, map_obj_s *o);
-static void             map_obj_prop_fg_parse(g_s *g, map_obj_s *o);
 //
 static bool32           at_types_blending(i32 a, i32 b);
 
@@ -160,11 +119,17 @@ static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
 static v2_i16 map_prop_pt(map_properties_s p, const char *name);
 
+void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
+void loader_load_bgauto(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
+void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
+
 static void map_obj_parse(g_s *g, map_obj_s *o)
 {
     if (0) {
     } else if (str_eq_nc(o->name, "Coin")) {
         coin_load(g, o);
+    } else if (str_eq_nc(o->name, "Dummysolid")) {
+        dummysolid_load(g, o);
     } else if (str_eq_nc(o->name, "Rotor")) {
         rotor_load(g, o);
     } else if (str_eq_nc(o->name, "Savepoint")) {
@@ -173,6 +138,8 @@ static void map_obj_parse(g_s *g, map_obj_s *o)
         spiderboss_load(g, o);
     } else if (str_eq_nc(o->name, "Door")) {
         door_load(g, o);
+    } else if (str_eq_nc(o->name, "Watercol")) {
+        watercol_load(g, o);
     } else if (str_eq_nc(o->name, "Trampoline")) {
         trampoline_load(g, o);
     } else if (str_eq_nc(o->name, "Windarea")) {
@@ -241,11 +208,6 @@ static void map_obj_parse(g_s *g, map_obj_s *o)
         hooklever_load(g, o);
     } else if (str_eq_nc(o->name, "Cam_Attractor")) {
         camattractor_static_load(g, o);
-    } else if (str_eq_nc(o->name, "Respawn")) {
-        assert(g->n_respawns < NUM_RESPAWNS);
-        v2_i16 *rp = &g->respawns[g->n_respawns++];
-        rp->x      = o->x + o->w / 2;
-        rp->y      = o->y + o->h;
     } else if (str_eq_nc(o->name, "Cam")) {
         cam_s *cam    = &g->cam;
         cam->locked_x = map_obj_bool(o, "Locked_X");
@@ -270,70 +232,50 @@ static void map_obj_parse(g_s *g, map_obj_s *o)
     }
 }
 
-static void map_obj_prop_fg_parse(g_s *g, map_obj_s *o)
+void game_load_map(g_s *g, u32 map_hash)
 {
-    foreground_prop_s *p = &g->foreground_props[g->n_foreground_props++];
-    *p                   = (foreground_prop_s){0};
-    p->pos.x             = o->x;
-    p->pos.y             = o->y;
-    p->tr                = asset_texrec(TEXID_TILESET_PROPS,
-                                        (i32)o->tx << 4,
-                                        (i32)o->ty << 4,
-                                        (i32)o->tw << 4,
-                                        (i32)o->th << 4);
-}
-
-void game_load_map(g_s *g, const char *mapfile)
-{
-    g->save.coins += g->coins_added;
+    g->hero.coins += g->coins_added;
     for (obj_each(g, o)) {
-        if (o->ID != OBJ_ID_HERO) {
+        if (o->ID != OBJID_HERO) {
             obj_delete(g, o);
         }
     }
     objs_cull_to_delete(g);
-    mclr(g->tiles, sizeof(g->tiles));
-    mclr(g->rtiles, sizeof(g->rtiles));
-    mclr(g->fluid_streams, sizeof(g->fluid_streams));
+
+    mclr_static_arr(g->tiles);
+    mclr_static_arr(g->rtiles);
+    mclr_static_arr(g->fluid_streams);
+    mclr_static_arr(g->map_neighbors);
+    mclr(&g->ghook, sizeof(g->ghook));
+
     g->n_foreground_props = 0;
     g->n_grass            = 0;
     g->n_deco_verlet      = 0;
-    g->rope.active        = 0;
     g->particles.n        = 0;
     g->ocean.active       = 0;
     g->cam.locked_x       = 0;
     g->cam.locked_y       = 0;
-    g->n_respawns         = 0;
     g->coins_added        = 0;
     g->coins_added_ticks  = 0;
-    g->areaname.fadeticks = 1;
+    // g->areaname.fadeticks = 1;
 
-    game_allocator_reset(g);
-    str_cpy(g->areaname.filename, mapfile);
-    g->map_worldroom = map_world_find_room(&g->map_world, mapfile);
-    assert(g->map_worldroom);
+    marena_reset(&g->memarena, 0);
 
     // READ FILE ===============================================================
-    char filepath[128];
-    str_cpy(filepath, FILEPATH_MAP);
-    str_append(filepath, mapfile);
-    str_append(filepath, ".map");
 
-    void *mapf = pltf_file_open_r(filepath);
-    if (!mapf) {
-        pltf_log("Can't load map file! %s\n", filepath);
+    void     *f;
+    wad_el_s *wad_el;
+    if (!wad_open(map_hash, &f, &wad_el)) {
+        pltf_log("Can't load map file! %u\n", map_hash);
         BAD_PATH
     }
 
-    map_header_s hd = {0};
-    pltf_file_r(mapf, &hd, sizeof(map_header_s));
-
     spm_push();
-    byte *mapdata = spm_alloc_aligned(hd.bytes_data, 4);
-    pltf_file_r(mapf, mapdata, hd.bytes_data);
+    map_header_s *hd = spm_alloct(map_header_s, 1);
+    pltf_file_r(f, hd, sizeof(map_header_s));
 
-    const i32 w = hd.w;
-    const i32 h = hd.h;
+    const i32 w = hd->w;
+    const i32 h = hd->h;
     g->tiles_x  = w;
     g->tiles_y  = h;
     g->pixel_x  = w << 4;
@@ -341,127 +283,112 @@ void game_load_map(g_s *g, const char *mapfile)
     assert((w * h) <= NUM_TILES);
 
     // PROPERTIES ==============================================================
-    map_properties_s mp = {&mapdata[0], hd.n_prop};
+    // mcpy(g->areaname.label, hd.name, 32);
+    mcpy(g->mapname, hd->name, 32);
+    mcpy(g->musicname, hd->music, 8);
+    mcpy(g->map_neighbors, hd->map_neighbors, sizeof(hd->map_neighbors));
 
-    map_prop_strs(mp, "Name", g->areaname.label);
     prerender_area_label(g);
-    area_setup(g, &g->area, map_prop_i32(mp, "Area_ID"));
-    g->dark          = map_prop_bool(mp, "Dark");
-    char musname[32] = {0};
-    map_prop_strs(mp, "Music", musname);
-    mus_play(musname);
+    area_setup(g, &g->area, 0);
+    areafx_snow_setup(g, &g->area.fx.snow);
+    areafx_heat_setup(g, &g->area.fx.heat);
+    areafx_rain_setup(g, &g->area.fx.rain);
 
-    i32 room_y1 = g->map_worldroom->y;
-    i32 room_y2 = g->map_worldroom->y + g->map_worldroom->h;
-    if (room_y1 < 0 && 0 < room_y2 && map_prop_bool(mp, "Ocean")) {
-        g->ocean.y      = -room_y1;
-        g->ocean.active = 1;
-    }
+    loader_load_terrain(g, f, wad_el, w, h);
+    loader_load_bgauto(g, f, wad_el, w, h);
+    loader_load_bg(g, f, wad_el, w, h);
+    wad_rd_str(f, wad_el, "FLUIDS", g->fluid_streams);
 
-    // TERRAIN =================================================================
     spm_push();
-    tilelayer_u16 l_terrain = {spm_alloct(u16, w * h), w, h};
-    map_rle_u16_uncompress(l_terrain.t, &mapdata[hd.offs_terrain], hd.n_rle_terrain);
+    byte *objmem  = (byte *)wad_rd_spm_str(f, wad_el, "OBJS");
+    byte *obj_ptr = objmem;
+    for (i32 n = 0; n < hd->n_obj; n++) {
+        map_obj_s *o = (map_obj_s *)obj_ptr;
+        map_obj_parse(g, o);
+        obj_ptr += o->bytes;
+    }
+    spm_pop();
+    pltf_sync_timestep();
+}
+
+void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
+{
+    spm_push();
+    u16 *tmem = (u16 *)wad_rd_spm_str(f, wad_el, "TERRAIN");
+
+    tilelayer_u16 layer = {tmem, w, h};
 
     for (i32 y = 0; y < h; y++) {
         for (i32 x = 0; x < w; x++) {
             i32 k       = x + y * w;
-            i32 tt      = l_terrain.t[k];
+            i32 tt      = tmem[k];
             i32 ttshape = map_terrain_shape(tt);
             switch (ttshape) {
             case TILE_CLIMBWALL: {
-                g->tiles[k].collision              = TILE_CLIMBWALL;
-                g->rtiles[TILELAYER_PROP_BG][k].tx = 7;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 21;
+                g->tiles[k].collision           = TILE_CLIMBWALL;
+                g->rtiles[TILELAYER_PROP_BG][k] = tileID_prop(7, 21);
                 break;
             }
             case TILE_LADDER: {
                 i32 ty = 19 + (y & 3);
                 if (0 < y &&
-                    map_terrain_shape(l_terrain.t[k - w]) != TILE_LADDER) {
+                    map_terrain_shape(tmem[k - w]) != TILE_LADDER) {
                     ty = 18;
                 }
 
-                g->tiles[k].collision                  = TILE_LADDER;
-                g->rtiles[TILELAYER_PROP_BG][k].tx     = 5;
-                g->rtiles[TILELAYER_PROP_BG][k].ty     = ty;
-                g->rtiles[TILELAYER_PROP_BG][k - 1].tx = 4;
-                g->rtiles[TILELAYER_PROP_BG][k - 1].ty = ty;
-                g->rtiles[TILELAYER_PROP_BG][k + 1].tx = 6;
-                g->rtiles[TILELAYER_PROP_BG][k + 1].ty = ty;
+                g->tiles[k].collision               = TILE_LADDER;
+                g->rtiles[TILELAYER_PROP_BG][k]     = tileID_prop(5, ty);
+                g->rtiles[TILELAYER_PROP_BG][k - 1] = tileID_prop(4, ty);
+                g->rtiles[TILELAYER_PROP_BG][k + 1] = tileID_prop(6, ty);
                 break;
             }
             case TILE_LADDER_ONE_WAY: {
-                g->tiles[k].collision              = TILE_LADDER_ONE_WAY;
-                g->rtiles[TILELAYER_PROP_BG][k].tx = 2;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
+                g->tiles[k].collision           = TILE_LADDER_ONE_WAY;
+                g->rtiles[TILELAYER_PROP_BG][k] = tileID_prop(2, 22);
                 break;
             }
             case TILE_ONE_WAY: {
-                g->tiles[k].collision              = TILE_ONE_WAY;
-                g->rtiles[TILELAYER_PROP_BG][k].tx = 1;
-                g->rtiles[TILELAYER_PROP_BG][k].ty = 22;
+                g->tiles[k].collision           = TILE_ONE_WAY;
+                g->rtiles[TILELAYER_PROP_BG][k] = tileID_prop(1, 22);
                 break;
             }
-            default: map_at_terrain(g, l_terrain, x, y); break;
+            default: map_at_terrain(g, layer, x, y); break;
             }
         }
     }
     spm_pop();
-
-    // BACKGROUND ==============================================================
-    spm_push();
-    tilelayer_u8 l_bg = {spm_alloc(w * h), w, h};
-    map_rle_u8_uncompress(l_bg.t, &mapdata[hd.offs_bgauto], hd.n_rle_bgauto);
-
-    for (i32 y = 0; y < h; y++) {
-        for (i32 x = 0; x < w; x++) {
-            map_at_background(g, l_bg, x, y);
-        }
-    }
-    spm_pop();
-
-    // FLUIDS ==================================================================
-    map_rle_u8_uncompress(g->fluid_streams, &mapdata[hd.offs_fluids], hd.n_rle_fluids);
-
-    // TILES_BG ================================================================
-    spm_push();
-    u16 *t_bg = (u16 *)spm_alloc(sizeof(u16) * w * h);
-    map_rle_u16_uncompress(t_bg, &mapdata[hd.offs_bgtiles], hd.n_rle_bgtiles);
-
-    for (i32 y = 0; y < h; y++) {
-        for (i32 x = 0; x < w; x++) {
-            i32 i  = x + y * w;
-            i32 tt = t_bg[i];
-            if (!tt) continue;
-            rtile_s *rt = &g->rtiles[TILELAYER_BG_TILE][i];
-            i32      tx, ty, fl;
-            map_proptile_decode(tt, &tx, &ty, &fl);
-            rt->tx = tx;
-            rt->ty = ty;
-        }
-    }
-    spm_pop();
-
-    // OBJECTS =================================================================
-    byte *obj_ptr = &mapdata[hd.offs_obj];
-
-    for (i32 n = 0; n < hd.n_obj; n++) {
-        map_obj_s *o = (map_obj_s *)obj_ptr;
-        map_obj_parse(g, o);
-        obj_ptr += o->bytes;
-    }
-
-    spm_pop();
-    pltf_file_close(mapf);
 }
 
-void game_prepare_new_map(g_s *g)
+void loader_load_bgauto(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
 {
-    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-    objs_animate(g);
-    aud_allow_playing_new_snd(1);
-    cam_init_level(g, &g->cam);
+    spm_push();
+    u8          *tmem  = (u8 *)wad_rd_spm_str(f, wad_el, "BGAUTO");
+    tilelayer_u8 layer = {tmem, w, h};
+
+    for (i32 y = 0; y < h; y++) {
+        for (i32 x = 0; x < w; x++) {
+            map_at_background(g, layer, x, y);
+        }
+    }
+    spm_pop();
+}
+
+void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
+{
+    spm_push();
+    u16 *tmem = (u16 *)wad_rd_spm_str(f, wad_el, "BGTILES");
+
+    for (i32 y = 0; y < h; y++) {
+        for (i32 x = 0; x < w; x++) {
+            i32 i = x + y * w;
+            i32 t = tmem[i];
+            if (!t) continue;
+            i32 tx, ty, fl;
+            map_proptile_decode(t, &tx, &ty, &fl);
+            g->rtiles[TILELAYER_BG_TILE][i] = tileID_deco(tx, ty);
+        }
+    }
+    spm_pop();
 }
 
 static bool32 autotile_bg_is(tilelayer_u8 tiles, i32 x, i32 y, i32 sx, i32 sy)
@@ -541,8 +468,8 @@ enum {
 
 static void map_at_background(g_s *g, tilelayer_u8 tiles, i32 x, i32 y)
 {
-    i32 index = x + y * tiles.w;
-    i32 tile  = tiles.t[index];
+    i32 i    = x + y * tiles.w;
+    i32 tile = tiles.t[i];
     if (tile == 0) return;
 
     u32 march = 0;
@@ -555,10 +482,10 @@ static void map_at_background(g_s *g, tilelayer_u8 tiles, i32 x, i32 y)
     if (autotile_bg_is(tiles, x, y, -1, +1)) march |= AT_SW;
     if (autotile_bg_is(tiles, x, y, -1, -1)) march |= AT_NW;
 
-    v2_i8    coords = g_autotile_coords[march];
-    rtile_s *rtile  = &g->rtiles[TILELAYER_BG][index];
-    rtile->tx       = coords.x;
-    rtile->ty       = coords.y + tile * 8;
+    v2_i8 coords = g_autotile_coords[march];
+    i32   tileID = (i32)coords.x + ((i32)coords.y + tile * 8) * 8;
+
+    g->rtiles[TILELAYER_BG][i] = tileID;
 }
 
 static u32 map_marching_squares(tilelayer_u16 tiles, i32 x, i32 y)
@@ -747,9 +674,7 @@ static void map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y)
         break;
     }
     }
-
-    rtile->tx = tcoord.x;
-    rtile->ty = tcoord.y;
+    rtile->ty = (i32)tcoord.x + (i32)tcoord.y * 13; // new tile layout
 }
 
 static map_prop_s *map_prop_get(map_properties_s p, const char *name)

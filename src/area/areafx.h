@@ -34,6 +34,31 @@ typedef struct {
     areafx_cloud_s clouds[AREAFX_CLOUDS];
 } areafx_clouds_s;
 
+enum {
+    AREAFX_SNOW_NO_WIND,
+    AREAFX_SNOW_MODERATE,
+    AREAFX_SNOW_STORM
+};
+
+#define AREAFX_NUM_SNOWFLAKES 256
+#define AREAFX_SNOW_W         512
+#define AREAFX_SNOW_H         256
+
+typedef struct {
+    v2_i16 p_q4;
+    v2_i16 v_q4;
+} areafx_snowflake_s;
+
+typedef struct {
+    i32                type;
+    i32                n;
+    areafx_snowflake_s snowflakes[AREAFX_NUM_SNOWFLAKES];
+} areafx_snow_s;
+
+void areafx_snow_setup(g_s *g, areafx_snow_s *fx);
+void areafx_snow_update(g_s *g, areafx_snow_s *fx);
+void areafx_snow_draw(g_s *g, areafx_snow_s *fx, v2_i32 cam);
+
 #define AREAFX_WIND_SIZEY 512
 #define AREAFX_WIND_R     1900
 #define AREAFX_WINDPT     512
@@ -51,22 +76,29 @@ typedef struct {
 } areafx_windpt_s;
 
 typedef struct {
-    int             n;
+    i32             n;
     areafx_windpt_s p[AREAFX_WINDPT];
 } areafx_wind_s;
 
-#define AREAFX_HEAT_ROWS PLTF_DISPLAY_H
+void areafx_wind_setup(g_s *g, areafx_wind_s *fx);
+void areafx_wind_update(g_s *g, areafx_wind_s *fx);
+void areafx_wind_draw(g_s *g, areafx_wind_s *fx, v2_i32 cam);
 
 typedef struct {
     i32 tick;
-    i8  offset[AREAFX_HEAT_ROWS];
 } areafx_heat_s;
 
+void areafx_heat_setup(g_s *g, areafx_heat_s *fx);
+void areafx_heat_update(g_s *g, areafx_heat_s *fx);
+void areafx_heat_draw(g_s *g, areafx_heat_s *fx, v2_i32 cam);
+
 #define AREAFX_RAIN_DROPS 512
+#define AREAFX_RAIN_W     512
+#define AREAFX_RAIN_H     256
 
 typedef struct {
-    v2_i32 p;
-    v2_i32 v;
+    v2_i16 p;
+    v2_i16 v;
 } areafx_raindrop_s;
 
 typedef struct {
@@ -104,14 +136,6 @@ void areafx_rain_setup(g_s *g, areafx_rain_s *fx);
 void areafx_rain_update(g_s *g, areafx_rain_s *fx);
 void areafx_rain_draw(g_s *g, areafx_rain_s *fx, v2_i32 cam);
 void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam);
-//
-void areafx_wind_setup(g_s *g, areafx_wind_s *fx);
-void areafx_wind_update(g_s *g, areafx_wind_s *fx);
-void areafx_wind_draw(g_s *g, areafx_wind_s *fx, v2_i32 cam);
-//
-void areafx_heat_setup(g_s *g, areafx_heat_s *fx);
-void areafx_heat_update(g_s *g, areafx_heat_s *fx);
-void areafx_heat_draw(g_s *g, areafx_heat_s *fx, v2_i32 cam);
 //
 void areafx_leaves_setup(g_s *g, areafx_leaves_s *fx);
 void areafx_leaves_update(g_s *g, areafx_leaves_s *fx);

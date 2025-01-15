@@ -40,7 +40,7 @@ obj_s *biter_create(g_s *g, v2_i32 p)
 {
     obj_s   *o = obj_create(g);
     biter_s *b = (biter_s *)o->mem;
-    o->ID      = OBJ_ID_BITER;
+    o->ID      = OBJID_BITER;
     o->w       = 16;
     o->h       = 16;
     o->pos     = p;

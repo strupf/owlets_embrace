@@ -17,7 +17,7 @@ void chest_load(g_s *g, map_obj_s *mo)
 {
     obj_s   *o   = obj_create(g);
     chest_s *c   = (chest_s *)o->mem;
-    o->ID        = OBJ_ID_CHEST;
+    o->ID        = OBJID_CHEST;
     o->pos.x     = mo->x;
     o->pos.y     = mo->y;
     o->w         = mo->w;

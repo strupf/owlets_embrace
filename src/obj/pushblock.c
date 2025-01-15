@@ -8,11 +8,11 @@
 void pushblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_PUSHBLOCK;
+    o->ID    = OBJID_PUSHBLOCK;
 
     i32 w         = map_obj_i32(mo, "Weight");
     o->substate   = 1 < w ? w : 1;
-    o->mass       = 2;
+    o->flags      = OBJ_FLAG_SOLID;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
     o->w          = mo->w;
@@ -28,7 +28,7 @@ void pushblock_on_update(g_s *g, obj_s *o)
     }
     o->bumpflags = 0;
 
-    if (!map_blocked(g, o, obj_rec_bottom(o), o->mass)) {
+    if (!map_blocked(g, obj_rec_bottom(o))) {
         // not grounded -> don't push, only fall
         o->timer++; // fall delay timer
         o->v_q8.y += (5 <= o->timer ? 80 : 0);
@@ -48,16 +48,18 @@ void pushblock_on_update(g_s *g, obj_s *o)
         rec_i32 rr       = obj_rec_right(o);
         i32     dpad_x   = inp_x();
 
+#if 0
         if (dpad_x == +1 && overlap_rec(heroaabb, rl)) {
             if (obj_step(g, o, +1, +0, 0, 0)) {
-                obj_step(g, ohero, +1, +0, 1, 0);
+                obj_move(g, ohero, +1, +0, 1, 0);
             }
         }
         if (dpad_x == -1 && overlap_rec(heroaabb, rr)) {
             if (obj_step(g, o, -1, +0, 0, 0)) {
-                obj_step(g, ohero, -1, +0, 1, 0);
+                obj_move(g, ohero, -1, +0, 1, 0);
             }
         }
+#endif
     }
 }
 

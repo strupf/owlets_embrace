@@ -25,7 +25,7 @@ void shroomy_bounced_on(obj_s *o);
 void shroomy_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_SHROOMY;
+    o->ID    = OBJID_SHROOMY;
     o->flags = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HERO_JUMPABLE;
     o->on_update       = shroomy_on_update;
@@ -41,8 +41,8 @@ void shroomy_load(g_s *g, map_obj_s *mo)
     obj_sprite_s *spr = &o->sprites[0];
 
     spr->trec   = asset_texrec(TEXID_SHROOMY, 0, 0, 64, 48);
-    spr->offs.x = -(spr->trec.r.w - o->w) / 2;
-    spr->offs.y = -(spr->trec.r.h - o->h);
+    spr->offs.x = -(spr->trec.w - o->w) / 2;
+    spr->offs.y = -(spr->trec.h - o->h);
     o->pos.x    = mo->x;
     o->pos.y    = mo->y - mo->h;
 }
@@ -117,33 +117,33 @@ void shroomy_on_animate(g_s *g, obj_s *o)
     obj_sprite_s *spr = &o->sprites[0];
     spr->flip         = o->facing == 1 ? SPR_FLIP_X : 0;
 
-    const i32 H = spr->trec.r.h;
-    const i32 W = spr->trec.r.w;
+    const i32 H = spr->trec.h;
+    const i32 W = spr->trec.w;
 
     switch (o->state) {
     case SHROOMY_WALK:
         o->animation += o->v_q8.x;
-        spr->trec.r.y = 0;
+        spr->trec.y = 0;
         if (obj_grounded(g, o))
-            spr->trec.r.x = W * ((o->animation >> 9) & 3);
+            spr->trec.x = W * ((o->animation >> 9) & 3);
         else
-            spr->trec.r.x = 0;
+            spr->trec.x = 0;
         break;
     case SHROOMY_HIDE:
-        spr->trec.r.y = 1 * H;
-        spr->trec.r.x = W * anim_frame_from_ticks(o->timer, (frame_ticks_s *)&g_shroomyhide);
+        spr->trec.y = 1 * H;
+        spr->trec.x = W * anim_frame_from_ticks(o->timer, (frame_ticks_s *)&g_shroomyhide);
         break;
     case SHROOMY_BOUNCED:
-        spr->trec.r.y = 1 * H;
-        spr->trec.r.x = W * (6 + tick_to_index_freq(o->timer, 2, 10));
+        spr->trec.y = 1 * H;
+        spr->trec.x = W * (6 + tick_to_index_freq(o->timer, 2, 10));
         break;
     case SHROOMY_HIDDEN:
-        spr->trec.r.y = 2 * H;
-        spr->trec.r.x = (o->timer >= SHROOMY_TICKS_HIDDEN) * W;
+        spr->trec.y = 2 * H;
+        spr->trec.x = (o->timer >= SHROOMY_TICKS_HIDDEN) * W;
         break;
     case SHROOMY_APPEAR:
-        spr->trec.r.y = 3 * H;
-        spr->trec.r.x = W * lerp_i32(0, 3, o->timer, SHROOMY_TICKS_APPEAR);
+        spr->trec.y = 3 * H;
+        spr->trec.x = W * lerp_i32(0, 3, o->timer, SHROOMY_TICKS_APPEAR);
         break;
     }
 }

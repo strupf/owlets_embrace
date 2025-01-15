@@ -20,7 +20,8 @@ enum {
     DOOR_T_SLIDE_VER,
 };
 
-#define DOOR_MOVE_TICKS 16
+#define DOOR_DETECT_PX  32 // size of trigger box in front of door
+#define DOOR_MOVE_TICKS 20
 
 typedef struct {
     obj_handle_s d[2];
@@ -52,7 +53,7 @@ void door_load(g_s *g, map_obj_s *mo)
 
     obj_s  *o        = obj_create(g);
     door_s *d        = (door_s *)o->mem;
-    o->ID            = OBJ_ID_DOOR;
+    o->ID            = OBJID_DOOR;
     o->w             = mo->w;
     o->h             = mo->h;
     o->pos.x         = mo->x;
@@ -83,6 +84,8 @@ void door_load(g_s *g, map_obj_s *mo)
 
 void door_on_update(g_s *g, obj_s *o)
 {
+    door_s *d = (door_s *)o->mem;
+
     if (o->timer) {
         o->timer++;
         if (o->timer == DOOR_MOVE_TICKS) {
@@ -90,14 +93,14 @@ void door_on_update(g_s *g, obj_s *o)
         }
     }
 
-    door_s *d     = (door_s *)o->mem;
-    v2_i32  oc    = obj_pos_center(o);
-    obj_s  *ohero = 0;
-    hero_present_and_alive(g, &ohero);
-    u32 hd = U32_MAX;
-    if (ohero) {
-        v2_i32 hc = obj_pos_center(ohero);
-        hd        = v2_distancesq(oc, hc);
+    obj_s *ohero         = 0;
+    bool32 hero_detected = 0;
+    if (hero_present_and_alive(g, &ohero)) {
+        rec_i32 r_tog = {o->pos.x - DOOR_DETECT_PX,
+                         o->pos.y,
+                         o->w + 2 * DOOR_DETECT_PX,
+                         o->h};
+        hero_detected = overlap_rec(obj_aabb(ohero), r_tog);
     }
 
     switch (o->substate) {
@@ -106,7 +109,10 @@ void door_on_update(g_s *g, obj_s *o)
         break;
     }
     case DOOR_ACT_KEY: {
-
+        if (hero_detected) {
+            door_toggle(g, o);
+            o->substate = 0;
+        }
         break;
     }
     case DOOR_ACT_TRIGGER: {

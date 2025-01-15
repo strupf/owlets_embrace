@@ -4,7 +4,7 @@
 
 #include "pltf.h"
 
-#define PLTF_SHOW_FPS 0 // show FPS, UPS, update time and rendering time
+#define PLTF_SHOW_FPS 1 // show FPS, UPS, update time and rendering time
 
 typedef struct pltf_s {
     void *framebuffer;
@@ -25,12 +25,13 @@ typedef struct pltf_s {
 pltf_s           g_pltf;
 static const u32 pltf_font[512];
 
-void pltf_internal_init()
+i32 pltf_internal_init()
 {
     g_pltf.fps         = PLTF_UPS;
     g_pltf.lasttime    = pltf_seconds();
     g_pltf.framebuffer = pltf_1bit_buffer();
-    app_init();
+    i32 res            = app_init();
+    return 0;
 }
 
 i32 pltf_internal_update()
@@ -124,6 +125,15 @@ i32 pltf_internal_update()
     return updated;
 }
 
+// called to reset the fixed timestep timer so that the game doesn't
+// try to catch up in frames after loading something more intense and
+// skips a lot of frames
+void pltf_sync_timestep()
+{
+    g_pltf.ups_timeacc = 0.f;
+    g_pltf.lasttime    = pltf_seconds();
+}
+
 void pltf_blit_text(char *str, i32 tile_x, i32 tile_y)
 {
     u8 *fb = (u8 *)g_pltf.framebuffer;
@@ -147,6 +157,16 @@ void *pltf_file_open(const char *path, i32 pltf_file_mode)
     case PLTF_FILE_MODE_A: return pltf_file_open_a(path);
     }
     return NULL;
+}
+
+b32 pltf_file_ws(void *f, const void *buf, usize bsize)
+{
+    return (pltf_file_w(f, buf, bsize) == (i32)bsize);
+}
+
+b32 pltf_file_rs(void *f, void *buf, usize bsize)
+{
+    return (pltf_file_r(f, buf, bsize) == (i32)bsize);
 }
 
 i32 pltf_cur_tick()
@@ -182,8 +202,9 @@ void pltf_internal_resume()
 }
 
 #if PLTF_ENGINE_ONLY
-void app_init()
+i32 app_init()
 {
+    return 0;
 }
 
 void app_tick()

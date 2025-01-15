@@ -23,7 +23,7 @@ void savepoint_load(g_s *g, map_obj_s *mo)
 {
     obj_s       *o = obj_create(g);
     savepoint_s *s = (savepoint_s *)o->mem;
-    o->ID          = OBJ_ID_SAVEPOINT;
+    o->ID          = OBJID_SAVEPOINT;
     o->pos.x       = mo->x;
     o->pos.y       = mo->y;
     o->w           = mo->w;
@@ -104,8 +104,8 @@ void savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     savepoint_s *s       = (savepoint_s *)o->mem;
     gfx_ctx_s    ctx     = gfx_ctx_display();
     tex_s        tex     = asset_tex(TEXID_SAVEPOINT);
-    texrec_s     tr      = {tex, {0, 0, 16, 16}};
-    texrec_s     tr_tree = {tex, {0, 32, 64, 96}};
+    texrec_s     tr      = {tex, 0, 0, 16, 16};
+    texrec_s     tr_tree = {tex, 0, 32, 64, 96};
     v2_i32       p_bf    = {o->pos.x + 36, o->pos.y + 8};
     v2_i32       p0      = v2_add(p_bf, cam);
     v2_i32       p_tree  = v2_add(o->pos, cam);
@@ -116,14 +116,14 @@ void savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         savepoint_butterfly_s *f = &s->f[n];
         v2_i32                 p = v2_add(v2_shr(f->p_q8, 8), p0);
 
-        i32 frID = (n + (g->gameplay_tick >> 2)) % 6;
+        i32 frID = (n + (g->tick >> 2)) % 6;
         frID     = min_i32(frID == 5 ? 1 : frID, 2);
-        tr.r.x   = frID * 16;
+        tr.x     = frID * 16;
 
         i32 flip = 0;
         switch (f->frame) {
         case 0:
-            frID = 3 + ((n + (g->gameplay_tick / 10)) & 1);
+            frID = 3 + ((n + (g->tick / 10)) & 1);
             break;
         case 1:
             flip = SPR_FLIP_X;

@@ -123,42 +123,61 @@ int main(int argc, char **argv)
     g_SDL.pal[1]  = SDL_MapRGB((const SDL_PixelFormat *)g_SDL.pformat,
                                0xFF, 0xFF, 0xFF); // white
 
-    SDL_AudioSpec frmt = {0};
-    frmt.channels      = 2;
-    frmt.freq          = 44100;
-    frmt.format        = AUDIO_S16;
-    frmt.samples       = 256;
-    frmt.callback      = pltf_sdl_audio;
+    // -------------------------------------------------------------------------
+    // RUN
 
-    g_SDL.audiodevID = SDL_OpenAudioDevice(NULL, 0, &frmt, &g_SDL.audiospec, 0);
-    pltf_log("+++ Audio Device ID: %i\n\n", g_SDL.audiodevID);
-    if (0 < g_SDL.audiodevID) {
-        SDL_PauseAudioDevice(g_SDL.audiodevID, 0);
-    } else {
-        pltf_log("+++ SDL: Can't create audio device!\n");
-    }
-
-    g_SDL.running    = 1;
-    g_SDL.r_src.w    = PLTF_DISPLAY_W;
-    g_SDL.r_src.h    = PLTF_DISPLAY_H;
-    g_SDL.r_dst.w    = PLTF_DISPLAY_W;
-    g_SDL.r_dst.h    = PLTF_DISPLAY_H;
     g_SDL.timeorigin = SDL_GetPerformanceCounter();
-    g_SDL.is_mono    = 1;
-    g_SDL.vol        = 0.5f;
-    g_SDL.time_prev  = (u64)SDL_GetPerformanceCounter();
+    i32 res          = pltf_internal_init();
+    if (res == 0) {
+        SDL_AudioSpec as = {0};
+        as.channels      = 2;
+        as.freq          = 44100;
+        as.format        = AUDIO_S16;
+        as.samples       = 256;
+        as.callback      = pltf_sdl_audio;
 
-    pltf_internal_init();
-    pltf_sdl_resize();
+        g_SDL.audiodevID = SDL_OpenAudioDevice(0, 0, &as, &g_SDL.audiospec, 0);
+        pltf_log("+++ Audio Device ID: %i\n\n", g_SDL.audiodevID);
+        if (g_SDL.audiodevID) {
+            SDL_PauseAudioDevice(g_SDL.audiodevID, 0);
+        } else {
+            pltf_log("+++ SDL: Can't create audio device!\n");
+        }
+
+        g_SDL.running   = 1;
+        g_SDL.r_src.w   = PLTF_DISPLAY_W;
+        g_SDL.r_src.h   = PLTF_DISPLAY_H;
+        g_SDL.r_dst.w   = PLTF_DISPLAY_W;
+        g_SDL.r_dst.h   = PLTF_DISPLAY_H;
+        g_SDL.is_mono   = 1;
+        g_SDL.vol       = 0.5f;
+        g_SDL.time_prev = (u64)SDL_GetPerformanceCounter();
+        pltf_sdl_resize();
+
 #ifdef __EMSCRIPTEN__
-    emscripten_set_main_loop(pltf_sdl_step, 0, 1);
+        emscripten_set_main_loop(pltf_sdl_step, 0, 1);
 #else
-    pltf_sdl_set_FPS_cap(120);
+        pltf_sdl_set_FPS_cap(120);
 
-    while (g_SDL.running) {
-        pltf_sdl_step();
-    }
+        while (g_SDL.running) {
+            pltf_sdl_step();
+        }
 #endif
+    } else {
+        pltf_log("ERROR INIT: %i\n", res);
+    }
+
+    // -------------------------------------------------------------------------
+    // CLOSE
+    if (g_SDL.audiodevID) {
+        SDL_CloseAudioDevice(g_SDL.audiodevID);
+    }
+    pltf_internal_close();
+    SDL_FreeFormat(g_SDL.pformat);
+    SDL_DestroyTexture(g_SDL.tex);
+    SDL_DestroyRenderer(g_SDL.renderer);
+    SDL_DestroyWindow(g_SDL.window);
+    SDL_Quit();
     return 0;
 }
 
@@ -172,13 +191,6 @@ void pltf_sdl_step()
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
         case SDL_QUIT:
-            pltf_internal_close();
-            SDL_FreeFormat(g_SDL.pformat);
-            SDL_CloseAudioDevice(g_SDL.audiodevID);
-            SDL_DestroyTexture(g_SDL.tex);
-            SDL_DestroyRenderer(g_SDL.renderer);
-            SDL_DestroyWindow(g_SDL.window);
-            SDL_Quit();
             g_SDL.running = 0;
             return;
         case SDL_KEYDOWN:
@@ -361,6 +373,7 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
     i16 *l = lbuf;
     i16 *r = rbuf;
 
+    g_SDL.is_mono = 0;
     for (i32 n = 0; n < samples; n++) {
         i32 vl = (i32)((f32)*l++ * g_SDL.vol);
         i32 vr = g_SDL.is_mono ? vl : (i32)((f32)*r++ * g_SDL.vol);
@@ -494,14 +507,12 @@ i32 pltf_file_seek_end(void *f, i32 pos)
 
 i32 pltf_file_w(void *f, const void *buf, usize bsize)
 {
-    i32 w = (i32)fwrite(buf, 1, bsize, f);
-    return w;
+    return (i32)fwrite(buf, 1, bsize, f);
 }
 
 i32 pltf_file_r(void *f, void *buf, usize bsize)
 {
-    i32 r = (i32)fread(buf, 1, bsize, f);
-    return r;
+    return (i32)fread(buf, 1, bsize, f);
 }
 
 void pltf_audio_lock()

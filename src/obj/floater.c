@@ -20,7 +20,7 @@ void floater_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o  = obj_create(g);
     floater_s *fl = (floater_s *)o->mem;
-    o->ID         = OBJ_ID_FLOATER;
+    o->ID         = OBJID_FLOATER;
     o->flags      = OBJ_FLAG_MOVER |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_RENDER_AABB |

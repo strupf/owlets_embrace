@@ -7,7 +7,7 @@
 obj_s *boulder_spawn(g_s *g)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_BOULDER;
+    o->ID    = OBJID_BOULDER;
     o->w     = 32;
     o->h     = 32;
 

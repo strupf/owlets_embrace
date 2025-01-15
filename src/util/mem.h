@@ -15,16 +15,11 @@ typedef struct {
     usize size;
 } mspan_s;
 
-#define alignup_ptr(PTR) align_ptr(PTR, 32)
-// returns a pointer aligned to the specified alignment
-void *align_ptr(void *p, usize alignment);
-// rounds up to the next multiple of word size
-#define alignup_usize(S) align_usize(S, 32)
-usize   align_usize(usize p, usize alignment);
-// rounds up to the prev multiple of word size
-usize   aligndn_usize(usize p);
-// places the span beginning at the next word address; size gets adjusted
-mspan_s mspan_align(mspan_s m);
-//
+// aligning rounds up
+void   *align_ptr(void *p, usize alignment);
+usize   align_usize(usize s, usize alignment);
+mspan_s mspan_align(mspan_s m, usize alignment);
+
+u32 checksum_u32(const void *p, usize size);
 
 #endif

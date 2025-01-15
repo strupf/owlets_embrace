@@ -9,8 +9,10 @@
 
 v2_i32 mapview_hero_world_q8(g_s *g)
 {
+
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     v2_i32 vres  = {0};
+#if 0
     if (!ohero) return vres;
 
     v2_i32 hc    = obj_pos_center(ohero);
@@ -18,6 +20,7 @@ v2_i32 mapview_hero_world_q8(g_s *g)
     i32    rposy = (hc.y / PLTF_DISPLAY_H) * PLTF_DISPLAY_H + PLTF_DISPLAY_H / 2;
     vres.x       = ((g->map_worldroom->x + rposx) << 8) / PLTF_DISPLAY_W;
     vres.y       = ((g->map_worldroom->y + rposy) << 8) / PLTF_DISPLAY_H;
+#endif
     return vres;
 }
 
@@ -67,7 +70,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
             if (inp_btn(INP_A) && m->map.pin_delete_tick && m->map.pin) {
                 m->map.pin_delete_tick++;
                 if (MAP_PIN_DELETE_TICKS <= m->map.pin_delete_tick) {
-                    *m->map.pin            = g->save.map_pins[--g->save.n_map_pins];
+                    // *m->map.pin            = g->save.map_pins[--g->save.n_map_pins];
                     m->map.pin_delete_tick = 0;
                 }
                 break;
@@ -77,6 +80,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
             u32 closest_dist       = 50; // snap distance squared
             m->map.pin             = 0;
             m->map.pin_delete_tick = 0;
+#if 0
             for (int n = 0; n < g->save.n_map_pins; n++) {
                 map_pin_s *p      = &g->save.map_pins[n];
                 v2_i32     pinpos = mapview_screen_from_world_q8(p->pos, m->map.pos, 400, 240, scl_q8);
@@ -86,6 +90,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                     m->map.pin   = p;
                 }
             }
+#endif
 
             m->map.scl_q12 += inp_crank_dt_q16() << 1;
             m->map.scl_q12  = max_i32(m->map.scl_q12, 12 << 8);
@@ -105,7 +110,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                 m->map.pos.x += dpadx << 4;
                 m->map.pos.y += dpady << 4;
             }
-
+#if 0
             if (inp_btn_jp(INP_A)) {
 
                 if (m->map.pin && pin_snap) {
@@ -116,6 +121,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                     m->map.cursoranimtick = 0;
                 }
             }
+#endif
             break;
         }
         case MAP_MODE_PIN_SELECT: {
@@ -126,6 +132,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                 m->map.cursoranimtick = 0;
                 break;
             }
+#if 0
             if (inp_btn_jp(INP_A)) {
                 map_pin_s *pin = &g->save.map_pins[g->save.n_map_pins++];
 
@@ -135,6 +142,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                 m->map.mode = MAP_MODE_SCROLL;
                 break;
             }
+#endif
 
             if (inp_btn_jp(INP_DL)) {
                 m->map.pin_type--;
@@ -203,7 +211,7 @@ void menu_screen_draw(g_s *g, menu_screen_s *m)
             gfx_rec_fill(ctx, rbar_2, PRIM_MODE_WHITE);
         }
 
-        texrec_s tr_cursor  = {tui, {0, 0, 16, 16}};
+        texrec_s tr_cursor  = {tui, 0, 0, 16, 16};
         i32      cursoranim = 2 + ((sin_q16(m->map.cursoranimtick << 13) * 2) >> 16);
 
         for (i32 y = -1; y <= 1; y += 2) {
@@ -211,8 +219,8 @@ void menu_screen_draw(g_s *g, menu_screen_s *m)
                 v2_i32 pcur = cursorpos;
                 pcur.x += (0 < x) * 16 + x * cursoranim;
                 pcur.y += (0 < y) * 16 + y * cursoranim;
-                tr_cursor.r.x = 224 + (0 < x) * 16;
-                tr_cursor.r.y = 192 + (0 < y) * 16;
+                tr_cursor.x = 224 + (0 < x) * 16;
+                tr_cursor.y = 192 + (0 < y) * 16;
 
                 gfx_spr(ctx, tr_cursor, pcur, 0, 0);
             }

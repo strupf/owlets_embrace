@@ -9,7 +9,11 @@
 #include "pltf_types.h"
 #include <stdio.h>
 
+#if PLTF_ENABLE_LOG
 #define pltf_log printf
+#else
+#define pltf_log(...)
+#endif
 
 bool32 pltf_sdl_key(i32 k);
 bool32 pltf_sdl_jkey(i32 k);
@@ -18,5 +22,8 @@ void   pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), // callbacks
                                void (*close_inp)(void *ctx),
                                void *ctx);
 void   pltf_sdl_txt_inp_clr_cb();
+
+#define pltf_mem_alloc malloc
+#define pltf_mem_free  free
 
 #endif

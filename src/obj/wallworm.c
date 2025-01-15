@@ -39,7 +39,7 @@ void wallworm_load(g_s *g, map_obj_s *mo)
     sizeof(wallworm_s);
     obj_s      *o      = obj_create(g);
     wallworm_s *w      = (wallworm_s *)o->mem;
-    o->ID              = OBJ_ID_WALLWORM_PARENT;
+    o->ID              = OBJID_WALLWORM_PARENT;
     o->on_update       = wallworm_on_update;
     o->on_animate      = wallworm_on_animate;
     o->on_draw         = wallworm_on_draw;
@@ -122,12 +122,12 @@ void wallworm_draw_segs(g_s *g, obj_s *o, v2_i32 cam, i32 srcx)
         i32 spr   = 14 - n;
 
         if (n == 0) {
-            tr.r.y = 32 * frame;
-            tr.r.x = srcx + 32 * 14;
+            tr.y = 32 * frame;
+            tr.x = srcx + 32 * 14;
         } else {
-            tr.r.y = 32 * frame;
+            tr.y = 32 * frame;
             // tr.r.x = srcx + 32 * (7 + ((gameplay_time(g) >> 2) % 3));
-            tr.r.x = srcx + 32 * 6;
+            tr.x = srcx + 32 * 6;
         }
 
         v2_i32 p = v2_add(v2_shr(p1, 8), cam);

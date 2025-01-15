@@ -12,13 +12,19 @@ enum {
     SETTINGS_MODE_STREAMING,
 };
 
+enum {
+    SETTINGS_ERR_OPEN    = 1 << 0,
+    SETTINGS_ERR_CLOSE   = 1 << 1,
+    SETTINGS_ERR_RW      = 1 << 2,
+    SETTINGS_ERR_VERSION = 1 << 3,
+};
+
 #define SETTINGS_TICKS_HOOK_CONTROL 15
 #define SETTINGS_VOL_MAX            8
 #define SETTINGS_SHAKE_SENS_MAX     8
 #define SETTINGS_SHAKE_SMOOTH_MAX   8
 
 typedef struct {
-    ALIGNAS(4)
     u8 shake_sensitivity;
     u8 shake_smooth;
     u8 mode;
@@ -29,7 +35,7 @@ typedef struct {
 
 extern settings_s SETTINGS;
 
-void settings_load();
-void settings_save();
+i32 settings_load();
+i32 settings_save();
 
 #endif

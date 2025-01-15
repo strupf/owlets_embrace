@@ -21,9 +21,8 @@ void stompable_block_load(g_s *g, map_obj_s *mo)
     o->h                 = 16;
     o->pos.x             = mo->x;
     o->pos.y             = mo->y;
-    o->ID                = OBJ_ID_STOMPABLE_BLOCK;
-    o->mass              = 1;
-    o->flags             = OBJ_FLAG_RENDER_AABB;
+    o->ID                = OBJID_STOMPABLE_BLOCK;
+    o->flags             = OBJ_FLAG_SOLID | OBJ_FLAG_RENDER_AABB;
 }
 
 void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)

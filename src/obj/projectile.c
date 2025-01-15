@@ -21,7 +21,7 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     obj_s        *o = obj_create(g);
     projectile_s *p = (projectile_s *)o->mem;
 
-    o->ID = OBJ_ID_PROJECTILE;
+    o->ID = OBJID_PROJECTILE;
 
     o->on_update  = projectile_on_update;
     o->on_animate = projectile_on_animate;

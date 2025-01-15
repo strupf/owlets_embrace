@@ -80,21 +80,21 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     i32 ry = o->state == CRUMBLE_STATE_BREAKING ? 2 : 0;
     if (n == 1) {
-        tr.r.y = rngr_i32(0, ry) * 48;
+        tr.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
     } else {
-        tr.r.x = 16 + rx;
-        tr.r.y = rngr_i32(0, ry) * 48;
+        tr.x = 16 + rx;
+        tr.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
         p.x += 16;
         for (i32 i = 1; i < n - 1; i++) {
-            tr.r.x = 32 + rx;
-            tr.r.y = rngr_i32(0, ry) * 48;
+            tr.x = 32 + rx;
+            tr.y = rngr_i32(0, ry) * 48;
             gfx_spr(ctx, tr, p, 0, 0);
             p.x += 16;
         }
-        tr.r.x = 48 + rx;
-        tr.r.y = rngr_i32(0, ry) * 48;
+        tr.x = 48 + rx;
+        tr.y = rngr_i32(0, ry) * 48;
         gfx_spr(ctx, tr, p, 0, 0);
     }
 }
@@ -102,7 +102,7 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 void crumbleblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_CRUMBLEBLOCK;
+    o->ID              = OBJID_CRUMBLEBLOCK;
     o->render_priority = 0;
     o->w               = 16;
     o->state           = CRUMBLE_STATE_IDLE;

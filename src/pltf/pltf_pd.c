@@ -24,6 +24,7 @@ typedef struct {
 } PD_menu_item_s;
 
 typedef struct {
+    SoundSource   *soundsource;
     PDButtons      b;
     bool32         acc_active;
     PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
@@ -52,7 +53,7 @@ int
 eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
 {
     switch (event) {
-    case kEventInit:
+    case kEventInit: {
         PD                          = pd;
         PD_system_error             = PD->system->error;
         PD_system_logToConsole      = PD->system->logToConsole;
@@ -64,15 +65,29 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_file_read                = PD->file->read;
         PD_file_write               = PD->file->write;
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
-        PD->system->setUpdateCallback(pltf_pd_update, PD);
-        PD->sound->addSource(pltf_pd_audio, 0, 0);
+        PD_system_realloc           = PD->system->realloc;
         PD->display->setRefreshRate(0.f);
         PD->system->resetElapsedTime();
-        pltf_internal_init();
+
+        i32 res = pltf_internal_init();
+        if (res == 0) {
+            PD->system->setUpdateCallback(pltf_pd_update, PD);
+            g_PD.soundsource = PD->sound->addSource(pltf_pd_audio, 0, 1);
+        } else {
+            PD->system->error("ERROR INIT: %i\n", res);
+        }
         break;
-    case kEventTerminate: pltf_internal_close(); break;
-    case kEventPause: pltf_internal_pause(); break;
-    case kEventResume: pltf_internal_resume(); break;
+    }
+    case kEventTerminate:
+        PD->sound->removeSource(g_PD.soundsource);
+        pltf_internal_close();
+        break;
+    case kEventPause:
+        pltf_internal_pause();
+        break;
+    case kEventResume:
+        pltf_internal_resume();
+        break;
     default: break;
     }
     return 0;

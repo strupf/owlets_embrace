@@ -9,8 +9,8 @@ void fallingblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
 
-    o->ID         = OBJ_ID_FALLINGBLOCK;
-    o->mass       = 1;
+    o->ID         = OBJID_FALLINGBLOCK;
+    o->flags      = OBJ_FLAG_SOLID;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;

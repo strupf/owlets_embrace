@@ -12,7 +12,7 @@ typedef struct {
 obj_s *sign_popup_create(g_s *g)
 {
     obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_SIGN_POPUP;
+    o->ID              = OBJID_SIGN_POPUP;
     o->flags           = OBJ_FLAG_SPRITE;
     o->render_priority = 1;
     o->n_sprites       = 1;
@@ -71,7 +71,7 @@ void sign_on_interact(g_s *g, obj_s *o)
 obj_s *sign_create(g_s *g)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_SIGN;
+    o->ID    = OBJID_SIGN;
     o->flags = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
     o->on_interact     = sign_on_interact;

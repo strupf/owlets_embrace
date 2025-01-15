@@ -37,14 +37,14 @@ void switch_on_interact(g_s *g, obj_s *o)
         break;
     }
 
-    o->state               = 1 - o->state;
-    o->sprites[0].trec.r.x = o->state * 64;
+    o->state             = 1 - o->state;
+    o->sprites[0].trec.x = o->state * 64;
 }
 
 void switch_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
-    o->ID              = OBJ_ID_SWITCH;
+    o->ID              = OBJID_SWITCH;
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->flags =
         OBJ_FLAG_INTERACTABLE |

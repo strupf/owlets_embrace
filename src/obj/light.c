@@ -7,7 +7,7 @@
 void light_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o          = obj_create(g);
-    o->ID             = OBJ_ID_LIGHT;
+    o->ID             = OBJID_LIGHT;
     o->flags          = OBJ_FLAG_LIGHT;
     o->pos.x          = mo->x;
     o->pos.y          = mo->y;

@@ -13,8 +13,8 @@
 
 #define NUM_OBJ_POW_2           9 // = 2^N
 #define NUM_OBJ                 (1 << NUM_OBJ_POW_2)
-#define OBJ_ID_INDEX_SH         (32 - NUM_OBJ_POW_2)
-#define OBJ_ID_GEN_MASK         (((u32)1 << OBJ_ID_INDEX_SH) - 1)
+#define OBJ_GID_INDEX_SH        (32 - NUM_OBJ_POW_2)
+#define OBJ_GID_GEN_MASK        (((u32)1 << OBJ_GID_INDEX_SH) - 1)
 #define OBJ_MEM_BYTES           512
 #define OBJ_FLAG_MOVER          ((u64)1 << 0)
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
@@ -34,8 +34,14 @@
 #define OBJ_FLAG_HOVER_TEXT     ((u64)1 << 18)
 #define OBJ_FLAG_CLIMBABLE      ((u64)1 << 19)
 #define OBJ_FLAG_LIGHT          ((u64)1 << 20)
+#define OBJ_FLAG_ACTOR          ((u64)1 << 61)
+#define OBJ_FLAG_SOLID          ((u64)1 << 62)
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
+#define OBJ_FLAG_PLATFORM_ANY (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
+
+#define OBJ_FLAG_HERO_JUMPSTOMPABLE (OBJ_FLAG_HERO_STOMPABLE | \
+                                     OBJ_FLAG_HERO_JUMPABLE)
 #define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
 enum obj_bump_flags_e {
@@ -96,12 +102,6 @@ typedef struct enemy_s {
     bool8 invincible;
 } enemy_s;
 
-static inline u32 save_ID_gen(i32 roomID, i32 objID)
-{
-    u32 save_ID = ((u32)roomID << 16) | ((u32)objID);
-    return save_ID;
-}
-
 typedef void (*obj_on_update_f)(g_s *g, obj_s *o);
 typedef void (*obj_on_animate_f)(g_s *g, obj_s *o);
 typedef void (*obj_on_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
@@ -126,8 +126,6 @@ struct obj_s {
     i32               render_priority;
     u16               bumpflags; // has to be cleared manually
     u16               moverflags;
-    u8                mass_og;
-    u8                mass; // mass, for solid movement
     i16               w;
     i16               h;
     v2_i32            pos; // position in pixels
@@ -185,25 +183,21 @@ rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
-bool32       map_blocked(g_s *g, obj_s *o, rec_i32 r, i32 m);
-bool32       map_blocked_pt(g_s *g, obj_s *o, i32 x, i32 y, i32 m);
 void         obj_move(g_s *g, obj_s *o, i32 dx, i32 dy);
-b32          obj_step(g_s *g, obj_s *o, i32 sx, i32 sy, b32 can_slide, i32 m_push);
+bool32       obj_step_is_clamped(g_s *g, obj_s *o, i32 sx, i32 sy);
+void         obj_move_by_v_q8(g_s *g, obj_s *o);
+void         obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy);
 bool32       obj_try_wiggle(g_s *g, obj_s *o);
 bool32       obj_grounded(g_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(g_s *g, obj_s *o);
-v2_i32       obj_constrain_to_rope(g_s *g, obj_s *o);
 void         obj_on_hooked(g_s *g, obj_s *o);
-obj_s       *obj_closest_interactable(g_s *g, v2_i32 pos);
 void         obj_move_by_q8(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
 void         obj_move_by_v_q8(g_s *g, obj_s *o);
 void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
 void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
-bool32       obj_blocked_by_map_or_objs(g_s *g, obj_s *o, i32 sx, i32 sy);
-bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
 bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
 enemy_s      enemy_default();
 

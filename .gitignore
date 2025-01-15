@@ -3,3 +3,4 @@
 !/src
 readme.md
 src/z_build.c
+src/z_load.c

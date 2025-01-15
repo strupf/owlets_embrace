@@ -17,7 +17,7 @@ void frog_load(g_s *g, map_obj_s *mo)
 {
     obj_s  *o     = obj_create(g);
     frog_s *f     = (frog_s *)o->mem;
-    o->ID         = OBJ_ID_FROG;
+    o->ID         = OBJID_FROG;
     o->on_animate = frog_on_animate;
     o->on_update  = frog_on_update;
     o->w          = 16;

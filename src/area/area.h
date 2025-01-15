@@ -29,6 +29,7 @@ typedef struct {
         areafx_rain_s           rain;
         areafx_heat_s           heat;
         areafx_leaves_s         leaves;
+        areafx_snow_s           snow;
         areafx_particles_calm_s particles_calm;
     } fx;
 } area_s;

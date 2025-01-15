@@ -10,12 +10,11 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
-    map_world_load(&g->map_world, "world.world");
     g->cam.mode      = CAM_MODE_FOLLOW_HERO;
     g->obj_head_free = &g->obj_raw[0];
     for (i32 n = 0; n < NUM_OBJ; n++) {
         obj_s *o = &g->obj_raw[n];
-        o->GID   = (u32)n << OBJ_ID_INDEX_SH;
+        o->GID   = (u32)n << OBJ_GID_INDEX_SH;
         if (n < NUM_OBJ - 1) {
             o->next = &g->obj_raw[n + 1];
         }
@@ -38,11 +37,11 @@ void game_tick(g_s *g)
     if (pltf_sdl_jkey(SDL_SCANCODE_9)) ab = 9;
     if (0 <= ab) {
         if (8 <= ab) {
-            i32 dt                    = ab == 8 ? -1 : +1;
-            g->save.stamina_upgrades  = max_i32(g->save.stamina_upgrades + dt, 0);
-            g->hero_mem.stamina       = hero_stamina_max(g, obj_get_hero(g));
-            g->hero_mem.stamina_added = 0;
-            pltf_log("# STAMINA: %i\n", g->save.stamina_upgrades);
+            i32 dt                   = ab == 8 ? -1 : +1;
+            g->hero.stamina_upgrades = max_i32(g->hero.stamina_upgrades + dt, 0);
+            g->hero.stamina          = hero_stamina_max(g, obj_get_hero(g));
+            g->hero.stamina_added    = 0;
+            pltf_log("# STAMINA: %i\n", g->hero.stamina_upgrades);
         } else {
             if (hero_has_upgrade(g, ab)) {
                 hero_rem_upgrade(g, ab);
@@ -62,17 +61,42 @@ void game_tick(g_s *g)
     }
 #endif
 
-    g->save.tick++;
-    if (g->hero_hurt_lowpass_tick) {
-        g->hero_hurt_lowpass_tick--;
-        aud_set_lowpass(((g->hero_hurt_lowpass_tick * 12) / 30));
+    if (g->hero_hurt_lp_tick) {
+        g->hero_hurt_lp_tick--;
+        i32 lp = lerp_i32(0, 12, g->hero_hurt_lp_tick, HERO_HURT_LP_TICKS);
+        aud_set_lowpass(lp);
     }
 
+    bool32 tick_gp = 1;
     if (g->substate && g->substate != SUBSTATE_GAMEOVER) {
         g->freeze_tick = 0;
+        tick_gp        = 0;
     } else if (0 < g->freeze_tick) {
         g->freeze_tick--;
+        tick_gp = 0;
     } else {
+        obj_s *ohero = obj_get_hero(g);
+        if (ohero) {
+            hero_s *h = (hero_s *)ohero->heap;
+            if (g->grapple_tick) {
+                if (inp_btn(INP_B)) {
+                    g->grapple_tick++;
+                    if (10 <= g->grapple_tick) {
+                        i32 gt = max_i32(0, 50 - (g->grapple_tick - 10)) / 8;
+                        gt     = max_i32(gt, 2);
+                        if ((g->grapple_tick % gt) == 0) {
+                            tick_gp = 0;
+                        }
+                    }
+                } else {
+                    g->grapple_tick = 0;
+                    hero_item_button(g, inp_cur(), ohero);
+                }
+            }
+        }
+    }
+
+    if (tick_gp) {
         game_tick_gameplay(g);
     }
 
@@ -92,14 +116,7 @@ void game_tick(g_s *g)
     }
 
     cam_update(g, &g->cam);
-    g->cam_prev_world = cam_pos_px(g, &g->cam);
-
-    if (g->areaname.fadeticks) {
-        g->areaname.fadeticks++;
-        if (FADETICKS_AREALABEL <= g->areaname.fadeticks) {
-            g->areaname.fadeticks = 0;
-        }
-    }
+    g->cam_prev_world = cam_pos_px_top_left(g, &g->cam);
 
     // save animation
     if (g->save_ticks) {
@@ -111,7 +128,7 @@ void game_tick(g_s *g)
 
     // every other tick to save some CPU cycles;
     // split between even and uneven frames
-    if (g->gameplay_tick & 1) {
+    if (g->tick & 1) {
         grass_animate(g);
     } else {
         deco_verlet_animate(g);
@@ -122,10 +139,19 @@ void game_tick(g_s *g)
 
 void game_tick_gameplay(g_s *g)
 {
-    g->gameplay_tick++;
+    g->tick++;
     g->events_frame = 0;
 
     boss_update(g, &g->boss);
+    areafx_snow_update(g, &g->area.fx.snow);
+    areafx_rain_update(g, &g->area.fx.rain);
+    areafx_heat_update(g, &g->area.fx.heat);
+
+    obj_s *ohero = obj_get_hero(g);
+    if (ohero) {
+        inp_s heroinp = inp_cur();
+        hero_on_update(g, ohero, heroinp);
+    }
 
     objs_update(g);
     for (obj_each(g, o)) {
@@ -136,7 +162,7 @@ void game_tick_gameplay(g_s *g)
     for (obj_each(g, o)) {
         if ((o->flags & OBJ_FLAG_KILL_OFFSCREEN) && // out of bounds deletion
             !overlap_rec(obj_aabb(o), roombounds)) {
-            if (o->ID == OBJ_ID_HERO) {
+            if (o->ID == OBJID_HERO) {
                 rec_i32 roombounds_hero = {0, 0, g->pixel_x, g->pixel_y + 64};
                 if (!overlap_rec(obj_aabb(o), roombounds_hero)) {
                     // hero_kill(g, o);
@@ -178,26 +204,31 @@ void game_tick_gameplay(g_s *g)
     objs_cull_to_delete(g);
     particles_update(g, &g->particles);
 
-    obj_s *ohero = 0;
     if (hero_present_and_alive(g, &ohero)) {
-        hero_post_update(g, ohero);
+        inp_s heroinp = inp_cur();
+        hero_post_update(g, ohero, heroinp);
 
         if (ohero->health == 0) {
             gameover_start(g);
         }
     }
 
-#ifdef PLTF_DEBUG
+#if PLTF_DEBUG
     for (obj_each(g, o)) {
         assert(o->magic == OBJ_MAGIC);
     }
 #endif
 
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick            = 4;
-        g->hero_hurt_lowpass_tick = 60;
-    } else if (g->events_frame & EVENT_HIT_ENEMY) {
-        g->freeze_tick = 2;
+        g->freeze_tick       = max_i32(g->freeze_tick, 4);
+        g->hero_hurt_lp_tick = HERO_HURT_LP_TICKS;
+    }
+    if (g->events_frame & EVENT_HERO_DEATH) {
+        g->freeze_tick       = max_i32(g->freeze_tick, 25);
+        g->hero_hurt_lp_tick = HERO_HURT_LP_TICKS;
+    }
+    if (g->events_frame & EVENT_HIT_ENEMY) {
+        g->freeze_tick = max_i32(g->freeze_tick, 2);
     }
 
     objs_cull_to_delete(g);
@@ -208,8 +239,8 @@ void game_tick_gameplay(g_s *g)
         if (g->coins_added_ticks) {
             g->coins_added_ticks--;
         } else {
-            i32 to_add = clamp_i32(g->coins_added, -1, +1);
-            g->save.coins += to_add;
+            i32 to_add = clamp_sym_i32(g->coins_added, 1);
+            g->hero.coins += to_add;
             g->coins_added -= to_add;
         }
     }
@@ -225,52 +256,72 @@ void game_paused(g_s *g)
 
 i32 gameplay_time(g_s *g)
 {
-    return g->gameplay_tick;
+    return g->tick;
 }
 
-void *game_alloc(g_s *g, usize s)
+void *game_alloc(g_s *g, usize s, usize alignment)
 {
-    return memarena_alloc(&g->memarena, s);
+    return marena_alloc_aligned(&g->memarena, s, alignment);
 }
 
-void *game_alloc_aligned(g_s *g, usize s, usize alignment)
+void *game_alloc_aligned_f(void *ctx, usize s, usize alignment)
 {
-    return memarena_alloc_aligned(&g->memarena, s, alignment);
+    return game_alloc((g_s *)ctx, s, alignment);
 }
 
-void game_allocator_reset(g_s *g)
+allocator_s game_allocator(g_s *g)
 {
-    memarena_init(&g->memarena, g->mem, sizeof(g->mem));
+    allocator_s a = {game_alloc_aligned_f, g};
+    return a;
 }
 
 i32 gameplay_time_since(g_s *g, i32 t)
 {
-    return (g->gameplay_tick - t);
+    return (g->tick - t);
 }
 
 void game_load_savefile(g_s *g)
 {
-    save_s *s = &g->save;
+    spm_push();
+    save_s *s   = spm_alloct(save_s, 1);
+    i32     res = savefile_r(g->save_slot, s);
+    if (res != 0) {
+    }
 
     if (s->tick == 0) { // new game
 
     } else { // continue
     }
 
-    game_load_map(g, s->hero_mapfile);
-    obj_s *oh = hero_create(g);
-    oh->pos.x = s->hero_pos.x - oh->w / 2;
-    oh->pos.y = s->hero_pos.y - oh->h;
-    game_prepare_new_map(g);
+    obj_delete(g, obj_get_hero(g));
+    mclr(&g->hero, sizeof(hero_s));
+    objs_cull_to_delete(g);
+
+    obj_s *o         = hero_create(g);
+    g->hero.upgrades = s->upgrades;
+    g->hero.stamina  = s->stamina;
+    o->pos.x         = s->hero_pos.x - o->w / 2;
+    o->pos.y         = s->hero_pos.y - o->h;
+    game_load_map(g, s->map_hash);
+    pltf_sync_timestep();
 }
 
 bool32 game_save_savefile(g_s *g)
 {
-    str_cpy(g->save.hero_mapfile, g->areaname.filename);
-    g->save_ticks = 1;
-    bool32 r      = savefile_write(g->save_slot, (const save_s *)&g->save);
-    pltf_log("SAVED!\n");
-    return (r);
+    spm_push();
+    save_s *s = spm_alloctz(save_s, 1);
+    {
+        s->tick      = g->tick;
+        s->upgrades  = g->hero.upgrades;
+        s->n_saveIDs = g->n_saveIDs;
+        mcpy(s->saveIDs, g->saveIDs, sizeof(s->saveIDs));
+        mcpy(s->name, g->hero.name, sizeof(s->name));
+        s->map_hash = g->map_hash;
+    }
+    i32 res = savefile_w(g->save_slot, s);
+    spm_pop();
+    pltf_sync_timestep();
+    return (res == 0);
 }
 
 void game_on_trigger(g_s *g, i32 trigger)
@@ -372,7 +423,7 @@ bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
 {
     switch (o->ID) {
     default: break;
-    case OBJ_ID_SWITCH: switch_on_interact(g, o); break;
+    case OBJID_SWITCH: switch_on_interact(g, o); break;
     }
 
     if ((o->flags & OBJ_FLAG_ENEMY) && 0 < o->health && !o->enemy.invincible) {
@@ -388,8 +439,8 @@ bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
 
         switch (o->ID) {
         default: break;
-        case OBJ_ID_CRAWLER: crawler_on_weapon_hit(g, o, box); break;
-        case OBJ_ID_FLYBLOB: flyblob_on_hit(g, o, box); break;
+        case OBJID_CRAWLER: crawler_on_weapon_hit(g, o, box); break;
+        case OBJID_FLYBLOB: flyblob_on_hit(g, o, box); break;
         }
         return 1;
     }

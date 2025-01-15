@@ -14,7 +14,7 @@ enum {
 void waterleaf_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_WATERLEAF;
+    o->ID    = OBJID_WATERLEAF;
     o->flags = OBJ_FLAG_PLATFORM |
                OBJ_FLAG_RENDER_AABB;
     o->pos.x = mo->x;

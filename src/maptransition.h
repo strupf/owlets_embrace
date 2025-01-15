@@ -9,7 +9,8 @@
 
 typedef struct maptransition_s {
     v2_i32 hero_feet;
-    char   to_load[32];
+    v2_i16 hero_v_q8;
+    u32    map_hash;
     u8     fade_phase;
     u8     type;
     u8     dir;
@@ -17,7 +18,7 @@ typedef struct maptransition_s {
     i32    teleport_ID;
 } maptransition_s;
 
-void   maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet);
+void   maptransition_teleport(g_s *g, u32 map_hash, v2_i32 hero_feet);
 bool32 maptransition_try_hero_slide(g_s *g);
 void   maptransition_update(g_s *g);
 void   maptransition_draw(g_s *g, v2_i32 cam);

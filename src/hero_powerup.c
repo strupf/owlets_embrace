@@ -51,12 +51,12 @@ void hero_powerup_collected(g_s *g, i32 ID)
     switch (ID) {
     case HERO_UPGRADE_FLY:
     case HERO_UPGRADE_CLIMB:
-        if (!g->save.stamina_upgrades) {
-            g->save.stamina_upgrades = 1;
+        if (!g->hero.stamina_upgrades) {
+            g->hero.stamina_upgrades = 1;
         }
         break;
     }
-    pltf_log("%i\n", g->save.stamina_upgrades);
+    pltf_log("%i\n", g->hero.stamina_upgrades);
     hero_add_upgrade(g, ID);
     snd_play(SNDID_UPGRADE, 1.f, 1.f);
 }
@@ -180,7 +180,7 @@ void hero_powerup_draw(g_s *g, v2_i32 cam)
     }
     }
 
-    texrec_s trtmp = {ttmp, rdisplay};
+    texrec_s trtmp = {ttmp, rdisplay.x, rdisplay.y, rdisplay.w, rdisplay.h};
     gfx_spr(ctx, trtmp, (v2_i32){0}, 0, 0);
     spm_pop();
 }

@@ -6,48 +6,76 @@
 #include "app.h"
 #include "pltf/pltf.h"
 
+typedef struct {
+    u32 version;
+    u8  unused[12];
+} settings_header_s;
+
+static_assert(sizeof(settings_header_s) == 16, "settings header size");
+
 #define SETTINGS_FILE_NAME "settings.bin"
 
 settings_s SETTINGS;
 
 void settings_load_default();
 
-void settings_load()
+i32 settings_load()
 {
-#if 1 // just load and override default settings for dev purposes
+#if PLTF_DEBUG // just load and override default settings for dev purposes
     settings_load_default();
+    return 0;
 #else
     void *f = pltf_file_open_r(SETTINGS_FILE_NAME);
     if (!f) {
         settings_load_default();
-        return;
+        return SETTINGS_ERR_OPEN;
     }
 
-    u32 version = 0;
-    pltf_file_r(f, &version, sizeof(u32));
+    i32               res    = 0;
+    i32               br     = 0;
+    usize             br_ref = sizeof(settings_header_s);
+    settings_header_s h      = {0};
+    br += pltf_file_r(f, &h, sizeof(settings_header_s));
 
-    switch (version) {
+    switch (h.version) {
     case GAME_VERSION:
-        pltf_file_r(f, &SETTINGS, sizeof(settings_s));
+        br_ref += sizeof(settings_s);
+        br += pltf_file_r(f, &SETTINGS, sizeof(settings_s));
         break;
     default: // reading unsupported file
         settings_load_default();
+        res |= SETTINGS_ERR_VERSION;
         break;
     }
 
-    pltf_file_close(f);
+    if (!pltf_file_close(f)) {
+        res |= SETTINGS_ERR_CLOSE;
+    }
+    if (br != (i32)br_ref) {
+        res |= SETTINGS_ERR_RW;
+    }
+    return res;
 #endif
 }
 
-void settings_save()
+i32 settings_save()
 {
     void *f = pltf_file_open_w(SETTINGS_FILE_NAME);
-    if (!f) return;
+    if (!f) return SETTINGS_ERR_OPEN;
 
-    u32 version = GAME_VERSION;
-    pltf_file_w(f, &version, sizeof(u32));
-    pltf_file_w(f, &SETTINGS, sizeof(settings_s));
-    pltf_file_close(f);
+    i32               res = 0;
+    i32               bw  = 0;
+    settings_header_s h   = {GAME_VERSION};
+    bw += pltf_file_w(f, &h, sizeof(settings_header_s));
+    bw += pltf_file_w(f, &SETTINGS, sizeof(settings_s));
+
+    if (pltf_file_close(f)) {
+        res |= SETTINGS_ERR_CLOSE;
+    }
+    if (bw != (i32)(sizeof(settings_s) + sizeof(settings_s))) {
+        res |= SETTINGS_ERR_RW;
+    }
+    return res;
 }
 
 void settings_load_default()
@@ -59,5 +87,4 @@ void settings_load_default()
     s->vol_mus           = SETTINGS_VOL_MAX;
     s->vol_sfx           = SETTINGS_VOL_MAX;
     s->ticks_hook_hold   = SETTINGS_TICKS_HOOK_CONTROL;
-    settings_save();
 }

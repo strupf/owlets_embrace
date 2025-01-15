@@ -70,8 +70,9 @@ void hooklever_on_update(g_s *g, obj_s *o)
         rhook.y--;
         rhook.w += 2;
         rhook.h += 2;
+        i32 hookpullforce = 0;
         if (overlap_rec(rhook, obj_aabb(o)) &&
-            80 <= hero_hook_pulling_force(g, ohero)) {
+            80 <= hookpullforce) {
             hooklever_pull(g, o);
         }
     }
@@ -102,14 +103,13 @@ void hooklever_on_update(g_s *g, obj_s *o)
 void hooklever_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
-    o->ID    = OBJ_ID_HOOKLEVER;
-    o->flags = OBJ_FLAG_RENDER_AABB;
+    o->ID    = OBJID_HOOKLEVER;
+    o->flags = OBJ_FLAG_RENDER_AABB | OBJ_FLAG_SOLID;
 
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
     o->w            = 32;
     o->h            = 32;
-    o->mass         = 2;
     hooklever_s *hl = (hooklever_s *)o->mem;
     hl->moved_max   = map_obj_i32(mo, "Distance_Moved");
     o->trigger      = map_obj_i32(mo, "trigger");

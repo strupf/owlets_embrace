@@ -3,28 +3,41 @@
 // =============================================================================
 
 #include "mem.h"
+#include "mathfunc.h"
 
 void *align_ptr(void *p, usize alignment)
 {
-    uptr pa = ((uptr)p + alignment - 1) & ~(alignment - 1);
-    return (void *)pa;
+    if (!alignment) {
+        uptr pa = ((uptr)p + alignment - 1) & ~(alignment - 1);
+        return (void *)pa;
+    } else {
+        return p;
+    }
 }
 
-usize align_usize(usize p, usize alignment)
+usize align_usize(usize s, usize alignment)
 {
-    return ((p + (usize)(alignment - 1)) & ~(usize)(alignment - 1));
+    return (s + alignment - 1) & ~(alignment - 1);
 }
 
-usize aligndn_usize(usize p)
+mspan_s mspan_align(mspan_s m, usize alignment)
 {
-    return (p & ~(usize)(PLTF_SIZE_CL - 1));
+    void   *p_beg = align_ptr(m.p, alignment);
+    void   *p_end = (byte *)m.p + m.size;
+    mspan_s r     = {p_beg, (usize)((byte *)p_end - (byte *)p_beg)};
+    return r;
 }
 
-mspan_s mspan_align(mspan_s m)
+u32 checksum_u32(const void *p, usize size)
 {
-    void   *p0 = alignup_ptr(m.p);
-    void   *p1 = (char *)m.p + m.size;
-    usize   s  = (usize)((char *)p1 - (char *)p0);
-    mspan_s r  = {(void *)p0, s};
+    const u8 *d = (const u8 *)p;
+    usize     l = size;
+    u32       s = 0;
+    u32       r = 0;
+    while (l) {
+        r += (u32)*d++ << s;
+        l--;
+        s = (s + 8) & 31;
+    }
     return r;
 }

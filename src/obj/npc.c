@@ -98,7 +98,7 @@ void npc_on_animate(g_s *g, obj_s *o)
     }
     }
 
-    spr->trec.r.x = frame * 64;
+    spr->trec.x = frame * 64;
     // spr->flip     = o->facing == 1 ? 0 : SPR_FLIP_X;
 }
 
@@ -120,7 +120,7 @@ void npc_load(g_s *g, map_obj_s *mo)
     npc_s        *npc = (npc_s *)o->mem;
     obj_sprite_s *spr = &o->sprites[0];
 
-    o->ID         = OBJ_ID_NPC;
+    o->ID         = OBJID_NPC;
     o->flags      = OBJ_FLAG_INTERACTABLE;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_GLUE_GROUND |
@@ -138,10 +138,10 @@ void npc_load(g_s *g, map_obj_s *mo)
     o->facing          = 1;
     o->n_sprites       = 1;
     spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
-    spr->offs.x        = (o->w - spr->trec.r.w) / 2;
-    spr->offs.y        = o->h - spr->trec.r.h;
+    spr->offs.x        = (o->w - spr->trec.w) / 2;
+    spr->offs.y        = o->h - spr->trec.h;
 
     map_obj_strs(mo, "Dialogfile", o->filename);
-    npc->movement          = map_obj_i32(mo, "Movement");
-    o->sprites[0].trec.r.y = map_obj_i32(mo, "Model") * 48;
+    npc->movement        = map_obj_i32(mo, "Movement");
+    o->sprites[0].trec.y = map_obj_i32(mo, "Model") * 48;
 }

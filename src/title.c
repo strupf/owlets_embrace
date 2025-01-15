@@ -52,9 +52,10 @@ void title_init(title_s *t)
 #if TITLE_SKIP_TO_GAME || 0
     spm_push();
     save_s *s = spm_alloct(save_s, 1);
-    savefile_empty(s);
+    // savefile_new(s);
+#if 0
     str_cpy(s->name, "Lukas");
-    str_cpy(s->hero_mapfile, "START");
+    str_cpy(s->mapfile, "START");
     s->hero_pos.x       = 200;
     s->hero_pos.y       = 200;
     s->stamina_upgrades = 1;
@@ -69,7 +70,8 @@ void title_init(title_s *t)
         ((u32)1 << HERO_UPGRADE_CLIMB) |
         0;
 #endif
-    savefile_write(0, s);
+#endif
+    savefile_w(0, s);
     spm_pop();
 #endif
     title_load(t);
@@ -83,10 +85,10 @@ void title_load(title_s *t)
     for (i32 n = 0; n < 3; n++) {
         save_preview_s pr = {0};
 
-        if (savefile_read(n, s)) {
+        if (savefile_r(n, s) == 0) {
             pr.tick   = s->tick;
             pr.exists = 1;
-            str_cpy(pr.name, s->name);
+            // str_cpy(pr.name, s->name);
         }
         t->saves[n] = pr;
     }
@@ -96,8 +98,8 @@ void title_load(title_s *t)
 void title_start_game(g_s *g, i32 slot)
 {
     g->save_slot = slot;
-    g->state     = APP_STATE_GAME;
-    savefile_read(slot, &g->save);
+    APP->state   = APP_STATE_GAME;
+    // savefile_r(slot, &g->save);
     game_load_savefile(g);
 }
 
@@ -185,7 +187,7 @@ void title_pressed_A(g_s *g, title_s *t)
     case TITLE_ST_FILE_SELECTED: {
         switch (t->option) {
         case TITLE_F_START:
-            if (t->saves[t->selected].health) {
+            if (t->saves[t->selected].tick) {
                 title_to_state(t, TITLE_ST_FILE_START, 60);
             } else {
                 title_to_state(t, TITLE_ST_FILE_NEW, 0);
@@ -207,7 +209,7 @@ void title_pressed_A(g_s *g, title_s *t)
     }
     case TITLE_ST_FILE_CPY: {
         t->copy_to = t->option;
-        if (t->saves[t->copy_to].health) {
+        if (t->saves[t->copy_to].tick) {
             title_to_state(t, TITLE_ST_FILE_CPY_CONFIRM, 0);
             t->option = 0;
         } else {
@@ -269,11 +271,12 @@ void title_pressed_A(g_s *g, title_s *t)
             }
             spm_push();
             save_s *s = spm_alloctz(save_s, 1);
-            savefile_empty(s);
+            // savefile_new(s);
 
+#if 0
             mcpy(s->name, t->tinput.c, t->tinput.n + 1);
 
-            str_cpy(s->hero_mapfile, "L_0");
+            str_cpy(s->mapfile, "L_0");
             s->hero_pos.x = 100;
             s->hero_pos.y = 500;
             s->upgrades =
@@ -282,8 +285,8 @@ void title_pressed_A(g_s *g, title_s *t)
                 ((u32)1 << HERO_UPGRADE_HOOK) |
                 ((u32)1 << HERO_UPGRADE_SWIM) |
                 ((u32)1 << HERO_UPGRADE_DIVE);
-
-            savefile_write(t->selected, s);
+#endif
+            savefile_w(t->selected, s);
             spm_pop();     // fallthrough
             title_load(t); // update savefiles
         case 2:            // "cancel"
@@ -542,7 +545,7 @@ void title_render_button(gfx_ctx_s ctx, const char *txt, i32 x, i32 y, i32 frame
 
     rec_i32 rr   = {x + 10, y + 18, 78, 26};
     i32     len  = fnt_length_px(fnt, txt);
-    v2_i32  txtp = {x + trbut.r.w / 2 - len / 2, y + 23};
+    v2_i32  txtp = {x + trbut.w / 2 - len / 2, y + 23};
 
     if (frame) {
         gfx_ctx_s ctxr = ctx;
@@ -620,7 +623,7 @@ void title_render_file_small_preview(title_s *t, i32 slot, f32 a)
     timestr[6] = '0' + timer.m % 10;
     timestr[7] = 'm';
 
-    fnt_draw_ascii(ctx, fnt, namepos, sp->name, SPR_MODE_BLACK);
+    fnt_draw_ascii(ctx, fnt, namepos, (const char *)sp->name, SPR_MODE_BLACK);
     fnt_draw_ascii_mono(ctx, fnts, timep, timestr, SPR_MODE_BLACK, 9);
 }
 

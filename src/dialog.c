@@ -16,6 +16,7 @@ void dialog_parse_string(g_s *g, dialog_s *d, const char *str);
 void dialog_open(g_s *g, const char *tag)
 {
     dialog_s *d = &g->dialog;
+    mclr(d, sizeof(dialog_s));
     dialog_load_tag(g, tag);
     d->state         = DIALOG_ST_OPENING;
     d->tick          = 0;
@@ -191,7 +192,7 @@ void dialog_draw(g_s *g)
 
     i32      tb_y  = 240 - offs_y;
     i32      dt_y  = DIALOG_H_SLIDE - offs_y;
-    texrec_s tr    = {fnt.t, {0, 0, fnt.grid_w, fnt.grid_h}};
+    texrec_s tr    = {fnt.t, 0, 0, fnt.grid_w, fnt.grid_h};
     rec_i32  rfill = {0, PLTF_DISPLAY_H - offs_y, PLTF_DISPLAY_W, offs_y};
 
     gfx_rec_fill(ctx, rfill, GFX_COL_BLACK);
@@ -213,8 +214,8 @@ void dialog_draw(g_s *g)
         for (i32 k = 0; k < line->n_visible; k++) {
             dialog_char_s ch   = line->chars[k];
             v2_i32        posc = pos;
-            tr.r.x             = (ch.c & 31) * fnt.grid_w;
-            tr.r.y             = (ch.c >> 5) * fnt.grid_h;
+            tr.x               = (ch.c & 31) * fnt.grid_w;
+            tr.y               = (ch.c >> 5) * fnt.grid_h;
 
             if (ch.flags_ticks & DIALOG_CFLAG_SHAKE) {
                 posc.x += rngsr_i32(&shake_seed, 0, 1);
@@ -236,9 +237,9 @@ void dialog_draw(g_s *g)
             v2_i32           pos    = {250, 120 + k * 20};
 
             for (u8 *ch = choice->chars; *ch != '\0'; ch++) {
-                i32 c  = *ch;
-                tr.r.x = (c & 31) * fnt.grid_w;
-                tr.r.y = (c >> 5) * fnt.grid_h;
+                i32 c = *ch;
+                tr.x  = (c & 31) * fnt.grid_w;
+                tr.y  = (c >> 5) * fnt.grid_h;
                 gfx_spr(ctx, tr, pos, 0, SPR_MODE_WHITE);
                 pos.x += fnt.widths[c];
             }
@@ -246,7 +247,9 @@ void dialog_draw(g_s *g)
     }
 
     // next page animation
-    switch (d->state) {
+    i32 state_next_page = d->ticks_auto ? 0 : d->state;
+
+    switch (state_next_page) {
     case DIALOG_ST_WAITING_END:
     case DIALOG_ST_WAITING_NEXT: {
         if (d->n_choices) break;

@@ -5,13 +5,18 @@
 #ifndef PLTF_TYPES_H
 #define PLTF_TYPES_H
 
+#define PLTF_DEBUG      1
+#define PLTF_ENABLE_LOG 1
+
+#ifndef PLTF_DEV_ENV // development environment
+#define PLTF_DEV_ENV 0
+#endif
+
 #if 0 // edit PD code files? -> enable PLTF_PD_HW code paths
 #undef PLTF_SDL
 #define PLTF_PD
 #define PLTF_PD_HW
 #endif
-
-#define PLTF_DEBUG 1
 
 #if (!defined(PLTF_PD) && !defined(PLTF_SDL))
 #error NO PLATFORM DEFINED!
@@ -28,23 +33,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
-#if (201112L <= __STDC_VERSION__) // C11 or later
-#if (__STDC_VERSION__ < 202311L)
-#include <stdalign.h>
-#endif
-#define ALIGNAS alignas
-#elif defined(_MSC_VER)
-#define ALIGNAS(X) __declspec(align(X))
-#elif defined(__GNUC__)
-#define ALIGNAS(X) __attribute__((aligned(X)))
-#else
-#error NO ALIGNMENT ATTRIBUTE
-#endif
-
-#define PLTF_SIZE_CL 32
-#define ALIGNCL      ALIGNAS(PLTF_SIZE_CL) // align on PD cache line boundaries
-#define ALIGNT(T)    ALIGNAS(sizeof(T))
 
 typedef char           byte;
 typedef float          f32;
@@ -91,6 +79,28 @@ typedef bool32         b32;
 #define I64_C(X) (X##LL)
 #define U64_C(X) (X##ULL)
 
+// alignment
+#if (201112L <= __STDC_VERSION__)
+#if (__STDC_VERSION__ < 202311L)
+#include <stdalign.h>
+#endif
+#define ALIGNAS alignas
+#define ALIGNOF alignof
+#else // earlier than C11
+// mildly cursed macro but should work alright
+#define ALIGNOF(T) (usize)(offsetof( \
+    struct { byte a; T b; }, b))
+#if defined(_MSC_VER)
+#define ALIGNAS(X) __declspec(align(X))
+#elif defined(__GNUC__)
+#define ALIGNAS(X) __attribute__((aligned(X)))
+#else
+#error NO ALIGNMENT ATTRIBUTE
+#endif
+#endif
+
+#define ALIGNT(T) ALIGNAS(sizeof(T))
+
 #ifdef PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
 #if 1
@@ -123,6 +133,11 @@ typedef struct {
     void *ctx;
 } alloc_s;
 
+typedef struct {
+    void *(*allocfunc)(void *ctx, usize s, usize alignment);
+    void *ctx;
+} allocator_s;
+
 // clang-format off
 #define typedef_struct(NAME)  typedef struct NAME NAME; struct NAME
 #define typedef_union(NAME)   typedef union NAME NAME; union NAME
@@ -130,6 +145,7 @@ typedef struct {
 #define mcpy                  memcpy
 #define mmov                  memmove
 #define mclr(DST, SIZE)       mset(DST, 0, SIZE)
+#define mclr_static_arr(DST)  mset(DST, 0, sizeof(DST))
 #define POW2(X)               ((X) * (X))
 #define GLUE2(A, B)           A##B
 #define GLUE(A, B)            GLUE2(A, B)

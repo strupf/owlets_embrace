@@ -18,7 +18,7 @@ void camattractor_static_load(g_s *g, map_obj_s *mo)
 {
     obj_s          *o = obj_create(g);
     camattractor_s *c = (camattractor_s *)o->mem;
-    o->ID             = OBJ_ID_CAMATTRACTOR;
+    o->ID             = OBJID_CAMATTRACTOR;
     o->pos.x          = mo->x;
     o->pos.y          = mo->y;
     o->cam_attract_r  = 300;

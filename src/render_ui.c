@@ -21,18 +21,18 @@ void render_ui(g_s *g, v2_i32 camoff)
     fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
     hero_s         *h      = ohero ? (hero_s *)ohero->heap : 0;
 
-    obj_s *interactable = obj_from_obj_handle(g->hero_mem.interactable);
+    obj_s *interactable = obj_from_obj_handle(g->hero.interactable);
     if (interactable) {
         v2_i32 posi = obj_pos_center(interactable);
         posi        = v2_add(posi, camoff);
         posi.y -= 64 + 16;
         posi.x -= 32;
-        i32      btn_frame = (g->gameplay_tick >> 5) & 1;
+        i32      btn_frame = (g->tick >> 5) & 1;
         texrec_s tui       = asset_texrec(TEXID_UI, 64 + btn_frame * 64, 0, 64, 64);
         gfx_spr(ctx, tui, posi, 0, 0);
     }
 
-    if (ohero && g->save.stamina_upgrades && g->hero_mem.stamina_ui_fade_out) {
+    if (ohero && g->hero.stamina_upgrades && g->hero.stamina_ui_fade_out) {
         render_stamina_ui(g, ohero, camoff);
     }
 
@@ -40,6 +40,7 @@ void render_ui(g_s *g, v2_i32 camoff)
         render_weapon_drop_ui(g, ohero, camoff);
     }
 
+#if 0
     if (g->areaname.fadeticks) {
         gfx_ctx_s ctx_af = ctx;
         texrec_s  tlabel = asset_texrec(TEXID_AREALABEL, 0, 0, 256, 64);
@@ -57,6 +58,7 @@ void render_ui(g_s *g, v2_i32 camoff)
 
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
+#endif
 
     if (g->save_ticks) {
         i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
@@ -84,7 +86,7 @@ void render_ui(g_s *g, v2_i32 camoff)
     gfx_ctx_s ctxcoin     = gfx_ctx_default(cointex);
     fnt_s     font_c      = asset_fnt(FNTID_SMALL);
     char      coins_l[16] = {0};
-    strs_from_u32(g->save.coins, coins_l);
+    strs_from_u32(g->hero.coins, coins_l);
     i32    coinstrl = fnt_length_px_mono(font_c, coins_l, COIN_MONO_SPACING);
     v2_i32 coinpos  = {COIN_POS_END_X - coinstrl, 8};
     fnt_draw_ascii_mono(ctxcoin, font_c, coinpos, coins_l, SPR_MODE_BLACK, COIN_MONO_SPACING);
@@ -101,8 +103,8 @@ void render_ui(g_s *g, v2_i32 camoff)
     }
     tex_outline_white(cointex);
     tex_outline_white(cointex);
-    texrec_s trcoin = {cointex, {0, 0, 100, 60}};
-    gfx_spr(ctx, trcoin, (v2_i32){300, 0}, 0, 0);
+    texrec_s trcoin = {cointex, 0, 0, 100, 60};
+    // gfx_spr(ctx, trcoin, (v2_i32){300, 0}, 0, 0);
     spm_pop();
 
     if (hero_present_and_alive(g, &ohero)) {
@@ -136,7 +138,7 @@ void render_ui(g_s *g, v2_i32 camoff)
 
 void render_weapon_drop_ui(g_s *g, obj_s *o, v2_i32 camoff)
 {
-    hero_s *h = &g->hero_mem;
+    hero_s *h = &g->hero;
     if (h->holds_weapon < 2) return;
 
     gfx_ctx_s ctx = gfx_ctx_display();
@@ -164,12 +166,12 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
     v2_i32    p   = v2_add(o->pos, camoff);
 
 #if 1
-    i32 wi_total = 28 + (g->save.stamina_upgrades - 1) * 3;
+    i32 wi_total = 28 + (g->hero.stamina_upgrades - 1) * 3;
 #else
     i32 wi_total = g->save.flyupgrades * 12;
 #endif
 
-    i32 wi = (wi_total * g->hero_mem.stamina_ui_fade_out) / STAMINA_UI_TICKS_HIDE;
+    i32 wi = (wi_total * g->hero.stamina_ui_fade_out) / STAMINA_UI_TICKS_HIDE;
 
     i32     ft0    = hero_stamina_max(g, o);
     i32     ftx    = hero_stamina_ui_full(g, o);
@@ -193,8 +195,8 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
     gfx_rec_rounded_fill(ctxc, rsta_3, -1, GFX_COL_WHITE);
     gfx_rec_rounded_fill(ctxb, rsta_2, -1, GFX_COL_WHITE);
 
-    for (i32 n = 0; n < g->save.stamina_upgrades - 1; n++) {
-        i32     pp = (rsta.w * (n + 1)) / g->save.stamina_upgrades;
+    for (i32 n = 0; n < g->hero.stamina_upgrades - 1; n++) {
+        i32     pp = (rsta.w * (n + 1)) / g->hero.stamina_upgrades;
         rec_i32 rr = {rsta.x + pp, rsta.y + 3, 1, rsta.h - 6};
         gfx_rec_fill(ctx, rr, GFX_COL_BLACK);
     }
@@ -202,6 +204,8 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
 
 void prerender_area_label(g_s *g)
 {
+
+#if 0
     fnt_s     font_1 = asset_fnt(FNTID_AREA_LABEL);
     gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
     tex_clr(ctx.dst, GFX_COL_CLEAR);
@@ -209,6 +213,7 @@ void prerender_area_label(g_s *g)
     fnt_draw_ascii(ctx, font_1, loc, g->areaname.label, SPR_MODE_BLACK);
     tex_outline_white(ctx.dst);
     tex_outline_white(ctx.dst);
+#endif
 }
 
 #define WORLD_GRID_W PLTF_DISPLAY_W
@@ -230,7 +235,7 @@ v2_i32 mapview_screen_from_world_q8(v2_i32 wpos_q8, v2_i32 ctr_wpos_q8, i32 w, i
 
 void render_map(g_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, v2_i32 c_q8)
 {
-
+#if 0
     rec_i32 rfill = {0, 0, ctx.dst.w, ctx.dst.h};
     gfx_rec_fill(ctx, rfill, PRIM_MODE_BLACK);
     v2_i32 offs = {x, y};
@@ -302,19 +307,23 @@ void render_map(g_s *g, gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h, i32 s_q8, v2_
             }
         }
     }
+#endif
 
-    for (i32 n = 0; n < g->save.n_map_pins; n++) {
-        map_pin_s p      = g->save.map_pins[n];
+#if 0
+    for (i32 n = 0; n < g->hero_mem.n_map_pins; n++) {
+        map_pin_s p      = g->hero_mem.map_pins[n];
         texrec_s  tpin   = asset_texrec(TEXID_UI, 256 + p.type * 32, 192, 32, 32);
         v2_i32    pinpos = v2_add(offs, mapview_screen_from_world_q8(p.pos, c_q8, w, h, s_q8));
         pinpos.x -= 16;
         pinpos.y -= 16;
         gfx_spr(ctx, tpin, pinpos, 0, 0);
     }
+#endif
 }
 
 void render_pause(g_s *g)
 {
+#if 0
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
 
     if (g->substate == SUBSTATE_MENUSCREEN || !ohero) {
@@ -337,4 +346,5 @@ void render_pause(g_s *g)
         }
         // sys_set_menu_image(tex.px, tex.h, tex.wword << 2);
     }
+#endif
 }

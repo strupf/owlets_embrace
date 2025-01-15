@@ -24,21 +24,22 @@ const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
     10,
     25};
 
-void maptransition_init(g_s *g, const char *file, i32 type, v2_i32 hero_feet)
+void maptransition_init(g_s *g, u32 map_hash, i32 type, v2_i32 hero_feet)
 {
     maptransition_s *mt = &g->maptransition;
-    str_cpy(mt->to_load, file);
-    mt->dir        = 0;
-    mt->type       = type;
-    mt->hero_feet  = hero_feet;
-    mt->fade_tick  = 0;
-    mt->fade_phase = 1;
-    g->substate    = SUBSTATE_MAPTRANSITION;
+    mt->map_hash        = map_hash;
+    mt->dir             = 0;
+    mt->type            = type;
+    mt->hero_feet       = hero_feet;
+    mt->fade_tick       = 0;
+    mt->fade_phase      = 1;
+    g->substate         = SUBSTATE_MAPTRANSITION;
+    grapplinghook_destroy(g, &g->ghook);
 }
 
-void maptransition_teleport(g_s *g, const char *map, v2_i32 hero_feet)
+void maptransition_teleport(g_s *g, u32 map_hash, v2_i32 hero_feet)
 {
-    maptransition_init(g, map, MAPTRANSITION_TYPE_TELEPORT, hero_feet);
+    maptransition_init(g, map_hash, MAPTRANSITION_TYPE_TELEPORT, hero_feet);
 }
 
 bool32 maptransition_try_hero_slide(g_s *g)
@@ -47,10 +48,6 @@ bool32 maptransition_try_hero_slide(g_s *g)
 
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!o || o->health == 0) return 0;
-    if (!g->map_worldroom) {
-        BAD_PATH
-        return 0;
-    }
 
     i32 touchedbounds = 0;
     if (o->pos.x <= 0)
@@ -65,43 +62,50 @@ bool32 maptransition_try_hero_slide(g_s *g)
     if (!touchedbounds) return 0;
 
     rec_i32 aabb = obj_aabb(o);
-    v2_i32  vdir = direction_v2(touchedbounds);
-    aabb.x += vdir.x + g->map_worldroom->x;
-    aabb.y += vdir.y + g->map_worldroom->y;
 
-    map_worldroom_s *nextroom = map_world_overlapped_room(&g->map_world, g->map_worldroom, aabb);
+    map_neighbor_s *neighbor = 0;
+    for (i32 n = 0; n < NUM_MAP_NEIGHBORS; n++) {
+        map_neighbor_s *mn = &g->map_neighbors[n];
+        if (mn->hash == 0) break;
 
-    if (!nextroom) {
+        rec_i32 rn = {mn->x, mn->y, mn->w, mn->h};
+        if (overlap_rec_touch(aabb, rn)) {
+            neighbor = mn;
+            break;
+        }
+    }
+
+    if (!neighbor) {
         pltf_log("no room\n");
         return 0;
     }
 
-    rec_i32 nr      = {nextroom->x, nextroom->y, nextroom->w, nextroom->h};
-    rec_i32 trgaabb = obj_aabb(o);
-    trgaabb.x += g->map_worldroom->x - nr.x;
-    trgaabb.y += g->map_worldroom->y - nr.y;
+    aabb.x -= neighbor->x;
+    aabb.y -= neighbor->y;
 
     v2_i16 hvel = o->v_q8;
+
     switch (touchedbounds) {
     case DIRECTION_E:
-        trgaabb.x = 8;
+        aabb.x = 8;
         break;
     case DIRECTION_W:
-        trgaabb.x = nr.w - trgaabb.w - 8;
+        aabb.x = neighbor->w - aabb.w - 8;
         break;
     case DIRECTION_N:
-        trgaabb.y = nr.h - trgaabb.h - 8;
-        hvel.y    = min_i32(hvel.y, -1200);
+        aabb.y = neighbor->h - aabb.h - 8;
+        hvel.y = min_i32(hvel.y, -1200);
         break;
     case DIRECTION_S:
-        trgaabb.y = 8;
-        hvel.y    = 512;
+        aabb.y = 2;
+        hvel.y = 512;
         break;
     }
 
-    v2_i32 feet = {trgaabb.x + trgaabb.w / 2, trgaabb.y + trgaabb.h};
-    maptransition_init(g, nextroom->filename, MAPTRANSITION_TYPE_SLIDE, feet);
-    mt->dir = touchedbounds;
+    v2_i32 feet = {aabb.x + aabb.w / 2, aabb.y + aabb.h};
+    maptransition_init(g, neighbor->hash, MAPTRANSITION_TYPE_SLIDE, feet);
+    mt->dir       = touchedbounds;
+    mt->hero_v_q8 = hvel;
     return 1;
 }
 
@@ -124,27 +128,19 @@ void maptransition_update(g_s *g)
     }
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
-    game_load_map(g, mt->to_load);
-    obj_s *hero          = obj_get_hero(g);
-    hero->pos.x          = mt->hero_feet.x - hero->w / 2;
-    hero->pos.y          = mt->hero_feet.y - hero->h;
-    v2_i32  hpos         = obj_pos_center(hero);
-    u32     respawn_d    = U32_MAX;
-    v2_i16 *resp_closest = 0;
-    for (u32 n = 0; n < g->n_respawns; n++) {
-        v2_i16 *rp = &g->respawns[n];
-        u32     d  = v2_distancesq(hpos, v2_i32_from_i16(*rp));
-        if (d < respawn_d) {
-            respawn_d    = d;
-            resp_closest = rp;
+    game_load_map(g, mt->map_hash);
+    obj_s *ohero = obj_get_hero(g);
+    if (ohero) {
+        ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
+        ohero->pos.y = mt->hero_feet.y - ohero->h;
+        if (mt->dir) {
+            ohero->v_q8 = mt->hero_v_q8;
         }
     }
-
-    if (resp_closest) {
-        g->save.hero_pos = v2_i32_from_i16(*resp_closest);
-        game_save_savefile(g);
-    }
-    game_prepare_new_map(g);
+    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    objs_animate(g);
+    aud_allow_playing_new_snd(1);
+    cam_init_level(g, &g->cam);
 }
 
 void maptransition_draw(g_s *g, v2_i32 cam)

@@ -3,11 +3,10 @@
 // =============================================================================
 
 #include "spm.h"
-
-SPM_s SPM;
+#include "app.h"
 
 static void  *spm_alloc_ctx(void *ctx, usize s);
-const alloc_s spm_allocator = {spm_alloc_ctx, NULL};
+const alloc_s spm_allocator = {spm_alloc_ctx, 0};
 
 static void *spm_alloc_ctx(void *ctx, usize s)
 {
@@ -16,39 +15,40 @@ static void *spm_alloc_ctx(void *ctx, usize s)
 
 void spm_init()
 {
-    memarena_init(&SPM.m, SPM.mem, sizeof(SPM.mem));
-    SPM.lowestleft = sizeof(SPM.mem);
+    marena_init(&APP->spm.m, APP->spm.mem, sizeof(APP->spm.mem));
+#if PLTF_DEV_ENV
+    APP->spm.lowestleft = sizeof(APP->spm.mem);
+#endif
 }
 
 void spm_push()
 {
-
-    SPM.stack[SPM.n_stack++] = memarena_state(&SPM.m);
+    APP->spm.stack[APP->spm.n_stack++] = marena_p(&APP->spm.m);
 }
 
 void spm_pop()
 {
-    assert(0 < SPM.n_stack);
-    void *p = SPM.stack[--SPM.n_stack];
-    memarena_reset_to(&SPM.m, p);
+    assert(0 < APP->spm.n_stack);
+    void *p = APP->spm.stack[--APP->spm.n_stack];
+    marena_reset(&APP->spm.m, p);
 }
 
 void spm_align(usize alignment)
 {
-    memarena_align(&SPM.m, alignment);
+    marena_align(&APP->spm.m, alignment);
 }
 
 void *spm_alloc(usize s)
 {
-    void *mem = memarena_alloc(&SPM.m, s);
-    assert(mem);
-#ifdef PLTF_DEBUG
-    usize rem = memarena_size_rem(&SPM.m);
-    if (!SPM.lowestleft_disabled && rem < SPM.lowestleft) {
-        SPM.lowestleft = rem;
-        pltf_log("+++ lowest SPM left: %u kb\n", (u32)(rem / 1024));
+    void *mem = marena_alloc(&APP->spm.m, s);
+#if PLTF_DEV_ENV
+    usize rem = marena_rem(&APP->spm.m);
+    if (rem < APP->spm.lowestleft) {
+        pltf_log("SPM: %u kb\n", (u32)rem / 1024);
+        APP->spm.lowestleft = rem;
     }
 #endif
+    assert(mem);
     return mem;
 }
 
@@ -57,31 +57,41 @@ void *spm_allocz(usize s)
     void *mem = spm_alloc(s);
     if (mem) {
         mclr(mem, s);
-    } else {
-        BAD_PATH
     }
     return mem;
 }
 
 void *spm_alloc_aligned(usize s, usize alignment)
 {
-    spm_align(alignment);
-    return spm_alloc(s);
+    void *mem = marena_alloc_aligned(&APP->spm.m, s, alignment);
+#if PLTF_DEV_ENV
+    usize rem = marena_rem(&APP->spm.m);
+    if (rem < APP->spm.lowestleft) {
+        pltf_log("SPM: %u kb\n", (u32)rem / 1024);
+        APP->spm.lowestleft = rem;
+    }
+#endif
+    return mem;
 }
 
 void *spm_allocz_aligned(usize s, usize alignment)
 {
-    spm_align(alignment);
-    return spm_allocz(s);
+    void *mem = spm_alloc_aligned(s, alignment);
+    if (mem) {
+        mclr(mem, s);
+    }
+    return mem;
 }
 
 void *spm_alloc_rem(usize *s)
 {
-    return memarena_alloc_rem(&SPM.m, s);
+    return marena_alloc_rem(&APP->spm.m, s);
 }
 
-void spm_reset()
+void spm_reset(void *p)
 {
-    memarena_reset(&SPM.m);
-    SPM.n_stack = 0;
+    marena_reset(&APP->spm.m, p);
+    if (!p) {
+        APP->spm.n_stack = 0;
+    }
 }

@@ -10,6 +10,6 @@ void obj_interact(g_s *g, obj_s *o, obj_s *ohero)
 
     switch (o->ID) {
     default: break;
-    case OBJ_ID_NPC: npc_on_interact(g, o); break;
+    case OBJID_NPC: npc_on_interact(g, o); break;
     }
 }

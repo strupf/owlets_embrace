@@ -25,18 +25,18 @@ typedef struct {
 static bool32 crawler_can_crawl(g_s *g, obj_s *o, rec_i32 aabb, i32 dir)
 {
     v2_i32  cp = direction_v2(dir);
-    rec_i32 rr = translate_rec(aabb, cp);
-    if (!map_traversable(g, rr)) return 0;         // direction blocked
+    rec_i32 rr = translate_rec(aabb, cp.x, cp.y);
+    if (!!map_blocked(g, rr)) return 0;            // direction blocked
     rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h}; // check if there is a solid surface on the side
     rec_i32 r2 = {rr.x, rr.y - 1, rr.w, rr.h + 2};
-    return !(map_traversable(g, r1) && map_traversable(g, r2));
+    return !(!map_blocked(g, r1) && !map_blocked(g, r2));
 }
 
 static i32 crawler_find_crawl_direction(g_s *g, obj_s *o, i32 dir)
 {
     // const rec_i32 rbounds = {o->pos.x - 2, o->pos.y - 2, o->w + 4, o->h + 4};
     const rec_i32 rbounds = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
-    if (map_traversable(g, rbounds)) // check if any surface nearby
+    if (!map_blocked(g, rbounds)) // check if any surface nearby
         return 0;
 
     i32           dr   = rngr_i32(1, 8);
@@ -67,10 +67,10 @@ static void crawler_do_normal(g_s *g, obj_s *o)
     o->timer++;
     bool32 domove = 1;
     switch (o->ID) { // movement speed
-    case OBJ_ID_CRAWLER:
+    case OBJID_CRAWLER:
         if (o->timer & 1) domove = 0;
         break;
-    case OBJ_ID_CRAWLER_CATERPILLAR:
+    case OBJID_CRAWLER_CATERPILLAR:
         if (o->timer & 3) domove = 0;
         break;
     default: break;
@@ -113,16 +113,16 @@ void crawler_on_animate(g_s *g, obj_s *o)
         switch (o->action) {
         case DIRECTION_S: {
             imgy = 2;
-            if (!map_traversable(g, obj_rec_right(o)))
+            if (!!map_blocked(g, obj_rec_right(o)))
                 spr->flip = SPR_FLIP_X;
         } break;
         case DIRECTION_N: {
             imgy = 6;
-            if (!map_traversable(g, obj_rec_left(o)))
+            if (!!map_blocked(g, obj_rec_left(o)))
                 spr->flip = SPR_FLIP_X;
         } break;
         case DIRECTION_E: {
-            if (!map_traversable(g, obj_rec_top(o))) {
+            if (!!map_blocked(g, obj_rec_top(o))) {
                 imgy      = 4;
                 spr->flip = SPR_FLIP_X;
             } else {
@@ -130,7 +130,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
             }
         } break;
         case DIRECTION_W: {
-            if (!map_traversable(g, obj_rec_bottom(o))) {
+            if (!!map_blocked(g, obj_rec_bottom(o))) {
                 imgy      = 0;
                 spr->flip = SPR_FLIP_X;
             } else {
@@ -139,7 +139,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
         } break;
         case DIRECTION_SE: {
             rec_i32 rr = {o->pos.x - 1, o->pos.y, o->w + 1, o->h + 1};
-            if (!map_traversable(g, rr)) {
+            if (!!map_blocked(g, rr)) {
                 imgy = 1;
             } else {
                 imgy      = 3;
@@ -148,7 +148,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
         } break;
         case DIRECTION_SW: {
             rec_i32 rr = {o->pos.x - 1, o->pos.y - 1, o->w + 1, o->h + 1};
-            if (!map_traversable(g, rr)) {
+            if (!!map_blocked(g, rr)) {
                 imgy = 3;
             } else {
                 imgy      = 1;
@@ -157,7 +157,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
         } break;
         case DIRECTION_NE: {
             rec_i32 rr = {o->pos.x, o->pos.y, o->w + 1, o->h + 1};
-            if (!map_traversable(g, rr)) {
+            if (!!map_blocked(g, rr)) {
                 imgy = 7;
             } else {
                 imgy      = 5;
@@ -166,7 +166,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
         } break;
         case DIRECTION_NW: {
             rec_i32 rr = {o->pos.x, o->pos.y - 1, o->w + 1, o->h + 1};
-            if (!map_traversable(g, rr)) {
+            if (!!map_blocked(g, rr)) {
                 imgy = 5;
             } else {
                 imgy      = 7;
@@ -179,18 +179,18 @@ void crawler_on_animate(g_s *g, obj_s *o)
         imgy = (crawler->bounce_angle_q12 >> 9) & 7;
     }
 
-    if (o->ID == OBJ_ID_CRAWLER_CATERPILLAR) {
-        spr->trec.r.x = 64 * ((o->subtimer / 18) & 3) + 256;
+    if (o->ID == OBJID_CRAWLER_CATERPILLAR) {
+        spr->trec.x = 64 * ((o->subtimer / 18) & 3) + 256;
     } else {
-        spr->trec.r.x = 64 * ((o->subtimer >> 3) & 1);
+        spr->trec.x = 64 * ((o->subtimer >> 3) & 1);
     }
 
-    spr->trec.r.y = imgy * 64;
+    spr->trec.y = imgy * 64;
 }
 
 static void crawler_load_i(g_s *g, map_obj_s *mo, i32 ID)
 {
-    assert(ID == OBJ_ID_CRAWLER || ID == OBJ_ID_CRAWLER_CATERPILLAR);
+    assert(ID == OBJID_CRAWLER || ID == OBJID_CRAWLER_CATERPILLAR);
     obj_s *o = obj_create(g);
     o->ID    = ID;
     o->flags = OBJ_FLAG_MOVER |
@@ -201,7 +201,7 @@ static void crawler_load_i(g_s *g, map_obj_s *mo, i32 ID)
     o->render_priority = 1;
     o->w               = 15;
     o->h               = 15;
-    o->health_max      = ID == OBJ_ID_CRAWLER ? 2 : 1;
+    o->health_max      = ID == OBJID_CRAWLER ? 2 : 1;
     o->health          = o->health_max;
     o->enemy           = enemy_default();
     obj_sprite_s *spr  = &o->sprites[0];
@@ -227,12 +227,12 @@ static void crawler_load_i(g_s *g, map_obj_s *mo, i32 ID)
 
 void crawler_load(g_s *g, map_obj_s *mo)
 {
-    crawler_load_i(g, mo, OBJ_ID_CRAWLER);
+    crawler_load_i(g, mo, OBJID_CRAWLER);
 }
 
 void crawler_caterpillar_load(g_s *g, map_obj_s *mo)
 {
-    crawler_load_i(g, mo, OBJ_ID_CRAWLER_CATERPILLAR);
+    crawler_load_i(g, mo, OBJID_CRAWLER_CATERPILLAR);
 }
 
 void crawler_on_weapon_hit(g_s *g, obj_s *o, hitbox_s hb)
