@@ -91,9 +91,10 @@ bool32 qoa_mus_start(qoa_mus_s *q, void *f)
     q->v_q8                = 256;
     q->flags               = 1;
     qoa_file_header_s head = {0};
+
     pltf_file_seek_set(f, q->seek);
     pltf_file_r(f, &head, sizeof(qoa_file_header_s));
-    q->num_slices = qoa_num_slices(head.num_samples) * 2;
+    q->num_slices = qoa_num_slices(head.num_samples) * head.num_channels;
     q->n_channels = head.num_channels;
     qoa_mus_rewind(q);
     qoa_mus_next_slice(q);
@@ -263,7 +264,7 @@ void qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len)
             }
         }
 
-        for (u32 c = 0; c < n_channels; c++) {
+        for (i32 c = 0; c < n_channels; c++) {
             *b[c] = i16_adds((i32)*b[c], mul_q16(v_q16[c], q->sample));
             (b[c])++;
         }

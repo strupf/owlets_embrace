@@ -15,7 +15,7 @@ void flyer_on_update(g_s *g, obj_s *o)
     o->timer++;
     flyer_s *f  = (flyer_s *)o->mem;
     i32      i  = cos_q16((o->timer << 10) + 0x20000) + 0x10000;
-    v2_i32   p  = v2_lerp(f->p0, f->p1, i, 0x20000);
+    v2_i32   p  = v2_i32_lerp(f->p0, f->p1, i, 0x20000);
     i32      dx = sgn_i32(o->pos.x - p.x);
     o->pos      = p;
 
@@ -58,8 +58,6 @@ void flyer_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_SPRITE |
                OBJ_FLAG_KILL_OFFSCREEN;
-    o->on_update  = flyer_on_update;
-    o->on_animate = flyer_on_animate;
     o->w          = 24;
     o->h          = 24;
     o->health_max = 3;

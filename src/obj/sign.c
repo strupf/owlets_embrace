@@ -38,7 +38,7 @@ void sign_popup_on_update(g_s *g, obj_s *o)
     if (ohero) {
         v2_i32 p1 = obj_pos_center(ohero);
         v2_i32 p2 = obj_pos_center(o);
-        u32    dt = v2_distancesq(p1, p2);
+        u32    dt = v2_i32_distancesq(p1, p2);
         if (dt < 1000) {
             o->timer++;
             return;
@@ -58,7 +58,7 @@ void sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     fnt_s fnt         = asset_fnt(FNTID_SMALL);
 
     v2_i32 pos = {0};
-    fnt_draw_ascii(ctx, fnt, v2_add(pos, cam), NULL, 0);
+    fnt_draw_ascii(ctx, fnt, v2_i32_add(pos, cam), NULL, 0);
 }
 
 void sign_on_interact(g_s *g, obj_s *o)
@@ -74,7 +74,6 @@ obj_s *sign_create(g_s *g)
     o->ID    = OBJID_SIGN;
     o->flags = OBJ_FLAG_INTERACTABLE |
                OBJ_FLAG_SPRITE;
-    o->on_interact     = sign_on_interact;
     o->render_priority = -10;
     o->n_sprites       = 1;
     obj_sprite_s *spr  = &o->sprites[0];

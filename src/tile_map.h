@@ -53,6 +53,8 @@ enum {
     //
     TILE_TYPE_BRIGHT_BEG               = 11,
     TILE_TYPE_BRIGHT_STONE             = 11,
+    TILE_TYPE_BRIGHT_SNOW              = 12,
+    TILE_TYPE_BRIGHT_BREAKING          = 13,
     TILE_TYPE_BRIGHT_END               = 18,
     //
     TILE_TYPE_THORNS                   = 19,
@@ -73,22 +75,6 @@ static inline i32 tile_type_render_priority(i32 type)
 #define TILE_IS_BLOCK(X)    (TILE_BLOCK == (X))
 #define TILE_IS_SLOPE_45(X) (TILE_SLOPE_45_0 <= (X) && (X) <= TILE_SLOPE_45_3)
 #define TILE_IS_SHAPE(X)    (1 <= (X) && (X) < NUM_TILE_SHAPES)
-
-typedef struct {
-    i32   n;
-    v2_i8 c[4];
-} tile_corners_s;
-
-typedef struct {
-    v2_i32 a;
-    v2_i32 b;
-    v2_i32 nor_q8; // normal vector pointing away in Q8
-} tile_wall_s;
-
-typedef struct {
-    i32         n;
-    tile_wall_s w[4];
-} tile_walls_s;
 
 typedef struct {
     i32     n;
@@ -127,8 +113,8 @@ enum {
 
 i32 map_climbable_pt(g_s *g, i32 x, i32 y);
 
-extern const tile_corners_s g_tile_corners[NUM_TILE_SHAPES];
-extern const i32            g_tile_tris[NUM_TILE_SHAPES * 12];
+extern const i32     g_tile_tris[NUM_TILE_SHAPES * 12];
+extern const tri_i16 g_tiletris[NUM_TILE_SHAPES];
 
 typedef struct {
     i32 x1, y1, x2, y2;

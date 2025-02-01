@@ -126,10 +126,6 @@ void npc_load(g_s *g, map_obj_s *mo)
                     OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_SLIDE_Y_NEG;
-
-    o->on_update       = npc_on_update;
-    o->on_animate      = npc_on_animate;
-    o->on_interact     = npc_on_interact;
     o->render_priority = 1;
     o->w               = 16;
     o->h               = 20;

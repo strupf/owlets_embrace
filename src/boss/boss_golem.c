@@ -40,7 +40,7 @@ void boss_golem_slam_end(g_s *g, boss_golem_s *b);
 
 void boss_golem_init(g_s *g, boss_golem_s *b)
 {
-    if (saveID_has(g, SAVEID_BOSS_GOLEM)) return;
+    if (save_event_exists(g, SAVE_EV_BOSS_GOLEM)) return;
 
     b->tx = 26;
     b->ty = 25;
@@ -63,7 +63,7 @@ void boss_golem_init(g_s *g, boss_golem_s *b)
 
 void boss_golem_defeated(g_s *g, boss_golem_s *b)
 {
-    saveID_put(g, SAVEID_BOSS_GOLEM);
+    save_event_register(g, SAVE_EV_BOSS_GOLEM);
     for (i32 n = 0; n < b->n_platforms; n++) {
         obj_delete(g, b->platforms[n]);
     }
@@ -220,7 +220,7 @@ void boss_golem_draw(g_s *g, boss_golem_s *b, v2_i32 cam)
     case BOSS_GOLEM_P_SLAM: {
         for (i32 n = 0; n < b->n_platforms; n++) {
             obj_s *o = b->platforms[n];
-            v2_i32 p = v2_add(o->pos, cam);
+            v2_i32 p = v2_i32_add(o->pos, cam);
             p.x &= ~1;
             p.y &= ~1;
             render_tile_terrain_block(ctx, p, o->w >> 4, o->h >> 4,

@@ -36,12 +36,13 @@ void staminarestorer_on_animate(g_s *g, obj_s *o)
     o->timer++;
 
     switch (o->state) {
-    case STAMINARESTORER_ACTIVE:
+    case STAMINARESTORER_ACTIVE: {
         i32 t = o->timer & 127;
         if (t < 18) {
             frameID = (4 * t) / 18;
         }
         break;
+    }
     case STAMINARESTORER_HIDDEN:
         frameID = 4;
         break;

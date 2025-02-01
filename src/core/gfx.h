@@ -6,7 +6,6 @@
 #define GFX_H
 
 #include "pltf/pltf.h"
-#include "util/mem.h"
 
 enum {
     TEX_FMT_OPAQUE, // only color pixels
@@ -52,10 +51,19 @@ typedef struct {
 } gfx_ctx_s;
 
 typedef struct {
-    tex_s t;
-    u8   *widths;
-    u16   grid_w;
-    u16   grid_h;
+    u8 c1;
+    u8 c2;
+    u8 space;
+} fnt_kerning_s;
+
+typedef struct {
+    tex_s          t;
+    u8            *widths;
+    fnt_kerning_s *kerning;
+    u16            n_kerning;
+    i16            tracking;
+    u8             grid_w;
+    u8             grid_h;
 } fnt_s;
 
 typedef struct {
@@ -63,6 +71,11 @@ typedef struct {
     i32 n;
     i32 cap;
 } fntstr_s;
+
+typedef struct {
+    u32 w;
+    u32 h;
+} tex_header_s;
 
 enum {
     SPR_FLIP_X  = 1, // kBitmapFlippedX
@@ -102,6 +115,7 @@ i32           tex_create_ext(i32 w, i32 h, b32 mask, allocator_s a, tex_s *o_t);
 tex_s         tex_create(i32 w, i32 h, alloc_s ma);
 tex_s         tex_create_opaque(i32 w, i32 h, alloc_s ma);
 tex_s         tex_load(const char *path, alloc_s ma);
+texrec_s      texrec_from_tex(tex_s t);
 i32           tex_px_at(tex_s tex, i32 x, i32 y);
 i32           tex_mk_at(tex_s tex, i32 x, i32 y);
 void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
@@ -141,6 +155,7 @@ void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, 
 void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 x, bool32 y);
 //
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
+void gfx_rec_fill_opaque(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
 void gfx_rec_strip(gfx_ctx_s ctx, i32 rx, i32 ry, i32 rw, i32 mode);
 void gfx_rec_rounded_fill(gfx_ctx_s ctx, rec_i32 rec, i32 r, i32 mode);
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, i32 mode);

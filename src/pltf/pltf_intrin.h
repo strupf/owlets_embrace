@@ -251,7 +251,7 @@ static i32 clz32(u32 v) // undefined for 0
 {
     ulong m = (ulong)v;
     ulong r = 0;
-    _BitScanReverse(&r, &m);
+    _BitScanReverse(&r, m);
     return (31 - (i32)r);
 }
 #else

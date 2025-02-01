@@ -271,7 +271,7 @@ void dialog_draw(g_s *g)
                                          176 + fr_y_arrow * 32,
                                          32, 32);
 
-        gfx_spr(ctx, tr_arrow, (v2_i32){400 - 32, 240 - 50}, 0, 0);
+        gfx_spr(ctx, tr_arrow, CINIT(v2_i32){400 - 32, 240 - 50}, 0, 0);
         break;
     }
     }

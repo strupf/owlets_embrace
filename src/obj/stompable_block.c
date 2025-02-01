@@ -12,7 +12,7 @@ typedef struct {
 void stompable_block_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (saveID_has(g, saveID)) return;
+    if (save_event_exists(g, saveID)) return;
 
     obj_s             *o = obj_create(g);
     stompable_block_s *b = (stompable_block_s *)o->mem;
@@ -40,5 +40,5 @@ void stompable_block_on_animate(g_s *g, obj_s *o)
 void stompable_block_on_destroy(g_s *g, obj_s *o)
 {
     stompable_block_s *b = (stompable_block_s *)o->mem;
-    saveID_put(g, b->saveID);
+    save_event_register(g, b->saveID);
 }

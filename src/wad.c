@@ -12,7 +12,7 @@ i32 wad_init_file(const void *filename)
 {
     if (!filename) return WAD_ERR_OPEN;
 
-    void *f = pltf_file_open_r(filename);
+    void *f = pltf_file_open_r((const char *)filename);
     if (!f) return WAD_ERR_OPEN;
 
     wad_s       *w   = &APP->wad;
@@ -22,7 +22,7 @@ i32 wad_init_file(const void *filename)
     if (pltf_file_rs(f, &wh, sizeof(wad_header_s))) {
         spm_push();
         usize          s_entries = sizeof(wad_el_file_s) * wh.n_entries;
-        wad_el_file_s *f_entries = spm_alloct(wad_el_file_s, wh.n_entries);
+        wad_el_file_s *f_entries = spm_alloctn(wad_el_file_s, wh.n_entries);
 
         if (pltf_file_rs(f, f_entries, s_entries)) {
             wad_file_info_s *i = &w->files[w->n_files++];
@@ -109,7 +109,8 @@ void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name)
     if (!e) return 0;
 
     void *dst = spm_alloc(e->size);
-    pltf_file_r(f, dst, e->size);
+    if (!pltf_file_rs(f, dst, e->size))
+        return 0;
     return dst;
 }
 
@@ -128,7 +129,8 @@ void *wad_r_str(void *f, wad_el_s *efrom, const void *name, void *dst)
     wad_el_s *e = wad_seek_str(f, efrom, name);
     if (!e) return 0;
 
-    pltf_file_r(f, dst, e->size);
+    if (!pltf_file_rs(f, dst, e->size))
+        return 0;
     return dst;
 }
 

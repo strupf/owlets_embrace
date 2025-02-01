@@ -21,6 +21,7 @@
 #define PLTF_DISPLAY_WBYTES    52
 #define PLTF_DISPLAY_WWORDS    13
 #define PLTF_DISPLAY_NUM_WORDS 3120
+#define PLTF_DISPLAY_BYTES     12480
 //
 #define PLTF_UPS_DT            0.0200f // elapsed seconds per update step (1/UPS)
 #define PLTF_UPS_DT_TEST       0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
@@ -88,5 +89,8 @@ void   pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   pltf_internal_close();
 void   pltf_internal_pause();
 void   pltf_internal_resume();
+//
+void  *pltf_mem_alloc_aligned(usize s, usize alignment);
+void   pltf_mem_free_aligned(void *p);
 
 #endif

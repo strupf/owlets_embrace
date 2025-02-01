@@ -7,13 +7,13 @@
 
 static areafx_cloud_s *areafx_cloud_create(areafx_clouds_s *fx)
 {
-    if (fx->n == AREAFX_CLOUDS) return NULL;
+    if (fx->n == AREAFX_CLOUDS) return 0;
     areafx_cloud_s *c = &fx->clouds[fx->n++];
-    *c                = (areafx_cloud_s){0};
-    fx->dirty         = 1;
-    c->t              = asset_texrec(TEXID_CLOUDS, 0, 0, 0, 0);
-    i32 roll          = rngr_i32(0, 100);
-    i32 size          = 0;
+    mclr(c, sizeof(areafx_clouds_s));
+    fx->dirty = 1;
+    c->t      = asset_texrec(TEXID_CLOUDS, 0, 0, 0, 0);
+    i32 roll  = rngr_i32(0, 100);
+    i32 size  = 0;
     if (roll <= 70) {
         size = 0;
     } else if (roll <= 90) {
@@ -140,7 +140,7 @@ void areafx_particles_calm_update(g_s *g, areafx_particles_calm_s *fx)
     for (i32 n = 0; n < AREAFX_PT_CALM_N; n++) {
         areafx_particle_calm_s *p = &fx->p[n];
 
-        p->pos = v2_add(p->pos, p->vel);
+        p->pos = v2_i32_add(p->pos, p->vel);
         p->vel.x += rngr_sym_i32(PT_CALM_VRNG);
         p->vel.y += rngr_sym_i32(PT_CALM_VRNG);
         p->vel.x = clamp_sym_i32(p->vel.x, PT_CALM_VCAP);
@@ -155,7 +155,7 @@ void areafx_particles_calm_draw(g_s *g, areafx_particles_calm_s *fx, v2_i32 cam)
     for (i32 n = 0; n < AREAFX_PT_CALM_N; n++) {
         areafx_particle_calm_s p = fx->p[n];
 
-        v2_i32 pos = v2_add(v2_shr(p.pos, 8), cam);
+        v2_i32 pos = v2_i32_add(v2_i32_shr(p.pos, 8), cam);
         pos.x      = (pos.x & (PT_CALM_X_RANGE - 1)) - 16;
         pos.y      = (pos.y & (PT_CALM_Y_RANGE - 1)) - 16;
         gfx_cir_fill(ctx, pos, 4, PRIM_MODE_BLACK);

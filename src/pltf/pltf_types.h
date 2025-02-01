@@ -79,27 +79,39 @@ typedef bool32         b32;
 #define I64_C(X) (X##LL)
 #define U64_C(X) (X##ULL)
 
-// alignment
-#if (201112L <= __STDC_VERSION__)
-#if (__STDC_VERSION__ < 202311L)
-#include <stdalign.h>
-#endif
-#define ALIGNAS alignas
-#define ALIGNOF alignof
-#else // earlier than C11
-// mildly cursed macro but should work alright
-#define ALIGNOF(T) (usize)(offsetof( \
-    struct { byte a; T b; }, b))
-#if defined(_MSC_VER)
-#define ALIGNAS(X) __declspec(align(X))
-#elif defined(__GNUC__)
-#define ALIGNAS(X) __attribute__((aligned(X)))
+// struct/union literal
+#ifdef __cplusplus
+#define CINIT(T) T
 #else
-#error NO ALIGNMENT ATTRIBUTE
+#define CINIT(T) (T)
+#endif
+
+// alignment
+#ifdef __cplusplus          // C++
+#if (__cplusplus < 201103L) // earlier than C++11
+#error CPP VERSION NOT SUPPORTED
+#endif
+#else                            // C
+#if (__STDC_VERSION__ < 201112L) // earlier than C11
+#error C VERSION NOT SUPPORTED
+#elif (__STDC_VERSION__ < 202311L) // earler than C23
+#include <stdalign.h>
 #endif
 #endif
 
-#define ALIGNT(T) ALIGNAS(sizeof(T))
+#define ALIGNAS     alignas
+#define ALIGNOF     alignof
+#define ALIGNAST(T) ALIGNAS(ALIGNOF(T))
+
+static inline void *align_ptr(void *p, usize alignment)
+{
+    return (void *)(((uptr)p + alignment - 1) & ~(alignment - 1));
+}
+
+static inline usize align_usize(usize s, usize alignment)
+{
+    return (s + alignment - 1) & ~(alignment - 1);
+}
 
 #ifdef PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
@@ -146,6 +158,7 @@ typedef struct {
 #define mmov                  memmove
 #define mclr(DST, SIZE)       mset(DST, 0, SIZE)
 #define mclr_static_arr(DST)  mset(DST, 0, sizeof(DST))
+#define mclr_field(DST)       mset(&(DST), 0, sizeof(DST))
 #define POW2(X)               ((X) * (X))
 #define GLUE2(A, B)           A##B
 #define GLUE(A, B)            GLUE2(A, B)
@@ -156,6 +169,8 @@ typedef struct {
 #define SGN(A)                ((0 < (A)) - (0 > (A)))
 #define CLAMP(X, LO, HI)      ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
 #define SWAP(T, a, b)         { T tmp_ = a; a = b; b = tmp_; }
+#define MKILOBYTE(X) ((X) * 1024)
+#define MMEGABYTE(X) ((X) * 1024 * 1024)
 #define FILE_AND_LINE__(A, B) A "|" #B
 #define FILE_AND_LINE_(A, B)  FILE_AND_LINE__(A, B)
 #define FILE_AND_LINE         FILE_AND_LINE_(__FILE__, __LINE__)

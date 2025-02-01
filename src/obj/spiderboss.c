@@ -25,7 +25,7 @@ void spiderboss_load(g_s *g, map_obj_s *mo)
     o->pos.y        = mo->y;
     o->flags        = OBJ_FLAG_RENDER_AABB;
     for (i32 n = 0; n < 8; n++) {
-        s->legs[n].p = (v2_i16){-20, 0};
+        s->legs[n].p = CINIT(v2_i16){-20, 0};
     }
 }
 
@@ -43,7 +43,7 @@ void spiderboss_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     spiderboss_s *s   = (spiderboss_s *)o->mem;
     gfx_ctx_s     ctx = gfx_ctx_display();
 
-    v2_i32 pc      = v2_add(cam, obj_pos_center(o));
+    v2_i32 pc      = v2_i32_add(cam, obj_pos_center(o));
     v2_i32 leg_ref = {0, -10};
     for (i32 n = 0; n < 1; n++) {
         spiderboss_leg_s *l  = &s->legs[n];
@@ -55,15 +55,15 @@ void spiderboss_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         if (0 < n_cir) {
             v2_i32 pp = {0};
             if (n_cir == 1 ||
-                v2_distancesq(pu, leg_ref) < v2_distancesq(pv, leg_ref)) {
+                v2_i32_distancesq(pu, leg_ref) < v2_i32_distancesq(pv, leg_ref)) {
                 pp = pu;
             } else {
                 pp = pv;
             }
 
-            p0 = v2_add(p0, pc);
-            p1 = v2_add(p1, pc);
-            pp = v2_add(pp, pc);
+            p0 = v2_i32_add(p0, pc);
+            p1 = v2_i32_add(p1, pc);
+            pp = v2_i32_add(pp, pc);
             gfx_lin_thick(ctx, p0, pp, GFX_COL_BLACK, 3);
             gfx_lin_thick(ctx, p1, pp, GFX_COL_BLACK, 3);
         }

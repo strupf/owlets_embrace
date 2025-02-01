@@ -93,7 +93,7 @@ void watercol_on_update(g_s *g, obj_s *o)
 
 void watercol_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
-    v2_i32 p = v2_add(o->pos, cam);
+    v2_i32 p = v2_i32_add(o->pos, cam);
     i32    t = pltf_cur_tick();
     p.y -= 32 + (2 * sin_q16(t << 14)) / 65536;
     p.x += (o->w - 64) / 2;

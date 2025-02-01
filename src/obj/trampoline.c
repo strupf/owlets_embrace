@@ -13,12 +13,17 @@ enum {
     TRAMPOLINE_VER,
 };
 
+void trampoline_on_update(g_s *g, obj_s *o);
+void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+
 void trampoline_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJID_TRAMPOLINE;
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
+    obj_s *o     = obj_create(g);
+    o->ID        = OBJID_TRAMPOLINE;
+    o->on_update = trampoline_on_update;
+    o->on_draw   = trampoline_on_draw;
+    o->pos.x     = mo->x;
+    o->pos.y     = mo->y;
 
     if (mo->w == 16) {
         o->state = TRAMPOLINE_VER;
@@ -92,7 +97,7 @@ void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 
     i32    N = max_i32(o->w >> 4, o->h >> 4);
-    v2_i32 p = v2_add(o->pos, cam);
+    v2_i32 p = v2_i32_add(o->pos, cam);
     switch (o->state) {
     case TRAMPOLINE_HOR: {
         texrec_s tr = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 16, 32);

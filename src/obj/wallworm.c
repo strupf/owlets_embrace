@@ -40,9 +40,6 @@ void wallworm_load(g_s *g, map_obj_s *mo)
     obj_s      *o      = obj_create(g);
     wallworm_s *w      = (wallworm_s *)o->mem;
     o->ID              = OBJID_WALLWORM_PARENT;
-    o->on_update       = wallworm_on_update;
-    o->on_animate      = wallworm_on_animate;
-    o->on_draw         = wallworm_on_draw;
     o->render_priority = 10;
 
     w->n_seg = 15;
@@ -108,13 +105,13 @@ void wallworm_draw_segs(g_s *g, obj_s *o, v2_i32 cam, i32 srcx)
         v2_i32 dir = {0};
         if (0 < n) {
             v2_i32 p2  = w->segs[n - 1].p_q8;
-            v2_i32 dt2 = v2_sub(p2, p1);
-            dir        = v2_add(dir, dt2);
+            v2_i32 dt2 = v2_i32_sub(p2, p1);
+            dir        = v2_i32_add(dir, dt2);
         }
         if (n < w->n_seg - 1) {
             v2_i32 p2  = w->segs[n + 1].p_q8;
-            v2_i32 dt2 = v2_sub(p1, p2);
-            dir        = v2_add(dir, dt2);
+            v2_i32 dt2 = v2_i32_sub(p1, p2);
+            dir        = v2_i32_add(dir, dt2);
         }
 
         f32 ang   = atan2f((f32)dir.y, (f32)dir.x);
@@ -130,7 +127,7 @@ void wallworm_draw_segs(g_s *g, obj_s *o, v2_i32 cam, i32 srcx)
             tr.x = srcx + 32 * 6;
         }
 
-        v2_i32 p = v2_add(v2_shr(p1, 8), cam);
+        v2_i32 p = v2_i32_add(v2_i32_shr(p1, 8), cam);
         p.x -= 16;
         p.y -= 16;
         gfx_spr(ctx, tr, p, 0, 0);
@@ -145,11 +142,11 @@ void wallworm_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
 void wallworm_constrain_segs(wallworm_seg_s *seg0, wallworm_seg_s *seg1)
 {
-    v2_i32 dt = v2_sub(seg1->p_q8, seg0->p_q8);
-    i32    ls = v2_lensq(dt);
+    v2_i32 dt = v2_i32_sub(seg1->p_q8, seg0->p_q8);
+    i32    ls = v2_i32_lensq(dt);
     if (POW2(WORM_SEG_DST) < ls) {
-        dt         = v2_setlen(dt, WORM_SEG_DST);
-        seg1->p_q8 = v2_add(seg0->p_q8, dt);
+        dt         = v2_i32_setlen(dt, WORM_SEG_DST);
+        seg1->p_q8 = v2_i32_add(seg0->p_q8, dt);
     }
 }
 

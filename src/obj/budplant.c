@@ -48,8 +48,6 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->h          = 16;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
-    o->on_update  = budplant_on_update;
-    o->on_animate = budplant_on_animate;
     o->health_max = 1;
     o->health     = o->health_max;
 
@@ -110,19 +108,19 @@ void budplant_on_update(g_s *g, obj_s *o)
 
             switch (bp->orientation) {
             case BUDPLANT_ORIENTATION_GROUND:
-                pv = (v2_i32){rngr_sym_i32(600), -2500};
+                pv = CINIT(v2_i32){rngr_sym_i32(600), -2500};
                 ppos.y -= BUDPLANT_PROJ_OFFS;
                 break;
             case BUDPLANT_ORIENTATION_LEFT_WALL:
-                pv = (v2_i32){2500, rngr_sym_i32(600)};
+                pv = CINIT(v2_i32){2500, rngr_sym_i32(600)};
                 ppos.x += BUDPLANT_PROJ_OFFS;
                 break;
             case BUDPLANT_ORIENTATION_CEILING:
-                pv = (v2_i32){rngr_sym_i32(600), 2500};
+                pv = CINIT(v2_i32){rngr_sym_i32(600), 2500};
                 ppos.y += BUDPLANT_PROJ_OFFS;
                 break;
             case BUDPLANT_ORIENTATION_RIGHT_WALL:
-                pv = (v2_i32){-2500, rngr_sym_i32(600)};
+                pv = CINIT(v2_i32){-2500, rngr_sym_i32(600)};
                 ppos.x -= BUDPLANT_PROJ_OFFS;
                 break;
             }

@@ -10,18 +10,22 @@
 #include "render.h"
 #include "textinput.h"
 
-void  *APP_MEM_RAW;
 app_s *APP;
+
+void app_set_control(void *ctx, i32 val)
+{
+    SETTINGS.hook_mode = val;
+    pltf_log("Control: %i\n", val);
+}
 
 i32 app_init()
 {
     // allocate majority of memory dynamically so
     // a proper "not enough memory" error can be reported
-    APP_MEM_RAW = pltf_mem_alloc(sizeof(app_s) + APP_STRUCT_ALIGNMENT);
-    if (!APP_MEM_RAW) {
+    APP = (app_s *)pltf_mem_alloc_aligned(sizeof(app_s), APP_STRUCT_ALIGNMENT);
+    if (!APP) {
         return APP_ERR_MEM;
     }
-    APP = (app_s *)align_ptr(APP_MEM_RAW, APP_STRUCT_ALIGNMENT);
     mclr(APP, sizeof(app_s));
     spm_init();
 
@@ -48,15 +52,20 @@ i32 app_init()
     game_init(g);
     app_load_assets();
 
+#ifdef PLTF_PD
+    char *options[2] = {"Timing", "Context"};
+    pltf_pd_menu_add_opt("Control", options, 2, app_set_control, 0);
+#endif
+
 #if 1
     // create a playtesting savefile
-    mus_play("MUS003");
+    // mus_play("MUS003");
     g->save_slot = 0;
     spm_push();
-    save_s *s = spm_alloctz(save_s, 1);
+    savefile_s *s = spm_alloctz(savefile_s, 1);
     {
         s->map_hash   = wad_hash("L_START");
-        s->hero_pos.x = 100;
+        s->hero_pos.x = 200;
         s->hero_pos.y = 100;
         s->upgrades   = 0xFFFFFFFFU;
         s->stamina    = 5;
@@ -143,8 +152,8 @@ void app_draw()
 void app_close()
 {
     aud_destroy();
-    if (APP_MEM_RAW) {
-        pltf_mem_free(APP_MEM_RAW);
+    if (APP) {
+        pltf_mem_free_aligned(APP);
     }
 }
 

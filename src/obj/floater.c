@@ -28,8 +28,6 @@ void floater_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_CLAMP_TO_ROOM;
-    o->on_update       = floater_on_update;
-    o->on_animate      = floater_on_animate;
     o->w               = 24;
     o->h               = 24;
     o->pos.x           = mo->x;

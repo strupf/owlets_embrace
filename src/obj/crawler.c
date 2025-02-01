@@ -86,7 +86,7 @@ static void crawler_do_normal(g_s *g, obj_s *o)
         o->flags &= ~OBJ_FLAG_MOVER; // disable physics movement
 
         if (domove && dir_to_crawl) {
-            o->pos = v2_add(o->pos, direction_v2(dir_to_crawl));
+            o->pos = v2_i32_add(o->pos, direction_v2(dir_to_crawl));
         }
     } else { // free fall
         o->state = CRAWLER_STATE_FALLING;

@@ -6,20 +6,16 @@
 
 void marena_init(marena_s *m, void *buf, usize bufs)
 {
-    marena_init_aligned(m, buf, bufs, 1);
-}
-
-void marena_init_aligned(marena_s *m, void *buf, usize bufs, usize alignment)
-{
-    void *p    = align_ptr(buf, 4);
-    m->buf     = p;
-    m->bufsize = bufs - (usize)((byte *)p - (byte *)buf);
+    m->buf     = (byte *)buf;
+    m->bufsize = bufs;
     marena_reset(m, 0);
 }
 
 void marena_align(marena_s *m, usize alignment)
 {
-    m->p = (byte *)align_ptr(m->p, alignment);
+    if (alignment) {
+        m->p = (byte *)align_ptr(m->p, alignment);
+    }
 }
 
 void *marena_alloc(marena_s *m, usize s)

@@ -106,6 +106,7 @@ bool32 maptransition_try_hero_slide(g_s *g)
     maptransition_init(g, neighbor->hash, MAPTRANSITION_TYPE_SLIDE, feet);
     mt->dir       = touchedbounds;
     mt->hero_v_q8 = hvel;
+    o->bumpflags  = 0;
     return 1;
 }
 
@@ -179,7 +180,7 @@ void maptransition_draw(g_s *g, v2_i32 cam)
 
     if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero) {
         gfx_ctx_s ctxc = gfx_ctx_default(tmp);
-        v2_i32    cpos = v2_add(obj_pos_center(ohero), cam);
+        v2_i32    cpos = v2_i32_add(obj_pos_center(ohero), cam);
         i32       cird = ease_out_quad(0, 200, min_i32(mt->fade_tick, ticks / 2), ticks / 2);
         gfx_cir_fill(ctxc, cpos, cird, GFX_COL_WHITE);
     }

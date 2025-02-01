@@ -100,16 +100,16 @@ static i32 rope_points_collinearity(ropepts_s *pts, v2_i32 c)
 {
     for (i32 n = 0; n < pts->n - 1; n++) {
         v2_i32 a   = pts->pt[n];
-        v2_i32 ac  = v2_sub(c, a);
-        u32    dac = v2_lensq(ac);
+        v2_i32 ac  = v2_i32_sub(c, a);
+        u32    dac = v2_i32_lensq(ac);
         for (i32 i = n + 1; i < pts->n; i++) {
             v2_i32 b  = pts->pt[i];
-            v2_i32 ab = v2_sub(b, a);
-            if (v2_crs(ac, ab) != 0) continue;
+            v2_i32 ab = v2_i32_sub(b, a);
+            if (v2_i32_crs(ac, ab) != 0) continue;
             // at this point a, b, c are collinear which doesn't
             // work with our convex hull algorithm
-            u32 dab = v2_lensq(ab);
-            u32 dbc = v2_distancesq(c, b);
+            u32 dab = v2_i32_lensq(ab);
+            u32 dbc = v2_i32_distancesq(c, b);
 
             if (dab < dac && dbc < dac) return i;  // b is midpoint, replace at i
             if (dac < dbc && dab < dbc) return n;  // a is midpoint, replace at n
@@ -143,8 +143,8 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
 
 static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
 {
-    assert(v2_crs(v2_sub(t1.p[2], t1.p[0]), v2_sub(t1.p[1], t1.p[0])) != 0);
-    assert(v2_crs(v2_sub(t2.p[2], t2.p[0]), v2_sub(t2.p[1], t2.p[0])) != 0);
+    assert(v2_i32_crs(v2_i32_sub(t1.p[2], t1.p[0]), v2_i32_sub(t1.p[1], t1.p[0])) != 0);
+    assert(v2_i32_crs(v2_i32_sub(t2.p[2], t2.p[0]), v2_i32_sub(t2.p[1], t2.p[0])) != 0);
 
     v2_i32            pmin1  = v2_min(t1.p[0], v2_min(t1.p[1], t1.p[2]));
     v2_i32            pmin2  = v2_min(t2.p[0], v2_min(t2.p[1], t2.p[2]));
@@ -210,7 +210,7 @@ static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
     i32 p = 0;
     do {
         v2_i32 pc = pts->pt[p]; // current point
-        if (!v2_eq(pc, pfrom) && !v2_eq(pc, pto)) {
+        if (!v2_i32_eq(pc, pfrom) && !v2_i32_eq(pc, pto)) {
             newnodes->pt[newnodes->n++] = pc;
         }
 
@@ -220,7 +220,7 @@ static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
         for (i32 i = 0; i < pts->n; i++) {
             if (i == p || i == q) continue;
             v2_i32 pi = pts->pt[i];
-            i32    v  = v2_crs(v2_sub(pn, pi), v2_sub(pi, pc));
+            i32    v  = v2_i32_crs(v2_i32_sub(pn, pi), v2_i32_sub(pi, pc));
             if (0 <= (v | dir) || (v <= 0 && dir <= 0)) {
                 q  = i;
                 pn = pi;
@@ -237,38 +237,36 @@ void ropenode_on_moved(g_s *g, rope_s *r, ropenode_s *rn,
     assert((rn->next == rn_anchor && rn_anchor->prev == rn) ||
            (rn->prev == rn_anchor && rn_anchor->next == rn));
 
-    if (v2_eq(p1, p2)) return;
+    if (v2_i32_eq(p1, p2)) return;
     r->pmin = v2_min(r->pmin, p2);
     r->pmax = v2_max(r->pmax, p2);
 
     v2_i32 p0  = rn_anchor->p; // anchor
-    i32    dir = v2_crs(v2_sub(p1, p0), v2_sub(p2, p0));
+    i32    dir = v2_i32_crs(v2_i32_sub(p1, p0), v2_i32_sub(p2, p0));
     if (dir == 0) return;
 
-    spm_push();
-    ropepts_s *pts = spm_alloct(ropepts_s, 1);
-    pts->n         = 2;
-    pts->pt[0]     = p0;
-    pts->pt[1]     = p2;
+    ropepts_s pts;
+    pts.n     = 2;
+    pts.pt[0] = p0;
+    pts.pt[1] = p2;
 
     // add points inside the arc
     tri_i32 tri = {{p0, p1, p2}};
-    rope_points_in_tris(g, tri, subtri, pts);
-    if (pts->n != 2) {
+    rope_points_in_tris(g, tri, subtri, &pts);
+    if (pts.n != 2) {
         // at this point we have some obstacles
         // wrap the rope around them - build a convex hull
-        ropepts_s *hull = spm_alloct(ropepts_s, 1);
-        hull->n         = 0;
-        rope_build_convex_hull(pts, p0, p2, dir, hull);
+        ropepts_s hull;
+        hull.n = 0;
+        rope_build_convex_hull(&pts, p0, p2, dir, &hull);
 
         // point p_ropearc contains the "convex hull" when moving
         // from p1 around p0 to p2. Points in array are in the correct order
         ropenode_s *rc = rn;
-        for (i32 i = 0; i < hull->n; i++) {
-            rc = ropenode_insert(r, rn_anchor, rc, hull->pt[i]);
+        for (i32 i = 0; i < hull.n; i++) {
+            rc = ropenode_insert(r, rn_anchor, rc, hull.pt[i]);
         }
     }
-    spm_pop();
 }
 
 void ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy)
@@ -291,8 +289,8 @@ void ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy)
 static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
 {
     v2_i32      p_beg  = point;
-    v2_i32      p_end  = v2_add(p_beg, dt);
-    v2_i32      p_pst  = v2_sub(p_beg, dt);
+    v2_i32      p_end  = v2_i32_add(p_beg, dt);
+    v2_i32      p_pst  = v2_i32_sub(p_beg, dt);
     lineseg_i32 ls_mov = {p_beg, p_end};
     lineray_i32 lr_pst = {p_beg, p_pst};
 
@@ -329,8 +327,8 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
         // moving line segment of "piston" should
         // overlap the rope segment
         if (!overlap_lineseg_incl(ls, ls_mov) ||
-            v2_eq(r1->p, p_beg) || v2_eq(r1->p, p_end) ||
-            v2_eq(r2->p, p_beg) || v2_eq(r2->p, p_end)) {
+            v2_i32_eq(r1->p, p_beg) || v2_i32_eq(r1->p, p_end) ||
+            v2_i32_eq(r2->p, p_beg) || v2_i32_eq(r2->p, p_end)) {
             continue;
         }
 
@@ -401,13 +399,13 @@ void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
 bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
                       v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
 {
-    if (!v2_eq(curr, p)) return 0;
-    v2_i32 c_to_u = v2_sub(u, curr);
-    v2_i32 c_to_v = v2_sub(v, curr);
-    i32    s1     = v2_crs(c_to_p, c_to_u);
-    i32    s2     = v2_crs(c_to_n, c_to_u);
-    i32    t1     = v2_crs(c_to_p, c_to_v);
-    i32    t2     = v2_crs(c_to_n, c_to_v);
+    if (!v2_i32_eq(curr, p)) return 0;
+    v2_i32 c_to_u = v2_i32_sub(u, curr);
+    v2_i32 c_to_v = v2_i32_sub(v, curr);
+    i32    s1     = v2_i32_crs(c_to_p, c_to_u);
+    i32    s2     = v2_i32_crs(c_to_n, c_to_u);
+    i32    t1     = v2_i32_crs(c_to_p, c_to_v);
+    i32    t2     = v2_i32_crs(c_to_n, c_to_v);
     return ((z >= 0 && s1 >= 0 && s2 <= 0 && t1 >= 0 && t2 <= 0) ||
             (z <= 0 && s1 <= 0 && s2 >= 0 && t1 <= 0 && t2 >= 0));
 }
@@ -422,7 +420,7 @@ void tighten_ropesegment(g_s *g, rope_s *r,
     v2_i32 pnext = rn->p;
 
     // check if the three points are collinear
-    if (v2_crs(v2_sub(pprev, pcurr), v2_sub(pnext, pcurr)) == 0) {
+    if (v2_i32_crs(v2_i32_sub(pprev, pcurr), v2_i32_sub(pnext, pcurr)) == 0) {
         ropenode_delete(r, rc);
         return;
     }
@@ -438,9 +436,9 @@ void tighten_ropesegment(g_s *g, rope_s *r,
      *  /   v
      * prev
      */
-    v2_i32            ctop    = v2_sub(pprev, pcurr); // from curr to prev
-    v2_i32            cton    = v2_sub(pnext, pcurr); // from curr to next
-    i32               z       = v2_crs(ctop, cton);   // benddirection
+    v2_i32            ctop    = v2_i32_sub(pprev, pcurr); // from curr to prev
+    v2_i32            cton    = v2_i32_sub(pnext, pcurr); // from curr to next
+    i32               z       = v2_i32_crs(ctop, cton);   // benddirection
     tri_i32           trispan = {{pprev, pcurr, pnext}};
     tile_map_bounds_s bounds  = tile_map_bounds_tri(g, trispan);
 
@@ -484,25 +482,23 @@ void tighten_ropesegment(g_s *g, rope_s *r,
 
     ropenode_delete(r, rc);
 
-    spm_push();
-    ropepts_s *hull   = spm_alloct(ropepts_s, 1);
-    hull->n           = 0;
-    ropepts_s *pts    = spm_alloct(ropepts_s, 1);
-    pts->n            = 0;
-    pts->pt[pts->n++] = pprev;
-    pts->pt[pts->n++] = pnext;
-    tri_i32 tri       = {{pprev, pcurr, pnext}};
-    rope_points_in_tris(g, tri, tri, pts);
-    ropepts_remove(pts, pcurr);                             // ignore vertex at p1
-    if (pts->n != 2) {                                      // added another point
-        rope_build_convex_hull(pts, pprev, pnext, z, hull); // TODO: verify
+    ropepts_s hull;
+    ropepts_s pts;
+    hull.n          = 0;
+    pts.n           = 0;
+    pts.pt[pts.n++] = pprev;
+    pts.pt[pts.n++] = pnext;
+    tri_i32 tri     = {{pprev, pcurr, pnext}};
+    rope_points_in_tris(g, tri, tri, &pts);
+    ropepts_remove(&pts, pcurr);                              // ignore vertex at p1
+    if (pts.n != 2) {                                         // added another point
+        rope_build_convex_hull(&pts, pprev, pnext, z, &hull); // TODO: verify
 
         ropenode_s *tmp = rp;
-        for (int i = 0; i < hull->n; i++) {
-            tmp = ropenode_insert(r, tmp, rn, hull->pt[i]);
+        for (int i = 0; i < hull.n; i++) {
+            tmp = ropenode_insert(r, tmp, rn, hull.pt[i]);
         }
     }
-    spm_pop();
 }
 
 void rope_update(g_s *g, rope_s *r)
@@ -535,8 +531,8 @@ u32 rope_len_q4(g_s *g, rope_s *r)
     rope_update(g, r);
     u32 len = 0;
     for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
-        v2_i32 dt = v2_shl(v2_sub(a->p, b->p), 4);
-        len += v2_len(dt);
+        v2_i32 dt = v2_i32_shl(v2_i32_sub(a->p, b->p), 4);
+        len += v2_i32_len(dt);
     }
     return len;
 }
@@ -593,25 +589,24 @@ typedef struct {
 
 void rope_verletsim(g_s *g, rope_s *r)
 {
-
     // calculated current length in Q8
     u32          ropelen_q8 = 1 + (rope_len_q4(g, r) << 4); // +1 to avoid div 0
     i32          n_vpos     = 0;
     verlet_pos_s vpos[64]   = {0};
-    verlet_pos_s vp_beg     = {0, v2_shl(r->tail->p, 8)};
+    verlet_pos_s vp_beg     = {0, v2_i32_shl(r->tail->p, 8)};
     vpos[n_vpos++]          = vp_beg;
 
     u32 dista = 0;
     for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
-        dista += v2_lenl(v2_shl(v2_sub(r1->p, r2->p), 8));
+        dista += v2_i32_len(v2_i32_shl(v2_i32_sub(r1->p, r2->p), 8));
         i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
         if (1 <= i && i < ROPE_VERLET_N - 1) {
-            verlet_pos_s vp = {i, v2_shl(r2->p, 8)};
+            verlet_pos_s vp = {i, v2_i32_shl(r2->p, 8)};
             vpos[n_vpos++]  = vp;
         }
     }
 
-    verlet_pos_s vp_end = {ROPE_VERLET_N - 1, v2_shl(r->head->p, 8)};
+    verlet_pos_s vp_end = {ROPE_VERLET_N - 1, v2_i32_shl(r->head->p, 8)};
     vpos[n_vpos++]      = vp_end;
 
     u32 ropelen_max_q8 = r->len_max_q4 << 4;
@@ -631,14 +626,14 @@ void rope_verletsim(g_s *g, rope_s *r)
             rope_pt_s *p1 = &r->ropept[n - 1];
             rope_pt_s *p2 = &r->ropept[n];
 
-            v2_i32 dt = v2_sub(p1->p, p2->p);
-            i32    dl = v2_lenl(dt);
+            v2_i32 dt = v2_i32_sub(p1->p, p2->p);
+            i32    dl = v2_i32_len(dt);
             i32    dd = dl - ll_q8;
 
             if (dd <= 1) continue;
-            dt    = v2_setlenl(dt, dl, dd >> 1);
-            p1->p = v2_sub(p1->p, dt);
-            p2->p = v2_add(p2->p, dt);
+            dt    = v2_i32_setlenl(dt, dl, dd >> 1);
+            p1->p = v2_i32_sub(p1->p, dt);
+            p2->p = v2_i32_add(p2->p, dt);
         }
 
         for (int n = n_vpos - 1; 0 <= n; n--) {
@@ -676,10 +671,10 @@ void rope_verletsim(g_s *g, rope_s *r)
         if (!(0 <= prev_vp.i && next_vp.i < ROPE_VERLET_N)) continue;
 
         // lerp position of particle towards straight line between corners
-        v2_i32 ptarget = v2_lerp(prev_vp.p, next_vp.p,
-                                 n - prev_vp.i,
-                                 next_vp.i - prev_vp.i);
-        r->ropept[n].p = v2_lerp(r->ropept[n].p, ptarget, 1, 4);
+        v2_i32 ptarget = v2_i32_lerp(prev_vp.p, next_vp.p,
+                                     n - prev_vp.i,
+                                     next_vp.i - prev_vp.i);
+        r->ropept[n].p = v2_i32_lerp(r->ropept[n].p, ptarget, 1, 4);
     }
 }
 

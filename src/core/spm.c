@@ -95,3 +95,14 @@ void spm_reset(void *p)
         APP->spm.n_stack = 0;
     }
 }
+
+void *spm_alloc_aligned_ctx(void *ctx, usize s, usize alignment)
+{
+    return spm_alloc_aligned(s, alignment);
+}
+
+allocator_s spm_allocator2()
+{
+    allocator_s a = {spm_alloc_aligned_ctx, 0};
+    return a;
+}

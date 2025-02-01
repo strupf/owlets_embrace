@@ -17,7 +17,7 @@ typedef struct {
     i32 x;
 } area_cave_s;
 
-typedef struct {
+typedef struct area_s {
     i32             ID;
     //
     area_mountain_s mountain;

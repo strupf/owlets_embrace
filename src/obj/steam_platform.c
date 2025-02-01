@@ -37,10 +37,6 @@ void steam_platform_load(g_s *g, map_obj_s *mo)
     o->h                 = mo->h;
     o->pos.x             = mo->x;
     o->pos.y             = mo->y;
-    o->on_update         = steam_platform_on_update;
-    o->on_animate        = steam_platform_on_animate;
-    o->on_draw           = steam_platform_on_draw;
-    o->on_trigger        = steam_platform_on_trigger;
     sp->y_og             = o->pos.y;
     sp->y_top            = sp->y_og - 120;
 }

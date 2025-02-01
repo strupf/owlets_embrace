@@ -5,16 +5,11 @@
 #ifndef OBJ_H
 #define OBJ_H
 
-#define ENEMY_HURT_TICKS 20
-
 #include "gamedef.h"
 #include "objdef.h"
 #include "rope.h"
 
-#define NUM_OBJ_POW_2           9 // = 2^N
-#define NUM_OBJ                 (1 << NUM_OBJ_POW_2)
-#define OBJ_GID_INDEX_SH        (32 - NUM_OBJ_POW_2)
-#define OBJ_GID_GEN_MASK        (((u32)1 << OBJ_GID_INDEX_SH) - 1)
+#define NUM_OBJ                 512
 #define OBJ_MEM_BYTES           512
 #define OBJ_FLAG_MOVER          ((u64)1 << 0)
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
@@ -34,6 +29,7 @@
 #define OBJ_FLAG_HOVER_TEXT     ((u64)1 << 18)
 #define OBJ_FLAG_CLIMBABLE      ((u64)1 << 19)
 #define OBJ_FLAG_LIGHT          ((u64)1 << 20)
+#define OBJ_FLAG_GRAB           ((u64)1 << 21)
 #define OBJ_FLAG_ACTOR          ((u64)1 << 61)
 #define OBJ_FLAG_SOLID          ((u64)1 << 62)
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
@@ -44,7 +40,9 @@
                                      OBJ_FLAG_HERO_JUMPABLE)
 #define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
-enum obj_bump_flags_e {
+#define ENEMY_HURT_TICKS 20
+
+enum {
     OBJ_BUMP_X_NEG     = 1 << 0,
     OBJ_BUMP_X_POS     = 1 << 1,
     OBJ_BUMP_Y_NEG     = 1 << 2,
@@ -102,65 +100,60 @@ typedef struct enemy_s {
     bool8 invincible;
 } enemy_s;
 
-typedef void (*obj_on_update_f)(g_s *g, obj_s *o);
-typedef void (*obj_on_animate_f)(g_s *g, obj_s *o);
-typedef void (*obj_on_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
-typedef void (*obj_on_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef void (*obj_on_interact_f)(g_s *g, obj_s *o);
+typedef void (*obj_action_f)(g_s *g, obj_s *o);
+typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
+typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
 
 #define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
-    obj_s            *next;  // linked list
-    u32               GID;   // generational index
-    u16               ID;    // type of object
-    u16               subID; // subtype of object
-    u64               flags;
-    u32               tags;
+    obj_s        *next;       // linked list
+    u32           generation; // how often this object was instantiated
+    u16           ID;         // type of object
+    u16           subID;      // subtype of object
+    u64           flags;
+    u32           tags;
+    u32           upd_priority;
     //
-    obj_on_update_f   on_update;
-    obj_on_animate_f  on_animate;
-    obj_on_draw_f     on_draw;
-    obj_on_trigger_f  on_trigger;
-    obj_on_interact_f on_interact;
+    obj_action_f  on_update;  // void f(g_s *g, obj_s *o);
+    obj_action_f  on_animate; // void f(g_s *g, obj_s *o);
+    obj_draw_f    on_draw;    // void f(g_s *g, obj_s *o, v2_i32 cam);
+    obj_trigger_f on_trigger; // void f(g_s *g, obj_s *o, i32 trigger);
     //
-    i32               render_priority;
-    u16               bumpflags; // has to be cleared manually
-    u16               moverflags;
-    i16               w;
-    i16               h;
-    v2_i32            pos; // position in pixels
-    v2_i16            subpos_q8;
-    v2_i16            v_q8;
-    v2_i16            v_prev_q8;
+    i32           render_priority;
+    u16           bumpflags; // has to be cleared manually
+    u16           moverflags;
+    i16           w;
+    i16           h;
+    v2_i32        pos; // position in pixels
+    v2_i16        subpos_q8;
+    v2_i16        v_q8;
+    v2_i16        v_prev_q8;
     // some generic behaviour fields
-    i32               trigger;
-    i16               state;
-    i16               substate;
-    i16               action;
-    i16               subaction;
-    i16               facing; // -1 left, +1 right
-    i32               animation;
-    i32               timer;
-    i32               subtimer;
-    u16               cam_attract_r;
-    u8                health;
-    u8                health_max;
-    bool8             interactable_hovered;
-    u8                light_radius;
-    u8                light_strength;
-    enemy_s           enemy;
-    //
-    ropenode_s       *ropenode;
-    rope_s           *rope;
-    obj_handle_s      linked_solid;
-    //
-    i32               n_sprites;
-    obj_sprite_s      sprites[4];
-    char              filename[64];
-    //
-    void             *heap;
-    byte              mem[OBJ_MEM_BYTES];
-    u32               magic;
+    i32           trigger;
+    i16           state;
+    i16           substate;
+    i16           action;
+    i16           subaction;
+    i16           facing; // -1 left, +1 right
+    i32           animation;
+    i32           timer;
+    i32           subtimer;
+    u16           cam_attract_r;
+    u8            health;
+    u8            health_max;
+    bool8         interactable_hovered;
+    u8            light_radius;
+    u8            light_strength;
+    enemy_s       enemy;
+    ropenode_s   *ropenode;
+    rope_s       *rope;
+    obj_handle_s  linked_solid;
+    i32           n_sprites;
+    obj_sprite_s  sprites[4];
+    char          filename[64];
+    void         *heap;
+    byte          mem[OBJ_MEM_BYTES];
+    u32           magic;
 };
 
 #define obj_get_hero(G) obj_get_tagged(G, OBJ_TAG_HERO)

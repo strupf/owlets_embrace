@@ -24,7 +24,7 @@ void render_ui(g_s *g, v2_i32 camoff)
     obj_s *interactable = obj_from_obj_handle(g->hero.interactable);
     if (interactable) {
         v2_i32 posi = obj_pos_center(interactable);
-        posi        = v2_add(posi, camoff);
+        posi        = v2_i32_add(posi, camoff);
         posi.y -= 64 + 16;
         posi.x -= 32;
         i32      btn_frame = (g->tick >> 5) & 1;
@@ -36,9 +36,32 @@ void render_ui(g_s *g, v2_i32 camoff)
         render_stamina_ui(g, ohero, camoff);
     }
 
+    if (ohero && h->b_hold_tick) {
+        v2_i32 posh = v2_i32_add(obj_pos_center(ohero), camoff);
+        posh.y -= 24;
+        gfx_cir_fill(ctx, posh, 20, PRIM_MODE_BLACK);
+        i32 ang = lerp_i32(0, 1 << 18,
+                           min_i32(h->b_hold_tick, HERO_B_HOLD_TICKS_HOOK),
+                           HERO_B_HOLD_TICKS_HOOK);
+        gfx_fill_circle_segment(ctx, posh, 8, ang, 0, PRIM_MODE_WHITE);
+    }
+
     if (ohero) {
         render_weapon_drop_ui(g, ohero, camoff);
     }
+
+    spm_push();
+    {
+        fnt_s font_sm       = asset_fnt(FNTID_SMALL);
+        tex_s tex_dev_build = {0};
+        tex_create_ext(128, 32, 1, spm_allocator2(), &tex_dev_build);
+        tex_clr(tex_dev_build, GFX_COL_CLEAR);
+        fnt_draw_ascii(gfx_ctx_default(tex_dev_build),
+                       font_sm, CINIT(v2_i32){2, 2}, "Dev Build", SPR_MODE_BLACK);
+        tex_outline_white(tex_dev_build);
+        gfx_spr(ctx, texrec_from_tex(tex_dev_build), CINIT(v2_i32){320, 222}, 0, 0);
+    }
+    spm_pop();
 
 #if 0
     if (g->areaname.fadeticks) {
@@ -73,7 +96,7 @@ void render_ui(g_s *g, v2_i32 camoff)
         }
 
         texrec_s trsave = asset_texrec(TEXID_MISCOBJ, 512 + saveframe, 0, 32, 32);
-        gfx_spr(ctx_save, trsave, (v2_i32){16, 200}, 0, 0);
+        gfx_spr(ctx_save, trsave, CINIT(v2_i32){16, 200}, 0, 0);
     }
 
     // coin UI
@@ -110,9 +133,9 @@ void render_ui(g_s *g, v2_i32 camoff)
     if (hero_present_and_alive(g, &ohero)) {
         if (h->aim_mode) {
             v2_i32 aimpos  = hero_hook_aim_dir(h);
-            v2_i32 heropos = v2_add(obj_pos_center(ohero), camoff);
-            aimpos         = v2_setlen(aimpos, 100);
-            aimpos         = v2_add(aimpos, heropos);
+            v2_i32 heropos = v2_i32_add(obj_pos_center(ohero), camoff);
+            aimpos         = v2_i32_setlen(aimpos, 100);
+            aimpos         = v2_i32_add(aimpos, heropos);
             gfx_cir_fill(ctx, aimpos, 20, GFX_COL_WHITE);
             gfx_cir_fill(ctx, aimpos, 14, GFX_COL_BLACK);
         }
@@ -142,7 +165,7 @@ void render_weapon_drop_ui(g_s *g, obj_s *o, v2_i32 camoff)
     if (h->holds_weapon < 2) return;
 
     gfx_ctx_s ctx = gfx_ctx_display();
-    v2_i32    p   = v2_add(o->pos, camoff);
+    v2_i32    p   = v2_i32_add(o->pos, camoff);
 
     i32     wi     = 55;
     rec_i32 rfly   = {p.x + 5 - wi / 2, p.y - 32, wi, 16};
@@ -163,7 +186,7 @@ void render_weapon_drop_ui(g_s *g, obj_s *o, v2_i32 camoff)
 void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
-    v2_i32    p   = v2_add(o->pos, camoff);
+    v2_i32    p   = v2_i32_add(o->pos, camoff);
 
 #if 1
     i32 wi_total = 28 + (g->hero.stamina_upgrades - 1) * 3;

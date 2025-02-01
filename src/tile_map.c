@@ -29,19 +29,6 @@ bool32 tile_solid_r(i32 shape, i32 x0, i32 y0, i32 x1, i32 y1)
     return 0;
 }
 
-#define TC(X, Y) \
-    {            \
-        X << 3, Y << 3}
-
-const tile_corners_s g_tile_corners[NUM_TILE_SHAPES] = {
-    {0, {TC(0, 0), TC(0, 0), TC(0, 0), TC(0, 0)}}, // empty
-    {4, {TC(0, 0), TC(2, 0), TC(2, 2), TC(0, 2)}}, // block
-    //
-    {3, {TC(0, 2), TC(2, 0), TC(2, 2)}}, // slope 45
-    {3, {TC(0, 0), TC(2, 0), TC(2, 2)}},
-    {3, {TC(0, 0), TC(2, 2), TC(0, 2)}},
-    {3, {TC(0, 0), TC(2, 0), TC(0, 2)}}};
-
 // triangle coordinates
 // x0 y0 x1 y1 x2 y2
 const i32 g_tile_tris[NUM_TILE_SHAPES * 12] = {
@@ -53,6 +40,18 @@ const i32 g_tile_tris[NUM_TILE_SHAPES * 12] = {
     0, 0, 16, 0, 16, 16,  // 3
     0, 0, 0, 16, 16, 16,  // 4
     0, 0, 0, 16, 16, 0    // 5
+    //
+};
+
+const tri_i16 g_tiletris[NUM_TILE_SHAPES] = {
+    // dummy triangles
+    {{{0, 0}, {0, 0}, {0, 0}}},     // empty
+    {{{0, 0}, {0, 0}, {0, 0}}},     // solid
+                                    // slope 45
+    {{{0, 16}, {16, 16}, {16, 0}}}, // 2
+    {{{0, 0}, {16, 0}, {16, 16}}},  // 3
+    {{{0, 0}, {0, 16}, {16, 16}}},  // 4
+    {{{0, 0}, {0, 16}, {16, 0}}}    // 5
     //
 };
 

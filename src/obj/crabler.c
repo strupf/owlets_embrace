@@ -29,12 +29,9 @@ void crabler_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 void crabler_load(g_s *g, map_obj_s *mo)
 {
-    obj_s     *o  = obj_create(g);
-    crabler_s *c  = (crabler_s *)o->mem;
-    o->ID         = OBJID_CRABLER;
-    o->on_update  = crabler_on_update;
-    o->on_draw    = crabler_on_draw;
-    o->on_animate = crabler_on_animate;
+    obj_s     *o = obj_create(g);
+    crabler_s *c = (crabler_s *)o->mem;
+    o->ID        = OBJID_CRABLER;
 }
 
 void crabler_on_update(g_s *g, obj_s *o)
@@ -64,7 +61,7 @@ void crabler_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     gfx_ctx_s  ctx    = gfx_ctx_display();
     crabler_s *c      = (crabler_s *)o->mem;
-    v2_i32     anchor = v2_add(obj_pos_center(o), cam);
+    v2_i32     anchor = v2_i32_add(obj_pos_center(o), cam);
 
     tex_s    tex       = asset_tex(TEXID_CRABLER);
     texrec_s tr_leg    = {tex, 0, 0, 0, 0};

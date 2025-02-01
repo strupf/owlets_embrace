@@ -43,7 +43,7 @@ void grass_draw(g_s *g, rec_i32 camrec, v2_i32 camoffset)
         rec_i32  rgrass = {gr->pos.x - 8, gr->pos.y - 8, 32, 32};
         if (!overlap_rec(rgrass, camrec)) continue;
 
-        v2_i32 pos = v2_add(gr->pos, camoffset);
+        v2_i32 pos = v2_i32_add(gr->pos, camoffset);
 
         for (i32 i = 0; i < 16; i++) {
             v2_i32 p = pos;
@@ -62,22 +62,22 @@ void deco_verlet_animate_single(g_s *g, deco_verlet_s *d);
 
 void deco_verlet_obj_collision(g_s *g, obj_s *o, i32 r)
 {
-    v2_i32 po = v2_shl(obj_pos_center(o), 6);
+    v2_i32 po = v2_i32_shl(obj_pos_center(o), 6);
     i32    r2 = pow2_i32(r);
 
     for (u32 n = 0; n < g->n_deco_verlet; n++) {
         deco_verlet_s *d = &g->deco_verlet[n];
 
-        v2_i32 p = v2_shl(d->pos, 6);
+        v2_i32 p = v2_i32_shl(d->pos, 6);
         for (u32 n = 1; n < d->n_pt; n++) {
             deco_verlet_pt_s *pt = &d->pt[n];
-            v2_i32            pp = v2_add(p, v2_i32_from_i16(pt->p));
-            v2_i32            dt = v2_sub(pp, po);
-            i32               ls = v2_lensq(dt);
+            v2_i32            pp = v2_i32_add(p, v2_i32_from_i16(pt->p));
+            v2_i32            dt = v2_i32_sub(pp, po);
+            i32               ls = v2_i32_lensq(dt);
             if (r2 <= ls) continue;
-            dt    = v2_setlen(dt, r);
-            dt    = v2_add(dt, po);
-            dt    = v2_sub(dt, p);
+            dt    = v2_i32_setlen(dt, r);
+            dt    = v2_i32_add(dt, po);
+            dt    = v2_i32_sub(dt, p);
             pt->p = v2_i16_from_i32(dt);
         }
     }
@@ -142,15 +142,15 @@ void deco_verlet_draw(g_s *g, v2_i32 cam)
 
     for (u32 n = 0; n < g->n_deco_verlet; n++) {
         deco_verlet_s *d    = &g->deco_verlet[n];
-        v2_i32         padd = v2_add(d->pos, cam);
+        v2_i32         padd = v2_i32_add(d->pos, cam);
 
         for (u32 k = 1; k < d->n_pt; k++) {
             v2_i32 v1 = v2_i32_from_i16(d->pt[k - 1].p);
             v2_i32 v2 = v2_i32_from_i16(d->pt[k + 0].p);
-            v1        = v2_shr(v1, 6);
-            v2        = v2_shr(v2, 6);
-            v1        = v2_add(v1, padd);
-            v2        = v2_add(v2, padd);
+            v1        = v2_i32_shr(v1, 6);
+            v2        = v2_i32_shr(v2, 6);
+            v1        = v2_i32_add(v1, padd);
+            v2        = v2_i32_add(v2, padd);
             gfx_lin_thick(ctx, v1, v2, GFX_COL_BLACK, 2);
         }
     }

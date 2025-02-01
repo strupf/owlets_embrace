@@ -10,15 +10,15 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
-    g->cam.mode      = CAM_MODE_FOLLOW_HERO;
     g->obj_head_free = &g->obj_raw[0];
     for (i32 n = 0; n < NUM_OBJ; n++) {
-        obj_s *o = &g->obj_raw[n];
-        o->GID   = (u32)n << OBJ_GID_INDEX_SH;
+        obj_s *o      = &g->obj_raw[n];
+        o->generation = 1;
         if (n < NUM_OBJ - 1) {
             o->next = &g->obj_raw[n + 1];
         }
     }
+    marena_init(&g->memarena, g->mem, sizeof(g->mem));
 }
 
 void game_tick(g_s *g)
@@ -51,14 +51,6 @@ void game_tick(g_s *g)
         }
     }
 
-    if (pltf_sdl_jkey(SDL_SCANCODE_SPACE)) {
-        obj_s *cp    = coin_create(g);
-        obj_s *ohero = obj_get_hero(g);
-        cp->pos.x    = (ohero->pos.x) + 50;
-        cp->pos.y    = ohero->pos.y;
-        cp->v_q8.y   = -300;
-        cp->v_q8.x   = rngr_i32(-200, +200);
-    }
 #endif
 
     if (g->hero_hurt_lp_tick) {
@@ -134,6 +126,7 @@ void game_tick(g_s *g)
         deco_verlet_animate(g);
     }
 
+    particle_sys_update(g);
     area_update(g, &g->area);
 }
 
@@ -143,13 +136,17 @@ void game_tick_gameplay(g_s *g)
     g->events_frame = 0;
 
     boss_update(g, &g->boss);
+    battleroom_on_update(g);
     areafx_snow_update(g, &g->area.fx.snow);
     areafx_rain_update(g, &g->area.fx.rain);
     areafx_heat_update(g, &g->area.fx.heat);
 
     obj_s *ohero = obj_get_hero(g);
     if (ohero) {
-        inp_s heroinp = inp_cur();
+        inp_s heroinp = {0};
+        if (!g->block_hero_control) {
+            heroinp = inp_cur();
+        }
         hero_on_update(g, ohero, heroinp);
     }
 
@@ -201,8 +198,11 @@ void game_tick_gameplay(g_s *g)
         }
     }
 
+    for (i32 n = 0; n < g->n_fluid_areas; n++) {
+        fluid_area_update(&g->fluid_areas[n]);
+    }
+
     objs_cull_to_delete(g);
-    particles_update(g, &g->particles);
 
     if (hero_present_and_alive(g, &ohero)) {
         inp_s heroinp = inp_cur();
@@ -283,8 +283,8 @@ i32 gameplay_time_since(g_s *g, i32 t)
 void game_load_savefile(g_s *g)
 {
     spm_push();
-    save_s *s   = spm_alloct(save_s, 1);
-    i32     res = savefile_r(g->save_slot, s);
+    savefile_s *s   = spm_alloct(savefile_s);
+    i32         res = savefile_r(g->save_slot, s);
     if (res != 0) {
     }
 
@@ -297,11 +297,12 @@ void game_load_savefile(g_s *g)
     mclr(&g->hero, sizeof(hero_s));
     objs_cull_to_delete(g);
 
-    obj_s *o         = hero_create(g);
-    g->hero.upgrades = s->upgrades;
-    g->hero.stamina  = s->stamina;
-    o->pos.x         = s->hero_pos.x - o->w / 2;
-    o->pos.y         = s->hero_pos.y - o->h;
+    obj_s *o                 = hero_create(g);
+    g->hero.upgrades         = s->upgrades;
+    // g->hero.stamina  = s->stamina;
+    g->hero.stamina_upgrades = 5;
+    o->pos.x                 = s->hero_pos.x - o->w / 2;
+    o->pos.y                 = s->hero_pos.y - o->h;
     game_load_map(g, s->map_hash);
     pltf_sync_timestep();
 }
@@ -309,12 +310,11 @@ void game_load_savefile(g_s *g)
 bool32 game_save_savefile(g_s *g)
 {
     spm_push();
-    save_s *s = spm_alloctz(save_s, 1);
+    savefile_s *s = spm_alloctz(savefile_s, 1);
     {
-        s->tick      = g->tick;
-        s->upgrades  = g->hero.upgrades;
-        s->n_saveIDs = g->n_saveIDs;
-        mcpy(s->saveIDs, g->saveIDs, sizeof(s->saveIDs));
+        s->tick     = g->tick;
+        s->upgrades = g->hero.upgrades;
+        mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, g->hero.name, sizeof(s->name));
         s->map_hash = g->map_hash;
     }
@@ -328,7 +328,12 @@ void game_on_trigger(g_s *g, i32 trigger)
 {
     if (trigger) {
         pltf_log("trigger %i\n", trigger);
-        objs_trigger(g, trigger);
+
+        for (obj_each(g, o)) {
+            if (o->on_trigger) {
+                o->on_trigger(g, o, trigger);
+            }
+        }
     }
 }
 
@@ -455,8 +460,55 @@ void game_open_map(void *ctx, i32 opt)
 
 void game_unlock_map(g_s *g)
 {
-    saveID_put(g, SAVEID_UNLOCKED_MAP);
+    save_event_register(g, SAVE_EV_UNLOCKED_MAP);
 #ifdef PLTF_PD
     pltf_pd_menu_add("Map", game_open_map, g);
 #endif
+}
+
+void game_event_broadcast(g_s *g, u32 ID, void *e_arg)
+{
+    for (i32 n = 0; n < g->n_event_obs; n++) {
+        game_event_obs_s l = g->event_obs[n];
+        if (l.func) {
+            l.func(g, l.arg, ID, e_arg);
+        }
+    }
+}
+
+game_event_obs_s *game_event_obs_add(g_s *g)
+{
+    game_event_obs_s *l = &g->event_obs[g->n_event_obs++];
+    mclr(l, sizeof(game_event_obs_s));
+    return l;
+}
+
+void game_event_obs_del(g_s *g, game_event_obs_s *l)
+{
+    for (i32 n = 0; n < g->n_event_obs; n++) {
+        game_event_obs_s *o = &g->event_obs[n];
+        if (o == l) {
+            *o = g->event_obs[--g->n_event_obs];
+            break;
+        }
+    }
+}
+
+void objs_animate(g_s *g)
+{
+    for (obj_each(g, o)) {
+        if (o->on_animate) {
+            o->on_animate(g, o);
+        }
+    }
+}
+
+void objs_update(g_s *g)
+{
+    for (obj_each(g, o)) {
+        o->v_prev_q8 = o->v_q8;
+        if (o->on_update) {
+            o->on_update(g, o);
+        }
+    }
 }

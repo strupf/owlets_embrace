@@ -12,7 +12,7 @@ void grapplinghook_do_grab(g_s *g, grapplinghook_s *h)
     obj_s *ohero     = obj_from_obj_handle(h->o1);
     i32    herostate = hero_get_actual_state(g, ohero);
     if (herostate == HERO_ST_AIR) {
-        clen_q4 = (clen_q4 * 240) >> 8;
+        clen_q4 = (clen_q4 * 245) >> 8;
     }
     i32 newlen_q4      = clamp_i32(clen_q4, HERO_ROPE_LEN_MIN_JUST_HOOKED, mlen_q4);
     h->rope.len_max_q4 = newlen_q4;
@@ -35,7 +35,7 @@ void grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero,
     r->tail->p      = p;
     r->len_max_q4   = HERO_ROPE_LEN_LONG;
 
-    v2_i32 p_q8 = v2_shl(p, 8);
+    v2_i32 p_q8 = v2_i32_shl(p, 8);
 
     // "hint" the direction to the verlet sim
     for (i32 n = 0; n < ROPE_VERLET_N; n++) {
@@ -48,29 +48,58 @@ void grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero,
     }
 }
 
-void grapplinghook_unhook_obj(obj_s *o)
+void flyblob_on_unhooked(g_s *g, obj_s *o);
+
+void grapplinghook_unhook_obj(g_s *g, obj_s *o)
 {
     o->rope     = 0;
     o->ropenode = 0;
+    switch (o->ID) {
+    case OBJID_HERO: hero_action_ungrapple(g, o); break;
+    case OBJID_FLYBLOB: flyblob_on_unhooked(g, o); break;
+    }
 }
 
 void grapplinghook_destroy(g_s *g, grapplinghook_s *h)
 {
+    if (!h->state) return;
+    h->state = GRAPPLINGHOOK_INACTICE;
+
     obj_s *o1 = obj_from_obj_handle(h->o1);
     if (o1) {
-        grapplinghook_unhook_obj(o1);
+        grapplinghook_unhook_obj(g, o1);
     }
     obj_s *o2 = obj_from_obj_handle(h->o2);
     if (o2) {
-        grapplinghook_unhook_obj(o2);
+        grapplinghook_unhook_obj(g, o2);
     }
-    h->state = GRAPPLINGHOOK_INACTICE;
 }
 
 bool32 grapplinghook_step(g_s *g, grapplinghook_s *h, i32 sx, i32 sy);
 
+static i32 sdamp   = 230;
+static i32 sspring = 250;
+
 void grapplinghook_update(g_s *g, grapplinghook_s *h)
 {
+#if PLTF_DEV_ENV
+    i32 sda = sdamp;
+    i32 spr = sspring;
+
+    if (pltf_sdl_jkey(SDL_SCANCODE_J))
+        sdamp -= 10;
+    if (pltf_sdl_jkey(SDL_SCANCODE_U))
+        sdamp += 10;
+    if (pltf_sdl_jkey(SDL_SCANCODE_H))
+        sspring -= 10;
+    if (pltf_sdl_jkey(SDL_SCANCODE_K))
+        sspring += 10;
+
+    if (sda != sdamp || spr != sspring) {
+        pltf_log("%i %i\n", sdamp, sspring);
+    }
+#endif
+
     if (h->state == GRAPPLINGHOOK_INACTICE) return;
 
     if (map_blocked_pt(g, h->p.x, h->p.y)) {
@@ -173,7 +202,7 @@ void grapplinghook_animate(g_s *g, grapplinghook_s *h)
     ropenode_s *rn = ropenode_neighbour(r, h->rn);
 
     if (h->state == GRAPPLINGHOOK_FLYING) {
-        v2_i32 rndt            = v2_sub(h->rn->p, rn->p);
+        v2_i32 rndt            = v2_i32_sub(h->rn->p, rn->p);
         v2_f32 v               = v2_f32_from_i32(rndt);
         h->anghist[h->n_ang++] = v;
         h->n_ang %= HEROHOOK_N_HIST;
@@ -189,15 +218,15 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
     u32              n_ropepts = 0;
 
     for (u32 k = 1; k < ROPE_VERLET_N; k++) {
-        v2_i32 p             = v2_shr(rope->ropept[k].p, 8);
-        ropepts[n_ropepts++] = v2_add(p, cam);
+        v2_i32 p             = v2_i32_shr(rope->ropept[k].p, 8);
+        ropepts[n_ropepts++] = v2_i32_add(p, cam);
     }
 
     spm_push();
     tex_s tex_hook = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, spm_allocator);
     tex_clr(tex_hook, GFX_COL_CLEAR);
     gfx_ctx_s ctxhook   = gfx_ctx_default(tex_hook);
-    gfx_ctx_s ctxhookpt = ctxhook;
+    gfx_ctx_s ctxhookpt = ctx;
     ctxhookpt.pat       = gfx_pattern_4x4(B4(0111),
                                           B4(1010),
                                           B4(1101),
@@ -206,7 +235,12 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
     for (u32 k = 1; k < n_ropepts; k++) {
         v2_i32 p1 = ropepts[k - 1];
         v2_i32 p2 = ropepts[k];
-        gfx_lin_thick(ctxhook, p1, p2, GFX_COL_BLACK, 8);
+        gfx_lin_thick(ctx, p1, p2, GFX_COL_WHITE, 10);
+    }
+    for (u32 k = 1; k < n_ropepts; k++) {
+        v2_i32 p1 = ropepts[k - 1];
+        v2_i32 p2 = ropepts[k];
+        gfx_lin_thick(ctx, p1, p2, GFX_COL_BLACK, 8);
     }
     for (u32 k = 1; k < n_ropepts; k++) {
         v2_i32 p1 = ropepts[k - 1];
@@ -214,7 +248,7 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
         gfx_lin_thick(ctxhookpt, p1, p2, GFX_COL_WHITE, 4);
     }
 
-    tex_merge_to_opaque_outlined_white(ctx.dst, tex_hook);
+    // tex_merge_to_opaque_outlined_white(ctx.dst, tex_hook);
     spm_pop();
     if (h->state != GRAPPLINGHOOK_HOOKED_OBJ) {
         v2_f32 vhook = {0};
@@ -226,7 +260,7 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
         i32      imgy   = (i32)(ang + 16.f + 4.f) & 15;
         texrec_s trhook = {asset_tex(TEXID_HOOK), 0, imgy * 32, 32, 32};
         v2_i32   hpos   = {gh->p.x - 16, gh->p.y - 16};
-        gfx_spr_tile_32x32(ctx, trhook, v2_add(hpos, cam));
+        gfx_spr_tile_32x32(ctx, trhook, v2_i32_add(hpos, cam));
     }
 }
 
@@ -252,6 +286,7 @@ bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
         return 1;
     default:
         // hooked
+        snd_play(SNDID_KLONG, 1.f, 1.0f);
         h->state = GRAPPLINGHOOK_HOOKED_TERRAIN;
         grapplinghook_do_grab(g, h);
         return 1;
@@ -283,13 +318,10 @@ bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,
         res         = GRAPPLINGHOOK_HOOKED_SOLID;
         grapplinghook_do_grab(g, h);
 
-        switch (o->ID) {
-        default: break;
-        }
     } else if (cangrab_other && (o->flags & OBJ_FLAG_HOOKABLE)) {
         h->state  = GRAPPLINGHOOK_HOOKED_OBJ;
         v2_i32 pc = obj_pos_center(o);
-        v2_i32 dt = v2_sub(pc, h->rn->p);
+        v2_i32 dt = v2_i32_sub(pc, h->rn->p);
         ropenode_move(g, &h->rope, h->rn, dt.x, dt.y);
         h->p        = pc;
         h->o2       = obj_handle_from_obj(o);
@@ -297,7 +329,12 @@ bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,
         o->ropenode = h->rn;
         res         = GRAPPLINGHOOK_HOOKED_OBJ;
         grapplinghook_do_grab(g, h);
+
+        void flyblob_on_hook(g_s * g, obj_s * o);
+
         switch (o->ID) {
+        case OBJID_FLYBLOB: flyblob_on_hook(g, o); break;
+        case OBJID_HOOKYEETER: hookyeeter_on_hook(g, o); break;
         default: break;
         }
     }
@@ -334,21 +371,21 @@ v2_i32 rope_recalc_v(g_s *g, rope_s *r, ropenode_s *rn,
     ropenode_s *rprev = rn->next ? rn->next : rn->prev;
     assert(rprev);
 
-    v2_i32 ropedt = v2_sub(rn->p, rprev->p);
-    v2_i32 dt_q4  = v2_add(v2_shl(ropedt, 4), v2_shr(subpos_q8, 4));
+    v2_i32 ropedt = v2_i32_sub(rn->p, rprev->p);
+    v2_i32 dt_q4  = v2_i32_add(v2_i32_shl(ropedt, 4), v2_i32_shr(subpos_q8, 4));
 
     // damping force
     v2_i32 fdamp = {0};
-    if (v2_dot(ropedt, v_q8) > 0) {
-        v2_i32 vrad = project_pnt_line(v_q8, (v2_i32){0}, dt_q4);
-        fdamp       = v2_mulq(vrad, 210, 8);
+    if (v2_i32_dot(ropedt, v_q8) > 0) {
+        v2_i32 vrad = project_pnt_line(v_q8, CINIT(v2_i32){0}, dt_q4);
+        fdamp       = v2_i32_mulq(vrad, sdamp, 8);
     }
 
     // spring force
-    i32    fspring_scalar = (dt_len * 250) >> 8;
-    v2_i32 fspring        = v2_setlen(dt_q4, fspring_scalar);
-    v2_i32 frope          = v2_add(fdamp, fspring);
-    v2_i32 vel_new        = v2_sub(v_q8, frope);
+    i32    fspring_scalar = (dt_len * sspring) >> 8;
+    v2_i32 fspring        = v2_i32_setlen(dt_q4, fspring_scalar);
+    v2_i32 frope          = v2_i32_add(fdamp, fspring);
+    v2_i32 vel_new        = v2_i32_sub(v_q8, frope);
     return vel_new;
 }
 

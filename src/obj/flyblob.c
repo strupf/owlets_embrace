@@ -29,6 +29,11 @@ typedef struct {
     bool8 invincible;
 } flyblob_s;
 
+void flyblob_on_update(g_s *g, obj_s *o);
+void flyblob_on_animate(g_s *g, obj_s *o);
+
+void flyblob_on_unhooked(g_s *g, obj_s *o);
+
 void flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb)
 {
     flyblob_s *f = (flyblob_s *)o->mem;
@@ -58,8 +63,9 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     obj_s     *o  = obj_create(g);
     flyblob_s *f  = (flyblob_s *)o->mem;
     o->ID         = OBJID_FLYBLOB;
-    o->on_animate = flyblob_on_animate;
     o->on_update  = flyblob_on_update;
+    o->on_animate = flyblob_on_animate;
+
     o->w          = 24;
     o->h          = 24;
     o->pos.x      = mo->x + 4;
@@ -69,6 +75,8 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     o->facing     = 1;
 
     o->flags = OBJ_FLAG_HURT_ON_TOUCH |
+               OBJ_FLAG_HOOKABLE |
+               OBJ_FLAG_ACTOR |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_STOMPABLE |
                OBJ_FLAG_HERO_JUMPABLE |
@@ -91,8 +99,8 @@ void flyblob_on_update(g_s *g, obj_s *o)
         v2_i32 p1 = obj_pos_center(o);
         v2_i32 p2 = obj_pos_center(ohero);
         p2.y -= 16;
-        vhero    = v2_sub(p2, p1);
-        dsq_hero = v2_lensq(vhero);
+        vhero    = v2_i32_sub(p2, p1);
+        dsq_hero = v2_i32_lensq(vhero);
     }
 
     if (o->state != FLYBLOB_STATE_AGGRESSIVE) {
@@ -161,10 +169,10 @@ void flyblob_on_update(g_s *g, obj_s *o)
 
         if (hoverd < 0) { // keep distance
             i32 dt = clamp_i32(-hoverd / 8, 8, 256);
-            vv     = v2_inv(v2_setlen(vhero, dt));
+            vv     = v2_i32_inv(v2_i32_setlen(vhero, dt));
         } else {
             i32 dt = clamp_i32(hoverd / 2, 8, 256);
-            vv     = v2_setlen(vhero, dt);
+            vv     = v2_i32_setlen(vhero, dt);
         }
         o->v_q8 = v2_i16_from_i32(vv);
 
@@ -192,6 +200,8 @@ void flyblob_on_update(g_s *g, obj_s *o)
         break;
     }
     case FLYBLOB_STATE_FALLING: {
+        if (20 <= o->timer)
+            o->flags &= OBJ_FLAG_HURT_ON_TOUCH;
         if (obj_grounded(g, o)) {
             o->state  = FLYBLOB_STATE_GROUND;
             o->timer  = 0;
@@ -227,10 +237,46 @@ void flyblob_on_update(g_s *g, obj_s *o)
         }
         break;
     }
+    case FLYBLOB_STATE_PULL_UP: {
+        if (100 <= o->timer) {
+            g->freeze_tick = 2;
+            o->v_q8.y >>= 1;
+            flyblob_on_unhooked(g, o);
+            break;
+        }
+        if (o->bumpflags & OBJ_BUMP_Y) {
+            o->v_q8.y = 0;
+        }
+        if (o->bumpflags & OBJ_BUMP_X) {
+            o->v_q8.x = -o->v_q8.x;
+        }
+        o->bumpflags = 0;
+
+        i32 acc_y = min_i32(o->timer << 1, 64 + 32);
+        o->v_q8.y = max_i32(o->v_q8.y - acc_y, -256 * 6);
+
+        break;
+    }
     }
 
     obj_move_by_v_q8(g, o);
-    obj_move(g, o, 0, -1);
+}
+
+void flyblob_on_hook(g_s *g, obj_s *o)
+{
+    o->timer         = 0;
+    o->state         = FLYBLOB_STATE_PULL_UP;
+    o->v_q8.x        = 0;
+    o->v_q8.y        = 0;
+    o->cam_attract_r = 250;
+}
+
+void flyblob_on_unhooked(g_s *g, obj_s *o)
+{
+    o->timer         = 0;
+    o->state         = FLYBLOB_STATE_PROPELLER_POP;
+    o->cam_attract_r = 0;
+    grapplinghook_destroy(g, &g->ghook);
 }
 
 void flyblob_on_animate(g_s *g, obj_s *o)
@@ -321,6 +367,19 @@ void flyblob_on_animate(g_s *g, obj_s *o)
         // walking
         framex = (o->timer >> 2) & 7;
         framey = 4;
+        break;
+    }
+#define FLYBLOB_PULL_UP_T1 12
+
+    case FLYBLOB_STATE_PULL_UP: {
+        if (o->timer < FLYBLOB_PULL_UP_T1) {
+            framey = 6;
+            framex = lerp_i32(0, 6 + 1, o->timer, FLYBLOB_PULL_UP_T1);
+        } else {
+            framey = 7;
+            framex = ((o->timer * 2) / 3) % 3;
+        }
+
         break;
     }
     }

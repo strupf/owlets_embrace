@@ -201,7 +201,7 @@ i32 inp_dpad_dir()
 
 void inp_crank_click_init(inp_crank_click_s *c, i32 n_seg, i32 offs)
 {
-    *c         = (inp_crank_click_s){0};
+    mclr(c, sizeof(inp_crank_click_s));
     c->n_segs  = n_seg;
     c->ang_off = (offs * 0x10000) / (c->n_segs << 1);
 }

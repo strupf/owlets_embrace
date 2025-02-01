@@ -80,7 +80,7 @@ void title_init(title_s *t)
 void title_load(title_s *t)
 {
     spm_push();
-    save_s *s = spm_alloct(save_s, 1);
+    savefile_s *s = spm_alloct(savefile_s);
 
     for (i32 n = 0; n < 3; n++) {
         save_preview_s pr = {0};
@@ -192,7 +192,7 @@ void title_pressed_A(g_s *g, title_s *t)
             } else {
                 title_to_state(t, TITLE_ST_FILE_NEW, 0);
                 t->option = 0;
-                t->tinput = (textinput_s){0};
+                t->tinput = CINIT(textinput_s){0};
             }
             break;
         case TITLE_F_CPY:
@@ -265,12 +265,13 @@ void title_pressed_A(g_s *g, title_s *t)
             t->tinput.cap = 16;
             textinput_activate(&t->tinput, 1);
             break;
-        case 1: // "ok"
+        case 1: {
+            // "ok"
             if (t->tinput.n == 0) {
                 break;
             }
             spm_push();
-            save_s *s = spm_alloctz(save_s, 1);
+            savefile_s *s = spm_alloctz(savefile_s, 1);
             // savefile_new(s);
 
 #if 0
@@ -289,7 +290,9 @@ void title_pressed_A(g_s *g, title_s *t)
             savefile_w(t->selected, s);
             spm_pop();     // fallthrough
             title_load(t); // update savefiles
-        case 2:            // "cancel"
+            break;
+        }
+        case 2: // "cancel"
             title_to_state(t, TITLE_ST_FILE_SELECT, 0);
             t->option = t->selected;
             break;
@@ -440,7 +443,7 @@ void title_render(title_s *t)
 
         i32 strl = fnt_length_px(font, PRESS_START_TXT);
         fnt_draw_ascii(ctx_start, font,
-                       (v2_i32){200 - strl / 2, 200},
+                       CINIT(v2_i32){200 - strl / 2, 200},
                        PRESS_START_TXT, SPR_MODE_BLACK);
         break;
     }
@@ -500,7 +503,7 @@ void title_render(title_s *t)
         break;
     }
     case TITLE_ST_FILE_NEW: {
-        fnt_draw_ascii(ctx, font, (v2_i32){50, 50}, "What is your name?", GFX_COL_BLACK);
+        fnt_draw_ascii(ctx, font, CINIT(v2_i32){50, 50}, "What is your name?", GFX_COL_BLACK);
         i32    offs    = textinput_draw_offs();
         i32    wi      = 400 - offs;
         i32    tw      = 160;
@@ -568,7 +571,7 @@ void title_render_button(gfx_ctx_s ctx, const char *txt, i32 x, i32 y, i32 frame
         gfx_rec_fill(ctx, rr, GFX_COL_WHITE);
     }
 
-    gfx_spr(ctx, trbut, (v2_i32){x, y}, 0, 0);
+    gfx_spr(ctx, trbut, CINIT(v2_i32){x, y}, 0, 0);
 
     if (frame) {
         for (i32 yy = -2; yy <= +2; yy++) {

@@ -61,6 +61,8 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void *app_alloc(usize s);
 void *app_alloc_aligned(usize s, usize alignment);
 void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment);
+#define app_alloct(T)     app_alloc(sizeof(T), ALIGNOF(T))
+#define app_alloctn(T, N) app_alloc((N) * sizeof(T), ALIGNOF(T))
 
 i32 app_texID_create_put(i32 ID, i32 w, i32 h, b32 mask,
                          allocator_s a, tex_s *o_t);

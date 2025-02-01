@@ -19,6 +19,8 @@ enum {
     OBJID_SWITCH,
     OBJID_DUMMYSOLID,
     OBJID_TOGGLEBLOCK,
+    OBJID_SOLIDLEVER,
+    OBJID_HOOKYEETER,
     OBJID_CLOCKPULSE,
     OBJID_SHROOMY,
     OBJID_WATERCOL,
@@ -29,6 +31,7 @@ enum {
     OBJID_MOVINGPLATFORM,
     OBJID_NPC,
     OBJID_TELEPORT,
+    OBJID_JUMPER,
     OBJID_COLLECTIBLE,
     OBJID_HERO_PICKUP,
     OBJID_STALACTITE,
@@ -102,9 +105,6 @@ void      clockpulse_on_update(g_s *g, obj_s *o);
 void      clockpulse_on_trigger(g_s *g, obj_s *o, i32 trigger);
 void      crumbleblock_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_on_hooked(obj_s *o);
-void      crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void      crumbleblock_on_update(g_s *g, obj_s *o);
-void      crumbleblock_on_animate(g_s *g, obj_s *o);
 void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
 void      toggleblock_load(g_s *g, map_obj_s *mo);
@@ -171,8 +171,6 @@ void      projectile_on_animate(g_s *g, obj_s *o);
 void      projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      projectile_on_collision(g_s *g, obj_s *o);
 void      flyblob_load(g_s *g, map_obj_s *mo);
-void      flyblob_on_update(g_s *g, obj_s *o);
-void      flyblob_on_animate(g_s *g, obj_s *o);
 void      flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb);
 void      staminarestorer_load(g_s *g, map_obj_s *mo);
 void      staminarestorer_on_animate(g_s *g, obj_s *o);
@@ -215,8 +213,6 @@ void      door_on_animate(g_s *g, obj_s *o);
 void      door_on_trigger(g_s *g, obj_s *o, i32 trigger);
 void      door_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      trampoline_load(g_s *g, map_obj_s *mo);
-void      trampoline_on_update(g_s *g, obj_s *o);
-void      trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      trampolines_do_bounce(g_s *g);
 void      spiderboss_load(g_s *g, map_obj_s *mo);
 void      spiderboss_on_update(g_s *g, obj_s *o);
@@ -245,4 +241,17 @@ void      watercol_on_update(g_s *g, obj_s *o);
 void      watercol_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      dummysolid_load(g_s *g, map_obj_s *mo);
 void      dummysolid_on_update(g_s *g, obj_s *o);
+obj_s    *hookyeeter_create(g_s *g);
+void      hookyeeter_on_update(g_s *g, obj_s *o);
+void      hookyeeter_on_hook(g_s *g, obj_s *o);
+void      hookyeeter_on_unhook(g_s *g, obj_s *o);
+void      jumper_load(g_s *g, map_obj_s *mo);
+void      jumper_on_update(g_s *g, obj_s *o);
+void      jumper_on_animate(g_s *g, obj_s *o);
+void      solidlever_load(g_s *g, map_obj_s *mo);
+void      solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy);
+void      solidlever_on_update(g_s *g, obj_s *o);
+void      solidlever_on_grab(g_s *g, obj_s *o);
+void      solidlever_on_ungrab(g_s *g, obj_s *o);
+void      solidlever_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 #endif

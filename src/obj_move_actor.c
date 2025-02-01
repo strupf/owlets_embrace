@@ -17,7 +17,7 @@ void obj_move_actor(g_s *g, obj_s *o, i32 dx, i32 dy)
         if ((o->moverflags & OBJ_MOVER_GLUE_GROUND) &&
             was_grounded &&
             !obj_grounded(g, o) &&
-            obj_grounded_at_offs(g, o, (v2_i32){0, 1})) {
+            obj_grounded_at_offs(g, o, CINIT(v2_i32){0, 1})) {
             obj_step_actor(g, o, 0, +1);
         }
     }

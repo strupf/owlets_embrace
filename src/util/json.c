@@ -208,8 +208,6 @@ bool32 json_fchild(json_s tok, json_s *tok_out)
 
 bool32 json_sibling(json_s tok, json_s *tok_out)
 {
-    if (tok_out)
-        *tok_out = (json_s){0};
     i32    d = json_depth(tok);
     json_s a = tok;
     while (json_next(a, &a)) {
@@ -241,8 +239,6 @@ bool32 json_key(json_s tok, const char *key, json_s *tok_out)
 
     json_s a;
     if (!json_fchild(tok, &a)) {
-        if (tok_out)
-            *tok_out = (json_s){0};
         return 0;
     }
 
@@ -263,9 +259,6 @@ bool32 json_key(json_s tok, const char *key, json_s *tok_out)
             if (*ca++ != *cb++) break;
         }
     } while (json_sibling(a, &a));
-
-    if (tok_out)
-        *tok_out = (json_s){0};
     return 0;
 }
 

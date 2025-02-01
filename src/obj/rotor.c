@@ -30,14 +30,16 @@ typedef struct {
 
 void rotor_load(g_s *g, map_obj_s *mo)
 {
-    obj_s   *o = obj_create(g);
-    rotor_s *r = (rotor_s *)o->mem;
-
+    obj_s   *o    = obj_create(g);
+    rotor_s *r    = (rotor_s *)o->mem;
     o->ID         = OBJID_ROTOR;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y;
+    o->on_update  = rotor_on_update;
+    o->on_animate = rotor_on_animate;
+
     o->w          = 26;
-    o->h          = 18;
+    o->h          = 16;
+    o->pos.x      = mo->x - (o->w - 16) / 2;
+    o->pos.y      = mo->y - (o->h - 16);
     o->n_sprites  = 1;
     r->rot_speed  = 64;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
@@ -45,6 +47,7 @@ void rotor_load(g_s *g, map_obj_s *mo)
     o->health = 2;
     o->flags  = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |
+               OBJ_FLAG_ACTOR |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_HERO_STOMPABLE;

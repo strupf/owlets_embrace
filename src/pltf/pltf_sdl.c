@@ -14,7 +14,7 @@
 #else
 #define PLTF_SDL_WEB 0
 #endif
-#define PLTF_SDL_SCALE_LAUNCH   1
+#define PLTF_SDL_SCALE_LAUNCH   2
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
@@ -342,6 +342,7 @@ void pltf_sdl_resize()
 #endif
     g_SDL.r_dst.x = (w - g_SDL.r_dst.w) / 2;
     g_SDL.r_dst.y = (h - g_SDL.r_dst.h) / 2;
+    pltf_sync_timestep();
 }
 
 void pltf_sdl_set_FPS_cap(i32 fps)
@@ -477,7 +478,7 @@ void *pltf_file_open_a(const char *path)
 
 bool32 pltf_file_close(void *f)
 {
-    return (fclose(f) == 0);
+    return (fclose((FILE *)f) == 0);
 }
 
 bool32 pltf_file_del(const char *path)
@@ -487,32 +488,32 @@ bool32 pltf_file_del(const char *path)
 
 i32 pltf_file_tell(void *f)
 {
-    return ftell(f);
+    return ftell((FILE *)f);
 }
 
 i32 pltf_file_seek_set(void *f, i32 pos)
 {
-    return (i32)fseek(f, pos, SEEK_SET);
+    return (i32)fseek((FILE *)f, pos, SEEK_SET);
 }
 
 i32 pltf_file_seek_cur(void *f, i32 pos)
 {
-    return (i32)fseek(f, pos, SEEK_CUR);
+    return (i32)fseek((FILE *)f, pos, SEEK_CUR);
 }
 
 i32 pltf_file_seek_end(void *f, i32 pos)
 {
-    return (i32)fseek(f, pos, SEEK_END);
+    return (i32)fseek((FILE *)f, pos, SEEK_END);
 }
 
 i32 pltf_file_w(void *f, const void *buf, usize bsize)
 {
-    return (i32)fwrite(buf, 1, bsize, f);
+    return (i32)fwrite(buf, 1, bsize, (FILE *)f);
 }
 
 i32 pltf_file_r(void *f, void *buf, usize bsize)
 {
-    return (i32)fread(buf, 1, bsize, f);
+    return (i32)fread(buf, 1, bsize, (FILE *)f);
 }
 
 void pltf_audio_lock()

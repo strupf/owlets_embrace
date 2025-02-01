@@ -6,7 +6,6 @@
 #include "app.h"
 #include "gamedef.h"
 #include "util/lzss.h"
-#include "util/mem.h"
 #include "wad.h"
 
 i32 assets_gen_texID();
@@ -14,17 +13,7 @@ i32 assets_gen_texID();
 i32 assets_init()
 {
     asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
-#if ASSETS_LOAD_FROM_WAD
-    // i32 assets_import();
-    // return assets_import();
     return 0;
-#else
-    // moved into another file outside the scope of the Github
-    // loads and preprocesses the static assets
-    void assets_prepare_and_export();
-    assets_prepare_and_export();
-    return 0;
-#endif
 }
 
 tex_s asset_tex(i32 ID)
@@ -83,11 +72,6 @@ i32 assets_gen_texID()
     assert(ID < NUM_TEXID);
     return ID;
 }
-
-typedef struct {
-    u32 w;
-    u32 h;
-} tex_header_s;
 
 enum {
     ASSET_ERR_OUT       = 1 << 0,

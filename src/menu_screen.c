@@ -37,7 +37,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
         obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
         if (ohero) {
             v2_i32 targetpos = mapview_hero_world_q8(g);
-            m->map.pos       = v2_lerp(m->map.pos, targetpos, 1, 4);
+            m->map.pos       = v2_i32_lerp(m->map.pos, targetpos, 1, 4);
         }
         return;
     }
@@ -103,7 +103,7 @@ void menu_screen_update(g_s *g, menu_screen_s *m)
                     m->map.pos = m->map.pin->pos;
                     m->map.cursoranimtick++;
                 } else {
-                    m->map.pos = v2_lerp(m->map.pos, m->map.pin->pos, 1, 4);
+                    m->map.pos = v2_i32_lerp(m->map.pos, m->map.pin->pos, 1, 4);
                 }
             } else {
                 m->map.cursoranimtick = 0;

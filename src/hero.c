@@ -33,11 +33,15 @@ i32    hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy,
                                          i32 *dt_snap_x);
 bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy);
 
+void hero_inair_jump(g_s *g, obj_s *o, inp_s inp);
+void hero_leave_and_clear_inair(obj_s *o);
+
 obj_s *hero_create(g_s *g)
 {
-    obj_s  *o = obj_create(g);
-    hero_s *h = (hero_s *)&g->hero;
-    o->ID     = OBJID_HERO;
+    obj_s  *o     = obj_create(g);
+    hero_s *h     = (hero_s *)&g->hero;
+    o->ID         = OBJID_HERO;
+    o->on_animate = hero_on_animate;
     obj_tag(g, o, OBJ_TAG_HERO);
     o->heap = h;
 
@@ -65,40 +69,109 @@ obj_s *hero_create(g_s *g)
     return o;
 }
 
+enum {
+    HERO_HOOK_B_HOLD,
+    HERO_HOOK_AIR,
+};
+
 i32 hero_item_button(g_s *g, inp_s inp, obj_s *o)
 {
-    hero_s *h      = (hero_s *)o->heap;
-    i32     dpad_x = inps_x(inp);
+    hero_s *h        = (hero_s *)o->heap;
+    bool32  grounded = obj_grounded(g, o);
 
-    if (inps_btn_jp(inp, INP_B)) {
-        if (o->rope) {
-            hero_action_ungrapple(g, o);
-        } else {
-            h->b_hold_tick = 1;
-            // g->grapple_tick = 1;
+    i32 dpad_x = inps_x(inp);
+    i32 dpad_y = inps_y(inp);
+
+    switch (SETTINGS.hook_mode) {
+    case HERO_HOOK_B_HOLD: {
+        if (inps_btn_jp(inp, INP_B)) {
+            if (o->rope) {
+                hero_action_ungrapple(g, o);
+            } else {
+                h->attack_tick     = 0;
+                h->b_hold_tick     = 1;
+                h->attack_flipflop = 1 - h->attack_flipflop;
+                // g->grapple_tick = 1;
+            }
+            return 1;
+        } else if (h->b_hold_tick) {
+            if (inps_btn(inp, INP_B)) {
+                h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
+            } else {
+                if (HERO_B_HOLD_TICKS_HOOK <= h->b_hold_tick) {
+                    //     0 = upwards
+                    // 32768 = downwards
+                    i32 ang = 0;
+
+                    i32 dx = dpad_x;
+                    i32 dy = dpad_y;
+                    if (dpad_x == 0 && dpad_y == 0) {
+                        dx = o->facing;
+                        dy = -1;
+                    }
+
+                    if (dx && dy) { // diagonal up/down
+                        ang = -dx * (0 < dy ? 20000 : 8000);
+                    } else if (dx == 0 && dy) { // up/down
+                        ang = 0 < dy ? 32768 : 0;
+                    } else if (dx && dy == 0) { // sideways
+                        ang = -dx * 12000;
+                    }
+
+                    hero_action_throw_grapple(g, o, ang, 5000);
+                } else {
+                    h->attack_tick = 1;
+                }
+
+                h->b_hold_tick = 0;
+            }
+            return 1;
+        } else if (inps_btn_jp(inp, INP_SHAKE)) {
+            h->spinattack = 1;
+            o->v_q8.y     = 0;
         }
-        return 1;
-    } else if (h->b_hold_tick) {
-        if (inps_btn(inp, INP_B)) {
-            h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
-        } else {
-            h->b_hold_tick = 0;
-            i32 ang        = -(dpad_x ? dpad_x : o->facing) * 8000;
-            hero_action_throw_grapple(g, o, ang, 5000);
+        return 0;
+        break;
+    }
+    case HERO_HOOK_AIR: {
+        if (inps_btn_jp(inp, INP_B)) {
+            if (o->rope) {
+                hero_action_ungrapple(g, o);
+            } else if (grounded) {
+                h->attack_tick     = 1;
+                h->attack_flipflop = 1 - h->attack_flipflop;
+            } else {
+                //     0 = upwards
+                // 32768 = downwards
+                i32 ang = 0;
+
+                i32 dx = dpad_x;
+                i32 dy = dpad_y;
+                if (dpad_x == 0 && dpad_y == 0) {
+                    dx = o->facing;
+                    dy = -1;
+                }
+
+                if (dx && dy) { // diagonal up/down
+                    ang = -dx * (0 < dy ? 20000 : 8000);
+                } else if (dx == 0 && dy) { // up/down
+                    ang = 0 < dy ? 32768 : 0;
+                } else if (dx && dy == 0) { // sideways
+                    ang = -dx * 12000;
+                }
+
+                hero_action_throw_grapple(g, o, ang, 5000);
+            }
+            return 1;
+        } else if (inps_btn_jp(inp, INP_SHAKE)) {
+            h->spinattack = 1;
+            o->v_q8.y     = 0;
         }
-        return 1;
+        return 0;
+        break;
+    }
     }
     return 0;
-}
-
-void hero_check_rope_intact(g_s *g, obj_s *o)
-{
-    if (!o->rope || !o->ropenode) return;
-    hero_s *h = (hero_s *)o->heap;
-    rope_s *r = o->rope;
-    if (!rope_is_intact(g, r)) {
-        grapplinghook_destroy(g, &g->ghook);
-    }
 }
 
 void hero_on_squish(g_s *g, obj_s *o)
@@ -141,17 +214,15 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
     hero_jumpvar_s jv  = g_herovar[jID];
     h->jump_index      = jID;
     h->edgeticks       = 0;
+    h->skidding        = 0;
     h->jump_btn_buffer = 0;
     h->jumpticks       = (u8)jv.ticks;
     o->v_q8.y          = -jv.vy;
     if (ID == HERO_JUMP_GROUND) {
-        snd_play(SNDID_SPEAK, 1.f, 0.5f);
-        v2_i32 posc = obj_pos_bottom_center(o);
-        posc.x -= 16;
-        posc.y -= 32;
-        rec_i32 trp = {0, 284, 32, 32};
-        spritedecal_create(g, RENDER_PRIO_HERO + 1, 0, posc, TEXID_MISCOBJ,
-                           trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
+        snd_play(SNDID_JUMP, 1.f, 1.f);
+        v2_i32 prtp = obj_pos_bottom_center(o);
+        prtp.y -= 4;
+        particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
     }
     if (ID == HERO_JUMP_FLY) {
         snd_play(SNDID_WING1, 2.f, rngr_f32(0.8f, 1.2f));
@@ -190,6 +261,10 @@ i32 hero_get_actual_state(g_s *g, obj_s *o)
         return HERO_ST_CLIMB;
     h->climbing = 0;
 
+    if (h->stomp) {
+        return HERO_ST_STOMP;
+    }
+
     return (obj_grounded(g, o) ? HERO_ST_GROUND : HERO_ST_AIR);
 }
 
@@ -203,28 +278,6 @@ void hero_restore_grounded_stuff(g_s *g, obj_s *o)
     if (h->stomp) {
         h->stomp = 0;
         snd_play(SNDID_STOMP, 1.f, 1.f);
-
-        particle_desc_s prt = {0};
-        {
-            prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
-            prt.p.v_q8.x    = 0;
-            prt.p.v_q8.y    = -300;
-            prt.p.a_q8.y    = 20;
-            prt.p.size      = 3;
-            prt.p.ticks_max = 20;
-            prt.ticksr      = 10;
-            prt.pr_q8.x     = 5000;
-            prt.pr_q8.y     = 1000;
-            prt.vr_q8.x     = 400;
-            prt.vr_q8.y     = 200;
-            prt.ar_q8.y     = 5;
-            prt.sizer       = 1;
-            prt.p.gfx       = PARTICLE_GFX_CIR;
-            prt.p.col       = GFX_COL_WHITE;
-            particles_spawn(g, prt, 15);
-            prt.p.col = GFX_COL_BLACK;
-            particles_spawn(g, prt, 15);
-        }
     }
     staminarestorer_respawn_all(g, o);
     hero_stamina_add_ui(g, o, 10000);
@@ -233,86 +286,30 @@ void hero_restore_grounded_stuff(g_s *g, obj_s *o)
     }
 }
 
-i32 hero_can_grab(g_s *g, obj_s *o, i32 dirx)
-{
-    if (!obj_grounded(g, o)) return 0;
-    if (!dirx) return 0;
-
-    i32 x  = o->pos.x + (0 < dirx ? o->w : -1);
-    i32 y1 = o->pos.y;
-    i32 y2 = o->pos.y + o->h - 1;
-
-    for (i32 y = y1; y <= y2; y++) {
-        if (map_blocked_pt(g, x, y)) return 0;
-    }
-    return dirx;
-}
-
-void hero_walljump(g_s *g, obj_s *o, i32 dir)
-{
-    hero_s *h             = (hero_s *)o->heap;
-    h->climbing           = 0;
-    h->impact_ticks       = 0;
-    h->air_block_ticks_og = WALLJUMP_MOM_TICKS;
-    h->air_block_ticks    = dir * WALLJUMP_MOM_TICKS;
-    o->animation          = 0;
-    o->facing             = dir;
-    o->v_q8.x             = dir * 700;
-    hero_start_jump(g, o, HERO_JUMP_WALL);
-}
-
-i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
-{
-    if (!facing) return 0;
-    rec_i32 r = {o->pos.x + dx, o->pos.y + dy, o->w, o->h};
-    if (!!map_blocked(g, r)) return 0;
-    if (obj_grounded(g, o)) return 0;
-
-    i32 x  = dx + (0 < facing ? o->pos.x + o->w : o->pos.x - 1);
-    i32 y1 = dy + o->pos.y + 2;
-    i32 y2 = dy + o->pos.y + o->h - 1 - 4;
-
-    for (i32 y = y1; y <= y2; y++) {
-        i32 r = map_climbable_pt(g, x, y);
-        if (r != MAP_CLIMBABLE_SUCCESS)
-            return 0;
-    }
-
-    return 1;
-}
-
-i32 hero_breath_tick(obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    return h->breath_ticks;
-}
-
-i32 hero_breath_tick_max(g_s *g)
-{
-    return (hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 2500 : 100);
-}
-
-i32 hero_swim_frameID(i32 animation)
-{
-    return ((animation >> 3) % 6);
-}
-
-i32 hero_swim_frameID_idle(i32 animation)
-{
-    return ((animation >> 4) & 7);
-}
-
 void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 {
-    hero_s *h      = (hero_s *)o->heap;
-    i32     dpad_x = inps_x(inp);
-    i32     dpad_y = inps_y(inp);
-    i32     st     = hero_get_actual_state(g, o);
+    hero_s *h = (hero_s *)o->heap;
+
+    i32 dpad_x = inps_x(inp);
+    i32 dpad_y = inps_y(inp);
+    i32 st     = hero_get_actual_state(g, o);
 
     if (inps_btn_jp(inp, INP_A)) {
         h->jump_btn_buffer = 6;
     } else if (h->jump_btn_buffer) {
         h->jump_btn_buffer--;
+    }
+    if (h->spinattack) {
+        h->spinattack++;
+        if (HERO_TICKS_SPIN_ATTACK <= h->spinattack) {
+            h->spinattack = 0;
+        }
+    }
+    if (h->attack_tick) {
+        h->attack_tick++;
+        if (HERO_ATTACK_TICKS <= h->attack_tick) {
+            h->attack_tick = 0;
+        }
     }
 
     if (h->jump_ui_may_hide) {
@@ -359,6 +356,7 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
                            h->skidding ||
                            h->crawl ||
                            h->crouched ||
+                           rope_stretched ||
                            h->grabbing;
 
     if (dpad_x && !facing_locked) {
@@ -373,7 +371,9 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         if (st == HERO_ST_AIR && rope_stretched) {
             obj_vy_q8_mul(o, -64);
         } else if (o->health) {
-            h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
+            if (0 < o->v_q8.y) {
+                h->impact_ticks = min_i32(o->v_q8.y >> 9, 8);
+            }
 
             if (1000 <= o->v_q8.y) {
                 f32 vol = (1.f * (f32)o->v_q8.y) / 2000.f;
@@ -382,11 +382,10 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 
             if (500 <= o->v_q8.y) {
                 v2_i32 posc = obj_pos_bottom_center(o);
-                posc.x -= 16;
-                posc.y -= 32;
-                rec_i32 trp = {0, 284, 32, 32};
-                spritedecal_create(g, RENDER_PRIO_HERO + 1, NULL, posc, TEXID_MISCOBJ,
-                                   trp, 15, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
+                posc.y -= 2;
+                i32 pID = (1500 <= o->v_q8.y ? PARTICLE_EMIT_ID_HERO_LAND_HARD
+                                             : PARTICLE_EMIT_ID_HERO_LAND);
+                particle_emit_ID(g, pID, posc);
             }
             o->v_q8.y = 0;
         } else {
@@ -425,6 +424,11 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         assert(o->h == HERO_HEIGHT_CROUCHED);
     } else {
         assert(o->h == HERO_HEIGHT);
+    }
+
+    hero_interaction_s hi = hero_get_interaction(g, o);
+    if (inps_btn_jp(inp, INP_B)) {
+        hero_interaction_do(g, o, hi);
     }
 
     switch (st) {
@@ -497,17 +501,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
     }
 }
 
-void hero_leave_and_clear_inair(obj_s *o)
-{
-    hero_s *h             = (hero_s *)o->heap;
-    h->jumpticks          = 0;
-    h->jump_btn_buffer    = 0;
-    h->walljump_tech_tick = 0;
-    h->walljump_tick      = 0;
-    h->air_block_ticks    = 0;
-    h->air_block_ticks_og = 0;
-}
-
 bool32 hero_try_stand_up(g_s *g, obj_s *o)
 {
     if (o->h != HERO_HEIGHT_CROUCHED) return 0;
@@ -524,81 +517,6 @@ bool32 hero_try_stand_up(g_s *g, obj_s *o)
     h->crawl          = 0;
     h->crouch_standup = HERO_CROUCHED_MAX_TICKS;
     return 1;
-}
-
-void hero_stamina_update_ui(g_s *g, obj_s *o, i32 amount)
-{
-    hero_s *h = (hero_s *)o->heap;
-    if (!h->stamina_added) return;
-
-    i32 d = min_i32(h->stamina_added, amount);
-    h->stamina_added -= d;
-    h->stamina += d;
-}
-
-i32 hero_stamina_modify(g_s *g, obj_s *o, i32 dt)
-{
-    hero_s *h    = (hero_s *)o->heap;
-    i32     stap = hero_stamina_left(g, o);
-
-    if (0 < dt) { // add stamina
-        i32 d = min_i32(dt, hero_stamina_max(g, o) - stap);
-        h->stamina += d;
-    } else if (dt < 0) { // remove stamina
-        i32 d = -dt;
-        if (h->stamina) {
-            i32 x = min_i32(h->stamina, d);
-            h->stamina -= x;
-            d -= x;
-        }
-        h->stamina_added = max_i32(0, h->stamina_added - d);
-    }
-    i32 sta = hero_stamina_left(g, o);
-    if (sta < stap) {
-        h->jump_ui_may_hide = 0;
-    }
-    return sta;
-}
-
-void hero_stamina_add_ui(g_s *g, obj_s *o, i32 dt)
-{
-    hero_s *h  = (hero_s *)o->heap;
-    i32     ft = hero_stamina_left(g, o);
-    h->stamina_added += min_i32(dt, hero_stamina_max(g, o) - ft);
-    h->stamina_ui_collected_tick = 10;
-}
-
-i32 hero_stamina_left(g_s *g, obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    return (h->stamina + h->stamina_added);
-}
-
-i32 hero_stamina_ui_full(g_s *g, obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    return h->stamina;
-}
-
-i32 hero_stamina_ui_added(g_s *g, obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    return h->stamina_added;
-}
-
-i32 hero_stamina_max(g_s *g, obj_s *o)
-{
-    return g->hero.stamina_upgrades * HERO_TICKS_PER_STAMINA_UPGRADE;
-}
-
-bool32 hero_present_and_alive(g_s *g, obj_s **o)
-{
-    obj_s *ot = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (!ot) return 0;
-    if (o) {
-        *o = ot;
-    }
-    return (ot->health);
 }
 
 v2_i32 hero_hook_aim_dir(hero_s *h)
@@ -664,75 +582,12 @@ void hero_stomped_ground(g_s *g, obj_s *o)
     if (h->stomp) {
         h->stomp = 0;
         snd_play(SNDID_STOMP, 1.f, 1.f);
-
-        particle_desc_s prt = {0};
-        {
-            prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
-            prt.p.v_q8.x    = 0;
-            prt.p.v_q8.y    = -300;
-            prt.p.a_q8.y    = 20;
-            prt.p.size      = 3;
-            prt.p.ticks_max = 20;
-            prt.ticksr      = 10;
-            prt.pr_q8.x     = 5000;
-            prt.pr_q8.y     = 1000;
-            prt.vr_q8.x     = 400;
-            prt.vr_q8.y     = 200;
-            prt.ar_q8.y     = 5;
-            prt.sizer       = 1;
-            prt.p.gfx       = PARTICLE_GFX_CIR;
-            prt.p.col       = GFX_COL_WHITE;
-            particles_spawn(g, prt, 15);
-            prt.p.col = GFX_COL_BLACK;
-            particles_spawn(g, prt, 15);
-        }
     }
 }
 
 bool32 hero_stomping(obj_s *o)
 {
     return ((hero_s *)o->heap)->stomp;
-}
-
-i32 hero_register_jumped_or_stomped_on(obj_s *ohero, obj_s *o)
-{
-    hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_jumped_or_stomped_on; n++) {
-        if (obj_from_obj_handle(h->jumped_or_stomped_on[n]) == o) {
-            return 1;
-        }
-    }
-    if (h->n_jumped_or_stomped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->jumped_or_stomped_on[h->n_jumped_or_stomped_on++] =
-        obj_handle_from_obj(o);
-    return 2;
-}
-
-i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
-{
-    hero_register_jumped_or_stomped_on(ohero, o);
-    hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_jumped_on; n++) {
-        if (obj_from_obj_handle(h->jumped_on[n]) == o) {
-            return 1;
-        }
-    }
-    if (h->n_jumped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->jumped_on[h->n_jumped_on++] = obj_handle_from_obj(o);
-    return 2;
-}
-
-i32 hero_register_stomped_on(obj_s *ohero, obj_s *o)
-{
-    hero_register_jumped_or_stomped_on(ohero, o);
-    hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_stomped_on; n++) {
-        if (obj_from_obj_handle(h->stomped_on[n]) == o)
-            return 1;
-    }
-    if (h->n_stomped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->stomped_on[h->n_stomped_on++] = obj_handle_from_obj(o);
-    return 2;
 }
 
 hero_interaction_s hero_get_interaction(g_s *g, obj_s *o)
@@ -745,7 +600,7 @@ hero_interaction_s hero_get_interaction(g_s *g, obj_s *o)
         return i;
     }
 
-    if (obj_grounded(g, o) && !h->crawl && !h->crouched && o->v_q8.x == 0 &&
+    if (obj_grounded(g, o) && !h->crawl && !h->crouched &&
         !h->climbing && !h->stomp_landing_ticks && !o->rope) {
         obj_s *interactable = hero_interactable_available(g, o);
         if (interactable) {
@@ -754,11 +609,35 @@ hero_interaction_s hero_get_interaction(g_s *g, obj_s *o)
             return i;
         }
 
-        inp_s inp    = inp_cur();
-        i32   dpad_x = inps_x(inp);
-        if (hero_can_grab(g, o, dpad_x)) {
-            i.action = HERO_INTERACTION_GRAB;
-            return i;
+        inp_s inp     = inp_cur();
+        i32   dpad_x  = inps_x(inp);
+        i32   grabdir = dpad_x ? dpad_x : o->facing;
+
+        if (!h->grabbing) {
+
+            rec_i32 hgrabr = {o->pos.x + (0 < grabdir ? o->w : -1),
+                              o->pos.y,
+                              1,
+                              8};
+
+            for (obj_each(g, k)) {
+                if (!(k->flags & OBJ_FLAG_GRAB)) continue;
+
+                rec_i32 irec = obj_aabb(k);
+                if (!overlap_rec(hgrabr, irec)) continue;
+
+                if (k->ID == OBJID_SOLIDLEVER) {
+
+                    i.action   = HERO_INTERACTION_GRAB;
+                    i.interact = obj_handle_from_obj(k);
+                    return i;
+                }
+            }
+
+            if (map_blocked(g, hgrabr)) {
+                i.action = HERO_INTERACTION_GRAB;
+                return i;
+            }
         }
     }
 
@@ -767,9 +646,20 @@ hero_interaction_s hero_get_interaction(g_s *g, obj_s *o)
 
 void hero_interaction_do(g_s *g, obj_s *o, hero_interaction_s i)
 {
+    hero_s *h = (hero_s *)o->heap;
     switch (i.action) {
     default: break;
     case HERO_INTERACTION_GRAB: {
+        obj_s *k    = obj_from_obj_handle(i.interact);
+        h->grabbing = 1;
+        if (k) {
+            h->obj_grabbed = i.interact;
+            if (k->ID == OBJID_SOLIDLEVER) {
+                solidlever_on_grab(g, k);
+                pltf_log("GRAB!\n");
+            }
+        }
+
         break;
     }
     case HERO_INTERACTION_INTERACT: {
@@ -781,8 +671,6 @@ void hero_interaction_do(g_s *g, obj_s *o, hero_interaction_s i)
     }
     }
 }
-
-void hero_inair_jump(g_s *g, obj_s *o, inp_s inp);
 
 void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
 {
@@ -810,6 +698,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                        !h->holds_weapon &&
                        !h->b_hold_tick &&
                        !o->rope &&
+                       0 < dpad_y &&
                        !ibutton;
     bool32 rope_stretched = (o->rope && (o->rope->len_max_q4 * 254) <= (rope_len_q4(g, o->rope) << 8));
 
@@ -818,7 +707,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
         h->walljump_tick = 0;
         v2_i32 rn_curr   = o->ropenode->p;
         v2_i32 rn_next   = ropenode_neighbour(o->rope, o->ropenode)->p;
-        v2_i32 dtrope    = v2_sub(rn_next, rn_curr);
+        v2_i32 dtrope    = v2_i32_sub(rn_next, rn_curr);
         i32    dtrope_s  = sgn_i32(dtrope.x);
         i32    dtrope_a  = abs_i32(dtrope.x);
 
@@ -827,7 +716,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
         }
 
         o->v_q8.x += ((dtrope_s == dpad_x) ? 45 : 10) * dpad_x;
-    } else if (can_stomp && inp_btn_jp(INP_DD)) {
+    } else if (can_stomp && inp_btn_jp(INP_A)) {
         h->stomp  = 1;
         o->v_q8.x = 0;
         o->v_q8.y = 0;
@@ -950,13 +839,10 @@ void hero_inair_jump(g_s *g, obj_s *o, inp_s inp)
         hero_stamina_modify(g, o, -192);
         hero_start_jump(g, o, HERO_JUMP_FLY);
 
-        rec_i32 rwind = {0, 0, 64, 64};
-        v2_i32  dcpos = obj_pos_center(o);
-        dcpos.x -= 32;
-        dcpos.y += 0;
-        i32 flip = rngr_i32(0, 1) ? 0 : SPR_FLIP_X;
-
-        spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, dcpos, TEXID_WINDGUSH, rwind, 18, 6, flip);
+        v2_i32 dcpos = obj_pos_center(o);
+        dcpos.x -= 16;
+        dcpos.y -= 8;
+        particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP_AIR, dcpos);
     }
 }
 
@@ -1047,33 +933,21 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
                     if (g->tiles[i].collision ||
                         (g->tiles[i].type & TILE_WATER_MASK))
                         continue;
+
+                    v2_i32  hcenter  = obj_pos_center(o);
+                    rec_i32 heroaabb = obj_aabb(o);
+                    for (i32 n = 0; n < g->n_fluid_areas; n++) {
+                        fluid_area_s *fa = &g->fluid_areas[n];
+                        rec_i32       fr = {fa->x, fa->y - 4, fa->w, 16};
+                        if (!overlap_rec(fr, heroaabb)) continue;
+
+                        i32 ax = abs_i32(o->v_q8.x);
+                        fluid_area_impact(fa, hcenter.x - fa->x, 12, -150, FLUID_AREA_IMPACT_FLAT);
+                    }
+
                     obj_move(g, o, 0, -12);
                     hero_start_jump(g, o, HERO_JUMP_WATER);
                     snd_play(SNDID_WATER_OUT_OF, 0.5f, 1.f);
-                    particle_desc_s prt = {0};
-                    {
-                        v2_i32 prt_p = v2_shl(obj_pos_center(o), 8);
-                        prt_p.y -= 10 << 8;
-                        prt.p.p_q8      = prt_p;
-                        prt.p.v_q8.x    = o->v_q8.x;
-                        prt.p.v_q8.y    = -500;
-                        prt.p.a_q8.y    = 30;
-                        prt.p.size      = 2;
-                        prt.p.ticks_max = 30;
-                        prt.ticksr      = 10;
-                        prt.pr_q8.x     = 2000;
-                        prt.pr_q8.y     = 1000;
-                        prt.vr_q8.x     = 100;
-                        prt.vr_q8.y     = 100;
-                        prt.ar_q8.y     = 5;
-                        prt.sizer       = 1;
-                        prt.p.gfx       = PARTICLE_GFX_CIR;
-                        prt.p.col       = GFX_COL_WHITE;
-                        particles_spawn(g, prt, 30);
-                        prt.p.col = GFX_COL_BLACK;
-                        particles_spawn(g, prt, 30 >> 1);
-                    }
-
                     goto BREAK_JUMP;
                 }
             }
@@ -1195,6 +1069,26 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
         if (HERO_STOMP_LANDING_TICKS <= h->stomp_landing_ticks) {
             h->stomp_landing_ticks = 0;
         }
+    } else if (h->grabbing) {
+
+        obj_s *i = obj_from_obj_handle(h->obj_grabbed);
+        if (inps_btn(inp, INP_B)) {
+            h->push_pull = dpad_x;
+
+            if (i) {
+                if (i->ID == OBJID_SOLIDLEVER) {
+                    solidlever_on_move(g, i, dpad_x, 0);
+                }
+            }
+        } else {
+            if (i) {
+                if (i->ID == OBJID_SOLIDLEVER) {
+                    solidlever_on_ungrab(g, i);
+                }
+            }
+            h->grabbing  = 0;
+            h->push_pull = 0;
+        }
     } else if (0 < dpad_y && !r) { // start crawling
         o->pos.y += HERO_HEIGHT - HERO_HEIGHT_CROUCHED;
         o->h              = HERO_HEIGHT_CROUCHED;
@@ -1250,6 +1144,7 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
         } else if (dpad_x != vs) {
             if (HERO_VX_SPRINT <= va) {
                 o->facing   = vs;
+                h->sprint   = 0;
                 h->skidding = 15;
             } else {
                 obj_vx_q8_mul(o, 128);
@@ -1266,7 +1161,8 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
                 ax = min_i32(20, HERO_VX_SPRINT - va);
             }
         } else if (dpad_x == -vs && h->skidding < 6) {
-            ax = min_i32(70, va);
+            h->sprint = 0;
+            ax        = min_i32(70, va);
         }
 
         o->v_q8.x += ax * dpad_x;
@@ -1368,50 +1264,6 @@ void hero_do_ladder(g_s *g, obj_s *o, inp_s inp)
     }
 }
 
-i32 hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o)
-{
-    hero_s *h       = (hero_s *)o->heap;
-    i32     snap_to = 0;
-    i32     dt_x    = 0;
-    i32     t       = hero_ladder_or_climbwall_snapdata(g, o, 0, 0, &dt_x);
-
-    switch (t) {
-    case HERO_LADDER_WALL:
-        snap_to = HERO_LADDER_WALL;
-        break;
-    case HERO_LADDER_VERTICAL:
-        if (dt_x == 0) {
-            snap_to = HERO_LADDER_VERTICAL;
-        } else if (0 < dt_x) {
-            rec_i32 rsnap = {o->pos.x, o->pos.y,
-                             o->w + dt_x, o->h};
-            if (!map_blocked(g, rsnap)) {
-                o->pos.x += dt_x;
-                snap_to = HERO_LADDER_VERTICAL;
-            }
-        } else if (dt_x < 0) {
-            rec_i32 rsnap = {o->pos.x + dt_x, o->pos.y,
-                             o->w - dt_x, o->h};
-            if (!map_blocked(g, rsnap)) {
-                o->pos.x += dt_x;
-                snap_to = HERO_LADDER_VERTICAL;
-            }
-        }
-        break;
-    }
-
-    if (snap_to) {
-        h->ladder          = snap_to;
-        o->v_q8.x          = 0;
-        o->v_q8.y          = 0;
-        h->jumpticks       = 0;
-        h->edgeticks       = 0;
-        h->gliding         = 0;
-        h->jump_btn_buffer = 0;
-    }
-    return snap_to;
-}
-
 // returns HERO_LADDER_VERTICAL or HERO_LADDER_WALL, and fills dt_snap_x
 // with the amount the player would have to shift on x to be considered in
 // a valid ladder or climbwall position
@@ -1468,31 +1320,48 @@ i32 hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy,
     return 0;
 }
 
-bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy)
+i32 hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o)
 {
-    i32 dt_x = 0;
-    i32 t    = hero_ladder_or_climbwall_snapdata(g, o, offx, offy, &dt_x);
-    return (t && dt_x == 0);
-}
+    hero_s *h       = (hero_s *)o->heap;
+    i32     snap_to = 0;
+    i32     dt_x    = 0;
+    i32     t       = hero_ladder_or_climbwall_snapdata(g, o, 0, 0, &dt_x);
 
-bool32 hero_has_upgrade(g_s *g, i32 ID)
-{
-    hero_s *h = &g->hero;
-    return (h->upgrades & ((u32)1 << ID));
-}
+    switch (t) {
+    case HERO_LADDER_WALL:
+        snap_to = HERO_LADDER_WALL;
+        break;
+    case HERO_LADDER_VERTICAL:
+        if (dt_x == 0) {
+            snap_to = HERO_LADDER_VERTICAL;
+        } else if (0 < dt_x) {
+            rec_i32 rsnap = {o->pos.x, o->pos.y,
+                             o->w + dt_x, o->h};
+            if (!map_blocked(g, rsnap)) {
+                o->pos.x += dt_x;
+                snap_to = HERO_LADDER_VERTICAL;
+            }
+        } else if (dt_x < 0) {
+            rec_i32 rsnap = {o->pos.x + dt_x, o->pos.y,
+                             o->w - dt_x, o->h};
+            if (!map_blocked(g, rsnap)) {
+                o->pos.x += dt_x;
+                snap_to = HERO_LADDER_VERTICAL;
+            }
+        }
+        break;
+    }
 
-void hero_add_upgrade(g_s *g, i32 ID)
-{
-    hero_s *h = &g->hero;
-    h->upgrades |= (u32)1 << ID;
-    pltf_log("# ADD UPGRADE: %i\n", ID);
-}
-
-void hero_rem_upgrade(g_s *g, i32 ID)
-{
-    hero_s *h = &g->hero;
-    h->upgrades &= ~((u32)1 << ID);
-    pltf_log("# DEL UPGRADE: %i\n", ID);
+    if (snap_to) {
+        h->ladder          = snap_to;
+        o->v_q8.x          = 0;
+        o->v_q8.y          = 0;
+        h->jumpticks       = 0;
+        h->edgeticks       = 0;
+        h->gliding         = 0;
+        h->jump_btn_buffer = 0;
+    }
+    return snap_to;
 }
 
 void hero_set_name(g_s *g, const char *name)
@@ -1521,43 +1390,201 @@ i32 hero_inv_count_of(g_s *g, i32 ID)
     return 0;
 }
 
-void hero_coins_change(g_s *g, i32 n)
-{
-    if (n == 0) return;
-    hero_s *h  = &g->hero;
-    i32     ct = h->coins + g->coins_added + n;
-    if (ct < 0) return;
+i32 hero_get_actual_state(g_s *g, obj_s *o);
 
-    if (g->coins_added == 0 || g->coins_added_ticks) {
-        g->coins_added_ticks = 100;
+void hero_post_update(g_s *g, obj_s *o, inp_s inp)
+{
+    hero_s *h = (hero_s *)o->heap;
+
+    trampolines_do_bounce(g);
+
+    // jump or stomped on
+    for (i32 n = 0; n < h->n_jumped_or_stomped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->jumped_or_stomped_on[n]);
+        if (!i) continue;
+
+        switch (i->ID) {
+        default: break;
+        case OBJID_SWITCH: switch_on_interact(g, i); break;
+        case OBJID_CHEST: chest_on_open(g, i); break;
+        }
+
+        if (i->flags & OBJ_FLAG_ENEMY) {
+            i->enemy.hurt_tick = 30;
+        }
     }
-    g->coins_added += n;
-}
 
-i32 hero_coins(g_s *g)
-{
-    hero_s *h = &g->hero;
-    i32     c = h->coins + g->coins_added;
-    assert(0 <= c);
-    return c;
-}
+    b32 stomped_on = 0;
+    for (i32 n = 0; n < h->n_stomped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->stomped_on[n]);
+        if (!i) continue;
 
-i32 saveID_put(g_s *g, i32 ID)
-{
-    if (ID == 0) return 0;
-
-    if (saveID_has(g, ID)) return 2;
-    if (g->n_saveIDs == NUM_SAVEIDS) return 0;
-    g->saveIDs[g->n_saveIDs++] = ID;
-    return 1;
-}
-
-bool32 saveID_has(g_s *g, i32 ID)
-{
-    if (ID == 0) return 0;
-
-    for (i32 n = 0; n < g->n_saveIDs; n++) {
-        if (g->saveIDs[n] == ID) return 1;
+        stomped_on = 1;
+        switch (i->ID) {
+        default: break;
+        case OBJID_FLYBLOB: {
+            hitbox_s hb = {0};
+            hb.damage   = 1;
+            flyblob_on_hit(g, i, hb);
+        } break;
+        }
     }
-    return 0;
+
+    b32 jumped_on = 0;
+    for (i32 n = 0; n < h->n_jumped_on; n++) {
+        obj_s *i = obj_from_obj_handle(h->jumped_on[n]);
+        if (!i) continue;
+
+        jumped_on = 1;
+    }
+
+    h->n_jumped_or_stomped_on = 0;
+    h->n_stomped_on           = 0;
+    h->n_jumped_on            = 0;
+
+    if (stomped_on) {
+        o->v_q8.y = min_i32(o->v_q8.y, -1000);
+        o->bumpflags &= ~OBJ_BUMP_Y_POS;
+        h->stomp = 0;
+    }
+
+    if (jumped_on) {
+        o->v_q8.y = min_i32(o->v_q8.y, -1000);
+        o->bumpflags &= ~OBJ_BUMP_Y_POS;
+    }
+
+    if (h->stomp) {
+        if (obj_grounded(g, o)) {
+            h->stomp               = 0;
+            h->stomp_landing_ticks = 1;
+        }
+    }
+
+    v2_i32  hcenter  = obj_pos_center(o);
+    rec_i32 heroaabb = obj_aabb(o);
+    for (i32 n = 0; n < g->n_fluid_areas; n++) {
+        fluid_area_s *fa  = &g->fluid_areas[n];
+        rec_i32       fr1 = {fa->x, fa->y - 4, fa->w, 16};
+        rec_i32       fr2 = {fa->x, fa->y - 1, fa->w, 2};
+        if (overlap_rec(fr1, heroaabb)) {
+            i32 ax  = abs_i32(o->v_q8.x);
+            i32 imp = (o->v_q8.y / 40) + abs_i32(o->v_q8.x) / 15;
+            imp     = clamp_sym_i32(imp, 250);
+            fluid_area_impact(fa, hcenter.x - fa->x, 12, imp, FLUID_AREA_IMPACT_FLAT);
+        }
+
+        if (overlap_rec(fr2, heroaabb) && 1000 <= o->v_q8.y) {
+            particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_WATER_SPLASH, hcenter);
+        }
+    }
+
+    // rope
+    rope_s          *r  = o->rope;
+    grapplinghook_s *gh = &g->ghook;
+    if (r && grapplinghook_rope_intact(g, gh)) {
+        grapplinghook_update(g, gh);
+        rope_update(g, r);
+        grapplinghook_animate(g, gh);
+
+        if (gh->state) {
+            if (gh->state == GRAPPLINGHOOK_FLYING) {
+                v2_i32 v_hook = rope_recalc_v(g, r, gh->rn,
+                                              v2_i32_from_i16(gh->p_q8),
+                                              v2_i32_from_i16(gh->v_q8));
+                gh->v_q8      = v2_i16_from_i32(v_hook);
+            } else {
+                bool32 calc_v = 0;
+                calc_v |= obj_grounded(g, o) && 271 <= rope_stretch_q8(g, r);
+                calc_v |= !obj_grounded(g, o);
+                if (calc_v) {
+                    v2_i32 v_hero = rope_recalc_v(g, r, o->ropenode,
+                                                  v2_i32_from_i16(o->subpos_q8),
+                                                  v2_i32_from_i16(o->v_q8));
+                    o->v_q8       = v2_i16_from_i32(v_hero);
+                }
+            }
+        }
+    }
+
+    bool32 collected_upgrade = 0;
+    i32    hero_dmg          = 0;
+    v2_i16 hero_knockback    = {0};
+
+    for (obj_each(g, it)) {
+        if (!overlap_rec(heroaabb, obj_aabb(it))) continue;
+
+        if (it->flags & OBJ_FLAG_HURT_ON_TOUCH) {
+            v2_i32 ocenter   = obj_pos_center(it);
+            v2_i32 dt        = v2_i32_sub(hcenter, ocenter);
+            hero_knockback.x = 1000 * sgn_i32(dt.x);
+            hero_knockback.y = 1000 * sgn_i32(dt.y);
+            hero_dmg         = max_i32(hero_dmg, 1);
+        }
+
+        switch (it->ID) {
+        case OBJID_COIN: {
+            if (!overlap_rec(heroaabb, obj_aabb(it))) break;
+            hero_coins_change(g, 1);
+            snd_play(SNDID_COIN, 1.f, 1.f);
+            obj_delete(g, it);
+            break;
+        }
+        case OBJID_HERO_POWERUP: {
+            hero_powerup_collected(g, hero_powerup_obj_ID(it));
+            save_event_register(g, hero_powerup_saveID(it));
+            obj_delete(g, it);
+            objs_cull_to_delete(g);
+            collected_upgrade = 1;
+            break;
+        }
+        case OBJID_STAMINARESTORER: {
+            staminarestorer_try_collect(g, it, o);
+            break;
+        }
+        case OBJID_PROJECTILE: projectile_on_collision(g, it); break;
+        case OBJID_FALLINGSTONE: fallingstone_burst(g, it); break;
+        case OBJID_STALACTITE:
+            if (it->flags & OBJ_FLAG_HURT_ON_TOUCH) {
+                stalactite_burst(g, it);
+            }
+            break;
+        }
+    }
+
+    i32 bx1 = max_i32(heroaabb.x >> 4, 0);
+    i32 by1 = max_i32(heroaabb.y >> 4, 0);
+    i32 bx2 = min_i32((heroaabb.x + heroaabb.w - 1) >> 4, g->tiles_x - 1);
+    i32 by2 = min_i32((heroaabb.y + heroaabb.h - 1) >> 4, g->tiles_y - 1);
+
+    for (i32 y = by1; y <= by2; y++) {
+        for (i32 x = bx1; x <= bx2; x++) {
+            if (g->tiles[x + y * g->tiles_x].collision != TILE_SPIKES)
+                continue;
+            v2_i32 ptilec    = {(x << 4) + 8, (y << 4) + 8};
+            v2_i32 dt        = v2_i32_sub(hcenter, ptilec);
+            hero_knockback.x = 1000 * sgn_i32(dt.x);
+            hero_knockback.y = 1000 * sgn_i32(dt.y);
+            hero_dmg         = max_i32(hero_dmg, 1);
+        }
+    }
+
+    if (!collected_upgrade) {
+        bool32 t = maptransition_try_hero_slide(g);
+        if (!t && inps_btn_jp(inp, INP_DU)) { // nothing happended
+            obj_s *interactable = obj_from_obj_handle(h->interactable);
+            obj_interact(g, interactable, o);
+            h->interactable = obj_handle_from_obj(0);
+        }
+    }
+
+    if (hero_dmg && !h->invincibility_ticks) {
+        hero_hurt(g, o, hero_dmg);
+        snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
+        o->v_q8 = hero_knockback;
+        o->bumpflags &= ~(OBJ_BUMP_Y | OBJ_BUMP_X);
+        g->events_frame |= EVENT_HERO_DAMAGE;
+        if (o->health == 0) {
+            g->events_frame |= EVENT_HERO_DEATH;
+        }
+    }
 }

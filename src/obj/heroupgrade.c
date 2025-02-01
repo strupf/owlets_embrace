@@ -10,13 +10,11 @@ void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void hero_powerup_obj_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (saveID_has(g, saveID)) return;
+    if (save_event_exists(g, saveID)) return;
 
-    obj_s *o     = obj_create(g);
-    o->on_update = hero_powerup_obj_on_update;
-    o->on_draw   = hero_powerup_obj_on_draw;
-    o->ID        = OBJID_HERO_POWERUP;
-    o->flags     = OBJ_FLAG_COLLECTIBLE |
+    obj_s *o = obj_create(g);
+    o->ID    = OBJID_HERO_POWERUP;
+    o->flags = OBJ_FLAG_COLLECTIBLE |
                OBJ_FLAG_SPRITE;
     o->w = 16;
     o->h = 16;
@@ -34,36 +32,12 @@ void hero_powerup_obj_load(g_s *g, map_obj_s *mo)
 
 void hero_powerup_obj_on_update(g_s *g, obj_s *o)
 {
-    particle_desc_s prt = {0};
-    {
-
-        prt.p.p_q8      = v2_shl(obj_pos_center(o), 8);
-        prt.p.v_q8.x    = 0;
-        prt.p.v_q8.y    = 0;
-        prt.p.size      = 5;
-        prt.p.ticks_max = 60;
-        prt.ticksr      = 10;
-        prt.pr_q8.x     = 2000;
-        prt.pr_q8.y     = 2000;
-        prt.vr_q8.x     = 100;
-        prt.vr_q8.y     = 100;
-        prt.ar_q8.x     = 0;
-        prt.ar_q8.y     = 0;
-        prt.sizer       = 2;
-        prt.p.gfx       = PARTICLE_GFX_CIR;
-        prt.p.col       = GFX_COL_WHITE;
-        particles_spawn(g, prt, 2);
-        prt.p.col  = GFX_COL_BLACK;
-        prt.p.size = 2;
-        prt.sizer  = 1;
-        particles_spawn(g, prt, 2);
-    }
 }
 
 void hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s ctx  = gfx_ctx_display();
-    v2_i32    pos  = v2_add(obj_pos_center(o), cam);
+    v2_i32    pos  = v2_i32_add(obj_pos_center(o), cam);
     gfx_ctx_s ctx2 = ctx;
     gfx_ctx_s ctx3 = ctx;
     ctx2.pat       = gfx_pattern_50();

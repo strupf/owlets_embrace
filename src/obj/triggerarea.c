@@ -30,7 +30,7 @@ obj_s *triggerarea_spawn(g_s *g, rec_i32 r, i32 tr_enter, i32 tr_leave, b32 once
 void triggerarea_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (saveID_has(g, saveID)) return;
+    if (save_event_exists(g, saveID)) return;
 
     rec_i32        r = {mo->x, mo->y, mo->w, mo->h};
     obj_s         *o = triggerarea_spawn(g, r,
@@ -51,14 +51,14 @@ void triggerarea_on_update(g_s *g, obj_s *o)
     if (occupied && !t->occupied && t->trigger_enter) {
         game_on_trigger(g, t->trigger_enter);
         if (t->once) { // only once
-            saveID_put(g, t->saveID);
+            save_event_register(g, t->saveID);
             obj_delete(g, o);
         }
     }
     if (!occupied && t->occupied && t->trigger_leave) {
         game_on_trigger(g, t->trigger_leave);
         if (t->once) { // only once
-            saveID_put(g, t->saveID);
+            save_event_register(g, t->saveID);
             obj_delete(g, o);
         }
     }

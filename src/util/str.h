@@ -88,7 +88,7 @@ static inline void *str_contains(const void *str, const void *sequence)
     const u8 *x  = (const u8 *)str;
     i32       fc = *(const u8 *)sequence;
     while (1) {
-        x = str_chr(x, fc);
+        x = (const u8 *)str_chr(x, fc);
         if (!x) return 0;
 
         i32 e = str_cmp(x, sequence);

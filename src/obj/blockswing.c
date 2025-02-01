@@ -31,12 +31,12 @@ void blockswing_on_update(g_s *g, obj_s *o)
     blockswing_s *bs    = (blockswing_s *)o->mem;
 
     bs->v_q8.y += 100;
-    bs->p_q8 = v2_add(bs->p_q8, bs->v_q8);
+    bs->p_q8 = v2_i32_add(bs->p_q8, bs->v_q8);
 
-    v2_i32 anchor_q8 = v2_shl(bs->anchor, 8);
+    v2_i32 anchor_q8 = v2_i32_shl(bs->anchor, 8);
 
-    v2_i32 dt = v2_sub(bs->p_q8, anchor_q8);
-    dt        = v2_setlen(dt, bs->len << 8);
+    v2_i32 dt = v2_i32_sub(bs->p_q8, anchor_q8);
+    dt        = v2_i32_setlen(dt, bs->len << 8);
 }
 
 void blockswing_on_draw(g_s *g, obj_s *o, v2_i32 cam)
@@ -45,8 +45,8 @@ void blockswing_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     gfx_ctx_s     ctx = gfx_ctx_display();
 
     v2_i32 ptop = {o->pos.x + o->w / 2, o->pos.y};
-    v2_i32 p1   = v2_add(ptop, cam);
-    v2_i32 p2   = v2_add(bs->anchor, cam);
+    v2_i32 p1   = v2_i32_add(ptop, cam);
+    v2_i32 p2   = v2_i32_add(bs->anchor, cam);
 
     gfx_lin_thick(ctx, p1, p2, GFX_COL_BLACK, 6);
 }

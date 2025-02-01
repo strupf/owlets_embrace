@@ -11,11 +11,6 @@
 typedef struct {
     i32 y_q12;
     i32 v_q12;
-} waterparticle_s;
-
-typedef struct {
-    i32 y_q12;
-    i32 v_q12;
 } fluid_particle_s;
 
 typedef struct {
@@ -29,205 +24,224 @@ typedef struct {
     i32               rng_range;
 } fluid_particles_s;
 
-void fluid_particles_step(fluid_particles_s *fp)
+i32 fluid_pt_y(i32 y_q8)
 {
-    fluid_particle_s *pt = fp->pt;
+    return ((y_q8 >> 8) + 8);
+}
 
-    for (i32 step = 0; step < fp->steps; step++) {
-        for (i32 i = 0; i < fp->substeps; i++) {
-            for (i32 n = 0; n < fp->num; n++) {
-                fluid_particle_s *pl = &pt[(n - 1 + fp->num) % fp->num];
-                fluid_particle_s *pr = &pt[(n + 1) % fp->num];
-                fluid_particle_s *pc = &pt[n];
+void fluid_area_destroy(g_s *g, fluid_area_s *a)
+{
+    *a = g->fluid_areas[--g->n_fluid_areas];
+}
 
-                i32 f0 = 0x064 * (pl->y_q12 + pr->y_q12 - (pc->y_q12 << 1));
-                i32 f1 = 0x7D0 * (pc->y_q12);
-                pc->v_q12 += (f0 - f1) >> 16;
-            }
+fluid_area_s *fluid_area_create(g_s *g, rec_i32 r, i32 type, b32 surface)
+{
+    if (g->n_fluid_areas == ARRLEN(g->fluid_areas)) return 0;
 
-            for (i32 n = 0; n < fp->num; n++) {
-                pt[n].y_q12 += pt[n].v_q12;
-            }
+    fluid_area_s *a = &g->fluid_areas[g->n_fluid_areas++];
+    a->type         = type;
+    a->x            = r.x;
+    a->y            = r.y;
+    a->w            = r.w;
+    a->h            = r.h;
+
+    if (surface) {
+        a->s.n   = r.w / (4 << (i32)(type == FLUID_AREA_LAVA)) + 3;
+        a->s.pts = game_alloctn(g, fluid_pt_s, a->s.n);
+        switch (type) {
+        case FLUID_AREA_WATER:
+            a->s.r     = 5;
+            a->s.c1    = 2200;
+            a->s.c2    = 120;
+            a->s.d_q16 = 64200;
+            a->s.steps = 5;
+            break;
+        case FLUID_AREA_LAVA:
+            a->s.r     = 8;
+            a->s.c1    = 3000;
+            a->s.c2    = 50;
+            a->s.d_q16 = 64000;
+            a->s.steps = 1;
+            break;
+        }
+    } else {
+        a->s.pts   = 0;
+        a->s.min_y = 0;
+        a->s.max_y = 0;
+    }
+
+    return a;
+}
+
+void fluid_surface_step(fluid_surface_s *b)
+{
+    // forces and velocity integration
+    for (i32 i = 0; i < b->steps; i++) {
+        b->pts[0].y_q8        = b->pts[1].y_q8;
+        b->pts[b->n - 1].y_q8 = b->pts[b->n - 2].y_q8;
+
+        for (i32 n = 1; n < b->n - 1; n++) {
+            fluid_pt_s *p = &b->pts[n];
+            i32         f = 0;
+            f += b->pts[n - 1].y_q8 - p->y_q8;
+            f += b->pts[n + 1].y_q8 - p->y_q8;
+            p->v_q8 += (f * b->c1 - p->y_q8 * b->c2) >> 16;
         }
 
-        // dampening
-        for (i32 n = 0; n < fp->num; n++) {
-            fluid_particle_s *pc = &pt[n];
+        for (i32 n = b->n - 2; 1 <= n; n--) {
+            b->pts[n].y_q8 += b->pts[n].v_q8;
+        }
+    }
 
-            pc->v_q12 = ((pc->v_q12 * fp->dampening + 2048) >> 12) +
-                        rngsr_sym_i32(&fp->rng_seed, fp->rng_range);
+    b->min_y = I8_MAX;
+    b->max_y = I8_MIN;
+
+    // dampening
+    for (i32 n = 0; n < b->n; n++) {
+        fluid_pt_s *p = &b->pts[n];
+        p->v_q8       = mul_q16((i32)b->d_q16, p->v_q8);
+        p->v_q8 += rngr_sym_i32(b->r);
+        i32 y    = fluid_pt_y(p->y_q8);
+        b->min_y = min_i32(b->min_y, y);
+        b->max_y = max_i32(b->max_y, y);
+    }
+}
+
+void fluid_area_update(fluid_area_s *b)
+{
+    if (b->s.pts) {
+        b->tick++;
+        fluid_surface_step(&b->s);
+    }
+}
+
+void fluid_area_impact(fluid_area_s *b, i32 x_mid, i32 w, i32 str, i32 type)
+{
+    i32 wi = b->type == FLUID_AREA_WATER ? 4 : 8;
+    i32 x0 = x_mid - w / 2;
+    i32 x1 = x0 + w;
+    i32 i0 = max_i32(x0 / wi + 1, 1);
+    i32 i1 = min_i32(x1 / wi + 1, b->s.n - 2);
+    i32 id = i1 - i0;
+    if (id == 0) return;
+
+    for (i32 i = i0; i <= i1; i++) {
+        i32         k = 0;
+        fluid_pt_s *p = &b->s.pts[i];
+        switch (type) {
+        case FLUID_AREA_IMPACT_COS: {
+            i32 k = -(cos_q15(((i - i0) << 17) / id) - 32768);
+            p->v_q8 += (str * k) >> 16;
+            break;
+        }
+        case FLUID_AREA_IMPACT_FLAT: {
+            p->v_q8 += str;
+            break;
+        }
         }
     }
 }
 
-void fluid_particle_s_step(fluid_particle_s *particles, i32 num, i32 steps)
+void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
 {
-    for (i32 step = 0; step < steps; step++) {
-        // forces and velocity integration
-        for (i32 i = 0; i < 3; i++) {
-            for (i32 n = 0; n < num; n++) {
-                fluid_particle_s *pl = &particles[(n - 1 + num) % num];
-                fluid_particle_s *pr = &particles[(n + 1) % num];
-                fluid_particle_s *pc = &particles[n];
+    i32       fill_col = GFX_COL_WHITE;
+    gfx_ctx_s ctx_fill = ctx;
+    switch (pass) {
+    case 0:
+        fill_col = GFX_COL_WHITE;
+        break;
+    case 1:
+        fill_col = GFX_COL_BLACK;
+        if (b->type == FLUID_AREA_LAVA) {
 
-                i32 f0 = pl->y_q12 + pr->y_q12 - pc->y_q12 * 2;
-                pc->v_q12 += (f0 * 100 - pc->y_q12 * 2000) >> 16;
-            }
-
-            for (i32 n = 0; n < num; n++) {
-                particles[n].y_q12 += particles[n].v_q12;
-            }
+        } else {
+            ctx_fill.pat = gfx_pattern_2x2(B2(10), B2(11));
         }
 
-        // dampening
-        for (i32 n = 0; n < num; n++) {
-            fluid_particle_s *pc = &particles[n];
-
-            pc->v_q12 = (pc->v_q12 * 4050 + (1 << 11)) >> 12;
-            pc->v_q12 += rngr_sym_i32(128);
-        }
+        break;
     }
-}
 
-void water_step(waterparticle_s *particles, i32 num, i32 steps);
+    i32 bx = b->x + cam.x;
+    i32 by = b->y + cam.y;
+    i32 i0 = 1;
+    i32 i1 = b->s.n - 2;
+    i32 wi = b->type == FLUID_AREA_WATER ? 4 : 8;
 
-void water_prerender_tiles()
-{
-    tex_s wtex;
-    app_texID_create_put(TEXID_WATER_PRERENDER, 32, NUM_WATER_TILES * 16, 1, app_allocator(), &wtex);
-    tex_clr(wtex, GFX_COL_CLEAR);
-    asset_tex_putID(TEXID_WATER_PRERENDER, wtex);
-
-    spm_push();
-    spm_align(4);
-
-#define WATER_RENDER_STEP 2
-#define WATER_NUM_P       256
-
-    waterparticle_s *particles = spm_alloctz(waterparticle_s, WATER_NUM_P);
-    water_step(particles, WATER_NUM_P, 256);
-
-    gfx_ctx_s wctx  = gfx_ctx_default(wtex);
-    gfx_ctx_s wctx0 = gfx_ctx_default(wtex);
-    gfx_ctx_s wctx1 = gfx_ctx_default(wtex);
-    gfx_ctx_s wctx2 = gfx_ctx_default(wtex);
-    gfx_ctx_s wctx3 = gfx_ctx_default(wtex);
-    wctx0.pat       = gfx_pattern_2x2(B2(11),
-                                      B2(10));
-    wctx1.pat       = gfx_pattern_2x2(B2(11),
-                                      B2(10));
-    wctx2.pat       = gfx_pattern_2x2(B2(10),
-                                      B2(00));
-    wctx3.pat       = gfx_pattern_4x4(B4(0000), // white background dots
-                                      B4(0101),
-                                      B4(0000),
-                                      B4(0101));
-
-    for (i32 n = 0; n < NUM_WATER_TILES; n++) {
-        water_step(particles, WATER_NUM_P, 1);
-
-        for (i32 k = 0; k < 16; k += WATER_RENDER_STEP) {
-
-            i32 hh = particles[((k + WATER_NUM_P) >> 1)].y_q12 >> 12;
-            hh     = clamp_sym_i32(hh, 4);
-            i32 yy = n * 16 + 4 + hh;
-
-            // filled tile silhouette background
-            rec_i32 rf  = {k, yy - 1, WATER_RENDER_STEP, 12 + 1 - hh};
-            rec_i32 rf3 = {k, yy + 1, WATER_RENDER_STEP, 12 + 1 - hh - 2};
-            gfx_rec_fill(wctx, rf, PRIM_MODE_BLACK);
-            gfx_rec_fill(wctx3, rf3, PRIM_MODE_WHITE);
-
-            // tile overlay top
-            rec_i32 rl1 = {k + 16, yy + 2, WATER_RENDER_STEP, 2};
-            rec_i32 rl2 = {k + 16, yy + 4, WATER_RENDER_STEP, 1};
-            rec_i32 rfb = {k + 16, yy, WATER_RENDER_STEP, 12 - hh};
-            gfx_rec_fill(wctx0, rfb, PRIM_MODE_BLACK);
-            gfx_rec_fill(wctx1, rl1, PRIM_MODE_WHITE);
-            gfx_rec_fill(wctx2, rl2, PRIM_MODE_WHITE);
+    // fill in the general area
+    if (b->s.pts) {
+        for (i32 i = i0; i <= i1; i++) {
+            i32     y  = fluid_pt_y(b->s.pts[i].y_q8);
+            rec_i32 rp = {bx + ((i - 1) * wi),
+                          by + y,
+                          wi,
+                          b->s.max_y - y};
+            gfx_rec_fill_opaque(ctx_fill, rp, fill_col);
         }
     }
 
-    spm_pop();
-}
+    rec_i32 rfill = {bx, by + b->s.max_y, b->w, b->h - b->s.max_y};
+    gfx_rec_fill_opaque(ctx_fill, rfill, fill_col);
 
-i32 water_tile_get(i32 x, i32 y, i32 tick)
-{
-    return ((x + (tick >> 1)) & (NUM_WATER_TILES - 1));
-}
+    switch (pass) {
+    case 0: { // only on 1st pass: lava bubbles (background)
+        if (b->type != FLUID_AREA_LAVA) break;
 
-void water_step(waterparticle_s *particles, i32 num, i32 steps)
-{
-    for (i32 step = 0; step < steps; step++) {
-        // forces and velocity integration
-        for (i32 i = 0; i < 3; i++) {
-            for (i32 n = 0; n < num; n++) {
-                waterparticle_s *pl = &particles[(n - 1 + num) % num];
-                waterparticle_s *pr = &particles[(n + 1) % num];
-                waterparticle_s *pc = &particles[n];
+        i32      bubanim = b->tick / 6;
+        texrec_s trbubg  = asset_texrec(TEXID_FLSURF, 0, 16, 32, 16);
 
-                i32 f0 = pl->y_q12 + pr->y_q12 - pc->y_q12 * 2;
-                pc->v_q12 += (f0 * 100 - pc->y_q12 * 2000) >> 16;
-            }
+        for (i32 i = i0 + 1; i <= i1 - 1; i++) {
+            // determine if there is a bubble at position i
+            // make it look kinda random
+            bool32 isbub_index = ((i) % 7) == 0 || ((i >> 1) % 14) <= 1;
+            if (!isbub_index) continue;
 
-            for (i32 n = 0; n < num; n++) {
-                particles[n].y_q12 += particles[n].v_q12;
+            // loop over 32 "frames", but only draw if it's lower than 8
+            i32 bubframe = (bubanim - (i * 3)) & 31;
+            if (bubframe < 8) {
+                i32    y0 = fluid_pt_y(b->s.pts[i].y_q8);
+                v2_i32 p  = {bx + ((i - 1) * wi) - 16,
+                             by + y0 - 16};
+                trbubg.x  = bubframe * 32;
+                gfx_spr(ctx, trbubg, p, 0, 0);
             }
         }
-
-        // dampening
-        for (i32 n = 0; n < num; n++) {
-            waterparticle_s *pc = &particles[n];
-
-            pc->v_q12 = (pc->v_q12 * 4050 + (1 << 11)) >> 12;
-            pc->v_q12 += rngr_sym_i32(128);
+        break;
+    }
+    case 1: { // only on 2nd pass: surface sprite overlay (foreground)
+        texrec_s trsurf = asset_texrec(TEXID_FLSURF, 0, 8, wi, 8);
+        for (i32 i = i0; i <= i1; i++) {
+            i32    y0 = fluid_pt_y(b->s.pts[i].y_q8);
+            i32    y1 = fluid_pt_y(b->s.pts[i + 1].y_q8);
+            v2_i32 p  = {bx + ((i - 1) * wi),
+                         by + y0 - 6};
+            i32    dy = clamp_sym_i32(y1 - y0, 1);
+            switch (dy) {
+            case +0: trsurf.x = 0; break;
+            case +1: trsurf.x = wi * 1; break;
+            case -1: trsurf.x = wi * 2; break;
+            default: trsurf.x = 0; break;
+            }
+            gfx_spr(ctx, trsurf, p, 0, 0);
         }
+        break;
+    }
     }
 }
 
 // returns [0, r.h] indicating water height inside of rec
 i32 water_depth_rec(g_s *g, rec_i32 r)
 {
-    i32               depth = 0;
-    tile_map_bounds_s bd    = tile_map_bounds_rec(g, r);
-    for (i32 ty = bd.y1; ty <= bd.y2; ty++) {
-        bool32 is_water_row = 0;
-        for (i32 tx = bd.x1; tx <= bd.x2; tx++) {
-            tile_s t = g->tiles[tx + ty * g->tiles_x];
-            is_water_row |= (t.type & TILE_WATER_MASK);
-        }
+    i32 depth   = 0;
+    i32 rbottom = r.y + r.h;
 
-        rec_i32 rtilerow = {r.x, ty << 4, r.w, 16};
-        if (is_water_row && overlap_rec(r, rtilerow)) {
-            depth = r.y + r.h - max_i32(rtilerow.y, r.y);
-            break;
+    for (i32 n = 0; n < g->n_fluid_areas; n++) {
+        fluid_area_s *a  = &g->fluid_areas[n];
+        rec_i32       rf = {a->x, a->y, a->w, a->h};
+        if (overlap_rec(r, rf)) {
+            i32 d = min_i32(r.h, rbottom - rf.y);
+            depth = max_i32(depth, d);
         }
     }
 
     return depth;
-}
-
-static inline i32 ocean_height_logic_q6(i32 p, i32 t)
-{
-    return (sin_q6((p >> 2) + (t << 1) + 0x00) << 4) +
-           (sin_q6((p >> 1) + (t << 1) + 0x80) << 3) +
-           (sin_q6((p >> 0) - (t << 2) + 0x40) << 2);
-}
-
-i32 ocean_height(g_s *g, i32 pixel_x)
-{
-    i32 h = ocean_height_logic_q6(pixel_x, gameplay_time(g));
-    return (h >> 6) + g->ocean.y;
-}
-
-i32 ocean_render_height(g_s *g, i32 pixel_x)
-{
-    i32 p = pixel_x;
-    i32 t = gameplay_time(g);
-    i32 y = ocean_height_logic_q6(p, t) +
-            (sin_q6((p << 2) + (t << 4) + 0x20) << 1) +
-            (sin_q6((p << 4) - (t << 5) + 0x04) << 0) +
-            (sin_q6((p << 5) + (t << 6) + 0x10) >> 2);
-    i32 h = (y >> 6) + g->ocean.y;
-    return h;
 }

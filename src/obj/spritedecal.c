@@ -22,6 +22,8 @@ void spritedecal_on_update(g_s *g, obj_s *o)
     if (sd->t_og <= sd->t) {
         obj_delete(g, o);
     }
+    obj_move_by_v_q8(g, o);
+    o->v_q8.y += 50;
 }
 
 void spritedecal_on_animate(g_s *g, obj_s *o)
@@ -44,8 +46,6 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
     o->flags           = OBJ_FLAG_SPRITE;
     o->n_sprites       = 1;
     o->render_priority = render_priority;
-    o->on_animate      = spritedecal_on_animate;
-    o->on_update       = spritedecal_on_update;
     obj_sprite_s *spr  = &o->sprites[0];
     spr->flip          = flip;
     if (oparent) {

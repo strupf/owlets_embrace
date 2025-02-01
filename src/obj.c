@@ -8,7 +8,7 @@
 
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
-    obj_handle_s h = {o, o ? o->GID : 0};
+    obj_handle_s h = {o, o ? o->generation : 0};
     return h;
 }
 
@@ -26,7 +26,7 @@ bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
 
 bool32 obj_handle_valid(obj_handle_s h)
 {
-    return (h.o && h.o->GID == h.GID);
+    return (h.o && h.o->generation == h.generation);
 }
 
 obj_s *obj_create(g_s *g)
@@ -41,9 +41,9 @@ obj_s *obj_create(g_s *g)
     g->obj_render[g->n_objrender++] = o;
     g->obj_head_free                = o->next;
 
-    u32 GID = o->GID;
+    u32 gen = o->generation;
     mclr(o, sizeof(obj_s));
-    o->GID           = GID;
+    o->generation    = gen;
     o->next          = g->obj_head_busy;
     g->obj_head_busy = o;
 #if PLTF_DEBUG
@@ -67,9 +67,7 @@ void obj_delete(g_s *g, obj_s *o)
     if (!o) return;
     if (find_ptr_in_array(g->obj_to_delete, o, g->obj_ndelete) < 0) {
         g->obj_to_delete[g->obj_ndelete++] = o;
-
-        // increase gen to devalidate existing handles
-        o->GID = (o->ID & ~OBJ_GID_GEN_MASK) | ((o->ID + 1) & OBJ_GID_GEN_MASK);
+        o->generation++; // increase gen to devalidate existing handles
     } else {
         pltf_log("already deleted\n");
     }

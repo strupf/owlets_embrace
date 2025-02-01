@@ -39,8 +39,8 @@ i32 rng_i32()
 
 u32 rngs_u32_bound(u32 *s, u32 hi)
 {
-    if (hi == U32_MAX) return rngs_u32(s);
-    return (rngs_u32(s) % (hi + 1));
+    u32 r = rngs_u32(s);
+    return (hi == U32_MAX ? r : r % (hi + 1));
 }
 
 u32 rng_u32_bound(u32 hi)
@@ -65,7 +65,6 @@ u32 rngsr_u32(u32 *seed, u32 lo, u32 hi)
 
 u32 rngr_u32(u32 lo, u32 hi)
 {
-
     return rngsr_u32(&g_rng_seed, lo, hi);
 }
 

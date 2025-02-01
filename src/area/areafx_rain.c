@@ -45,8 +45,8 @@ void areafx_rain_draw(g_s *g, areafx_rain_s *fx, v2_i32 cam)
                                         B4(1111));
     for (i32 n = 0; n < fx->n_drops; n++) {
         areafx_raindrop_s *drop = &fx->drops[n];
-        v2_i32             p    = v2_shr(v2_i32_from_i16(drop->p), 4);
-        p                       = v2_add(p, cam);
+        v2_i32             p    = v2_i32_shr(v2_i32_from_i16(drop->p), 4);
+        p                       = v2_i32_add(p, cam);
         p.x &= AREAFX_RAIN_W - 1;
         p.y &= AREAFX_RAIN_H - 1;
         p.x -= (AREAFX_RAIN_W - PLTF_DISPLAY_W) >> 1;
@@ -79,6 +79,6 @@ void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam)
             ctx_light.pat = gfx_pattern_interpolate(1, 8);
         }
 
-        gfx_rec_fill(ctx_light, (rec_i32){0, 0, 400, 240}, PRIM_MODE_WHITE);
+        gfx_rec_fill(ctx_light, CINIT(rec_i32){0, 0, 400, 240}, PRIM_MODE_WHITE);
     }
 }

@@ -25,7 +25,7 @@ void chest_load(g_s *g, map_obj_s *mo)
     o->n_sprites = 1;
     i32 saveID   = map_obj_i32(mo, "saveID");
     c->saveID    = saveID;
-    if (saveID_has(g, saveID)) {
+    if (save_event_exists(g, saveID)) {
         o->state = CHEST_OPENED;
     } else {
         o->flags = OBJ_FLAG_HERO_JUMPABLE;

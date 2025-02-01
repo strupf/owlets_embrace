@@ -23,15 +23,13 @@ void spikes_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 void spikes_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o      = obj_create(g);
-    o->ID         = OBJID_SPIKES;
-    o->flags      = OBJ_FLAG_RENDER_AABB;
-    o->on_animate = spikes_on_animate;
-    o->on_draw    = spikes_on_draw;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y;
-    o->w          = mo->w;
-    o->h          = mo->h;
+    obj_s *o = obj_create(g);
+    o->ID    = OBJID_SPIKES;
+    o->flags = OBJ_FLAG_RENDER_AABB;
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+    o->w     = mo->w;
+    o->h     = mo->h;
     if (0) {
     } else if (str_contains(mo->name, "_L")) {
         o->facing = DIRECTION_W;
@@ -55,10 +53,6 @@ void spikes_load(g_s *g, map_obj_s *mo)
     o->state        = t_on || t_off ? SPIKES_DYNAMIC : SPIKES_STATIC;
     sp->trigger_off = t_off;
     sp->trigger_on  = t_on;
-
-    if (o->state == SPIKES_DYNAMIC) {
-        o->on_trigger = spikes_on_trigger;
-    }
 
     if (o->state == SPIKES_STATIC || o->substate) {
         o->flags |= OBJ_FLAG_HURT_ON_TOUCH;

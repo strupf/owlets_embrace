@@ -5,7 +5,7 @@
 #ifndef MARENA_H
 #define MARENA_H
 
-#include "mem.h"
+#include "pltf/pltf_types.h"
 
 typedef struct marena_s {
     byte *p;
@@ -14,7 +14,6 @@ typedef struct marena_s {
 } marena_s;
 
 void  marena_init(marena_s *m, void *buf, usize bufs);
-void  marena_init_aligned(marena_s *m, void *buf, usize bufs, usize alignment);
 void  marena_align(marena_s *m, usize alignment);
 void *marena_alloc(marena_s *m, usize s);
 void *marena_alloc_aligned(marena_s *m, usize s, usize alignment);

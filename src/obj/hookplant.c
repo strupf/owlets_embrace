@@ -25,12 +25,10 @@ void hookplant_load(g_s *g, map_obj_s *mo)
     o->ID    = OBJID_HOOKPLANT;
     o->flags = OBJ_FLAG_RENDER_AABB |
                OBJ_FLAG_HOOKABLE;
-    o->on_update  = hookplant_on_update;
-    o->on_animate = hookplant_on_animate;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y;
-    o->w          = mo->w + 16;
-    o->h          = mo->h + 16;
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+    o->w     = mo->w + 16;
+    o->h     = mo->h + 16;
 }
 
 void hookplant_on_update(g_s *g, obj_s *o)
@@ -91,5 +89,5 @@ void hookplant_on_hook(obj_s *o)
     o->state        = HOOKPLANT_GRABBED;
     o->timer        = 0;
     ropenode_s *rn  = ropenode_neighbour(o->rope, o->ropenode);
-    pl->p           = v2_sub(o->ropenode->p, rn->p);
+    pl->p           = v2_i32_sub(o->ropenode->p, rn->p);
 }

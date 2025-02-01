@@ -21,13 +21,9 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     obj_s        *o = obj_create(g);
     projectile_s *p = (projectile_s *)o->mem;
 
-    o->ID = OBJID_PROJECTILE;
-
-    o->on_update  = projectile_on_update;
-    o->on_animate = projectile_on_animate;
-    o->on_draw    = projectile_on_draw;
-    o->v_q8       = v2_i16_from_i32(vel);
-    o->subID      = subID;
+    o->ID    = OBJID_PROJECTILE;
+    o->v_q8  = v2_i16_from_i32(vel);
+    o->subID = subID;
     //
     o->flags |= OBJ_FLAG_HURT_ON_TOUCH;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
@@ -84,7 +80,7 @@ void projectile_on_update(g_s *g, obj_s *o)
     if (p->hist_len) {
         v2_i32 pp              = p->pos_hist[p->n_hist];
         p->n_hist              = (p->n_hist + 1) % p->hist_len;
-        p->pos_hist[p->n_hist] = v2_shr(v2_add(pp, o->pos), 1);
+        p->pos_hist[p->n_hist] = v2_i32_shr(v2_i32_add(pp, o->pos), 1);
         p->n_hist              = (p->n_hist + 1) % p->hist_len;
         p->pos_hist[p->n_hist] = o->pos;
     }
@@ -108,7 +104,7 @@ void projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     switch (o->subID) {
     case PROJECTILE_ID_STALACTITE_BREAK: {
-        v2_i32 pos = v2_add(o->pos, cam);
+        v2_i32 pos = v2_i32_add(o->pos, cam);
         gfx_cir_fill(ctx, pos, 12, GFX_COL_BLACK);
         gfx_cir_fill(ctx, pos, 8, GFX_COL_WHITE);
     } break;
@@ -116,13 +112,13 @@ void projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     if (pr->hist_len) {
         v2_i32 vadd = {o->w / 2 + cam.x, o->h / 2 + cam.y};
-        v2_i32 pos  = v2_add(o->pos, vadd);
+        v2_i32 pos  = v2_i32_add(o->pos, vadd);
 
         for (u32 n = 0; n < pr->hist_len; n++) {
             gfx_ctx_s ctxp = ctx;
             ctxp.pat       = gfx_pattern_interpolate(n, pr->hist_len);
             u32    k       = (n + pr->n_hist) % pr->hist_len;
-            v2_i32 p       = v2_add(pr->pos_hist[k], vadd);
+            v2_i32 p       = v2_i32_add(pr->pos_hist[k], vadd);
             u32    d       = (n * pr->d_smear) / pr->hist_len;
             gfx_cir_fill(ctxp, p, d, GFX_COL_BLACK);
         }
@@ -135,6 +131,7 @@ void projectile_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 void projectile_on_collision(g_s *g, obj_s *o)
 {
     switch (o->subID) {
+    case 1: break;
     default: break;
     }
 

@@ -45,8 +45,9 @@ void hero_on_animate(g_s *g, obj_s *o)
 
     if (h->b_hold_tick) {
         state = 0;
-        fr_x  = min_i32(h->b_hold_tick >> 2, 2) + 8;
-        fr_y  = 15 + obj_grounded(g, o);
+        fr_x  = min_i32(h->b_hold_tick >> 2, 2);
+        fr_x += h->attack_flipflop * 8;
+        fr_y = 15 + obj_grounded(g, o);
         sprite->offs.y -= 16;
     }
 
@@ -59,6 +60,26 @@ void hero_on_animate(g_s *g, obj_s *o)
         // o->n_sprites = 1 <= (g->gameplay_tick % 4);
     } else {
         o->n_sprites = 1;
+    }
+
+    if (h->spinattack) {
+        state = 0;
+        fr_y  = 10;
+        if (h->spinattack < 4) {
+            fr_x = 11;
+        } else if ((HERO_TICKS_SPIN_ATTACK - 4) <= h->spinattack) {
+            fr_x = 10;
+        } else {
+            fr_x = 12 + ((h->spinattack / 3) % 4);
+        }
+        sprite->offs.y -= 16;
+    }
+    if (h->attack_tick) {
+        sprite->offs.y -= 16;
+        state = 0;
+        fr_x  = lerp_i32(2, 8, h->attack_tick, HERO_ATTACK_TICKS);
+        fr_x += h->attack_flipflop * 8;
+        fr_y = 16;
     }
 
     if (o->health == 0) {
@@ -93,7 +114,8 @@ void hero_on_animate(g_s *g, obj_s *o)
 
         if (h->stomp_landing_ticks) {
             fr_y = 7;
-            fr_x = 14 + (3 <= h->stomp_landing_ticks);
+            fr_x = 14 + (3 <= h->stomp_landing_ticks &&
+                         h->stomp_landing_ticks < (HERO_STOMP_LANDING_TICKS - 2));
             break;
         }
 
@@ -197,10 +219,11 @@ void hero_on_animate(g_s *g, obj_s *o)
             if (frameID_prev != fr_x && (fr_x & 3) == 1) {
                 snd_play(SNDID_FOOTSTEP_LEAVES, rngr_f32(0.25f, 0.35f), rngr_f32(0.8f, 1.0f));
                 v2_i32 posc = obj_pos_bottom_center(o);
-                posc.x -= 16 + sgn_i32(o->v_q8.x) * 4;
-                posc.y -= 30;
-                rec_i32 trp = {0, 284, 32, 32};
-                spritedecal_create(g, RENDER_PRIO_HERO - 1, NULL, posc, TEXID_MISCOBJ, trp, 12, 5, rngr_i32(0, 1) ? 0 : SPR_FLIP_X);
+                posc.x -= sgn_i32(o->v_q8.x) * 4;
+                posc.y -= 2;
+                i32 pID = (abs_i32(o->v_q8.x) == HERO_VX_SPRINT ? PARTICLE_EMIT_ID_HERO_WALK_FAST
+                                                                : PARTICLE_EMIT_ID_HERO_WALK);
+                particle_emit_ID(g, pID, posc);
             }
             break;
         }
@@ -255,6 +278,7 @@ void hero_on_animate(g_s *g, obj_s *o)
         break;
     }
     case HERO_ST_WATER: { // repurpose jumping animation for swimming
+        sprite->offs.y += 4;
         if (inps_x(inp)) {
             fr_y = HERO_ANIMID_SWIM; // swim
             fr_x = hero_swim_frameID(o->animation);
@@ -296,25 +320,24 @@ void hero_on_animate(g_s *g, obj_s *o)
         }
         break;
     }
-    case HERO_ST_STOMP:
+    case HERO_ST_STOMP: {
+        fr_y = 7;
+        fr_x = 9 + min_i32(4, h->stomp >> 2);
+        break;
+    }
     case HERO_ST_AIR: {
-        if (o->rope) {
-            fr_y            = HERO_ANIMID_HANG_HOOK;
+        if (o->rope && 255 <= rope_stretch_q8(g, o->rope)) {
             ropenode_s *rn2 = ropenode_neighbour(o->rope, o->ropenode);
-            v2_i32      rdt = v2_sub(rn2->p, o->ropenode->p);
+            v2_i32      rdt = v2_i32_sub(rn2->p, o->ropenode->p);
+            if (rdt.y < 0) {
+                f32 ang = atan2f((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
 
-            f32 ang = atan2f((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
-
-            fr_x = -(i32)((ang * 4.f)) - 3;
-            fr_x = clamp_i32(fr_x, 0, 5);
-            sprite->offs.y += 12;
-            break;
-        }
-
-        if (h->stomp) {
-            fr_y = 7;
-            fr_x = 9 + min_i32(4, h->stomp >> 2);
-            break;
+                fr_y = 13;
+                fr_x = -(i32)((ang * 4.f)) - 3;
+                fr_x = 9 + clamp_i32(fr_x, 0, 6);
+                sprite->offs.y -= 4;
+                break;
+            }
         }
 
         if (h->holds_weapon) {

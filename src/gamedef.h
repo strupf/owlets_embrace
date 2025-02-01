@@ -35,6 +35,9 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
     if (patch) *patch = 0xFF & (v);
 }
 
+#define GAME_TICKS_PER_SECOND PLTF_UPS
+#define TICKS_FROM_MS(MS)     (((MS) * GAME_TICKS_PER_SECOND + 500) / 1000)
+
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
@@ -45,7 +48,6 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #include "util/json.h"
 #include "util/marena.h"
 #include "util/mathfunc.h"
-#include "util/mem.h"
 #include "util/rng.h"
 #include "util/sorting.h"
 #include "util/str.h"
@@ -58,8 +60,7 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #define FILEPATH_DIALOG   "assets/dialog/"
 #define FILEEXTENSION_AUD ".aud"
 #define NUM_TILES         131072
-#define NUM_SAVEIDS       256
-#define NUM_MAP_NEIGHBORS 16
+#define NUM_MAP_NEIGHBORS 12
 
 typedef struct g_s   g_s;
 typedef struct obj_s obj_s;
@@ -69,7 +70,7 @@ typedef struct obj_s obj_s;
 //   o != NULL && GID == o->GID
 typedef struct obj_handle_s {
     obj_s *o;
-    u32    GID;
+    u32    generation;
 } obj_handle_s;
 
 enum {
@@ -105,12 +106,84 @@ enum {
 };
 
 enum {
-    DIR_NONE  = 0,
-    DIR_X_POS = 1,
-    DIR_Y_POS = 2,
-    DIR_X_NEG = 4,
-    DIR_Y_NEG = 8,
+    DIR_NONE  = 1 << 0,
+    DIR_X_POS = 1 << 1,
+    DIR_X_NEG = 1 << 2,
+    DIR_Y_POS = 1 << 3,
+    DIR_Y_NEG = 1 << 4,
+    //
+    DIR_N     = DIR_Y_NEG,
+    DIR_S     = DIR_Y_POS,
+    DIR_W     = DIR_X_NEG,
+    DIR_E     = DIR_X_POS,
+    DIR_NW    = DIR_Y_NEG | DIR_X_NEG,
+    DIR_NE    = DIR_Y_NEG | DIR_X_POS,
+    DIR_SW    = DIR_Y_POS | DIR_X_NEG,
+    DIR_SE    = DIR_Y_POS | DIR_X_POS,
+    //
+    DIR_UP    = DIR_Y_NEG,
+    DIR_DOWN  = DIR_Y_POS,
+    DIR_LEFT  = DIR_X_NEG,
+    DIR_RIGHT = DIR_X_POS,
 };
+
+static i32 dir_nswe_index(i32 i)
+{
+    switch (i) {
+    case 0: return DIR_N;
+    case 1: return DIR_NE;
+    case 2: return DIR_E;
+    case 3: return DIR_SE;
+    case 4: return DIR_S;
+    case 5: return DIR_SW;
+    case 6: return DIR_W;
+    case 7: return DIR_NW;
+    }
+    return 0;
+}
+
+static i32 dir_nswe_nearest(i32 dir, bool32 cw)
+{
+    switch (dir) {
+    case DIR_N: return (cw ? DIR_NE : DIR_NW);
+    case DIR_S: return (cw ? DIR_SW : DIR_SE);
+    case DIR_E: return (cw ? DIR_SE : DIR_NE);
+    case DIR_W: return (cw ? DIR_NW : DIR_SW);
+    case DIR_NW: return (cw ? DIR_N : DIR_W);
+    case DIR_NE: return (cw ? DIR_E : DIR_N);
+    case DIR_SW: return (cw ? DIR_W : DIR_S);
+    case DIR_SE: return (cw ? DIR_S : DIR_E);
+    }
+    return 0;
+}
+
+static i32 dir_nswe_opposite(i32 dir)
+{
+    i32 d = dir;
+    if (0) {
+    } else if (d & DIR_X_POS) {
+        d = (d & ~DIR_X_POS) | DIR_X_NEG;
+    } else if (d & DIR_X_NEG) {
+        d = (d & ~DIR_X_NEG) | DIR_X_POS;
+    }
+    if (0) {
+    } else if (d & DIR_Y_POS) {
+        d = (d & ~DIR_Y_POS) | DIR_Y_NEG;
+    } else if (d & DIR_Y_NEG) {
+        d = (d & ~DIR_Y_NEG) | DIR_Y_POS;
+    }
+    return d;
+}
+
+static v2_i32 dir_v2(i32 dir)
+{
+    v2_i32 v = {0};
+    if (dir & DIR_X_POS) v.x = +1;
+    if (dir & DIR_X_NEG) v.x = -1;
+    if (dir & DIR_Y_POS) v.y = +1;
+    if (dir & DIR_Y_NEG) v.y = -1;
+    return v;
+}
 
 static i32 direction_nearest(i32 dir, bool32 cw)
 {

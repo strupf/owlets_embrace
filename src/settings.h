@@ -13,10 +13,11 @@ enum {
 };
 
 enum {
-    SETTINGS_ERR_OPEN    = 1 << 0,
-    SETTINGS_ERR_CLOSE   = 1 << 1,
-    SETTINGS_ERR_RW      = 1 << 2,
-    SETTINGS_ERR_VERSION = 1 << 3,
+    SETTINGS_ERR_OPEN     = 1 << 0,
+    SETTINGS_ERR_CLOSE    = 1 << 1,
+    SETTINGS_ERR_RW       = 1 << 2,
+    SETTINGS_ERR_VERSION  = 1 << 3,
+    SETTINGS_ERR_CHECKSUM = 1 << 4,
 };
 
 #define SETTINGS_TICKS_HOOK_CONTROL 15
@@ -25,12 +26,13 @@ enum {
 #define SETTINGS_SHAKE_SMOOTH_MAX   8
 
 typedef struct {
-    u8 shake_sensitivity;
-    u8 shake_smooth;
-    u8 mode;
-    u8 vol_sfx;
-    u8 vol_mus;
-    u8 ticks_hook_hold;
+    u8  shake_sensitivity;
+    u8  shake_smooth;
+    i32 hook_mode;
+    u8  mode;
+    u8  vol_sfx;
+    u8  vol_mus;
+    u8  ticks_hook_hold;
 } settings_s;
 
 extern settings_s SETTINGS;

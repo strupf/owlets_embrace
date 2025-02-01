@@ -35,9 +35,9 @@ void movingplatform_on_update(g_s *g, obj_s *o)
     // while -> allows for very fast movements, possibly skipping
     // vertices along the path in one frame
     while (1) {
-        v2_i32 p0_q4  = v2_shl(v2_i32_from_i16(plat->path[plat->i0]), 4);
-        v2_i32 p1_q4  = v2_shl(v2_i32_from_i16(plat->path[plat->i1]), 4);
-        i32    distsq = v2_distancesq(p0_q4, p1_q4);
+        v2_i32 p0_q4  = v2_i32_shl(v2_i32_from_i16(plat->path[plat->i0]), 4);
+        v2_i32 p1_q4  = v2_i32_shl(v2_i32_from_i16(plat->path[plat->i1]), 4);
+        i32    distsq = v2_i32_distancesq(p0_q4, p1_q4);
 
         if (pow2_i32(plat->p_q4) < distsq) break;
 
@@ -96,7 +96,7 @@ void movingplatform_on_update(g_s *g, obj_s *o)
     v2_i32 p0  = v2_i32_from_i16(plat->path[plat->i0]);
     v2_i32 p1  = v2_i32_from_i16(plat->path[plat->i1]);
     i32    num = plat->p_q4 >> 4;
-    i32    den = v2_distance(p0, p1);
+    i32    den = v2_i32_distance(p0, p1);
     v2_i16 pi  = {p0.x + ((p1.x - p0.x) * num) / den,
                   p0.y + ((p1.y - p0.y) * num) / den};
     // o->tomove  = v2_i16_sub(pi, v2_i16_from_i32(o->pos));
@@ -116,14 +116,12 @@ void movingplatform_load(g_s *g, map_obj_s *mo)
     movingplatform_s *plat = (movingplatform_s *)o->mem;
     o->ID                  = OBJID_MOVINGPLATFORM;
     o->flags               = OBJ_FLAG_RENDER_AABB;
-    o->on_trigger          = movingplatform_on_trigger;
     if (map_obj_bool(mo, "Solid")) {
 
     } else {
         o->flags |= OBJ_FLAG_PLATFORM;
     }
 
-    o->on_update   = movingplatform_on_update;
     o->w           = 64;
     o->h           = 16;
     o->pos.x       = mo->x;

@@ -44,7 +44,7 @@ void coin_on_update(g_s *g, obj_s *o)
             if (ohero) {
                 v2_i32 phero = obj_pos_center(ohero);
                 v2_i32 p     = obj_pos_center(o);
-                if (v2_distancesq(phero, p) <= COIN_HOMING_DISTSQ) {
+                if (v2_i32_distancesq(phero, p) <= COIN_HOMING_DISTSQ) {
                     o->state      = 1;
                     o->moverflags = 0;
                     break;

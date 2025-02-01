@@ -6,18 +6,16 @@
 
 typedef struct {
     u32 version;
-    u32 checksum;
-    u8  ununsed[8];
+    u16 checksum;
+    u8  ununsed[2];
 } save_header_s;
 
-static_assert(sizeof(save_header_s) == 16, "save header size");
-
-void savefile_upgrade(const void *s_old, u32 v, save_s *s);
+void savefile_upgrade(const void *s_old, u32 v, savefile_s *s);
 i32  savefile_read_data(void *f, void *buf, usize s, u32 checksum);
 
-void savefile_new(save_s *s, u8 *heroname)
+void savefile_new(savefile_s *s, u8 *heroname)
 {
-    mclr(s, sizeof(save_s));
+    mclr(s, sizeof(savefile_s));
     str_cpys(s->name, sizeof(s->name), heroname);
 }
 
@@ -40,16 +38,16 @@ bool32 savefile_exists(i32 slot)
     return 0;
 }
 
-i32 savefile_w(i32 slot, save_s *s)
+i32 savefile_w(i32 slot, savefile_s *s)
 {
     void *f = pltf_file_open_w(savefile_name(slot));
     if (!f) return SAVE_ERR_OPEN;
 
     i32           res = 0;
     save_header_s h   = {GAME_VERSION,
-                         checksum_u32(s, sizeof(save_s))};
+                         crc16(s, sizeof(savefile_s))};
     if (!pltf_file_ws(f, &h, sizeof(save_header_s)) ||
-        !pltf_file_ws(f, s, sizeof(save_s))) {
+        !pltf_file_ws(f, s, sizeof(savefile_s))) {
         res |= SAVE_ERR_RW;
     }
 
@@ -59,7 +57,7 @@ i32 savefile_w(i32 slot, save_s *s)
     return res;
 }
 
-i32 savefile_r(i32 slot, save_s *s)
+i32 savefile_r(i32 slot, savefile_s *s)
 {
     void *f = pltf_file_open_r(savefile_name(slot));
     if (!f) return SAVE_ERR_OPEN;
@@ -74,7 +72,7 @@ i32 savefile_r(i32 slot, save_s *s)
     switch (h.version) {
     case GAME_VERSION: {
         // up to date version
-        res |= savefile_read_data(f, s, sizeof(save_s), h.checksum);
+        res |= savefile_read_data(f, s, sizeof(savefile_s), h.checksum);
         break;
     }
 #if 0
@@ -113,8 +111,8 @@ bool32 savefile_del(i32 slot)
 bool32 savefile_cpy(i32 slot_from, i32 slot_to)
 {
     spm_push();
-    save_s *s = spm_alloct(save_s, 1);
-    b32     r =
+    savefile_s *s = spm_alloct(savefile_s);
+    b32         r =
         savefile_r(slot_from, s) == 0 &&
         savefile_w(slot_to, s) == 0;
     spm_pop();
@@ -126,13 +124,27 @@ i32 savefile_read_data(void *f, void *buf, usize s, u32 checksum)
     if (!pltf_file_rs(f, buf, s))
         return SAVE_ERR_RW;
 
-    if (checksum != checksum_u32(buf, s)) {
+    if (checksum != crc16(buf, s)) {
         pltf_log("Mismatching save file checksum!\n");
         return SAVE_ERR_CHECKSUM;
     }
     return 0;
 }
 
-void savefile_upgrade(const void *s_old, u32 v, save_s *s)
+void savefile_upgrade(const void *s_old, u32 v, savefile_s *s)
 {
+}
+
+i32 save_event_register(g_s *g, i32 ID)
+{
+    if (!(0 <= ID && ID < NUM_SAVE_EV)) return 0;
+    if (save_event_exists(g, ID)) return 2;
+    g->save_events[ID >> 5] |= (u32)1 << (ID & 31);
+    return 1;
+}
+
+bool32 save_event_exists(g_s *g, i32 ID)
+{
+    if (!(0 <= ID && ID < NUM_SAVE_EV)) return 0;
+    return (g->save_events[ID >> 5] & ((u32)1 << (ID & 31)));
 }

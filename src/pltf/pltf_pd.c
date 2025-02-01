@@ -97,7 +97,7 @@ int pltf_pd_update(void *user)
 {
     PDButtons cur;
     PD_system_getButtonState(&cur, 0, 0);
-    g_PD.b |= cur;
+    g_PD.b = (PDButtons)((i32)g_PD.b | (i32)cur);
     return pltf_internal_update();
 }
 
@@ -135,8 +135,8 @@ bool32 pltf_pd_crank_docked()
 u32 pltf_pd_btn()
 {
     PDButtons cur;
-    PD_system_getButtonState(&cur, NULL, NULL);
-    PDButtons b = g_PD.b | cur;
+    PD_system_getButtonState(&cur, 0, 0);
+    PDButtons b = (PDButtons)((i32)g_PD.b | (i32)cur);
     g_PD.b      = cur;
     return (u32)b;
 }
@@ -184,7 +184,7 @@ void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
 
 void *pltf_file_open_r(const char *path)
 {
-    return PD->file->open(path, kFileRead | kFileReadData);
+    return PD->file->open(path, (FileOptions)((i32)kFileRead | (i32)kFileReadData));
 }
 
 void *pltf_file_open_w(const char *path)

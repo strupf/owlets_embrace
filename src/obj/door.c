@@ -66,7 +66,8 @@ void door_load(g_s *g, map_obj_s *mo)
     d->n_collect     = map_obj_i32(mo, "n_collect");
     d->trigger_open  = map_obj_i32(mo, "trigger_open");
     d->trigger_close = map_obj_i32(mo, "trigger_close");
-    door_set_state(g, o, DOOR_CLOSED);
+
+    door_set_state(g, o, map_obj_bool(mo, "closed") ? DOOR_CLOSED : DOOR_OPENED);
     if (d->keyID) o->substate = DOOR_ACT_KEY;
     if (d->collectID) o->substate = DOOR_ACT_COLLECT;
     if (d->trigger_open ||
@@ -172,7 +173,7 @@ void door_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         dy = dy1;
     }
 
-    v2_i32 ct = v2_add(obj_pos_center(o), cam);
+    v2_i32 ct = v2_i32_add(obj_pos_center(o), cam);
     v2_i32 pc = {ct.x - 32, ct.y - 32}; // pos center
     v2_i32 p1 = {pc.x, pc.y + 16 + dy};
     v2_i32 p2 = {pc.x, pc.y - 16 - dy};

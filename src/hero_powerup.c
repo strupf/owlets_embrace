@@ -33,7 +33,7 @@ typedef struct {
     char txt[NUM_POWERUP_LINES][64];
 } powerup_text_s;
 
-const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS];
+extern const powerup_text_s powerup_texts[NUM_POWERUP_TEXTS];
 
 void hero_powerup_draw_text(gfx_ctx_s ctx, i32 ID);
 
@@ -101,7 +101,7 @@ void hero_powerup_draw(g_s *g, v2_i32 cam)
 
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
     assert(ohero);
-    v2_i32 pcirc = v2_add(cam, obj_pos_center(ohero));
+    v2_i32 pcirc = v2_i32_add(cam, obj_pos_center(ohero));
 
     switch (pu->phase) {
     default: break;
@@ -181,7 +181,7 @@ void hero_powerup_draw(g_s *g, v2_i32 cam)
     }
 
     texrec_s trtmp = {ttmp, rdisplay.x, rdisplay.y, rdisplay.w, rdisplay.h};
-    gfx_spr(ctx, trtmp, (v2_i32){0}, 0, 0);
+    gfx_spr(ctx, trtmp, CINIT(v2_i32){0}, 0, 0);
     spm_pop();
 }
 

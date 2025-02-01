@@ -12,24 +12,23 @@
 #include "dialog.h"
 #include "gamedef.h"
 #include "gameover.h"
-#include "hero/grapplinghook.h"
-#include "hero/hero.h"
+#include "grapplinghook.h"
+#include "hero.h"
 #include "hero_powerup.h"
 #include "map_loader.h"
 #include "maptransition.h"
 #include "menu_screen.h"
 #include "obj.h"
 #include "particle.h"
+#include "particle_defs.h"
 #include "rope.h"
 #include "save.h"
 #include "settings.h"
-#include "shop.h"
 #include "tile_map.h"
 #include "title.h"
 #include "water.h"
 #include "wiggle.h"
 
-#define NUM_RESPAWNS        4
 #define SAVE_TICKS          100
 #define SAVE_TICKS_FADE_OUT 80
 #define NUM_MAP_PINS        64
@@ -56,6 +55,11 @@ enum {
     SUBSTATE_MENUSCREEN
 };
 
+enum {
+    TRIGGER_BATTLEROOM_ENTER = 10000,
+    TRIGGER_BATTLEROOM_LEAVE = 10001,
+};
+
 typedef struct {
     v2_i16   pos;
     texrec_s tr;
@@ -66,6 +70,16 @@ typedef struct {
 void foreground_props_draw(g_s *g, v2_i32 cam);
 
 typedef struct {
+    u32  e;
+    byte mem[12];
+} game_event_s;
+
+typedef struct {
+    void *arg;
+    void (*func)(g_s *g, void *arg, u32 ID, void *e_arg);
+} game_event_obs_s;
+
+typedef struct {
     u32 hash;
     i16 x; // relative to current room
     i16 y;
@@ -74,9 +88,8 @@ typedef struct {
 } map_neighbor_s;
 
 struct g_s {
+    i32               save_slot;
     i32               tick;
-    u16               n_saveIDs;
-    u16               saveIDs[NUM_SAVEIDS]; // unlocked things or events already happened
     u32               map_hash;
     map_pin_s         map_pins[NUM_MAP_PINS];
     v2_i32            cam_prev;
@@ -90,12 +103,13 @@ struct g_s {
     hero_powerup_s    powerup;
     dialog_s          dialog;
     grapplinghook_s   ghook;
-    u16               freeze_tick;
-    u16               substate;
+    u8                freeze_tick;
+    u8                substate;
+    bool8             dark;
+    bool8             block_hero_control;
     cam_s             cam;
     u32               events_frame; // flags
     u32               hero_hurt_lp_tick;
-    bool32            dark;
     u8                musicname[8];
     u8                mapname[32];
     //
@@ -131,15 +145,16 @@ struct g_s {
     u32               n_deco_verlet;
     deco_verlet_s     deco_verlet[NUM_DECO_VERLET];
     //
-    grapplinghook_s   grapple;
+    i32               n_fluid_areas;
+    fluid_area_s      fluid_areas[16];
+    i32               n_event_obs;
+    game_event_obs_s  event_obs[256];
     i32               grapple_tick;
-    i32               save_slot;
     hero_s            hero;
-    particles_s       particles;
-    ocean_s           ocean;
-
-    marena_s memarena;
-    byte     mem[MKILOBYTE(512)];
+    particle_sys_s    particle_sys;
+    u32               save_events[NUM_SAVE_EV / 32];
+    marena_s          memarena;
+    byte              mem[MKILOBYTE(512)];
 };
 
 void        game_init(g_s *g);
@@ -149,25 +164,31 @@ void        game_resume(g_s *g);
 void        game_paused(g_s *g);
 void       *game_alloc(g_s *g, usize s, usize alignment);
 allocator_s game_allocator(g_s *g);
+#define game_alloct(G, T)     (T *)game_alloc(G, sizeof(T), ALIGNOF(T))
+#define game_alloctn(G, T, N) (T *)game_alloc(G, (N) * sizeof(T), ALIGNOF(T))
 //
-i32         gameplay_time(g_s *g);
-i32         gameplay_time_since(g_s *g, i32 t);
-void        game_load_savefile(g_s *g);
-bool32      game_save_savefile(g_s *g);
-void        game_on_trigger(g_s *g, i32 trigger);
-void        game_on_solid_appear(g_s *g);
-bool32      obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
-bool32      obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
-bool32      obj_game_player_attackbox(g_s *g, hitbox_s box);
-void        objs_update(g_s *g);
-void        objs_animate(g_s *g);
-void        objs_trigger(g_s *g, i32 trigger);
-void        obj_custom_draw(g_s *g, obj_s *o, v2_i32 cam);
-void        obj_interact(g_s *g, obj_s *o, obj_s *ohero);
-void        game_open_map(void *ctx, i32 opt);
-void        game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
-i32         saveID_put(g_s *g, i32 ID);
-bool32      saveID_has(g_s *g, i32 ID);
+i32    gameplay_time(g_s *g);
+i32    gameplay_time_since(g_s *g, i32 t);
+void   game_load_savefile(g_s *g);
+bool32 game_save_savefile(g_s *g);
+void   game_on_trigger(g_s *g, i32 trigger);
+void   game_on_solid_appear(g_s *g);
+bool32 obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
+bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
+bool32 obj_game_player_attackbox(g_s *g, hitbox_s box);
+void   objs_update(g_s *g);
+void   objs_animate(g_s *g);
+void   objs_trigger(g_s *g, i32 trigger);
+void   obj_custom_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   obj_interact(g_s *g, obj_s *o, obj_s *ohero);
+void   game_open_map(void *ctx, i32 opt);
+void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
+void   game_event_broadcast(g_s *g, u32 ID, void *e_arg);
+
+game_event_obs_s *game_event_obs_add(g_s *g);
+void              game_event_obs_del(g_s *g, game_event_obs_s *l);
+
+game_event_obs_s *game_event_obs_add(g_s *g);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

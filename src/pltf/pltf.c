@@ -4,30 +4,35 @@
 
 #include "pltf.h"
 
-#define PLTF_SHOW_FPS 1 // show FPS, UPS, update time and rendering time
+#define PLTF_SHOW_FPS 0 // show FPS, UPS, update time and rendering time
 
 typedef struct pltf_s {
     void *framebuffer;
     i32   tick;
     f32   lasttime;
-    f32   ups_timeacc;
-    f32   fps_timeacc;
-    f32   ups_ft_acc;
-    f32   fps_ft_acc;
-    u16   fps_counter;
-    u16   ups_counter;
-    u16   fps; // rendered frames per second
-    u16   ups; // updates per second
-    u16   ups_ft;
-    u16   fps_ft;
+    f32   ups_timeacc; // fixed timestep delta accumulator
+
+#if PLTF_SHOW_FPS
+    f32 fps_timeacc; // 1-second interval accumulator for updating
+    f32 ups_ft_acc;  // accumulator time spent updating
+    f32 fps_ft_acc;  // accumulator time spent rendering
+    u16 fps_counter; // fps counter for a 1-second interval
+    u16 ups_counter; // ups counter for a 1-second interval
+    u16 fps;         // fps of the last 1 second
+    u16 ups;         // ups of the last 1 second
+    u16 ups_ft;      // avg ms spent per update tick of the last 1 second
+    u16 fps_ft;      // avg ms spent per render tick of the last 1 second
+#endif
 } pltf_s;
 
 pltf_s           g_pltf;
-static const u32 pltf_font[512];
+extern const u32 pltf_font[512];
 
 i32 pltf_internal_init()
 {
-    g_pltf.fps         = PLTF_UPS;
+#if PLTF_SHOW_FPS
+    g_pltf.fps = PLTF_UPS;
+#endif
     g_pltf.lasttime    = pltf_seconds();
     g_pltf.framebuffer = pltf_1bit_buffer();
     i32 res            = app_init();
@@ -51,7 +56,6 @@ i32 pltf_internal_update()
     while (PLTF_UPS_DT_TEST <= g_pltf.ups_timeacc) {
         g_pltf.ups_timeacc -= PLTF_UPS_DT;
         g_pltf.tick++;
-        g_pltf.ups_counter++;
         updated++;
         app_tick();
     }
@@ -60,13 +64,16 @@ i32 pltf_internal_update()
     }
 #if PLTF_SHOW_FPS
     f32 tu2 = pltf_seconds();
+    g_pltf.ups_counter += updated;
     g_pltf.ups_ft_acc += tu2 - tu1;
 #endif
 
     if (updated) {
 #if PLTF_SHOW_FPS
         f32 tf1 = pltf_seconds();
+#endif
         app_draw();
+#if PLTF_SHOW_FPS
         f32 tf2 = pltf_seconds();
         g_pltf.fps_ft_acc += tf2 - tf1;
         g_pltf.fps_counter++;
@@ -91,8 +98,6 @@ i32 pltf_internal_update()
             '0' + (ups_ft % 10)};
         pltf_blit_text(fps, 0, 0);
         pltf_blit_text(ups, 0, 1);
-#else
-        app_draw();
 #endif
     }
 
@@ -201,6 +206,23 @@ void pltf_internal_resume()
     app_resume();
 }
 
+void *pltf_mem_alloc_aligned(usize s, usize alignment)
+{
+    assert(0 <= alignment && alignment <= 256);
+    // store a 1 byte offset behind the returned pointer
+    void *p              = pltf_mem_alloc(s + alignment);
+    void *p_al           = align_ptr((byte *)p + 1, alignment);
+    *((uchar *)p_al - 1) = (uchar)((byte *)p_al - (byte *)p);
+    return p_al;
+}
+
+void pltf_mem_free_aligned(void *p)
+{
+    // offset to the original pointer is one byte behind the pointer
+    void *p_og = (byte *)p - *((uchar *)p - 1);
+    pltf_mem_free(p_og);
+}
+
 #if PLTF_ENGINE_ONLY
 i32 app_init()
 {
@@ -233,7 +255,7 @@ void app_resume()
 
 #endif
 
-static const u32 pltf_font[512] = {
+const u32 pltf_font[512] = {
     0x6C7E7E00U, 0x00103810U, 0x0FFF00FFU, 0x997F3F3CU, 0x66180280U, 0x18003E7FU, 0x00001818U, 0x00000000U,
     0xFEFF8100U, 0x00107C38U, 0x07C33CFFU, 0x5A633366U, 0x663C0EE0U, 0x3C0063DBU, 0x3018183CU, 0xFF182400U,
     0xFEDBA500U, 0x1838387CU, 0x0F9966E7U, 0x3C7F3F66U, 0x667E3EF8U, 0x7E0038DBU, 0x600C187EU, 0xFF3C66C0U,

@@ -11,14 +11,6 @@ typedef struct {
     u32 size;
 } lzss_header_s;
 
-typedef struct {
-    u8 *b;        // working buffer
-    u32 i;        // current bit position in b
-    u32 nbytes;   // bits left to decode (stream)
-    u32 nb_lefts; // words still left in file
-    u32 nb_buf;   // word capacity working buffer
-} lzss_file_decoder_s;
-
 #define LZSS_NBITS_OFF     10
 #define LZSS_NBITS_RUN     6
 #define LZSS_LIT_THRESHOLD 3
@@ -120,12 +112,17 @@ usize lzss_encode(const void *src, usize srcl, void *dst)
     return size;
 }
 
+typedef struct {
+    u32 i;       // current byte position in b
+    u32 nbytes;  // bits left to decode
+    u8  b[4096]; // working buffer
+} lzss_file_decoder_s;
+
 static u32 lzss_r_byte_stream(void *f, lzss_file_decoder_s *s)
 {
-    if (s->nb_buf <= s->i) {
-        s->nb_buf = s->nb_lefts < s->nb_buf ? s->nb_lefts : s->nb_buf;
-        pltf_file_r(f, s->b, (usize)s->nb_buf);
-        s->nb_lefts -= s->nb_buf;
+    if (sizeof(s->b) <= s->i) {
+        u32 to_read = s->nbytes < sizeof(s->b) ? s->nbytes : sizeof(s->b);
+        pltf_file_r(f, s->b, (usize)to_read);
         s->i = 0;
     }
     s->nbytes--;
@@ -134,21 +131,15 @@ static u32 lzss_r_byte_stream(void *f, lzss_file_decoder_s *s)
 
 usize lzss_decode_file(void *f, void *dst)
 {
-    // working buffer for chunked reading
-    static u8 lzss_fbuf[4096];
-
     lzss_header_s head = {0};
-    pltf_file_r(f, &head, sizeof(lzss_header_s));
+    if (!pltf_file_rs(f, &head, sizeof(lzss_header_s))) return 0;
 
-    lzss_file_decoder_s s = {0};
-    s.nbytes              = head.nbytes;
-    s.nb_lefts            = head.nbytes;
-    s.nb_buf              = sizeof(lzss_fbuf);
-    s.b                   = lzss_fbuf;
-    s.i                   = s.nb_buf; // force buffer refill on first read
-    u32   block           = 0;
-    u32   flags           = 0;
-    byte *d               = (byte *)dst;
+    lzss_file_decoder_s s;
+    s.nbytes    = head.nbytes;
+    s.i         = sizeof(s.b); // force buffer fill on first read
+    u32   block = 0;
+    u32   flags = 0;
+    byte *d     = (byte *)dst;
 
     while (s.nbytes) {
         if (block == 0) {

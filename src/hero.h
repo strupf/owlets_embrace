@@ -46,6 +46,8 @@ enum {
     HERO_LADDER_WALL,
 };
 
+#define HERO_B_HOLD_TICKS_HOOK         10
+#define HERO_TICKS_SPIN_ATTACK         22
 #define HERO_HURT_LP_TICKS             100
 #define HERO_WATER_THRESHOLD           18
 #define HERO_WIDTH                     14
@@ -76,7 +78,7 @@ enum {
 #define WALLJUMP_MOM_TICKS             55
 #define HERO_NUM_JUMPED_ON             8
 #define HERO_HEALTH_RESTORE_TICKS      250
-#define HERO_STOMP_LANDING_TICKS       8
+#define HERO_STOMP_LANDING_TICKS       12
 #define HERO_HURT_TICKS                50
 #define HERO_INVINCIBILITY_TICKS       50
 #define HERO_W_STOMP_ADD_SYMM          4
@@ -111,6 +113,8 @@ typedef struct hero_s {
     obj_handle_s interactable;
     obj_handle_s hook;
 
+    u8  spinattack;
+    b8  ropepulled;
     u8  gliding;
     b8  grabbing;
     i8  push_pull;
@@ -177,6 +181,7 @@ typedef struct hero_s {
     u8  name[LEN_HERO_NAME];
     u32 upgrades;
 
+    obj_handle_s obj_grabbed;
     obj_handle_s jumped_on[HERO_NUM_JUMPED_ON];
     obj_handle_s stomped_on[HERO_NUM_JUMPED_ON];
     obj_handle_s jumped_or_stomped_on[HERO_NUM_JUMPED_ON];

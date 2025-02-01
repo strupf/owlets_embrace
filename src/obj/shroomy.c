@@ -28,8 +28,6 @@ void shroomy_load(g_s *g, map_obj_s *mo)
     o->ID    = OBJID_SHROOMY;
     o->flags = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HERO_JUMPABLE;
-    o->on_update       = shroomy_on_update;
-    o->on_animate      = shroomy_on_animate;
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->facing          = 1;
     o->w               = 16;

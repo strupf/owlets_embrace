@@ -22,7 +22,7 @@ void toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     gfx_ctx_s ctx = gfx_ctx_display();
     texrec_s  tr  = asset_texrec(TEXID_TOGGLE, 0, 0, 16, 16);
-    v2_i32    pos = v2_add(o->pos, cam);
+    v2_i32    pos = v2_i32_add(o->pos, cam);
     i32       nx  = o->w >> 4;
     i32       ny  = o->h >> 4;
 

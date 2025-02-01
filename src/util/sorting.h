@@ -13,26 +13,26 @@
 // +: a goes after b | b goes before a
 typedef i32 (*cmp_f)(const void *a, const void *b);
 
-static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f cmp);
+static void sort_i_array(byte *arr, byte *lo, byte *hi, usize s, cmp_f cmp);
 
 static void sort_array(void *arr, i32 num, usize s, cmp_f cmp)
 {
     if (num <= 1) return;
     assert(arr && s && cmp);
-    sort_i_array((char *)arr, (char *)arr, (char *)arr + (num - 1) * s, s, cmp);
+    sort_i_array((byte *)arr, (byte *)arr, (byte *)arr + (num - 1) * s, s, cmp);
 }
 
 // quicksort
-static void sort_i_array(char *arr, char *lo, char *hi, usize s, cmp_f c)
+static void sort_i_array(byte *arr, byte *lo, byte *hi, usize s, cmp_f c)
 {
-    static char m[1024];
+    byte m[256];
 
     assert(s * 2 <= sizeof(m));
     assert(lo < hi);
 
-    char *i = lo;
-    char *j = hi;
-    char *p = &m[s];
+    byte *i = lo;
+    byte *j = hi;
+    byte *p = &m[s];
 
     mcpy(p, arr + (((lo - arr) + (hi - arr)) / (s << 1)) * s, s);
 
