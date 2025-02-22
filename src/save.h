@@ -6,6 +6,7 @@
 #define SAVE_H
 
 #include "gamedef.h"
+#include "map.h"
 
 enum {
     SAVE_EV_RESERVED = 3000,
@@ -31,16 +32,19 @@ enum {
 };
 
 typedef struct {
-    u32    tick;
-    u8     name[LEN_HERO_NAME];
-    u32    map_hash;
-    v2_i16 hero_pos;
-    u32    upgrades;
-    u8     stamina;
-    u16    pos_x;
-    u16    pos_y;
-    u16    coins;
-    u32    save[NUM_SAVE_EV / 32];
+    u32       tick;
+    u8        name[LEN_HERO_NAME];
+    u32       map_hash;
+    v2_i16    hero_pos;
+    u32       upgrades;
+    u32       enemies_killed;
+    u8        stamina;
+    u16       pos_x;
+    u16       pos_y;
+    u16       coins;
+    u16       n_map_pins;
+    u32       save[NUM_SAVE_EV / 32];
+    map_pin_s pins[MAP_NUM_PINS];
 } savefile_s;
 
 // fills in empty/new savefile

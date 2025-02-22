@@ -33,9 +33,6 @@ i32 app_load_assets()
         r |= app_load_tex_internal(l, TEXID_TILESET_DECO, "T_TSDECO");
         r |= app_load_tex_internal(l, TEXID_HERO, "T_HERO");
         r |= app_load_tex_internal(l, TEXID_ROTOR, "T_ROTOR");
-        r |= app_load_tex_internal(l, TEXID_BG_FOREST, "T_BG001");
-        r |= app_load_tex_internal(l, TEXID_BG_CAVE_DEEP, "T_BG002");
-        r |= app_load_tex_internal(l, TEXID_BG_MOUNTAINS, "T_BG003");
         r |= app_load_tex_internal(l, TEXID_BGOLEM, "T_BGOLEM");
         r |= app_load_tex_internal(l, TEXID_FLSURF, "T_FLSURF");
         r |= app_load_tex_internal(l, TEXID_FLYBLOB, "T_FBLOB");
@@ -43,14 +40,25 @@ i32 app_load_assets()
         r |= app_load_tex_internal(l, TEXID_JUMPER, "T_JUMPER");
         r |= app_load_tex_internal(l, TEXID_MISCOBJ, "T_MISC");
         r |= app_load_tex_internal(l, TEXID_PARTICLES, "T_PARTICLES");
+        r |= app_load_tex_internal(l, TEXID_STAMINARESTORE, "T_RESTORE");
+        r |= app_load_tex_internal(l, TEXID_TRAMPOLINE, "T_TRAMPOLINE");
+        r |= app_load_tex_internal(l, TEXID_CRAWLER, "T_CRAWLER");
+        r |= app_load_tex_internal(l, TEXID_BUDPLANT, "T_BUDPLANT");
+        r |= app_load_tex_internal(l, TEXID_CHEST, "T_CHEST");
+        r |= app_load_tex_internal(l, TEXID_STAMINARESTORE, "T_STAMINA");
+        r |= app_load_tex_internal(l, TEXID_HOOK, "T_HOOK");
+        r |= app_load_tex_internal(l, TEXID_EXPLO1, "T_EXPLO1");
+        r |= app_load_tex_internal(l, TEXID_UI, "T_UI_EL");
+        r |= app_load_tex_internal(l, TEXID_BUTTONS, "T_BUTTONS");
+        r |= app_load_tex_internal(l, TEXID_COMPANION, "T_COMPANION");
     }
 
     // FNT ---------------------------------------------------------------------
     l.e = wad_seek_str(f, e, "WAD_FNT");
     if (l.e) {
-        r |= app_load_fnt_internal(l, FNTID_LARGE, "F_A_32");
-        r |= app_load_fnt_internal(l, FNTID_MEDIUM, "F_A_24");
-        r |= app_load_fnt_internal(l, FNTID_SMALL, "F_A_16");
+        r |= app_load_fnt_internal(l, FNTID_12, "F_A_12");
+        r |= app_load_fnt_internal(l, FNTID_16, "F_A_16");
+        r |= app_load_fnt_internal(l, FNTID_20, "F_A_20");
     }
 
     // SND ---------------------------------------------------------------------
@@ -65,20 +73,20 @@ i32 app_load_assets()
 
 i32 app_texID_create_put(i32 ID, i32 w, i32 h, b32 mask, allocator_s a, tex_s *o_t)
 {
-    tex_s t = {0};
-    i32   r = tex_create_ext(w, h, mask, a, &t);
+    i32   r = 0;
+    tex_s t = tex_create(w, h, mask, a, &r);
     if (r == 0) {
         if (o_t) {
             *o_t = t;
         }
     }
-    APP->assets.tex[ID].tex = t;
+    APP->assets.tex[ID] = t;
     return r;
 }
 
 static i32 app_load_tex_internal(app_load_s l, i32 ID, const void *name)
 {
-    tex_s *t = &APP->assets.tex[ID].tex;
+    tex_s *t = &APP->assets.tex[ID];
     i32    r = tex_from_wad(l.f, l.e, name, l.allocator, t);
     if (r != 0) {
         pltf_log("ERROR LOADING TEX: %i\n", r);
@@ -88,7 +96,7 @@ static i32 app_load_tex_internal(app_load_s l, i32 ID, const void *name)
 
 static i32 app_load_fnt_internal(app_load_s l, i32 ID, const void *name)
 {
-    fnt_s    *f = &APP->assets.fnt[ID].fnt;
+    fnt_s    *f = &APP->assets.fnt[ID];
     wad_el_s *e = wad_seek_str(l.f, l.e, name);
     if (!e) return 1;
 
@@ -112,7 +120,8 @@ static i32 app_load_fnt_internal(app_load_s l, i32 ID, const void *name)
     tex_header_s h = {0};
     if (!pltf_file_rs(l.f, &h, sizeof(tex_header_s))) return 4;
 
-    i32 err_t = tex_create_ext(h.w, h.h, 1, l.allocator, &f->t);
+    i32 err_t = 0;
+    f->t      = tex_create(h.w, h.h, 1, l.allocator, &err_t);
     if (err_t != 0) return 5;
 
     usize size     = sizeof(u32) * f->t.wword * f->t.h;
@@ -123,7 +132,7 @@ static i32 app_load_fnt_internal(app_load_s l, i32 ID, const void *name)
 
 static i32 app_load_snd_internal(app_load_s l, i32 ID, const void *name)
 {
-    snd_s *s = &APP->assets.snd[ID].snd;
+    snd_s *s = &APP->assets.snd[ID];
     i32    r = snd_from_wad(l.f, l.e, name, l.allocator, s);
     if (r != 0) {
         pltf_log("ERROR LOADING SND: %i\n", r);

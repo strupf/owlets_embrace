@@ -15,9 +15,47 @@ enum {
 };
 
 typedef struct {
+    u32 dialog_hash;
     i32 movement;
     i32 movedir;
 } npc_s;
+
+void npc_on_update(g_s *g, obj_s *o);
+void npc_on_animate(g_s *g, obj_s *o);
+void npc_on_interact(g_s *g, obj_s *o);
+
+void npc_load(g_s *g, map_obj_s *mo)
+{
+    obj_s *o      = obj_create(g);
+    npc_s *npc    = (npc_s *)o->mem;
+    o->ID         = OBJID_NPC;
+    o->on_update  = npc_on_update;
+    o->on_animate = npc_on_animate;
+    o->flags =
+        OBJ_FLAG_INTERACTABLE |
+        OBJ_FLAG_ACTOR;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
+                    OBJ_MOVER_GLUE_GROUND |
+                    OBJ_MOVER_ONE_WAY_PLAT |
+                    OBJ_MOVER_SLIDE_Y_NEG;
+    o->render_priority = 1;
+    o->w               = 16;
+    o->h               = 20;
+    o->pos.x           = mo->x + (mo->w - o->w) / 2;
+    o->pos.y           = mo->y + mo->h - o->h;
+    o->facing          = 1;
+
+    obj_sprite_s *spr = &o->sprites[0];
+    o->n_sprites      = 1;
+    spr->trec         = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
+    spr->offs.x       = (o->w - spr->trec.w) / 2;
+    spr->offs.y       = o->h - spr->trec.h;
+    char dialog[16];
+    map_obj_strs(mo, "Dialogfile", dialog);
+    npc->dialog_hash     = wad_hash(dialog);
+    npc->movement        = map_obj_i32(mo, "Movement");
+    o->sprites[0].trec.y = map_obj_i32(mo, "Model") * 48;
+}
 
 static i32 npc_get_state(g_s *g, obj_s *o)
 {
@@ -112,32 +150,4 @@ void npc_on_interact(g_s *g, obj_s *o)
     o->v_q8.x = 0;
     dialog_open(g, o->filename);
     // textbox_load_dialog(g, o->filename);
-}
-
-void npc_load(g_s *g, map_obj_s *mo)
-{
-    obj_s        *o   = obj_create(g);
-    npc_s        *npc = (npc_s *)o->mem;
-    obj_sprite_s *spr = &o->sprites[0];
-
-    o->ID         = OBJID_NPC;
-    o->flags      = OBJ_FLAG_INTERACTABLE;
-    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
-                    OBJ_MOVER_GLUE_GROUND |
-                    OBJ_MOVER_ONE_WAY_PLAT |
-                    OBJ_MOVER_SLIDE_Y_NEG;
-    o->render_priority = 1;
-    o->w               = 16;
-    o->h               = 20;
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y + mo->h - o->h;
-    o->facing          = 1;
-    o->n_sprites       = 1;
-    spr->trec          = asset_texrec(TEXID_NPC, 0, 0, 64, 48);
-    spr->offs.x        = (o->w - spr->trec.w) / 2;
-    spr->offs.y        = o->h - spr->trec.h;
-
-    map_obj_strs(mo, "Dialogfile", o->filename);
-    npc->movement        = map_obj_i32(mo, "Movement");
-    o->sprites[0].trec.y = map_obj_i32(mo, "Model") * 48;
 }

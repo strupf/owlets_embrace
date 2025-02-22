@@ -598,7 +598,7 @@ void rope_verletsim(g_s *g, rope_s *r)
 
     u32 dista = 0;
     for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
-        dista += v2_i32_len(v2_i32_shl(v2_i32_sub(r1->p, r2->p), 8));
+        dista += v2_i32_len(v2_i32_shl(v2_i32_sub(r1->p, r2->p), 4)) << 4;
         i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
         if (1 <= i && i < ROPE_VERLET_N - 1) {
             verlet_pos_s vp = {i, v2_i32_shl(r2->p, 8)};
@@ -617,26 +617,26 @@ void rope_verletsim(g_s *g, rope_s *r)
         rope_pt_s *pt  = &r->ropept[n];
         v2_i32     tmp = pt->p;
         pt->p.x += (pt->p.x - pt->pp.x);
-        pt->p.y += (pt->p.y - pt->pp.y) + ROPE_VERLET_GRAV;
+        pt->p.y += (pt->p.y - pt->pp.y) + 60; // gravity
         pt->pp = tmp;
     }
 
-    for (i32 k = 0; k < ROPE_VERLET_IT; k++) {
-        for (int n = 1; n < ROPE_VERLET_N; n++) {
+    for (i32 k = 0; k < 12; k++) {
+        for (i32 n = 1; n < ROPE_VERLET_N; n++) {
             rope_pt_s *p1 = &r->ropept[n - 1];
             rope_pt_s *p2 = &r->ropept[n];
 
             v2_i32 dt = v2_i32_sub(p1->p, p2->p);
-            i32    dl = v2_i32_len(dt);
+            i32    dl = v2_i32_len_appr(dt);
             i32    dd = dl - ll_q8;
 
             if (dd <= 1) continue;
-            dt    = v2_i32_setlenl(dt, dl, dd >> 1);
+            dt    = v2_i32_setlenl_small(dt, dl, dd >> 1);
             p1->p = v2_i32_sub(p1->p, dt);
             p2->p = v2_i32_add(p2->p, dt);
         }
 
-        for (int n = n_vpos - 1; 0 <= n; n--) {
+        for (i32 n = n_vpos - 1; 0 <= n; n--) {
             r->ropept[vpos[n].i].p = vpos[n].p;
         }
     }
@@ -644,9 +644,9 @@ void rope_verletsim(g_s *g, rope_s *r)
     if (len_ratio < 0.95f) return;
 
     // straighten rope
-    for (int n = 1; n < ROPE_VERLET_N - 1; n++) {
+    for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {
         bool32 contained = 0;
-        for (int i = 0; i < n_vpos; i++) {
+        for (i32 i = 0; i < n_vpos; i++) {
             if (vpos[i].i == n) {
                 contained = 1; // is fixed to corner already
                 break;
@@ -658,7 +658,7 @@ void rope_verletsim(g_s *g, rope_s *r)
         verlet_pos_s prev_vp = {-1};
         verlet_pos_s next_vp = {ROPE_VERLET_N};
 
-        for (int i = 0; i < n_vpos; i++) {
+        for (i32 i = 0; i < n_vpos; i++) {
             verlet_pos_s vp = vpos[i];
             if (prev_vp.i < vp.i && vp.i < n) {
                 prev_vp = vpos[i];
@@ -674,7 +674,7 @@ void rope_verletsim(g_s *g, rope_s *r)
         v2_i32 ptarget = v2_i32_lerp(prev_vp.p, next_vp.p,
                                      n - prev_vp.i,
                                      next_vp.i - prev_vp.i);
-        r->ropept[n].p = v2_i32_lerp(r->ropept[n].p, ptarget, 1, 4);
+        r->ropept[n].p = v2_i32_lerp(r->ropept[n].p, ptarget, 1, 8);
     }
 }
 

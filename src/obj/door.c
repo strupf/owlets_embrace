@@ -35,13 +35,18 @@ typedef struct {
     i32          saveID;
 } door_s;
 
+void door_on_update(g_s *g, obj_s *o);
+void door_on_animate(g_s *g, obj_s *o);
+void door_on_trigger(g_s *g, obj_s *o, i32 trigger);
+void door_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+
 static void door_set_state(g_s *g, obj_s *o, i32 state)
 {
     o->state = state;
     if (o->state == DOOR_CLOSED) {
-        tile_map_set_collision(g, obj_aabb(o), TILE_BLOCK, 0);
+        o->flags |= OBJ_FLAG_SOLID;
     } else {
-        tile_map_set_collision(g, obj_aabb(o), TILE_EMPTY, 0);
+        o->flags &= ~OBJ_FLAG_SOLID;
     }
 }
 
@@ -51,7 +56,10 @@ void door_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
 
-    obj_s  *o        = obj_create(g);
+    obj_s *o         = obj_create(g);
+    o->on_update     = door_on_update;
+    o->on_draw       = door_on_draw;
+    o->on_trigger    = door_on_trigger;
     door_s *d        = (door_s *)o->mem;
     o->ID            = OBJID_DOOR;
     o->w             = mo->w;

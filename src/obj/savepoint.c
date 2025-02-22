@@ -72,7 +72,7 @@ void savepoint_on_update(g_s *g, obj_s *o)
             f->v_q8.y -= 10;
         }
 
-        f->v_q8 = v2_truncate(f->v_q8, 128); // vmax
+        f->v_q8 = v2_i32_truncate(f->v_q8, 128); // vmax
         f->v_q8 = f->v_q8;
 
         switch (f->frame) {

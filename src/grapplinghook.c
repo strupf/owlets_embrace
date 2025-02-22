@@ -223,7 +223,7 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
     }
 
     spm_push();
-    tex_s tex_hook = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, spm_allocator);
+    tex_s tex_hook = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, 1, spm_allocator2(), 0);
     tex_clr(tex_hook, GFX_COL_CLEAR);
     gfx_ctx_s ctxhook   = gfx_ctx_default(tex_hook);
     gfx_ctx_s ctxhookpt = ctx;
@@ -289,6 +289,7 @@ bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
         snd_play(SNDID_KLONG, 1.f, 1.0f);
         h->state = GRAPPLINGHOOK_HOOKED_TERRAIN;
         grapplinghook_do_grab(g, h);
+        particle_emit_ID(g, PARTICLE_EMIT_ID_HOOK_TERRAIN, h->p);
         return 1;
     }
     return 0;
@@ -317,7 +318,7 @@ bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,
         h->state    = GRAPPLINGHOOK_HOOKED_SOLID;
         res         = GRAPPLINGHOOK_HOOKED_SOLID;
         grapplinghook_do_grab(g, h);
-
+        particle_emit_ID(g, PARTICLE_EMIT_ID_HOOK_TERRAIN, h->p);
     } else if (cangrab_other && (o->flags & OBJ_FLAG_HOOKABLE)) {
         h->state  = GRAPPLINGHOOK_HOOKED_OBJ;
         v2_i32 pc = obj_pos_center(o);

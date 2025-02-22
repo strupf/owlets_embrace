@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "water.h"
+#include "fluid_area.h"
 #include "app.h"
 #include "game.h"
 
@@ -48,6 +48,7 @@ fluid_area_s *fluid_area_create(g_s *g, rec_i32 r, i32 type, b32 surface)
     if (surface) {
         a->s.n   = r.w / (4 << (i32)(type == FLUID_AREA_LAVA)) + 3;
         a->s.pts = game_alloctn(g, fluid_pt_s, a->s.n);
+
         switch (type) {
         case FLUID_AREA_WATER:
             a->s.r     = 5;
@@ -126,7 +127,6 @@ void fluid_area_impact(fluid_area_s *b, i32 x_mid, i32 w, i32 str, i32 type)
     if (id == 0) return;
 
     for (i32 i = i0; i <= i1; i++) {
-        i32         k = 0;
         fluid_pt_s *p = &b->s.pts[i];
         switch (type) {
         case FLUID_AREA_IMPACT_COS: {
@@ -139,6 +139,8 @@ void fluid_area_impact(fluid_area_s *b, i32 x_mid, i32 w, i32 str, i32 type)
             break;
         }
         }
+
+        p->v_q8 = ssat(p->v_q8, 9);
     }
 }
 
@@ -151,11 +153,71 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
         fill_col = GFX_COL_WHITE;
         break;
     case 1:
-        fill_col = GFX_COL_BLACK;
         if (b->type == FLUID_AREA_LAVA) {
+            fill_col                      = PRIM_MODE_BLACK_WHITE;
+            const gfx_pattern_s lavapt[4] = {
+                gfx_pattern_8x8(B8(00000000),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00000000)),
+                gfx_pattern_8x8(B8(00000000),
+                                B8(00010000),
+                                B8(00000010),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(00100000),
+                                B8(00000001),
+                                B8(00000000)),
+                gfx_pattern_8x8(B8(00000000),
+                                B8(01010000),
+                                B8(00001010),
+                                B8(00000000),
+                                B8(00000000),
+                                B8(10100000),
+                                B8(00000101),
+                                B8(00000000)),
+                gfx_pattern_8x8(B8(00100000),
+                                B8(01010000),
+                                B8(00001010),
+                                B8(00000100),
+                                B8(01000000),
+                                B8(10100000),
+                                B8(00000101),
+                                B8(00000010))
 
+            };
+
+            i32 t   = b->tick << 10;
+            i32 shr = ((4 * (sin_q15(t) + 32767)) / 65536);
+            i32 shl = ((2 * (cos_q15(t * 3) + 32767)) / 65536);
+
+            if ((shr ^ shl) & 1) { // align pattern to 50/50 in screen space
+                shl++;
+            }
+            i32 pID = (b->tick / 12) % 19;
+            if (pID <= 7) {
+                if (4 <= pID) {
+                    pID = 7 - pID;
+                }
+            } else if (10 <= pID && pID <= (10 + 5)) {
+                pID -= 10;
+                if (3 <= pID) {
+                    pID = 5 - pID;
+                }
+            } else {
+                pID = 0;
+            }
+
+            ctx_fill.pat = gfx_pattern_shift(lavapt[pID],
+                                             cam.x + shr,
+                                             cam.y + shl);
         } else {
-            ctx_fill.pat = gfx_pattern_2x2(B2(10), B2(11));
+            fill_col     = GFX_COL_BLACK;
+            ctx_fill.pat = gfx_pattern_2x2(B2(11), B2(01));
         }
 
         break;
@@ -189,7 +251,7 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
         i32      bubanim = b->tick / 6;
         texrec_s trbubg  = asset_texrec(TEXID_FLSURF, 0, 16, 32, 16);
 
-        for (i32 i = i0 + 1; i <= i1 - 1; i++) {
+        for (i32 i = i0 + 1; i <= i1 - 1; i += 2) {
             // determine if there is a bubble at position i
             // make it look kinda random
             bool32 isbub_index = ((i) % 7) == 0 || ((i >> 1) % 14) <= 1;
@@ -200,7 +262,7 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
             if (bubframe < 8) {
                 i32    y0 = fluid_pt_y(b->s.pts[i].y_q8);
                 v2_i32 p  = {bx + ((i - 1) * wi) - 16,
-                             by + y0 - 16};
+                             by + y0 - 14};
                 trbubg.x  = bubframe * 32;
                 gfx_spr(ctx, trbubg, p, 0, 0);
             }
@@ -208,19 +270,15 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
         break;
     }
     case 1: { // only on 2nd pass: surface sprite overlay (foreground)
-        texrec_s trsurf = asset_texrec(TEXID_FLSURF, 0, 8, wi, 8);
+        texrec_s trsurf = asset_texrec(TEXID_FLSURF, 0,
+                                       b->type == FLUID_AREA_LAVA ? 8 : 0,
+                                       wi, 8);
         for (i32 i = i0; i <= i1; i++) {
-            i32    y0 = fluid_pt_y(b->s.pts[i].y_q8);
+            i32    y0 = fluid_pt_y(b->s.pts[i + 0].y_q8);
             i32    y1 = fluid_pt_y(b->s.pts[i + 1].y_q8);
-            v2_i32 p  = {bx + ((i - 1) * wi),
-                         by + y0 - 6};
-            i32    dy = clamp_sym_i32(y1 - y0, 1);
-            switch (dy) {
-            case +0: trsurf.x = 0; break;
-            case +1: trsurf.x = wi * 1; break;
-            case -1: trsurf.x = wi * 2; break;
-            default: trsurf.x = 0; break;
-            }
+            v2_i32 p  = {bx + (i - 1) * wi,
+                         by + y0 - 4};
+            trsurf.x  = wi * (2 + clamp_sym_i32(y1 - y0, 2));
             gfx_spr(ctx, trsurf, p, 0, 0);
         }
         break;

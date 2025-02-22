@@ -33,6 +33,13 @@ typedef uint8x4_t  u8x4;
 #define i8x4_sub     __ssub8
 #define ssat         __ssat
 
+static inline u32 ror_u32(u32 x, i32 v)
+{
+    u32 r = 0;
+    __asm("ror %0, %1, %2" : "=r"(r) : "r"(x), "r"(v));
+    return r;
+}
+
 static inline i32 i16_adds(i32 a, i32 b)
 {
     return (i16x2_adds(a, b) & 0xFFFF);
@@ -90,6 +97,12 @@ typedef struct {
 } u8x4;
 
 #define mcpy_t(T, D, S) mcpy(D, S, sizeof(T))
+
+static inline u32 ror_u32(u32 x, i32 v)
+{
+    u32 r = ((u32)((u64)x >> v)) | ((u32)((u64)x << (32 - v)));
+    return r;
+}
 
 static inline i32 ssat(i32 x, i32 b)
 {

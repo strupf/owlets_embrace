@@ -100,7 +100,7 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
 {
     if (obj_step_is_clamped(g, o, sx, sy)) return 1;
     rec_i32 ro = {r.x + sx, r.y + sy, r.w, r.h};
-    if ((o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) && map_blocked(g, ro)) {
+    if ((o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS) && blocked_excl(g, ro, o)) {
         return 1;
     }
 
@@ -154,11 +154,11 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
             if (overlap_rec(rstomp, rplat)) {
                 if (hero_stomping(o) && (i->flags & OBJ_FLAG_HERO_STOMPABLE)) {
                     coll_platform = 1;
-                    hero_register_stomped_on(o, i);
+                    hero_register_jumpstomped(o, i, 1);
                 }
                 if ((i->flags & OBJ_FLAG_HERO_JUMPABLE)) {
                     coll_platform = 1;
-                    hero_register_jumped_on(o, i);
+                    hero_register_jumpstomped(o, i, 0);
                 }
             }
         }
@@ -195,29 +195,30 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy)
         o->flags |= flagp;
     }
 
+    // check if hero is now jumping on this entity
+    obj_s *ohero = obj_get_hero(g);
+    if ((o->flags & OBJ_FLAG_HERO_JUMPSTOMPABLE) && ohero && sy < 0) {
+        rec_i32 rplat  = {o->pos.x, o->pos.y, o->w, 1};
+        rec_i32 rstomp = {ohero->pos.x - HERO_W_STOMP_ADD_SYMM,
+                          ohero->pos.y + ohero->h,
+                          ohero->w + HERO_W_STOMP_ADD_SYMM * 2,
+                          1};
+
+        if (overlap_rec(rstomp, rplat)) {
+            obj_step_actor(g, ohero, +0, -1);
+
+            if ((o->flags & OBJ_FLAG_HERO_STOMPABLE) && hero_stomping(ohero)) {
+                hero_register_jumpstomped(ohero, o, 1);
+            }
+            if ((o->flags & OBJ_FLAG_HERO_JUMPABLE)) {
+                hero_register_jumpstomped(ohero, o, 0);
+            }
+        }
+    }
+
     o->pos.x += sx;
     o->pos.y += sy;
     if (o->ropenode) {
         ropenode_move(g, o->rope, o->ropenode, sx, sy);
-    }
-
-    // check if hero is now jumping on this entity
-    obj_s *ohero = obj_get_hero(g);
-    if ((o->flags & OBJ_FLAG_HERO_JUMPSTOMPABLE) && ohero && ohero != o) {
-        rec_i32 rplat  = {o->pos.x, o->pos.y, o->w, 1};
-        rec_i32 rstomp = {ohero->pos.x - HERO_W_STOMP_ADD_SYMM,
-                          ohero->pos.y + sy,
-                          ohero->w + HERO_W_STOMP_ADD_SYMM * 2,
-                          ohero->h};
-
-        if (overlap_rec(rstomp, rplat)) {
-            obj_step_actor(g, ohero, +0, sy);
-            if ((o->flags & OBJ_FLAG_HERO_STOMPABLE) && hero_stomping(ohero)) {
-                hero_register_stomped_on(ohero, o);
-            }
-            if ((o->flags & OBJ_FLAG_HERO_JUMPABLE)) {
-                hero_register_jumped_on(ohero, o);
-            }
-        }
     }
 }

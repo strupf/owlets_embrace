@@ -13,18 +13,23 @@ typedef struct {
     i32 saveID;
 } chest_s;
 
+void chest_on_update(g_s *g, obj_s *o);
+void chest_on_animate(g_s *g, obj_s *o);
+
 void chest_load(g_s *g, map_obj_s *mo)
 {
-    obj_s   *o   = obj_create(g);
-    chest_s *c   = (chest_s *)o->mem;
-    o->ID        = OBJID_CHEST;
-    o->pos.x     = mo->x;
-    o->pos.y     = mo->y;
-    o->w         = mo->w;
-    o->h         = mo->h;
-    o->n_sprites = 1;
-    i32 saveID   = map_obj_i32(mo, "saveID");
-    c->saveID    = saveID;
+    obj_s   *o    = obj_create(g);
+    chest_s *c    = (chest_s *)o->mem;
+    o->ID         = OBJID_CHEST;
+    o->on_update  = chest_on_update;
+    o->on_animate = chest_on_animate;
+    o->pos.x      = mo->x;
+    o->pos.y      = mo->y;
+    o->w          = mo->w;
+    o->h          = mo->h;
+    o->n_sprites  = 1;
+    i32 saveID    = map_obj_i32(mo, "saveID");
+    c->saveID     = saveID;
     if (save_event_exists(g, saveID)) {
         o->state = CHEST_OPENED;
     } else {
@@ -61,6 +66,12 @@ void chest_on_open(g_s *g, obj_s *o)
 {
     if (o->state == CHEST_OPENED) return;
 
+    chest_s *c = (chest_s *)o->mem;
     o->flags &= ~OBJ_FLAG_HERO_JUMPABLE;
     o->state = CHEST_OPENED;
+    save_event_register(g, c->saveID);
+    v2_i32 p = obj_pos_center(o);
+    p.y -= 6;
+    particle_emit_ID(g, PARTICLE_EMIT_ID_CHEST, p);
+    g->freeze_tick = 2;
 }

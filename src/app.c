@@ -58,15 +58,25 @@ i32 app_init()
 #endif
 
 #if 1
+    typedef struct {
+        u32 hash;
+        i32 x;
+        i32 y;
+    } hero_spawn_s;
+
     // create a playtesting savefile
-    // mus_play("MUS003");
+    mus_play("MUS_05");
     g->save_slot = 0;
     spm_push();
-    savefile_s *s = spm_alloctz(savefile_s, 1);
+    savefile_s  *s  = spm_alloctz(savefile_s, 1);
+    hero_spawn_s hs = {0};
+    void        *f  = wad_open_str("SPAWN", 0, 0);
+    pltf_file_rs(f, &hs, sizeof(hero_spawn_s));
+    pltf_file_close(f);
     {
-        s->map_hash   = wad_hash("L_START");
-        s->hero_pos.x = 200;
-        s->hero_pos.y = 100;
+        s->map_hash   = hs.hash;
+        s->hero_pos.x = hs.x;
+        s->hero_pos.y = hs.y;
         s->upgrades   = 0xFFFFFFFFU;
         s->stamina    = 5;
     }
@@ -74,7 +84,6 @@ i32 app_init()
     spm_pop();
     game_load_savefile(g);
 #endif
-
     pltf_sync_timestep();
     return 0;
 }
@@ -120,6 +129,7 @@ static void app_tick_step()
     }
     case APP_ST_GAME: {
         game_tick(g);
+        // map_update(g);
         break;
     }
     }
@@ -130,12 +140,12 @@ void app_draw()
 #ifdef PLTF_PD
     pltf_pd_update_rows(0, 239);
 #endif
+
     tex_clr(asset_tex(0), GFX_COL_WHITE);
     gfx_ctx_s ctx = gfx_ctx_display();
     g_s      *g   = &APP->game;
 
     switch (APP->state) {
-
     case APP_ST_TITLE:
         title_render(&APP->title);
         break;
@@ -176,6 +186,7 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 void *app_alloc(usize s)
 {
     void *mem = marena_alloc(&APP->ma, s);
+    mclr(mem, s);
     assert(mem);
     return mem;
 }
@@ -183,6 +194,7 @@ void *app_alloc(usize s)
 void *app_alloc_aligned(usize s, usize alignment)
 {
     void *mem = marena_alloc_aligned(&APP->ma, s, alignment);
+    mclr(mem, s);
     assert(mem);
     return mem;
 }

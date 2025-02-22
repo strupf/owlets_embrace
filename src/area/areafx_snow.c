@@ -73,6 +73,5 @@ void areafx_snow_draw(g_s *g, areafx_snow_s *fx, v2_i32 cam)
         i32     s = (6 * n) / fx->n + 1;
         rec_i32 r = {p.x, p.y, s, s};
         gfx_cir_fill(ctx, p, s, GFX_COL_WHITE);
-        // gfx_rec_fill(ctx, r, GFX_COL_WHITE);
     }
 }

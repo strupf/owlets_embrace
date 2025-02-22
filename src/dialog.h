@@ -70,6 +70,7 @@ typedef struct dialog_s {
 } dialog_s;
 
 void dialog_open(g_s *g, const char *tag);
+void dialog_open_wad(g_s *g, const void *name);
 void dialog_update(g_s *g);
 void dialog_close(g_s *g);
 void dialog_draw(g_s *g);

@@ -17,17 +17,29 @@ typedef struct {
     i32    moved;
 } solidlever_s;
 
+bool32 solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy);
+i32    solidlever_on_pushpull(g_s *g, obj_s *o, i32 dir);
+void   solidlever_on_grab(g_s *g, obj_s *o);
+void   solidlever_on_ungrab(g_s *g, obj_s *o);
+void   solidlever_on_update(g_s *g, obj_s *o);
+void   solidlever_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+
 void solidlever_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o = obj_create(g);
     solidlever_s *s = (solidlever_s *)o->mem;
     o->ID           = OBJID_SOLIDLEVER;
+    o->on_update    = solidlever_on_update;
+    o->on_grab      = solidlever_on_grab;
+    o->on_pushpull  = solidlever_on_pushpull;
+    o->on_draw      = solidlever_on_draw;
     o->w            = 32;
     o->h            = 32;
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
-    o->flags        = OBJ_FLAG_SOLID |
-               OBJ_FLAG_GRAB;
+    o->flags =
+        OBJ_FLAG_SOLID |
+        OBJ_FLAG_GRAB;
     s->pos_og.x = mo->x;
     s->pos_og.y = mo->y;
     s->dir      = DIR_X_NEG;
@@ -65,13 +77,13 @@ void solidlever_on_update(g_s *g, obj_s *o)
     }
 }
 
-void solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy)
+bool32 solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy)
 {
     solidlever_s *s = (solidlever_s *)o->mem;
 
     v2_i32 movedir = dir_v2(s->dir);
     if (sgn_i32(movedir.x) != sgn_i32(dx) ||
-        sgn_i32(movedir.y) != sgn_i32(dy)) return;
+        sgn_i32(movedir.y) != sgn_i32(dy)) return 0;
 
     i32 dtpullmax = max_i32(0, s->maxmove - s->moved);
     i32 xa        = abs_i32(dx);
@@ -79,7 +91,17 @@ void solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy)
     i32 xm        = min_i32(dtpullmax, xa);
     i32 ym        = min_i32(dtpullmax, ya);
     obj_move(g, o, movedir.x * xm, movedir.y * ym);
-    s->moved += max_i32(xm, ym);
+    i32 tomove = max_i32(xm, ym);
+    s->moved += tomove;
+    return tomove;
+}
+
+i32 solidlever_on_pushpull(g_s *g, obj_s *o, i32 dir)
+{
+    if (solidlever_on_move(g, o, dir, 0)) {
+        return dir;
+    }
+    return 0;
 }
 
 void solidlever_on_grab(g_s *g, obj_s *o)

@@ -71,6 +71,11 @@ static inline i32 max_i32(i32 a, i32 b)
     return (a > b ? a : b);
 }
 
+static inline u32 max_u32(u32 a, u32 b)
+{
+    return (a > b ? a : b);
+}
+
 static inline i32 max3_i32(i32 a, i32 b, i32 c)
 {
     return max_i32(a, max_i32(b, c));
@@ -254,6 +259,31 @@ static inline bool32 is_pow2_u32(u32 v)
     return ((v & (v - 1)) == 0);
 }
 
+// https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm
+// fast approximation of sqrt(x^2 + y^2)
+static i32 amax_bmin_i32(i32 x, i32 y)
+{
+    i32 xa = abs_i32(x);
+    i32 ya = abs_i32(y);
+    u32 lo = (u32)min_i32(xa, ya);
+    u32 hi = (u32)max_i32(xa, ya);
+    u32 z  = u32_add(u32_mul(hi, 29) >> 5, u32_mul(lo, 61) >> 7);
+    // u32 z = u32_add(u32_mul(hi, 7) >> 3, u32_mul(lo, 17) >> 5); // less prone to overflow on high values
+    return max_u32(hi, z);
+}
+
+// https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm
+// fast approximation of sqrt(x^2 + y^2)
+static f32 amax_bmin_f32(f32 x, f32 y)
+{
+    f32 xa = abs_f32(x);
+    f32 ya = abs_f32(y);
+    f32 lo = min_f32(xa, ya);
+    f32 hi = max_f32(xa, ya);
+    f32 z  = hi * 0.8982042f + lo * 0.4859682f;
+    return max_f32(hi, z);
+}
+
 // convert fixed point numbers without rounding
 static inline i32 q_convert_i32(i32 v, i32 qfrom, i32 qto)
 {
@@ -271,15 +301,12 @@ static inline i32 divr_i32(i32 n, i32 d)
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 {
-    i32 i = i32_mul(i32_sub(b, a), num);
-    return (a + i / den);
+    return (a + i32_mul(i32_sub(b, a), num) / den);
 }
 
-// more expensive variant using an immediate u64 to prevent overflow
-static inline i32 lerpl_i32(i32 a, i32 b, i32 num, i32 den)
+static inline i64 lerp_i64(i64 a, i64 b, i64 num, i64 den)
 {
-    i64 i = (i64)(b - a) * num;
-    return (i32)(a + (i32)(i / (i64)den));
+    return (a + (((b - a) * num) / (i64)den));
 }
 
 static inline f32 lerp_f32(f32 a, f32 b, f32 r)
@@ -315,44 +342,40 @@ static inline f32 sqrt_f32(f32 x)
 static inline u32 sqrt_u64(u64 x)
 {
     if (U64_C(0xFFFFFFFE00000001) <= x) return U32_C(0xFFFFFFFF);
-    if (x == 0) return 0;
-    u64 v = (u64)sqrt_f32((f32)x);
-    v     = (v + x / v) >> 1;
-    return (u32)((x < v * v) ? v - 1 : v);
+    u64 r = (u64)sqrt_f32((f32)x);
+    return (u32)((x < r * r) ? r - 1 : r);
 }
 
-static inline u32 sqrt_u32(u32 x)
+static u32 sqrt_u32(u32 x)
 {
-    if (U32_C(0xFFFE0001) <= x) return 0xFFFF;
-    if (x == 0) return 0;
-    u32 v = (u32)sqrt_f32((f32)x);
-    // v     = (v + x / v) >> 1;
-    return ((x < v * v) ? v - 1 : v);
+    if (4294836225 <= x) return 65535;
+    u32 r = (u32)(sqrt_f32((f32)x));
+    return (x < r * r ? r - 1 : r);
 }
 
-static u32 sqrt_u32_exact(u32 x)
+#define sqrt_i32 sqrt_u32
+
+static u32 sqrt_u32_bitwise(u32 n)
 {
-    if (x == 0) return 0;
-    u32 y = 0;
-    for (u32 z = x, m = 0x40000000 >> (clz32(x) << 1); m; m >>= 2) {
-        u32 b = y | m;
-        y >>= 1;
-        if (b <= z) {
-            z -= b;
-            y |= m;
+    u32 d = 1 << 30;
+    u32 x = n;
+    u32 c = 0;
+
+    while (n < d) {
+        d >>= 2;
+    }
+
+    while (d) {
+        u32 t = c + d;
+        c >>= 1;
+
+        if (x >= t) {
+            x -= t;
+            c += d;
         }
+        d >>= 2;
     }
-    return y;
-}
-
-static inline i32 sqrt_i32(i32 x)
-{
-#ifdef PLTF_DEBUG
-    if (x < 0) {
-        pltf_log("sqrt_warn: negative number!\n");
-    }
-#endif
-    return (x <= 0 ? 0 : (i32)sqrt_u32(x));
+    return c;
 }
 
 #define Q16_ANGLE_TURN 0x40000
@@ -642,6 +665,11 @@ static inline i32 v2_i32_len(v2_i32 v)
     return sqrt_u32(v2_i32_lensq(v));
 }
 
+static inline i32 v2_i32_len_appr(v2_i32 v)
+{
+    return amax_bmin_i32(v.x, v.y);
+}
+
 static inline u32 v2_i32_lenl(v2_i32 v)
 {
     return sqrt_u64(v2_i32_lensql(v));
@@ -665,13 +693,23 @@ static inline i32 v2_i32_distance(v2_i32 a, v2_i32 b)
 
 static inline v2_i32 v2_i32_setlenl(v2_i32 a, u32 l, u32 len)
 {
-    if (l <= 2) {
-        v2_i32 r0 = {len, 0};
-        return r0;
+    v2_i32 r = {0};
+    if (l == 0) {
+        r.x = len;
+    } else {
+        r.x = (i32)(((i64)a.x * (i64)len) / (i64)l);
+        r.y = (i32)(((i64)a.y * (i64)len) / (i64)l);
     }
+    return r;
+}
 
-    v2_i32 r = {(i32)(((i64)a.x * (i64)len) / (i64)l),
-                (i32)(((i64)a.y * (i64)len) / (i64)l)};
+static inline v2_i32 v2_i32_setlenl_small(v2_i32 a, u32 len_curr, u32 len)
+{
+    v2_i32 r = {len};
+    if (len_curr) {
+        r.x = i32_mul(a.x, (i32)len) / (i32)len_curr;
+        r.y = i32_mul(a.y, (i32)len) / (i32)len_curr;
+    }
     return r;
 }
 
@@ -680,7 +718,24 @@ static inline v2_i32 v2_i32_setlen(v2_i32 a, i32 len)
     return v2_i32_setlenl(a, v2_i32_len(a), len);
 }
 
-#define v2_truncate v2_i32_truncatel
+static inline v2_i32 v2_i32_setlen_fast(v2_i32 a, i32 len)
+{
+    return v2_i32_setlenl_small(a, v2_i32_len_appr(a), len);
+}
+
+static inline v2_i32 v2_i32_truncate(v2_i32 a, u32 l)
+{
+    u32 ls = v2_i32_lensq(a);
+    if ((i32)ls <= l * l) return a;
+    return v2_i32_setlenl_small(a, sqrt_u32(ls), l);
+}
+
+static inline v2_i32 v2_i32_truncate_fast(v2_i32 a, u32 l)
+{
+    i32 len = v2_i32_len_appr(a);
+    if (len <= l) return a;
+    return v2_i32_setlenl_small(a, len, l);
+}
 
 static inline v2_i32 v2_i32_truncatel(v2_i32 a, u32 l)
 {
@@ -696,10 +751,10 @@ static v2_i32 v2_i32_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
     return v;
 }
 
-static v2_i32 v2_i32_lerpl(v2_i32 a, v2_i32 b, i32 num, i32 den)
+static v2_i32 v2_i32_lerp_i64(v2_i32 a, v2_i32 b, i64 num, i64 den)
 {
-    v2_i32 v = {lerpl_i32(a.x, b.x, num, den),
-                lerpl_i32(a.y, b.y, num, den)};
+    v2_i32 v = {(i32)lerp_i64(a.x, b.x, num, den),
+                (i32)lerp_i64(a.y, b.y, num, den)};
     return v;
 }
 
@@ -795,6 +850,17 @@ static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
     f32 l = v2f_len(a);
     if (l == 0.f) {
         return CINIT(v2_f32){len, 0.f};
+    }
+
+    v2_f32 r = {a.x * (len / l), a.y * (len / l)};
+    return r;
+}
+
+static inline v2_f32 v2f_truncate(v2_f32 a, f32 len)
+{
+    f32 l = v2f_len(a);
+    if (l < len) {
+        return a;
     }
 
     v2_f32 r = {a.x * (len / l), a.y * (len / l)};
@@ -1087,7 +1153,7 @@ static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
 static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 {
     ratio_s r = project_pnt_line_ratio(p, a, b);
-    v2_i32  t = v2_i32_lerpl(a, b, r.num, r.den);
+    v2_i32  t = v2_i32_lerp_i64(a, b, r.num, r.den);
     return t;
 }
 

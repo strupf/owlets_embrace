@@ -42,8 +42,10 @@ typedef struct {
 } particle_prim_s;
 
 typedef struct {
-    i32            tick;
-    i32            amount;
+    u8             in_use;
+    u16            amount;
+    u16            tick;
+    u16            interval;
     obj_handle_s   o;
     // spawn data below
     u16            ticks_min;
@@ -54,6 +56,8 @@ typedef struct {
     u8             size_beg_max;
     u8             size_end_min;
     u8             size_end_max;
+    u8             p_range_r;
+    u8             drag;
     particle_tex_s tex;
     v2_i16         p;
     v2_i16         p_range;
@@ -61,7 +65,7 @@ typedef struct {
     v2_i16         a_q8;
     v2_i16         v_q8_range;
     v2_i16         a_q8_range;
-} particle_emitter_s;
+} particle_emit_s;
 
 typedef struct {
     ALIGNAS(32)
@@ -73,29 +77,29 @@ typedef struct {
     u16    ticks_max;
     u8     type; // type and flags
     u8     mode; // mode for prim or flipping flags
+    u8     drag;
     union {
         particle_prim_s prim;
         particle_tex_s  tex;
     };
 } particle_s;
 
-#ifdef PLTF_PD_HW
-static_assert(sizeof(particle_2_s) == 32, "size particle");
-#endif
+static_assert(sizeof(particle_s) == 32, "size particle");
 
 typedef struct {
-    i32                n;
-    particle_s         particles[512];
-    i32                n_emitters;
-    particle_emitter_s emitters[64];
+    u32             seed;
+    i32             n;
+    particle_s      particles[512];
+    particle_emit_s emitters[16];
 } particle_sys_s;
 
-particle_emitter_s *particle_emitter_create(g_s *g);
-void                particle_emitter_destroy(g_s                *g,
-                                             particle_emitter_s *pe);
+particle_emit_s *particle_emitter_create(g_s *g);
+void             particle_emitter_destroy(g_s             *g,
+                                          particle_emit_s *pe);
 
-void particle_emitter_emit(g_s *g, particle_emitter_s *pe, i32 n);
+void particle_emitter_emit(g_s *g, particle_emit_s *pe, i32 n);
 void particle_sys_update(g_s *g);
 void particle_sys_draw(g_s *g, v2_i32 cam);
+void particle_sys_shuffle(particle_sys_s *pr, i32 n1, i32 n);
 
 #endif

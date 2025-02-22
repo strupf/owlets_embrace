@@ -7,7 +7,7 @@
 
 #include "particle.h"
 
-// sudden, one time particle emission
+// sudden, one time particle emissions
 enum {
     PARTICLE_EMIT_ID_HERO_LAND,
     PARTICLE_EMIT_ID_HERO_LAND_HARD,
@@ -16,11 +16,20 @@ enum {
     PARTICLE_EMIT_ID_HERO_WALK,
     PARTICLE_EMIT_ID_HERO_WALK_FAST,
     PARTICLE_EMIT_ID_HERO_WATER_SPLASH,
+    PARTICLE_EMIT_ID_HERO_WATER_SPLASH_BIG,
+    PARTICLE_EMIT_ID_HOOK_TERRAIN,
+    PARTICLE_EMIT_ID_CHEST,
+    PARTICLE_EMIT_ID_STOMP,
+    PARTICLE_EMIT_ID_STOMPBLOCK_HINT,
+    PARTICLE_EMIT_ID_CRUMBLEBLOCK,
+    PARTICLE_EMIT_ID_STOMPBLOCK_DESTROY,
+    PARTICLE_EMIT_ID_HERO_SQUISH,
+    PARTICLE_EMIT_ID_HERO_SWING,
 };
 
 void particle_emit_ID(g_s *g, i32 ID, v2_i32 p);
 
-// particle emitters are supposed to be continously emitting particles
+// particle emitters are continously emitting particles
 enum {
     PARTICLE_EMITTER_ID_0,
 };

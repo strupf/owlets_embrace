@@ -11,14 +11,20 @@ enum {
     JUMPER_ST_LANDED,
 };
 
+void jumper_on_update(g_s *g, obj_s *o);
+void jumper_on_animate(g_s *g, obj_s *o);
+
 void jumper_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-    o->w     = 16;
-    o->h     = 16;
-    o->pos.x = mo->x;
-    o->pos.y = mo->y;
-    o->ID    = OBJID_JUMPER;
+    obj_s *o      = obj_create(g);
+    o->ID         = OBJID_JUMPER;
+    o->on_update  = jumper_on_update;
+    o->on_animate = jumper_on_animate;
+    o->w          = 16;
+    o->h          = 16;
+    o->pos.x      = mo->x;
+    o->pos.y      = mo->y;
+
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_KILL_OFFSCREEN;

@@ -19,19 +19,19 @@ i32 assets_init()
 tex_s asset_tex(i32 ID)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    return APP->assets.tex[ID].tex;
+    return APP->assets.tex[ID];
 }
 
 snd_s asset_snd(i32 ID)
 {
     assert(0 <= ID && ID < NUM_SNDID);
-    return APP->assets.snd[ID].snd;
+    return APP->assets.snd[ID];
 }
 
 fnt_s asset_fnt(i32 ID)
 {
     assert(0 <= ID && ID < NUM_FNTID);
-    return APP->assets.fnt[ID].fnt;
+    return APP->assets.fnt[ID];
 }
 
 i32 asset_tex_put(tex_s t)
@@ -44,7 +44,7 @@ i32 asset_tex_put(tex_s t)
 tex_s asset_tex_putID(i32 ID, tex_s t)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    APP->assets.tex[ID].tex = t;
+    APP->assets.tex[ID] = t;
     return t;
 }
 
@@ -61,7 +61,6 @@ u32 snd_play(i32 ID, f32 vol, f32 pitch)
 
 void asset_mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in)
 {
-    FILEPATH_GEN(path, FILEPATH_MUS, filename);
     // mus_fade_to(path, ticks_out, ticks_in);
 }
 
@@ -92,7 +91,8 @@ i32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
     i32          rh = pltf_file_r(f, &h, sizeof(tex_header_s));
     if (rh != (i32)sizeof(tex_header_s)) return ASSET_ERR_RW;
 
-    i32 err_t = tex_create_ext(h.w, h.h, 1, a, o_t);
+    i32 err_t = 0;
+    *o_t      = tex_create(h.w, h.h, 1, a, &err_t);
     if (err_t == 0) {
         usize size     = o_t->wword * o_t->h * sizeof(u32);
         usize size_dec = lzss_decode_file(f, o_t->px);

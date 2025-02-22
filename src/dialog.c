@@ -7,7 +7,7 @@
 
 #define DIALOG_TICKS_FADE_OPEN  10
 #define DIALOG_TICKS_FADE_CLOSE 10
-#define DIALOG_H_SLIDE          50
+#define DIALOG_H_SLIDE          56
 
 void dialog_load_tag(g_s *g, const char *tag);
 void dialog_action_exe(g_s *g, dialog_s *d, i32 ID1, i32 ID2);
@@ -54,6 +54,27 @@ void dialog_load_tag(g_s *g, const char *tag)
         }
     }
 BREAKLOOP:;
+    spm_pop();
+}
+
+void dialog_open_wad(g_s *g, const void *name)
+{
+    void     *f;
+    wad_el_s *w;
+    if (!wad_open_str(name, &f, &w)) {
+        return;
+    }
+
+    spm_push();
+    dialog_s *d = &g->dialog;
+    mclr(d, sizeof(dialog_s));
+
+    void *txt = wad_r_spm_str(f, w, name);
+    dialog_parse_string(g, d, txt);
+    d->state         = DIALOG_ST_OPENING;
+    d->tick          = 0;
+    d->slide_display = 1;
+    g->substate      = SUBSTATE_TEXTBOX;
     spm_pop();
 }
 
@@ -167,8 +188,8 @@ void dialog_draw(g_s *g)
     dialog_s *d = &g->dialog;
     if (d->state == 0) return;
 
+    fnt_s     fnt = asset_fnt(FNTID_MEDIUM);
     gfx_ctx_s ctx = gfx_ctx_display();
-    fnt_s     fnt = asset_fnt(FNTID_LARGE);
 
     i32 offs_y = DIALOG_H_SLIDE;
     if (d->slide_display) {
@@ -201,6 +222,21 @@ void dialog_draw(g_s *g)
         gfx_rec_fill(ctx, rchoices, GFX_COL_BLACK);
     }
 
+    {
+        // textbox border top
+        rec_i32   rr3  = rfill;
+        rec_i32   rr2  = rfill;
+        gfx_ctx_s ctx1 = ctx;
+        ctx1.pat       = gfx_pattern_2x2(B2(01), B2(10));
+
+        rr3.h = 1;
+        rr3.y += 3;
+        rr2.h = 3;
+        rr2.y += 2;
+        gfx_rec_fill(ctx1, rr2, GFX_COL_WHITE);
+        gfx_rec_fill(ctx, rr3, GFX_COL_WHITE);
+    }
+
     // draw dialog lines
     u32 ptime      = pltf_cur_tick();
     u32 shake_seed = ptime >> 2;
@@ -209,13 +245,13 @@ void dialog_draw(g_s *g)
         if (d->n_lines <= l) break;
 
         dialog_line_s *line = &d->lines[l];
-        v2_i32         pos  = {10, tb_y + 6 + n * 20};
+        v2_i32         pos  = {10, tb_y + 12 + n * 22};
 
         for (i32 k = 0; k < line->n_visible; k++) {
             dialog_char_s ch   = line->chars[k];
             v2_i32        posc = pos;
-            tr.x               = (ch.c & 31) * fnt.grid_w;
-            tr.y               = (ch.c >> 5) * fnt.grid_h;
+            tr.x               = ((ch.c - 32) % 10) * fnt.grid_w;
+            tr.y               = ((ch.c - 32) / 10) * fnt.grid_h;
 
             if (ch.flags_ticks & DIALOG_CFLAG_SHAKE) {
                 posc.x += rngsr_i32(&shake_seed, 0, 1);

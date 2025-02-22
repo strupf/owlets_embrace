@@ -16,11 +16,14 @@ enum {
 };
 
 typedef struct {
-    u8      state;
-    u8      n_enemies;
-    u16     timer;
+    u32     n_killed_prior;
     i32     saveID;
     void   *mem_enemies;
+    u16     timer;
+    u8      state;
+    u8      n_enemies;
+    bool32  has_camfocus;
+    v2_i32  camfocus;
     rec_i32 r;
 } battleroom_s;
 

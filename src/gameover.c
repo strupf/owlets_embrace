@@ -21,7 +21,7 @@ const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
     0,
     120, // dying
     40,  // fade gameover
-    80,  // gameover
+    70,  // gameover
     10,  // gameover input
     10,  // fade gameover
     10,  // black
@@ -30,10 +30,12 @@ const i32 gameover_phase[NUM_GAMEOVER_PHASES] = {
 
 void gameover_start(g_s *g)
 {
-    gameover_s *go = &g->gameover;
-    go->tick       = 0;
-    go->phase      = 1;
-    g->substate    = SUBSTATE_GAMEOVER;
+    if (!g->substate) {
+        gameover_s *go = &g->gameover;
+        go->tick       = 0;
+        go->phase      = 1;
+        g->substate    = SUBSTATE_GAMEOVER;
+    }
 }
 
 void gameover_update(g_s *g)

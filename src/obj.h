@@ -7,6 +7,7 @@
 
 #include "gamedef.h"
 #include "objdef.h"
+#include "particle.h"
 #include "rope.h"
 
 #define NUM_OBJ                 512
@@ -34,7 +35,8 @@
 #define OBJ_FLAG_SOLID          ((u64)1 << 62)
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
-#define OBJ_FLAG_PLATFORM_ANY (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
+#define OBJ_FLAG_GRABBABLE_SOLID (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
+#define OBJ_FLAG_PLATFORM_ANY    (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
 
 #define OBJ_FLAG_HERO_JUMPSTOMPABLE (OBJ_FLAG_HERO_STOMPABLE | \
                                      OBJ_FLAG_HERO_JUMPABLE)
@@ -78,8 +80,8 @@ enum {
     OBJ_MOVER_SLIDE_Y_NEG        = 1 << 3,
     OBJ_MOVER_SLIDE_X_POS        = 1 << 4,
     OBJ_MOVER_SLIDE_X_NEG        = 1 << 5,
-    OBJ_MOVER_AVOID_HEADBUMP     = 1 << 7,
-    OBJ_MOVER_TERRAIN_COLLISIONS = 1 << 9,
+    OBJ_MOVER_AVOID_HEADBUMP     = 1 << 6,
+    OBJ_MOVER_TERRAIN_COLLISIONS = 1 << 7,
 };
 
 #define OBJ_HOVER_TEXT_TICKS 20
@@ -91,69 +93,83 @@ typedef struct {
     i16      flip;
 } obj_sprite_s;
 
-typedef struct enemy_s {
-    u16   sndID_hurt;
-    u16   sndID_die;
-    u8    die_tick;
-    u8    hurt_tick;
-    v2_i8 hurt_shake_offs;
-    bool8 invincible;
-} enemy_s;
-
 typedef void (*obj_action_f)(g_s *g, obj_s *o);
+typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
+typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+
+typedef struct enemy_s {
+    obj_action_f on_hurt; // void f(g_s *g, obj_s *o);
+    b8           hurt_on_jump;
+    u8           sndID_hurt;
+    u8           sndID_die;
+    u8           die_tick;
+    u8           hurt_tick;
+    u8           die_tick_max;
+    u8           hurt_tick_max;
+    v2_i8        hurt_shake_offs;
+} enemy_s;
 
 #define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
-    obj_s        *next;       // linked list
-    u32           generation; // how often this object was instantiated
-    u16           ID;         // type of object
-    u16           subID;      // subtype of object
-    u64           flags;
-    u32           tags;
-    u32           upd_priority;
+    obj_s           *next;       // linked list
+    u32              generation; // how often this object was instantiated
+    u16              ID;         // type of object
+    u16              subID;      // subtype of object
+    u64              flags;
+    u32              tags;
     //
-    obj_action_f  on_update;  // void f(g_s *g, obj_s *o);
-    obj_action_f  on_animate; // void f(g_s *g, obj_s *o);
-    obj_draw_f    on_draw;    // void f(g_s *g, obj_s *o, v2_i32 cam);
-    obj_trigger_f on_trigger; // void f(g_s *g, obj_s *o, i32 trigger);
+    obj_action_f     on_update;         // void f(g_s *g, obj_s *o);
+    obj_action_f     on_animate;        // void f(g_s *g, obj_s *o);
+    obj_draw_f       on_draw;           // void f(g_s *g, obj_s *o, v2_i32 cam);
+    obj_trigger_f    on_trigger;        // void f(g_s *g, obj_s *o, i32 trigger);
+    obj_action_f     on_grab;           // void f(g_s *g, obj_s *o);
+    obj_action_f     on_ungrab;         // void f(g_s *g, obj_s *o);
+    obj_pushpull_f   on_pushpull;       // i32 f(g_s *g, obj_s *o, i32 d);
+    obj_action_f     on_squish;         // void f(g_s *g, obj_s *o);
+    obj_action_f     on_touchhurt_hero; // void f(g_s *g, obj_s *o);
+    obj_action_f     on_interact;       // void f(g_s *g, obj_s *o);
     //
-    i32           render_priority;
-    u16           bumpflags; // has to be cleared manually
-    u16           moverflags;
-    i16           w;
-    i16           h;
-    v2_i32        pos; // position in pixels
-    v2_i16        subpos_q8;
-    v2_i16        v_q8;
-    v2_i16        v_prev_q8;
+    v2_i32           pos; // position in pixels
+    v2_i16           subpos_q8;
+    v2_i16           v_q8;
+    v2_i16           v_prev_q8;
     // some generic behaviour fields
-    i32           trigger;
-    i16           state;
-    i16           substate;
-    i16           action;
-    i16           subaction;
-    i16           facing; // -1 left, +1 right
-    i32           animation;
-    i32           timer;
-    i32           subtimer;
-    u16           cam_attract_r;
-    u8            health;
-    u8            health_max;
-    bool8         interactable_hovered;
-    u8            light_radius;
-    u8            light_strength;
-    enemy_s       enemy;
-    ropenode_s   *ropenode;
-    rope_s       *rope;
-    obj_handle_s  linked_solid;
-    i32           n_sprites;
-    obj_sprite_s  sprites[4];
-    char          filename[64];
-    void         *heap;
-    byte          mem[OBJ_MEM_BYTES];
-    u32           magic;
+    i16              w;
+    i16              h;
+    u16              bumpflags; // has to be cleared manually
+    u16              moverflags;
+    i32              trigger;
+    i16              state;
+    i16              substate;
+    i16              action;
+    i16              subaction;
+    i32              animation;
+    i32              timer;
+    i32              subtimer;
+    u16              cam_attract_r;
+    i8               facing; // -1 left, +1 right
+    u8               render_priority;
+    u8               health;
+    u8               health_max;
+    b8               interactable_hovered;
+    u8               light_radius;
+    u8               light_strength;
+    b8               blinking;
+    u8               n_sprites;
+    u8               n_ignored_solids;
+    enemy_s          enemy;
+    ropenode_s      *ropenode;
+    rope_s          *rope;
+    obj_handle_s     linked_solid;
+    particle_emit_s *emitter;
+    obj_sprite_s     sprites[4];
+    char             filename[64];
+    obj_handle_s     ignored_solids[4];
+    void            *heap;
+    byte             mem[OBJ_MEM_BYTES];
+    u32              magic;
 };
 
 #define obj_get_hero(G) obj_get_tagged(G, OBJ_TAG_HERO)
@@ -162,6 +178,7 @@ obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);
 bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
+bool32       obj_handle_present_but_valid(obj_handle_s h);
 obj_s       *obj_create(g_s *g);
 void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
 bool32       obj_tag(g_s *g, obj_s *o, i32 tag);
@@ -192,6 +209,18 @@ void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
 void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
 bool32       obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w);
+bool32       blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy);
+bool32       blocked_excl(g_s *g, rec_i32 r, obj_s *o);
+bool32       obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index);
 enemy_s      enemy_default();
+void         enemy_hurt(g_s *g, obj_s *o, i32 dmg);
+
+enum {
+    OBJANIMID_NULL,
+    OBJANIMID_ENEMY_EXPLODE,
+    OBJANIMID_EXPLODE_GRENADE,
+};
+
+void objanim_create(g_s *g, v2_i32 p, i32 objanimID);
 
 #endif

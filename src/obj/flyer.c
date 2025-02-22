@@ -54,10 +54,12 @@ void flyer_load(g_s *g, map_obj_s *mo)
     obj_s   *o = obj_create(g);
     flyer_s *f = (flyer_s *)o->mem;
     o->ID      = OBJID_FLYER;
-    o->flags   = OBJ_FLAG_HURT_ON_TOUCH |
+    o->flags   = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_SPRITE |
                OBJ_FLAG_KILL_OFFSCREEN;
+    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
+                    OBJ_MOVER_ONE_WAY_PLAT;
     o->w          = 24;
     o->h          = 24;
     o->health_max = 3;

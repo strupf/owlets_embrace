@@ -6,7 +6,8 @@
 
 typedef struct {
     obj_handle_s parent;
-    i32          n_frames;
+    i16          dir;
+    i16          n_frames;
     u16          t;
     u16          t_og;
     u16          x;
@@ -21,20 +22,25 @@ void spritedecal_on_update(g_s *g, obj_s *o)
     sd->t++;
     if (sd->t_og <= sd->t) {
         obj_delete(g, o);
+        return;
     }
+
     obj_move_by_v_q8(g, o);
-    o->v_q8.y += 50;
+
+    obj_sprite_s *spr    = &o->sprites[0];
+    obj_s        *parent = obj_from_obj_handle(sd->parent);
+    if (parent) {
+        o->pos = parent->pos;
+    }
+    if (sd->dir == 0) {
+        spr->trec.x = sd->x + sd->w * ((sd->t * sd->n_frames) / sd->t_og);
+    } else {
+        spr->trec.y = sd->y + sd->h * ((sd->t * sd->n_frames) / sd->t_og);
+    }
 }
 
 void spritedecal_on_animate(g_s *g, obj_s *o)
 {
-    spritedecal_s *sd     = (spritedecal_s *)o->mem;
-    obj_sprite_s  *spr    = &o->sprites[0];
-    obj_s         *parent = obj_from_obj_handle(sd->parent);
-    if (parent) {
-        o->pos = parent->pos;
-    }
-    spr->trec.x = sd->x + sd->w * ((sd->t * sd->n_frames) / sd->t_og);
 }
 
 obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
@@ -64,4 +70,48 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
 
     spr->trec = asset_texrec(texID, sd->x, sd->y, sd->w, sd->h);
     return o;
+}
+
+void objanim_create(g_s *g, v2_i32 p, i32 objanimID)
+{
+    obj_s         *o  = obj_create(g);
+    spritedecal_s *sd = (spritedecal_s *)o->mem;
+    o->ID             = OBJID_SPRITEDECAL;
+    o->n_sprites      = 1;
+    o->on_update      = spritedecal_on_update;
+
+    obj_sprite_s *spr   = &o->sprites[0];
+    i32           texID = 0;
+
+    switch (objanimID) {
+    case OBJANIMID_ENEMY_EXPLODE:
+        texID              = TEXID_PARTICLES;
+        spr->flip          = gfx_spr_flip_rng(1, 1);
+        o->render_priority = RENDER_PRIO_HERO - 1;
+        sd->n_frames       = 14;
+        sd->x              = 0;
+        sd->y              = 320;
+        sd->w              = 64;
+        sd->h              = 64;
+        sd->t_og           = 30;
+        break;
+    case OBJANIMID_EXPLODE_GRENADE:
+        texID              = TEXID_EXPLO1;
+        spr->flip          = gfx_spr_flip_rng(1, 1);
+        o->render_priority = RENDER_PRIO_HERO - 1;
+        sd->dir            = 1;
+        sd->n_frames       = 13;
+        sd->x              = 0;
+        sd->y              = 0;
+        sd->w              = 128;
+        sd->h              = 128;
+        sd->t_og           = 30;
+        break;
+    }
+
+    o->pos      = p;
+    spr->offs.x = -sd->w / 2;
+    spr->offs.y = -sd->h / 2;
+
+    spr->trec = asset_texrec(texID, sd->x, sd->y, sd->w, sd->h);
 }

@@ -59,6 +59,7 @@ i32 pltf_internal_update()
         updated++;
         app_tick();
     }
+
     if (1 < updated) {
         pltf_log("SKIPPED %i\n", updated - 1);
     }

@@ -5,12 +5,6 @@
 #include "cam.h"
 #include "game.h"
 
-enum {
-    CAM_LOCKON_NONE,
-    CAM_LOCKON_POS,
-    CAM_LOCKON_OBJ,
-};
-
 #define CAM_W                     PLTF_DISPLAY_W
 #define CAM_H                     PLTF_DISPLAY_H
 #define CAM_WH                    (PLTF_DISPLAY_W >> 1)
@@ -23,19 +17,9 @@ enum {
 #define CAM_OFFS_Q8_TOP           ((-120 + CAM_HERO_Y_TOP) * 256)
 #define CAM_OFFS_Q8_BOT           ((-120 + CAM_HERO_Y_BOT) * 256)
 
+// a, b: half width/height of ellipse, p considered relative to center
+static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b);
 static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
-
-void cam_lockon(cam_s *c, v2_i32 p, obj_s *lockon_obj)
-{
-    c->lockon     = p;
-    c->lockon_obj = obj_handle_from_obj(lockon_obj);
-    c->has_lockon = lockon_obj ? CAM_LOCKON_OBJ : CAM_LOCKON_POS;
-}
-
-void cam_lockon_rem(cam_s *c)
-{
-    c->has_lockon = CAM_LOCKON_NONE;
-}
 
 void cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y)
 {
@@ -52,21 +36,21 @@ void cam_screenshake(cam_s *c, i32 ticks, i32 str)
 
 v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
 {
-    v2_i32 pos_q8 = v2_i32_add(c->pos_q8, c->attract);
-    v2_i32 pos    = v2_i32_shr(pos_q8, 8);
-    pos.x += c->offs_x;
+    v2_i32 pos = v2_i32_shr(c->pos_q8, 8);
+    pos.x += (i32)c->attract.x + c->offs_x;
+    pos.y += (i32)c->attract.y;
 
     if (40 <= c->lookdown) {
         pos.y += min_i32((c->lookdown - 40), 40) * 2;
     }
 
-    if (c->has_lockon) {
-        obj_s *o = obj_from_obj_handle(c->lockon_obj);
-        if (o) {
-            c->lockon = obj_pos_center(o);
-        }
-        pos = v2_i32_lerp(pos, c->lockon, c->lock_fade_q8, 256);
+    if (c->trg_fade_q12) {
+        pos.x = ease_in_out_sine(pos.x, c->trg.x,
+                                 c->trg_fade_q12, CAM_TRG_FADE_MAX);
+        pos.y = ease_in_out_sine(pos.y, c->trg.y,
+                                 c->trg_fade_q12, CAM_TRG_FADE_MAX);
     }
+
     pos = cam_constrain_to_room(g, pos);
     pos = v2_i32_add(pos, c->shake);
     return pos;
@@ -99,19 +83,10 @@ void cam_update(g_s *g, cam_s *c)
     v2_i32    padd          = {0};
     const i32 lookdown_prev = c->lookdown;
 
-    if (c->has_lockon == CAM_LOCKON_OBJ &&
-        !obj_from_obj_handle(c->lockon_obj)) {
-        c->has_lockon = CAM_LOCKON_NONE;
-    }
-    if (c->has_lockon) {
-        c->lock_fade_q8 = min_i32(c->lock_fade_q8 + 4, 256);
-    } else if (c->lock_fade_q8) {
-        c->lock_fade_q8 = max_i32(c->lock_fade_q8 - 4, 256);
-    }
-
     obj_s *hero = obj_get_hero(g);
 
     if (hero) {
+        hero_s *h           = (hero_s *)hero->heap;
         c->can_align_x      = 0;
         c->can_align_y      = 0;
         v2_i32 herop        = obj_pos_bottom_center(hero);
@@ -152,46 +127,45 @@ void cam_update(g_s *g, cam_s *c)
 
         // cam attractors
         i32    n_attract = 0;
-        v2_i32 attract   = {0};
-        if (!c->has_lockon) { // ignore attractors if locked on
-            v2_i32 pos_px = v2_i32_shr(c->pos_q8, 8);
-            pos_px.x += c->offs_x;
-            pos_px = cam_constrain_to_room(g, pos_px);
+        v2_f32 attract   = {0};
 
-            for (obj_each(g, o)) {
-                if (!o->cam_attract_r) continue;
+        v2_i32 pos_px = v2_i32_shr(c->pos_q8, 8);
+        pos_px.x += c->offs_x + clamp_sym_i32(hero->v_q8.x >> 4, 64);
+        pos_px = cam_constrain_to_room(g, pos_px);
 
-                v2_i32 pattr;
-                if (o->ID == OBJID_CAMATTRACTOR) {
-                    pattr = camattractor_static_closest_pt(o, pos_px);
-                } else {
-                    pattr = obj_pos_center(o);
-                }
-                v2_i32 attr = v2_i32_sub(pattr, pos_px);
-                u32    ds   = pow2_u32(o->cam_attract_r);
-                u32    ls   = v2_i32_lensq(attr);
-                if (ds <= ls) continue;
+        for (obj_each(g, o)) {
+            if (!o->cam_attract_r) continue;
 
-                attr.x  = (attr.x * (i32)(ds - ls)) / (i32)ds;
-                attr.y  = (attr.y * (i32)(ds - ls)) / (i32)ds;
-                attract = v2_i32_add(attract, attr);
-
-                n_attract++;
+            v2_i32 pattr;
+            if (o->ID == OBJID_CAMATTRACTOR) {
+                pattr = camattractor_static_closest_pt(o, pos_px);
+            } else {
+                pattr = obj_pos_center(o);
             }
+
+            v2_i32 attr = v2_i32_sub(pattr, pos_px);
+            u32    ds   = pow2_u32(o->cam_attract_r);
+            u32    ls   = v2_i32_lensq(attr);
+            if (ds <= ls) continue;
+
+            attr.x = (attr.x * (i32)(ds - ls)) / (i32)ds;
+            attr.y = (attr.y * (i32)(ds - ls)) / (i32)ds;
+            attract.x += (f32)attr.x;
+            attract.y += (f32)attr.y;
+            n_attract++;
         }
 
         if (n_attract) {
-            attract = v2_i32_shl(attract, 8);
-            attract.x /= n_attract;
-            attract.y /= n_attract;
-            c->attract.x += ((attract.x - c->attract.x) * 16) / 256;
-            c->attract.y += ((attract.y - c->attract.y) * 16) / 256;
-            c->attract = v2_i32_truncatel(c->attract, 16000);
+            v2_f32 attract_move = {
+                (attract.x / (f32)n_attract - c->attract.x) * 0.05f,
+                (attract.y / (f32)n_attract - c->attract.y) * 0.05f};
+            attract_move = v2f_truncate(attract_move, 25.f);
+            c->attract   = v2f_add(c->attract, attract_move);
+            c->attract   = v2f_truncate_to_ellipse(c->attract, 80.f, 40.f);
             c->offs_x -= sgn_i32(c->offs_x);
         } else {
-            c->attract.x = (c->attract.x * 253) / 256;
-            c->attract.y = (c->attract.y * 253) / 256;
-
+            c->attract.x *= 0.96f;
+            c->attract.y *= 0.96f;
             c->offs_x += hero->facing + sgn_i32(hero->v_q8.x);
             c->offs_x      = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
             c->can_align_x = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
@@ -207,8 +181,16 @@ void cam_update(g_s *g, cam_s *c)
         i32 shakex = (c->shake_str_x * c->shake_ticks + (c->shake_ticks_max >> 1)) / c->shake_ticks_max;
         i32 shakey = (c->shake_str_y * c->shake_ticks + (c->shake_ticks_max >> 1)) / c->shake_ticks_max;
         c->shake_ticks--;
-        c->shake.x = rngr_sym_i32(shakex);
-        c->shake.y = rngr_sym_i32(shakey);
+        c->shake.x = rngr_sym_i32(max_i32(shakex, 1));
+        c->shake.y = rngr_sym_i32(max_i32(shakey, 1));
+    }
+
+    if (c->has_trg) {
+        c->trg_fade_q12 =
+            min_i32(c->trg_fade_q12 + c->trg_fade_spd, CAM_TRG_FADE_MAX);
+    } else {
+        c->trg_fade_q12 =
+            max_i32(c->trg_fade_q12 - c->trg_fade_spd, 0);
     }
 
     if (c->locked_x) {
@@ -239,4 +221,15 @@ f32 cam_snd_scale(g_s *g, v2_i32 p, u32 dst_max)
                        pow_f32((f32)p.y - (f32)g->cam_prev_world.y, 2));
     f32 vol = ((f32)dst_max - min_f32(dsq, (f32)dst_max)) / (f32)dst_max;
     return vol;
+}
+
+static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b)
+{
+    f32 d = a * b / sqrt_f32(b * b * p.x * p.x + a * a * p.y * p.y);
+    if (d < 1.f) {
+        v2_f32 r = {p.x * d, p.y * d};
+        return r;
+    } else {
+        return p;
+    }
 }

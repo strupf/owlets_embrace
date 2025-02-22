@@ -29,6 +29,11 @@ bool32 obj_handle_valid(obj_handle_s h)
     return (h.o && h.o->generation == h.generation);
 }
 
+bool32 obj_handle_present_but_valid(obj_handle_s h)
+{
+    return (h.o && h.o->generation != h.generation);
+}
+
 obj_s *obj_create(g_s *g)
 {
     obj_s *o = g->obj_head_free;
@@ -43,9 +48,11 @@ obj_s *obj_create(g_s *g)
 
     u32 gen = o->generation;
     mclr(o, sizeof(obj_s));
-    o->generation    = gen;
-    o->next          = g->obj_head_busy;
-    g->obj_head_busy = o;
+    o->generation      = gen;
+    o->next            = g->obj_head_busy;
+    o->render_priority = RENDER_PRIO_DEFAULT_OBJ;
+    o->on_squish       = obj_delete;
+    g->obj_head_busy   = o;
 #if PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 
@@ -96,6 +103,8 @@ obj_s *obj_get_tagged(g_s *g, i32 tag)
 
 void objs_cull_to_delete(g_s *g)
 {
+    if (!g->obj_ndelete) return;
+
     for (u32 n = 0; n < g->obj_ndelete; n++) {
         obj_s *o = g->obj_to_delete[n];
 
@@ -132,7 +141,7 @@ void objs_cull_to_delete(g_s *g)
 bool32 obj_try_wiggle(g_s *g, obj_s *o)
 {
     if (!(o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS)) return 1;
-    if (o->flags & OBJ_FLAG_SOLID) return 1;
+    if (!(o->flags & OBJ_FLAG_ACTOR)) return 1;
 
     rec_i32 r = obj_aabb(o);
     if (!map_blocked(g, r)) return 1;
@@ -143,7 +152,7 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
         for (i32 yn = -n; yn <= +n; yn += n) {
             for (i32 xn = -n; xn <= +n; xn += n) {
                 rec_i32 rr = {r.x + xn, r.y + yn, r.w, r.h};
-                if (!!map_blocked(g, rr)) continue;
+                if (map_blocked(g, rr)) continue;
 
                 o->moverflags &= ~OBJ_MOVER_TERRAIN_COLLISIONS;
                 obj_move(g, o, xn, yn);
@@ -154,24 +163,6 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
     }
 
     o->bumpflags |= OBJ_BUMP_SQUISH;
-    switch (o->ID) {
-    case OBJID_FALLINGSTONE:
-        fallingstone_burst(g, o);
-        break;
-    case OBJID_HERO:
-        hero_on_squish(g, o);
-        break;
-    case OBJID_HOOK: {
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
-        assert(ohero);
-        // hook_destroy(g, ohero, o);
-        break;
-    }
-    default:
-        // obj_delete(g, o);
-        // pltf_log("Squishkill\n");
-        break;
-    }
     return 0;
 }
 
@@ -272,12 +263,37 @@ bool32 obj_grounded(g_s *g, obj_s *o)
     return obj_grounded_at_offs(g, o, offs);
 }
 
+bool32 blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy)
+{
+    if (o && !(o->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS)) return 0;
+
+    rec_i32 ri = {r.x + dx, r.y + dy, r.w, r.h};
+    if (tile_map_solid(g, ri)) return 1;
+
+    for (obj_each(g, i)) {
+        if (i != o &&
+            (i->flags & OBJ_FLAG_SOLID) &&
+            overlap_rec(r, obj_aabb(i))) {
+
+            if (o && (o->flags & OBJ_FLAG_ACTOR) && obj_ignores_solid(o, i, 0))
+                continue;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+bool32 blocked_excl(g_s *g, rec_i32 r, obj_s *o)
+{
+    return blocked_excl_offs(g, r, o, 0, 0);
+}
+
 bool32 obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs)
 {
-    if (map_blocked_excl_offs(g, obj_aabb(o), o, offs.x, offs.y)) return 0;
+    if (blocked_excl_offs(g, obj_aabb(o), o, offs.x, offs.y)) return 0;
 
     rec_i32 r = {o->pos.x + offs.x, o->pos.y + o->h + offs.y, o->w, 1};
-    return (map_blocked_excl(g, r, o) || obj_on_platform(g, o, r.x, r.y, r.w));
+    return (blocked_excl(g, r, o) || obj_on_platform(g, o, r.x, r.y, r.w));
 }
 
 bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
@@ -295,15 +311,50 @@ bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
 
 enemy_s enemy_default()
 {
-    enemy_s e    = {0};
-    e.sndID_die  = SNDID_ENEMY_DIE;
-    e.sndID_hurt = SNDID_ENEMY_HURT;
+    enemy_s e       = {0};
+    e.sndID_die     = SNDID_ENEMY_DIE;
+    e.sndID_hurt    = SNDID_ENEMY_HURT;
+    e.hurt_tick_max = 20;
+    e.die_tick_max  = 40;
     return e;
+}
+
+void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
+{
+    if (!o->health) return;
+
+    o->enemy.hurt_tick = o->enemy.hurt_tick_max;
+    o->health          = max_i32(0, (i32)o->health - dmg);
+
+    if (o->health == 0) {
+        g->enemies_killed++;
+        o->on_update      = 0;
+        o->enemy.die_tick = o->enemy.die_tick_max;
+        o->flags &= ~OBJ_FLAG_HERO_JUMPSTOMPABLE;
+        o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
+        o->flags &= ~OBJ_FLAG_ENEMY;
+    }
+
+    if (o->enemy.on_hurt) {
+        o->enemy.on_hurt(g, o);
+    }
 }
 
 void obj_on_hooked(g_s *g, obj_s *o)
 {
-    switch (o->ID) {
-    case OBJID_HOOKPLANT: hookplant_on_hook(o); break;
+}
+
+bool32 obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index)
+{
+    if (!oactor) return 0;
+
+    for (i32 n = 0; n < oactor->n_ignored_solids; n++) {
+        if (obj_from_obj_handle(oactor->ignored_solids[n]) == osolid) {
+            if (index) {
+                *index = n;
+            }
+            return 1;
+        }
     }
+    return 0;
 }

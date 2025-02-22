@@ -12,10 +12,15 @@ enum {
     COIN_ST_HOMING,
 };
 
+void coin_on_animate(g_s *g, obj_s *o);
+void coin_on_update(g_s *g, obj_s *o);
+
 obj_s *coin_create(g_s *g)
 {
     obj_s *o      = obj_create(g);
     o->ID         = OBJID_COIN;
+    o->on_update  = coin_on_update;
+    o->on_animate = coin_on_animate;
     o->w          = 16;
     o->h          = 16;
     o->flags      = OBJ_FLAG_RENDER_AABB | OBJ_FLAG_ACTOR;

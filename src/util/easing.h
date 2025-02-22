@@ -21,22 +21,22 @@ static inline i32 ease_lin(i32 a, i32 b, i32 num, i32 den)
 
 static i32 ease_in_sine(i32 a, i32 b, i32 num, i32 den)
 {
-    i32 x  = (i32)(((i64)num << 16) / den);
+    i32 x  = (i32)(((i64)num << 15) / den);
     i32 ab = b - a;
-    return a + ab - ((ab * cos_q16(x)) >> 16);
+    return a + ab - ((ab * cos_q15(x)) >> 15);
 }
 
 static i32 ease_out_sine(i32 a, i32 b, i32 num, i32 den)
 {
-    i32 x = (i32)(((i64)num << 16) / den);
-    return a + (((b - a) * sin_q16(x)) >> 16);
+    i32 x = (i32)(((i64)num << 15) / den);
+    return a + (((b - a) * sin_q15(x)) >> 15);
 }
 
 static i32 ease_in_out_sine(i32 a, i32 b, i32 num, i32 den)
 {
-    i32 x  = (i32)(((i64)num << 17) / den);
+    i32 x  = (i32)(((i64)num << 16) / den);
     i32 ab = b - a;
-    return a - (((ab * cos_q16(x)) >> 16) - ab) / 2;
+    return a - (((ab * cos_q15(x)) >> 15) - ab) / 2;
 }
 
 static i32 ease_in_quad(i32 a, i32 b, i32 num, i32 den)

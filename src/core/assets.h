@@ -10,16 +10,17 @@
 #include "util/lzss.h"
 #include "util/marena.h"
 
-#define ASSETS_LOG_LOADING 0
-
 enum {
     TEXID_DISPLAY,
     TEXID_KEYBOARD,
+    TEXID_BUTTONS,
     TEXID_HERO,
+    TEXID_COMPANION,
     TEXID_TILESET_TERRAIN,
     TEXID_TILESET_BG_AUTO,
     TEXID_TILESET_PROPS,
     TEXID_TILESET_DECO,
+    TEXID_BG_PARALLAX,
     TEXID_PAUSE_TEX,
     TEXID_UI,
     TEXID_PLANTS,
@@ -27,39 +28,29 @@ enum {
     TEXID_FLSURF,
     TEXID_SOLIDLEVER,
     TEXID_WATERCOL,
+    TEXID_EXPLO1,
     TEXID_TITLE,
     TEXID_PARTICLES,
     TEXID_JUMPER,
     TEXID_SWITCH,
-    TEXID_SHROOMY,
     TEXID_CRAWLER,
     TEXID_MISCOBJ,
     TEXID_HOOK,
     TEXID_MAINMENU,
     TEXID_AREALABEL,
     TEXID_SAVEPOINT,
-    TEXID_BG_CAVE,
-    TEXID_BG_MOUNTAINS,
-    TEXID_BG_DEEP_FOREST,
-    TEXID_BG_CAVE_DEEP,
-    TEXID_BG_FOREST,
-    TEXID_CARRIER,
     TEXID_CRUMBLE,
     TEXID_NPC,
     TEXID_TOGGLE,
-    TEXID_SKELETON,
-    TEXID_CHARGER,
     TEXID_ROTOR,
     TEXID_FLYER,
     TEXID_WINDGUSH,
     TEXID_COLLISION_TILES,
     TEXID_FLYING_BUG,
-    TEXID_WALLWORM,
     TEXID_TITLE_SCREEN,
     TEXID_BUDPLANT,
     TEXID_FLYBLOB,
     TEXID_EXPLOSIONS,
-    TEXID_CRABLER,
     TEXID_FLUIDS,
     TEXID_CHEST,
     TEXID_TRAMPOLINE,
@@ -73,12 +64,16 @@ enum {
 };
 
 enum {
-    FNTID_SMALL,
-    FNTID_MEDIUM,
-    FNTID_LARGE,
+    FNTID_12,
+    FNTID_16,
+    FNTID_20,
     //
     NUM_FNTID
 };
+
+#define FNTID_SMALL  FNTID_12
+#define FNTID_MEDIUM FNTID_16
+#define FNTID_LARGE  FNTID_20
 
 enum {
     SNDID_DEFAULT,
@@ -141,21 +136,9 @@ enum {
 };
 
 typedef struct {
-    tex_s tex;
-} asset_tex_s;
-
-typedef struct {
-    snd_s snd;
-} asset_snd_s;
-
-typedef struct {
-    fnt_s fnt;
-} asset_fnt_s;
-
-typedef struct {
-    asset_tex_s tex[NUM_TEXID];
-    asset_snd_s snd[NUM_SNDID];
-    asset_fnt_s fnt[NUM_FNTID];
+    tex_s tex[NUM_TEXID];
+    snd_s snd[NUM_SNDID];
+    fnt_s fnt[NUM_FNTID];
 } assets_s;
 
 i32      assets_init();

@@ -49,6 +49,8 @@ bool32 maptransition_try_hero_slide(g_s *g)
     obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
     if (!o || o->health == 0) return 0;
 
+    hero_s *h = (hero_s *)o->heap;
+
     i32 touchedbounds = 0;
     if (o->pos.x <= 0)
         touchedbounds = DIRECTION_W;
@@ -61,28 +63,28 @@ bool32 maptransition_try_hero_slide(g_s *g)
 
     if (!touchedbounds) return 0;
 
-    rec_i32 aabb = obj_aabb(o);
+    rec_i32     aabb      = obj_aabb(o);
+    map_room_s *mneighbor = 0;
+    map_room_s *mcur      = g->map_room_cur;
 
-    map_neighbor_s *neighbor = 0;
-    for (i32 n = 0; n < NUM_MAP_NEIGHBORS; n++) {
-        map_neighbor_s *mn = &g->map_neighbors[n];
-        if (mn->hash == 0) break;
+    for (i32 n = 0; n < g->n_map_rooms; n++) {
+        map_room_s *mn = &g->map_rooms[n];
+        if (mn == mcur) continue;
 
-        rec_i32 rn = {mn->x, mn->y, mn->w, mn->h};
+        rec_i32 rn = {(mn->x - mcur->x) << 4, (mn->y - mcur->y) << 4,
+                      mn->w << 4, mn->h << 4};
         if (overlap_rec_touch(aabb, rn)) {
-            neighbor = mn;
+            mneighbor = mn;
             break;
         }
     }
-
-    if (!neighbor) {
+    if (!mneighbor) { // end of rooms
         pltf_log("no room\n");
         return 0;
     }
 
-    aabb.x -= neighbor->x;
-    aabb.y -= neighbor->y;
-
+    aabb.x -= (mneighbor->x - mcur->x) << 4;
+    aabb.y -= (mneighbor->y - mcur->y) << 4;
     v2_i16 hvel = o->v_q8;
 
     switch (touchedbounds) {
@@ -90,11 +92,15 @@ bool32 maptransition_try_hero_slide(g_s *g)
         aabb.x = 8;
         break;
     case DIRECTION_W:
-        aabb.x = neighbor->w - aabb.w - 8;
+        aabb.x = (mneighbor->w << 4) - aabb.w - 8;
         break;
     case DIRECTION_N:
-        aabb.y = neighbor->h - aabb.h - 8;
-        hvel.y = min_i32(hvel.y, -1200);
+        aabb.y       = (mneighbor->h << 4) - aabb.h - 8;
+        hvel.y       = min_i32(hvel.y, -1200);
+        // if A pressed before transition and released the vy will be reduced,
+        // resulting in the player not making the screen transition
+        // -> clear jumpticks
+        h->jumpticks = 0;
         break;
     case DIRECTION_S:
         aabb.y = 2;
@@ -103,7 +109,7 @@ bool32 maptransition_try_hero_slide(g_s *g)
     }
 
     v2_i32 feet = {aabb.x + aabb.w / 2, aabb.y + aabb.h};
-    maptransition_init(g, neighbor->hash, MAPTRANSITION_TYPE_SLIDE, feet);
+    maptransition_init(g, mneighbor->hash, MAPTRANSITION_TYPE_SLIDE, feet);
     mt->dir       = touchedbounds;
     mt->hero_v_q8 = hvel;
     o->bumpflags  = 0;
@@ -115,7 +121,7 @@ void maptransition_update(g_s *g)
     maptransition_s *mt = &g->maptransition;
     if (!mt->fade_phase) return;
 
-    const i32 ticks = maptransition_phase[mt->fade_phase];
+    i32 ticks = maptransition_phase[mt->fade_phase];
     mt->fade_tick++;
     if (mt->fade_tick < ticks) return;
 
@@ -153,30 +159,23 @@ void maptransition_draw(g_s *g, v2_i32 cam)
         return;
     }
 
-    const i32 ticks = maptransition_phase[mt->fade_phase];
-
-    gfx_pattern_s pat = {0};
+    spm_push();
+    i32       ticks   = maptransition_phase[mt->fade_phase];
+    tex_s     tmp     = tex_create(display.w, display.h, 0, spm_allocator2(), 0);
+    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
+    gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
 
     switch (mt->fade_phase) {
     case MAPTRANSITION_FADE_OUT:
-        pat = gfx_pattern_interpolate(mt->fade_tick, ticks);
+        ctxfill.pat = gfx_pattern_interpolate(mt->fade_tick, ticks);
         break;
     case MAPTRANSITION_FADE_IN:
-        pat = gfx_pattern_interpolate(ticks - mt->fade_tick, ticks);
+        ctxfill.pat = gfx_pattern_interpolate(ticks - mt->fade_tick, ticks);
         break;
     }
 
-    spm_push();
-
-    tex_s tmp = tex_create_opaque(display.w, display.h, spm_allocator);
-    for (i32 y = 0; y < tmp.h; y++) {
-        u32 p = ~pat.p[y & 7];
-        for (i32 x = 0; x < tmp.wword; x++) {
-            tmp.px[x + y * tmp.wword] = p;
-        }
-    }
-
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    rec_i32 rfill = {0, 0, tmp.w, tmp.h};
+    gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK_WHITE);
 
     if (mt->fade_phase == MAPTRANSITION_FADE_IN && ohero) {
         gfx_ctx_s ctxc = gfx_ctx_default(tmp);

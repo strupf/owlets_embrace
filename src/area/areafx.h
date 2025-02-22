@@ -9,30 +9,13 @@
 #include "gamedef.h"
 
 enum {
-    AFX_CLOUDS         = 1 << 0,
-    AFX_RAIN           = 1 << 1,
-    AFX_WIND           = 1 << 2,
-    AFX_HEAT           = 1 << 3,
-    AFX_LEAVES         = 1 << 4,
-    AFX_PARTICLES_CALM = 1 << 5,
+    AFX_NONE,
+    AFX_RAIN,
+    AFX_SNOW,
+    AFX_WIND,
+    AFX_HEAT,
+    AFX_PARTICLES_CALM,
 };
-
-#define AREAFX_CLOUDS_TYPES 3
-#define AREAFX_CLOUDS       64
-
-typedef struct {
-    texrec_s t;
-    v2_i32   p;
-    i32      mx_q8;
-    i32      vx_q8;
-    i32      priority;
-} areafx_cloud_s;
-
-typedef struct {
-    bool32         dirty;
-    i32            n;
-    areafx_cloud_s clouds[AREAFX_CLOUDS];
-} areafx_clouds_s;
 
 enum {
     AREAFX_SNOW_NO_WIND,
@@ -102,16 +85,16 @@ typedef struct {
 } areafx_raindrop_s;
 
 typedef struct {
-    i32 lightning_tick;
-    i32 lightning_twice;
-
+    i32               lightning_tick;
+    i32               lightning_twice;
     i32               n_drops;
     areafx_raindrop_s drops[AREAFX_RAIN_DROPS];
 } areafx_rain_s;
 
-typedef struct {
-    i32 x;
-} areafx_leaves_s;
+void areafx_rain_setup(g_s *g, areafx_rain_s *fx);
+void areafx_rain_update(g_s *g, areafx_rain_s *fx);
+void areafx_rain_draw(g_s *g, areafx_rain_s *fx, v2_i32 cam);
+void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam);
 
 #define AREAFX_PT_CALM_N 96
 #define PT_CALM_VRNG     16
@@ -128,19 +111,6 @@ typedef struct {
     areafx_particle_calm_s p[AREAFX_PT_CALM_N];
 } areafx_particles_calm_s;
 
-void areafx_clouds_setup(g_s *g, areafx_clouds_s *fx);
-void areafx_clouds_update(g_s *g, areafx_clouds_s *fx);
-void areafx_clouds_draw(g_s *g, areafx_clouds_s *fx, v2_i32 cam);
-//
-void areafx_rain_setup(g_s *g, areafx_rain_s *fx);
-void areafx_rain_update(g_s *g, areafx_rain_s *fx);
-void areafx_rain_draw(g_s *g, areafx_rain_s *fx, v2_i32 cam);
-void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam);
-//
-void areafx_leaves_setup(g_s *g, areafx_leaves_s *fx);
-void areafx_leaves_update(g_s *g, areafx_leaves_s *fx);
-void areafx_leaves_draw(g_s *g, areafx_leaves_s *fx, v2_i32 cam);
-//
 void areafx_particles_calm_setup(g_s *g, areafx_particles_calm_s *fx);
 void areafx_particles_calm_update(g_s *g, areafx_particles_calm_s *fx);
 void areafx_particles_calm_draw(g_s *g, areafx_particles_calm_s *fx, v2_i32 cam);

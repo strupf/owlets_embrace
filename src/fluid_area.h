@@ -2,8 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef WATER_H
-#define WATER_H
+#ifndef FLUID_AREA_H
+#define FLUID_AREA_H
 
 #include "gamedef.h"
 
@@ -21,7 +21,7 @@ typedef struct fluid_pt_s {
 
 enum {
     FLUID_AREA_WATER,
-    FLUID_AREA_LAVA,
+    FLUID_AREA_LAVA
 };
 
 typedef struct {

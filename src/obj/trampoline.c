@@ -54,24 +54,26 @@ void trampoline_on_update(g_s *g, obj_s *o)
     }
 }
 
+static i32 trampoline_spr_flip(obj_s *o)
+{
+    switch (o->state) {
+    case TRAMPOLINE_HOR: return (o->substate == DIR_Y_POS ? 0 : SPR_FLIP_Y);
+    case TRAMPOLINE_VER: return (o->substate == DIR_X_POS ? 0 : SPR_FLIP_X);
+    }
+    return 0;
+}
+
 void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s ctx     = gfx_ctx_display();
     i32       frameID = 0;
     i32       fl      = 0;
+
     if (o->timer) {
         if (o->timer <= TRAMPOLINE_EXTEND_TICKS) { // impact
-            switch (o->state) {
-            case TRAMPOLINE_HOR:
-                fl = o->substate == DIR_Y_POS ? 0 : SPR_FLIP_Y;
-                pltf_log("%i\n", fl);
-                break;
-            case TRAMPOLINE_VER:
-                fl = o->substate == DIR_X_POS ? 0 : SPR_FLIP_X;
-                break;
-            }
+            fl = trampoline_spr_flip(o);
 
-            i32 fully_extended =
+            bool32 fully_extended =
                 (TRAMPOLINE_EXTEND_TICKS * 1) / 4 <= o->timer &&
                 o->timer <= (TRAMPOLINE_EXTEND_TICKS * 3) / 4;
             frameID = 2 + fully_extended;
@@ -84,38 +86,33 @@ void trampoline_on_draw(g_s *g, obj_s *o, v2_i32 cam)
             frameID = (fr & 1);
         }
     } else if (o->substate) { // static extension
-        frameID = 2;
-        switch (o->state) {
-        case TRAMPOLINE_HOR:
-            fl = o->substate == DIR_Y_POS ? 0 : SPR_FLIP_Y;
-            pltf_log("%i\n", fl);
-            break;
-        case TRAMPOLINE_VER:
-            fl = o->substate == DIR_X_POS ? 0 : SPR_FLIP_X;
-            break;
-        }
+        fl = trampoline_spr_flip(o);
     }
 
-    i32    N = max_i32(o->w >> 4, o->h >> 4);
-    v2_i32 p = v2_i32_add(o->pos, cam);
+    i32      n_tiles = max_i32(o->w >> 4, o->h >> 4);
+    v2_i32   p       = v2_i32_add(o->pos, cam);
+    texrec_s tr      = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 0, 0);
+
     switch (o->state) {
     case TRAMPOLINE_HOR: {
-        texrec_s tr = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 16, 32);
-        tr.y        = frameID * 32;
+        tr.w = 16;
+        tr.h = 32;
+        tr.y = frameID * 32;
         p.y -= (32 - TRAMPOLINE_THICKNESS) / 2;
-        for (i32 n = 0; n < N; n++) {
-            tr.x = ((0 < n) + (n == N - 1)) * 16;
+        for (i32 n = 0; n < n_tiles; n++) {
+            tr.x = ((0 < n) + (n == n_tiles - 1)) * 16;
             gfx_spr(ctx, tr, p, fl, 0);
             p.x += 16;
         }
         break;
     }
     case TRAMPOLINE_VER: {
-        texrec_s tr = asset_texrec(TEXID_TRAMPOLINE, 0, 0, 32, 16);
-        tr.x        = frameID * 32 + 64;
+        tr.w = 32;
+        tr.h = 16;
+        tr.x = frameID * 32 + 64;
         p.x -= (32 - TRAMPOLINE_THICKNESS) / 2;
-        for (i32 n = 0; n < N; n++) {
-            tr.y = ((0 < n) + (n == N - 1)) * 16;
+        for (i32 n = 0; n < n_tiles; n++) {
+            tr.y = ((0 < n) + (n == n_tiles - 1)) * 16;
             gfx_spr(ctx, tr, p, fl, 0);
             p.y += 16;
         }

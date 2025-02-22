@@ -20,13 +20,14 @@ enum {
 
 typedef struct {
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
-    u16  wword;
-    u16  fmt;
     i32  w;
     i32  h;
+    u16  wword;
+    u16  fmt;
 } tex_s;
 
-typedef struct {
+typedef struct { // size: 32 byte on 32-bit CPU (pointer size) = cacheline PD
+    ALIGNAS(32)
     tex_s t;
     i32   x;
     i32   y;
@@ -34,21 +35,24 @@ typedef struct {
     i32   h;
 } texrec_s;
 
-#define GFX_PATTERN_NUM 17
-#define GFX_PATTERN_MAX (GFX_PATTERN_NUM - 1)
-
-typedef struct {
+typedef struct { // 32 bytes in size = cacheline on Playdate
+    ALIGNAS(32)
     u32 p[8];
 } gfx_pattern_s;
 
-typedef struct {
-    tex_s         dst;
+typedef struct gfx_ctx_s {
     gfx_pattern_s pat;
+    tex_s         dst;
     i32           clip_x1;
     i32           clip_x2;
     i32           clip_y1;
     i32           clip_y2;
 } gfx_ctx_s;
+
+#ifdef PLTF_PD_HW
+static_assert(sizeof(texrec_s) == 32, "texrec size");
+static_assert(sizeof(gfx_ctx_s) == 64, "gfx_ctx size");
+#endif
 
 typedef struct {
     u8 c1;
@@ -100,8 +104,12 @@ enum {
     PRIM_MODE_WHITE_BLACK, // fills black, pattern holes are white
     PRIM_MODE_BLACK_WHITE, // fills white, pattern holes are black
     PRIM_MODE_INV,         // inverts canvas, pattern holes are transparent
+    PRIM_MODE_WHITEN,
+    PRIM_MODE_BLACKEN
 };
 
+#define GFX_PATTERN_NUM     17
+#define GFX_PATTERN_MAX     (GFX_PATTERN_NUM - 1)
 #define gfx_pattern_100()   gfx_pattern_bayer_4x4(16)
 #define gfx_pattern_75()    gfx_pattern_bayer_4x4(12)
 #define gfx_pattern_50()    gfx_pattern_bayer_4x4(8)
@@ -111,10 +119,7 @@ enum {
 #define gfx_pattern_black() gfx_pattern_0()
 
 tex_s         tex_framebuffer();
-i32           tex_create_ext(i32 w, i32 h, b32 mask, allocator_s a, tex_s *o_t);
-tex_s         tex_create(i32 w, i32 h, alloc_s ma);
-tex_s         tex_create_opaque(i32 w, i32 h, alloc_s ma);
-tex_s         tex_load(const char *path, alloc_s ma);
+tex_s         tex_create(i32 w, i32 h, b32 mask, allocator_s a, i32 *err);
 texrec_s      texrec_from_tex(tex_s t);
 i32           tex_px_at(tex_s tex, i32 x, i32 y);
 i32           tex_mk_at(tex_s tex, i32 x, i32 y);
@@ -140,6 +145,7 @@ gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
 gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
 gfx_pattern_s gfx_pattern_8x8(i32 p0, i32 p1, i32 p2, i32 p3, i32 p4, i32 p5, i32 p6, i32 p7);
 gfx_pattern_s gfx_pattern_bayer_4x4(i32 i);
+gfx_pattern_s gfx_pattern_shift(gfx_pattern_s p, i32 x, i32 y);
 gfx_pattern_s gfx_pattern_interpolate(i32 num, i32 den);
 gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den, i32 (*ease)(i32 a, i32 b, i32 num, i32 den));
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode);

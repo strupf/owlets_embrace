@@ -157,8 +157,10 @@ bool32 map_blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy)
     for (obj_each(g, i)) {
         if (i != o &&
             (i->flags & OBJ_FLAG_SOLID) &&
-            overlap_rec(r, obj_aabb(i)))
+            overlap_rec(r, obj_aabb(i)) &&
+            !obj_ignores_solid(o, i, 0)) {
             return 1;
+        }
     }
     return 0;
 }

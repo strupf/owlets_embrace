@@ -47,8 +47,7 @@ void stalactite_load(g_s *g, map_obj_s *mo)
     o->moverflags =
         OBJ_MOVER_ONE_WAY_PLAT |
         OBJ_MOVER_TERRAIN_COLLISIONS;
-    o->n_sprites       = 1;
-    o->render_priority = 100000;
+    o->n_sprites = 1;
 
     i32 tx      = o->pos.x >> 4;
     s->checkr.x = o->pos.x;

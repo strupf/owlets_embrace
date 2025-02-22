@@ -7,10 +7,8 @@
 
 #include "gamedef.h"
 
-#define ROPE_VERLET_IT   20
-#define ROPE_VERLET_N    32
-#define ROPE_VERLET_GRAV 40
-#define NUM_ROPE_NODES   32
+#define ROPE_VERLET_N  32
+#define NUM_ROPE_NODES 32
 
 typedef struct rope_s     rope_s;
 typedef struct ropenode_s ropenode_s;

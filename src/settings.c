@@ -93,5 +93,5 @@ void settings_load_default()
     s->vol_mus           = SETTINGS_VOL_MAX;
     s->vol_sfx           = SETTINGS_VOL_MAX;
     s->ticks_hook_hold   = SETTINGS_TICKS_HOOK_CONTROL;
-    s->hook_mode         = 1;
+    s->hook_mode         = HERO_HOOK_B_TIMED;
 }

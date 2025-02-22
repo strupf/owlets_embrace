@@ -66,12 +66,12 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
     assert(0 <= (u1 >> 5) && ((u1 >> 5) + (sn >> SPRBLIT_SRC_MASK)) < ws);
 
     for (i32 yd = y1; yd <= y2; yd++, ys += sy, pd_y += id, ps_y += is) {
-        assert(0 <= ys && ys < src.h);
         u32 *ps_l = ps_y;
         u32 *ps_r = ps_y + sn;
         u32 *ps   = ps_y + sn * SPRBLIT_FLIPPEDX;
         u32 *pd   = pd_y;
 #if PLTF_DEBUG
+        assert(0 <= ys && ys < src.h);
         u32 *ps_a = &src.px[(0 + ys * ws) << SPRBLIT_SRC_MASK];
         u32 *ps_b = &src.px[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
         assert(ps_a <= ps && ps <= ps_b);
@@ -109,11 +109,11 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
             pd += di;
 
             for (u32 *pi = pd + ((ww - 1) << SPRBLIT_DST_MASK); pd != pi; pd += di) {
-                sp = zp << ll;
                 ps += si;
 #if PLTF_DEBUG
                 assert(ps_a <= ps && ps <= ps_b);
 #endif
+                sp = zp << ll;
                 zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
                 sp |= (u32)((u64)zp >> rr);
                 sp = bswap32(sp);

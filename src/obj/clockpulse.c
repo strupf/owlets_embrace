@@ -17,11 +17,17 @@ typedef struct {
     i32 trigger_on_disable;
 } clockpulse_s;
 
+void clockpulse_on_update(g_s *g, obj_s *o);
+void clockpulse_on_trigger(g_s *g, obj_s *o, i32 trigger);
+
 void clockpulse_load(g_s *g, map_obj_s *mo)
 {
-    obj_s        *o        = obj_create(g);
-    clockpulse_s *cp       = (clockpulse_s *)o->mem;
-    o->ID                  = OBJID_CLOCKPULSE;
+    obj_s        *o  = obj_create(g);
+    clockpulse_s *cp = (clockpulse_s *)o->mem;
+    o->ID            = OBJID_CLOCKPULSE;
+    o->on_trigger    = clockpulse_on_trigger;
+    o->on_update     = clockpulse_on_update;
+
     i32 period_ms          = map_obj_i32(mo, "Period");
     o->state               = map_obj_bool(mo, "enabled");
     o->subtimer            = max_i32(ticks_from_ms(period_ms), 1);

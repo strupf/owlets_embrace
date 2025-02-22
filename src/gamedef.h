@@ -52,15 +52,7 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #include "util/sorting.h"
 #include "util/str.h"
 
-#define FILEPATH_MAP      "assets/map/"
-#define FILEPATH_SND      "assets/snd/"
-#define FILEPATH_MUS      "assets/mus/"
-#define FILEPATH_TEX      "assets/tex/"
-#define FILEPATH_FNT      "assets/fnt/"
-#define FILEPATH_DIALOG   "assets/dialog/"
-#define FILEEXTENSION_AUD ".aud"
-#define NUM_TILES         131072
-#define NUM_MAP_NEIGHBORS 12
+#define NUM_TILES 131072
 
 typedef struct g_s   g_s;
 typedef struct obj_s obj_s;
@@ -78,18 +70,9 @@ enum {
     APP_STATE_GAME,
 };
 
-enum {
-    GAME_STATE_PLAY,
-    GAME_STATE_DIALOG,
-    GAME_STATE_MENU,
-    GAME_STATE_SETTINGS,
-    GAME_STATE_GAMEOVER,
-};
-
 #define LEN_HERO_NAME        16
 #define LEN_AREA_FILENAME    64
 #define FADETICKS_AREALABEL  150
-#define RENDER_PRIO_HERO     0x100
 #define NUM_WORLD_ROOMS      64
 #define NUM_WORLD_ROOM_TILES 256
 
@@ -250,11 +233,6 @@ typedef struct hitbox_s {
     u32     flags;
     v2_i16  force_q8;
 } hitbox_s;
-
-typedef struct map_pin_s {
-    u32    type;
-    v2_i32 pos;
-} map_pin_s;
 
 typedef struct time_real_s {
     u32 h;

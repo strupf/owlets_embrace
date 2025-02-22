@@ -28,6 +28,10 @@ typedef struct {
     i32 rot_dir;
 } rotor_s;
 
+void rotor_on_hurt(g_s *g, obj_s *o);
+void rotor_on_update(g_s *g, obj_s *o);
+void rotor_on_animate(g_s *g, obj_s *o);
+
 void rotor_load(g_s *g, map_obj_s *mo)
 {
     obj_s   *o    = obj_create(g);
@@ -44,13 +48,16 @@ void rotor_load(g_s *g, map_obj_s *mo)
     r->rot_speed  = 64;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_ONE_WAY_PLAT;
-    o->health = 2;
+    o->health = 1;
     o->flags  = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ACTOR |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_HERO_STOMPABLE;
+    o->enemy              = enemy_default();
+    o->enemy.on_hurt      = rotor_on_hurt;
+    o->enemy.hurt_on_jump = 1;
 }
 
 void rotor_on_update(g_s *g, obj_s *o)
@@ -67,6 +74,10 @@ void rotor_on_update(g_s *g, obj_s *o)
         o->v_q8.x = -o->v_q8.x;
     }
     o->bumpflags = 0;
+
+    if (o->enemy.hurt_tick) {
+        return;
+    }
 
     bool32 grounded = obj_grounded(g, o);
 
@@ -208,4 +219,12 @@ void rotor_on_animate(g_s *g, obj_s *o)
     }
 
     spr->trec = asset_texrec(TEXID_ROTOR, fr_x * 48, fr_y * 48, 48, 48);
+}
+
+void rotor_on_hurt(g_s *g, obj_s *o)
+{
+    o->state  = ROTOR_ALERT;
+    o->timer  = 0;
+    o->v_q8.x = 0;
+    o->v_q8.y = 0;
 }

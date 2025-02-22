@@ -23,12 +23,11 @@ typedef struct area_s {
     area_mountain_s mountain;
     area_cave_s     cave;
     //
-    struct {
-        areafx_clouds_s         clouds;
+    i32             fx_type;
+    union {
         areafx_wind_s           wind;
         areafx_rain_s           rain;
         areafx_heat_s           heat;
-        areafx_leaves_s         leaves;
         areafx_snow_s           snow;
         areafx_particles_calm_s particles_calm;
     } fx;
@@ -37,7 +36,5 @@ typedef struct area_s {
 void area_setup(g_s *g, area_s *a, i32 ID);
 void area_update(g_s *g, area_s *a);
 void area_draw_bg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
-void area_draw_mg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
-void area_draw_fg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam);
 
 #endif

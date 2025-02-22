@@ -28,6 +28,8 @@ void hero_on_animate(g_s *g, obj_s *o)
     obj_sprite_s *sprite     = &o->sprites[0];
     hero_s       *h          = (hero_s *)o->heap;
     inp_s         inp        = inp_cur();
+    rope_s       *r          = o->rope;
+    ropenode_s   *rn         = r ? ropenode_neighbour(r, o->ropenode) : 0;
     const bool32  was_idle   = h->is_idle;
     const u32     idle_animp = h->idle_anim;
 
@@ -42,13 +44,13 @@ void hero_on_animate(g_s *g, obj_s *o)
     i32 fr_x       = 0;
     i32 fr_x_add   = 0;
     i32 state      = hero_get_actual_state(g, o);
+    sprite->trec.w = 64;
+    sprite->trec.h = 64;
 
-    if (h->b_hold_tick) {
-        state = 0;
-        fr_x  = min_i32(h->b_hold_tick >> 2, 2);
-        fr_x += h->attack_flipflop * 8;
-        fr_y = 15 + obj_grounded(g, o);
-        sprite->offs.y -= 16;
+    // h->holds_weapon = 0;
+
+    if (h->holds_spear) {
+        sprite->trec.w = 96;
     }
 
     if ((HERO_HURT_TICKS * 3) / 4 <= h->hurt_ticks) {
@@ -74,12 +76,89 @@ void hero_on_animate(g_s *g, obj_s *o)
         }
         sprite->offs.y -= 16;
     }
-    if (h->attack_tick) {
+    if (h->b_hold_tick && !h->holds_spear) {
+        state = 0;
+        if (6 <= h->b_hold_tick) {
+            fr_x = 1 + ((h->b_hold_tick >> 3) & 1);
+        } else {
+            fr_x = 0;
+        }
+        fr_x += h->attack_flipflop * 3;
+        fr_y = 15 + obj_grounded(g, o);
+        sprite->offs.y -= 16;
+    }
+    if ((h->attack_tick || h->b_hold_tick) && h->holds_spear) {
+        static const u8 attackticks[8] = {
+            3, 2, 3, 2, 4, 4, 3, 3};
+        static const u8 attackticks_air[6] = {
+            3, 3, 3, 3, 2, 2};
+
+        state = 0;
+        if (o->facing == 1) {
+            sprite->offs.x -= 2;
+        } else {
+            sprite->offs.x -= 30;
+        }
+
+        sprite->offs.y -= 16;
+
+        if (0 && h->b_hold_tick) {
+            i32 bt = min_i32(h->b_hold_tick, 6);
+            fr_x   = lerp_i32(0, 2, bt, 6);
+            fr_y   = 24 + h->attack_flipflop;
+        } else {
+            if (obj_grounded(g, o)) {
+                fr_x         = 7;
+                i32 time_acc = 0;
+                for (i32 n = 0; n < 8; n++) {
+                    time_acc += attackticks[n];
+                    if (h->attack_tick < time_acc) {
+                        fr_x = n;
+                        break;
+                    }
+                }
+                fr_y = 24 + h->attack_flipflop;
+            } else {
+                if (o->facing == 1) {
+                    sprite->offs.x -= 16;
+                } else {
+                    sprite->offs.x += 16;
+                }
+                sprite->offs.y -= 4;
+                sprite->trec.h = 96;
+                fr_y           = 18;
+                fr_x           = 5;
+                i32 time_acc   = 0;
+                for (i32 n = 0; n < 6; n++) {
+                    time_acc += attackticks_air[n];
+                    if (h->attack_tick < time_acc) {
+                        fr_x = n;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (h->attack_tick && !h->holds_spear) {
         sprite->offs.y -= 16;
         state = 0;
         fr_x  = lerp_i32(2, 8, h->attack_tick, HERO_ATTACK_TICKS);
         fr_x += h->attack_flipflop * 8;
         fr_y = 16;
+    }
+    if (h->squish) {
+        sprite->offs.y -= 4;
+        state = 0;
+        if (h->squish < HERO_SQUISH_TICKS) {
+            fr_x = 6 + lerp_i32(0, 10, h->squish, HERO_SQUISH_TICKS);
+            fr_y = 14;
+        } else {
+            o->n_sprites = 0;
+        }
+    }
+
+    if (h->holds_spear && state) {
+        sprite->offs.x -= 14;
     }
 
     if (o->health == 0) {
@@ -112,71 +191,69 @@ void hero_on_animate(g_s *g, obj_s *o)
     case HERO_ST_GROUND: {
         sprite->offs.y -= 16;
 
-        if (h->stomp_landing_ticks) {
-            fr_y = 7;
-            fr_x = 14 + (3 <= h->stomp_landing_ticks &&
-                         h->stomp_landing_ticks < (HERO_STOMP_LANDING_TICKS - 2));
+        if (h->stomp < 0) { // stomp landing
+            i32 landingt = HERO_STOMP_LANDING_TICKS + h->stomp;
+            fr_y         = 7;
+            fr_x         = 14 + (3 <= landingt &&
+                         landingt < (HERO_STOMP_LANDING_TICKS - 2));
             break;
         }
 
-        if (0 < h->impact_ticks && !h->holds_weapon) {
-            if (h->holds_weapon) {
-                fr_y = 23;
-                fr_x = 0;
-            } else {
-                fr_y = HERO_ANIMID_AIR; // "oof"
-                fr_x = 7;
-            }
+        if (0 < h->impact_ticks && !h->holds_spear) {
+            fr_y = 7; // "oof"
+#if 1
+            fr_x = (h->impact_ticks <= 2 ? 8 : 7);
+#else
 
+#endif
             break;
         }
 
-        if (h->grabbing || h->push_pull) {
-            if (h->push_pull == 0) {
+        if (h->grabbing) {
+            o->animation++;
+            if (abs_i32(h->grabbing) == 1) { // static
                 fr_y = 1;
-                fr_x = 14 + ((pltf_cur_tick() >> 5) & 1);
-            } else {
+                fr_x = 14 + ((o->animation >> 5) & 1);
+            } else { // actively push/pull
                 fr_y = 2;
-                if (h->push_pull == o->facing) {
-                    fr_x = 12 + ((pltf_cur_tick() >> 3) & 3);
+                if (sgn_i32(h->grabbing) == o->facing) {
+                    fr_x = 12 + ((o->animation >> 3) & 3);
                 } else {
-                    fr_x = 8 + ((pltf_cur_tick() >> 3) & 3);
+                    fr_x = 8 + ((o->animation >> 3) & 3);
                 }
             }
             break;
         }
 
         if (h->crouched) {
-            if (h->crawl) {
-                fr_y = HERO_ANIMID_CRAWL;
+            fr_y = 11;
+            if (h->crouched < 0) { // crawling
                 o->animation += o->v_q8.x * o->facing;
-                fr_x = 8 + modu_i32(o->animation / 1500, 6);
-            } else {
-                fr_y = HERO_ANIMID_CRAWL - 1;
+                fr_x = 5 + modu_i32(o->animation / 1500, 6);
+            } else { // sit
                 if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
-                    fr_x = 11 + (h->crouched * 2) / HERO_CROUCHED_MAX_TICKS;
+                    fr_x = (h->crouched * 2) / HERO_CROUCHED_MAX_TICKS;
                 } else {
                     o->animation += 1;
-                    fr_x = 13 + modu_i32(o->animation / 14, 3);
+                    fr_x = 2 + modu_i32(o->animation / 14, 3);
                 }
             }
 
             break;
         }
         if (h->crouch_standup) {
-            fr_y = HERO_ANIMID_CRAWL - 1;
-            fr_x = 11 + (h->crouch_standup * 2) / HERO_CROUCHED_MAX_TICKS;
+            fr_y = 11;
+            fr_x = (h->crouch_standup * 2) / HERO_CROUCHED_MAX_TICKS;
             break;
         }
 
-        if (o->rope) {
-            ropenode_s *rn          = ropenode_neighbour(o->rope, o->ropenode);
-            i32         dir         = sgn_i32(rn->p.x - o->pos.x);
-            i32         ropestretch = rope_stretch_q8(g, o->rope);
+        if (r) {
+            i32 dir         = sgn_i32(rn->p.x - o->pos.x);
+            i32 ropestretch = rope_stretch_q8(g, r);
             if (252 <= ropestretch && dir) {
                 sprite->flip = 0 < dir ? 0 : SPR_FLIP_X;
-                fr_y         = 1;
-                fr_x         = 12;
+                fr_y         = 12;
+                fr_x         = 14;
                 if (260 <= ropestretch) {
                     fr_x += (g->tick >> 4) & 1;
                 }
@@ -193,23 +270,22 @@ void hero_on_animate(g_s *g, obj_s *o)
             }
 
             // "carrying/walking"
-            if (h->holds_weapon) {
-                fr_y = 22;
-                if (o->facing == -1) fr_x_add = 8;
+            if (h->holds_spear) {
+                fr_y = o->facing == +1 ? 22 : 23;
             } else {
                 fr_y = HERO_ANIMID_WALK;
             }
 
             i32 frameID_prev = (o->animation / 2000) & 7;
             i32 va           = abs_i32(o->v_q8.x);
-            if (HERO_VX_SPRINT <= va && fr_y == HERO_ANIMID_WALK && !h->holds_weapon) {
+            if (HERO_VX_SPRINT <= va && fr_y == HERO_ANIMID_WALK && !h->holds_spear) {
                 fr_y = HERO_ANIMID_RUN;
                 o->animation += (va * 220) >> 8;
             } else {
                 o->animation += va;
             }
 
-            if (h->skidding && !h->holds_weapon) {
+            if (h->skidding && !h->holds_spear) {
                 fr_y = HERO_ANIMID_RUN;
                 fr_x = 8 + (h->skidding < 4);
                 break;
@@ -228,13 +304,13 @@ void hero_on_animate(g_s *g, obj_s *o)
             break;
         }
 
-        if (h->holds_weapon) {
-            fr_y = 23; // "carrying/idle"
-            if (o->facing == -1) fr_x_add = 8;
-        } else {
-            fr_y = HERO_ANIMID_IDLE; // "carrying/idle"
+        if (h->holds_spear) {
+            fr_y = o->facing == +1 ? 22 : 23;
+            fr_x = 0;
+            break;
         }
 
+        fr_y       = HERO_ANIMID_IDLE; // "carrying/idle"
         h->is_idle = 1;
         h->idle_ticks++;
         if (!was_idle) {
@@ -243,7 +319,7 @@ void hero_on_animate(g_s *g, obj_s *o)
 
         if (idle_animp) {
             h->idle_anim = idle_animp + 1;
-        } else if (!h->holds_weapon && 100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
+        } else if (!h->holds_spear && 100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
             h->idle_anim = 1;
         }
 
@@ -297,7 +373,7 @@ void hero_on_animate(g_s *g, obj_s *o)
     }
     case HERO_ST_CLIMB: {
         i32 climbdir = inps_y(inp);
-        if (!hero_stamina_left(g, o)) {
+        if (!hero_stamina_left(o)) {
             climbdir = +1;
         }
         if (h->impact_ticks) {
@@ -326,25 +402,51 @@ void hero_on_animate(g_s *g, obj_s *o)
         break;
     }
     case HERO_ST_AIR: {
-        if (o->rope && 255 <= rope_stretch_q8(g, o->rope)) {
-            ropenode_s *rn2 = ropenode_neighbour(o->rope, o->ropenode);
-            v2_i32      rdt = v2_i32_sub(rn2->p, o->ropenode->p);
-            if (rdt.y < 0) {
+        if (r) {
+            v2_i32 rdt = v2_i32_sub(rn->p, o->ropenode->p);
+            if (rdt.y < -100 && 254 <= rope_stretch_q8(g, r)) {
+                // actively swinging
                 f32 ang = atan2f((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
 
-                fr_y = 13;
+                fr_y = 12;
                 fr_x = -(i32)((ang * 4.f)) - 3;
-                fr_x = 9 + clamp_i32(fr_x, 0, 6);
+                fr_x = 3 + clamp_i32(fr_x, 0, 6);
                 sprite->offs.y -= 4;
-                break;
+
+                i32 lsq = v2_i16_lensq(o->v_q8);
+                if (2500000 <= lsq) {
+                    v2_i32 pcenter = obj_pos_center(o);
+                    if (3500000 <= lsq || (g->tick & 1)) {
+                        particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_SWING, pcenter);
+                    }
+                }
+            } else {
+                fr_y = 12;
+                sprite->offs.y -= 4;
+
+                if (+500 <= o->v_q8.y) {
+                    fr_x = 0;
+                } else if (-100 <= o->v_q8.y) {
+                    fr_x = 1;
+                } else {
+                    fr_x = 2;
+                }
             }
+            break;
         }
 
-        if (h->holds_weapon) {
-            sprite->offs.y -= 16;
-            fr_y = 22;
-            fr_x = 6 + ((o->animation >> 4) & 1);
-            if (o->facing == -1) fr_x_add = 8;
+        if (h->holds_spear) {
+            sprite->offs.y -= 6;
+            if (+100 <= o->v_q8.y) {
+                fr_x = 3;
+            } else if (-100 <= o->v_q8.y) {
+                fr_x = 2;
+            } else if (-400 <= o->v_q8.y) {
+                fr_x = 1;
+            } else {
+                fr_x = 0;
+            }
+            fr_y = o->facing == +1 ? 20 : 21;
             break;
         }
 
@@ -381,8 +483,6 @@ void hero_on_animate(g_s *g, obj_s *o)
     }
     }
 
-    sprite->trec.x = 64 * (fr_x + fr_x_add);
-    sprite->trec.y = 64 * fr_y;
-    sprite->trec.w = 64;
-    sprite->trec.h = 64;
+    sprite->trec.x = sprite->trec.w * (fr_x + fr_x_add);
+    sprite->trec.y = sprite->trec.h * fr_y;
 }

@@ -5,20 +5,6 @@
 #include "game.h"
 
 enum {
-    BUDPLANT_ORIENTATION_GROUND,
-    BUDPLANT_ORIENTATION_LEFT_WALL,
-    BUDPLANT_ORIENTATION_CEILING,
-    BUDPLANT_ORIENTATION_RIGHT_WALL
-};
-
-enum {
-    BUDPLANT_ANIM_IDLE,
-    BUDPLANT_ANIM_PREPARING,
-    BUDPLANT_ANIM_SHAKING,
-    BUDPLANT_ANIM_SHOOTING
-};
-
-enum {
     BUDPLANT_ST_IDLE,
     BUDPLANT_ST_PREPARING,
     BUDPLANT_ST_SHAKING,
@@ -26,12 +12,18 @@ enum {
 };
 
 typedef struct {
-    i32 orientation;
+    i32 x;
 } budplant_s;
 
 #define BUDPLANT_TICKS_PREPARE  25
-#define BUDPLANT_TICKS_SHAKING  50
+#define BUDPLANT_TICKS_SHAKING  30
 #define BUDPLANT_TICKS_SHOOTING 25
+
+void bpgrenade_create(g_s *g, v2_i32 pos, v2_i32 vel);
+//
+void budplant_on_hurt(g_s *g, obj_s *o);
+void budplant_on_update(g_s *g, obj_s *o);
+void budplant_on_animate(g_s *g, obj_s *o);
 
 void budplant_load(g_s *g, map_obj_s *mo)
 {
@@ -39,43 +31,26 @@ void budplant_load(g_s *g, map_obj_s *mo)
     budplant_s *bp = (budplant_s *)o->mem;
 
     o->ID    = OBJID_BUDPLANT;
-    o->flags = OBJ_FLAG_HURT_ON_TOUCH |
+    o->flags = OBJ_FLAG_ACTOR |
+               OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
-               OBJ_FLAG_HERO_JUMPABLE;
-    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS;
-
-    o->w          = 16;
-    o->h          = 16;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y;
-    o->health_max = 1;
-    o->health     = o->health_max;
+               OBJ_FLAG_HERO_JUMPSTOMPABLE;
+    o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
+    o->on_update          = budplant_on_update;
+    o->on_animate         = budplant_on_animate;
+    o->w                  = 16;
+    o->h                  = 16;
+    o->pos.x              = mo->x;
+    o->pos.y              = mo->y;
+    o->health_max         = 2;
+    o->health             = o->health_max;
+    o->enemy              = enemy_default();
+    o->enemy.hurt_on_jump = 1;
+    o->enemy.on_hurt      = budplant_on_hurt;
+    o->timer              = rngr_i32(0, 100);
 
     obj_sprite_s *spr = &o->sprites[0];
     o->n_sprites      = 1;
-
-    for (i32 n = 0; n < 4; n++) {
-        rec_i32 rr = {0};
-        switch (n) {
-        case BUDPLANT_ORIENTATION_GROUND:
-            rr = obj_rec_bottom(o);
-            break;
-        case BUDPLANT_ORIENTATION_LEFT_WALL:
-            rr = obj_rec_left(o);
-            break;
-        case BUDPLANT_ORIENTATION_CEILING:
-            rr = obj_rec_top(o);
-            break;
-        case BUDPLANT_ORIENTATION_RIGHT_WALL:
-            rr = obj_rec_right(o);
-            break;
-        }
-
-        if (!!map_blocked(g, rr)) {
-            bp->orientation = n;
-            break;
-        }
-    }
 }
 
 void budplant_on_update(g_s *g, obj_s *o)
@@ -104,29 +79,11 @@ void budplant_on_update(g_s *g, obj_s *o)
 
         if ((BUDPLANT_TICKS_SHOOTING * 13) / 16 == o->timer) {
             v2_i32 ppos = obj_pos_center(o);
-            v2_i32 pv   = {0};
+            v2_i32 pv   = {rngr_sym_i32(600), -rngr_i32(1400, 1700)};
+            ppos.y -= BUDPLANT_PROJ_OFFS;
 
-            switch (bp->orientation) {
-            case BUDPLANT_ORIENTATION_GROUND:
-                pv = CINIT(v2_i32){rngr_sym_i32(600), -2500};
-                ppos.y -= BUDPLANT_PROJ_OFFS;
-                break;
-            case BUDPLANT_ORIENTATION_LEFT_WALL:
-                pv = CINIT(v2_i32){2500, rngr_sym_i32(600)};
-                ppos.x += BUDPLANT_PROJ_OFFS;
-                break;
-            case BUDPLANT_ORIENTATION_CEILING:
-                pv = CINIT(v2_i32){rngr_sym_i32(600), 2500};
-                ppos.y += BUDPLANT_PROJ_OFFS;
-                break;
-            case BUDPLANT_ORIENTATION_RIGHT_WALL:
-                pv = CINIT(v2_i32){-2500, rngr_sym_i32(600)};
-                ppos.x -= BUDPLANT_PROJ_OFFS;
-                break;
-            }
-
-            obj_s *pr  = projectile_create(g, ppos, pv, PROJECTILE_ID_BUDPLANT);
-            f32    vol = cam_snd_scale(g, o->pos, 300);
+            bpgrenade_create(g, ppos, pv);
+            f32 vol = cam_snd_scale(g, o->pos, 300);
             snd_play(SNDID_PROJECTILE_SPIT, vol, rngr_f32(0.9f, 1.1f));
         }
         if (BUDPLANT_TICKS_SHOOTING <= o->timer) {
@@ -144,64 +101,47 @@ void budplant_on_animate(g_s *g, obj_s *o)
     budplant_s   *bp  = (budplant_s *)o->mem;
     obj_sprite_s *spr = &o->sprites[0];
 
-    i32 frameID = 0;
-    i32 animID  = BUDPLANT_ANIM_IDLE;
+    spr->offs.x = -(64 - o->w) / 2;
+    spr->offs.y = -60 + o->h;
+    i32 imgx    = 0;
+    i32 imgy    = 0;
 
     switch (o->state) {
+    default: break;
     case BUDPLANT_ST_IDLE: {
-        animID  = BUDPLANT_ANIM_IDLE;
-        frameID = (o->timer >> 3) & 3;
+        imgy = 0;
+        imgx = (o->timer >> 3) & 3;
         break;
     }
     case BUDPLANT_ST_PREPARING: {
-        animID  = BUDPLANT_ANIM_PREPARING;
-        frameID = lerp_i32(0, 8, o->timer, BUDPLANT_TICKS_PREPARE);
-        frameID = min_i32(frameID, 7);
+        imgy = 1;
+        imgx = lerp_i32(0, 8, o->timer, BUDPLANT_TICKS_PREPARE);
+        imgx = min_i32(imgx, 7);
         break;
     }
     case BUDPLANT_ST_SHAKING: {
-        animID  = BUDPLANT_ANIM_SHAKING;
-        frameID = (o->timer / 3) & 1;
+        imgy = 2;
+        imgx = (o->timer / 3) & 1;
         break;
     }
     case BUDPLANT_ST_SHOOTING: {
-        animID  = BUDPLANT_ANIM_SHOOTING;
-        frameID = lerp_i32(0, 4, o->timer, BUDPLANT_TICKS_SHOOTING);
-        frameID = min_i32(frameID, 2);
+        imgy = 3;
+        imgx = lerp_i32(0, 4, o->timer, BUDPLANT_TICKS_SHOOTING);
+        imgx = min_i32(imgx, 2);
         break;
     }
-    default: break;
     }
 
-    if (o->enemy.hurt_tick) {
-        frameID = 4;
-        animID  = 0;
+    if (o->enemy.hurt_tick || o->enemy.die_tick) {
+        imgx = 4;
+        imgy = 0;
     }
 
-    frameID += bp->orientation * 8;
+    spr->trec = asset_texrec(TEXID_BUDPLANT, imgx << 6, imgy << 6, 64, 64);
+}
 
-    switch (bp->orientation) {
-    case BUDPLANT_ORIENTATION_GROUND:
-        spr->offs.x = -(64 - o->w) / 2;
-        spr->offs.y = -64 + o->h;
-        break;
-    case BUDPLANT_ORIENTATION_LEFT_WALL:
-        spr->offs.x = 0;
-        spr->offs.y = -(64 - o->h) / 2;
-        break;
-    case BUDPLANT_ORIENTATION_CEILING:
-        spr->offs.x = -(64 - o->w) / 2;
-        spr->offs.y = 0;
-        break;
-    case BUDPLANT_ORIENTATION_RIGHT_WALL:
-        spr->offs.x = -64 + o->w;
-        spr->offs.y = -(64 - o->h) / 2;
-        break;
-    }
-
-    spr->trec = asset_texrec(TEXID_BUDPLANT,
-                             frameID * 64,
-                             animID * 64,
-                             64,
-                             64);
+void budplant_on_hurt(g_s *g, obj_s *o)
+{
+    o->state = BUDPLANT_ST_PREPARING;
+    o->timer = 0;
 }

@@ -85,11 +85,11 @@ bool32 obj_blocked_by_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
             if (overlap_rec(rstomp, rplat)) {
                 if (hero_stomping(o) && (it->flags & OBJ_FLAG_HERO_STOMPABLE)) {
                     is_plat |= 1;
-                    hero_register_stomped_on(o, it);
+                    hero_register_jumpstomped(o, it, 1);
                 }
                 if ((it->flags & OBJ_FLAG_HERO_JUMPABLE)) {
                     is_plat |= 1;
-                    hero_register_jumped_on(o, it);
+                    hero_register_jumpstomped(o, it, 0);
                 }
             }
         }

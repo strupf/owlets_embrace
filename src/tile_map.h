@@ -55,20 +55,15 @@ enum {
     TILE_TYPE_BRIGHT_STONE             = 11,
     TILE_TYPE_BRIGHT_SNOW              = 12,
     TILE_TYPE_BRIGHT_BREAKING          = 13,
+    TILE_TYPE_BRIGHT_STOMP             = 15,
+    TILE_TYPE_BRIGHT_STOMP_2           = 16,
     TILE_TYPE_BRIGHT_END               = 18,
     //
     TILE_TYPE_THORNS                   = 19,
-    TILE_TYPE_THORNS1                  = 20,
-    TILE_TYPE_THORNS2                  = 21,
     TILE_TYPE_CRUMBLE                  = 22,
     //
     NUM_TILE_TYPES                     = 24
 };
-
-static inline i32 tile_type_render_priority(i32 type)
-{
-    return type;
-}
 
 #define TILE_WATER_MASK     0x80
 #define TILE_ICE_MASK       0x40

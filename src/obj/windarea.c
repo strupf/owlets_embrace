@@ -41,7 +41,7 @@ void windarea_on_update(g_s *g, obj_s *o)
 
     oh->v_q8.y = max_i32(oh->v_q8.y, -256 * 6);
     h->gliding = min_i32(h->gliding + 2, 16);
-    hero_stamina_modify(g, oh, 32);
+    hero_stamina_modify(oh, 32);
 }
 
 void windarea_on_draw(g_s *g, obj_s *o, v2_i32 cam)

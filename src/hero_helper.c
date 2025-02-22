@@ -32,27 +32,6 @@ void hero_rem_upgrade(g_s *g, i32 ID)
     pltf_log("# DEL UPGRADE: %i\n", ID);
 }
 
-void hero_coins_change(g_s *g, i32 n)
-{
-    if (n == 0) return;
-    hero_s *h  = &g->hero;
-    i32     ct = h->coins + g->coins_added + n;
-    if (ct < 0) return;
-
-    if (g->coins_added == 0 || g->coins_added_ticks) {
-        g->coins_added_ticks = 100;
-    }
-    g->coins_added += n;
-}
-
-i32 hero_coins(g_s *g)
-{
-    hero_s *h = &g->hero;
-    i32     c = h->coins + g->coins_added;
-    assert(0 <= c);
-    return c;
-}
-
 obj_s *hero_interactable_available(g_s *g, obj_s *o)
 {
     u32    d_sq = HERO_DISTSQ_INTERACT;
@@ -123,8 +102,8 @@ i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
     if (obj_grounded(g, o)) return 0;
 
     i32 x  = dx + (0 < facing ? o->pos.x + o->w : o->pos.x - 1);
-    i32 y1 = dy + o->pos.y + 2;
-    i32 y2 = dy + o->pos.y + o->h - 1 - 4;
+    i32 y1 = dy + o->pos.y + HERO_CLIMB_Y1_OFFS;
+    i32 y2 = dy + o->pos.y + o->h - 1 - HERO_CLIMB_Y2_OFFS;
 
     for (i32 y = y1; y <= y2; y++) {
         i32 r = map_climbable_pt(g, x, y);
@@ -159,15 +138,14 @@ i32 hero_swim_frameID_idle(i32 animation)
 void hero_leave_and_clear_inair(obj_s *o)
 {
     hero_s *h             = (hero_s *)o->heap;
+    h->spinattack         = 0;
     h->jumpticks          = 0;
-    h->jump_btn_buffer    = 0;
-    h->walljump_tech_tick = 0;
     h->walljump_tick      = 0;
     h->air_block_ticks    = 0;
     h->air_block_ticks_og = 0;
 }
 
-void hero_stamina_update_ui(g_s *g, obj_s *o, i32 amount)
+void hero_stamina_update_ui(obj_s *o, i32 amount)
 {
     hero_s *h = (hero_s *)o->heap;
     if (!h->stamina_added) return;
@@ -177,13 +155,13 @@ void hero_stamina_update_ui(g_s *g, obj_s *o, i32 amount)
     h->stamina += d;
 }
 
-i32 hero_stamina_modify(g_s *g, obj_s *o, i32 dt)
+i32 hero_stamina_modify(obj_s *o, i32 dt)
 {
     hero_s *h    = (hero_s *)o->heap;
-    i32     stap = hero_stamina_left(g, o);
+    i32     stap = hero_stamina_left(o);
 
     if (0 < dt) { // add stamina
-        i32 d = min_i32(dt, hero_stamina_max(g, o) - stap);
+        i32 d = min_i32(dt, hero_stamina_max(o) - stap);
         h->stamina += d;
     } else if (dt < 0) { // remove stamina
         i32 d = -dt;
@@ -194,42 +172,43 @@ i32 hero_stamina_modify(g_s *g, obj_s *o, i32 dt)
         }
         h->stamina_added = max_i32(0, h->stamina_added - d);
     }
-    i32 sta = hero_stamina_left(g, o);
+    i32 sta = hero_stamina_left(o);
     if (sta < stap) {
         h->jump_ui_may_hide = 0;
     }
     return sta;
 }
 
-void hero_stamina_add_ui(g_s *g, obj_s *o, i32 dt)
+void hero_stamina_add_ui(obj_s *o, i32 dt)
 {
     hero_s *h  = (hero_s *)o->heap;
-    i32     ft = hero_stamina_left(g, o);
-    h->stamina_added += min_i32(dt, hero_stamina_max(g, o) - ft);
+    i32     ft = hero_stamina_left(o);
+    h->stamina_added += min_i32(dt, hero_stamina_max(o) - ft);
     h->stamina_ui_collected_tick = 10;
 }
 
-i32 hero_stamina_left(g_s *g, obj_s *o)
+i32 hero_stamina_left(obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
     return (h->stamina + h->stamina_added);
 }
 
-i32 hero_stamina_ui_full(g_s *g, obj_s *o)
+i32 hero_stamina_ui_full(obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
     return h->stamina;
 }
 
-i32 hero_stamina_ui_added(g_s *g, obj_s *o)
+i32 hero_stamina_ui_added(obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
     return h->stamina_added;
 }
 
-i32 hero_stamina_max(g_s *g, obj_s *o)
+i32 hero_stamina_max(obj_s *o)
 {
-    return g->hero.stamina_upgrades * HERO_TICKS_PER_STAMINA_UPGRADE;
+    hero_s *h = (hero_s *)o->heap;
+    return h->stamina_upgrades * HERO_TICKS_PER_STAMINA_UPGRADE;
 }
 
 bool32 hero_present_and_alive(g_s *g, obj_s **o)
@@ -242,43 +221,140 @@ bool32 hero_present_and_alive(g_s *g, obj_s **o)
     return (ot->health);
 }
 
-i32 hero_register_jumped_or_stomped_on(obj_s *ohero, obj_s *o)
+i32 hero_register_jumpstomped(obj_s *ohero, obj_s *o, bool32 stomped)
 {
     hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_jumped_or_stomped_on; n++) {
-        if (obj_from_obj_handle(h->jumped_or_stomped_on[n]) == o) {
+    for (i32 n = 0; n < h->n_jumpstomped; n++) {
+        if (obj_from_obj_handle(h->jumpstomped[n].h) == o) {
             return 1;
         }
     }
-    if (h->n_jumped_or_stomped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->jumped_or_stomped_on[h->n_jumped_or_stomped_on++] =
-        obj_handle_from_obj(o);
+    if (h->n_jumpstomped == HERO_NUM_JUMPED_ON) return 0;
+
+    jumpstomped_s js = {obj_handle_from_obj(o), stomped};
+
+    h->jumpstomped[h->n_jumpstomped++] = js;
     return 2;
 }
 
-i32 hero_register_jumped_on(obj_s *ohero, obj_s *o)
+void hero_ungrab(g_s *g, obj_s *o)
 {
-    hero_register_jumped_or_stomped_on(ohero, o);
-    hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_jumped_on; n++) {
-        if (obj_from_obj_handle(h->jumped_on[n]) == o) {
-            return 1;
+    hero_s *h = (hero_s *)o->heap;
+    obj_s  *i = obj_from_obj_handle(h->obj_grabbed);
+
+    if (i && i->on_ungrab) {
+        i->on_ungrab(g, i);
+    }
+    h->grabbing = 0;
+}
+
+bool32 hero_ibuf_tap(hero_s *h, i32 b, i32 frames_ago)
+{
+    // oldest to newest
+    i32 l = min_i32(frames_ago, HERO_LEN_INPUT_BUF);
+    for (i32 n = 0, st = 0; n < l; n++) {
+        i32 k = (h->n_ibuf - n) & (HERO_LEN_INPUT_BUF - 1);
+        i32 i = h->ibuf[k] & b;
+
+        switch (st) {
+        case 0: // check if is unpressed
+            if (!i) {
+                st = 1;
+            }
+            break;
+        case 1: // check if it was pressed
+            if (i) {
+                st = 2;
+            }
+            break;
+        case 2: // check if it recently *became* pressed
+            if (!i) {
+                return 1;
+            }
+            break;
         }
     }
-    if (h->n_jumped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->jumped_on[h->n_jumped_on++] = obj_handle_from_obj(o);
-    return 2;
+    return 0;
 }
 
-i32 hero_register_stomped_on(obj_s *ohero, obj_s *o)
+bool32 hero_ibuf_pressed(hero_s *h, i32 b, i32 frames_ago)
 {
-    hero_register_jumped_or_stomped_on(ohero, o);
-    hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < h->n_stomped_on; n++) {
-        if (obj_from_obj_handle(h->stomped_on[n]) == o)
-            return 1;
+    // oldest to newest
+    i32 l = min_i32(frames_ago, HERO_LEN_INPUT_BUF);
+    for (i32 n = 0, st = 0; n < l; n++) {
+        i32 k = (h->n_ibuf - n) & (HERO_LEN_INPUT_BUF - 1);
+        i32 i = h->ibuf[k] & b;
+
+        switch (st) {
+        case 0: // check if pressed
+            if (i) {
+                st = 1;
+            }
+            break;
+        case 1: // check if it recently *became* pressed
+            if (!i) {
+                return 1;
+            }
+            break;
+        }
     }
-    if (h->n_stomped_on == HERO_NUM_JUMPED_ON) return 0;
-    h->stomped_on[h->n_stomped_on++] = obj_handle_from_obj(o);
-    return 2;
+    return 0;
+}
+
+void ui_itemswap_start(g_s *g)
+{
+    ui_itemswap_s *u = &g->ui_itemswap;
+    u->progress      = 1;
+    u->started       = 1;
+    if (u->ticks_out) {
+        u->ticks_in  = 1;
+        u->ticks_out = 0;
+    }
+}
+
+void ui_itemswap_set_progress(g_s *g, i32 p)
+{
+    ui_itemswap_s *u = &g->ui_itemswap;
+    if (u->started) {
+        u->progress = p;
+        if (u->ticks_out) {
+            u->ticks_in  = 1;
+            u->ticks_out = 0;
+        }
+    }
+}
+
+void ui_itemswap_exit(g_s *g)
+{
+    ui_itemswap_s *u = &g->ui_itemswap;
+    if (u->started) {
+        u->started = 0;
+        if (u->progress < UI_ITEMSWAP_TICKS_POP_UP) {
+            u->ticks_out = 0;
+            u->progress  = 0;
+        } else if (!u->ticks_out) {
+            u->ticks_out = 1;
+        }
+    }
+}
+
+void ui_itemswap_update(g_s *g)
+{
+    ui_itemswap_s *u = &g->ui_itemswap;
+    if (u->progress) {
+        u->ticks_in = u8_adds(u->ticks_in, 1);
+    } else {
+        u->ticks_in = 0;
+    }
+
+    if (u->ticks_out) {
+        u->ticks_out++;
+
+        if (UI_ITEMSWAP_TICKS_FADE <= u->ticks_out) {
+            u->ticks_out = 0;
+            u->progress  = 0;
+            u->ticks_in  = 0;
+            u->started   = 0;
+        }
+    }
 }

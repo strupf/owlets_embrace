@@ -15,6 +15,7 @@ enum {
     GRAPPLINGHOOK_HOOKED_TERRAIN,
     GRAPPLINGHOOK_HOOKED_OBJ,
 };
+
 #define HERO_ROPE_LEN_MIN             500
 #define HERO_ROPE_LEN_MIN_JUST_HOOKED 1000
 #define HERO_ROPE_LEN_SHORT           3000
@@ -24,6 +25,7 @@ enum {
 typedef struct grapplinghook_s {
     i32          state;
     i32          n_ang;
+    i32          destroy_tick;
     v2_f32       anghist[GHOOK_N_HIST];
     v2_i32       p;
     v2_i16       p_q8;
