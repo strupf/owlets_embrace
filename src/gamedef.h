@@ -6,38 +6,7 @@
 #define GAMEDEF_H
 
 #include "pltf/pltf.h"
-
-#define GAME_V_MAJOR 0
-#define GAME_V_MINOR 1
-#define GAME_V_PATCH 0
-
-#define GAME_VERSION_GEN(MAJOR, MINOR, PATCH) \
-    (u32)(((MAJOR) << 16) |                   \
-          ((MINOR) << 8) |                    \
-          ((PATCH)))
-#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJOR, GAME_V_MINOR, GAME_V_PATCH)
-
-// used to mask any flags and only check raw version number
-#define GAME_VERSION_REV_MASK (u32)0xFFFFF
-
-static u32 game_version_encode(i32 major, i32 minor, i32 patch)
-{
-    assert(0 <= major && major < 256);
-    assert(0 <= minor && minor < 256);
-    assert(0 <= patch && patch < 256);
-    return GAME_VERSION_GEN(major, minor, patch);
-}
-
-static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
-{
-    if (major) *major = 0xFF & (v >> 16);
-    if (minor) *minor = 0xFF & (v >> 8);
-    if (patch) *patch = 0xFF & (v);
-}
-
-#define GAME_TICKS_PER_SECOND PLTF_UPS
-#define TICKS_FROM_MS(MS)     (((MS) * GAME_TICKS_PER_SECOND + 500) / 1000)
-
+//
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
@@ -52,7 +21,43 @@ static void game_version_decode(u32 v, i32 *major, i32 *minor, i32 *patch)
 #include "util/sorting.h"
 #include "util/str.h"
 
-#define NUM_TILES 131072
+#define GAME_V_MAJ 0 // 4 bits, 0...15
+#define GAME_V_MIN 1 // 4 bits, 0...15
+#define GAME_V_PAT 0 // 8 bits, 0...255
+//
+#define GAME_V_DEV 0 // 8 bits, 0...255, preview version post-release
+
+#define GAME_VERSION_GEN(A, B, C, D) (u32)(((u32)(A) << 20) | \
+                                           ((u32)(B) << 16) | \
+                                           ((u32)(C) << 8) |  \
+                                           ((u32)(D)))
+
+#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJ, \
+                                      GAME_V_MIN, \
+                                      GAME_V_PAT, \
+                                      GAME_V_DEV)
+
+typedef struct {
+    ALIGNAS(4)
+    u8 vmaj;
+    u8 vmin;
+    u8 vpat;
+    u8 vdev;
+} game_version_s;
+
+static game_version_s game_version_decode(u32 v)
+{
+    game_version_s r = {0};
+    r.vmaj           = 0x0F & (v >> 20);
+    r.vmin           = 0x0F & (v >> 16);
+    r.vpat           = 0xFF & (v >> 8);
+    r.vdev           = 0xFF & (v);
+    return r;
+}
+
+#define GAME_TICKS_PER_SECOND PLTF_UPS
+#define TICKS_FROM_MS(MS)     (((MS) * GAME_TICKS_PER_SECOND + 500) / 1000)
+#define NUM_TILES             65536
 
 typedef struct g_s   g_s;
 typedef struct obj_s obj_s;
@@ -64,11 +69,6 @@ typedef struct obj_handle_s {
     obj_s *o;
     u32    generation;
 } obj_handle_s;
-
-enum {
-    APP_STATE_TITLE,
-    APP_STATE_GAME,
-};
 
 #define LEN_HERO_NAME        16
 #define LEN_AREA_FILENAME    64
@@ -221,24 +221,23 @@ static i32 find_ptr_in_array(void *arr, void *p, i32 len)
 }
 
 enum {
-    HITBOX_FLAG_HURT_HERO        = 1 << 0,
-    HITBOX_FLAG_HURT_MONSTER     = 1 << 1,
-    HITBOX_FLAG_HURT_ENVIRONMENT = 1 << 2,
-    HITBOX_FLAG_HERO             = 1 << 3,
+    HITBOX_FLAG_POWERSTOMP = 1 << 0,
 };
 
 typedef struct hitbox_s {
     rec_i32 r;
-    i32     damage;
-    u32     flags;
     v2_i16  force_q8;
+    u8      damage;
+    u8      flags;
+    u8      hitID;
 } hitbox_s;
 
 typedef struct time_real_s {
-    u32 h;
-    u32 m;
-    u32 s;
-    u32 ms;
+    ALIGNAS(4)
+    u16 h;
+    u16 m;
+    u16 s;
+    u16 ms;
 } time_real_s;
 
 #define TIME_K_S ((u32)PLTF_UPS)

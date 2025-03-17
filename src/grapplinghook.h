@@ -16,11 +16,9 @@ enum {
     GRAPPLINGHOOK_HOOKED_OBJ,
 };
 
-#define HERO_ROPE_LEN_MIN             500
-#define HERO_ROPE_LEN_MIN_JUST_HOOKED 1000
-#define HERO_ROPE_LEN_SHORT           3000
-#define HERO_ROPE_LEN_LONG            5000
-#define GHOOK_N_HIST                  4
+#define HERO_ROPE_LEN_MIN 500
+#define HERO_ROPE_LEN_MAX 5000
+#define GHOOK_N_HIST      4
 
 typedef struct grapplinghook_s {
     i32          state;
@@ -54,5 +52,5 @@ bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
 v2_i32 rope_recalc_v(g_s *g, rope_s *r, ropenode_s *rn,
                      v2_i32 subpos_q8, v2_i32 v_q8);
 v2_i32 grapplinghook_vlaunch_from_angle(i32 a_q16, i32 vel);
-
+void   hero_hook_preview_throw(g_s *g, obj_s *ohero, v2_i32 cam);
 #endif

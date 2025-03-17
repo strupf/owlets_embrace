@@ -11,6 +11,20 @@
 #include "util/marena.h"
 
 enum {
+    ASSETS_ERR_MISC      = 1 << 0,
+    ASSETS_ERR_WAD_INIT  = 1 << 1,
+    ASSETS_ERR_WAD_OPEN  = 1 << 2,
+    ASSETS_ERR_WAD_CLOSE = 1 << 3,
+    ASSETS_ERR_WAD_READ  = 1 << 4,
+    ASSETS_ERR_WAD_EL    = 1 << 5,
+    ASSETS_ERR_ALLOC     = 1 << 6,
+    ASSETS_ERR_TEX       = 1 << 7,
+    ASSETS_ERR_SND       = 1 << 8,
+    ASSETS_ERR_FNT       = 1 << 9,
+    ASSETS_ERR_ANI       = 1 << 10,
+};
+
+enum {
     TEXID_DISPLAY,
     TEXID_KEYBOARD,
     TEXID_BUTTONS,
@@ -22,21 +36,24 @@ enum {
     TEXID_TILESET_DECO,
     TEXID_BG_PARALLAX,
     TEXID_PAUSE_TEX,
+    TEXID_COVER,
     TEXID_UI,
     TEXID_PLANTS,
+    TEXID_BOULDER,
     TEXID_CLOUDS,
     TEXID_FLSURF,
     TEXID_SOLIDLEVER,
     TEXID_WATERCOL,
     TEXID_EXPLO1,
+    TEXID_MAPNEIGH,
     TEXID_TITLE,
     TEXID_PARTICLES,
-    TEXID_JUMPER,
     TEXID_SWITCH,
     TEXID_CRAWLER,
     TEXID_MISCOBJ,
     TEXID_HOOK,
     TEXID_MAINMENU,
+    TEXID_GEMS,
     TEXID_AREALABEL,
     TEXID_SAVEPOINT,
     TEXID_CRUMBLE,
@@ -52,6 +69,7 @@ enum {
     TEXID_FLYBLOB,
     TEXID_EXPLOSIONS,
     TEXID_FLUIDS,
+    TEXID_JUMPER,
     TEXID_CHEST,
     TEXID_TRAMPOLINE,
     TEXID_STALACTITE,
@@ -113,7 +131,7 @@ enum {
     SNDID_FOOTSTEP_DIRT,
     SNDID_OWLET_ATTACK_1,
     SNDID_OWLET_ATTACK_2,
-    SNDID_ENEMY_EXPLO,
+
     SNDID_WING,
     SNDID_WING1,
     SNDID_HOOK_READY,
@@ -126,33 +144,65 @@ enum {
     SNDID_WEAPON_UNEQUIP,
     SNDID_WOOSH_1,
     SNDID_WOOSH_2,
-    SNDID_STOMP_START,
     SNDID_STOMP,
     SNDID_SKID,
     SNDID_PROJECTILE_SPIT,
     SNDID_PROJECTILE_WALL,
+    SNDID_SPEAR_ATTACK,
+    SNDID_STOMP_START,
+    SNDID_STOMP_LAND,
+    SNDID_ENEMY_EXPLO,
     //
     NUM_SNDID
 };
+
+enum {
+    ANIID_HERO_ATTACK,
+    ANIID_HERO_ATTACK_AIR,
+    ANIID_COMPANION_FLY,
+    ANIID_COMPANION_ATTACK,
+    ANIID_GEMS,
+    //
+    NUM_ANIID
+};
+
+typedef struct {
+    ALIGNAS(2)
+    u8 i; // image index
+    u8 t; // number of ticks
+} ani_frame_s;
+
+typedef struct {
+    ani_frame_s *f;
+    u16          ticks; // total length in ticks
+    u16          n;     // number of frames
+} ani_s;
 
 typedef struct {
     tex_s tex[NUM_TEXID];
     snd_s snd[NUM_SNDID];
     fnt_s fnt[NUM_FNTID];
+    ani_s ani[NUM_ANIID];
 } assets_s;
 
 i32      assets_init();
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);
 fnt_s    asset_fnt(i32 ID);
+ani_s    asset_ani(i32 ID);
 i32      asset_tex_put(tex_s t);
 tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
-u32      snd_play(i32 ID, f32 vol, f32 pitch);
+b32      snd_play(i32 ID, f32 vol, f32 pitch);
 //
-i32      tex_from_wad(void *f, wad_el_s *wf, const void *name,
+err32    tex_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, tex_s *o_t);
-i32      snd_from_wad(void *f, wad_el_s *wf, const void *name,
+err32    snd_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, snd_s *o_s);
+err32    ani_from_wad(void *f, wad_el_s *wf, const void *name,
+                      allocator_s a, ani_s *o_a);
+
+i32 ani_frame(i32 ID, i32 ticks);
+i32 ani_len(i32 ID);
 
 #endif

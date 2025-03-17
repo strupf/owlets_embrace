@@ -38,10 +38,10 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->on_update          = budplant_on_update;
     o->on_animate         = budplant_on_animate;
-    o->w                  = 16;
-    o->h                  = 16;
-    o->pos.x              = mo->x;
-    o->pos.y              = mo->y;
+    o->w                  = 24;
+    o->h                  = 24;
+    o->pos.x              = mo->x + (mo->w - o->w) / 2;
+    o->pos.y              = mo->y + (mo->h - o->h);
     o->health_max         = 2;
     o->health             = o->health_max;
     o->enemy              = enemy_default();
@@ -132,7 +132,7 @@ void budplant_on_animate(g_s *g, obj_s *o)
     }
     }
 
-    if (o->enemy.hurt_tick || o->enemy.die_tick) {
+    if (o->enemy.hurt_tick) {
         imgx = 4;
         imgy = 0;
     }

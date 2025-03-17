@@ -5,14 +5,6 @@
 #include "spm.h"
 #include "app.h"
 
-static void  *spm_alloc_ctx(void *ctx, usize s);
-const alloc_s spm_allocator = {spm_alloc_ctx, 0};
-
-static void *spm_alloc_ctx(void *ctx, usize s)
-{
-    return spm_alloc(s);
-}
-
 void spm_init()
 {
     marena_init(&APP->spm.m, APP->spm.mem, sizeof(APP->spm.mem));
@@ -101,7 +93,7 @@ void *spm_alloc_aligned_ctx(void *ctx, usize s, usize alignment)
     return spm_alloc_aligned(s, alignment);
 }
 
-allocator_s spm_allocator2()
+allocator_s spm_allocator()
 {
     allocator_s a = {spm_alloc_aligned_ctx, 0};
     return a;

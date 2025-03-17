@@ -20,7 +20,7 @@ enum {
     HERO_UPGRADE_FLY,
     HERO_UPGRADE_STOMP,
     HERO_UPGRADE_CLIMB,
-    HERO_UPGRADE_STOMP_WAVE,
+    HERO_UPGRADE_POWERSTOMP,
     //
     NUM_HERO_UPGRADES = 32
 };
@@ -73,11 +73,18 @@ enum {
     SWIMMING_DIVING  = 2,
 };
 
+#define HERO_AIM_STR_TICKS_PERIOD      100
+#define HERO_AIM_THROW_STR_OFF_Q4      4 // offset for default in period
+#define HERO_AIM_THROW_STR_MIN         1000
+#define HERO_AIM_THROW_STR_MAX         5000
+#define HERO_AIM_MODE_CRANK_THRESHOLD  32768 // angle to crank until aim mode
+#define HERO_THROW_INTENSITY_MAX       256
+#define HERO_LOW_HP_ANIM_TICKS_HIT     20
+#define HERO_LOW_HP_ANIM_TICKS_RECOVER 20
 #define HERO_LEN_INPUT_BUF             32
 #define HERO_SQUISH_TICKS              35
 #define HERO_CLIMB_Y1_OFFS             2 // from top downwards
 #define HERO_CLIMB_Y2_OFFS             4 // from bottom upwards
-#define HERO_B_HOLD_TICKS_HOOK         10
 #define HERO_TICKS_SPIN_ATTACK         22
 #define HERO_HURT_LP_TICKS             100
 #define HERO_WATER_THRESHOLD           18
@@ -92,8 +99,6 @@ enum {
 #define HERO_VX_MAX_GROUND             1024
 #define HERO_REEL_RATE                 30
 #define HERO_SWIM_TICKS                50 // duration of swimming without upgrade
-#define HERO_ATTACK_TICKS              18
-#define HERO_ATTACK_TICKS_AIR          18
 #define HEROHOOK_N_HIST                4
 #define HERO_BREATH_TICKS              200
 #define HERO_GRAVITY                   80
@@ -102,8 +107,6 @@ enum {
 #define HERO_TICKS_PER_STAMINA_UPGRADE 1024
 #define HERO_DISTSQ_INTERACT           POW2(80)
 #define HERO_DISTSQ_PICKUP             POW2(100)
-#define HERO_N_MAX_JUMPED_ON           4
-#define HERO_WEAPON_DROP_TICKS         20
 #define HERO_TICKS_STOMP_INIT          6
 #define STAMINA_UI_TICKS_HIDE          12
 #define WALLJUMP_ANIM_TICKS            10
@@ -112,29 +115,16 @@ enum {
 #define HERO_HEALTH_RESTORE_TICKS      250
 #define HERO_STOMP_LANDING_TICKS       12
 #define HERO_HURT_TICKS                50
-#define HERO_INVINCIBILITY_TICKS       50
+#define HERO_INVINCIBILITY_TICKS       100
 #define HERO_W_STOMP_ADD_SYMM          4
-
-typedef struct {
-    b8 started;
-    u8 progress;
-    u8 ticks_in;
-    u8 ticks_out;
-} ui_itemswap_s;
-
-#define UI_ITEMSWAP_TICKS         50
-#define UI_ITEMSWAP_TICKS_POP_UP  25
-#define UI_ITEMSWAP_TICKS_FADE    30
-#define UI_ITEMSWAP_TICKS_FADE_IN 30
-#define UI_ITEMSWAP_TICKS_DENY    20
-
-void ui_itemswap_start(g_s *g);
-void ui_itemswap_set_progress(g_s *g, i32 p);
-void ui_itemswap_exit(g_s *g);
-void ui_itemswap_update(g_s *g);
+//
+#define HERO_ITEMSWAP_TICKS            25
+#define HERO_ITEMSWAP_TICKS_INIT       15
+#define HERO_ITEMSWAP_TICKS_FADE       25
 
 enum {
     HERO_JUMP_WATER,
+    HERO_JUMP_GROUND_SPEAR,
     HERO_JUMP_GROUND,
     HERO_JUMP_GROUND_BOOSTED,
     HERO_JUMP_FLY,
@@ -158,109 +148,124 @@ typedef struct {
 } jumpstomped_s;
 
 typedef struct hero_s {
-    u32 upgrades;
-    u32 charms;
-    u32 idle_ticks;
-    u32 idle_anim;
-    i32 crank_acc_q16;
-    i32 hook_aim_dir;
-    i32 hook_aim_mode_tick;
-    i32 hook_aim;
-    i32 hook_aim_crank_buildup;
-    i16 air_block_ticks;
-    i16 air_block_ticks_og;
-    u16 health_restore_tick;
-    u16 stamina_ui_collected_tick;
-    u16 stamina_ui_fade_out;
-    u16 stamina_added;
-    u16 stamina;
-    u16 swimticks;
-    i16 ladderx;
-    u16 breath_ticks;
-    u8  state_prev;
-    u8  state_curr;
-    i8  spinattack; // 0< active, <0 blocked/cooldown
-    b8  ropepulled;
-    u8  gliding;
-    i8  grabbing; // -1/+1 = grabbing static, -2/+2 = push/pull
-    b8  is_idle;
-    u8  swimming; // SWIMMING_SURFACE, SWIMMING_DIVING
-    u8  squish;
-    b8  climbing;
-    u8  dead_bounce;
-    u8  ladder; // while climbing: 1 if on ladder, 0 if on wall
-    b8  jump_ui_may_hide;
-    b8  sprint;
-    u8  impact_ticks;
-    i8  walljump_tick; // signed ticks -> direction
-    u8  crouch_standup;
-    i8  crouched; // 0< sitting, <0 crawling
-    i8  stomp;    // 0< active, <0 landing animation
-    b8  holds_spear;
-    u8  swimsfx_delay;
-    u8  invincibility_ticks;
-    u8  skidding;
-    u8  b_hold_tick;
-    b8  ungrappled;
-    u8  attack_ID;
-    u8  attack_tick;
-    u8  attack_flipflop;
-    u8  edgeticks;
-    u8  jump_index; // index into jump parameter table
-    u8  jumpticks;
-    u8  low_grav_ticks;
-    u8  low_grav_ticks_0;
-    u8  hurt_ticks;
-    u8  n_jumpstomped;
-    u8  stamina_upgrades;
-    u8  n_ibuf;
-    u8  ibuf[HERO_LEN_INPUT_BUF];
-    u8  name[LEN_HERO_NAME];
+    u32    upgrades;
+    u32    charms;
+    u32    idle_ticks;
+    u32    idle_anim;
+    i32    crank_acc_q16;
+    i32    hook_aim_mode_tick;
+    i32    hook_aim;
+    i32    hook_aim_mode;
+    i32    hook_aim_crank_buildup;
+    v2_i32 safe_pos;
+    i16    air_block_ticks;
+    i16    air_block_ticks_og;
+    u16    health_restore_tick;
+    u16    stamina_ui_collected_tick;
+    u16    stamina_ui_fade_out;
+    u16    stamina_added;
+    u16    stamina;
+    u16    swimticks;
+    i16    ladderx;
+    u16    breath_ticks;
+    u8     hitID;
+    u8     ticks_health; // animator tick low health ui
+    u8     state_prev;
+    u8     state_curr;
+    i8     spinattack; // 0< active, <0 blocked/cooldown
+    b8     ropepulled;
+    u8     gliding;
+    i8     grabbing; // -1/+1 = grabbing static, -2/+2 = push/pull
+    b8     is_idle;
+    u8     swimming; // SWIMMING_SURFACE, SWIMMING_DIVING
+    u8     squish;
+    b8     climbing;
+    u8     dead_bounce;
+    u8     ladder; // while climbing: 1 if on ladder, 0 if on wall
+    b8     jump_ui_may_hide;
+    b8     sprint;
+    u8     impact_ticks;
+    i8     walljump_tick; // signed ticks -> direction
+    u8     crouch_standup;
+    i8     crouched; // 0< sitting, <0 crawling
+    i8     stomp;    // 0< active, <0 landing animation
+    b8     holds_spear;
+    u8     swimsfx_delay;
+    u8     invincibility_ticks;
+    u8     skidding;
+    u8     b_hold_tick;
+    u8     item_swap_tick;
+    u8     item_swap_tick_saved;
+    i8     item_swap_fade; // 0< success, <0 denied
+    u8     attack_ID;
+    u8     attack_tick;
+    u8     attack_flipflop;
+    u8     edgeticks;
+    u8     jump_index; // index into jump parameter table
+    u8     jumpticks;
+    u8     low_grav_ticks;
+    u8     low_grav_ticks_0;
+    u8     hurt_ticks;
+    u8     n_jumpstomped;
+    u8     stamina_upgrades;
+    u8     n_ibuf;                   // position in circular input buffer
+    u8     ibuf[HERO_LEN_INPUT_BUF]; // circular buffer of button states
+    u8     name[LEN_HERO_NAME];
 
     obj_handle_s  obj_grabbed;
     jumpstomped_s jumpstomped[HERO_NUM_JUMPED_ON];
 } hero_s;
 
-obj_s *hero_create(g_s *g);
-i32    hero_special_input(g_s *g, obj_s *o, inp_s inp);
-void   hero_on_update(g_s *g, obj_s *o, inp_s inp);
-void   hero_post_update(g_s *g, obj_s *o, inp_s inp);
-void   hero_on_animate(g_s *g, obj_s *o);
-i32    hero_get_actual_state(g_s *g, obj_s *o);
-void   hero_on_squish(g_s *g, obj_s *o);
-void   hero_check_rope_intact(g_s *g, obj_s *o);
-void   hero_hurt(g_s *g, obj_s *o, i32 damage);
-void   hero_stamina_update_ui(obj_s *o, i32 amount); // swaps "temporary" stamina to regular stamina -> UI
-i32    hero_stamina_modify(obj_s *o, i32 dt);
-void   hero_stamina_add_ui(obj_s *o, i32 dt); // add with UI animation
-i32    hero_stamina_left(obj_s *o);
-i32    hero_stamina_ui_full(obj_s *o);
-i32    hero_stamina_ui_added(obj_s *o);
-i32    hero_stamina_max(obj_s *o);
-bool32 hero_present_and_alive(g_s *g, obj_s **o);
-void   hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel);
-bool32 hero_action_ungrapple(g_s *g, obj_s *o);
-obj_s *hero_interactable_available(g_s *g, obj_s *o);
-i32    hero_breath_tick(obj_s *o);
-i32    hero_breath_tick_max(g_s *g);
-i32    hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy);
-i32    hero_swim_frameID(i32 animation);
-i32    hero_swim_frameID_idle(i32 animation);
-v2_i32 hero_hook_aim_dir(hero_s *h);
-void   hero_stomped_ground(g_s *g, obj_s *o);
-void   hero_walljump(g_s *g, obj_s *o, i32 dir);
-bool32 hero_stomping(obj_s *o);
-i32    hero_register_jumpstomped(obj_s *ohero, obj_s *o, bool32 stomped);
-i32    hero_can_grab(g_s *g, obj_s *o, i32 dirx);
-bool32 hero_has_upgrade(g_s *g, i32 ID);
-void   hero_add_upgrade(g_s *g, i32 ID);
-void   hero_rem_upgrade(g_s *g, i32 ID);
-void   hero_set_name(g_s *g, const char *name);
-char  *hero_get_name(g_s *g);
-void   hero_inv_add(g_s *g, i32 ID, i32 n);
-void   hero_inv_rem(g_s *g, i32 ID, i32 n);
-i32    hero_inv_count_of(g_s *g, i32 ID);
-void   hero_ungrab(g_s *g, obj_s *o);
+obj_s   *hero_create(g_s *g);
+i32      hero_special_input(g_s *g, obj_s *o, inp_s inp);
+void     hero_on_update(g_s *g, obj_s *o, inp_s inp);
+void     hero_post_update(g_s *g, obj_s *o, inp_s inp);
+void     hero_on_animate(g_s *g, obj_s *o);
+i32      hero_get_actual_state(g_s *g, obj_s *o);
+void     hero_on_squish(g_s *g, obj_s *o);
+void     hero_check_rope_intact(g_s *g, obj_s *o);
+void     hero_hurt(g_s *g, obj_s *o, i32 damage);
+void     hero_stamina_update_ui(obj_s *o, i32 amount); // swaps "temporary" stamina to regular stamina -> UI
+i32      hero_stamina_modify(obj_s *o, i32 dt);
+void     hero_stamina_add_ui(obj_s *o, i32 dt); // add with UI animation
+i32      hero_stamina_left(obj_s *o);
+i32      hero_stamina_ui_full(obj_s *o);
+i32      hero_stamina_ui_added(obj_s *o);
+i32      hero_stamina_max(obj_s *o);
+bool32   hero_present_and_alive(g_s *g, obj_s **o);
+void     hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel);
+bool32   hero_action_ungrapple(g_s *g, obj_s *o);
+obj_s   *hero_interactable_available(g_s *g, obj_s *o);
+i32      hero_breath_tick(obj_s *o);
+i32      hero_breath_tick_max(g_s *g);
+i32      hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy);
+i32      hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy, i32 *dt_snap_x);
+i32      hero_swim_frameID(i32 animation);
+i32      hero_swim_frameID_idle(i32 animation);
+v2_i32   hero_hook_aim_dir(hero_s *h);
+void     hero_stomped_ground(g_s *g, obj_s *o);
+void     hero_walljump(g_s *g, obj_s *o, i32 dir);
+bool32   hero_stomping(obj_s *o);
+i32      hero_register_jumpstomped(obj_s *ohero, obj_s *o, bool32 stomped);
+i32      hero_can_grab(g_s *g, obj_s *o, i32 dirx);
+bool32   hero_has_upgrade(g_s *g, i32 ID);
+void     hero_add_upgrade(g_s *g, i32 ID);
+void     hero_rem_upgrade(g_s *g, i32 ID);
+void     hero_set_name(g_s *g, const char *name);
+char    *hero_get_name(g_s *g);
+void     hero_inv_add(g_s *g, i32 ID, i32 n);
+void     hero_inv_rem(g_s *g, i32 ID, i32 n);
+i32      hero_inv_count_of(g_s *g, i32 ID);
+void     hero_ungrab(g_s *g, obj_s *o);
+hitbox_s hero_hitbox_spear(obj_s *o);
+hitbox_s hero_hitbox_spear_air(obj_s *o);
+hitbox_s hero_hitbox_spinattack(obj_s *o);
+hitbox_s hero_hitbox_stomp(obj_s *o);
+hitbox_s hero_hitbox_powerstomp(obj_s *o);
+void     hero_itemswap_cancel(obj_s *o);
+void     hero_aim_abort(obj_s *o);
+i32      hero_aim_angle_conv(i32 crank_q16);
+i32      hero_aim_throw_strength(obj_s *o);
 
 enum {
     HERO_INTERACTION_NONE,

@@ -16,7 +16,8 @@ typedef struct cam_s {
     v2_f32 attract;
     v2_i32 trg;
     v2_i32 hero_off;
-    i32    lookdown;
+    i16    lookdownup_tick;
+    i16    lookdownup_q8;
     u16    shake_ticks;
     u16    shake_ticks_max;
     u16    shake_str_x;

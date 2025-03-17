@@ -49,10 +49,6 @@ void hero_on_animate(g_s *g, obj_s *o)
 
     // h->holds_weapon = 0;
 
-    if (h->holds_spear) {
-        sprite->trec.w = 96;
-    }
-
     if ((HERO_HURT_TICKS * 3) / 4 <= h->hurt_ticks) {
         state = 0;
         sprite->offs.y -= 16;
@@ -62,103 +58,6 @@ void hero_on_animate(g_s *g, obj_s *o)
         // o->n_sprites = 1 <= (g->gameplay_tick % 4);
     } else {
         o->n_sprites = 1;
-    }
-
-    if (h->spinattack) {
-        state = 0;
-        fr_y  = 10;
-        if (h->spinattack < 4) {
-            fr_x = 11;
-        } else if ((HERO_TICKS_SPIN_ATTACK - 4) <= h->spinattack) {
-            fr_x = 10;
-        } else {
-            fr_x = 12 + ((h->spinattack / 3) % 4);
-        }
-        sprite->offs.y -= 16;
-    }
-    if (h->b_hold_tick && !h->holds_spear) {
-        state = 0;
-        if (6 <= h->b_hold_tick) {
-            fr_x = 1 + ((h->b_hold_tick >> 3) & 1);
-        } else {
-            fr_x = 0;
-        }
-        fr_x += h->attack_flipflop * 3;
-        fr_y = 15 + obj_grounded(g, o);
-        sprite->offs.y -= 16;
-    }
-    if ((h->attack_tick || h->b_hold_tick) && h->holds_spear) {
-        static const u8 attackticks[8] = {
-            3, 2, 3, 2, 4, 4, 3, 3};
-        static const u8 attackticks_air[6] = {
-            3, 3, 3, 3, 2, 2};
-
-        state = 0;
-        if (o->facing == 1) {
-            sprite->offs.x -= 2;
-        } else {
-            sprite->offs.x -= 30;
-        }
-
-        sprite->offs.y -= 16;
-
-        if (0 && h->b_hold_tick) {
-            i32 bt = min_i32(h->b_hold_tick, 6);
-            fr_x   = lerp_i32(0, 2, bt, 6);
-            fr_y   = 24 + h->attack_flipflop;
-        } else {
-            if (obj_grounded(g, o)) {
-                fr_x         = 7;
-                i32 time_acc = 0;
-                for (i32 n = 0; n < 8; n++) {
-                    time_acc += attackticks[n];
-                    if (h->attack_tick < time_acc) {
-                        fr_x = n;
-                        break;
-                    }
-                }
-                fr_y = 24 + h->attack_flipflop;
-            } else {
-                if (o->facing == 1) {
-                    sprite->offs.x -= 16;
-                } else {
-                    sprite->offs.x += 16;
-                }
-                sprite->offs.y -= 4;
-                sprite->trec.h = 96;
-                fr_y           = 18;
-                fr_x           = 5;
-                i32 time_acc   = 0;
-                for (i32 n = 0; n < 6; n++) {
-                    time_acc += attackticks_air[n];
-                    if (h->attack_tick < time_acc) {
-                        fr_x = n;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    if (h->attack_tick && !h->holds_spear) {
-        sprite->offs.y -= 16;
-        state = 0;
-        fr_x  = lerp_i32(2, 8, h->attack_tick, HERO_ATTACK_TICKS);
-        fr_x += h->attack_flipflop * 8;
-        fr_y = 16;
-    }
-    if (h->squish) {
-        sprite->offs.y -= 4;
-        state = 0;
-        if (h->squish < HERO_SQUISH_TICKS) {
-            fr_x = 6 + lerp_i32(0, 10, h->squish, HERO_SQUISH_TICKS);
-            fr_y = 14;
-        } else {
-            o->n_sprites = 0;
-        }
-    }
-
-    if (h->holds_spear && state) {
-        sprite->offs.x -= 14;
     }
 
     if (o->health == 0) {
@@ -187,17 +86,81 @@ void hero_on_animate(g_s *g, obj_s *o)
         state = 0;
     }
 
+    if (state && h->holds_spear && !h->stomp) {
+        sprite->trec.w = 96;
+    }
+
+    if (state && 0 < h->spinattack) {
+        state = 0;
+        fr_y  = 10;
+        if (h->spinattack < 4) {
+            fr_x = 11;
+        } else if ((HERO_TICKS_SPIN_ATTACK - 4) <= h->spinattack) {
+            fr_x = 10;
+        } else {
+            fr_x = 12 + ((h->spinattack / 3) % 4);
+        }
+        sprite->offs.y -= 16;
+    }
+
+    if ((h->attack_tick || (h->b_hold_tick && h->b_hold_tick < HERO_ITEMSWAP_TICKS_INIT)) &&
+        h->holds_spear) {
+        state = 0;
+        if (o->facing == 1) {
+            sprite->offs.x -= 2;
+        } else {
+            sprite->offs.x -= 30;
+        }
+
+        sprite->offs.y -= 16;
+
+        if (h->b_hold_tick) {
+            i32 bt = min_i32(h->b_hold_tick, 6);
+            fr_x   = lerp_i32(0, 2, bt, 6);
+            fr_y   = 24 + h->attack_flipflop;
+        } else {
+            switch (h->attack_ID) {
+            case HERO_ATTACK_GROUND: {
+                fr_x = ani_frame(ANIID_HERO_ATTACK, h->attack_tick);
+                fr_y = 24 + h->attack_flipflop;
+                if (o->facing == -1) {
+                    fr_y += 2;
+                }
+                break;
+            }
+            case HERO_ATTACK_AIR: {
+                if (o->facing == 1) {
+                    sprite->offs.x -= 16;
+                } else {
+                    sprite->offs.x += 16;
+                }
+                sprite->offs.y -= 4;
+                sprite->trec.h = 96;
+                fr_y           = 19;
+                fr_x           = ani_frame(ANIID_HERO_ATTACK_AIR, h->attack_tick);
+                break;
+            }
+            }
+        }
+    }
+    if (h->squish) {
+        sprite->offs.y -= 4;
+        state = 0;
+        if (h->squish < HERO_SQUISH_TICKS) {
+            fr_x = 6 + lerp_i32(0, 10, h->squish, HERO_SQUISH_TICKS);
+            fr_y = 14;
+        } else {
+            o->n_sprites = 0;
+        }
+    }
+
+    if (h->holds_spear && state && !h->stomp) {
+        sprite->offs.x -= 14;
+    }
+
     switch (state) {
     case HERO_ST_GROUND: {
         sprite->offs.y -= 16;
-
-        if (h->stomp < 0) { // stomp landing
-            i32 landingt = HERO_STOMP_LANDING_TICKS + h->stomp;
-            fr_y         = 7;
-            fr_x         = 14 + (3 <= landingt &&
-                         landingt < (HERO_STOMP_LANDING_TICKS - 2));
-            break;
-        }
 
         if (0 < h->impact_ticks && !h->holds_spear) {
             fr_y = 7; // "oof"
@@ -397,8 +360,22 @@ void hero_on_animate(g_s *g, obj_s *o)
         break;
     }
     case HERO_ST_STOMP: {
-        fr_y = 7;
-        fr_x = 9 + min_i32(4, h->stomp >> 2);
+        fr_y = 4;
+        if (h->holds_spear) {
+            sprite->flip = 0;
+            fr_y += 0 < o->facing ? 2 : 1;
+        }
+
+        if (0 < h->stomp) {
+            fr_x = 0 + min_i32(4, h->stomp >> 2);
+        }
+        if (h->stomp < 0) { // stomp landing
+            sprite->offs.y -= 16;
+            i32 landingt = HERO_STOMP_LANDING_TICKS + h->stomp;
+            fr_x         = 5 +
+                   (3 <= landingt) +
+                   ((HERO_STOMP_LANDING_TICKS - 3) <= landingt);
+        }
         break;
     }
     case HERO_ST_AIR: {
@@ -436,9 +413,10 @@ void hero_on_animate(g_s *g, obj_s *o)
         }
 
         if (h->holds_spear) {
+            o->animation++;
             sprite->offs.y -= 6;
             if (+100 <= o->v_q8.y) {
-                fr_x = 3;
+                fr_x = 3 - ((o->animation >> 4) & 1);
             } else if (-100 <= o->v_q8.y) {
                 fr_x = 2;
             } else if (-400 <= o->v_q8.y) {
@@ -446,6 +424,7 @@ void hero_on_animate(g_s *g, obj_s *o)
             } else {
                 fr_x = 0;
             }
+
             fr_y = o->facing == +1 ? 20 : 21;
             break;
         }
@@ -485,4 +464,11 @@ void hero_on_animate(g_s *g, obj_s *o)
 
     sprite->trec.x = sprite->trec.w * (fr_x + fr_x_add);
     sprite->trec.y = sprite->trec.h * fr_y;
+#ifdef PLTF_DEBUG
+    rec_i32 rsprite = {sprite->trec.x, sprite->trec.y, sprite->trec.w, sprite->trec.h};
+    rec_i32 rtex    = {0, 0, sprite->trec.t.w, sprite->trec.t.h};
+    rec_i32 rinter;
+    intersect_rec(rtex, rsprite, &rinter);
+    assert(rinter.w == sprite->trec.w && rinter.h == sprite->trec.h);
+#endif
 }

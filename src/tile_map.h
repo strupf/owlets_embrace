@@ -57,6 +57,7 @@ enum {
     TILE_TYPE_BRIGHT_BREAKING          = 13,
     TILE_TYPE_BRIGHT_STOMP             = 15,
     TILE_TYPE_BRIGHT_STOMP_2           = 16,
+    TILE_TYPE_BRIGHT_STOMP_HOR         = 17,
     TILE_TYPE_BRIGHT_END               = 18,
     //
     TILE_TYPE_THORNS                   = 19,

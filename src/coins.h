@@ -7,12 +7,13 @@
 
 #include "gamedef.h"
 
-#define COINS_MAX 9999
+#define COINS_MAX 999
 
 typedef struct {
     i16 n;
     i16 n_change;
     i16 ticks_change;
+    u8  bop_changed; // animator
     u8  fade_q7;
     b8  show_idle; // gets cleared after each frame
     u8  show_idle_tick;

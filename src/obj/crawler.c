@@ -146,8 +146,6 @@ static void crawler_do_normal(g_s *g, obj_s *o)
 // to continue crawling.
 void crawler_on_update(g_s *g, obj_s *o)
 {
-    if (o->enemy.hurt_tick) return;
-
     crawler_do_normal(g, o);
 }
 

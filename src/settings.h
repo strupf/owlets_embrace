@@ -8,8 +8,10 @@
 #include "pltf/pltf_types.h"
 
 enum {
-    SETTINGS_MODE_NORMAL,
-    SETTINGS_MODE_STREAMING,
+    SETTINGS_MODE_NORMAL,    // 50.0 FPS, hi details
+    SETTINGS_MODE_STREAMING, // 50.0 FPS, lo details
+    SETTINGS_MODE_POWER_SAVING,
+    SETTINGS_MODE_30_FPS
 };
 
 enum {
@@ -20,24 +22,24 @@ enum {
     SETTINGS_ERR_CHECKSUM = 1 << 4,
 };
 
-#define SETTINGS_TICKS_HOOK_CONTROL 15
-#define SETTINGS_VOL_MAX            8
-#define SETTINGS_SHAKE_SENS_MAX     8
-#define SETTINGS_SHAKE_SMOOTH_MAX   8
+#define SETTINGS_VOL_MAX          16
+#define SETTINGS_SHAKE_SENS_MAX   8
+#define SETTINGS_SHAKE_SMOOTH_MAX 8
 
 typedef struct {
-    u8  shake_sensitivity;
-    u8  shake_smooth;
-    i32 hook_mode;
-    u8  mode;
-    u8  vol_sfx;
-    u8  vol_mus;
-    u8  ticks_hook_hold;
+    ALIGNAS(4)
+    u8 mode;
+    u8 shake_sensitivity;
+    u8 shake_smooth;
+    u8 vol_mus;
+    u8 vol_sfx;
 } settings_s;
 
 extern settings_s SETTINGS;
 
-i32 settings_load();
-i32 settings_save();
+// saves and loads global settings file to and from supplied pointer
+void  settings_default(settings_s *s);
+err32 settings_load(settings_s *s);
+err32 settings_save(settings_s *s);
 
 #endif

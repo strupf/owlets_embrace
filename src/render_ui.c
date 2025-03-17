@@ -13,6 +13,8 @@
 #define FNTID_AREA_LABEL FNTID_LARGE
 
 void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff);
+void render_itemswap(obj_s *ohero, v2_i32 camoff);
+void render_hurt_ui(g_s *g, obj_s *ohero);
 
 void render_ui(g_s *g, v2_i32 camoff)
 {
@@ -24,17 +26,9 @@ void render_ui(g_s *g, v2_i32 camoff)
         render_hero_ui(g, ohero, camoff);
     }
 
-    spm_push();
-    {
-        fnt_s font_sm       = asset_fnt(FNTID_SMALL);
-        tex_s tex_dev_build = tex_create(128, 32, 1, spm_allocator2(), 0);
-        tex_clr(tex_dev_build, GFX_COL_CLEAR);
-        fnt_draw_ascii(gfx_ctx_default(tex_dev_build),
-                       font_sm, CINIT(v2_i32){2, 2}, "Dev Build", SPR_MODE_BLACK);
-        tex_outline_white(tex_dev_build);
-        gfx_spr(ctx, texrec_from_tex(tex_dev_build), CINIT(v2_i32){340, 222}, 0, 0);
+    if (g->minimap.opened) {
+        minimap_draw(g);
     }
-    spm_pop();
 
 #if 0
     if (g->areaname.fadeticks) {
@@ -73,6 +67,57 @@ void render_ui(g_s *g, v2_i32 camoff)
     }
 }
 
+void render_hurt_ui(g_s *g, obj_s *ohero)
+{
+#define HURT_VFX_FRIZZLE_STR 3
+#define HURT_VFX_FRIZZLE     8
+
+    gfx_ctx_s ctx = gfx_ctx_display();
+    if (ohero->health == 0) return;
+
+    hero_s *h       = (hero_s *)ohero->heap;
+    i32     rad_off = (3 * sin_q15(g->tick << 10)) >> 15;
+    if (1 < ohero->health) {
+        if (!h->ticks_health) return;
+        rad_off += lerp_i32(20, 0,
+                            h->ticks_health, HERO_LOW_HP_ANIM_TICKS_RECOVER);
+    }
+    if (1 == ohero->health && h->ticks_health) {
+        rad_off -= ease_in_quad(0, 60,
+                                h->ticks_health, HERO_LOW_HP_ANIM_TICKS_HIT);
+    }
+
+    u32 sfrizzle = (g->tick);
+    i32 off_x1   = 0;
+    i32 off_x2   = rngsr_sym_i32(&sfrizzle, HURT_VFX_FRIZZLE_STR);
+
+    for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {
+        i32 ym = y & (HURT_VFX_FRIZZLE - 1);
+        if (ym == 0) {
+            off_x1 = off_x2;
+            off_x2 = rngsr_sym_i32(&sfrizzle, HURT_VFX_FRIZZLE_STR);
+        }
+
+        i32 off_x = lerp_i32(off_x1, off_x2, ym, HURT_VFX_FRIZZLE);
+
+        for (i32 rh = 0; rh < 2; rh++) {
+            ctx.pat   = gfx_pattern_bayer_4x4(16 - rh * 4); // pat no. 12, 16
+            ctx.pat   = gfx_pattern_shift(ctx.pat, 1, 0);
+            i32 r     = (196 - rh * 11) + rad_off;
+            i32 dt_sq = pow2_i32(r) - pow2_i32(PLTF_DISPLAY_H / 2 - y);
+            i32 x1    = PLTF_DISPLAY_W;
+
+            if (0 < dt_sq) {
+                i32 dt = sqrt_i32(dt_sq);
+                i32 x2 = PLTF_DISPLAY_W / 2 + dt + off_x;
+                x1     = PLTF_DISPLAY_W / 2 - dt + off_x;
+                gfx_rec_strip(ctx, x2, y, PLTF_DISPLAY_W, PRIM_MODE_BLACK);
+            }
+            gfx_rec_strip(ctx, 0, y, x1, PRIM_MODE_BLACK);
+        }
+    }
+}
+
 void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
 {
     fnt_s              font_1 = asset_fnt(FNTID_AREA_LABEL);
@@ -80,6 +125,9 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
     hero_s            *h      = (hero_s *)ohero->heap;
     v2_i32             posh   = v2_i32_add(obj_pos_center(ohero), camoff);
     hero_interaction_s hi     = hero_get_interaction(g, ohero);
+
+    render_hurt_ui(g, ohero);
+
     switch (hi.action) {
     case HERO_INTERACTION_INTERACT: {
         obj_s *oi = obj_from_obj_handle(hi.interact);
@@ -99,24 +147,21 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
     }
 
     render_stamina_ui(g, ohero, camoff);
-
     coins_draw(g);
-
-    void render_itemswap_ui(ui_itemswap_s * u, obj_s * ohero, v2_i32 camoff);
-    render_itemswap_ui(&g->ui_itemswap, ohero, camoff);
+    render_itemswap(ohero, camoff);
 }
 
-void render_itemswap_ui(ui_itemswap_s *u, obj_s *ohero, v2_i32 camoff)
+void render_itemswap(obj_s *ohero, v2_i32 camoff)
 {
-    if (!u->progress || u->ticks_in < UI_ITEMSWAP_TICKS_POP_UP) return;
-
-    i32 ticks_progress = UI_ITEMSWAP_TICKS;
+    hero_s *h = (hero_s *)ohero->heap;
+    if (!h->item_swap_tick && !h->item_swap_fade) return;
 
     spm_push();
-    tex_s thold = tex_create(96, 32, 1, spm_allocator2(), 0);
+    i32   ticks_progress = max_i32(h->item_swap_tick, h->item_swap_tick_saved);
+    tex_s thold          = tex_create(96, 32, 1, spm_allocator(), 0);
     tex_clr(thold, GFX_COL_CLEAR);
 
-    bool32    swapped = u->progress == ticks_progress;
+    bool32    swapped = 0 < h->item_swap_fade;
     gfx_ctx_s ctx     = gfx_ctx_display();
     gfx_ctx_s ctxhold = gfx_ctx_default(thold);
     v2_i32    pswapl  = {12, 0};
@@ -124,51 +169,56 @@ void render_itemswap_ui(ui_itemswap_s *u, obj_s *ohero, v2_i32 camoff)
     texrec_s  trswap  = asset_texrec(TEXID_BUTTONS, 32, 160, 64, 32);
     texrec_s  trbbut  = asset_texrec(TEXID_BUTTONS, 160 + 32, 64, 32, 32);
 
-    if (!inp_btn(INP_B)) {
-        trbbut.x -= 32;
-    }
-
     // "swap" label
     gfx_spr(ctxhold, trswap, pswapl, 0, 0);
 
-    i32 t1 = u->progress - (UI_ITEMSWAP_TICKS_POP_UP + 5);
-    i32 t2 = ticks_progress - (UI_ITEMSWAP_TICKS_POP_UP + 5);
-    if (0 < t1) {
+    if (0 < ticks_progress) {
         // "swap" label inverted -> progress bar
         trswap.y += 32;
-        trswap.w = (trswap.w * t1) / t2;
+        trswap.w = ease_out_quad(0, trswap.w, ticks_progress, HERO_ITEMSWAP_TICKS);
         i32 mode = SPR_MODE_XOR;
 
-        if (swapped && u->ticks_out < 10 && ((u->ticks_out >> 1) & 1)) {
-            // brief blinking of "swap" label after swapping
+        // brief blinking of "swap" label after swapping
+        if (10 < h->item_swap_fade &&
+            h->item_swap_fade <= HERO_ITEMSWAP_TICKS_FADE &&
+            ((h->item_swap_fade / 3) & 1) == 0) {
             mode = SPR_MODE_WHITE;
         }
         gfx_spr(ctxhold, trswap, pswapl, 0, mode);
     }
 
     // B button image
+    if (!inp_btn(INP_B)) {
+        trbbut.x -= 32;
+    }
     gfx_spr(ctxhold, trbbut, pbbut, 0, 0);
 
     // final image
     gfx_ctx_s ctxhold_res = ctx;
     v2_i32    posswap     = v2_i32_add(obj_pos_center(ohero), camoff);
-    posswap.x += 20 * ohero->facing - 40;
-    posswap.y -= 55;
+    posswap.x -= 40;
+    posswap.y += 20;
 
-    if (!swapped && u->ticks_out && u->ticks_out < 15) {
-        posswap.x += (u->ticks_out % 5) - 2; // shake left/right in denial
+    // item swap  canceled - shake left/right in denial
+    if (h->item_swap_fade < 0) {
+        i32 t_denial = h->item_swap_fade & 7;
+        i32 of       = (t_denial & 3) == 3 ? 1 : (t_denial & 3);
+        if (4 <= t_denial) {
+            posswap.x += of;
+        } else {
+            posswap.x -= of;
+        }
     }
 
-    // fade out after swapping successfully
-    if (20 <= u->ticks_out) {
-        i32 h2          = UI_ITEMSWAP_TICKS_FADE - 20;
-        ctxhold_res.pat = gfx_pattern_interpolate(h2 - (u->ticks_out - 20), h2);
-        posswap.y += (u->ticks_out - 20) >> 1;
-    }
-
-    i32 f1 = u->ticks_in - UI_ITEMSWAP_TICKS_POP_UP;
-    if (f1 < 5) {
-        ctxhold_res.pat = gfx_pattern_interpolate(f1, 5);
+    // fade in/out
+    i32 f1 = abs_i32(h->item_swap_fade);
+    i32 f2 = HERO_ITEMSWAP_TICKS_FADE >> 2;
+    if (f1 && f1 < f2) {
+        ctxhold_res.pat = gfx_pattern_interpolate(f1, f2);
+        posswap.y += (f2 - f1) >> 1;
+    } else if (h->item_swap_tick && h->item_swap_tick < 5) {
+        ctxhold_res.pat = gfx_pattern_interpolate(h->item_swap_tick, 5);
+        posswap.y += 4 - h->item_swap_tick;
     }
 
     tex_outline_white(thold);

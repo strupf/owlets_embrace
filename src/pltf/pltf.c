@@ -4,14 +4,15 @@
 
 #include "pltf.h"
 
-#define PLTF_SHOW_FPS 0 // show FPS, UPS, update time and rendering time
+#define PLTF_SHOW_FPS 0 // show FPS, UPS, logic time and draw time
 
 typedef struct pltf_s {
     void *framebuffer;
     i32   tick;
     f32   lasttime;
     f32   ups_timeacc; // fixed timestep delta accumulator
-
+    i32   fps_mode;
+    u32   fps_mode_step; // counter for regular frame skipping
 #if PLTF_SHOW_FPS
     f32 fps_timeacc; // 1-second interval accumulator for updating
     f32 ups_ft_acc;  // accumulator time spent updating
@@ -25,80 +26,85 @@ typedef struct pltf_s {
 #endif
 } pltf_s;
 
-pltf_s           g_pltf;
+pltf_s           PLTF;
 extern const u32 pltf_font[512];
 
 i32 pltf_internal_init()
 {
 #if PLTF_SHOW_FPS
-    g_pltf.fps = PLTF_UPS;
+    PLTF.fps = PLTF_UPS;
 #endif
-    g_pltf.lasttime    = pltf_seconds();
-    g_pltf.framebuffer = pltf_1bit_buffer();
-    i32 res            = app_init();
+    PLTF.lasttime    = pltf_seconds();
+    PLTF.framebuffer = pltf_1bit_buffer();
+    i32 res          = app_init();
     return 0;
 }
 
+// FRAMESKIP MODE ASSUMES CALLRATE OF THIS FUNCTION = 37.5 PER SECOND
+// -> GAME SPEED DEPENDS ON IT
 i32 pltf_internal_update()
 {
-    f32 time        = pltf_seconds();
-    f32 timedt      = time - g_pltf.lasttime;
-    g_pltf.lasttime = time;
-    g_pltf.ups_timeacc += timedt;
-    if (PLTF_UPS_DT_CAP < g_pltf.ups_timeacc) {
-        g_pltf.ups_timeacc = PLTF_UPS_DT_CAP;
+    f32 time      = pltf_seconds();
+    f32 timedt    = time - PLTF.lasttime;
+    PLTF.lasttime = time;
+
+    i32 n_ticks = 0; // number of logical update ticks this frame
+
+    switch (PLTF.fps_mode) {
+    case PLTF_FPS_MODE_UNCAPPED: {
+        PLTF.ups_timeacc += timedt;
+        if (PLTF_UPS_DT_CAP < PLTF.ups_timeacc) {
+            PLTF.ups_timeacc = PLTF_UPS_DT_CAP;
+        }
+        while (PLTF_UPS_DT_TEST <= PLTF.ups_timeacc) {
+            PLTF.ups_timeacc -= PLTF_UPS_DT;
+            n_ticks++;
+        }
+        break;
+    }
+    case PLTF_FPS_MODE_40: { // 2111 | ... = 50 update ticks over 40 frames
+        PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) % 4;
+        n_ticks            = 1 + (PLTF.fps_mode_step <= 0);
+        break;
+    }
+    case PLTF_FPS_MODE_30: { // 221 | ... = 50 update ticks over 30 frames
+        PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) % 3;
+        n_ticks            = 1 + (PLTF.fps_mode_step <= 1);
+        break;
+    }
     }
 
-#if PLTF_SHOW_FPS
-    f32 tu1 = pltf_seconds();
-#endif
-    i32 updated = 0;
-    while (PLTF_UPS_DT_TEST <= g_pltf.ups_timeacc) {
-        g_pltf.ups_timeacc -= PLTF_UPS_DT;
-        g_pltf.tick++;
-        updated++;
+    for (i32 n = 0; n < n_ticks; n++) {
+        PLTF.tick++;
         app_tick();
     }
 
-    if (1 < updated) {
-        pltf_log("SKIPPED %i\n", updated - 1);
-    }
 #if PLTF_SHOW_FPS
-    f32 tu2 = pltf_seconds();
-    g_pltf.ups_counter += updated;
-    g_pltf.ups_ft_acc += tu2 - tu1;
+    PLTF.ups_counter += n_ticks;
+    PLTF.ups_ft_acc += pltf_seconds() - time;
 #endif
 
-    if (updated) {
+    if (n_ticks) {
 #if PLTF_SHOW_FPS
-        f32 tf1 = pltf_seconds();
-#endif
+        f32 time_pre_draw = pltf_seconds();
         app_draw();
-#if PLTF_SHOW_FPS
-        f32 tf2 = pltf_seconds();
-        g_pltf.fps_ft_acc += tf2 - tf1;
-        g_pltf.fps_counter++;
+        PLTF.fps_ft_acc += pltf_seconds() - time_pre_draw;
+        PLTF.fps_counter++;
 
-        i32  fps_ft = 100 <= g_pltf.fps_ft ? 99 : g_pltf.fps_ft;
-        i32  ups_ft = 100 <= g_pltf.ups_ft ? 99 : g_pltf.ups_ft;
-        char fps[8] = {
-            'F',
-            ' ',
-            '0' + (g_pltf.fps / 10),
-            '0' + (g_pltf.fps % 10),
-            ' ',
-            10 <= fps_ft ? '0' + (fps_ft / 10) % 10 : ' ',
-            '0' + (fps_ft % 10)};
-        char ups[8] = {
-            'U',
-            ' ',
-            '0' + (g_pltf.ups / 10),
-            '0' + (g_pltf.ups % 10),
-            ' ',
-            10 <= ups_ft ? '0' + (ups_ft / 10) % 10 : ' ',
-            '0' + (ups_ft % 10)};
+        i32  fps_ft = 100 <= PLTF.fps_ft ? 99 : PLTF.fps_ft;
+        i32  ups_ft = 100 <= PLTF.ups_ft ? 99 : PLTF.ups_ft;
+        char fps[8] = {'F', ' ',
+                       '0' + (PLTF.fps / 10), '0' + (PLTF.fps % 10), ' ',
+                       10 <= fps_ft ? '0' + (fps_ft / 10) % 10 : ' ',
+                       '0' + (fps_ft % 10)};
+        char ups[8] = {'U', ' ',
+                       '0' + (PLTF.ups / 10), '0' + (PLTF.ups % 10), ' ',
+                       10 <= ups_ft ? '0' + (ups_ft / 10) % 10 : ' ',
+                       '0' + (ups_ft % 10)};
         pltf_blit_text(fps, 0, 0);
         pltf_blit_text(ups, 0, 1);
+#else
+        app_draw();
 #endif
     }
 
@@ -107,28 +113,28 @@ i32 pltf_internal_update()
 #endif
 
 #if PLTF_SHOW_FPS
-    g_pltf.fps_timeacc += timedt;
-    if (1.f <= g_pltf.fps_timeacc) {
-        g_pltf.fps_timeacc -= 1.f;
-        g_pltf.fps         = g_pltf.fps_counter;
-        g_pltf.ups         = g_pltf.ups_counter;
-        g_pltf.ups_counter = 0;
-        g_pltf.fps_counter = 0;
-        if (0 < g_pltf.ups) {
-            g_pltf.ups_ft = (i32)(g_pltf.ups_ft_acc * 1000.5f) / g_pltf.ups;
+    PLTF.fps_timeacc += timedt;
+    if (1.f <= PLTF.fps_timeacc) {
+        PLTF.fps_timeacc -= 1.f;
+        PLTF.fps         = PLTF.fps_counter;
+        PLTF.ups         = PLTF.ups_counter;
+        PLTF.ups_counter = 0;
+        PLTF.fps_counter = 0;
+        if (0 < PLTF.ups) {
+            PLTF.ups_ft = (i32)(PLTF.ups_ft_acc * 1000.5f) / PLTF.ups;
         } else {
-            g_pltf.ups_ft = U16_MAX;
+            PLTF.ups_ft = U16_MAX;
         }
-        if (0 < g_pltf.fps) {
-            g_pltf.fps_ft = (i32)(g_pltf.fps_ft_acc * 1000.5f) / g_pltf.fps;
+        if (0 < PLTF.fps) {
+            PLTF.fps_ft = (i32)(PLTF.fps_ft_acc * 1000.5f) / PLTF.fps;
         } else {
-            g_pltf.fps_ft = U16_MAX;
+            PLTF.fps_ft = U16_MAX;
         }
-        g_pltf.fps_ft_acc = 0.f;
-        g_pltf.ups_ft_acc = 0.f;
+        PLTF.fps_ft_acc = 0.f;
+        PLTF.ups_ft_acc = 0.f;
     }
 #endif
-    return updated;
+    return n_ticks;
 }
 
 // called to reset the fixed timestep timer so that the game doesn't
@@ -136,13 +142,33 @@ i32 pltf_internal_update()
 // skips a lot of frames
 void pltf_sync_timestep()
 {
-    g_pltf.ups_timeacc = 0.f;
-    g_pltf.lasttime    = pltf_seconds();
+    PLTF.ups_timeacc = 0.f;
+    PLTF.lasttime    = pltf_seconds();
+}
+
+void pltf_set_fps_mode(i32 fps_mode)
+{
+    PLTF.fps_mode = fps_mode;
+
+    switch (fps_mode) {
+    case PLTF_FPS_MODE_UNCAPPED: {
+        pltf_internal_set_fps(0.f); // uncapped
+        break;
+    }
+    case PLTF_FPS_MODE_40: {
+        pltf_internal_set_fps(40.0f);
+        break;
+    }
+    case PLTF_FPS_MODE_30: {
+        pltf_internal_set_fps(30.0f);
+        break;
+    }
+    }
 }
 
 void pltf_blit_text(char *str, i32 tile_x, i32 tile_y)
 {
-    u8 *fb = (u8 *)g_pltf.framebuffer;
+    u8 *fb = (u8 *)PLTF.framebuffer;
     i32 i  = tile_x;
     for (char *c = str; *c != '\0'; c++) {
         i32 cx = ((i32)*c & 31);
@@ -162,33 +188,32 @@ void *pltf_file_open(const char *path, i32 pltf_file_mode)
     case PLTF_FILE_MODE_W: return pltf_file_open_w(path);
     case PLTF_FILE_MODE_A: return pltf_file_open_a(path);
     }
-    return NULL;
+    return 0;
 }
 
-b32 pltf_file_ws(void *f, const void *buf, usize bsize)
+b32 pltf_file_w_checked(void *f, const void *buf, usize bsize)
 {
     return (pltf_file_w(f, buf, bsize) == (i32)bsize);
 }
 
-b32 pltf_file_rs(void *f, void *buf, usize bsize)
+b32 pltf_file_r_checked(void *f, void *buf, usize bsize)
 {
     return (pltf_file_r(f, buf, bsize) == (i32)bsize);
 }
 
 i32 pltf_cur_tick()
 {
-    return g_pltf.tick;
+    return PLTF.tick;
 }
 
 void pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
 #if PLTF_SHOW_FPS
-    f32 tu1 = pltf_seconds();
-#endif
+    f32 time_pre_audio = pltf_seconds();
     app_audio(lbuf, rbuf, len);
-#if PLTF_SHOW_FPS
-    f32 tu2 = pltf_seconds();
-    g_pltf.ups_ft_acc += tu2 - tu1;
+    PLTF.ups_ft_acc += pltf_seconds() - time_pre_audio;
+#else
+    app_audio(lbuf, rbuf, len);
 #endif
 }
 
@@ -209,18 +234,18 @@ void pltf_internal_resume()
 
 void *pltf_mem_alloc_aligned(usize s, usize alignment)
 {
-    assert(0 <= alignment && alignment <= 256);
+    assert(0 <= alignment && alignment <= 64);
     // store a 1 byte offset behind the returned pointer
-    void *p              = pltf_mem_alloc(s + alignment);
-    void *p_al           = align_ptr((byte *)p + 1, alignment);
-    *((uchar *)p_al - 1) = (uchar)((byte *)p_al - (byte *)p);
+    void *p             = pltf_mem_alloc(s + alignment);
+    void *p_al          = align_ptr((byte *)p + 1, alignment);
+    *((byte *)p_al - 1) = (byte)((byte *)p_al - (byte *)p);
     return p_al;
 }
 
 void pltf_mem_free_aligned(void *p)
 {
     // offset to the original pointer is one byte behind the pointer
-    void *p_og = (byte *)p - *((uchar *)p - 1);
+    void *p_og = (byte *)p - *((byte *)p - 1);
     pltf_mem_free(p_og);
 }
 

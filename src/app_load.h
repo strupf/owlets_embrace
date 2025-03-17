@@ -7,6 +7,6 @@
 
 #include "app.h"
 
-i32 app_load_assets();
+err32 app_load_assets();
 
 #endif

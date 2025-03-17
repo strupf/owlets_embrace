@@ -8,21 +8,25 @@
 #define PLTF_DEBUG      1
 #define PLTF_ENABLE_LOG 1
 
-#ifndef PLTF_DEV_ENV // development environment
-#define PLTF_DEV_ENV 0
-#endif
-
 #if 0 // edit PD code files? -> enable PLTF_PD_HW code paths
 #undef PLTF_SDL
-#define PLTF_PD
-#define PLTF_PD_HW
+#define PLTF_PD    1
+#define PLTF_PD_HW 1
 #endif
 
-#if (!defined(PLTF_PD) && !defined(PLTF_SDL))
+#if !PLTF_PD && !PLTF_SDL
 #error NO PLATFORM DEFINED!
 #endif
-#if (defined(PLTF_PD) && defined(PLTF_SDL))
+#if PLTF_PD && PLTF_SDL
 #error TWO PLATFORMS DEFINED!
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define PLTF_SDL_WEB 1
+#include <emscripten.h>
+// void emscripten_set_main_loop();
+#else
+#define PLTF_SDL_WEB 0
 #endif
 
 #include <assert.h>
@@ -58,6 +62,7 @@ typedef u32            bool32;
 typedef bool8          b8;
 typedef bool16         b16;
 typedef bool32         b32;
+typedef i32            err32;
 
 #define I64_MAX  INT64_MAX
 #define I64_MIN  INT64_MIN
@@ -79,19 +84,13 @@ typedef bool32         b32;
 #define I64_C(X) (X##LL)
 #define U64_C(X) (X##ULL)
 
-// struct/union literal
-#ifdef __cplusplus
+#if __cplusplus // C++
 #define CINIT(T) T
-#else
-#define CINIT(T) (T)
-#endif
-
-// alignment
-#ifdef __cplusplus          // C++
 #if (__cplusplus < 201103L) // earlier than C++11
 #error CPP VERSION NOT SUPPORTED
 #endif
-#else                            // C
+#else // C
+#define CINIT(T) (T)
 #if (__STDC_VERSION__ < 201112L) // earlier than C11
 #error C VERSION NOT SUPPORTED
 #elif (__STDC_VERSION__ < 202311L) // earler than C23
@@ -113,7 +112,7 @@ static inline usize align_usize(usize s, usize alignment)
     return (s + alignment - 1) & ~(alignment - 1);
 }
 
-#ifdef PLTF_PD_HW
+#if PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
 #if 1
 #undef assert
@@ -127,7 +126,7 @@ void (*PD_system_error)(const char *format, ...);
         }                                        \
     }
 #endif
-#elif defined(PLTF_SDL) && 1 // use SDL assert instead of std?
+#elif PLTF_SDL && 1 // use SDL assert instead of std?
 #include "SDL2/SDL_assert.h"
 #undef assert
 #define assert SDL_assert

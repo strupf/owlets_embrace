@@ -45,6 +45,7 @@ enum {
     OBJID_BUDPLANT,
     OBJID_BUDPLANT_GRENADE,
     OBJID_FALLINGSTONE,
+    OBJID_FALLINGSTONE_SPAWN,
     OBJID_PROJECTILE,
     OBJID_STAMINARESTORER,
     OBJID_CRABLER,
@@ -61,6 +62,7 @@ enum {
     OBJID_TRAMPOLINE,
     OBJID_SAVEPOINT,
     OBJID_BOULDER,
+    OBJID_BOULDER_SPAWN,
     OBJID_TIMER,
     OBJID_BOSS_GOLEM,
     OBJID_BOSS_GOLEM_PLATFORM,
@@ -91,6 +93,7 @@ enum {
 void      clockpulse_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_on_hooked(g_s *g, obj_s *o);
+void      crumbleblock_break(g_s *g, obj_s *o);
 void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
 void      toggleblock_load(g_s *g, map_obj_s *mo);
@@ -143,7 +146,7 @@ void      camattractor_static_load(g_s *g, map_obj_s *mo);
 v2_i32    camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
 void      ditherarea_load(g_s *g, map_obj_s *mo);
 void      stompable_block_load(g_s *g, map_obj_s *mo);
-void      stompable_block_on_destroy(g_s *g, obj_s *o);
+void      stompable_block_break(g_s *g, obj_s *o);
 void      light_load(g_s *g, map_obj_s *mo);
 void      light_update(g_s *g, obj_s *o);
 void      fallingblock_load(g_s *g, map_obj_s *mo);
@@ -167,13 +170,6 @@ void      savepoint_load(g_s *g, map_obj_s *mo);
 void      savepoint_on_update(g_s *g, obj_s *o);
 void      savepoint_on_interact(g_s *g, obj_s *o);
 void      savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-obj_s    *boulder_spawn(g_s *g);
-void      boulder_on_update(g_s *g, obj_s *o);
-void      boulder_on_animate(g_s *g, obj_s *o);
-obj_s    *fallingstone_spawn(g_s *g);
-void      fallingstone_burst(g_s *g, obj_s *o);
-void      fallingstone_on_update(g_s *g, obj_s *o);
-void      fallingstone_on_animate(g_s *g, obj_s *o);
 void      rotor_load(g_s *g, map_obj_s *mo);
 void      watercol_load(g_s *g, map_obj_s *mo);
 void      watercol_on_update(g_s *g, obj_s *o);
@@ -188,5 +184,7 @@ void      fish_load(g_s *g, map_obj_s *mo);
 obj_s    *pickup_create(g_s *g, v2_i32 p, i32 pickupID);
 void      pickup_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
+obj_s    *companion_spawn(g_s *g, obj_s *ohero);
+void      fallingstonespawn_load(g_s *g, map_obj_s *mo);
 
 #endif

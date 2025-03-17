@@ -8,7 +8,7 @@
 #include "pltf_intrin.h"
 #include "pltf_types.h"
 
-#if defined(PLTF_PD)
+#if PLTF_PD
 #include "pltf_pd.h"
 #else
 #include "pltf_sdl.h"
@@ -27,7 +27,7 @@
 #define PLTF_UPS_DT_TEST       0.0195f // elapsed seconds required to run a tick - improves frame skips at max FPS
 #define PLTF_UPS_DT_CAP        0.1000f // max elapsed seconds before slowing down
 
-#ifdef PLTF_PD
+#if PLTF_PD
 #define PLTF_ACCELEROMETER_SUPPORT 1
 #else
 #define PLTF_ACCELEROMETER_SUPPORT 0
@@ -39,7 +39,13 @@ enum {
     PLTF_FILE_MODE_A
 };
 
-#ifdef PLTF_PD
+enum {
+    PLTF_FPS_MODE_UNCAPPED,
+    PLTF_FPS_MODE_40,
+    PLTF_FPS_MODE_30
+};
+
+#if PLTF_PD
 #define pltf_audio_set_volume(V)
 #define pltf_audio_get_volume() 1.f
 #define pltf_audio_lock()
@@ -62,6 +68,7 @@ void   app_resume();
 void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
 void   pltf_sync_timestep();
+void   pltf_set_fps_mode(i32 fps_mode);
 i32    pltf_cur_tick();
 void   pltf_1bit_invert(bool32 i);
 void  *pltf_1bit_buffer();
@@ -81,11 +88,12 @@ i32    pltf_file_seek_cur(void *f, i32 pos);
 i32    pltf_file_seek_end(void *f, i32 pos);
 i32    pltf_file_w(void *f, const void *buf, usize bsize);
 i32    pltf_file_r(void *f, void *buf, usize bsize);
-b32    pltf_file_ws(void *f, const void *buf, usize bsize);
-b32    pltf_file_rs(void *f, void *buf, usize bsize);
+b32    pltf_file_w_checked(void *f, const void *buf, usize bsize);
+b32    pltf_file_r_checked(void *f, void *buf, usize bsize);
 i32    pltf_internal_init();
 i32    pltf_internal_update();
 void   pltf_internal_audio(i16 *lbuf, i16 *rbuf, i32 len);
+void   pltf_internal_set_fps(f32 fps);
 void   pltf_internal_close();
 void   pltf_internal_pause();
 void   pltf_internal_resume();

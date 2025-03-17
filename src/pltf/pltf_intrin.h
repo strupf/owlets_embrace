@@ -9,7 +9,7 @@
 
 #define i16x2_dot i16x2_smuad
 #define i16x2_crs i16x2_smusdx
-#ifdef PLTF_PD_HW
+#if PLTF_PD_HW
 #include <arm_acle.h>
 typedef int16x2_t  i16x2;
 typedef uint16x2_t u16x2;

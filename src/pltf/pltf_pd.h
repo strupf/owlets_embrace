@@ -45,5 +45,8 @@ void  *pltf_pd_menu_add(const char *title,
 i32    pltf_pd_menu_opt_val(void *itemp);
 void   pltf_pd_menu_opt_val_set(void *itemp, i32 v);
 void   pltf_pd_menu_rem(void *itemp);
+void   pltf_pd_menu_image_put(i32 offx);
+void   pltf_pd_menu_image_del();
+void   pltf_pd_menu_image_upd(u32 *p, i32 ww, i32 w, i32 h);
 
 #endif

@@ -144,6 +144,10 @@ void maptransition_update(g_s *g)
             ohero->v_q8 = mt->hero_v_q8;
         }
     }
+    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+        companion_spawn(g, ohero);
+    }
+
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     objs_animate(g);
     aud_allow_playing_new_snd(1);
@@ -161,7 +165,7 @@ void maptransition_draw(g_s *g, v2_i32 cam)
 
     spm_push();
     i32       ticks   = maptransition_phase[mt->fade_phase];
-    tex_s     tmp     = tex_create(display.w, display.h, 0, spm_allocator2(), 0);
+    tex_s     tmp     = tex_create(display.w, display.h, 0, spm_allocator(), 0);
     obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
     gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
 

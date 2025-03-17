@@ -188,7 +188,7 @@ void dialog_draw(g_s *g)
     dialog_s *d = &g->dialog;
     if (d->state == 0) return;
 
-    fnt_s     fnt = asset_fnt(FNTID_MEDIUM);
+    fnt_s     fnt = asset_fnt(FNTID_16);
     gfx_ctx_s ctx = gfx_ctx_display();
 
     i32 offs_y = DIALOG_H_SLIDE;
@@ -206,9 +206,11 @@ void dialog_draw(g_s *g)
             break;
         }
 
+#if 0
         mmov(&ctx.dst.px[0],
              &ctx.dst.px[offs_y * PLTF_DISPLAY_WWORDS],
              (PLTF_DISPLAY_H - offs_y) * PLTF_DISPLAY_WBYTES);
+#endif
     }
 
     i32      tb_y  = 240 - offs_y;

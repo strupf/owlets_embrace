@@ -48,7 +48,7 @@ void rotor_load(g_s *g, map_obj_s *mo)
     r->rot_speed  = 64;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_ONE_WAY_PLAT;
-    o->health = 1;
+    o->health = 2;
     o->flags  = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ACTOR |
@@ -65,7 +65,7 @@ void rotor_on_update(g_s *g, obj_s *o)
     rotor_s *r = (rotor_s *)o->mem;
     o->flags |= (OBJ_FLAG_HERO_STOMPABLE | OBJ_FLAG_HERO_JUMPABLE);
     o->timer++;
-    o->v_q8.y += 60;
+    o->v_q8.y += 70;
 
     if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q8.y = 0;
@@ -74,10 +74,6 @@ void rotor_on_update(g_s *g, obj_s *o)
         o->v_q8.x = -o->v_q8.x;
     }
     o->bumpflags = 0;
-
-    if (o->enemy.hurt_tick) {
-        return;
-    }
 
     bool32 grounded = obj_grounded(g, o);
 
@@ -136,7 +132,7 @@ void rotor_on_update(g_s *g, obj_s *o)
         o->flags &= ~(OBJ_FLAG_HERO_STOMPABLE | OBJ_FLAG_HERO_JUMPABLE);
 
         if (!grounded) {
-            o->timer = ROTOR_ATTACK_TICKS / 2;
+            o->timer = min_i32(o->timer, ROTOR_ATTACK_TICKS - 16);
         }
 
         i32 t_slowdown = ROTOR_ATTACK_TICKS - ROTOR_ROT_SPEED_TICKS;

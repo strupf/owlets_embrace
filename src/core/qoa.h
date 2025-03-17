@@ -38,13 +38,6 @@ static inline i32 qoa_num_slices(u32 num_samples)
     return (i32)((num_samples + QOA_SLICE_LEN - 1) / QOA_SLICE_LEN);
 }
 
-// qoa predictor values
-typedef struct {
-    ALIGNAS(4)
-    i16 h[2];
-    i16 w[2];
-} qoa_lms_s;
-
 enum {
     QOA_STREAM_FLAG_REPEAT   = 1 << 0,
     QOA_STREAM_FLAG_FADE_OUT = 1 << 1,
@@ -61,32 +54,32 @@ enum {
 // unpitched streaming of qoa data from file
 typedef struct { // 8 + 4 + 4 + 4 = 20
     u64  s;
-    i16  h[2];
-    i16  w[2];
     i16 *deq;
+    i16  h[2]; // qoa predictor values
+    i16  w[2];
 } qoa_dec_s;
 
 // MUSIC
 // unpitched streaming of qoa data from file
 typedef struct qoa_mus_s {
     qoa_dec_s ds[QOA_MUS_MAX_CHANNELS];
+    void     *f;             // wad handle opened at startup of app
+    u32       seek;          // not active if zero!
+    u32       pos;           // sample position in unpitched data
+    u32       num_slices;    // total number of slices across all channels
+    u32       cur_slice;     // current slice index
     i16       v_q8;          // volume in Q8
     u8        spos;          // currently decoded sample in slice [0,19]
     u8        slices_read;   // slices buffered
     u8        slices_polled; // slices polled out of buffered slices
     u8        flags;         //
     u8        n_channels;
-    u32       pos;                      // sample position in unpitched data
-    u32       num_slices;               // total number of slices across all channels
-    u32       cur_slice;                // current slice index
-    void     *f;                        // wad handle opened at startup of app
-    u32       seek;                     // not active if zero!
     u64       slices[QOA_SLICE_BUFFER]; // buffer of slices, channels interleaved
 } qoa_mus_s;
 
 bool32 qoa_mus_start(qoa_mus_s *q, void *f);
 void   qoa_mus_end(qoa_mus_s *q);
-void   qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len);
+void   qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q8);
 bool32 qoa_mus_active(qoa_mus_s *q);
 void   qoa_mus_set_vol(qoa_mus_s *q, i32 v);
 
@@ -94,24 +87,24 @@ void   qoa_mus_set_vol(qoa_mus_s *q, i32 v);
 // data is already loaded into memory
 // can be pitched
 typedef struct qoa_sfx_s {
+    u64      *slices; // slice array in memory
     qoa_dec_s ds;
-    i16       sample;      // last decoded sample
-    u16       vol_q8;      // volume in Q8
-    u8        spos;        // currently decoded sample in slice [0,19]
-    u16       ipitch_q8;   // inverse pitch in Q8
     u32       num_slices;  // total number of slices
     u32       cur_slice;   // current slice index
-    i32       pan_q8;      // -256 = left only, 0 = center, +256 right only
-    u64      *slices;      // slice array in memory
     u32       pos_pitched; // pos in samples in pitched length
     u32       len_pitched; // length in samples pitched
     u32       pos;         // pos in samples in unpitched length
     u32       len;         // unpitched length in samples
+    u16       ipitch_q8;   // inverse pitch in Q8
+    i16       sample;      // last decoded sample
+    i16       v_q8;        // volume in Q8
+    i16       pan_q8;      // -256 = left only, 0 = center, +256 right only
+    u8        spos;        // currently decoded sample in slice [0,19]
 } qoa_sfx_s;
 
 bool32 qoa_sfx_start(qoa_sfx_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat);
 void   qoa_sfx_end(qoa_sfx_s *q);
-void   qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len);
+void   qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q8);
 bool32 qoa_sfx_active(qoa_sfx_s *q);
 
 #endif

@@ -686,6 +686,11 @@ static inline u32 v2_i32_distancesq(v2_i32 a, v2_i32 b)
     return v2_i32_lensq(v2_i32_sub(a, b));
 }
 
+static inline i32 v2_i32_distance_appr(v2_i32 a, v2_i32 b)
+{
+    return v2_i32_len_appr(v2_i32_sub(a, b));
+}
+
 static inline i32 v2_i32_distance(v2_i32 a, v2_i32 b)
 {
     return sqrt_u32(v2_i32_distancesq(a, b));
@@ -726,11 +731,11 @@ static inline v2_i32 v2_i32_setlen_fast(v2_i32 a, i32 len)
 static inline v2_i32 v2_i32_truncate(v2_i32 a, u32 l)
 {
     u32 ls = v2_i32_lensq(a);
-    if ((i32)ls <= l * l) return a;
+    if (ls <= l * l) return a;
     return v2_i32_setlenl_small(a, sqrt_u32(ls), l);
 }
 
-static inline v2_i32 v2_i32_truncate_fast(v2_i32 a, u32 l)
+static inline v2_i32 v2_i32_truncate_fast(v2_i32 a, i32 l)
 {
     i32 len = v2_i32_len_appr(a);
     if (len <= l) return a;
@@ -817,6 +822,12 @@ static inline i32 v2_i16_distancesq(v2_i16 a, v2_i16 b)
 // V2 F32
 // ============================================================================
 
+static inline v2_f32 v2f_inv(v2_f32 a)
+{
+    v2_f32 r = {-a.x, -a.y};
+    return r;
+}
+
 static inline v2_f32 v2f_sub(v2_f32 a, v2_f32 b)
 {
     v2_f32 r = {a.x - b.x, a.y - b.y};
@@ -848,6 +859,16 @@ static inline f32 v2f_len(v2_f32 a)
 static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
 {
     f32 l = v2f_len(a);
+    if (l == 0.f) {
+        return CINIT(v2_f32){len, 0.f};
+    }
+
+    v2_f32 r = {a.x * (len / l), a.y * (len / l)};
+    return r;
+}
+
+static inline v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 len)
+{
     if (l == 0.f) {
         return CINIT(v2_f32){len, 0.f};
     }
@@ -1424,48 +1445,32 @@ static m33_f32 m33_offset(f32 x, f32 y)
 
 static v2_f32 v2f_lerp(v2_f32 a, v2_f32 b, f32 t)
 {
-    v2_f32 r = {
-        a.x + (b.x - a.x) * t,
-        a.y + (b.y - a.y) * t};
+    v2_f32 r = {a.x + (b.x - a.x) * t,
+                a.y + (b.y - a.y) * t};
     return r;
 }
 
-static v2_f32 v2_spline(v2_f32 x, v2_f32 y, v2_f32 x_tang, v2_f32 y_tang, f32 t)
+static u16 crc16_next(u16 c, u8 v)
 {
-    v2_f32 u = v2f_add(x, x_tang);
-    v2_f32 v = v2f_add(y, y_tang);
-    v2_f32 a = v2f_lerp(x, u, t);
-    v2_f32 b = v2f_lerp(u, v, t);
-    v2_f32 c = v2f_lerp(v, y, t);
-    v2_f32 d = v2f_lerp(a, b, t);
-    v2_f32 e = v2f_lerp(b, c, t);
-    v2_f32 f = v2f_lerp(d, e, t);
-    return f;
-}
-
-static u16 crc16_next(u16 t, u8 b)
-{
-    // fast non-bit-looping variant
-    // www.ccsinfo.com/forum/viewtopic.php?t=24977
-    // bits 16
-    // init 0x0000
-    // poly 0x1021
-    u16 r = t >> 8;
-    r ^= b;
+    // 0x1021 polynomial
+    u16 r = (u16)v;
+    r ^= (c >> 8);
     r ^= (r >> 4);
-    r ^= (r << 5) ^ (r << 12) ^ (t << 8);
+    r ^= (r << 5) ^ (r << 12) ^ (c << 8);
     return r;
 }
 
 static u16 crc16(const void *p, usize size)
 {
+    // 0xFFFF initial value
+    // 0x1021 polynomial
     const u8 *d = (const u8 *)p;
-    u16       r = 0;
+    u16       a = 0xFFFF;
 
-    for (usize b = 0; b < size; b++) {
-        r = crc16_next(r, *d++);
+    for (usize n = 0; n < size; n++) {
+        a = crc16_next(a, (u16)(*d++));
     }
-    return r;
+    return a;
 }
 
 #endif

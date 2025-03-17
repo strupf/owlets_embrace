@@ -10,9 +10,9 @@
 #include "particle.h"
 #include "rope.h"
 
-#define NUM_OBJ                 512
-#define OBJ_MEM_BYTES           512
-#define OBJ_FLAG_MOVER          ((u64)1 << 0)
+#define NUM_OBJ       512
+#define OBJ_MEM_BYTES 512
+
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
 #define OBJ_FLAG_PLATFORM       ((u64)1 << 3)
 #define OBJ_FLAG_HERO_PLATFORM  ((u64)1 << 4) // platform for the hero only
@@ -84,9 +84,6 @@ enum {
     OBJ_MOVER_TERRAIN_COLLISIONS = 1 << 7,
 };
 
-#define OBJ_HOVER_TEXT_TICKS 20
-typedef void (*obj_action_s)(g_s *g, obj_s *o);
-
 typedef struct {
     texrec_s trec;
     v2_i16   offs;
@@ -97,18 +94,17 @@ typedef void (*obj_action_f)(g_s *g, obj_s *o);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+typedef i32  (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
 
 typedef struct enemy_s {
     obj_action_f on_hurt; // void f(g_s *g, obj_s *o);
     b8           hurt_on_jump;
     u8           sndID_hurt;
     u8           sndID_die;
-    u8           die_tick;
-    u8           hurt_tick;
+    i8           hurt_tick; // 0< hurt, <0 die
     u8           die_tick_max;
     u8           hurt_tick_max;
-    v2_i8        hurt_shake_offs;
+    u8           hero_hitID;
 } enemy_s;
 
 #define OBJ_MAGIC U32_C(0xABABABAB)
@@ -219,6 +215,11 @@ enum {
     OBJANIMID_NULL,
     OBJANIMID_ENEMY_EXPLODE,
     OBJANIMID_EXPLODE_GRENADE,
+    OBJANIMID_STOMP_L,
+    OBJANIMID_STOMP_R,
+    OBJANIMID_STOMP_L_STRONG,
+    OBJANIMID_STOMP_R_STRONG,
+    OBJANIM_BOULDER_POOF,
 };
 
 void objanim_create(g_s *g, v2_i32 p, i32 objanimID);

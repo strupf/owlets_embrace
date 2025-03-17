@@ -20,8 +20,6 @@ typedef struct {
     byte mem[MKILOBYTE(1024)];
 } spm_s;
 
-extern const alloc_s spm_allocator;
-
 #define spm_alloct(T)     (T *)spm_alloc_aligned(sizeof(T), ALIGNOF(T))
 #define spm_alloctn(T, N) (T *)spm_alloc_aligned(sizeof(T) * (N), ALIGNOF(T))
 #define spm_alloctz(T, N) (T *)spm_allocz_aligned(sizeof(T) * (N), ALIGNOF(T))
@@ -36,6 +34,6 @@ void       *spm_alloc_aligned(usize s, usize alignment);
 void       *spm_allocz_aligned(usize s, usize alignment);
 void       *spm_alloc_rem(usize *s);
 void        spm_reset(void *p);
-allocator_s spm_allocator2();
+allocator_s spm_allocator();
 
 #endif

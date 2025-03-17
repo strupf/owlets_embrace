@@ -16,8 +16,11 @@ static void       muschannel_stop(muschannel_s *mc);
 static void       sndchannel_stop(sndchannel_s *ch);
 
 // no callback yet - can't be interruped
-i32 aud_init()
+err32 aud_init()
 {
+    aud_s *aud    = &APP->aud;
+    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 8) / SETTINGS_VOL_MAX;
+    aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
     return 0;
 }
 
@@ -29,21 +32,21 @@ void aud_destroy()
     }
 }
 
-void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
+void aud_audio(aud_s *aud, i16 *lbuf, i16 *rbuf, i32 len)
 {
     // assumption: provided buffers are 0 filled
 
     // flush audio commands
     // catch up the read index to the write index in the
     // circular command buffer
-    while (APP->aud.i_cmd_r != APP->aud.i_cmd_w) {
-        aud_cmd_s cmd_u  = APP->aud.cmds[APP->aud.i_cmd_r];
-        APP->aud.i_cmd_r = aud_cmd_next_index(APP->aud.i_cmd_r);
+    while (aud->i_cmd_r != aud->i_cmd_w) {
+        aud_cmd_s cmd_u = aud->cmds[aud->i_cmd_r];
+        aud->i_cmd_r    = aud_cmd_next_index(aud->i_cmd_r);
         aud_cmd_execute(cmd_u);
     }
 
     for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
-        muschannel_s *ch = &APP->aud.muschannel[n];
+        muschannel_s *ch = &aud->muschannel[n];
         if (ch->ticks_total) {
             i32 v = 0;
 
@@ -59,22 +62,22 @@ void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
         }
 
         if (qoa_mus_active(&ch->qoa_str)) {
-            qoa_mus(&ch->qoa_str, lbuf, rbuf, len);
+            qoa_mus(&ch->qoa_str, lbuf, rbuf, len, aud->v_mus_q8);
         }
     }
 
     for (i32 n = 0; n < NUM_SNDCHANNEL; n++) {
-        sndchannel_s *ch = &APP->aud.sndchannel[n];
+        sndchannel_s *ch = &aud->sndchannel[n];
         if (qoa_sfx_active(&ch->qoa_dat)) {
-            qoa_sfx_play(&ch->qoa_dat, lbuf, rbuf, len);
+            qoa_sfx_play(&ch->qoa_dat, lbuf, rbuf, len, aud->v_sfx_q8);
         }
     }
 
-    if (APP->aud.lowpass) {
+    if (aud->lowpass) {
         i16 *b = lbuf;
         for (i32 n = 0; n < len; n++) {
-            APP->aud.lowpass_acc += ((i32)*b - APP->aud.lowpass_acc) >> APP->aud.lowpass;
-            *b++ = (i16)APP->aud.lowpass_acc;
+            aud->lowpass_acc += ((i32)*b - aud->lowpass_acc) >> aud->lowpass;
+            *b++ = (i16)aud->lowpass_acc;
         }
     }
     // mcpy(rbuf, lbuf, len * sizeof(i16));
@@ -104,25 +107,9 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
             qoa_sfx_s    *q  = &ch->qoa_dat;
             if (qoa_sfx_active(q)) continue;
 
-            ch->snd_iID = c->iID;
             qoa_sfx_start(q, c->snd.num_samples, c->snd.dat, c->pitch_q8, c->vol_q8, 0);
             break;
         }
-        break;
-    }
-    case AUD_CMD_SND_MODIFY: {
-        aud_cmd_snd_modify_s *c  = &cmd_u.c.snd_modify;
-        sndchannel_s         *sc = 0;
-
-        for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *sci = &APP->aud.sndchannel[i];
-            if (sci->snd_iID == c->iID) {
-                sc = sci;
-                break;
-            }
-        }
-
-        if (!sc == 0) break;
         break;
     }
     case AUD_CMD_MUS_PLAY: {
@@ -189,6 +176,7 @@ void aud_cmd_queue_commit()
     pltf_audio_lock();
     APP->aud.i_cmd_w = APP->aud.i_cmd_w_tmp;
     pltf_audio_unlock();
+    sizeof(aud_cmd_s);
 }
 
 void aud_set_lowpass(i32 lp)
@@ -211,7 +199,7 @@ static void muschannel_stop(muschannel_s *mc)
     qoa_mus_end(&mc->qoa_str);
 }
 
-u32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
+b32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
 {
     if (APP->aud.snd_playing_disabled) return 0;
     if (!s.dat) return 0;
@@ -220,65 +208,15 @@ u32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
     i32 pitch_q8 = (i32)(pitch * 256.5f);
     if (vol_q8 == 0) return 0;
 
-    APP->aud.snd_iID++;
-    if (APP->aud.snd_iID == 0) {
-        APP->aud.snd_iID = 1;
-    }
-
-    aud_cmd_s cmd           = {AUD_CMD_SND_PLAY};
+    aud_cmd_s cmd           = {0};
+    cmd.type                = AUD_CMD_SND_PLAY;
     cmd.c.snd_play.snd      = s;
-    cmd.c.snd_play.iID      = APP->aud.snd_iID;
     cmd.c.snd_play.pitch_q8 = pitch_q8;
     cmd.c.snd_play.vol_q8   = vol_q8;
     aud_push_cmd(cmd);
-    return APP->aud.snd_iID;
-}
-
-void snd_instance_stop(u32 snd_iID)
-{
-    aud_cmd_s cmd         = {AUD_CMD_SND_MODIFY};
-    cmd.c.snd_modify.iID  = snd_iID;
-    cmd.c.snd_modify.stop = 1;
-    aud_push_cmd(cmd);
-}
-
-void snd_instance_set_vol(u32 snd_iID, f32 vol)
-{
-    aud_cmd_s cmd           = {AUD_CMD_SND_MODIFY};
-    cmd.c.snd_modify.iID    = snd_iID;
-    cmd.c.snd_modify.vol_q8 = (i32)(vol * 256.5f);
-    aud_push_cmd(cmd);
+    return 1;
 }
 
 void sndchannel_stop(sndchannel_s *ch)
 {
-}
-
-snd_s snd_load(const char *pathname, alloc_s ma)
-{
-    snd_s snd = {0};
-
-    void *f = pltf_file_open_r(pathname);
-    if (!f) {
-        pltf_log("+++ ERR: can't open file for snd %s\n", pathname);
-        return snd;
-    }
-
-    qoa_file_header_s head = {0};
-    pltf_file_r(f, &head, sizeof(qoa_file_header_s));
-    u32 bytes = qoa_num_slices(head.num_samples) * sizeof(u64);
-
-    void *buf = ma.allocf(ma.ctx, bytes);
-    if (!buf) {
-        pltf_log("+++ ERR: can't allocate memory for snd %s\n", pathname);
-        pltf_file_close(f);
-        return snd;
-    }
-    assert(((uptr)buf & 7) == 0);
-    pltf_file_r(f, buf, bytes);
-    pltf_file_close(f);
-
-    snd.dat         = buf;
-    snd.num_samples = head.num_samples;
-    return snd;
 }

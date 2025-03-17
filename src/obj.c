@@ -144,7 +144,7 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
     if (!(o->flags & OBJ_FLAG_ACTOR)) return 1;
 
     rec_i32 r = obj_aabb(o);
-    if (!map_blocked(g, r)) return 1;
+    if (!map_blocked_excl(g, r, o)) return 1;
 
     i32 nw = o->ID == OBJID_HERO ? 6 : 4;
 
@@ -152,7 +152,7 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
         for (i32 yn = -n; yn <= +n; yn += n) {
             for (i32 xn = -n; xn <= +n; xn += n) {
                 rec_i32 rr = {r.x + xn, r.y + yn, r.w, r.h};
-                if (map_blocked(g, rr)) continue;
+                if (map_blocked_excl(g, rr, o)) continue;
 
                 o->moverflags &= ~OBJ_MOVER_TERRAIN_COLLISIONS;
                 obj_move(g, o, xn, yn);
@@ -323,16 +323,16 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
 {
     if (!o->health) return;
 
-    o->enemy.hurt_tick = o->enemy.hurt_tick_max;
-    o->health          = max_i32(0, (i32)o->health - dmg);
+    o->health = max_i32(0, (i32)o->health - dmg);
 
     if (o->health == 0) {
         g->enemies_killed++;
-        o->on_update      = 0;
-        o->enemy.die_tick = o->enemy.die_tick_max;
+        o->on_update       = 0;
+        o->enemy.hurt_tick = -o->enemy.die_tick_max;
         o->flags &= ~OBJ_FLAG_HERO_JUMPSTOMPABLE;
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->flags &= ~OBJ_FLAG_ENEMY;
+    } else {
+        o->enemy.hurt_tick = o->enemy.hurt_tick_max;
     }
 
     if (o->enemy.on_hurt) {

@@ -132,7 +132,7 @@ static u32 lzss_r_byte_stream(void *f, lzss_file_decoder_s *s)
 usize lzss_decode_file(void *f, void *dst)
 {
     lzss_header_s head = {0};
-    if (!pltf_file_rs(f, &head, sizeof(lzss_header_s))) return 0;
+    if (!pltf_file_r_checked(f, &head, sizeof(lzss_header_s))) return 0;
 
     lzss_file_decoder_s s;
     s.nbytes    = head.nbytes;

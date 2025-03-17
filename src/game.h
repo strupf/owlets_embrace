@@ -17,9 +17,9 @@
 #include "grapplinghook.h"
 #include "hero.h"
 #include "hero_powerup.h"
-#include "map.h"
 #include "map_loader.h"
 #include "maptransition.h"
+#include "minimap.h"
 #include "obj.h"
 #include "particle.h"
 #include "particle_defs.h"
@@ -33,7 +33,6 @@
 
 #define SAVE_TICKS          100
 #define SAVE_TICKS_FADE_OUT 80
-#define NUM_MAP_PINS        64
 
 enum {
     EVENT_HIT_ENEMY       = 1 << 0,
@@ -79,7 +78,30 @@ typedef struct {
     i16 y;
     u16 w;
     u16 h;
+} map_room_wad_s;
+
+typedef struct {
+    u32   hash;
+    i16   x;
+    i16   y;
+    u16   w;
+    u16   h;
+    tex_s t;
 } map_room_s;
+
+typedef struct {
+    ALIGNAS(4)
+    u16 x;
+    u16 y;
+    u16 w;
+    u16 h;
+} map_door_s;
+
+typedef struct {
+    ALIGNAS(4)
+    u16 x;
+    u16 w;
+} map_pit_s;
 
 enum {
     HITBOX_TMP_CIR,
@@ -97,13 +119,16 @@ typedef struct {
 
 struct g_s {
     i32             save_slot;
-    i32             tick_animation;
     i32             tick;
+    i32             tick_animation;
     u32             map_hash;
-    i32             n_map_rooms;
+    i16             n_map_rooms;
+    u8              n_map_doors;
+    u8              n_map_pits;
     map_room_s     *map_rooms; // permanently allocated
     map_room_s     *map_room_cur;
-    map_pin_s       map_pins[NUM_MAP_PINS];
+    map_door_s      map_doors[16];
+    map_pit_s       map_pits[16];
     v2_i32          cam_prev;
     v2_i32          cam_prev_world;
     area_s          area;
@@ -114,15 +139,15 @@ struct g_s {
     dialog_s        dialog;
     grapplinghook_s ghook;
     coins_s         coins;
-    map_s           map;
-    ui_itemswap_s   ui_itemswap;
+    minimap_s       minimap;
+    cam_s           cam;
+    u32             events_frame; // flags
+    u32             hero_hurt_lp_tick;
     u8              freeze_tick;
     u8              substate;
     bool8           dark;
     bool8           block_hero_control;
-    cam_s           cam;
-    u32             events_frame; // flags
-    u32             hero_hurt_lp_tick;
+    u8              hero_hitID;
     u8              musicname[8];
     u8              mapname[32];
     u32             enemies_killed;
@@ -158,11 +183,12 @@ struct g_s {
     particle_sys_s  particle_sys;
     u32             save_events[NUM_SAVE_EV / 32];
     marena_s        memarena;
-    byte            mem[MKILOBYTE(1024)];
+    byte            mem[MKILOBYTE(512)];
 };
 
 void        game_init(g_s *g);
 void        game_tick(g_s *g);
+void        game_anim(g_s *g);
 void        game_draw(g_s *g);
 void        game_resume(g_s *g);
 void        game_paused(g_s *g);
@@ -170,22 +196,22 @@ void       *game_alloc(g_s *g, usize s, usize alignment);
 allocator_s game_allocator(g_s *g);
 #define game_alloct(G, T)     (T *)game_alloc(G, sizeof(T), ALIGNOF(T))
 #define game_alloctn(G, T, N) (T *)game_alloc(G, (N) * sizeof(T), ALIGNOF(T))
-//
+
 i32    gameplay_time(g_s *g);
 i32    gameplay_time_since(g_s *g, i32 t);
 void   game_load_savefile(g_s *g);
 bool32 game_save_savefile(g_s *g);
 void   game_on_trigger(g_s *g, i32 trigger);
 void   game_on_solid_appear(g_s *g);
-bool32 obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
-bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
-bool32 obj_game_player_attackbox(g_s *g, hitbox_s box);
+bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
+bool32 hero_attackbox(g_s *g, hitbox_s box);
 void   objs_animate(g_s *g);
 void   game_on_solid_appear_ext(g_s *g, obj_s *s);
 void   obj_interact(g_s *g, obj_s *o, obj_s *ohero);
 void   game_open_map(void *ctx, i32 opt);
 void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
+i32    game_hero_hitID_next(g_s *g);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable

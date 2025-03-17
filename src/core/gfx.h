@@ -119,7 +119,7 @@ enum {
 #define gfx_pattern_black() gfx_pattern_0()
 
 tex_s         tex_framebuffer();
-tex_s         tex_create(i32 w, i32 h, b32 mask, allocator_s a, i32 *err);
+tex_s         tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err);
 texrec_s      texrec_from_tex(tex_s t);
 i32           tex_px_at(tex_s tex, i32 x, i32 y);
 i32           tex_mk_at(tex_s tex, i32 x, i32 y);
@@ -177,10 +177,10 @@ void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
 void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
                              i32 a1, i32 a2, i32 mode);
 //
-void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode);
-void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode, i32 spacing);
-i32  fnt_length_px(fnt_s fnt, const char *txt);
-i32  fnt_length_px_mono(fnt_s fnt, const char *txt, i32 spacing);
+void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode);
+void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode, i32 spacing);
+i32  fnt_length_px(fnt_s fnt, const void *txt);
+i32  fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing);
 
 static void spr_blit_p(u32 *dp, u32 sp, u32 sm, i32 mode)
 {

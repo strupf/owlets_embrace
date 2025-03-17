@@ -5,6 +5,9 @@
 #include "coins.h"
 #include "game.h"
 
+// returns number of digits
+void coins_draw_digits(gfx_ctx_s ctx, u32 n, v2_i32 pos);
+
 void coins_change(g_s *g, i32 n)
 {
     coins_s *c     = &g->coins;
@@ -18,7 +21,8 @@ void coins_change(g_s *g, i32 n)
 
 void coins_update(g_s *g)
 {
-    coins_s *c = &g->coins;
+    coins_s *c     = &g->coins;
+    c->bop_changed = 0;
 
     if (c->show_idle) {
         c->show_idle_tick = min_i32(c->show_idle_tick + 1, 255);
@@ -29,7 +33,7 @@ void coins_update(g_s *g)
 
     // fade in
     if (c->n_change) {
-        c->fade_q7 = min_i32(c->fade_q7 + 50, 128);
+        c->fade_q7 = min_i32(c->fade_q7 + 30, 128);
     } else if (100 <= c->show_idle_tick) {
         c->fade_q7 = min_i32(c->fade_q7 + 20, 128);
     }
@@ -42,6 +46,10 @@ void coins_update(g_s *g)
         if (c->ticks_change & 1) {
             c->n++;
             c->n_change--;
+            c->bop_changed = (c->n_change & 3);
+            if (c->bop_changed == 3) {
+                c->bop_changed = 1;
+            }
 
             if (c->n_change == 0) {
                 c->fade_out_tick = 100;
@@ -52,7 +60,7 @@ void coins_update(g_s *g)
         if (c->fade_out_tick) {
             c->fade_out_tick--;
         } else {
-            c->fade_q7 = max_i32(c->fade_q7 - 25, 0);
+            c->fade_q7 = max_i32(c->fade_q7 - 20, 0);
         }
     }
 
@@ -67,51 +75,51 @@ i32 coins_total(g_s *g)
 
 void coins_draw(g_s *g)
 {
-#define COIN_MONO_SPACING 8
-#define COIN_POS_END_X    92
+    coins_s  *c     = &g->coins;
+    gfx_ctx_s ctx   = gfx_ctx_display();
+    ctx.pat         = gfx_pattern_interpolate(c->fade_q7, 128);
+    texrec_s tricon = asset_texrec(TEXID_BUTTONS, 96, 224, 32, 32);
+    v2_i32   pos    = {369, 7};               // positon sprite
+    v2_i32   posn   = {pos.x - 6, pos.y + 5}; // position n coins
+    pos.x += ease_out_quad(20, 0, c->fade_q7, 128);
+    texrec_s trnum = asset_texrec(TEXID_BUTTONS, 128, 320, 9, 12);
 
-    gfx_ctx_s ctx = gfx_ctx_display();
-    coins_s  *c   = &g->coins;
-    ctx.pat       = gfx_pattern_interpolate(c->fade_q7, 128);
-
-    spm_push();
-    tex_s cointex = tex_create(100, 60, 1, spm_allocator2(), 0);
-    tex_clr(cointex, GFX_COL_CLEAR);
-    gfx_ctx_s ctxcoin   = gfx_ctx_default(cointex);
-    fnt_s     f         = asset_fnt(FNTID_SMALL);
-    u8        str_1[16] = {0};
-    strs_from_u32(c->n, str_1);
-
-    i32    len = fnt_length_px_mono(f, str_1, COIN_MONO_SPACING);
-    v2_i32 pos = {COIN_POS_END_X - len, 8};
-    fnt_draw_ascii_mono(ctxcoin, f, pos, str_1,
-                        SPR_MODE_BLACK, COIN_MONO_SPACING);
+    gfx_spr(ctx, tricon, pos, 0, 0);
+    coins_draw_digits(ctx, (u32)c->n, posn);
 
     if (c->n_change) {
-        u8 str_2[8] = {0};
-        strs_from_u32(abs_i32(c->n_change), str_2);
+        v2_i32 posc = {posn.x, posn.y + 20}; // position change coins
+        posc.y -= c->bop_changed << 1;
+        v2_i32 poss = {posn.x - 32, posc.y}; // position change coins
+        coins_draw_digits(ctx, (u32)abs_i32(c->n_change), posc);
 
-        i32    len_change = fnt_length_px_mono(f, str_2, COIN_MONO_SPACING);
-        v2_i32 pos_change = {COIN_POS_END_X - len_change, pos.y + 20};
-        v2_i32 pos_sign   = {COIN_POS_END_X - 40, pos_change.y};
-        fnt_draw_ascii_mono(ctxcoin, f, pos_change, str_2,
-                            SPR_MODE_BLACK, COIN_MONO_SPACING);
-        fnt_draw_ascii_mono(ctxcoin, f, pos_sign, 0 < c->n_change ? "+" : "-",
-                            SPR_MODE_BLACK, COIN_MONO_SPACING);
+        // sign
+        texrec_s trsig = asset_texrec(TEXID_BUTTONS,
+                                      224 + (c->n_change < 0) * 16,
+                                      320, 16, 16);
+        gfx_spr(ctx, trsig, poss, 0, 0);
     }
-    tex_outline_white(cointex);
-    tex_outline_white(cointex);
-    texrec_s trcoin   = {cointex, 0, 0, 100, 60};
-    v2_i32   labelpos = {300, 0};
-    if (0 < c->ticks_change && c->n_change) {
-        labelpos.y += c->ticks_change & 1;
-    }
-    labelpos.y += (6 * (128 - c->fade_q7)) / 128;
-    gfx_spr(ctx, trcoin, labelpos, 0, 0);
-    spm_pop();
 }
 
 void coins_show_idle(g_s *g)
 {
     g->coins.show_idle = 1;
+}
+
+void coins_draw_digits(gfx_ctx_s ctx, u32 n, v2_i32 pos)
+{
+    // draw mono digit font
+    v2_i32   p = pos;
+    texrec_s t = asset_texrec(TEXID_BUTTONS, 128, 320, 9, 12);
+
+    for (i32 k = 0, d = 1; k < 3; k++, d *= 10) {
+        i32 c = n / d;
+        if (c == 0 && 0 < k) { // at least render "0"
+            break;
+        }
+
+        t.x = 128 + (c % 10) * 9;
+        gfx_spr(ctx, t, p, 0, 0);
+        p.x -= 10;
+    }
 }

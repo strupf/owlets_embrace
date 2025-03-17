@@ -8,8 +8,8 @@
 #include "pltf/pltf.h"
 #include "qoa.h"
 
-#define NUM_SNDCHANNEL    12
-#define NUM_AUD_CMD_QUEUE 64
+#define NUM_SNDCHANNEL    16
+#define NUM_AUD_CMD_QUEUE 32
 
 #if 0
 #define AUD_MUS_ASSERT assert
@@ -26,13 +26,12 @@ enum {
 };
 
 typedef struct snd_s {
-    u32   num_samples;
     void *dat;
+    u32   num_samples;
 } snd_s;
 
 enum {
     AUD_CMD_SND_PLAY,
-    AUD_CMD_SND_MODIFY,
     AUD_CMD_MUS_PLAY,
     AUD_CMD_MUS_STOP,
     AUD_CMD_MUS_MODIFY,
@@ -44,16 +43,9 @@ enum {
 
 typedef struct {
     snd_s snd;
-    u32   iID;
     u16   vol_q8;
     u16   pitch_q8;
 } aud_cmd_snd_play_s;
-
-typedef struct {
-    u32    iID;
-    bool16 stop;
-    u16    vol_q8;
-} aud_cmd_snd_modify_s;
 
 typedef struct {
     u32 hash;
@@ -72,10 +64,9 @@ typedef struct {
     u16 type;
     u16 priority; // for dropping unimportant commands when the queue is full
     union {
-        aud_cmd_snd_play_s   snd_play;
-        aud_cmd_snd_modify_s snd_modify;
-        aud_cmd_mus_play_s   mus_play;
-        aud_cmd_lowpass_s    lowpass;
+        aud_cmd_snd_play_s snd_play;
+        aud_cmd_mus_play_s mus_play;
+        aud_cmd_lowpass_s  lowpass;
     } c;
 } aud_cmd_s;
 
@@ -93,11 +84,12 @@ typedef struct muschannel_s {
 } muschannel_s;
 
 typedef struct aud_s {
+    b16          snd_playing_disabled;
+    i16          v_mus_q8;
+    i16          v_sfx_q8;
     u32          i_cmd_w_tmp; // write index, copied to i_cmd_w on commit
     u32          i_cmd_w;     // visible to audio thread/context
     u32          i_cmd_r;
-    u32          snd_iID; // unique snd instance ID counter
-    bool32       snd_playing_disabled;
     i32          lowpass;
     i32          lowpass_acc;
     muschannel_s muschannel[NUM_MUSCHANNEL];
@@ -105,16 +97,13 @@ typedef struct aud_s {
     aud_cmd_s    cmds[NUM_AUD_CMD_QUEUE];
 } aud_s;
 
-i32   aud_init();
+err32 aud_init();
 void  aud_destroy();
-void  aud_audio(i16 *lbuf, i16 *rbuf, i32 len);
+void  aud_audio(aud_s *aud, i16 *lbuf, i16 *rbuf, i32 len);
 void  aud_allow_playing_new_snd(bool32 enabled);
 void  aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
 void  aud_cmd_queue_commit();
-snd_s snd_load(const char *pathname, alloc_s ma);
-u32   snd_instance_play(snd_s s, f32 vol, f32 pitch); // returns an integer to refer to an active sound instance
-void  snd_instance_stop(u32 snd_iID);
-void  snd_instance_set_vol(u32 snd_iID, f32 vol);
 void  mus_play(const char *fname);
+b32   snd_instance_play(snd_s s, f32 vol, f32 pitch);
 
 #endif

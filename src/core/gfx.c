@@ -21,7 +21,7 @@ tex_s tex_framebuffer()
     return t;
 }
 
-tex_s tex_create(i32 w, i32 h, b32 mask, allocator_s a, i32 *err)
+tex_s tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err)
 {
     tex_s t         = {0};
     b32   m         = mask != 0;
@@ -160,53 +160,134 @@ void tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
 }
 
 // only works if x and w are multiple of 32 right now
-void tex_outline_white(tex_s tex)
+void tex_outline_col_small(tex_s tex, i32 col)
 {
+    // use stack mem instead (faster)
     assert(tex.fmt == TEX_FMT_MASK);
-    spm_push();
-    tex_s src  = tex; // need to work off of a copy
-    u32   size = sizeof(u32) * tex.wword * tex.h;
-    src.px     = (u32 *)spm_alloc_aligned(size, 4);
-    mcpy(src.px, tex.px, size);
+    i32   wword = tex.wword >> 1;
+    usize size  = sizeof(u32) * wword * tex.h;
+    assert(size <= 4096);
+    u32 sm[1024];
+
+    for (i32 n = 0, k = 1; n < wword * tex.h; n++, k += 2) {
+        sm[n] = bswap32(tex.px[k]);
+    }
 
     i32 x1 = 0;
     i32 y1 = 0;
-    i32 x2 = tex.wword - 1;
+    i32 x2 = wword - 1;
     i32 y2 = tex.h - 1;
 
     for (i32 yy = y1; yy <= y2; yy++) {
         i32 yi1 = yy == y1 ? 0 : -1;
         i32 yi2 = yy == y2 ? 0 : +1;
 
-        for (i32 xx = x1; xx <= x2; xx += 2) {
-            u32 *dp = &tex.px[xx + (yy * src.wword)];
-            u32 *dm = dp + 1;
-            u32  m  = 0;
+        for (i32 xx = x1; xx <= x2; xx++) {
+            u32 m = 0;
 
             for (i32 yi = yi1; yi <= yi2; yi++) {
-                i32 v  = yy + yi;
-                i32 ua = xx - 2;
-                i32 ub = xx + 0;
-                i32 uc = xx + 2;
-                if (x1 <= ua && ua <= x2) {
-                    u32 k = bswap32(src.px[ua + v * src.wword + 1]);
-                    m |= k << 31;
+                i32 v = (yy + yi) * wword;
+                u32 k = sm[xx + v];
+                m |= k | (k >> 1) | (k << 1);
+
+                if (x1 < xx) {
+                    u32 kl = sm[xx + v - 1];
+                    m |= kl << 31;
                 }
-                if (x1 <= ub && ub <= x2) {
-                    u32 k = bswap32(src.px[ub + v * src.wword + 1]);
-                    m |= (k >> 1) | (k << 1);
-                }
-                if (x1 <= uc && uc <= x2) {
-                    u32 k = bswap32(src.px[uc + v * src.wword + 1]);
-                    m |= k >> 31;
+                if (xx < x2) {
+                    u32 kr = sm[xx + v + 1];
+                    m |= kr >> 31;
                 }
             }
-            m = bswap32(m) & ~*dm;
-            *dm |= m;
-            *dp |= m;
+            if (m) {
+                u32 *dp = &tex.px[(xx << 1) + (yy * tex.wword)];
+                u32 *dm = dp + 1;
+                m       = bswap32(m) & ~*dm;
+                *dm |= m;
+                switch (col) {
+                case GFX_COL_WHITE: *dp |= m; break;
+                case GFX_COL_BLACK: *dp &= ~m; break;
+                }
+            }
+        }
+    }
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_col(tex_s tex, i32 col)
+{
+    assert(tex.fmt == TEX_FMT_MASK);
+    spm_push();
+    i32   wword = tex.wword >> 1;
+    usize size  = sizeof(u32) * wword * tex.h;
+    u32  *sm    = (u32 *)spm_alloc_aligned(size, 4);
+    for (i32 n = 0, k = 1; n < wword * tex.h; n++, k += 2) {
+        sm[n] = bswap32(tex.px[k]);
+    }
+
+    i32 x1 = 0;
+    i32 y1 = 0;
+    i32 x2 = wword - 1;
+    i32 y2 = tex.h - 1;
+
+    for (i32 yy = y1; yy <= y2; yy++) {
+        i32 yi1 = yy == y1 ? 0 : -1;
+        i32 yi2 = yy == y2 ? 0 : +1;
+
+        for (i32 xx = x1; xx <= x2; xx++) {
+            u32 m = 0;
+
+            for (i32 yi = yi1; yi <= yi2; yi++) {
+                i32 v = (yy + yi) * wword;
+                u32 k = sm[xx + v];
+                m |= k | (k >> 1) | (k << 1);
+
+                if (x1 < xx) {
+                    u32 kl = sm[xx + v - 1];
+                    m |= kl << 31;
+                }
+                if (xx < x2) {
+                    u32 kr = sm[xx + v + 1];
+                    m |= kr >> 31;
+                }
+            }
+            if (m) {
+                u32 *dp = &tex.px[(xx << 1) + (yy * tex.wword)];
+                u32 *dm = dp + 1;
+                m       = bswap32(m) & ~*dm;
+                *dm |= m;
+                switch (col) {
+                case GFX_COL_WHITE: *dp |= m; break;
+                case GFX_COL_BLACK: *dp &= ~m; break;
+                }
+            }
         }
     }
     spm_pop();
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_white_small(tex_s tex)
+{
+    tex_outline_col_small(tex, GFX_COL_WHITE);
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_black_small(tex_s tex)
+{
+    tex_outline_col_small(tex, GFX_COL_BLACK);
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_white(tex_s tex)
+{
+    tex_outline_col(tex, GFX_COL_WHITE);
+}
+
+// only works if x and w are multiple of 32 right now
+void tex_outline_black(tex_s tex)
+{
+    tex_outline_col(tex, GFX_COL_BLACK);
 }
 
 void tex_merge_to_opaque(tex_s dst, tex_s src)
@@ -215,10 +296,9 @@ void tex_merge_to_opaque(tex_s dst, tex_s src)
     assert(src.fmt == TEX_FMT_MASK);
     assert(dst.wword * 2 == src.wword && dst.h == src.h);
 
-    i32  nw = dst.wword * dst.h;
-    u32 *a  = dst.px;
-    u32 *b  = src.px;
-    for (i32 n = 0; n < nw; n++) {
+    u32 *a = dst.px;
+    u32 *b = src.px;
+    for (i32 n = 0; n < dst.wword * dst.h; n++) {
         *a = (*a & ~b[1]) | (b[0] & b[1]); // copy mode
         a += 1;
         b += 2;
@@ -238,7 +318,7 @@ void tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src)
         i32 yi1 = y + (y == 0 ? 0 : -1);
         i32 yi2 = y + (y == src.h - 1 ? 0 : +1);
 
-        for (i32 x = 0; x < src.wword; x += 2, d += 1) {
+        for (i32 x = 0; x < src.wword; x += 2, d += 1, s += 2) {
             u32 sp = s[x + (y * src.wword)];
             u32 sm = s[x + (y * src.wword) + 1];
             if (sm != 0xFFFFFFFF) {
@@ -249,7 +329,7 @@ void tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src)
                     i32 wl = x - 2;
                     i32 wr = x + 2;
                     u32 k  = bswap32(s[x + v]);
-                    m |= (k >> 1) | (k << 1);
+                    m |= k | (k >> 1) | (k << 1);
                     if (0 <= wl) {
                         m |= bswap32(s[wl + v]) << 31;
                     }
@@ -817,13 +897,13 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode)
     }
 }
 
-void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode)
+void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode)
 {
     fntstr_s str      = {0};
     u8       buf[256] = {0};
     str.buf           = buf;
     str.cap           = ARRLEN(buf);
-    for (const char *c = text; *c != '\0'; c++) {
+    for (const u8 *c = (const u8 *)text; *c != '\0'; c++) {
         if (str.n == str.cap) break;
         str.buf[str.n++] = (u8)*c;
     }
@@ -846,33 +926,33 @@ void fnt_draw_str_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 m
     }
 }
 
-void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const char *text, i32 mode, i32 spacing)
+void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode, i32 spacing)
 {
     fntstr_s str      = {0};
     u8       buf[256] = {0};
     str.buf           = buf;
     str.cap           = ARRLEN(buf);
-    for (const char *c = text; *c != '\0'; c++) {
+    for (const u8 *c = (const u8 *)text; *c != '\0'; c++) {
         if (str.n == str.cap) break;
         str.buf[str.n++] = (u8)*c;
     }
     fnt_draw_str_mono(ctx, fnt, pos, str, mode, spacing);
 }
 
-i32 fnt_length_px(fnt_s fnt, const char *txt)
+i32 fnt_length_px(fnt_s fnt, const void *txt)
 {
     i32 l = 0;
-    for (const char *c = txt; *c != '\0'; c++) {
-        l += fnt.widths[(uint)*c];
+    for (const u8 *c = (const u8 *)txt; *c != '\0'; c++) {
+        l += fnt.widths[(u32)*c];
     }
     return l;
 }
 
-i32 fnt_length_px_mono(fnt_s fnt, const char *txt, i32 spacing)
+i32 fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing)
 {
     i32 l = 0;
     i32 s = spacing ? spacing : fnt.grid_w;
-    for (const char *c = txt; *c != '\0'; c++) {
+    for (const u8 *c = (const u8 *)txt; *c != '\0'; c++) {
         l += s;
     }
     return l;
@@ -1144,6 +1224,16 @@ void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, i32 n_pt, i32 mode)
     }
 }
 
+#define SPRBLIT_FUNCNAME gfx_spr_d_s
+#define SPRBLIT_SRC_MASK 0
+#define SPRBLIT_DST_MASK 0
+#define SPRBLIT_FLIPPEDX 0
+#include "gfx_spr_func.h"
+#undef SPRBLIT_FUNCNAME
+#undef SPRBLIT_SRC_MASK
+#undef SPRBLIT_DST_MASK
+#undef SPRBLIT_FLIPPEDX
+
 #define SPRBLIT_FUNCNAME gfx_spr_dm_sm
 #define SPRBLIT_SRC_MASK 1
 #define SPRBLIT_DST_MASK 1
@@ -1188,11 +1278,16 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
 {
     if (!src.t.px) return;
     if (ctx.dst.fmt == TEX_FMT_OPAQUE) {
-        if (flip & SPR_FLIP_X) {
-            gfx_spr_sm_fx(ctx, src, pos, flip, mode);
+        if (src.t.fmt == TEX_FMT_OPAQUE) {
+            gfx_spr_d_s(ctx, src, pos, flip, mode);
         } else {
-            gfx_spr_sm(ctx, src, pos, flip, mode);
+            if (flip & SPR_FLIP_X) {
+                gfx_spr_sm_fx(ctx, src, pos, flip, mode);
+            } else {
+                gfx_spr_sm(ctx, src, pos, flip, mode);
+            }
         }
+
     } else {
         if (flip & SPR_FLIP_X) {
             gfx_spr_dm_sm_fx(ctx, src, pos, flip, mode);

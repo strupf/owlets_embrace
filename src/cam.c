@@ -40,8 +40,10 @@ v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
     pos.x += (i32)c->attract.x + c->offs_x;
     pos.y += (i32)c->attract.y;
 
-    if (40 <= c->lookdown) {
-        pos.y += min_i32((c->lookdown - 40), 40) * 2;
+    if (0 < c->lookdownup_q8) {
+        pos.y += ease_in_out_quad(0, 75, +c->lookdownup_q8, 256);
+    } else {
+        pos.y -= ease_in_out_quad(0, 60, -c->lookdownup_q8, 256);
     }
 
     if (c->trg_fade_q12) {
@@ -79,11 +81,10 @@ void cam_init_level(g_s *g, cam_s *c)
 
 void cam_update(g_s *g, cam_s *c)
 {
-    v2_i32    ppos          = c->pos_q8;
-    v2_i32    padd          = {0};
-    const i32 lookdown_prev = c->lookdown;
-
-    obj_s *hero = obj_get_hero(g);
+    v2_i32 ppos         = c->pos_q8;
+    v2_i32 padd         = {0};
+    obj_s *hero         = obj_get_hero(g);
+    bool32 look_up_down = 0;
 
     if (hero) {
         hero_s *h           = (hero_s *)hero->heap;
@@ -107,8 +108,10 @@ void cam_update(g_s *g, cam_s *c)
             }
             c->pos_q8.y += y_add;
 
-            if (hero->v_q8.x == 0 && inp_btn(INP_DD)) {
-                c->lookdown += 2;
+            if (h->crouched && inp_btn(INP_DD)) {
+                look_up_down = +1;
+            } else if (inp_btn(INP_DU)) {
+                look_up_down = -1;
             }
         }
 
@@ -172,17 +175,33 @@ void cam_update(g_s *g, cam_s *c)
         }
     }
 
-    if (0 < lookdown_prev && lookdown_prev == c->lookdown) {
-        c->lookdown = min_i32(c->lookdown, 256);
-        c->lookdown = max_i32(c->lookdown - 2, 0);
+    if (look_up_down) {
+        if (25 <= c->lookdownup_tick) {
+            c->lookdownup_q8 += look_up_down << 3;
+            c->lookdownup_q8 = clamp_i32(c->lookdownup_q8, -256, +256);
+        } else {
+            c->lookdownup_tick++;
+        }
+    } else {
+        i32 dldu = min_i32(abs_i32(c->lookdownup_q8), 8);
+        c->lookdownup_q8 -= dldu * sgn_i32(c->lookdownup_q8);
+        if (c->lookdownup_q8 == 0) {
+            c->lookdownup_tick = 0;
+        }
     }
 
     if (c->shake_ticks) {
         i32 shakex = (c->shake_str_x * c->shake_ticks + (c->shake_ticks_max >> 1)) / c->shake_ticks_max;
         i32 shakey = (c->shake_str_y * c->shake_ticks + (c->shake_ticks_max >> 1)) / c->shake_ticks_max;
         c->shake_ticks--;
-        c->shake.x = rngr_sym_i32(max_i32(shakex, 1));
-        c->shake.y = rngr_sym_i32(max_i32(shakey, 1));
+        if (c->shake_str_x) {
+            shakex = max_i32(shakex, 1);
+        }
+        if (c->shake_str_y) {
+            shakey = max_i32(shakey, 1);
+        }
+        c->shake.x = rngr_sym_i32(shakex);
+        c->shake.y = rngr_sym_i32(shakey);
     }
 
     if (c->has_trg) {

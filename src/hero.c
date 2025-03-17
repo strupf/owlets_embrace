@@ -13,10 +13,11 @@ typedef struct {
 
 const hero_jumpvar_s g_herovar[NUM_HERO_JUMP] = {
     {800, 30, 100, 30}, // out of water
+    {1000, 30, 65, 30}, // ground spear
     {1100, 35, 65, 30}, // ground
     {1500, 40, 50, 20}, // ground boosted
     {600, 50, 140, 20}, // fly
-    {1100, 35, 65, 20}, // wall
+    {1100, 35, 65, 20}  // wall
 };
 
 void   hero_do_swimming(g_s *g, obj_s *o, inp_s inp);
@@ -29,11 +30,9 @@ void   hero_do_dead_on_ground(g_s *g, obj_s *o);
 void   hero_do_dead_in_air(g_s *g, obj_s *o);
 void   hero_do_dead_in_water(g_s *g, obj_s *o);
 i32    hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o);
-i32    hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy,
-                                         i32 *dt_snap_x);
 bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy);
 
-void   hero_inair_jump(g_s *g, obj_s *o, inp_s inp);
+void   hero_inair_jump(g_s *g, obj_s *o, inp_s inp, b32 can_air_jump);
 void   hero_leave_and_clear_inair(obj_s *o);
 void   hero_restore_grounded_stuff(g_s *g, obj_s *o);
 i32    hero_get_actual_state(g_s *g, obj_s *o);
@@ -94,6 +93,12 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
     bool32             grounded = obj_grounded(g, o);
     rope_s            *r        = o->rope;
     hero_interaction_s i        = hero_get_interaction(g, o);
+
+    if (inp_btn_jp(INP_DU) && hero_ibuf_tap(h, INP_DU, 12)) {
+        minimap_open(g);
+        return 1;
+    }
+
     if (h->grabbing && i.action != HERO_INTERACTION_GRAB) {
         hero_ungrab(g, o);
     }
@@ -131,15 +136,16 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
 
     bool32 can_stomp = st == HERO_ST_AIR &&
                        hero_has_upgrade(g, HERO_UPGRADE_STOMP) &&
-                       !h->holds_spear &&
                        !h->b_hold_tick &&
                        !h->stomp &&
                        !o->rope &&
                        0 < dpad_y;
     if (can_stomp && inps_btn_jp(inp, INP_A)) {
+        snd_play(SNDID_STOMP_START, 1.0f, 1.0f);
         h->stomp  = 1;
         o->v_q8.x = 0;
         o->v_q8.y = 0;
+        hero_itemswap_cancel(o);
         hero_leave_and_clear_inair(o);
         return 0;
     }
@@ -147,10 +153,12 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
     bool32 can_snap_to_ladder = (st == HERO_ST_GROUND || st == HERO_ST_AIR) &&
                                 !h->stomp &&
                                 !h->ladder &&
+                                !h->holds_spear &&
                                 !h->grabbing;
     if (can_snap_to_ladder && inps_btn_jp(inp, INP_DU) &&
         hero_try_snap_to_ladder_or_climbwall(g, o)) {
         grapplinghook_destroy(g, &g->ghook);
+        hero_itemswap_cancel(o);
         h->b_hold_tick = 0;
 
         if (grounded) {
@@ -172,70 +180,110 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
         h->walljump_tick   = 0;
         h->air_block_ticks = 0;
         o->v_q8.y          = 0;
+        hero_itemswap_cancel(o);
+        h->hitID = game_hero_hitID_next(g);
+        hero_attackbox(g, hero_hitbox_spinattack(o));
         return 0;
     }
 
-    bool32 can_swap = st == HERO_ST_GROUND;
-    if (h->holds_spear) {
+    bool32 can_swap = !h->crouched &&
+                      !o->rope &&
+                      (st == HERO_ST_GROUND || st == HERO_ST_AIR);
+
+    bool32 can_use_spear = hero_has_upgrade(g, HERO_UPGRADE_SPEAR) &&
+                           h->holds_spear &&
+                           !h->crouched &&
+                           !h->stomp;
+    bool32 can_use_hook = hero_has_upgrade(g, HERO_UPGRADE_HOOK) &&
+                          !h->holds_spear &&
+                          !h->crouched &&
+                          !h->stomp;
+
+    if (can_use_spear) {
         if (inps_btn_jp(inp, INP_B)) {
             h->b_hold_tick     = 1;
             h->attack_flipflop = 1 - h->attack_flipflop;
-            h->attack_tick     = 1;
-
-            if (can_swap) {
-                ui_itemswap_start(g);
-            }
-
-            if (obj_grounded(g, o)) {
-                o->v_q8.x    = 0;
+            h->hitID           = game_hero_hitID_next(g);
+            if (1) {
+                if (h->attack_tick &&
+                    h->attack_ID == HERO_ATTACK_GROUND) {
+                    h->attack_tick = 3;
+                } else {
+                    h->attack_tick = 1;
+                }
                 h->attack_ID = HERO_ATTACK_GROUND;
+                snd_play(SNDID_SPEAR_ATTACK, 1.0f, rngr_f32(0.9f, 1.1f));
+                hero_attackbox(g, hero_hitbox_spear(o));
             } else {
-                h->attack_ID = HERO_ATTACK_AIR;
-                h->jumpticks = 0;
+                h->attack_ID   = HERO_ATTACK_AIR;
+                h->attack_tick = 1;
+                h->jumpticks   = 0;
                 o->v_q8.y >>= 1;
+                hero_attackbox(g, hero_hitbox_spear_air(o));
             }
         } else if (h->b_hold_tick) {
             if (inps_btn(inp, INP_B)) {
                 h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
-
-                if (can_swap) {
-                    ui_itemswap_set_progress(g, h->b_hold_tick);
-                }
             } else {
-                if (can_swap) {
-                    ui_itemswap_exit(g);
-                }
-
                 h->b_hold_tick = 0;
             }
         }
-    } else {
-        if (inps_btn_jp(inp, INP_B)) {
-            h->b_hold_tick = 1;
-            if (o->rope) {
-                hero_action_ungrapple(g, o);
-                h->ungrappled = 1;
-            } else {
-                h->ungrappled      = 0;
-                h->attack_tick     = 0;
-                h->attack_ID       = 0;
-                h->attack_flipflop = 1 - h->attack_flipflop;
-            }
-            if (can_swap) {
-                ui_itemswap_start(g);
-            }
-        } else if (h->b_hold_tick) {
-            if (inps_btn(inp, INP_B)) {
-                h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
-                if (can_swap) {
-                    ui_itemswap_set_progress(g, h->b_hold_tick);
-                }
-            } else {
-                if (can_swap) {
-                    ui_itemswap_exit(g);
-                }
+    }
+    if (can_use_hook) {
+        i32    crankdt_q16  = inps_crankdt_q16(inp);
+        i32    crankdta_q16 = abs_i32(crankdt_q16);
+        bool32 quickhook    = 1;
 
-                if (h->b_hold_tick < UI_ITEMSWAP_TICKS_POP_UP && !h->ungrappled) {
+        if (!o->rope) {
+            if (h->hook_aim_mode && inps_btn_jp(inp, INP_DD)) {
+                h->hook_aim_mode = 0;
+            }
+
+            if (h->hook_aim_mode) {
+                quickhook   = 0;
+                h->hook_aim = hero_aim_angle_conv(inps_crank_q16(inp));
+
+                if (inps_btn_jp(inp, INP_B)) {
+                    h->hook_aim_mode_tick = 1;
+                } else if (h->hook_aim_mode_tick) {
+                    if (inps_btn(inp, INP_B)) {
+                        h->hook_aim_mode_tick++;
+                    } else {
+                        i32 str = hero_aim_throw_strength(o);
+                        hero_action_throw_grapple(g, o, h->hook_aim, str);
+                        h->hook_aim_mode = 0;
+                    }
+                }
+            } else if (50 <= abs_i32(crankdt_q16)) {
+                h->hook_aim_crank_buildup += crankdt_q16;
+
+                if (HERO_AIM_MODE_CRANK_THRESHOLD <= abs_i32(h->hook_aim_crank_buildup)) {
+                    h->hook_aim_crank_buildup = 0;
+                    h->hook_aim_mode          = 1;
+                    h->hook_aim_mode_tick     = 0;
+                    h->hook_aim               = hero_aim_angle_conv(inps_crank_q16(inp));
+                }
+            } else {
+                h->hook_aim_crank_buildup = (h->hook_aim_crank_buildup * 240) / 256;
+            }
+        }
+
+        h->crank_acc_q16 += crankdt_q16;
+        i32 dtl = h->crank_acc_q16 >> 7;
+        h->crank_acc_q16 &= (1 << 7) - 1;
+
+        if (o->rope && g->ghook.state != GRAPPLINGHOOK_FLYING) {
+            o->rope->len_max_q4 =
+                clamp_i32(o->rope->len_max_q4 + dtl,
+                          HERO_ROPE_LEN_MIN,
+                          HERO_ROPE_LEN_MAX);
+        }
+
+        if (quickhook) {
+            if (inps_btn_jp(inp, INP_B)) {
+                if (o->rope) {
+                    hero_action_ungrapple(g, o);
+                } else if (dpad_x | dpad_y) {
                     //     0 = upwards
                     // 32768 = downwards
                     i32 ang = 0;
@@ -255,35 +303,77 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
                     }
 
                     hero_action_throw_grapple(g, o, ang, 5000);
+                } else {
+                    h->b_hold_tick = 1;
                 }
+            } else if (h->b_hold_tick && inps_btn(inp, INP_B)) {
+                h->b_hold_tick = u8_adds(h->b_hold_tick, 1);
+            } else {
                 h->b_hold_tick = 0;
             }
         }
     }
 
-    if (!can_swap) {
-        ui_itemswap_exit(g);
+    if (h->b_hold_tick == 0 || !can_swap) {
+        hero_itemswap_cancel(o);
     }
-    if (can_swap && g->ui_itemswap.started && UI_ITEMSWAP_TICKS <= g->ui_itemswap.progress) {
-        ui_itemswap_exit(g);
-        h->holds_spear = 1 - h->holds_spear;
-        h->b_hold_tick = 0;
+    if (HERO_ITEMSWAP_TICKS_INIT < h->b_hold_tick && h->item_swap_tick) {
+        h->item_swap_tick++;
     }
-
-    h->crank_acc_q16 += inps_crankdt_q16(inp);
-    i32 dtl = h->crank_acc_q16 >> 7;
-    h->crank_acc_q16 &= (1 << 7) - 1;
-    if (o->rope && g->ghook.state != GRAPPLINGHOOK_FLYING) {
-        o->rope->len_max_q4 =
-            clamp_i32(o->rope->len_max_q4 + dtl,
-                      300, 4000);
+    bool32 start_swap = can_swap &&
+                        h->b_hold_tick == HERO_ITEMSWAP_TICKS_INIT &&
+                        !h->item_swap_tick;
+    if (start_swap) {
+        h->item_swap_tick       = 1;
+        h->item_swap_fade       = 0;
+        h->item_swap_tick_saved = 0;
+        h->hook_aim_mode        = 0;
+    }
+    if (HERO_ITEMSWAP_TICKS <= h->item_swap_tick) {
+        h->holds_spear          = 1 - h->holds_spear;
+        h->b_hold_tick          = 0;
+        h->item_swap_tick_saved = h->item_swap_tick;
+        h->item_swap_tick       = 0;
+        h->item_swap_fade       = +HERO_ITEMSWAP_TICKS_FADE;
     }
 
     return 1;
 }
 
+void hero_check_safe_pos(g_s *g, obj_s *o)
+{
+#define HERO_SAFE_NUM_TILES 3
+
+    hero_s *h  = (hero_s *)o->heap;
+    v2_i32  ps = {o->pos.x + (o->w >> 1), o->pos.y + o->h};
+    if (v2_i32_distance_appr(h->safe_pos, ps) < 50) return;
+
+    rec_i32 rl = {o->pos.x - 16,
+                  o->pos.y + o->h - HERO_HEIGHT - 16,
+                  o->w + 32,
+                  HERO_HEIGHT + 16};
+    if (map_blocked_excl(g, rl, o)) return; // want more free space
+
+    i32 py = o->pos.y + o->h;
+    if (!(0 <= py && py < g->pixel_y)) return; // outside map
+
+    i32 y  = py >> 4;
+    i32 x1 = max_i32(ps.x - (HERO_SAFE_NUM_TILES << 3), 0) >> 4;
+    i32 x2 = min_i32(ps.x + (HERO_SAFE_NUM_TILES << 3), g->pixel_x - 1) >> 4;
+
+    if ((x2 - x1) != HERO_SAFE_NUM_TILES) return; // not enough space
+
+    for (i32 x = x1; x <= x2; x++) {
+        if (g->tiles[x + y * g->tiles_x].collision != TILE_BLOCK)
+            return;
+    }
+
+    h->safe_pos = ps;
+}
+
 void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 {
+    hero_check_safe_pos(g, o);
     if (hero_special_input(g, o, inp) == 0) {
         return;
     }
@@ -292,10 +382,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
     i32     dpad_x = inps_x(inp);
     i32     dpad_y = inps_y(inp);
     i32     st     = hero_get_actual_state(g, o);
-
-    if (st != HERO_ST_GROUND) {
-        ui_itemswap_exit(g);
-    }
 
     if (st == HERO_ST_WATER && h->state_prev != HERO_ST_WATER) {
         v2_i32 splashpos = obj_pos_center(o);
@@ -320,11 +406,20 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
     if (h->impact_ticks) {
         h->impact_ticks--;
     }
+    if (h->item_swap_fade) {
+        h->item_swap_fade -= sgn_i32(h->item_swap_fade);
+    }
+    if (h->ticks_health) {
+        h->ticks_health--;
+    }
     if (h->spinattack) {
         h->spinattack++;
         if (HERO_TICKS_SPIN_ATTACK <= h->spinattack) {
             h->sprint     = 1;
-            h->spinattack = -50;
+            h->spinattack = -15;
+        } else if (0 < h->spinattack) {
+            hitbox_s hb = hero_hitbox_spinattack(o);
+            hero_attackbox(g, hb);
         }
     }
     if (h->attack_tick) {
@@ -333,11 +428,19 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         i32 tick2 = 0;
         switch (h->attack_ID) {
         case HERO_ATTACK_GROUND: {
-            tick2 = HERO_ATTACK_TICKS;
+            if (h->attack_tick <= 12) {
+                hitbox_s hb = hero_hitbox_spear(o);
+                hero_attackbox(g, hb);
+            }
+            tick2 = ani_len(ANIID_HERO_ATTACK);
             break;
         }
         case HERO_ATTACK_AIR: {
-            tick2 = HERO_ATTACK_TICKS_AIR;
+            if (h->attack_tick < 12) {
+                hitbox_s hb = hero_hitbox_spear_air(o);
+                hero_attackbox(g, hb);
+            }
+            tick2 = ani_len(ANIID_HERO_ATTACK_AIR);
             break;
         }
         }
@@ -365,8 +468,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         g->objrender_dirty = 1;
     }
 
-    ui_itemswap_update(g);
-
     if (h->jump_ui_may_hide) {
         h->stamina_ui_fade_out = max_i32((i32)h->stamina_ui_fade_out - 1, 0);
     } else {
@@ -382,13 +483,21 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         hero_stamina_update_ui(o, h->stamina_upgrades << 7);
     }
 
-    if (o->health && o->health < o->health_max) {
-        if (HERO_HEALTH_RESTORE_TICKS <= ++h->health_restore_tick) {
-            o->health++;
-            h->health_restore_tick = 0;
+    if (o->health < o->health_max && !h->health_restore_tick) {
+        h->health_restore_tick = 1;
+    }
+
+    if (h->health_restore_tick) {
+        h->health_restore_tick++;
+        if (HERO_HEALTH_RESTORE_TICKS <= h->health_restore_tick) {
+            if (o->health < o->health_max) {
+                o->health++;
+                h->health_restore_tick = 1;
+                h->ticks_health        = HERO_LOW_HP_ANIM_TICKS_RECOVER;
+            } else {
+                h->health_restore_tick = 0;
+            }
         }
-    } else if (o->health == o->health_max) {
-        h->health_restore_tick = 0;
     }
 
     rope_s *r              = o->rope;
@@ -400,8 +509,9 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
                            st == HERO_ST_LADDER ||
                            h->skidding ||
                            h->crouched ||
+                           h->stomp ||
                            h->attack_tick ||
-                           h->spinattack ||
+                           0 < h->spinattack ||
                            rope_stretched ||
                            h->grabbing;
 
@@ -510,11 +620,29 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         break;
     }
     case HERO_ST_STOMP: {
+        bool32 can_inair_jump = hero_ibuf_pressed(h, INP_A, 6) &&
+                                HERO_TICKS_STOMP_INIT <= h->stomp &&
+                                !o->rope &&
+                                h->spinattack <= 0 &&
+                                !h->b_hold_tick;
+        if (can_inair_jump) {
+            h->stomp = 0;
+            if (h->holds_spear) {
+                o->v_q8.y = 256 * 4;
+            } else {
+                hero_inair_jump(g, o, inp, 1);
+            }
+            break;
+        }
+
         h->stomp = i8_adds(h->stomp, 1);
 
-        if (HERO_TICKS_STOMP_INIT <= h->stomp) {
+        if (0 < h->stomp && HERO_TICKS_STOMP_INIT <= h->stomp) {
             i32 move_y = min_i32((h->stomp - HERO_TICKS_STOMP_INIT) * 1, 10);
-            obj_move(g, o, dpad_x, move_y);
+            obj_move(g, o, 0, move_y);
+        }
+        if (h->stomp < 0 && (0 <= h->stomp || !obj_grounded(g, o))) {
+            h->stomp = 0;
         }
         break;
     }
@@ -559,6 +687,7 @@ void hero_on_squish(g_s *g, obj_s *o)
         o->v_q8.x      = 0;
         o->v_q8.y      = 0;
         o->flags &= ~OBJ_FLAG_ACTOR;
+        hero_itemswap_cancel(o);
 
         v2_i32 p = obj_pos_bottom_center(o);
         particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_SQUISH, p);
@@ -572,12 +701,15 @@ void hero_on_squish(g_s *g, obj_s *o)
 void hero_hurt(g_s *g, obj_s *o, i32 damage)
 {
     hero_s *h = (hero_s *)o->heap;
-    if (h->invincibility_ticks || !o->health) return;
+    if (h->invincibility_ticks || !o->health || !damage) return;
 
     h->health_restore_tick = 0;
     o->health              = u8_subs(o->health, damage);
 
     if (o->health) {
+        if (o->health == 1) {
+            h->ticks_health = HERO_LOW_HP_ANIM_TICKS_HIT;
+        }
         h->hurt_ticks          = HERO_HURT_TICKS;
         h->invincibility_ticks = HERO_INVINCIBILITY_TICKS;
     } else {
@@ -586,6 +718,7 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
         o->bumpflags   = 0;
         o->v_q8.y      = -1800;
         o->flags &= ~OBJ_FLAG_CLAMP_ROOM_Y; // let hero fall through floor
+        hero_itemswap_cancel(o);
         hero_action_ungrapple(g, o);
         if (g->substate != SUBSTATE_GAMEOVER) {
             gameover_start(g);
@@ -598,8 +731,12 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
     hero_s *h = (hero_s *)o->heap;
 
     i32 jID = ID;
-    if (ID == HERO_JUMP_GROUND && HERO_VX_SPRINT <= abs_i32(o->v_q8.x)) {
-        jID = HERO_JUMP_GROUND_BOOSTED;
+    if (ID == HERO_JUMP_GROUND) {
+        if (h->holds_spear) {
+            jID = HERO_JUMP_GROUND_SPEAR;
+        } else if (HERO_VX_SPRINT <= abs_i32(o->v_q8.x)) {
+            jID = HERO_JUMP_GROUND_BOOSTED;
+        }
     }
 
     hero_jumpvar_s jv = g_herovar[jID];
@@ -637,9 +774,11 @@ i32 hero_get_actual_state(g_s *g, obj_s *o)
             h->attack_tick = 0;
             h->attack_ID   = 0;
             h->spinattack  = 0;
+            h->holds_spear = 0;
+            h->jumpticks   = 0;
+            hero_itemswap_cancel(o);
             grapplinghook_destroy(g, &g->ghook);
         }
-        h->swimming = SWIMMING_SURFACE;
         return HERO_ST_WATER;
     }
     h->swimming = 0;
@@ -784,14 +923,14 @@ hero_interaction_s hero_get_interaction(g_s *g, obj_s *o)
                           !h->crouched &&
                           !h->grabbing &&
                           !h->climbing &&
-                          !h->spinattack &&
+                          h->spinattack <= 0 &&
                           !h->attack_tick &&
                           !h->stomp &&
                           !o->rope;
     bool32 can_grab = st == HERO_ST_GROUND &&
                       !h->crouched &&
                       !h->climbing &&
-                      !h->spinattack &&
+                      h->spinattack <= 0 &&
                       !h->attack_tick &&
                       !h->stomp &&
                       !o->rope;
@@ -876,10 +1015,12 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                                 hero_is_climbing_offs(g, o, dpad_x, 0, 0) &&
                                 !o->rope &&
                                 !h->holds_spear;
-        bool32 can_inair_jump = hero_ibuf_pressed(h, INP_A, 6) &&
+
+        bool32 can_ground_jump = hero_ibuf_pressed(h, INP_A, 6) &&
+                                 !o->rope &&
+                                 h->spinattack <= 0;
+        bool32 can_inair_jump = can_ground_jump &&
                                 !h->holds_spear &&
-                                !o->rope &&
-                                !h->spinattack &&
                                 !h->b_hold_tick;
 
         if (start_climbing) {
@@ -920,8 +1061,8 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                 h->walljump_tick >>= 1;
                 h->air_block_ticks >>= 1;
             }
-        } else if (can_inair_jump) {
-            hero_inair_jump(g, o, inp);
+        } else if (can_ground_jump) {
+            hero_inair_jump(g, o, inp, can_inair_jump);
         }
 
         if (do_x_movement) {
@@ -952,7 +1093,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
     }
 }
 
-void hero_inair_jump(g_s *g, obj_s *o, inp_s inp)
+void hero_inair_jump(g_s *g, obj_s *o, inp_s inp, b32 can_air_jump)
 {
     hero_s *h           = (hero_s *)o->heap;
     i32     dpad_x      = inps_x(inp);
@@ -971,14 +1112,17 @@ void hero_inair_jump(g_s *g, obj_s *o, inp_s inp)
     }
 
     bool32 jump_wall = 0;
-    for (i32 n = 0; n < 6; n++) {
-        if (hero_is_climbing_offs(g, o, -dpad_x, -dpad_x * n, 0)) {
-            jump_wall = 1;
-            break;
+    if (can_air_jump) {
+        for (i32 n = 0; n < 6; n++) {
+            if (hero_is_climbing_offs(g, o, -dpad_x, -dpad_x * n, 0)) {
+                jump_wall = 1;
+                break;
+            }
         }
     }
 
-    bool32 jump_midair = !usinghook && // not hooked
+    bool32 jump_midair = can_air_jump &&
+                         !usinghook && // not hooked
                          !h->jumpticks &&
                          !h->stomp &&
                          hero_has_upgrade(g, HERO_UPGRADE_FLY) &&
@@ -1017,9 +1161,11 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
     v2_i32  hcenter  = obj_pos_center(o);
     rec_i32 heroaabb = obj_aabb(o);
 
-    if (hero_has_upgrade(g, HERO_UPGRADE_DIVE) && 0 < inps_y(inp)) {
-        obj_move(g, o, 0, +10);
-        o->v_q8.y   = +1000;
+    if (hero_has_upgrade(g, HERO_UPGRADE_DIVE) &&
+        0 < inps_y(inp) &&
+        h->swimming == SWIMMING_SURFACE) {
+        obj_move(g, o, 0, HERO_HEIGHT - water_depth);
+        o->v_q8.y   = +512;
         h->swimming = SWIMMING_DIVING;
         return;
     }
@@ -1213,20 +1359,16 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
     i32     dpad_y          = inps_y(inp);
     rope_s *r               = o->rope;
     bool32  can_start_crawl = !inps_btn(inp, INP_B) &&
-                             !h->spinattack &&
+                             h->spinattack <= 0 &&
                              !h->attack_tick &&
                              !o->rope &&
                              !h->holds_spear;
-    bool32 can_jump = !h->spinattack &&
-                      !h->attack_tick &&
-                      !h->b_hold_tick;
+    bool32 can_jump = h->spinattack <= 0;
     if (o->v_prev_q8.x == 0 && o->v_q8.x != 0) {
         o->animation = 0;
     }
 
-    if (h->stomp < 0) {
-        h->stomp++;
-    } else if (h->grabbing) {
+    if (h->grabbing) {
         obj_s *i = obj_from_obj_handle(h->obj_grabbed);
 
         if (inps_btn(inp, INP_B)) {
@@ -1264,15 +1406,16 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
         bool32 can_sprint          = !o->rope;
         bool32 can_start_sprinting = hero_ibuf_tap(h, INP_DL | INP_DR, 15) &&
                                      hero_ibuf_pressed(h, INP_DL | INP_DR, 2);
+
         if (!can_sprint) {
             h->sprint = 0;
         } else if (!h->sprint && can_start_sprinting) {
             h->sprint = 1;
 
-            if (dpad_x == -1) {
-                o->v_q8.x = min_i32(o->v_q8.x, -HERO_VX_WALK);
-            } else if (dpad_x == +1) {
-                o->v_q8.x = max_i32(o->v_q8.x, +HERO_VX_WALK);
+            switch (dpad_x) {
+            case -1: o->v_q8.x = min_i32(o->v_q8.x, -HERO_VX_WALK); break;
+            case +1: o->v_q8.x = max_i32(o->v_q8.x, +HERO_VX_WALK); break;
+            case +0: break;
             }
         }
 
@@ -1580,34 +1723,59 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
     h->n_jumpstomped = 0;
 
+    if (0 < h->stomp) {
+        rec_i32 rbot         = obj_rec_bottom(o);
+        bool32  grounded     = obj_grounded(g, o);
+        bool32  stomp_bounce = 0;
+
+        for (obj_each(g, i)) {
+            switch (i->ID) {
+            case OBJID_STOMPABLE_BLOCK: {
+                if (overlap_rec(rbot, obj_aabb(i))) {
+                    stompable_block_break(g, i);
+                    stomp_bounce = 1;
+                    bounced      = 1;
+                }
+                break;
+            }
+            case OBJID_CRUMBLEBLOCK: {
+                if (overlap_rec(rbot, obj_aabb(i))) {
+                    crumbleblock_break(g, i);
+                    stomp_bounce = 1;
+                    bounced      = 1;
+                }
+                break;
+            }
+            }
+        }
+
+        if (grounded || stomp_bounce) {
+            if (grounded) {
+                snd_play(SNDID_STOMP_LAND, 1.0f, 1.0f);
+                h->stomp = -HERO_STOMP_LANDING_TICKS;
+            }
+
+            v2_i32 pb = obj_pos_bottom_center(o);
+            h->hitID  = game_hero_hitID_next(g);
+
+            if (hero_has_upgrade(g, HERO_UPGRADE_POWERSTOMP)) {
+                hero_attackbox(g, hero_hitbox_powerstomp(o));
+                cam_screenshake_xy(&g->cam, 20, 0, 3);
+                objanim_create(g, pb, OBJANIMID_STOMP_L_STRONG);
+                objanim_create(g, pb, OBJANIMID_STOMP_R_STRONG);
+            } else {
+                hero_attackbox(g, hero_hitbox_stomp(o));
+                cam_screenshake_xy(&g->cam, 10, 0, 2);
+                objanim_create(g, pb, OBJANIMID_STOMP_L);
+                objanim_create(g, pb, OBJANIMID_STOMP_R);
+            }
+        }
+    }
+
     if (bounced) {
         o->v_q8.y = min_i32(o->v_q8.y, -1000);
         o->bumpflags &= ~OBJ_BUMP_Y_POS;
         h->stomp = 0;
-    }
-
-    if (h->stomp) {
-        rec_i32 rbot = obj_rec_bottom(o);
-        for (obj_each(g, i)) {
-            if (i->ID != OBJID_STOMPABLE_BLOCK) continue;
-            if (overlap_rec(rbot, obj_aabb(i))) {
-                stompable_block_on_destroy(g, i);
-                h->stomp  = 0;
-                o->v_q8.y = -750;
-                o->bumpflags &= ~OBJ_BUMP_Y_POS;
-                particle_emit_ID(g, PARTICLE_EMIT_ID_STOMPBLOCK_DESTROY,
-                                 obj_pos_bottom_center(o));
-                cam_screenshake_xy(&g->cam, 20, 0, 4);
-            }
-        }
-
-        if (obj_grounded(g, o)) {
-            cam_screenshake_xy(&g->cam, 10, 0, 4);
-            h->stomp  = -HERO_STOMP_LANDING_TICKS;
-            v2_i32 pb = obj_pos_bottom_center(o);
-            pb.y -= 4;
-            particle_emit_ID(g, PARTICLE_EMIT_ID_STOMP, pb);
-        }
     }
 
     v2_i32  hcenter  = obj_pos_center(o);
@@ -1621,6 +1789,8 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
             fluid_area_impact(fa, hcenter.x - fa->x, 12, imp, FLUID_AREA_IMPACT_COS);
         }
     }
+
+    minimap_try_visit_screen(g);
 
     // rope
     rope_s          *r  = o->rope;
@@ -1702,10 +1872,11 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
         switch (it->ID) {
         case OBJID_COIN: {
-            if (!overlap_rec(heroaabb, obj_aabb(it))) break;
-            coins_change(g, +1);
-            snd_play(SNDID_COIN, 1.f, 1.f);
-            obj_delete(g, it);
+            if (v2_i32_distancesq(hcenter, obj_pos_center(it)) < POW2(20)) {
+                coins_change(g, +1);
+                snd_play(SNDID_COIN, 1.f, 1.f);
+                obj_delete(g, it);
+            }
             break;
         }
         case OBJID_HERO_POWERUP: {
@@ -1721,7 +1892,6 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
             break;
         }
         case OBJID_PROJECTILE: projectile_on_collision(g, it); break;
-        case OBJID_FALLINGSTONE: fallingstone_burst(g, it); break;
         case OBJID_STALACTITE:
             if (it->flags & OBJ_FLAG_HURT_ON_TOUCH) {
                 stalactite_burst(g, it);

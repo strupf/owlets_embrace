@@ -36,6 +36,8 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         chest_load(g, o);
     } else if (str_eq_nc(o->name, "Fallingblock")) {
         fallingblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Fallingstone")) {
+        fallingstonespawn_load(g, o);
     } else if (str_eq_nc(o->name, "Light")) {
         light_load(g, o);
     } else if (str_eq_nc(o->name, "Ditherarea")) {
@@ -104,16 +106,25 @@ typedef struct {
     u16 y;
 } map_prop_tile_s;
 
-typedef struct map_header_s {
-    u32 hash;
-    u8  name[32];
-    u8  music[8];
-    i32 x;
-    i32 y;
+typedef struct {
+    u16 x;
+    u16 y;
     u16 w;
     u16 h;
-    u16 n_obj;
-    u16 n_prop;
+} map_entry_s;
+
+typedef struct map_header_s {
+    u32         hash;
+    u8          name[32];
+    u8          music[8];
+    i32         x;
+    i32         y;
+    u16         w;
+    u16         h;
+    u16         n_obj;
+    u8          n_prop;
+    u8          n_entries;
+    map_entry_s entries[16];
 } map_header_s;
 
 typedef struct {
@@ -239,6 +250,8 @@ void game_load_map(g_s *g, u32 map_hash)
     g->cam.has_trg      = 0;
     g->cam.trg_fade_q12 = 0;
     g->n_fluid_areas    = 0;
+    g->n_map_doors      = 0;
+    g->n_map_pits       = 0;
 
     // g->areaname.fadeticks = 1;
 
@@ -260,17 +273,41 @@ void game_load_map(g_s *g, u32 map_hash)
             break;
         }
     }
+    assert(g->map_room_cur);
 
     spm_push();
     map_header_s *hd = (map_header_s *)spm_alloc_aligned(wad_el->size, 4);
     pltf_file_r(f, hd, wad_el->size);
     map_properties_s mapp   = {(void *)(hd + 1), hd->n_prop};
     i32              areaID = map_prop_i32(mapp, "Area_ID");
+    i32              areafx = map_prop_i32(mapp, "ENV_VFX");
+
+    for (i32 n = 0; n < hd->n_entries; n++) {
+        map_door_s  *md = &g->map_doors[g->n_map_doors++];
+        map_entry_s *me = &hd->entries[n];
+        md->x           = me->x;
+        md->y           = me->y;
+        md->w           = me->w;
+        md->h           = me->h;
+    }
 
     tex_s *tbg = &APP->assets.tex[TEXID_BG_PARALLAX];
-    if (areaID == 7) {
-        tex_from_wad(f, 0, "T_BG001", game_allocator(g), tbg);
+
+    switch (areaID) {
+    default: break;
+    case 7: tex_from_wad(f, 0, "T_BG001", game_allocator(g), tbg); break; // forest
+    case 5: tex_from_wad(f, 0, "T_BG002", game_allocator(g), tbg); break; // case
+    case 3: tex_from_wad(f, 0, "T_BG003", game_allocator(g), tbg); break; // mountain
     }
+
+    i32 areafxID = 0;
+
+    switch (areafx) {
+    default: break;
+    case 1: areafxID = AFX_SNOW; break;
+    case 2: areafxID = AFX_HEAT; break;
+    }
+    area_setup(g, &g->area, areaID, areafxID);
 
     const i32 w = hd->w;
     const i32 h = hd->h;
@@ -286,7 +323,6 @@ void game_load_map(g_s *g, u32 map_hash)
     mcpy(g->musicname, hd->music, 8);
 
     prerender_area_label(g);
-    area_setup(g, &g->area, areaID);
     loader_load_terrain(g, f, wad_el, w, h);
     loader_load_bgauto(g, f, wad_el, w, h);
     loader_load_bg(g, f, wad_el, w, h);
@@ -405,6 +441,37 @@ void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
             }
             default: map_at_terrain(g, layer, x, y); break;
             }
+        }
+    }
+
+    // fill in bottomless pits
+    // pit = no solid tiles at the bottom but no valid door
+    i32 pit_started = 0, px1 = -1, pxw = -1;
+    for (i32 x = 0; x < w; x++) {
+        i32 ttshape = map_terrain_shape(tmem[x + (h - 1) * w]);
+        b32 issolid = (TILE_BLOCK <= ttshape && ttshape <= TILE_SLOPE_45_3);
+
+        for (i32 n = 0; n < g->n_map_doors; n++) {
+            map_door_s *md = &g->map_doors[n];
+            if (md->y == (h - 1) && md->x <= x && x < (md->x + md->w)) {
+                issolid |= 1;
+                break;
+            }
+        }
+
+        if (pit_started) {
+            if (issolid || x == (w - 1)) {
+                pit_started   = 0;
+                map_pit_s *mp = &g->map_pits[g->n_map_pits++];
+                mp->x         = px1;
+                mp->w         = pxw;
+            } else {
+                pxw++;
+            }
+        } else if (!issolid) {
+            pit_started = 1;
+            px1         = x;
+            pxw         = 1;
         }
     }
     spm_pop();

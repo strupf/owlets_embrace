@@ -95,7 +95,7 @@ void hero_powerup_draw(g_s *g, v2_i32 cam)
     const i32 T        = powerup_phase[pu->phase];
 
     spm_push();
-    tex_s ttmp = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, 1, spm_allocator2(), 0);
+    tex_s ttmp = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, 1, spm_allocator(), 0);
     tex_clr(ttmp, GFX_COL_CLEAR);
     gfx_ctx_s ctxtmp = gfx_ctx_default(ttmp);
 

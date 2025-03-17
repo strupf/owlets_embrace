@@ -145,6 +145,7 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
                     i->v_q8.y = -2000;
                     i->bumpflags &= ~OBJ_BUMP_Y_POS;
                     o->timer = 1;
+                    h->stomp = 0;
                 }
             }
             break;

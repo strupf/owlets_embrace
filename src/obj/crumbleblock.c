@@ -12,7 +12,7 @@ enum {
 };
 
 #define CRUMBLE_TICKS_BREAK   25
-#define CRUMBLE_TICKS_RESPAWN 100
+#define CRUMBLE_TICKS_RESPAWN 110
 #define CRUMBLE_PARTICLE_TIME 50
 
 void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
@@ -31,8 +31,10 @@ void crumbleblock_load(g_s *g, map_obj_s *mo)
     o->pos.y           = mo->y;
     o->w               = mo->w;
     o->h               = mo->h;
-    o->flags           = OBJ_FLAG_SOLID;
-    o->substate        = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
+    o->flags =
+        OBJ_FLAG_SOLID |
+        OBJ_FLAG_CLIMBABLE;
+    o->substate = map_obj_bool(mo, "Platform") ? TILE_ONE_WAY : TILE_BLOCK;
 }
 
 void crumbleblock_break(g_s *g, obj_s *o);
@@ -100,10 +102,6 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
         if (0 < o->timer) break;
 
         crumbleblock_break(g, o);
-        o->flags &= ~OBJ_FLAG_SOLID;
-        o->state    = CRUMBLE_STATE_RESPAWNING;
-        o->timer    = CRUMBLE_TICKS_RESPAWN;
-        o->subtimer = 1;
         cam_screenshake_xy(&g->cam, 16, 1, 1);
         break;
     }
@@ -121,8 +119,13 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
 
 void crumbleblock_break(g_s *g, obj_s *o)
 {
+    if (o->state == CRUMBLE_STATE_RESPAWNING) return;
     rec_i32 r = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
-    assert(o->state != CRUMBLE_STATE_IDLE);
+
+    o->flags &= ~OBJ_FLAG_SOLID;
+    o->state    = CRUMBLE_STATE_RESPAWNING;
+    o->timer    = CRUMBLE_TICKS_RESPAWN;
+    o->subtimer = 1;
 
     for (obj_each(g, i)) {
         if (i->ID == OBJID_CRUMBLEBLOCK &&
@@ -185,7 +188,7 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         spm_push();
         i32   wend = o->w + 16;
         i32   hend = o->h + 16;
-        tex_s tmp  = tex_create(wend, hend, 1, spm_allocator2(), 0);
+        tex_s tmp  = tex_create(wend, hend, 1, spm_allocator(), 0);
         tex_clr(tmp, GFX_COL_CLEAR);
 
         // render block to temporary texture
@@ -214,7 +217,7 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         spm_push();
         i32   wend = o->w + 16;
         i32   hend = o->h + 16;
-        tex_s tmp  = tex_create(wend, hend, 1, spm_allocator2(), 0);
+        tex_s tmp  = tex_create(wend, hend, 1, spm_allocator(), 0);
         tex_clr(tmp, GFX_COL_CLEAR);
 
         // render block to temporary texture

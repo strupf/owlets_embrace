@@ -110,7 +110,6 @@ void flyblob_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case FLYBLOB_STATE_IDLE: {
-        if (o->enemy.hurt_tick) break;
         if (dsq_hero < FLYBLOB_AIR_TRIGGER_DSQ) {
             o->state = FLYBLOB_STATE_AGGRESSIVE;
             o->timer = 0;
@@ -121,8 +120,6 @@ void flyblob_on_update(g_s *g, obj_s *o)
         break;
     }
     case FLYBLOB_STATE_AGGRESSIVE: {
-        if (o->enemy.hurt_tick) break;
-
         if (ohero) {
             i32 s = sgn_i32(vhero.x);
             if (s != 0) {
@@ -132,18 +129,6 @@ void flyblob_on_update(g_s *g, obj_s *o)
         if (f->attack_tick) {
             f->attack_tick++;
             if (f->attack_tick == FLYBLOB_ATTACK_TICKS / 3) {
-                hitbox_s hb   = {0};
-                hb.damage     = 1;
-                hb.r.w        = 32;
-                hb.r.h        = 32;
-                hb.r.y        = o->pos.y - 8;
-                hb.force_q8.x = o->facing * 1000;
-                if (o->facing == 1) {
-                    hb.r.x = o->pos.x + o->w;
-                } else {
-                    hb.r.x = o->pos.x - hb.r.w;
-                }
-                obj_game_enemy_attackboxes(g, &hb, 1);
             }
             if (FLYBLOB_ATTACK_TICKS <= f->attack_tick) {
                 f->attack_tick = 0;

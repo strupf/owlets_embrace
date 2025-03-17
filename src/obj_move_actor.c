@@ -140,12 +140,12 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
         }
     }
 
-    if (o->ID == OBJID_HERO) {
+    if (o->ID == OBJID_HERO && 0 < sy) {
         // check hero jumping on objects
         rec_i32 rstomp = {ro.x - HERO_W_STOMP_ADD_SYMM,
-                          ro.y,
+                          ro.y + ro.h - 1,
                           ro.w + HERO_W_STOMP_ADD_SYMM * 2,
-                          ro.h};
+                          1};
 
         for (obj_each(g, i)) {
             if (i == o || !(i->flags & OBJ_FLAG_HERO_JUMPSTOMPABLE))

@@ -9,55 +9,37 @@
 #include "save.h"
 #include "textinput.h"
 
-#define TITLE_SKIP_TO_GAME 0
+typedef struct app_s app_s;
 
-// mainmenu state machine
-enum {
-    TITLE_ST_PRESS_START, // title screen
-    //
-    TITLE_ST_FILE_SELECT,
-    TITLE_ST_FILE_SELECTED,
-    TITLE_ST_FILE_CPY,
-    TITLE_ST_FILE_CPY_CONFIRM,
-    TITLE_ST_FILE_DEL_CONFIRM,
-    TITLE_ST_FILE_NEW,
-    TITLE_ST_FILE_START,
-    //
-    TITLE_ST_OPTIONS,
-};
-
-enum {
-    TITLE_F_START,
-    TITLE_F_CPY,
-    TITLE_F_DEL
-};
+#define TITLE_SKIP_TO_GAME 1
 
 typedef struct {
     b32 exists;
-    u32 tick;
+    i32 tick;
     u8  name[LEN_HERO_NAME];
-    u8  map_file[32];
+    u8  map_name[32];
 } save_preview_s;
 
 typedef struct title_s {
-    u32            state_tick;
-    u32            timer;
-    u16            state;
-    u16            state_prev;
-    i16            option;
-    u16            fade;
-    u16            fade_0;
-    u16            selected;
-    u16            copy_to;
-    u16            msg_tick;
+    i32            select_anim;
+    i32            tick;
+    u8             state;
+    u8             state_prev;
+    u8             option;
+    u8             selected;
+    u8             copy_to;
+    u8             confirm_tick;
     //
     save_preview_s saves[3];
     textinput_s    tinput;
-    char           msg[64];
+    v2_i32         pos_comp_target;
+    v2_i32         pos_comp_q8;
+    v2_i32         v_comp_q8;
 } title_s;
 
 void title_init(title_s *t);
-void title_update(g_s *g, title_s *t);
+void title_update(app_s *app, title_s *t);
 void title_render(title_s *t);
+void title_start_game(app_s *app, i32 slot);
 
 #endif

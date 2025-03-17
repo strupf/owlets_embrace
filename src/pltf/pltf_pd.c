@@ -28,6 +28,7 @@ typedef struct {
     PDButtons      b;
     bool32         acc_active;
     PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
+    LCDBitmap     *menubm;
 } PD_s;
 
 static PD_s g_PD;
@@ -66,6 +67,8 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_file_write               = PD->file->write;
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD_system_realloc           = PD->system->realloc;
+
+        g_PD.menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
         PD->display->setRefreshRate(0.f);
         PD->system->resetElapsedTime();
 
@@ -80,6 +83,7 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
     }
     case kEventTerminate:
         PD->sound->removeSource(g_PD.soundsource);
+        PD->graphics->freeBitmap(g_PD.menubm);
         pltf_internal_close();
         break;
     case kEventPause:
@@ -139,6 +143,15 @@ u32 pltf_pd_btn()
     PDButtons b = (PDButtons)((i32)g_PD.b | (i32)cur);
     g_PD.b      = cur;
     return (u32)b;
+}
+
+void pltf_internal_set_fps(f32 fps)
+{
+    if (50.f <= fps) {
+        PD->display->setRefreshRate(0.f);
+    } else {
+        PD->display->setRefreshRate(fps);
+    }
 }
 
 // BACKEND =====================================================================
@@ -244,6 +257,7 @@ PD_menu_item_s *pltf_pd_try_menu_add(void (*func)(void *ctx, i32 opt), void *ctx
         if (i->type == PD_MENU_ITEM_NONE) {
             i->func = func;
             i->ctx  = ctx;
+            pltf_log("added\n");
             return i;
         }
     }
@@ -275,8 +289,11 @@ void *pltf_pd_menu_add(const char *title,
     PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
     if (!i) return 0;
 
-    i->type  = PD_MENU_ITEM_SIMPLE;
+    pltf_log("setup\n");
+    i->type = PD_MENU_ITEM_SIMPLE;
+    pltf_log("API\n");
     i->itemp = PD->system->addMenuItem(title, pltf_pd_menu_cb, (void *)i);
+    pltf_log("ret\n");
     return i;
 }
 
@@ -314,4 +331,30 @@ void pltf_pd_menu_clr()
 {
     PD->system->removeAllMenuItems();
     mclr(g_PD.menu_items, sizeof(g_PD.menu_items));
+}
+
+void pltf_pd_menu_image_put(i32 offx)
+{
+    PD->system->setMenuImage(g_PD.menubm, offx);
+}
+
+void pltf_pd_menu_image_del()
+{
+}
+
+void pltf_pd_menu_image_upd(u32 *p, i32 ww, i32 w, i32 h)
+{
+    int bw, bh, bb;
+    u8 *mk = 0;
+    u8 *px = 0;
+    PD->graphics->getBitmapData(g_PD.menubm, &bw, &bh, &bb, &mk, &px);
+
+    i32 y2 = h < bh ? h : bh;
+    i32 x2 = (ww << 2) < bb ? (ww << 2) : bb;
+
+    for (i32 y = 0; y < y2; y++) {
+        for (i32 x = 0; x < x2; x++) {
+            px[x + y * bb] = ((u8 *)p)[x + ((y * ww) << 2)];
+        }
+    }
 }

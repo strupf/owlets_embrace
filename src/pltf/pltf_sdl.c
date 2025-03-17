@@ -5,15 +5,6 @@
 #include "pltf_sdl.h"
 #include "pltf.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
-#ifdef __EMSCRIPTEN__
-#define PLTF_SDL_WEB 1
-#else
-#define PLTF_SDL_WEB 0
-#endif
 #define PLTF_SDL_SCALE_LAUNCH   1
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
@@ -37,7 +28,7 @@ typedef_struct (pltf_sdl_s) {
     i32               fps_tick;
     i32               fps_tick_prev;
     b32               running;
-    u32               fps_cap;
+    f32               fps_cap;
     f32               fps_cap_dt;
     f32               delay_timer;
     f32               delay_timer_k;
@@ -70,7 +61,7 @@ pltf_sdl_s g_SDL;
 void pltf_sdl_input_flush();
 void pltf_sdl_step();
 void pltf_sdl_resize();
-void pltf_sdl_set_FPS_cap(i32 fps);
+void pltf_set_fps(f32 fps);
 void pltf_sdl_audio(void *u, u8 *stream, int len);
 
 int main(int argc, char **argv)
@@ -87,7 +78,7 @@ int main(int argc, char **argv)
 #if PLTF_SDL_RECORD_1080P
                                     1920,
                                     1080,
-#elif defined(__EMSCRIPTEN__)
+#elif PLTF_SDL_WEB
                                     PLTF_DISPLAY_W,
                                     PLTF_DISPLAY_H,
 #else
@@ -125,7 +116,7 @@ int main(int argc, char **argv)
 
     // -------------------------------------------------------------------------
     // RUN
-
+    pltf_set_fps(120.f);
     g_SDL.timeorigin = SDL_GetPerformanceCounter();
     i32 res          = pltf_internal_init();
     if (res == 0) {
@@ -154,11 +145,9 @@ int main(int argc, char **argv)
         g_SDL.time_prev = (u64)SDL_GetPerformanceCounter();
         pltf_sdl_resize();
 
-#ifdef __EMSCRIPTEN__
+#if PLTF_SDL_WEB
         emscripten_set_main_loop(pltf_sdl_step, 0, 1);
 #else
-        pltf_sdl_set_FPS_cap(120);
-
         while (g_SDL.running) {
             pltf_sdl_step();
         }
@@ -282,9 +271,11 @@ void pltf_sdl_step()
     SDL_RenderClear(g_SDL.renderer);
     SDL_RenderCopy(g_SDL.renderer, g_SDL.tex, &g_SDL.r_src, &g_SDL.r_dst);
     SDL_RenderPresent(g_SDL.renderer);
+    static i32 fps = 0;
+    fps++;
 
-#ifndef __EMSCRIPTEN__
-    if (!g_SDL.fps_cap) return;
+#if !PLTF_SDL_WEB
+    if (g_SDL.fps_cap <= 1.f) return;
 
     // custom FPS cap solution in SDL
     // try to sleep for the desired amount of time
@@ -295,9 +286,10 @@ void pltf_sdl_step()
     u64 one_s = (u64)SDL_GetPerformanceFrequency();
 
     if (one_s <= g_SDL.fps_timer) {
+        fps = 0;
         g_SDL.fps_timer -= one_s;
         f32 avg_fps  = (f32)(g_SDL.fps_tick + g_SDL.fps_tick_prev) * 0.5f;
-        f32 diff     = avg_fps - (f32)g_SDL.fps_cap;
+        f32 diff     = avg_fps - g_SDL.fps_cap;
         f32 diff_abs = 0.f <= diff ? diff : -diff;
         f32 k_change = 0.f;
 
@@ -345,17 +337,17 @@ void pltf_sdl_resize()
     pltf_sync_timestep();
 }
 
-void pltf_sdl_set_FPS_cap(i32 fps)
+void pltf_set_fps(f32 fps)
 {
-    if (fps <= 0) {
-        g_SDL.fps_cap     = 0;
-        g_SDL.fps_cap_dt  = 0.f;
-        g_SDL.delay_timer = 0.f;
-        return;
-    }
+    pltf_internal_set_fps(fps);
+}
+
+void pltf_internal_set_fps(f32 fps)
+{
+    f32 fps_cap         = fps < 1.f ? 120.f : fps;
     g_SDL.delay_timer_k = 1000.f; // 1000 milliseconds starting value
-    g_SDL.fps_cap       = fps;
-    g_SDL.fps_cap_dt    = 1.f / (f32)fps;
+    g_SDL.fps_cap       = fps_cap;
+    g_SDL.fps_cap_dt    = 1.f / fps_cap;
 }
 
 // stream is an interlaced byte buffer: LLRRLLRRLL...
@@ -393,10 +385,10 @@ void pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), void (*char_de
 
 void pltf_sdl_txt_inp_clr_cb()
 {
-    g_SDL.char_add  = NULL;
-    g_SDL.char_del  = NULL;
-    g_SDL.close_inp = NULL;
-    g_SDL.ctx       = NULL;
+    g_SDL.char_add  = 0;
+    g_SDL.char_del  = 0;
+    g_SDL.close_inp = 0;
+    g_SDL.ctx       = 0;
 }
 
 // BACKEND =====================================================================

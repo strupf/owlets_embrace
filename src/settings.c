@@ -7,74 +7,71 @@
 #include "pltf/pltf.h"
 
 typedef struct {
+    ALIGNAS(4)
     u32 version;
     u16 checksum;
     u8  unused[2];
 } settings_header_s;
 
+static_assert(sizeof(settings_header_s) == 8, "size settings header");
+
 #define SETTINGS_FILE_NAME "settings.bin"
 
 settings_s SETTINGS;
 
-void settings_load_default();
-
-i32 settings_load()
+err32 settings_load(settings_s *s)
 {
-#if PLTF_DEBUG && 0 // just load and override default settings for dev purposes
-    settings_load_default();
+#if PLTF_DEBUG && 1 // just load and override default settings for dev purposes
+    settings_default(s);
     return 0;
-#else
-    settings_header_s h   = {0};
-    i32               res = 0;
-
+#endif
     void *f = pltf_file_open_r(SETTINGS_FILE_NAME);
-    if (!f) {
-        res |= SETTINGS_ERR_OPEN;
-        goto RET;
-    }
+    if (!f) return SETTINGS_ERR_OPEN;
 
-    if (!pltf_file_rs(f, &h, sizeof(settings_header_s))) {
-        res |= SETTINGS_ERR_RW;
-        goto CLOSEF;
-    }
+    settings_header_s h   = {0};
+    err32             res = 0;
+    if (pltf_file_r_checked(f, &h, sizeof(settings_header_s))) {
+        switch (h.version) {
+        case GAME_VERSION: {
+            if (pltf_file_r_checked(f, s, sizeof(settings_s))) {
+                res |= SETTINGS_ERR_RW;
+                break;
+            }
 
-    switch (h.version) {
-    case GAME_VERSION:
-        if (pltf_file_rs(f, &SETTINGS, sizeof(settings_s))) {
-            if (h.checksum != crc16(&SETTINGS, sizeof(settings_s))) {
+            if (h.checksum != crc16(s, sizeof(settings_s))) {
                 res |= SETTINGS_ERR_CHECKSUM;
             }
-        } else {
-            res |= SETTINGS_ERR_RW;
+            break;
         }
-        break;
-    default: // reading unsupported file
-        res |= SETTINGS_ERR_VERSION;
-        break;
+
+        default: { // reading unsupported file
+            res |= SETTINGS_ERR_VERSION;
+            break;
+        }
+        }
+    } else {
+        res |= SETTINGS_ERR_RW;
+        settings_default(s);
     }
 
-CLOSEF:;
     if (!pltf_file_close(f)) {
         res |= SETTINGS_ERR_CLOSE;
     }
-RET:;
-    if (res) {
-        settings_load_default();
-    }
     return res;
-#endif
 }
 
-i32 settings_save()
+err32 settings_save(settings_s *s)
 {
     void *f = pltf_file_open_w(SETTINGS_FILE_NAME);
     if (!f) return SETTINGS_ERR_OPEN;
 
-    i32               res = 0;
-    settings_header_s h   = {GAME_VERSION,
-                             crc16(&SETTINGS, sizeof(settings_s))};
-    if (!pltf_file_ws(f, &h, sizeof(settings_header_s)) ||
-        !pltf_file_ws(f, &SETTINGS, sizeof(settings_s))) {
+    err32             res = 0;
+    settings_header_s h   = {0};
+    h.version             = GAME_VERSION;
+    h.checksum            = crc16(s, sizeof(settings_s));
+
+    if (!pltf_file_w_checked(f, &h, sizeof(settings_header_s)) ||
+        !pltf_file_w_checked(f, s, sizeof(settings_s))) {
         res |= SETTINGS_ERR_RW;
     }
 
@@ -84,14 +81,12 @@ i32 settings_save()
     return res;
 }
 
-void settings_load_default()
+void settings_default(settings_s *s)
 {
-    settings_s *s = &SETTINGS;
     mclr(s, sizeof(settings_s));
+    s->mode              = SETTINGS_MODE_NORMAL;
     s->shake_smooth      = SETTINGS_SHAKE_SMOOTH_MAX / 2;
     s->shake_sensitivity = SETTINGS_SHAKE_SENS_MAX / 2;
     s->vol_mus           = SETTINGS_VOL_MAX;
     s->vol_sfx           = SETTINGS_VOL_MAX;
-    s->ticks_hook_hold   = SETTINGS_TICKS_HOOK_CONTROL;
-    s->hook_mode         = HERO_HOOK_B_TIMED;
 }

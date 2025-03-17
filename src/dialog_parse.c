@@ -179,7 +179,7 @@ i32 dialog_conv_hex(i32 c1, i32 c2)
 
 void dialog_set_speed(dialog_parser_s *p, i32 ticks)
 {
-    p->flags_ticks = (p->flags_ticks & ~0xF) | (ticks && 0xF);
+    p->flags_ticks = (p->flags_ticks & ~0xF) | (ticks & 0xF);
 }
 
 bool32 dialog_str_equals(u8 *c, const char *strc)

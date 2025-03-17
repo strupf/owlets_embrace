@@ -72,9 +72,10 @@ void stompable_block_load(g_s *g, map_obj_s *mo)
     i32 saveID = map_obj_i32(mo, "saveID");
     if (save_event_exists(g, saveID)) return;
 
-    obj_s *o             = obj_create(g);
-    o->ID                = OBJID_STOMPABLE_BLOCK;
-    o->flags             = OBJ_FLAG_SOLID;
+    obj_s *o = obj_create(g);
+    o->ID    = OBJID_STOMPABLE_BLOCK;
+    o->flags = OBJ_FLAG_SOLID |
+               OBJ_FLAG_CLIMBABLE;
     o->on_draw           = stompable_block_on_draw;
     o->on_update         = stompable_block_on_update;
     o->render_priority   = RENDER_PRIO_INFRONT_TERRAIN_LAYER - 1;
@@ -88,15 +89,16 @@ void stompable_block_load(g_s *g, map_obj_s *mo)
 
 void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
-    gfx_ctx_s ctx = gfx_ctx_display();
-    i32       nx  = o->w >> 4;
-    i32       ny  = o->h >> 4;
-    v2_i32    p   = v2_i32_add(o->pos, cam);
+    gfx_ctx_s ctx       = gfx_ctx_display();
+    i32       nx        = o->w >> 4;
+    i32       ny        = o->h >> 4;
+    v2_i32    p         = v2_i32_add(o->pos, cam);
+    i32       tile_type = o->w < o->h ? TILE_TYPE_BRIGHT_STOMP_HOR : TILE_TYPE_BRIGHT_STOMP;
 
     switch (o->state) {
     case STOMPABLEBLOCK_IDLE: {
-        i32 tID = TILE_TYPE_BRIGHT_STOMP;
-        if (o->timer && ((o->timer >> 2) & 1))
+        i32 tID = tile_type;
+        if (o->w >= o->h && o->timer && ((o->timer >> 2) & 1))
             tID++;
         render_tile_terrain_block(ctx, p, nx, ny, tID);
         break;
@@ -119,7 +121,7 @@ void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         for (i32 ty = 0; ty < ny; ty++) {
             for (i32 tx = 0; tx < nx; tx++) {
                 i32 k = tileindex_terrain_block(nx, ny,
-                                                TILE_TYPE_BRIGHT_STOMP,
+                                                tile_type,
                                                 tx, ty);
 
                 // subdivide each tile in 4 subtile particles
@@ -188,9 +190,10 @@ void stompable_block_on_update(g_s *g, obj_s *o)
     }
 }
 
-void stompable_block_on_destroy(g_s *g, obj_s *o)
+void stompable_block_break(g_s *g, obj_s *o)
 {
     if (o->state != STOMPABLEBLOCK_IDLE) return;
+
     stompable_block_s *b = (stompable_block_s *)o->mem;
     save_event_register(g, b->saveID);
     o->state = STOMPABLEBLOCK_BREAKING;

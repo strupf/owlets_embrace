@@ -23,7 +23,7 @@ void inp_update()
     INP.previ      = INP.curri;
     inp_state_s *i = &INP.curri;
     mclr(i, sizeof(inp_state_s));
-#ifdef PLTF_PD
+#if PLTF_PD
     i->actions = pltf_pd_btn() & B8(00111111);
 
     if (pltf_pd_crank_docked()) i->actions |= INP_CRANK_DOCK;
@@ -75,6 +75,7 @@ void inp_update()
                     (f32)SETTINGS_SHAKE_SENS_MAX;
     if (threshold <= (dx * dx + dy * dy + dz * dz)) {
         i->actions |= INP_SHAKE;
+        pltf_log("SHAKE");
     }
 }
 

@@ -2,6 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "app.h"
 #include "game.h"
 #include "hero.h"
 
@@ -301,60 +302,126 @@ bool32 hero_ibuf_pressed(hero_s *h, i32 b, i32 frames_ago)
     return 0;
 }
 
-void ui_itemswap_start(g_s *g)
+hitbox_s hero_hitbox_spear(obj_s *o)
 {
-    ui_itemswap_s *u = &g->ui_itemswap;
-    u->progress      = 1;
-    u->started       = 1;
-    if (u->ticks_out) {
-        u->ticks_in  = 1;
-        u->ticks_out = 0;
+    hero_s  *h  = (hero_s *)o->heap;
+    hitbox_s hb = {0};
+    hb.hitID    = h->hitID;
+    hb.damage   = 1;
+    hb.r.w      = 64;
+    hb.r.h      = 40;
+    hb.r.x      = o->pos.x + o->w / 2;
+    hb.r.y      = o->pos.y - 12;
+    if (o->facing < 0) {
+        hb.r.x -= hb.r.w;
+    }
+
+    i32 hbx = hb.r.x + APP->game.cam_prev.x;
+    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
+    return hb;
+}
+
+hitbox_s hero_hitbox_spear_air(obj_s *o)
+{
+    hero_s  *h  = (hero_s *)o->heap;
+    hitbox_s hb = {0};
+    hb.hitID    = h->hitID;
+    hb.damage   = 1;
+    hb.r.w      = 50;
+    hb.r.h      = 50;
+    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
+    hb.r.y      = o->pos.y + (o->h - hb.r.h) / 2 - 10;
+
+    i32 hbx = hb.r.x + APP->game.cam_prev.x;
+    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
+    return hb;
+}
+
+hitbox_s hero_hitbox_spinattack(obj_s *o)
+{
+    hero_s  *h  = (hero_s *)o->heap;
+    hitbox_s hb = {0};
+    hb.hitID    = h->hitID;
+    hb.damage   = 1;
+    hb.r.w      = 50;
+    hb.r.h      = HERO_HEIGHT;
+    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
+    hb.r.y      = o->pos.y;
+
+    i32 hbx = hb.r.x + APP->game.cam_prev.x;
+    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
+    return hb;
+}
+
+hitbox_s hero_hitbox_stomp(obj_s *o)
+{
+    hero_s  *h  = (hero_s *)o->heap;
+    hitbox_s hb = {0};
+    hb.hitID    = h->hitID;
+    hb.damage   = 1;
+    hb.r.w      = 60;
+    hb.r.h      = HERO_HEIGHT + 16;
+    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
+    hb.r.y      = o->pos.y - 8;
+
+    i32 hbx = hb.r.x + APP->game.cam_prev.x;
+    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
+    return hb;
+}
+
+hitbox_s hero_hitbox_powerstomp(obj_s *o)
+{
+    hero_s  *h  = (hero_s *)o->heap;
+    hitbox_s hb = {0};
+    hb.hitID    = h->hitID;
+    hb.damage   = 2;
+    hb.r.w      = 100;
+    hb.r.h      = HERO_HEIGHT + 32;
+    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
+    hb.r.y      = o->pos.y - 24;
+    hb.flags    = HITBOX_FLAG_POWERSTOMP;
+
+    i32 hbx = hb.r.x + APP->game.cam_prev.x;
+    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
+    return hb;
+}
+
+void hero_itemswap_cancel(obj_s *o)
+{
+    hero_s *h        = (hero_s *)o->heap;
+    h->hook_aim_mode = 0;
+    if (h->item_swap_tick) {
+        h->item_swap_tick_saved = h->item_swap_tick;
+        h->item_swap_tick       = 0;
+        h->item_swap_fade       = -HERO_ITEMSWAP_TICKS_FADE;
     }
 }
 
-void ui_itemswap_set_progress(g_s *g, i32 p)
+void hero_aim_abort(obj_s *o)
 {
-    ui_itemswap_s *u = &g->ui_itemswap;
-    if (u->started) {
-        u->progress = p;
-        if (u->ticks_out) {
-            u->ticks_in  = 1;
-            u->ticks_out = 0;
-        }
-    }
+    hero_s *h        = (hero_s *)o->heap;
+    h->hook_aim_mode = 0;
 }
 
-void ui_itemswap_exit(g_s *g)
+i32 hero_aim_angle_conv(i32 crank_q16)
 {
-    ui_itemswap_s *u = &g->ui_itemswap;
-    if (u->started) {
-        u->started = 0;
-        if (u->progress < UI_ITEMSWAP_TICKS_POP_UP) {
-            u->ticks_out = 0;
-            u->progress  = 0;
-        } else if (!u->ticks_out) {
-            u->ticks_out = 1;
-        }
-    }
+    return (65535 - crank_q16);
 }
 
-void ui_itemswap_update(g_s *g)
+i32 hero_aim_throw_strength(obj_s *o)
 {
-    ui_itemswap_s *u = &g->ui_itemswap;
-    if (u->progress) {
-        u->ticks_in = u8_adds(u->ticks_in, 1);
-    } else {
-        u->ticks_in = 0;
-    }
+    hero_s *h     = (hero_s *)o->heap;
+    i32     t_off = (HERO_AIM_STR_TICKS_PERIOD * HERO_AIM_THROW_STR_OFF_Q4) >> 4;
 
-    if (u->ticks_out) {
-        u->ticks_out++;
-
-        if (UI_ITEMSWAP_TICKS_FADE <= u->ticks_out) {
-            u->ticks_out = 0;
-            u->progress  = 0;
-            u->ticks_in  = 0;
-            u->started   = 0;
-        }
+    i32 t = (t_off + h->hook_aim_mode_tick) % HERO_AIM_STR_TICKS_PERIOD;
+    if (HERO_AIM_STR_TICKS_PERIOD <= (t << 1)) {
+        t = HERO_AIM_STR_TICKS_PERIOD - t;
     }
+    return lerp_i32(HERO_AIM_THROW_STR_MIN, HERO_AIM_THROW_STR_MAX,
+                    t << 1, HERO_AIM_STR_TICKS_PERIOD);
 }

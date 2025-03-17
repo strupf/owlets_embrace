@@ -19,7 +19,7 @@ enum {
 };
 
 typedef struct {
-    u32 n_entries;
+    i32 n_entries;
     u32 version;
 } wad_header_s;
 
@@ -43,6 +43,8 @@ typedef struct {
     u8  filename[28];
 } wad_file_info_s;
 
+static_assert(sizeof(wad_file_info_s) == 32, "Size WAD finfo");
+
 typedef struct {
     i32             n_files;
     i32             n_entries;
@@ -52,7 +54,7 @@ typedef struct {
 
 // initializes a file to be used as a wad
 // returns wad error code
-i32 wad_init_file(const void *filename);
+err32 wad_init_file(const void *filename);
 
 // finds a wad entry
 // if passed efrom: returns an entry only if found in the same file

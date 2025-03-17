@@ -8,6 +8,10 @@
 
 void game_tick_gameplay(g_s *g);
 
+typedef struct {
+    i32 n_rooms;
+} map_world_s;
+
 void game_init(g_s *g)
 {
     g->obj_head_free = &g->obj_raw[0];
@@ -18,12 +22,29 @@ void game_init(g_s *g)
         }
     }
     marena_init(&g->memarena, g->mem, sizeof(g->mem));
+    wad_el_s   *we = 0;
+    void       *f  = wad_open_str("WORLD", 0, &we);
+    map_world_s mw = {0};
+    pltf_file_r(f, &mw, sizeof(map_world_s));
 
-    wad_el_s *we   = 0;
-    void     *f    = wad_open_str("WORLD", 0, &we);
-    g->n_map_rooms = we->size / sizeof(map_room_s);
-    g->map_rooms   = app_alloctn(map_room_s, g->n_map_rooms);
-    pltf_file_r(f, g->map_rooms, we->size);
+    g->n_map_rooms = 0;
+    g->map_rooms   = app_alloctn(map_room_s, mw.n_rooms);
+
+    for (i32 k = 0; k < mw.n_rooms; k++) {
+        map_room_wad_s mrw = {0};
+        pltf_file_r(f, &mrw, sizeof(map_room_wad_s));
+
+        map_room_s mr = {0};
+        mr.hash       = mrw.hash;
+        mr.x          = mrw.x;
+        mr.y          = mrw.y;
+        mr.w          = mrw.w;
+        mr.h          = mrw.h;
+        mr.t          = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
+        pltf_file_r(f, mr.t.px, sizeof(u32) * mr.t.wword * mr.t.h);
+
+        g->map_rooms[g->n_map_rooms++] = mr;
+    }
     pltf_file_close(f);
 }
 
@@ -31,6 +52,7 @@ void game_tick(g_s *g)
 {
 #if PLTF_DEV_ENV
     i32 ab = -1;
+#if 0
     if (pltf_sdl_jkey(SDL_SCANCODE_0)) ab = 0;
     if (pltf_sdl_jkey(SDL_SCANCODE_1)) ab = 1;
     if (pltf_sdl_jkey(SDL_SCANCODE_2)) ab = 2;
@@ -41,6 +63,7 @@ void game_tick(g_s *g)
     if (pltf_sdl_jkey(SDL_SCANCODE_7)) ab = 7;
     if (pltf_sdl_jkey(SDL_SCANCODE_8)) ab = 8;
     if (pltf_sdl_jkey(SDL_SCANCODE_9)) ab = 9;
+#endif
     if (0 <= ab) {
         if (8 <= ab) {
             i32 dt                   = ab == 8 ? -1 : +1;
@@ -75,6 +98,11 @@ void game_tick(g_s *g)
     } else {
     }
 
+    if (g->minimap.opened) {
+        tick_gp = 0;
+        minimap_update(g);
+    }
+
     g->tick_animation++;
     if (tick_gp) {
         g->tick++;
@@ -96,27 +124,7 @@ void game_tick(g_s *g)
         break;
     }
 
-    cam_update(g, &g->cam);
-    g->cam_prev_world = cam_pos_px_top_left(g, &g->cam);
-
-    // save animation
-    if (g->save_ticks) {
-        g->save_ticks++;
-        if (SAVE_TICKS <= g->save_ticks) {
-            g->save_ticks = 0;
-        }
-    }
-
-    // every other tick to save some CPU cycles;
-    // split between even and uneven frames
-    if (g->tick & 1) {
-        grass_animate(g);
-    } else {
-        deco_verlet_animate(g);
-    }
-
-    particle_sys_update(g);
-    area_update(g, &g->area);
+    game_anim(g);
 }
 
 void game_tick_gameplay(g_s *g)
@@ -124,11 +132,14 @@ void game_tick_gameplay(g_s *g)
     g->n_hitbox_tmp = 0;
     g->events_frame = 0;
 
+    // minimap_open(g);
     boss_update(g, &g->boss);
     battleroom_on_update(g);
-    areafx_snow_update(g, &g->area.fx.snow);
-    areafx_rain_update(g, &g->area.fx.rain);
-    areafx_heat_update(g, &g->area.fx.heat);
+
+    switch (g->area.fx_type) {
+    case AFX_SNOW: areafx_snow_update(g, &g->area.fx.snow); break;
+    case AFX_HEAT: areafx_heat_update(g, &g->area.fx.heat); break;
+    }
 
     obj_s *ohero = obj_get_hero(g);
     if (ohero) {
@@ -143,8 +154,46 @@ void game_tick_gameplay(g_s *g)
     }
 
     for (obj_each(g, o)) {
-        o->v_prev_q8 = o->v_q8;
-        if (o->on_update) {
+        o->v_prev_q8     = o->v_q8;
+        bool32 do_update = 1;
+
+        if (o->flags & OBJ_FLAG_ENEMY) {
+            enemy_s *enemy = &o->enemy;
+            do_update      = (enemy->hurt_tick == 0);
+
+            if (0 < enemy->hurt_tick) {
+                enemy->hurt_tick--;
+            }
+            if (enemy->hurt_tick < 0) {
+                enemy->hurt_tick++;
+
+                switch (-enemy->hurt_tick) {
+                case 7: {
+                    snd_play(SNDID_ENEMY_EXPLO, 1.f, rngr_f32(0.9f, 1.1f));
+                    break;
+                }
+                case 4: {
+                    v2_i32 pos = obj_pos_center(o);
+                    objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
+                    break;
+                }
+                case 0: {
+                    v2_i32 pos = obj_pos_center(o);
+                    for (i32 n = 0; n < 5; n++) {
+                        obj_s *ocoin  = coin_create(g);
+                        ocoin->pos.x  = pos.x - (ocoin->w >> 1);
+                        ocoin->pos.y  = pos.y - (ocoin->h >> 1) - 10;
+                        ocoin->v_q8.y = -rngr_i32(1000, 1500);
+                        ocoin->v_q8.x = rngr_sym_i32(300);
+                    }
+                    obj_delete(g, o);
+                    break;
+                }
+                }
+            }
+        }
+
+        if (do_update && o->on_update) {
             o->on_update(g, o);
         }
     }
@@ -183,28 +232,6 @@ void game_tick_gameplay(g_s *g)
                 continue;
             o->ignored_solids[n] = o->ignored_solids[--o->n_ignored_solids];
         }
-
-        if (o->enemy.die_tick) {
-            o->enemy.die_tick--;
-            if (o->enemy.die_tick == 2) {
-                // snd_play(SNDID_ENEMY_EXPLO, 4.f, 1.f);
-            }
-            if (o->enemy.die_tick == 0) {
-                v2_i32 pos = obj_pos_center(o);
-                objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
-                obj_delete(g, o);
-            }
-        }
-        if (o->enemy.hurt_tick) {
-            o->enemy.hurt_tick--;
-        }
-        if (o->enemy.hurt_tick || o->enemy.die_tick) {
-            o->enemy.hurt_shake_offs.x = rngr_sym_i32(3);
-            o->enemy.hurt_shake_offs.y = rngr_sym_i32(3);
-        } else {
-            o->enemy.hurt_shake_offs.x = 0;
-            o->enemy.hurt_shake_offs.y = 0;
-        }
     }
 
     for (i32 n = 0; n < g->n_fluid_areas; n++) {
@@ -221,11 +248,11 @@ void game_tick_gameplay(g_s *g)
         }
     }
     objs_cull_to_delete(g);
-    objs_animate(g);
     coins_update(g);
+    objs_animate(g);
 
     if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick       = max_i32(g->freeze_tick, 4);
+        g->freeze_tick       = max_i32(g->freeze_tick, 8);
         g->hero_hurt_lp_tick = HERO_HURT_LP_TICKS;
     }
     if (g->events_frame & EVENT_HERO_DEATH) {
@@ -237,12 +264,49 @@ void game_tick_gameplay(g_s *g)
     }
 }
 
+void game_anim(g_s *g)
+{
+    cam_update(g, &g->cam);
+    g->cam_prev_world = cam_pos_px_top_left(g, &g->cam);
+
+    // save animation
+    if (g->save_ticks) {
+        g->save_ticks++;
+        if (SAVE_TICKS <= g->save_ticks) {
+            g->save_ticks = 0;
+        }
+    }
+
+    // every other tick to save some CPU cycles;
+    // split between even and uneven frames
+    if (g->tick & 1) {
+        grass_animate(g);
+    } else {
+        deco_verlet_animate(g);
+    }
+
+    particle_sys_update(g);
+    area_update(g, &g->area);
+}
+
 void game_resume(g_s *g)
 {
 }
 
 void game_paused(g_s *g)
 {
+#if PLTF_PD
+    minimap_draw_pause(g);
+    tex_s t = asset_tex(TEXID_PAUSE_TEX);
+    pltf_pd_menu_image_upd(t.px, t.wword, t.w, t.h);
+    if (g->minimap.opened) {
+
+        pltf_pd_menu_image_put(100);
+    } else {
+
+        pltf_pd_menu_image_put(0);
+    }
+#endif
 }
 
 i32 gameplay_time(g_s *g)
@@ -277,7 +341,7 @@ void game_load_savefile(g_s *g)
 {
     spm_push();
     savefile_s *s   = spm_alloct(savefile_s);
-    i32         res = savefile_r(g->save_slot, s);
+    err32       res = savefile_r(g->save_slot, s);
     if (res != 0) {
     }
 
@@ -293,12 +357,13 @@ void game_load_savefile(g_s *g)
     obj_s  *o = hero_create(g);
     hero_s *h = (hero_s *)o->heap;
     {
-        mcpy(g->save_events, s->save, sizeof(s->save));
-        mcpy(h->name, s->name, sizeof(s->name));
-        mcpy(g->map.pins, s->pins, sizeof(s->pins));
+        mcpy(g->save_events, s->save, sizeof(g->save_events));
+        mcpy(h->name, s->name, sizeof(h->name));
+        mcpy(g->minimap.pins, s->pins, sizeof(g->minimap.pins));
+        mcpy(g->minimap.visited, s->map_visited, sizeof(g->minimap.visited));
         g->tick             = s->tick;
         h->upgrades         = s->upgrades;
-        g->map.n_pins       = s->n_map_pins;
+        g->minimap.n_pins   = s->n_map_pins;
         g->coins.n          = s->coins;
         h->stamina_upgrades = s->stamina;
         g->enemies_killed   = s->enemies_killed;
@@ -306,9 +371,10 @@ void game_load_savefile(g_s *g)
     o->pos.x = s->hero_pos.x - o->w / 2;
     o->pos.y = s->hero_pos.y - o->h;
     game_load_map(g, s->map_hash);
-    obj_s *oc = companion_create(g);
-    oc->pos.x = o->pos.x - 30;
-    oc->pos.y = o->pos.y - 30;
+    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+        companion_spawn(g, o);
+    }
+
     pltf_sync_timestep();
 }
 
@@ -321,10 +387,10 @@ bool32 game_save_savefile(g_s *g)
         s->map_hash = g->map_hash;
         mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
-        mcpy(s->pins, g->map.pins, sizeof(s->pins));
+        mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
         s->tick           = g->tick;
         s->upgrades       = h->upgrades;
-        s->n_map_pins     = g->map.n_pins;
+        s->n_map_pins     = g->minimap.n_pins;
         s->coins          = coins_total(g);
         s->stamina        = h->stamina_upgrades;
         s->enemies_killed = g->enemies_killed;
@@ -389,41 +455,9 @@ void game_on_solid_appear(g_s *g)
     game_on_solid_appear_ext(g, 0);
 }
 
-bool32 obj_game_enemy_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
-{
-    obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
-    if (!o) return 0;
+bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box);
 
-    for (i32 n = 0; n < nb; n++) {
-        hitbox_s hb = boxes[n];
-        pltf_debugr(hb.r.x + g->cam_prev.x, hb.r.y + g->cam_prev.y, hb.r.w, hb.r.h, 0, 0xFF, 0, 10);
-    }
-
-    rec_i32 aabb      = obj_aabb(o);
-    i32     strongest = -1;
-    for (i32 n = 0; n < nb; n++) {
-        hitbox_s hb = boxes[n];
-        if (!overlap_rec(aabb, hb.r)) continue;
-
-        if (strongest < 0 || boxes[strongest].damage < hb.damage) {
-            strongest = n;
-        }
-    }
-
-    if (0 <= strongest) {
-        hero_hurt(g, o, 1);
-        snd_play(SNDID_SWOOSH, 0.5f, 0.5f);
-        o->v_q8.x = (boxes[strongest].force_q8.x);
-        o->bumpflags &= ~OBJ_BUMP_Y; // have to clr y bump
-        g->events_frame |= EVENT_HERO_DAMAGE;
-        return 1;
-    }
-    return 0;
-}
-
-bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box);
-
-bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
+bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
 {
     bool32 res = 0;
 
@@ -446,26 +480,46 @@ bool32 obj_game_player_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
         }
 
         if (0 <= strongest) {
-            res |= obj_game_player_attackbox_o(g, o, boxes[strongest]);
+            res |= hero_attackbox_o(g, o, boxes[strongest]);
         }
     }
     return res;
 }
 
-bool32 obj_game_player_attackbox(g_s *g, hitbox_s box)
+bool32 hero_attackbox(g_s *g, hitbox_s box)
 {
-    return obj_game_player_attackboxes(g, &box, 1);
+    return hero_attackboxes(g, &box, 1);
 }
 
-bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
+bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
 {
     switch (o->ID) {
     default: break;
-    case OBJID_SWITCH: switch_on_interact(g, o); break;
+    case OBJID_SWITCH: {
+        switch_on_interact(g, o);
+        break;
+    }
+    case OBJID_CRUMBLEBLOCK: {
+        if (box.flags & HITBOX_FLAG_POWERSTOMP) {
+            crumbleblock_break(g, o);
+        }
+        break;
+    }
+    case OBJID_STOMPABLE_BLOCK: {
+        if (box.flags & HITBOX_FLAG_POWERSTOMP) {
+            stompable_block_break(g, o);
+        }
+        break;
+    }
     }
 
-    if ((o->flags & OBJ_FLAG_ENEMY) && 0 < o->health) {
-        g->freeze_tick = max_i32(g->freeze_tick, 3);
+    bool32 do_hit = (o->flags & OBJ_FLAG_ENEMY) &&
+                    0 < o->health &&
+                    (!box.hitID || box.hitID != o->enemy.hero_hitID);
+
+    if (do_hit) {
+        g->freeze_tick      = max_i32(g->freeze_tick, 3);
+        o->enemy.hero_hitID = box.hitID;
         enemy_hurt(g, o, box.damage);
         return 1;
     }
@@ -474,12 +528,12 @@ bool32 obj_game_player_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
 
 void hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r)
 {
-    hitbox_tmp_s h = {0};
-    h.type         = HITBOX_TMP_CIR;
-    h.x            = x;
-    h.y            = y;
-    h.cir_r        = r;
-    g->hitbox_tmp[g->n_hitbox_tmp++];
+    hitbox_tmp_s h                   = {0};
+    h.type                           = HITBOX_TMP_CIR;
+    h.x                              = x;
+    h.y                              = y;
+    h.cir_r                          = r;
+    g->hitbox_tmp[g->n_hitbox_tmp++] = h;
 }
 
 void game_open_map(void *ctx, i32 opt)
@@ -503,4 +557,13 @@ void objs_animate(g_s *g)
             o->on_animate(g, o);
         }
     }
+}
+
+i32 game_hero_hitID_next(g_s *g)
+{
+    g->hero_hitID++;
+    if (g->hero_hitID == 0) {
+        g->hero_hitID = 1;
+    }
+    return (i32)g->hero_hitID;
 }

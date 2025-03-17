@@ -10,21 +10,13 @@
 #include "core/spm.h"
 #include "game.h"
 #include "pltf/pltf.h"
+#include "save.h"
 #include "settings.h"
+#include "settings_menu.h"
 #include "title.h"
 #include "wad.h"
 
 #define APP_STRUCT_ALIGNMENT 32
-
-enum {
-    APP_ERR_MEM           = 1 << 0,
-    APP_ERR_WAD_OPEN      = 1 << 1,
-    APP_ERR_WAD_RW        = 1 << 2,
-    APP_ERR_WAD_VERSION   = 1 << 3,
-    APP_ERR_ASSETS_WAD    = 1 << 4,
-    APP_ERR_ASSETS_DECODE = 1 << 5,
-    APP_ERR_AUD_STREAM    = 1 << 6,
-};
 
 enum {
     APP_ST_LOAD_INIT,
@@ -33,19 +25,21 @@ enum {
     APP_ST_TITLE,
 };
 
-typedef struct {
+typedef struct app_s app_s;
+struct app_s {
     ALIGNAS(APP_STRUCT_ALIGNMENT)
-    wad_s    wad;
-    assets_s assets;
-    spm_s    spm;
-    aud_s    aud;
-    g_s      game;
-    title_s  title;
-    i32      state;
-    marena_s ma;
+    wad_s           wad;
+    assets_s        assets;
+    spm_s           spm;
+    aud_s           aud;
+    g_s             game;
+    title_s         title;
+    settings_menu_s settings_menu;
+    i32             state;
+    marena_s        ma;
 
-    byte mem[MMEGABYTE(8)];
-} app_s;
+    byte mem[MMEGABYTE(6)];
+};
 
 extern app_s *APP;
 
@@ -64,8 +58,7 @@ void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment);
 #define app_alloct(T)     app_alloc_aligned(sizeof(T), ALIGNOF(T))
 #define app_alloctn(T, N) app_alloc_aligned((N) * sizeof(T), ALIGNOF(T))
 
-i32 app_texID_create_put(i32 ID, i32 w, i32 h, b32 mask,
-                         allocator_s a, tex_s *o_t);
+void app_set_mode(i32 mode); // settings mode
 
 static inline allocator_s app_allocator()
 {

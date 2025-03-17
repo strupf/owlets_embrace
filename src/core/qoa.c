@@ -138,14 +138,14 @@ static void qoa_mus_st_mo(qoa_dec_s *dl, qoa_dec_s *dr, i32 n, i32 v, i16 *b)
     }
 }
 
-void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len)
+void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q8)
 {
     if (!q->seek) return;
 
     i16 *br    = rbuf;
     i16 *bl    = lbuf;
     u32  l     = (u32)len;
-    i32  v_q16 = (i32)q->v_q8 << 8;
+    i32  v_q16 = (i32)q->v_q8 * v_q8;
     i32  mode  = 0;
     switch (q->n_channels) {
     case 1: mode = (rbuf ? QOA_MUS_MODE_MO_ST : QOA_MUS_MODE_MO_MO); break;
@@ -215,7 +215,7 @@ bool32 qoa_sfx_start(qoa_sfx_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8,
     q->len         = n_samples;
     q->len_pitched = (n_samples * p_q8) >> 8;
     q->ipitch_q8   = 65536 / p_q8;
-    q->vol_q8      = v_q8;
+    q->v_q8        = v_q8;
     q->cur_slice   = 0;
     q->spos        = 0;
     q->pos_pitched = 0;
@@ -231,7 +231,7 @@ void qoa_sfx_end(qoa_sfx_s *q)
     q->slices = 0;
 }
 
-void qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len)
+void qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q8)
 {
     i32 n_channels = 1 + (rbuf != 0);
     i32 pan_q8_l   = (0 < q->pan_q8 ? 256 - q->pan_q8 : 256);
@@ -241,8 +241,10 @@ void qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len)
         pan_q8_l = (pan_q8_l + pan_q8_r) >> 1; // average the volume of l/r for mono
     }
 
-    i32  v_q16[2] = {(i32)q->vol_q8 * pan_q8_l, (i32)q->vol_q8 * pan_q8_r};
-    i16 *b[2]     = {lbuf, rbuf};
+    i32  v_q16[2] = {((i32)q->v_q8 * pan_q8_l * v_q8) >> 8,
+                     ((i32)q->v_q8 * pan_q8_r * v_q8) >> 8};
+    i16 *b[2]     = {lbuf,
+                     rbuf};
 
     for (i32 n = 0; n < len; n++) {
         u32 p = (q->pos_pitched++ * q->ipitch_q8) >> 8;

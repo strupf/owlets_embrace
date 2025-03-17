@@ -107,11 +107,52 @@ void objanim_create(g_s *g, v2_i32 p, i32 objanimID)
         sd->h              = 128;
         sd->t_og           = 30;
         break;
+    case OBJANIMID_STOMP_R:
+    case OBJANIMID_STOMP_L:
+    case OBJANIMID_STOMP_R_STRONG:
+    case OBJANIMID_STOMP_L_STRONG:
+        texID = TEXID_PARTICLES;
+        if (objanimID == OBJANIMID_STOMP_R ||
+            objanimID == OBJANIMID_STOMP_R_STRONG) {
+            spr->flip = SPR_FLIP_X;
+            p.x += 35;
+        } else {
+            p.x -= 35;
+        }
+        p.y -= 22;
+        o->render_priority = RENDER_PRIO_HERO + 1;
+
+        sd->x = 0;
+        if (objanimID == OBJANIMID_STOMP_R_STRONG ||
+            objanimID == OBJANIMID_STOMP_L_STRONG) {
+            sd->y        = 896;
+            sd->n_frames = 13 - 1;
+            sd->x        = 64;
+        } else {
+            sd->y        = 576;
+            sd->n_frames = 9;
+        }
+
+        sd->t_og = sd->n_frames * 2;
+        sd->dir  = 0;
+        sd->w    = 64;
+        sd->h    = 64;
+        break;
+    case OBJANIM_BOULDER_POOF:
+        texID              = TEXID_PARTICLES;
+        spr->flip          = gfx_spr_flip_rng(1, 1);
+        o->render_priority = RENDER_PRIO_HERO - 1;
+        sd->n_frames       = 9 - 1;
+        sd->x              = 1 * 64;
+        sd->y              = 192;
+        sd->w              = 64;
+        sd->h              = 64;
+        sd->t_og           = 20;
+        break;
     }
 
     o->pos      = p;
     spr->offs.x = -sd->w / 2;
     spr->offs.y = -sd->h / 2;
-
-    spr->trec = asset_texrec(texID, sd->x, sd->y, sd->w, sd->h);
+    spr->trec   = asset_texrec(texID, sd->x, sd->y, sd->w, sd->h);
 }

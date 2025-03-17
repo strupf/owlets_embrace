@@ -83,7 +83,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
         u32 zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
         u32 sm = zm << ll;
 #else
-        u32 sm = cl;
+        u32 sm = 0xFFFFFFFF << ll;
 #endif
 
         if (0 < sn && 0 <= of) {
@@ -101,8 +101,10 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
         sp = bswap32(sp);
 #if SPRBLIT_SRC_MASK
         sm |= (u32)((u64)zm >> rr);
-        sm = bswap32(sm) & cl; // apply left clip
+#else
+        sm |= (u32)((u64)0xFFFFFFFF >> rr);
 #endif
+        sm = bswap32(sm) & cl; // apply left clip
 
         if (ww) { // bitmap spans over 2+ dst words
             SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
@@ -122,6 +124,8 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
                 zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
                 sm |= (u32)((u64)zm >> rr);
                 sm = bswap32(sm);
+#else
+                sm = 0xFFFFFFFF;
 #endif
                 SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
             }
@@ -129,7 +133,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #if SPRBLIT_SRC_MASK
             sm = zm << ll;
 #else
-            sm = 0xFFFFFFFF;
+            sm = 0xFFFFFFFF << ll;
 #endif
 
             if (SPRBLIT_CHECK_PS(ps, ps_l, ps_r)) {
@@ -142,12 +146,12 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #if SPRBLIT_SRC_MASK
                 zm = SPRBLIT_GET_WORD(bswap32(*(ps + 1)));
                 sm |= (u32)((u64)zm >> rr);
+#else
+                sm |= 0xFFFFFFFF >> rr;
 #endif
             }
             sp = bswap32(sp);
-#if SPRBLIT_SRC_MASK
             sm = bswap32(sm);
-#endif
         }
         sm &= cr; // apply right clip
         SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
