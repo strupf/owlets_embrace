@@ -8,39 +8,58 @@
 #include "gamedef.h"
 
 #define MAP_NUM_PINS      64
-#define MINIMAP_SCREENS_X 164
-#define MINIMAP_SCREENS_Y 274
+#define MINIMAP_SCREENS_X 192
+#define MINIMAP_SCREENS_Y 288
 #define MINIMAP_N_SCREENS (MINIMAP_SCREENS_X * MINIMAP_SCREENS_Y)
 
+enum {
+    MINIMAP_SCREEN_VISITED_TMP = 1 << 0,
+    MINIMAP_SCREEN_VISITED     = 1 << 1,
+};
+
+enum {
+    MINIMAP_ST_INACTIVE,
+    MINIMAP_ST_FADE_IN,
+    MINIMAP_ST_FADE_IN_MENU,
+    MINIMAP_ST_FADE_OUT,
+    MINIMAP_ST_NAV,
+    MINIMAP_ST_DELETE_PIN,
+    MINIMAP_ST_SELECT_PIN,
+};
+
 typedef struct {
-    i16 type;
     i16 x; // world coordinates in tiles
     i16 y;
-} map_pin_s;
+    u16 type;
+} minimap_pin_s;
 
 typedef struct {
-    bool32 opened;
-    i32    centerx;
-    i32    centery;
-    u8     tick;
-    u8     n_pins;
-    i32    fade;
-    i32    fade_out;
+    u8  state;
+    i32 centerx;
+    i32 centery;
+    i32 cursorx;
+    i32 cursory;
+    i16 herox;
+    i16 heroy;
+    u8  tick;
+    u8  pin_selected;
+    u8  n_pins;
+    u8  pin_ui_fade;
+    u8  pin_deny_tick;
 
-    map_pin_s *pin_hovered;
-    map_pin_s  pins[MAP_NUM_PINS];
-    u32        visited_tmp[MINIMAP_N_SCREENS / 32];
-    u32        visited[MINIMAP_N_SCREENS / 32];
+    minimap_pin_s *pin_hovered;
+    minimap_pin_s  pins[MAP_NUM_PINS];
+    u32            visited[MINIMAP_N_SCREENS >> 4]; // 2 bits per screen
 } minimap_s;
 
 void minimap_init(g_s *g);
 void minimap_open(g_s *g);
+void minimap_open_via_menu(g_s *g);
 void minimap_update(g_s *g);
 void minimap_draw(g_s *g);
 void minimap_draw_pause(g_s *g);
 void minimap_confirm_visited(g_s *g);
 void minimap_try_visit_screen(g_s *g);
-b32  minimap_screen_visited_tmp(g_s *g, i32 sx, i32 sy);
-b32  minimap_screen_visited(g_s *g, i32 sx, i32 sy);
+i32  minimap_screen_visited(g_s *g, i32 tx, i32 ty); // tile coordinates
 
 #endif

@@ -20,7 +20,6 @@ static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, 
 
 void game_draw(g_s *g)
 {
-
     i32     i_obj                = 0;
     cam_s  *cam                  = &g->cam;
     hero_s *hero                 = &g->hero;
@@ -79,15 +78,16 @@ void game_draw(g_s *g)
     boss_draw(g, &g->boss, camoff);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoff);
 
+    if (g->render_map_doors || 1) {
+        for (i32 n = 0; n < g->n_map_doors; n++) {
+            map_door_s *md    = &g->map_doors[n];
+            rec_i32     rdoor = {md->x, md->y, md->w, md->h};
+            game_draw_door_or_pit(ctx, g, rdoor, camoff, 0);
+        }
+    }
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_FLUID_AREA);
     for (i32 n = 0; n < g->n_fluid_areas; n++) {
         fluid_area_draw(ctx, &g->fluid_areas[n], camoff, 1);
-    }
-
-    for (i32 n = 0; n < g->n_map_doors; n++) {
-        map_door_s *md    = &g->map_doors[n];
-        rec_i32     rdoor = {md->x, md->y, md->w, md->h};
-        game_draw_door_or_pit(ctx, g, rdoor, camoff, 0);
     }
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_TERRAIN_LAYER);
@@ -95,7 +95,7 @@ void game_draw(g_s *g)
     for (i32 n = 0; n < g->n_map_pits; n++) {
         map_pit_s *mp   = &g->map_pits[n];
         rec_i32    rpit = {mp->x, g->tiles_y - 1, mp->w, 1};
-        // game_draw_door_or_pit(ctx, g, rpit, camoff, 1);
+        game_draw_door_or_pit(ctx, g, rpit, camoff, 1);
     }
     render_terrain(g, tilebounds, camoff);
 
@@ -324,6 +324,11 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
 
             v2_i32 sprpos = v2_i32_add(ppos, v2_i32_from_i16(sprite.offs));
             gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, 0);
+            if (o->enemy.flash_tick) {
+                gfx_ctx_s ctxf = ctx;
+                ctxf.pat       = gfx_pattern_2x2(B2(00), B2(01));
+                gfx_spr(ctxf, sprite.trec, sprpos, sprite.flip, SPR_MODE_WHITE);
+            }
         }
         if (o->on_draw) {
             o->on_draw(g, o, cam);

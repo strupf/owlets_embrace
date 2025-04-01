@@ -9,6 +9,20 @@
 #include "core/gfx.h"
 #include "gamedef.h"
 
+enum {
+    AREA_ID_NONE,
+    AREA_ID_WHITE,
+    AREA_ID_BLACK,
+    AREA_ID_MOUNTAIN,
+    AREA_ID_MOUNTAIN_RAINY,
+    AREA_ID_CAVE,
+    AREA_ID_CAVE_DEEP,
+    AREA_ID_FOREST,
+    AREA_ID_SAVE,
+    //
+    NUM_AREA_ID
+};
+
 typedef struct {
     i32 x;
 } area_mountain_s;

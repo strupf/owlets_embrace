@@ -44,7 +44,6 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_JUMPER, "T_JUMPER");
     app_load_tex_internal(&l, TEXID_MISCOBJ, "T_MISC");
     app_load_tex_internal(&l, TEXID_PARTICLES, "T_PARTICLES");
-    app_load_tex_internal(&l, TEXID_STAMINARESTORE, "T_RESTORE");
     app_load_tex_internal(&l, TEXID_TRAMPOLINE, "T_TRAMPOLINE");
     app_load_tex_internal(&l, TEXID_CRAWLER, "T_CRAWLER");
     app_load_tex_internal(&l, TEXID_BUDPLANT, "T_BUDPLANT");
@@ -59,13 +58,17 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_GEMS, "T_GEMS");
     app_load_tex_internal(&l, TEXID_FLUIDS, "T_FLUIDS");
     app_load_tex_internal(&l, TEXID_BOULDER, "T_BOULDER");
-    app_load_tex_internal(&l, TEXID_JUMPER, "T_JUMPER");
-    app_load_tex_internal(&l, TEXID_MAPNEIGH, "T_MAPNEIGH");
+    app_load_tex_internal(&l, TEXID_UPGRADE, "T_UPGRADE");
 
     {
         tex_s t = tex_create(400, 240, 0, app_allocator(), 0);
 
         APP->assets.tex[TEXID_PAUSE_TEX] = t;
+    }
+    {
+        tex_s t = tex_create(400, 240, 0, app_allocator(), 0);
+        mclr(t.px, t.wword * t.h);
+        APP->assets.tex[TEXID_DISPLAY_TMP] = t;
     }
 
 LOAD_FNT:;
@@ -75,9 +78,8 @@ LOAD_FNT:;
         l.err |= ASSETS_ERR_WAD_EL;
         goto LOAD_SND;
     }
-    app_load_fnt_internal(&l, FNTID_12, "F_A_12");
-    app_load_fnt_internal(&l, FNTID_16, "F_A_16");
-    app_load_fnt_internal(&l, FNTID_20, "F_A_20");
+    app_load_fnt_internal(&l, FNTID_SMALL, "F_SMALL");
+    app_load_fnt_internal(&l, FNTID_MEDIUM, "F_MEDIUM");
 
 LOAD_SND:;
     // SND ---------------------------------------------------------------------
@@ -104,7 +106,11 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_HERO_ATTACK_AIR, "A_HEROATTACK_AIR");
     app_load_ani_internal(&l, ANIID_COMPANION_ATTACK, "A_COMP_ATTACK");
     app_load_ani_internal(&l, ANIID_COMPANION_FLY, "A_COMP_FLY");
+    app_load_ani_internal(&l, ANIID_COMPANION_BUMP, "A_COMP_BUMP");
     app_load_ani_internal(&l, ANIID_GEMS, "A_GEMS");
+    app_load_ani_internal(&l, ANIID_BUTTON, "A_BUTTON");
+    app_load_ani_internal(&l, ANIID_UPGRADE, "A_UPGRADE");
+    app_load_ani_internal(&l, ANIID_CURSOR, "A_CURSOR");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {
@@ -127,6 +133,13 @@ static void app_load_tex_internal(app_load_s *l, i32 ID, const void *name)
     }
 }
 
+typedef struct {
+    u16 n_kerning;
+    u8  tracking;
+    u8  grid_w;
+    u8  grid_h;
+} fnt_header_s;
+
 static void app_load_fnt_internal(app_load_s *l, i32 ID, const void *name)
 {
     // if (l->err) return;
@@ -138,19 +151,31 @@ static void app_load_fnt_internal(app_load_s *l, i32 ID, const void *name)
         return;
     }
 
-    f->widths = (u8 *)l->allocator.allocfunc(l->allocator.ctx, 256, 1);
-    if (!f->widths) {
+    fnt_header_s header = {0};
+    if (!pltf_file_r_checked(l->f, &header, sizeof(fnt_header_s))) {
+        l->err |= ASSETS_ERR_FNT | ASSETS_ERR_WAD_READ;
+        return;
+    }
+
+    usize fsize = 256 + sizeof(fnt_kerning_s) * header.n_kerning;
+    char *fmem  = (u8 *)l->allocator.allocfunc(l->allocator.ctx, fsize, 1);
+
+    if (!fmem) {
         l->err |= ASSETS_ERR_FNT | ASSETS_ERR_ALLOC;
         return;
     }
 
-    if (!pltf_file_r_checked(l->f, &f->tracking, sizeof(i16)) ||
-        !pltf_file_r_checked(l->f, &f->grid_w, sizeof(u8)) ||
-        !pltf_file_r_checked(l->f, &f->grid_h, sizeof(u8)) ||
-        !pltf_file_r_checked(l->f, f->widths, 256)) {
+    if (!pltf_file_r_checked(l->f, fmem, fsize)) {
         l->err |= ASSETS_ERR_FNT | ASSETS_ERR_WAD_READ;
         return;
     }
+
+    f->widths    = (u8 *)&fmem[0];
+    f->kerning   = (fnt_kerning_s *)&fmem[256];
+    f->grid_w    = header.grid_w;
+    f->grid_h    = header.grid_h;
+    f->tracking  = -header.tracking;
+    f->n_kerning = header.n_kerning;
 
     tex_header_s h = {0};
     if (!pltf_file_r_checked(l->f, &h, sizeof(tex_header_s))) {

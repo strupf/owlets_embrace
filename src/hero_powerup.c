@@ -187,7 +187,7 @@ void hero_powerup_draw(g_s *g, v2_i32 cam)
 
 void hero_powerup_draw_text(gfx_ctx_s ctx, i32 ID)
 {
-    fnt_s       fnt   = asset_fnt(FNTID_LARGE);
+    fnt_s       fnt   = asset_fnt(FNTID_MEDIUM);
     const char *text1 = powerup_texts[ID].title;
     i32         len1  = fnt_length_px(fnt, text1);
     v2_i32      lpos1 = {(400 - len1) / 2, 30};

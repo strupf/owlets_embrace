@@ -205,6 +205,9 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
             h->attack_flipflop = 1 - h->attack_flipflop;
             h->hitID           = game_hero_hitID_next(g);
             if (1) {
+                if (grounded) {
+                    o->v_q8.x = 0;
+                }
                 if (h->attack_tick &&
                     h->attack_ID == HERO_ATTACK_GROUND) {
                     h->attack_tick = 3;
@@ -368,7 +371,10 @@ void hero_check_safe_pos(g_s *g, obj_s *o)
             return;
     }
 
-    h->safe_pos = ps;
+    h->safe_pos    = ps;
+    h->safe_v.x    = 0;
+    h->safe_v.y    = 0;
+    h->safe_facing = o->facing;
 }
 
 void hero_on_update(g_s *g, obj_s *o, inp_s inp)
@@ -601,7 +607,7 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 
             if (h->crouched) {
                 hero_do_crawling(g, o, inp);
-            } else {
+            } else if (!h->attack_tick || 8 <= h->attack_tick) {
                 hero_do_walking(g, o, inp);
             }
         } else {
@@ -812,7 +818,6 @@ i32 hero_get_actual_state(g_s *g, obj_s *o)
 void hero_restore_grounded_stuff(g_s *g, obj_s *o)
 {
     hero_s *h          = (hero_s *)o->heap;
-    h->swimticks       = HERO_SWIM_TICKS;
     h->air_block_ticks = 0;
     h->walljump_tick   = 0;
     h->edgeticks       = 6;
@@ -1016,7 +1021,7 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                                 !o->rope &&
                                 !h->holds_spear;
 
-        bool32 can_ground_jump = hero_ibuf_pressed(h, INP_A, 6) &&
+        bool32 can_ground_jump = inp_btn_jp(INP_A) &&
                                  !o->rope &&
                                  h->spinattack <= 0;
         bool32 can_inair_jump = can_ground_jump &&
@@ -1220,15 +1225,12 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
     } else {
         o->v_q8.y += HERO_GRAVITY;
         obj_vy_q8_mul(o, 220);
-        if (!hero_has_upgrade(g, HERO_UPGRADE_SWIM) && 0 < h->swimticks) {
-            h->swimticks--; // swim ticks are reset when grounded later on
-        }
-        bool32 can_swim = hero_has_upgrade(g, HERO_UPGRADE_SWIM) ||
-                          0 < h->swimticks;
-        i32 ch = lerp_i32(HERO_GRAVITY,
-                          HERO_GRAVITY + 20,
-                          water_depth - HERO_WATER_THRESHOLD,
-                          (o->h - HERO_WATER_THRESHOLD));
+
+        bool32 can_swim = hero_has_upgrade(g, HERO_UPGRADE_SWIM);
+        i32    ch       = lerp_i32(HERO_GRAVITY,
+                                   HERO_GRAVITY + 20,
+                                   water_depth - HERO_WATER_THRESHOLD,
+                                   (o->h - HERO_WATER_THRESHOLD));
 
         o->v_q8.y -= ch;
         if (HERO_WATER_THRESHOLD <= water_depth &&
@@ -1254,14 +1256,6 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
         i32 i0 = (dpad_x == sgn_i32(o->v_q8.x) ? abs_i32(o->v_q8.x) : 0);
         i32 ax = (max_i32(512 - i0, 0) * 32) >> 8;
         o->v_q8.x += ax * dpad_x;
-    }
-
-    if (h->swimming == SWIMMING_DIVING) {
-        i32 breath_tm   = hero_breath_tick_max(g);
-        h->breath_ticks = min_i32(h->breath_ticks + 1, breath_tm);
-        if (breath_tm <= h->breath_ticks) {
-            // hero_kill(g, o);
-        }
     }
 }
 
@@ -1341,6 +1335,7 @@ void hero_do_crawling(g_s *g, obj_s *o, inp_s inp)
         o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
         obj_move(g, o, 0, 1);
         o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+        h->edgeticks = 0;
     } else if (0 < h->crouched && h->crouched < HERO_CROUCHED_MAX_TICKS) {
         h->crouched++;
         o->v_q8.x = 0;
@@ -1397,13 +1392,13 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
     } else if (hero_ibuf_pressed(h, INP_A, 6) && can_jump) {
         h->impact_ticks = 2;
         hero_start_jump(g, o, HERO_JUMP_GROUND);
-    } else if (!h->attack_tick) {
+    } else {
         if (h->crouch_standup) {
             h->crouch_standup--;
             obj_vx_q8_mul(o, 220);
         }
 
-        bool32 can_sprint          = !o->rope;
+        bool32 can_sprint          = !o->rope && !h->attack_tick;
         bool32 can_start_sprinting = hero_ibuf_tap(h, INP_DL | INP_DR, 15) &&
                                      hero_ibuf_pressed(h, INP_DL | INP_DR, 2);
 
@@ -1824,6 +1819,14 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
     i32    hero_dmg          = 0;
     v2_i16 hero_knockback    = {0};
 
+    if (!hero_has_upgrade(g, HERO_UPGRADE_SWIM) && water_depth_rec(g, obj_aabb(o)) == o->h) {
+        if (h->drown_tick < HERO_DROWN_TICKS) {
+            h->drown_tick++;
+        }
+    } else if (h->drown_tick) {
+        h->drown_tick--;
+    }
+
     for (i32 n = 0; n < g->n_hitbox_tmp; n++) {
         hitbox_tmp_s *hb      = &g->hitbox_tmp[n];
         bool32        overlap = 0;
@@ -1934,5 +1937,12 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
     if (o->health && obj_grounded(g, o) && o->v_q8.x == 0) {
         coins_show_idle(g);
+    }
+
+    if (g->pixel_y < o->pos.y) {
+        o->v_q8.x = h->safe_v.x;
+        o->v_q8.y = h->safe_v.y;
+        o->facing = (i8)h->safe_facing;
+        maptransition_teleport(g, g->map_hash, h->safe_pos);
     }
 }

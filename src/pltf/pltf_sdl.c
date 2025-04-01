@@ -5,7 +5,7 @@
 #include "pltf_sdl.h"
 #include "pltf.h"
 
-#define PLTF_SDL_SCALE_LAUNCH   1
+#define PLTF_SDL_SCALE_LAUNCH   2
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P

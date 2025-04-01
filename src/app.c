@@ -21,11 +21,15 @@ void app_mode_callback(void *ctx, i32 opt)
     }
 }
 
-void app_menu_open_map(void *ctx, i32 opt)
+void app_menu_callback_map(void *ctx, i32 opt)
 {
-    if (!APP->game.minimap.opened) {
-        minimap_open(&APP->game);
+    if (!APP->game.minimap.state) {
+        minimap_open_via_menu(&APP->game);
     }
+}
+
+void app_menu_callback_settings(void *ctx, i32 opt)
+{
 }
 
 i32 app_init()
@@ -63,7 +67,9 @@ i32 app_init()
 
     pltf_audio_set_volume(1.f);
     pltf_accelerometer_set(1);
-
+#if PLTF_PD
+    pltf_pd_menu_add("settings", app_menu_callback_settings, 0);
+#endif
     err32 err_settings = settings_load(&SETTINGS); // try to use settings file
     aud_init();
     assets_init();
@@ -77,12 +83,6 @@ i32 app_init()
     g_s *g = &APP->game;
     game_init(g);
 
-#if PLTF_PD
-    // const char *options[3] = {"MAX", "ECO", "LOW"};
-    // pltf_pd_menu_add_opt("Mode", options, 3, app_mode_callback, 0);
-
-    pltf_pd_menu_add("Map", app_menu_open_map, 0);
-#endif
 #if 1
     typedef struct {
         u32 hash;
@@ -113,6 +113,8 @@ i32 app_init()
         s->hero_pos.y = hs.y;
         s->upgrades   = 0xFFFFFFFFU;
         s->stamina    = 5;
+        s->hero_pos.x = hs.x;
+        s->hero_pos.y = hs.y;
     }
     savefile_w(0, s);
     spm_pop();
@@ -171,21 +173,13 @@ static void app_tick_step()
     g_s *g = &APP->game;
 
     switch (APP->state) {
-    case APP_ST_LOAD_INIT: {
-        APP->state = APP_ST_LOAD;
-        break;
-    }
-    case APP_ST_LOAD: {
-        APP->state = APP_ST_TITLE;
-        break;
-    }
     case APP_ST_TITLE: {
         title_update(APP, &APP->title);
         break;
     }
     case APP_ST_GAME: {
-        game_tick(g);
-        // map_update(g);
+        inp_state_s istate = inp_cur().c;
+        game_tick(g, istate);
         break;
     }
     }
@@ -217,6 +211,11 @@ void app_draw()
     texrec_s trdevbuild   = asset_texrec(TEXID_BUTTONS, 0, 240, 40, 8);
     v2_i32   pos_devbuild = {400 - 38, 240 - 7};
     gfx_spr(ctx, trdevbuild, pos_devbuild, 0, 0);
+#if 0
+    tex_clr(ctx.dst, GFX_COL_BLACK);
+    i32 cr = (40 * (sin_q15(pltf_cur_tick() << 8) + 32768)) / 65537;
+    gfx_cir_fill(ctx, (v2_i32){200, 120}, cr, PRIM_MODE_WHITE);
+#endif
 }
 
 void app_close()
@@ -235,7 +234,13 @@ void app_resume()
 
 void app_pause()
 {
-    game_paused(&APP->game);
+#if PLTF_PD
+    if (APP->state == APP_ST_TITLE) {
+        title_paused(&APP->title);
+    } else {
+        game_paused(&APP->game);
+    }
+#endif
 }
 
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len)

@@ -127,6 +127,9 @@ void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
 void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
 void          tex_outline_white(tex_s tex);
+void          tex_outline_col_small(tex_s tex, i32 col);
+void          tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia);
+void          tex_outline_col_ext(tex_s tex, i32 col, b32 dia);
 void          tex_merge_to_opaque(tex_s dst, tex_s src);
 void          tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
@@ -181,6 +184,7 @@ void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 
 void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode, i32 spacing);
 i32  fnt_length_px(fnt_s fnt, const void *txt);
 i32  fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing);
+i32  fnt_kerning(fnt_s fnt, i32 c1, i32 c2);
 
 static void spr_blit_p(u32 *dp, u32 sp, u32 sm, i32 mode)
 {

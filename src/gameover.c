@@ -92,7 +92,7 @@ void gameover_draw(g_s *g, v2_i32 cam)
         ctx_r.pat = gfx_pattern_bayer_4x4(p_gameover);
         gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
 
-        fnt_s font = asset_fnt(FNTID_LARGE);
+        fnt_s font = asset_fnt(FNTID_MEDIUM);
 
         v2_i32 pos = {150, 100};
         for (i32 y = -2; y <= +2; y++) {

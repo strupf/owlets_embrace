@@ -73,6 +73,7 @@ enum {
     SWIMMING_DIVING  = 2,
 };
 
+#define HERO_DROWN_TICKS               150
 #define HERO_AIM_STR_TICKS_PERIOD      100
 #define HERO_AIM_THROW_STR_OFF_Q4      4 // offset for default in period
 #define HERO_AIM_THROW_STR_MIN         1000
@@ -105,7 +106,7 @@ enum {
 #define HERO_GRAVITY_LOW               40
 #define HERO_LOW_GRAV_TICKS            80
 #define HERO_TICKS_PER_STAMINA_UPGRADE 1024
-#define HERO_DISTSQ_INTERACT           POW2(80)
+#define HERO_DISTSQ_INTERACT           POW2(50)
 #define HERO_DISTSQ_PICKUP             POW2(100)
 #define HERO_TICKS_STOMP_INIT          6
 #define STAMINA_UI_TICKS_HIDE          12
@@ -158,16 +159,17 @@ typedef struct hero_s {
     i32    hook_aim_mode;
     i32    hook_aim_crank_buildup;
     v2_i32 safe_pos;
+    v2_i16 safe_v;
+    i16    safe_facing;
     i16    air_block_ticks;
     i16    air_block_ticks_og;
+    u8     drown_tick;
     u16    health_restore_tick;
     u16    stamina_ui_collected_tick;
     u16    stamina_ui_fade_out;
     u16    stamina_added;
     u16    stamina;
-    u16    swimticks;
     i16    ladderx;
-    u16    breath_ticks;
     u8     hitID;
     u8     ticks_health; // animator tick low health ui
     u8     state_prev;

@@ -14,6 +14,7 @@ typedef struct {
 
 void game_init(g_s *g)
 {
+    g->savefile      = &APP->save;
     g->obj_head_free = &g->obj_raw[0];
     for (i32 n = 0; n < NUM_OBJ; n++) {
         obj_s *o = &g->obj_raw[n];
@@ -36,8 +37,8 @@ void game_init(g_s *g)
 
         map_room_s mr = {0};
         mr.hash       = mrw.hash;
-        mr.x          = mrw.x;
-        mr.y          = mrw.y;
+        mr.x          = mrw.x + 2050; // tiles, (32768 / 16) aligned to multiple of 25 (tiles per display width)
+        mr.y          = mrw.y + 2055; // tiles, (32768 / 16) aligned to multiple of 15 (tiles per display height);
         mr.w          = mrw.w;
         mr.h          = mrw.h;
         mr.t          = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
@@ -48,8 +49,10 @@ void game_init(g_s *g)
     pltf_file_close(f);
 }
 
-void game_tick(g_s *g)
+void game_tick(g_s *g, inp_state_s inpstate)
 {
+    g->inp.p = g->inp.c;
+    g->inp.c = inpstate;
 #if PLTF_DEV_ENV
     i32 ab = -1;
 #if 0
@@ -98,7 +101,7 @@ void game_tick(g_s *g)
     } else {
     }
 
-    if (g->minimap.opened) {
+    if (g->minimap.state) {
         tick_gp = 0;
         minimap_update(g);
     }
@@ -143,10 +146,14 @@ void game_tick_gameplay(g_s *g)
 
     obj_s *ohero = obj_get_hero(g);
     if (ohero) {
-        hero_s *h    = (hero_s *)&g->hero;
-        inp_s   hinp = {0};
-        if (!g->block_hero_control && !h->squish) {
-            hinp = inp_cur();
+        hero_s *h = (hero_s *)&g->hero;
+
+        bool32 control_hero = !g->block_hero_control &&
+                              g->activeinput &&
+                              !h->squish;
+        inp_s hinp = {0};
+        if (control_hero) {
+            hinp = g->inp;
         }
         h->n_ibuf          = (h->n_ibuf + 1) & (HERO_LEN_INPUT_BUF - 1);
         h->ibuf[h->n_ibuf] = hinp.c.actions & 0xFF;
@@ -161,6 +168,9 @@ void game_tick_gameplay(g_s *g)
             enemy_s *enemy = &o->enemy;
             do_update      = (enemy->hurt_tick == 0);
 
+            if (enemy->flash_tick) {
+                enemy->flash_tick--;
+            }
             if (0 < enemy->hurt_tick) {
                 enemy->hurt_tick--;
             }
@@ -299,11 +309,9 @@ void game_paused(g_s *g)
     minimap_draw_pause(g);
     tex_s t = asset_tex(TEXID_PAUSE_TEX);
     pltf_pd_menu_image_upd(t.px, t.wword, t.w, t.h);
-    if (g->minimap.opened) {
-
+    if (g->minimap.state) {
         pltf_pd_menu_image_put(100);
     } else {
-
         pltf_pd_menu_image_put(0);
     }
 #endif
@@ -339,12 +347,7 @@ i32 gameplay_time_since(g_s *g, i32 t)
 
 void game_load_savefile(g_s *g)
 {
-    spm_push();
-    savefile_s *s   = spm_alloct(savefile_s);
-    err32       res = savefile_r(g->save_slot, s);
-    if (res != 0) {
-    }
-
+    savefile_s *s = g->savefile;
     if (s->tick == 0) { // new game
 
     } else { // continue
@@ -368,35 +371,50 @@ void game_load_savefile(g_s *g)
         h->stamina_upgrades = s->stamina;
         g->enemies_killed   = s->enemies_killed;
     }
+
+    game_load_map(g, s->map_hash);
+    for (i32 y = 0; y < 5; y++) {
+        for (i32 x = 0; x < 4; x++) {
+            o->pos.x = +o->w / 2 + x * 400;
+            o->pos.y = +o->h / 2 + y * 240;
+            minimap_try_visit_screen(g);
+        }
+    }
+    minimap_confirm_visited(g);
+
     o->pos.x = s->hero_pos.x - o->w / 2;
     o->pos.y = s->hero_pos.y - o->h;
-    game_load_map(g, s->map_hash);
+
     if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
         companion_spawn(g, o);
     }
-
     pltf_sync_timestep();
 }
 
-bool32 game_save_savefile(g_s *g)
+bool32 game_save_savefile(g_s *g, v2_i32 pos)
 {
-    spm_push();
-    savefile_s *s = spm_alloctz(savefile_s, 1);
+    savefile_s *s = g->savefile;
     hero_s     *h = &g->hero;
     {
         s->map_hash = g->map_hash;
         mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
+        mcpy(s->map_visited, g->minimap.visited, sizeof(s->map_visited));
         s->tick           = g->tick;
         s->upgrades       = h->upgrades;
         s->n_map_pins     = g->minimap.n_pins;
         s->coins          = coins_total(g);
         s->stamina        = h->stamina_upgrades;
         s->enemies_killed = g->enemies_killed;
+        s->hero_pos.x     = pos.x;
+        s->hero_pos.y     = pos.y;
     }
-    i32 res = savefile_w(g->save_slot, s);
-    spm_pop();
+
+    i32 res = 0;
+    if (!g->speedrun) {
+        res = savefile_w(g->save_slot, s);
+    }
     pltf_sync_timestep();
     return (res == 0);
 }

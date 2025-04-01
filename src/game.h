@@ -118,13 +118,23 @@ typedef struct {
 } hitbox_tmp_s;
 
 struct g_s {
-    i32             save_slot;
+    savefile_s     *savefile;
+    inp_s           inp; // current input state
     i32             tick;
     i32             tick_animation;
     u32             map_hash;
     i16             n_map_rooms;
     u8              n_map_doors;
     u8              n_map_pits;
+    u8              save_slot;
+    u8              freeze_tick;
+    u8              substate;
+    bool8           dark;
+    bool8           block_hero_control;
+    bool8           speedrun;
+    bool8           render_map_doors;
+    bool8           activeinput;
+    u8              hero_hitID;
     map_room_s     *map_rooms; // permanently allocated
     map_room_s     *map_room_cur;
     map_door_s      map_doors[16];
@@ -143,11 +153,6 @@ struct g_s {
     cam_s           cam;
     u32             events_frame; // flags
     u32             hero_hurt_lp_tick;
-    u8              freeze_tick;
-    u8              substate;
-    bool8           dark;
-    bool8           block_hero_control;
-    u8              hero_hitID;
     u8              musicname[8];
     u8              mapname[32];
     u32             enemies_killed;
@@ -155,6 +160,7 @@ struct g_s {
     i32             tiles_y;
     i32             pixel_x;
     i32             pixel_y;
+    i32             interact_ui_tick;
     tile_s          tiles[NUM_TILES];
     u16             rtiles[NUM_TILELAYER][NUM_TILES];
     u8              fluid_streams[NUM_TILES];
@@ -187,7 +193,7 @@ struct g_s {
 };
 
 void        game_init(g_s *g);
-void        game_tick(g_s *g);
+void        game_tick(g_s *g, inp_state_s inpstate);
 void        game_anim(g_s *g);
 void        game_draw(g_s *g);
 void        game_resume(g_s *g);
@@ -200,7 +206,7 @@ allocator_s game_allocator(g_s *g);
 i32    gameplay_time(g_s *g);
 i32    gameplay_time_since(g_s *g, i32 t);
 void   game_load_savefile(g_s *g);
-bool32 game_save_savefile(g_s *g);
+bool32 game_save_savefile(g_s *g, v2_i32 pos);
 void   game_on_trigger(g_s *g, i32 trigger);
 void   game_on_solid_appear(g_s *g);
 bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);

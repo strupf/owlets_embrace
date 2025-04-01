@@ -17,6 +17,10 @@ typedef struct {
     savepoint_butterfly_s f[NUM_SAVEPOINT_BUTTERFLY];
 } savepoint_s;
 
+void savepoint_on_update(g_s *g, obj_s *o);
+void savepoint_on_interact(g_s *g, obj_s *o);
+void savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+
 static_assert(sizeof(savepoint_s) <= OBJ_MEM_BYTES, "savepoint");
 
 void savepoint_load(g_s *g, map_obj_s *mo)
@@ -28,6 +32,11 @@ void savepoint_load(g_s *g, map_obj_s *mo)
     o->pos.y       = mo->y;
     o->w           = mo->w;
     o->h           = mo->h;
+    o->on_update   = savepoint_on_update;
+    o->on_draw     = savepoint_on_draw;
+    o->on_interact = savepoint_on_interact;
+    o->flags       = OBJ_FLAG_INTERACTABLE;
+
     for (i32 n = 0; n < NUM_SAVEPOINT_BUTTERFLY; n++) {
         savepoint_butterfly_s *f = s->f;
         f->p_q8.x                = rngr_sym_i32(256);
@@ -97,6 +106,10 @@ void savepoint_on_update(g_s *g, obj_s *o)
 void savepoint_on_interact(g_s *g, obj_s *o)
 {
     savepoint_s *s = (savepoint_s *)o->mem;
+    minimap_confirm_visited(g);
+
+    v2_i32 hfeet = {o->pos.x + o->w / 2, o->pos.y + o->h};
+    game_save_savefile(g, hfeet);
 }
 
 void savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam)

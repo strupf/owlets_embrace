@@ -19,10 +19,8 @@
 #define APP_STRUCT_ALIGNMENT 32
 
 enum {
-    APP_ST_LOAD_INIT,
-    APP_ST_LOAD,
-    APP_ST_GAME,
     APP_ST_TITLE,
+    APP_ST_GAME
 };
 
 typedef struct app_s app_s;
@@ -35,6 +33,7 @@ struct app_s {
     g_s             game;
     title_s         title;
     settings_menu_s settings_menu;
+    savefile_s      save;
     i32             state;
     marena_s        ma;
 
@@ -43,14 +42,14 @@ struct app_s {
 
 extern app_s *APP;
 
-i32  app_init();
-void app_tick();
-void app_draw();
-void app_close();
-void app_resume();
-void app_pause();
-void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
-
+i32   app_init();
+void  app_tick();
+void  app_draw();
+void  app_close();
+void  app_resume();
+void  app_pause();
+void  app_audio(i16 *lbuf, i16 *rbuf, i32 len);
+//
 // allocate persistent memory
 void *app_alloc(usize s);
 void *app_alloc_aligned(usize s, usize alignment);
@@ -65,5 +64,8 @@ static inline allocator_s app_allocator()
     allocator_s a = {app_alloc_aligned_ctx, &APP->ma};
     return a;
 }
+
+void app_menu_callback_map(void *ctx, i32 opt);
+void app_menu_callback_settings(void *ctx, i32 opt);
 
 #endif

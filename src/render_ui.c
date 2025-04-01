@@ -10,7 +10,7 @@
 #define ITEM_SIZE        32
 #define ITEM_X_OFFS      325
 #define ITEM_Y_OFFS      180
-#define FNTID_AREA_LABEL FNTID_LARGE
+#define FNTID_AREA_LABEL FNTID_MEDIUM
 
 void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff);
 void render_itemswap(obj_s *ohero, v2_i32 camoff);
@@ -26,7 +26,7 @@ void render_ui(g_s *g, v2_i32 camoff)
         render_hero_ui(g, ohero, camoff);
     }
 
-    if (g->minimap.opened) {
+    if (g->minimap.state) {
         minimap_draw(g);
     }
 
@@ -134,11 +134,11 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
         if (!oi) break;
 
         v2_i32 pbt = v2_i32_add(camoff, obj_pos_center(oi));
-        pbt.x -= 48 / 2;
-        pbt.y -= 48 / 2 + oi->h;
+        pbt.x -= 48 / 2 + oi->interact_offs.x;
+        pbt.y -= 48 / 2 + oi->interact_offs.y;
         texrec_s trb = asset_texrec(TEXID_BUTTONS,
-                                    64 * ((g->tick >> 5) & 1),
-                                    32,
+                                    48,
+                                    48 * (1 - ani_frame(ANIID_BUTTON, g->tick)),
                                     48,
                                     48);
         gfx_spr(ctx, trb, pbt, 0, 0);

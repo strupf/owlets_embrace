@@ -26,14 +26,24 @@ const u8 maptransition_phase[NUM_MAPTRANSITION_PHASES] = {
 
 void maptransition_init(g_s *g, u32 map_hash, i32 type, v2_i32 hero_feet)
 {
-    maptransition_s *mt = &g->maptransition;
-    mt->map_hash        = map_hash;
-    mt->dir             = 0;
-    mt->type            = type;
-    mt->hero_feet       = hero_feet;
-    mt->fade_tick       = 0;
-    mt->fade_phase      = 1;
-    g->substate         = SUBSTATE_MAPTRANSITION;
+    maptransition_s *mt    = &g->maptransition;
+    hero_s          *h     = (hero_s *)&g->hero;
+    obj_s           *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    mt->map_hash           = map_hash;
+    mt->dir                = 0;
+    mt->type               = type;
+    mt->hero_feet          = hero_feet;
+    mt->fade_tick          = 0;
+    mt->fade_phase         = 1;
+    g->substate            = SUBSTATE_MAPTRANSITION;
+    h->safe_pos.x          = hero_feet.x;
+    h->safe_pos.y          = hero_feet.y;
+    h->safe_v.x            = sgn_i32(ohero->v_q8.x) * 500;
+    h->safe_v.y            = 0;
+    h->safe_facing         = ohero->facing;
+    if (ohero->v_q8.y < 0) {
+        h->safe_v.y = -1000;
+    }
     grapplinghook_destroy(g, &g->ghook);
 }
 
@@ -135,7 +145,6 @@ void maptransition_update(g_s *g)
     }
     if (mt->fade_phase != MAPTRANSITION_FADE_IN) return;
 
-    game_load_map(g, mt->map_hash);
     obj_s *ohero = obj_get_hero(g);
     if (ohero) {
         ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
@@ -144,14 +153,19 @@ void maptransition_update(g_s *g)
             ohero->v_q8 = mt->hero_v_q8;
         }
     }
-    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
-        companion_spawn(g, ohero);
-    }
 
+    if (g->map_hash != mt->map_hash) {
+        game_load_map(g, mt->map_hash);
+
+        if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+            companion_spawn(g, ohero);
+        }
+
+        cam_init_level(g, &g->cam);
+    }
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     objs_animate(g);
     aud_allow_playing_new_snd(1);
-    cam_init_level(g, &g->cam);
 }
 
 void maptransition_draw(g_s *g, v2_i32 cam)

@@ -6,19 +6,6 @@
 #include "game.h"
 #include "render.h"
 
-enum {
-    AREA_ID_NONE,
-    AREA_ID_WHITE,
-    AREA_ID_BLACK,
-    AREA_ID_MOUNTAIN,
-    AREA_ID_MOUNTAIN_RAINY,
-    AREA_ID_CAVE,
-    AREA_ID_CAVE_DEEP,
-    AREA_ID_FOREST,
-    //
-    NUM_AREA_ID
-};
-
 static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 {
     v2_i32 p = {((cam.x * x_q8) >> 8) & ~ax,
@@ -133,6 +120,12 @@ void area_draw_bg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
         gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
         gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);
+        break;
+    }
+    case AREA_ID_SAVE: {
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 400, 230);
+        gfx_spr(ctx, tr_far, (v2_i32){0}, 0, 0);
+
         break;
     }
     }

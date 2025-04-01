@@ -213,8 +213,60 @@ void tex_outline_col_small(tex_s tex, i32 col)
     }
 }
 
+void tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia)
+{
+    assert(tex.fmt == TEX_FMT_MASK);
+    i32   wword = tex.wword >> 1;
+    usize size  = sizeof(u32) * wword * tex.h;
+    assert(size <= 4096);
+    u32 sm[1024];
+    for (i32 n = 0, k = 1; n < wword * tex.h; n++, k += 2) {
+        sm[n] = bswap32(tex.px[k]);
+    }
+
+    i32 x1 = 0;
+    i32 y1 = 0;
+    i32 x2 = wword - 1;
+    i32 y2 = tex.h - 1;
+
+    for (i32 yy = y1; yy <= y2; yy++) {
+        i32 yi1 = yy == y1 ? 0 : -1;
+        i32 yi2 = yy == y2 ? 0 : +1;
+
+        for (i32 xx = x1; xx <= x2; xx++) {
+            u32 m = 0;
+
+            for (i32 yi = yi1; yi <= yi2; yi++) {
+                i32 v = (yy + yi) * wword;
+                u32 k = sm[xx + v];
+                m |= k;
+
+                // neighbour pixels
+                if (dia || yi == 0) {
+                    m |= k >> 1;
+                    m |= k << 1;
+
+                    if (x1 < xx) {
+                        m |= sm[xx + v - 1] << 31;
+                    }
+                    if (xx < x2) {
+                        m |= sm[xx + v + 1] >> 31;
+                    }
+                }
+            }
+            if (m) {
+                u32 *dp = &tex.px[(xx << 1) + (yy * tex.wword)];
+                u32 *dm = dp + 1;
+                m       = bswap32(m) & ~*dm;
+                *dm |= m;
+                *dp = col ? (*dp | m) : (*dp & ~m);
+            }
+        }
+    }
+}
+
 // only works if x and w are multiple of 32 right now
-void tex_outline_col(tex_s tex, i32 col)
+void tex_outline_col_ext(tex_s tex, i32 col, b32 dia)
 {
     assert(tex.fmt == TEX_FMT_MASK);
     spm_push();
@@ -240,15 +292,19 @@ void tex_outline_col(tex_s tex, i32 col)
             for (i32 yi = yi1; yi <= yi2; yi++) {
                 i32 v = (yy + yi) * wword;
                 u32 k = sm[xx + v];
-                m |= k | (k >> 1) | (k << 1);
+                m |= k;
 
-                if (x1 < xx) {
-                    u32 kl = sm[xx + v - 1];
-                    m |= kl << 31;
-                }
-                if (xx < x2) {
-                    u32 kr = sm[xx + v + 1];
-                    m |= kr >> 31;
+                // neighbour pixels
+                if (dia || yi == 0) {
+                    m |= k >> 1;
+                    m |= k << 1;
+
+                    if (x1 < xx) {
+                        m |= sm[xx + v - 1] << 31;
+                    }
+                    if (xx < x2) {
+                        m |= sm[xx + v + 1] >> 31;
+                    }
                 }
             }
             if (m) {
@@ -256,14 +312,16 @@ void tex_outline_col(tex_s tex, i32 col)
                 u32 *dm = dp + 1;
                 m       = bswap32(m) & ~*dm;
                 *dm |= m;
-                switch (col) {
-                case GFX_COL_WHITE: *dp |= m; break;
-                case GFX_COL_BLACK: *dp &= ~m; break;
-                }
+                *dp = col ? (*dp | m) : (*dp & ~m);
             }
         }
     }
     spm_pop();
+}
+
+void tex_outline_col(tex_s tex, i32 col)
+{
+    tex_outline_col_ext(tex, col, 1);
 }
 
 // only works if x and w are multiple of 32 right now
@@ -886,14 +944,28 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode)
     t.t        = fnt.t;
     t.w        = fnt.grid_w;
     t.h        = fnt.grid_h;
+
     for (i32 n = 0; n < str.n; n++) {
         i32 ci = str.buf[n];
         if (32 <= ci && ci < 127) {
-            t.x = ((ci - 32) % 10) * fnt.grid_w;
-            t.y = ((ci - 32) / 10) * fnt.grid_h;
+            t.x = (ci & 31) * fnt.grid_w;
+            t.y = (ci >> 5) * fnt.grid_h;
             gfx_spr(ctx, t, p, 0, mode);
         }
+
         p.x += fnt.widths[ci] + fnt.tracking;
+
+        if (n < (i32)str.n - 1) {
+            i32 cj = str.buf[n + 1];
+
+            for (i32 k = 0; k < fnt.n_kerning; k++) {
+                fnt_kerning_s *fk = &fnt.kerning[k];
+                if (ci == fk->c1 && cj == fk->c2) {
+                    p.x -= (i32)fk->space;
+                    break;
+                }
+            }
+        }
     }
 }
 
@@ -918,8 +990,8 @@ void fnt_draw_str_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 m
     for (i32 n = 0; n < str.n; n++) {
         i32 ci = str.buf[n];
         if (32 <= ci && ci < 127) {
-            t.x = ((ci - 32) % 10) * fnt.grid_w;
-            t.y = ((ci - 32) / 10) * fnt.grid_h;
+            t.x = (ci & 31) * fnt.grid_w;
+            t.y = (ci >> 5) * fnt.grid_h;
             gfx_spr(ctx, t, p, 0, mode);
         }
         p.x += s + fnt.tracking;
@@ -932,7 +1004,7 @@ void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text,
     u8       buf[256] = {0};
     str.buf           = buf;
     str.cap           = ARRLEN(buf);
-    for (const u8 *c = (const u8 *)text; *c != '\0'; c++) {
+    for (const u8 *c = (const u8 *)text; *c; c++) {
         if (str.n == str.cap) break;
         str.buf[str.n++] = (u8)*c;
     }
@@ -942,8 +1014,8 @@ void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text,
 i32 fnt_length_px(fnt_s fnt, const void *txt)
 {
     i32 l = 0;
-    for (const u8 *c = (const u8 *)txt; *c != '\0'; c++) {
-        l += fnt.widths[(u32)*c];
+    for (const u8 *c = (const u8 *)txt; *c; c++) {
+        l += fnt.widths[(u32)*c] + fnt.tracking;
     }
     return l;
 }
@@ -952,10 +1024,21 @@ i32 fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing)
 {
     i32 l = 0;
     i32 s = spacing ? spacing : fnt.grid_w;
-    for (const u8 *c = (const u8 *)txt; *c != '\0'; c++) {
+    for (const u8 *c = (const u8 *)txt; *c; c++) {
         l += s;
     }
     return l;
+}
+
+i32 fnt_kerning(fnt_s fnt, i32 c1, i32 c2)
+{
+    for (i32 n = 0; n < fnt.n_kerning; n++) {
+        fnt_kerning_s *k = &fnt.kerning[n];
+        if (k->c1 == c1 && k->c2 == c2) {
+            return k->space;
+        }
+    }
+    return 0;
 }
 
 void gfx_tri_fill(gfx_ctx_s ctx, tri_i32 t, i32 mode)
@@ -1073,7 +1156,7 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode)
     if (d <= 0) return;
 
     i32 r = (d) >> 1;
-    if (d <= 2) {
+    if (d <= 3) {
         rec_i32 rf = {p.x - r, p.y - r, d, d};
         return;
     }
@@ -1085,7 +1168,7 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode)
     for (i32 yy = ymin; yy <= ymax; yy++) {
         i32 ls = dc - pow2_i32(p.y - yy);
         if (ls < 0) continue;
-        i32 xx = sqrt_u32(ls);
+        i32 xx = sqrt_u32(ls + 2);
         i32 x1 = max_i32(p.x - xx, ctx.clip_x1);
         i32 x2 = min_i32(p.x + xx, ctx.clip_x2);
         if (x1 <= x2) {

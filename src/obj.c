@@ -335,6 +335,7 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
         o->enemy.hurt_tick = o->enemy.hurt_tick_max;
     }
 
+    o->enemy.flash_tick = 4;
     if (o->enemy.on_hurt) {
         o->enemy.on_hurt(g, o);
     }

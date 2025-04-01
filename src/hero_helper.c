@@ -118,7 +118,7 @@ i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
 i32 hero_breath_tick(obj_s *o)
 {
     hero_s *h = (hero_s *)o->heap;
-    return h->breath_ticks;
+    return 0;
 }
 
 i32 hero_breath_tick_max(g_s *g)

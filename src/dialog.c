@@ -188,7 +188,7 @@ void dialog_draw(g_s *g)
     dialog_s *d = &g->dialog;
     if (d->state == 0) return;
 
-    fnt_s     fnt = asset_fnt(FNTID_16);
+    fnt_s     fnt = asset_fnt(FNTID_MEDIUM);
     gfx_ctx_s ctx = gfx_ctx_display();
 
     i32 offs_y = DIALOG_H_SLIDE;

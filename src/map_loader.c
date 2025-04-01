@@ -298,6 +298,9 @@ void game_load_map(g_s *g, u32 map_hash)
     case 7: tex_from_wad(f, 0, "T_BG001", game_allocator(g), tbg); break; // forest
     case 5: tex_from_wad(f, 0, "T_BG002", game_allocator(g), tbg); break; // case
     case 3: tex_from_wad(f, 0, "T_BG003", game_allocator(g), tbg); break; // mountain
+    case AREA_ID_SAVE:
+        tex_from_wad(f, 0, "T_BGSAVE01", game_allocator(g), tbg);
+        break; // save
     }
 
     i32 areafxID = 0;
@@ -311,6 +314,7 @@ void game_load_map(g_s *g, u32 map_hash)
 
     const i32 w = hd->w;
     const i32 h = hd->h;
+    g->map_hash = map_hash;
     g->tiles_x  = w;
     g->tiles_y  = h;
     g->pixel_x  = w << 4;

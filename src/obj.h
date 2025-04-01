@@ -94,7 +94,7 @@ typedef void (*obj_action_f)(g_s *g, obj_s *o);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef i32  (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
 
 typedef struct enemy_s {
     obj_action_f on_hurt; // void f(g_s *g, obj_s *o);
@@ -102,6 +102,7 @@ typedef struct enemy_s {
     u8           sndID_hurt;
     u8           sndID_die;
     i8           hurt_tick; // 0< hurt, <0 die
+    u8           flash_tick;
     u8           die_tick_max;
     u8           hurt_tick_max;
     u8           hero_hitID;
@@ -155,6 +156,7 @@ struct obj_s {
     b8               blinking;
     u8               n_sprites;
     u8               n_ignored_solids;
+    v2_i8            interact_offs; // offset of interaction UI
     enemy_s          enemy;
     ropenode_s      *ropenode;
     rope_s          *rope;
