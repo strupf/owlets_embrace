@@ -80,6 +80,7 @@ LOAD_FNT:;
     }
     app_load_fnt_internal(&l, FNTID_SMALL, "F_SMALL");
     app_load_fnt_internal(&l, FNTID_MEDIUM, "F_MEDIUM");
+    app_load_fnt_internal(&l, FNTID_LARGE, "F_LARGE");
 
 LOAD_SND:;
     // SND ---------------------------------------------------------------------

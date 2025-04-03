@@ -273,7 +273,7 @@ void prerender_area_label(g_s *g)
     gfx_ctx_s ctx    = gfx_ctx_default(asset_tex(TEXID_AREALABEL));
     tex_clr(ctx.dst, GFX_COL_CLEAR);
     v2_i32 loc = {2, 2};
-    fnt_draw_ascii(ctx, font_1, loc, g->areaname.label, SPR_MODE_BLACK);
+    fnt_draw_str(ctx, font_1, loc, g->areaname.label, SPR_MODE_BLACK);
     tex_outline_white(ctx.dst);
     tex_outline_white(ctx.dst);
 #endif

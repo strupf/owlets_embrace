@@ -58,7 +58,7 @@ void sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     fnt_s fnt         = asset_fnt(FNTID_SMALL);
 
     v2_i32 pos = {0};
-    fnt_draw_ascii(ctx, fnt, v2_i32_add(pos, cam), NULL, 0);
+    fnt_draw_str(ctx, fnt, v2_i32_add(pos, cam), NULL, 0);
 }
 
 void sign_on_interact(g_s *g, obj_s *o)

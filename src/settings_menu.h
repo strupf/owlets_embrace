@@ -20,6 +20,7 @@ enum {
 
 typedef struct {
     settings_s settings;
+    b8         active;
     u8         fade_enter;
     u8         fade_leave;
     u8         opt;

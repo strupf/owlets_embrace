@@ -100,11 +100,11 @@ void gameover_draw(g_s *g, v2_i32 cam)
                 v2_i32 p = pos;
                 p.x += x;
                 p.y += y;
-                fnt_draw_ascii(ctx, font, p, "Game Over", SPR_MODE_WHITE);
+                fnt_draw_str(ctx, font, p, "Game Over", SPR_MODE_WHITE);
             }
         }
 
-        fnt_draw_ascii(ctx, font, pos, "Game Over", SPR_MODE_BLACK);
+        fnt_draw_str(ctx, font, pos, "Game Over", SPR_MODE_BLACK);
 
         if (go->phase == GAMEOVER_GAMEOVER_INPUT) {
         }

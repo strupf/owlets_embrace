@@ -188,7 +188,7 @@ void dialog_draw(g_s *g)
     dialog_s *d = &g->dialog;
     if (d->state == 0) return;
 
-    fnt_s     fnt = asset_fnt(FNTID_MEDIUM);
+    fnt_s     f   = asset_fnt(FNTID_LARGE);
     gfx_ctx_s ctx = gfx_ctx_display();
 
     i32 offs_y = DIALOG_H_SLIDE;
@@ -215,7 +215,7 @@ void dialog_draw(g_s *g)
 
     i32      tb_y  = 240 - offs_y;
     i32      dt_y  = DIALOG_H_SLIDE - offs_y;
-    texrec_s tr    = {fnt.t, 0, 0, fnt.grid_w, fnt.grid_h};
+    texrec_s tr    = {f.t, 0, 0, f.grid_w, f.grid_h};
     rec_i32  rfill = {0, PLTF_DISPLAY_H - offs_y, PLTF_DISPLAY_W, offs_y};
 
     gfx_rec_fill(ctx, rfill, GFX_COL_BLACK);
@@ -247,13 +247,13 @@ void dialog_draw(g_s *g)
         if (d->n_lines <= l) break;
 
         dialog_line_s *line = &d->lines[l];
-        v2_i32         pos  = {10, tb_y + 12 + n * 22};
+        v2_i32         pos  = {10, tb_y + 10 + n * 22};
 
         for (i32 k = 0; k < line->n_visible; k++) {
             dialog_char_s ch   = line->chars[k];
             v2_i32        posc = pos;
-            tr.x               = ((ch.c - 32) % 10) * fnt.grid_w;
-            tr.y               = ((ch.c - 32) / 10) * fnt.grid_h;
+            tr.x               = ((ch.c) % 32) * f.grid_w;
+            tr.y               = ((ch.c) / 32) * f.grid_h;
 
             if (ch.flags_ticks & DIALOG_CFLAG_SHAKE) {
                 posc.x += rngsr_i32(&shake_seed, 0, 1);
@@ -264,7 +264,10 @@ void dialog_draw(g_s *g)
             }
 
             gfx_spr(ctx, tr, posc, 0, SPR_MODE_WHITE);
-            pos.x += fnt.widths[ch.c];
+            pos.x += f.widths[ch.c] + f.tracking + 1;
+            if (k < line->n_visible - 1) {
+                pos.x -= fnt_kerning(f, ch.c, line->chars[k + 1].c);
+            }
         }
     }
 
@@ -276,10 +279,10 @@ void dialog_draw(g_s *g)
 
             for (u8 *ch = choice->chars; *ch != '\0'; ch++) {
                 i32 c = *ch;
-                tr.x  = (c & 31) * fnt.grid_w;
-                tr.y  = (c >> 5) * fnt.grid_h;
+                tr.x  = (c & 31) * f.grid_w;
+                tr.y  = (c >> 5) * f.grid_h;
                 gfx_spr(ctx, tr, pos, 0, SPR_MODE_WHITE);
-                pos.x += fnt.widths[c];
+                pos.x += f.widths[c] + f.tracking - fnt_kerning(f, c, ch[1]);
             }
         }
     }

@@ -12,15 +12,6 @@
 
 app_s *APP;
 
-void app_mode_callback(void *ctx, i32 opt)
-{
-    switch (opt) {
-    case 0: app_set_mode(SETTINGS_MODE_NORMAL); break;
-    case 1: app_set_mode(SETTINGS_MODE_POWER_SAVING); break;
-    case 2: app_set_mode(SETTINGS_MODE_30_FPS); break;
-    }
-}
-
 void app_menu_callback_map(void *ctx, i32 opt)
 {
     if (!APP->game.minimap.state) {
@@ -204,17 +195,29 @@ void app_draw()
         break;
     }
 
+    settings_menu_s *sm = &APP->settings_menu;
+    if (sm->active) {
+        settings_menu_draw(sm);
+    }
+
     if (textinput_active()) {
         textinput_draw();
     }
 
-    texrec_s trdevbuild   = asset_texrec(TEXID_BUTTONS, 0, 240, 40, 8);
-    v2_i32   pos_devbuild = {400 - 38, 240 - 7};
-    gfx_spr(ctx, trdevbuild, pos_devbuild, 0, 0);
 #if 0
     tex_clr(ctx.dst, GFX_COL_BLACK);
-    i32 cr = (40 * (sin_q15(pltf_cur_tick() << 8) + 32768)) / 65537;
-    gfx_cir_fill(ctx, (v2_i32){200, 120}, cr, PRIM_MODE_WHITE);
+
+    fnt_s f     = asset_fnt(FNTID_MEDIUM);
+    char  ch[2] = {'A'};
+
+    i32 nx = 8;
+
+    for (i32 y = 0; y < 3; y++) {
+        for (i32 x = 0; x < nx; x++) {
+            fnt_draw_str(ctx, f, (v2_i32){25 + (x * 380) / nx, 100 + 36 * y}, ch, SPR_MODE_WHITE);
+            ch[0]++;
+        }
+    }
 #endif
 }
 

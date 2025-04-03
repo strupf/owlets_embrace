@@ -458,40 +458,40 @@ void title_draw_fnt_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void
 
     switch (style) {
     case 0: {
-        fnt_draw_ascii(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
         tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
         tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 0);
         tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
         break;
     }
     case 1: {
-        fnt_draw_ascii(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
         tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
         tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 0);
         tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
         break;
     }
     case 2: {
-        fnt_draw_ascii(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
         tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
         tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 0);
         // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
         break;
     }
     case 3: {
-        fnt_draw_ascii(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
+        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
         break;
     }
     case 4: {
-        fnt_draw_ascii(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
-        // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 0);
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
+        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 0);
         break;
     }
     }
 
-    gfx_spr(ctx, texrec_from_tex(textmp), (v2_i32){pos.x - 2 - px / 2, pos.y - 2}, 0, 0);
+    gfx_spr(ctx, texrec_from_tex(textmp), (v2_i32){pos.x - 4 - px / 2, pos.y - 2}, 0, 0);
 }
 
 void title_draw_btn(title_s *t, i32 ID)
@@ -499,7 +499,7 @@ void title_draw_btn(title_s *t, i32 ID)
     gfx_ctx_s ctx  = gfx_ctx_display();
     texrec_s  tbut = asset_texrec(TEXID_COVER, 0, 0, 0, 0);
     v2_i32    pbut = title_btn_pos(t, ID);
-    fnt_s     font = asset_fnt(FNTID_SMALL);
+    fnt_s     font = asset_fnt(FNTID_MEDIUM);
 
     switch (ID) {
     case TITLE_BTN_SLOT_1:
@@ -543,29 +543,29 @@ void title_draw_btn(title_s *t, i32 ID)
     case TITLE_BTN_SLOT_2:
     case TITLE_BTN_SLOT_3: {
         save_preview_s *sp    = &t->saves[ID - TITLE_BTN_SLOT_1];
-        v2_i32          fpos1 = {pbut.x + 8, pbut.y + 6};
-        v2_i32          fpos2 = {fpos1.x + 20, fpos1.y};
+        v2_i32          fpos1 = {pbut.x + 9, pbut.y + 4};
+        v2_i32          fpos2 = {fpos1.x + 19, fpos1.y};
 
         if (sp->exists) {
-            title_draw_fnt_outline_style(ctx, font, fpos2, sp->name, 2, 0);
+            title_draw_fnt_outline_style(ctx, font, fpos2, sp->name, 3, 0);
         }
         char snum[2] = {'1' + (ID - TITLE_BTN_SLOT_1), 0};
         title_draw_fnt_outline_style(ctx, font, fpos1, snum, 4, 0);
         break;
     }
     case TITLE_BTN_SPEEDRUN: {
-        v2_i32 fpos = {pbut.x + 10, pbut.y + 8};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Speedrun", 2, 0);
+        v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
+        title_draw_fnt_outline_style(ctx, font, fpos, "Speedrun", 3, 0);
         break;
     }
     case TITLE_BTN_SLOT_COPY: {
-        v2_i32 fpos = {pbut.x + 10, pbut.y + 6};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Copy", 2, 0);
+        v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
+        title_draw_fnt_outline_style(ctx, font, fpos, "Copy", 3, 0);
         break;
     }
     case TITLE_BTN_SLOT_DELETE: {
-        v2_i32 fpos = {pbut.x + 10, pbut.y + 6};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Delete", 2, 0);
+        v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
+        title_draw_fnt_outline_style(ctx, font, fpos, "Delete", 3, 0);
         break;
     }
     }
@@ -576,20 +576,19 @@ void title_render(title_s *t)
     tex_s     tdisplay = asset_tex(0);
     gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
     gfx_ctx_s ctxcov   = ctx;
-    fnt_s     font     = asset_fnt(FNTID_MEDIUM);
+    fnt_s     font     = asset_fnt(FNTID_LARGE);
     rec_i32   rfull    = {0, 0, 400, 240};
     tex_s     tex      = asset_tex(TEXID_DISPLAY_TMP);
     tex_clr(tdisplay, GFX_COL_BLACK);
 
     if (t->state == TITLE_ST_OVERVIEW) {
         texrec_s trcover = asset_texrec(TEXID_COVER, 0, 0, 400, 240);
-
         gfx_spr(ctx, trcover, (v2_i32){0, 0}, 0, 0);
 
         i32 ti1 = (i32)t->tick - 0;
         if (0 <= ti1) {
             texrec_s trlogo   = asset_texrec(TEXID_COVER, 0, 256, 7 * 32, 4 * 32);
-            v2_i32   logo_pos = {98, 30};
+            v2_i32   logo_pos = {92, 40};
             logo_pos.y += (3 * sin_q15(ti1 << 10)) / 32769;
             gfx_ctx_s ctxlogo = ctx;
             ctxlogo.pat       = gfx_pattern_interpolate(min_i32(ti1, TITLE_INTRO_LOGO_TICKS),
@@ -661,7 +660,7 @@ void title_render(title_s *t)
     }
 
     v2_i32 phead = {12, 8};
-    fnt_s  fhead = asset_fnt(FNTID_MEDIUM);
+    fnt_s  fhead = asset_fnt(FNTID_LARGE);
     i32    shead = 3;
 
     switch (t->state) {
@@ -746,60 +745,70 @@ void title_draw_companion(title_s *t)
 void title_draw_version()
 {
     gfx_ctx_s ctx  = gfx_ctx_display();
-    v2_i32    pnum = {4, 240 - 16};
     texrec_s  tnum = asset_texrec(TEXID_BUTTONS, 0, 224, 8, 16);
+
+    i32 lv = 7 + 4 + 7 * (10 <= GAME_V_MIN ? 2 : 1) + 4 +
+             7 * (10 <= GAME_V_PAT ? 2 : 1);
+    if (GAME_V_DEV) {
+        lv += 7 + 7 * (10 <= GAME_V_DEV ? 2 : 1);
+    }
+    v2_i32 pnum = {397 - lv, 227};
 
     // major
     tnum.x = 8 * (GAME_V_MAJ);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
-    pnum.x += 9 - 1;
+    pnum.x += 7;
     // dot
     tnum.x = 80;
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
-    pnum.x += 5 - 1;
+    pnum.x += 4;
     // minor
-    tnum.x = 8 * (GAME_V_MIN);
+    if (10 <= GAME_V_MIN) {
+        tnum.x = 8 * (GAME_V_MIN / 10);
+        gfx_spr_tile_32x32(ctx, tnum, pnum);
+        pnum.x += 7;
+    }
+    tnum.x = 8 * (GAME_V_MIN % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
-    pnum.x += 9 - 1;
+    pnum.x += 7;
     // dot
     tnum.x = 80;
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
-    pnum.x += 5 - 1;
+    pnum.x += 4;
 
     // patch
     if (100 <= GAME_V_PAT) {
         tnum.x = 8 * (GAME_V_PAT / 100);
         gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 9 - 1;
+        pnum.x += 7;
     }
     if (10 <= GAME_V_PAT) {
         tnum.x = 8 * ((GAME_V_PAT / 10) % 10);
         gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 9 - 1;
+        pnum.x += 7;
     }
     tnum.x = 8 * (GAME_V_PAT % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
-    pnum.x += 9 - 1;
+    pnum.x += 7;
 
     if (GAME_V_DEV) {
         // slash
         tnum.x = 88;
         gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
-        pnum.x += 9 - 1;
+        pnum.x += 7;
 
         if (100 <= GAME_V_DEV) {
             tnum.x = 8 * (GAME_V_DEV / 100);
             gfx_spr_tile_32x32(ctx, tnum, pnum);
-            pnum.x += 9 - 1;
+            pnum.x += 7;
         }
         if (10 <= GAME_V_DEV) {
             tnum.x = 8 * ((GAME_V_DEV / 10) % 10);
             gfx_spr_tile_32x32(ctx, tnum, pnum);
-            pnum.x += 9 - 1;
+            pnum.x += 7;
         }
         tnum.x = 8 * (GAME_V_DEV % 10);
         gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 9 - 1;
     }
 }
 

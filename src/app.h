@@ -23,8 +23,7 @@ enum {
     APP_ST_GAME
 };
 
-typedef struct app_s app_s;
-struct app_s {
+typedef struct app_s {
     ALIGNAS(APP_STRUCT_ALIGNMENT)
     wad_s           wad;
     assets_s        assets;
@@ -37,8 +36,8 @@ struct app_s {
     i32             state;
     marena_s        ma;
 
-    byte mem[MMEGABYTE(6)];
-};
+    byte mem[MMEGABYTE(8)];
+} app_s;
 
 extern app_s *APP;
 

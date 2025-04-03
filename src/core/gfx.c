@@ -937,7 +937,7 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2)
     }
 }
 
-void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode)
+void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode)
 {
     v2_i32   p = pos;
     texrec_s t = {0};
@@ -945,97 +945,36 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode)
     t.w        = fnt.grid_w;
     t.h        = fnt.grid_h;
 
-    for (i32 n = 0; n < str.n; n++) {
-        i32 ci = str.buf[n];
-        if (32 <= ci && ci < 127) {
-            t.x = (ci & 31) * fnt.grid_w;
-            t.y = (ci >> 5) * fnt.grid_h;
+    for (const u8 *c = (const u8 *)s; *c; c++) {
+        i32 i = *(c);
+        if (32 < i && i < 127) {
+            t.x = (i & 31) * fnt.grid_w;
+            t.y = (i >> 5) * fnt.grid_h;
             gfx_spr(ctx, t, p, 0, mode);
         }
 
-        p.x += fnt.widths[ci] + fnt.tracking;
-
-        if (n < (i32)str.n - 1) {
-            i32 cj = str.buf[n + 1];
-
-            for (i32 k = 0; k < fnt.n_kerning; k++) {
-                fnt_kerning_s *fk = &fnt.kerning[k];
-                if (ci == fk->c1 && cj == fk->c2) {
-                    p.x -= (i32)fk->space;
-                    break;
-                }
-            }
-        }
+        p.x += fnt.widths[i] + fnt.tracking - fnt_kerning(fnt, i, *(c + 1));
     }
-}
-
-void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode)
-{
-    fntstr_s str      = {0};
-    u8       buf[256] = {0};
-    str.buf           = buf;
-    str.cap           = ARRLEN(buf);
-    for (const u8 *c = (const u8 *)text; *c != '\0'; c++) {
-        if (str.n == str.cap) break;
-        str.buf[str.n++] = (u8)*c;
-    }
-    fnt_draw_str(ctx, fnt, pos, str, mode);
-}
-
-void fnt_draw_str_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, fntstr_s str, i32 mode, i32 spacing)
-{
-    v2_i32   p = pos;
-    texrec_s t = {fnt.t, 0, 0, fnt.grid_w, fnt.grid_h};
-    i32      s = spacing ? spacing : fnt.grid_w;
-    for (i32 n = 0; n < str.n; n++) {
-        i32 ci = str.buf[n];
-        if (32 <= ci && ci < 127) {
-            t.x = (ci & 31) * fnt.grid_w;
-            t.y = (ci >> 5) * fnt.grid_h;
-            gfx_spr(ctx, t, p, 0, mode);
-        }
-        p.x += s + fnt.tracking;
-    }
-}
-
-void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode, i32 spacing)
-{
-    fntstr_s str      = {0};
-    u8       buf[256] = {0};
-    str.buf           = buf;
-    str.cap           = ARRLEN(buf);
-    for (const u8 *c = (const u8 *)text; *c; c++) {
-        if (str.n == str.cap) break;
-        str.buf[str.n++] = (u8)*c;
-    }
-    fnt_draw_str_mono(ctx, fnt, pos, str, mode, spacing);
 }
 
 i32 fnt_length_px(fnt_s fnt, const void *txt)
 {
     i32 l = 0;
     for (const u8 *c = (const u8 *)txt; *c; c++) {
-        l += fnt.widths[(u32)*c] + fnt.tracking;
-    }
-    return l;
-}
-
-i32 fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing)
-{
-    i32 l = 0;
-    i32 s = spacing ? spacing : fnt.grid_w;
-    for (const u8 *c = (const u8 *)txt; *c; c++) {
-        l += s;
+        i32 ci = *(c);
+        l += fnt.widths[ci] + fnt.tracking - fnt_kerning(fnt, ci, *(c + 1));
     }
     return l;
 }
 
 i32 fnt_kerning(fnt_s fnt, i32 c1, i32 c2)
 {
-    for (i32 n = 0; n < fnt.n_kerning; n++) {
-        fnt_kerning_s *k = &fnt.kerning[n];
-        if (k->c1 == c1 && k->c2 == c2) {
-            return k->space;
+    if (c1 != '\0' && c2 != '\0') {
+        for (i32 k = 0; k < fnt.n_kerning; k++) {
+            fnt_kerning_s *fk = &fnt.kerning[k];
+            if (c1 == fk->c1 && c2 == fk->c2) {
+                return (i32)fk->space;
+            }
         }
     }
     return 0;

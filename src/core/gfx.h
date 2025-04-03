@@ -180,10 +180,8 @@ void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
 void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
                              i32 a1, i32 a2, i32 mode);
 //
-void fnt_draw_ascii(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode);
-void fnt_draw_ascii_mono(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *text, i32 mode, i32 spacing);
+void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode);
 i32  fnt_length_px(fnt_s fnt, const void *txt);
-i32  fnt_length_px_mono(fnt_s fnt, const void *txt, i32 spacing);
 i32  fnt_kerning(fnt_s fnt, i32 c1, i32 c2);
 
 static void spr_blit_p(u32 *dp, u32 sp, u32 sm, i32 mode)

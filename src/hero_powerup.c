@@ -191,13 +191,13 @@ void hero_powerup_draw_text(gfx_ctx_s ctx, i32 ID)
     const char *text1 = powerup_texts[ID].title;
     i32         len1  = fnt_length_px(fnt, text1);
     v2_i32      lpos1 = {(400 - len1) / 2, 30};
-    fnt_draw_ascii(ctx, fnt, lpos1, text1, SPR_MODE_WHITE);
+    fnt_draw_str(ctx, fnt, lpos1, text1, SPR_MODE_WHITE);
 
     for (i32 n = 0; n < NUM_POWERUP_LINES; n++) {
         const char *text = powerup_texts[ID].txt[n];
         i32         len  = fnt_length_px(fnt, text);
         v2_i32      lpos = {(400 - len) / 2, 80 + n * 30};
-        fnt_draw_ascii(ctx, fnt, lpos, text, SPR_MODE_WHITE);
+        fnt_draw_str(ctx, fnt, lpos, text, SPR_MODE_WHITE);
     }
 }
 

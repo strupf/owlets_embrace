@@ -21,16 +21,15 @@
 #include "util/sorting.h"
 #include "util/str.h"
 
-#define GAME_V_MAJ 0 // 4 bits, 0...15
-#define GAME_V_MIN 1 // 4 bits, 0...15
-#define GAME_V_PAT 0 // 8 bits, 0...255
-//
-#define GAME_V_DEV 0 // 8 bits, 0...255, preview version post-release
+#define GAME_V_MAJ 0
+#define GAME_V_MIN 1
+#define GAME_V_PAT 0
+#define GAME_V_DEV 0 // preview version post-release
 
-#define GAME_VERSION_GEN(A, B, C, D) (u32)(((u32)(A) << 20) | \
-                                           ((u32)(B) << 16) | \
-                                           ((u32)(C) << 8) |  \
-                                           ((u32)(D)))
+#define GAME_VERSION_GEN(A, B, C, D) (((u32)(A) << 24) | \
+                                      ((u32)(B) << 16) | \
+                                      ((u32)(C) << 8) |  \
+                                      ((u32)(D)))
 
 #define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJ, \
                                       GAME_V_MIN, \
@@ -48,8 +47,8 @@ typedef struct {
 static game_version_s game_version_decode(u32 v)
 {
     game_version_s r = {0};
-    r.vmaj           = 0x0F & (v >> 20);
-    r.vmin           = 0x0F & (v >> 16);
+    r.vmaj           = 0xFF & (v >> 24);
+    r.vmin           = 0xFF & (v >> 16);
     r.vpat           = 0xFF & (v >> 8);
     r.vdev           = 0xFF & (v);
     return r;

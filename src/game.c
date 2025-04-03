@@ -85,6 +85,12 @@ void game_tick(g_s *g, inp_state_s inpstate)
 
 #endif
 
+    static i32 once = 0;
+    if (g->activeinput && !once) {
+        once = 1;
+        dialog_open_wad(g, "D_001");
+    }
+
     if (g->hero_hurt_lp_tick) {
         g->hero_hurt_lp_tick--;
         i32 lp = lerp_i32(0, 12, g->hero_hurt_lp_tick, HERO_HURT_LP_TICKS);
