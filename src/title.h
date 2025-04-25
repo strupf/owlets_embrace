@@ -11,7 +11,7 @@
 
 typedef struct app_s app_s;
 
-#define TITLE_SKIP_TO_GAME 0
+#define TITLE_SKIP_TO_GAME 1
 
 enum {
     TITLE_MAIN_FADE_OUT,

@@ -60,7 +60,7 @@ void budplant_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case BUDPLANT_ST_IDLE:
-        if (50 <= o->timer && (rng_u32() < 0x3000000U || 150 <= o->timer)) {
+        if (50 <= o->timer && (rng_i32() < 0x3000000U || 150 <= o->timer)) {
             o->timer = 0, o->state++;
         }
         break;

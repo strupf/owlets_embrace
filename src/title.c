@@ -63,10 +63,11 @@ void title_to_state(title_s *t, i32 state, i32 fade)
 
 void title_init(title_s *t)
 {
+    g_s *g = &APP->game;
     title_load_previews(t);
-    t->preload_slot            = -1;
-    APP->game.activeinput      = 0;
-    APP->game.render_map_doors = 0;
+    t->preload_slot     = -1;
+    g->render_map_doors = 0;
+    g->previewmode      = 1;
 }
 
 void title_start_game(app_s *app, i32 slot)
@@ -74,9 +75,20 @@ void title_start_game(app_s *app, i32 slot)
     g_s *g                = &app->game;
     app->title.state      = TITLE_ST_TO_GAME;
     app->title.start_tick = 0;
+    game_cue_area_music(g);
 #if PLTF_PD
+    pltf_pd_menu_add("savepoint", app_menu_callback_resetsave, 0);
     pltf_pd_menu_add("map", app_menu_callback_map, 0);
 #endif
+}
+
+void title_gameplay_start(app_s *app)
+{
+    g_s *g                = &app->game;
+    g->block_hero_control = 0;
+    g->render_map_doors   = 1;
+    g->previewmode        = 0;
+    app->state            = APP_ST_GAME;
 }
 
 bool32 title_preload_available(title_s *t)
@@ -100,11 +112,11 @@ void title_try_preload(app_s *app, title_s *t)
     } else if (t->preload_slot == t->selected) {
         t->preload_fade_dir = 1;
     } else if (t->preload_fade_q7 == 0) {
-        g_s        *g = &app->game;
-        savefile_s *s = &app->save;
-        g->save_slot  = t->selected;
-        g->savefile   = s;
-        err32 err     = savefile_r(t->selected, s);
+        savefile_s *s         = &app->save;
+        g_s        *g         = &app->game;
+        g->block_hero_control = 1;
+        g->save_slot          = t->selected;
+        err32 err             = savefile_r(t->selected, s);
         if (err) {
             t->preload_slot     = -1;
             t->preload_fade_dir = 0;
@@ -119,9 +131,12 @@ void title_try_preload(app_s *app, title_s *t)
 void title_update(app_s *app, title_s *t)
 {
 #if TITLE_SKIP_TO_GAME
+    g_s *g = &app->game;
+    savefile_r(0, g->savefile);
+    game_load_savefile(g);
     title_start_game(app, 0);
-    return;
-#endif
+    title_gameplay_start(app);
+#else
     if (t->state != TITLE_ST_OVERVIEW) {
         t->tick++;
     }
@@ -193,15 +208,23 @@ void title_update(app_s *app, title_s *t)
             }
         } else {
             t->tick++;
+#if GAME_DEMO
+            if (inp_btn_jp(INP_A)) {
+                t->title_fade_dir = +1; // fade
+                snd_play(SNDID_MENU3, 1.f, 1.f);
+            }
+#else
             if (t->title_subst) {
                 if (inp_btn_jp(INP_A)) {
                     t->title_fade_dir = +1; // fade
+                    snd_play(SNDID_MENU3, 1.f, 1.f);
                 }
             } else {
                 if (inp_btn_jp(INP_A)) {
                     t->title_subst = 1;
                 }
             }
+#endif
         }
         break;
     }
@@ -237,6 +260,7 @@ void title_update(app_s *app, title_s *t)
             }
         } else if (inp_btn_jp(INP_A)) {
             t->comp_bump = 1;
+            snd_play(SNDID_MENU3, 1.f, 1.f);
 
             if (t->option < 3) {
                 t->selected = t->option;
@@ -258,7 +282,7 @@ void title_update(app_s *app, title_s *t)
                     title_btn_toggle(t, TITLE_BTN_SLOT_COPY, 1);
                     title_btn_toggle(t, TITLE_BTN_SLOT_DELETE, 1);
                 } else {
-                    title_to_state(t, TITLE_ST_FILE_NEW, 0);
+                    // title_to_state(t, TITLE_ST_FILE_NEW, 0);
                 }
             } else { // speedrun
             }
@@ -266,8 +290,13 @@ void title_update(app_s *app, title_s *t)
         } else if (inp_btn_jp(INP_B)) {
             t->title_fade_dir = +1; // fade out
         } else {
-            t->option   = clamp_i32((i32)t->option + dy, 0, 3);
+#if !GAME_DEMO
+            t->option   = clamp_i32((i32)t->option + dy, 0, 2);
             t->selected = t->option;
+            if (dy) {
+                snd_play(SNDID_MENU1, 1.f, 1.f);
+            }
+#endif
 
             switch (t->option) {
             case 0:
@@ -293,6 +322,8 @@ void title_update(app_s *app, title_s *t)
     }
     case TITLE_ST_FILE_SELECTED: {
         if (inp_btn_jp(INP_A)) {
+            snd_play(SNDID_MENU3, 1.f, 1.f);
+
             switch (t->option) {
             case TITLE_FP_0_START: {
                 t->comp_bump = 1;
@@ -343,7 +374,9 @@ void title_update(app_s *app, title_s *t)
             title_btn_toggle(t, TITLE_BTN_SLOT_COPY, 0);
             title_btn_toggle(t, TITLE_BTN_SLOT_DELETE, 0);
         } else {
+#if !GAME_DEMO
             t->option = clamp_i32((i32)t->option + dy, 0, 2);
+#endif
 
             switch (t->option) {
             case 0: t->comp_btnID = TITLE_BTN_SLOT_1 + t->selected; break;
@@ -355,6 +388,7 @@ void title_update(app_s *app, title_s *t)
     }
     case TITLE_ST_FILE_CPY: {
         if (inp_btn_jp(INP_A)) {
+            snd_play(SNDID_MENU3, 1.f, 1.f);
             t->copy_to = t->option;
 
             savefile_s *s = &APP->save;
@@ -409,9 +443,7 @@ void title_update(app_s *app, title_s *t)
     case TITLE_ST_TO_GAME: {
         t->start_tick++;
         if (TITLE_START_TICKS <= t->start_tick) {
-            app->game.activeinput      = 1;
-            app->game.render_map_doors = 1;
-            app->state                 = APP_ST_GAME;
+            title_gameplay_start(app);
         }
         break;
     }
@@ -436,6 +468,7 @@ void title_update(app_s *app, title_s *t)
         break;
     }
     }
+#endif
 }
 
 void title_draw_fnt_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str, i32 style, b32 centeredx)
@@ -445,11 +478,11 @@ void title_draw_fnt_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void
         px = fnt_length_px(f, str);
     }
 
-    ALIGNAS(8) u32 pxtmp[((256 >> 5) << 1) * 24] = {0};
+    ALIGNAS(8) u32 pxtmp[((256 >> 5) << 1) * 32] = {0};
 
     tex_s textmp = {0};
     textmp.w     = 256;
-    textmp.h     = 24;
+    textmp.h     = 32;
     textmp.wword = (textmp.w >> 5) << 1;
     textmp.px    = pxtmp;
     textmp.fmt   = 1;
@@ -459,34 +492,34 @@ void title_draw_fnt_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void
     switch (style) {
     case 0: {
         fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 0);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
         break;
     }
     case 1: {
         fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 0);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
         break;
     }
     case 2: {
         fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
         // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
         break;
     }
     case 3: {
         fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext_small(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
         break;
     }
     case 4: {
         fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
-        tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 0);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
         break;
     }
     }
@@ -520,18 +553,27 @@ void title_draw_btn(title_s *t, i32 ID)
         tbut.y = 384 + 32;
         tbut.w = 4 * 32;
         tbut.h = 1 * 32;
+#if GAME_DEMO
+        return;
+#endif
         break;
     }
     case TITLE_BTN_SLOT_COPY: {
         tbut.y = 448;
         tbut.w = 3 * 32;
         tbut.h = 1 * 32;
+#if GAME_DEMO
+        return;
+#endif
         break;
     }
     case TITLE_BTN_SLOT_DELETE: {
         tbut.y = 448;
         tbut.w = 3 * 32;
         tbut.h = 1 * 32;
+#if GAME_DEMO
+        return;
+#endif
         break;
     }
     }
@@ -617,7 +659,7 @@ void title_render(title_s *t)
                 i32       pt   = lerp_i32(0, GFX_PATTERN_MAX, min_i32(fs, 32768), 32768);
                 ctxs.pat       = gfx_pattern_bayer_4x4(pt);
                 title_draw_fnt_outline_style(ctxs, font, (v2_i32){200, 190},
-                                             "- Press any button -", 2, 1);
+                                             "- Press A/B -", 2, 1);
             }
         }
 

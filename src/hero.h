@@ -87,7 +87,8 @@ enum {
 #define HERO_CLIMB_Y1_OFFS             2 // from top downwards
 #define HERO_CLIMB_Y2_OFFS             4 // from bottom upwards
 #define HERO_TICKS_SPIN_ATTACK         22
-#define HERO_HURT_LP_TICKS             100
+#define HERO_HURT_LP_TICKS             150 // duration of lowpass after hurt
+#define HERO_HURT_LP_TICKS_FADE        50  // ticks for fading from hurt lowpass back to normal
 #define HERO_WATER_THRESHOLD           18
 #define HERO_WIDTH                     14
 #define HERO_X_OFFS_LADDER             ((16 - HERO_WIDTH) >> 1)
@@ -158,13 +159,13 @@ typedef struct hero_s {
     i32    hook_aim;
     i32    hook_aim_mode;
     i32    hook_aim_crank_buildup;
+    i32    jump_snd_iID;
     v2_i32 safe_pos;
     v2_i16 safe_v;
     i16    safe_facing;
     i16    air_block_ticks;
     i16    air_block_ticks_og;
     u8     drown_tick;
-    u16    health_restore_tick;
     u16    stamina_ui_collected_tick;
     u16    stamina_ui_fade_out;
     u16    stamina_added;

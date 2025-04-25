@@ -354,8 +354,8 @@ void pltf_internal_set_fps(f32 fps)
 // len is buffer length in bytes (datatype size * channels * length)
 void pltf_sdl_audio(void *u, u8 *stream, int len)
 {
-    static i16 lbuf[0x1000];
-    static i16 rbuf[0x1000];
+    ALIGNAS(4) static i16 lbuf[0x400];
+    ALIGNAS(4) static i16 rbuf[0x400];
 
     mclr(lbuf, sizeof(lbuf));
     mclr(rbuf, sizeof(rbuf));
@@ -395,9 +395,9 @@ void pltf_sdl_txt_inp_clr_cb()
 
 void pltf_audio_set_volume(f32 vol)
 {
-    pltf_audio_lock();
+    pltf_sdl_audio_lock();
     g_SDL.vol = vol;
-    pltf_audio_unlock();
+    pltf_sdl_audio_unlock();
 }
 
 f32 pltf_audio_get_volume()
@@ -419,6 +419,11 @@ void pltf_1bit_invert(bool32 i)
 void *pltf_1bit_buffer()
 {
     return g_SDL.framebuffer;
+}
+
+bool32 pltf_reduce_flashing()
+{
+    return 0;
 }
 
 void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
@@ -508,12 +513,12 @@ i32 pltf_file_r(void *f, void *buf, usize bsize)
     return (i32)fread(buf, 1, bsize, (FILE *)f);
 }
 
-void pltf_audio_lock()
+void pltf_sdl_audio_lock()
 {
     SDL_LockAudioDevice(g_SDL.audiodevID);
 }
 
-void pltf_audio_unlock()
+void pltf_sdl_audio_unlock()
 {
     SDL_UnlockAudioDevice(g_SDL.audiodevID);
 }

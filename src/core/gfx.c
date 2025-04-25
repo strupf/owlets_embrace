@@ -122,43 +122,6 @@ void tex_mk(tex_s tex, i32 x, i32 y, i32 col)
     }
 }
 
-void tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia)
-{
-    spm_push();
-    tex_s src  = tex; // need to work off of a copy
-    u32   size = sizeof(u32) * tex.wword * tex.h;
-    src.px     = (u32 *)spm_alloc_aligned(size, 8);
-    mcpy(src.px, tex.px, size);
-
-    i32 x2 = x + w;
-    i32 y2 = y + h;
-    for (i32 yy = y; yy < y2; yy++) {
-        for (i32 xx = x; xx < x2; xx++) {
-
-            if (tex_mk_at_unsafe(src, xx, yy)) continue;
-
-            for (i32 u = -1; u <= +1; u++) {
-                for (i32 v = -1; v <= +1; v++) {
-                    if ((u | v) == 0) continue; // same pixel
-                    if (!dia && v != 0 && u != 0) continue;
-
-                    i32 t = xx + u;
-                    i32 s = yy + v;
-                    if (!(x <= t && t < x2 && y <= s && s < y2)) continue;
-
-                    if (tex_mk_at_unsafe(src, t, s)) {
-                        tex_mk_unsafe(tex, xx, yy, 1);
-                        tex_px_unsafe(tex, xx, yy, col);
-                        goto BREAK_LOOP;
-                    }
-                }
-            }
-        BREAK_LOOP:;
-        }
-    }
-    spm_pop();
-}
-
 // only works if x and w are multiple of 32 right now
 void tex_outline_col_small(tex_s tex, i32 col)
 {
@@ -354,12 +317,12 @@ void tex_merge_to_opaque(tex_s dst, tex_s src)
     assert(src.fmt == TEX_FMT_MASK);
     assert(dst.wword * 2 == src.wword && dst.h == src.h);
 
-    u32 *a = dst.px;
-    u32 *b = src.px;
+    u32 *d = dst.px;
+    u32 *s = src.px;
     for (i32 n = 0; n < dst.wword * dst.h; n++) {
-        *a = (*a & ~b[1]) | (b[0] & b[1]); // copy mode
-        a += 1;
-        b += 2;
+        *d = (*d & ~s[1]) | (s[0] & s[1]); // copy mode
+        d += 1;
+        s += 2;
     }
 }
 
@@ -373,35 +336,36 @@ void tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src)
     u32 *s = src.px;
 
     for (i32 y = 0; y < src.h; y++) {
-        i32 yi1 = y + (y == 0 ? 0 : -1);
-        i32 yi2 = y + (y == src.h - 1 ? 0 : +1);
+        i32 yi1 = y == 0 ? 0 : -1;
+        i32 yi2 = y == src.h - 1 ? 0 : +1;
 
-        for (i32 x = 0; x < src.wword; x += 2, d += 1, s += 2) {
-            u32 sp = s[x + (y * src.wword)];
-            u32 sm = s[x + (y * src.wword) + 1];
-            if (sm != 0xFFFFFFFF) {
+        for (i32 x = 0; x < src.wword; x += 2) {
+            u32 sp = *(s + 0);
+            u32 sm = *(s + 1);
+
+            if (sm != 0xFFFFFFFFU) {
                 u32 m = 0;
 
                 for (i32 yi = yi1; yi <= yi2; yi++) {
-                    i32 v  = 1 + yi * src.wword;
-                    i32 wl = x - 2;
-                    i32 wr = x + 2;
-                    u32 k  = bswap32(s[x + v]);
-                    m |= k | (k >> 1) | (k << 1);
-                    if (0 <= wl) {
-                        m |= bswap32(s[wl + v]) << 31;
+                    i32 v = 1 + yi * src.wword;
+                    {
+                        u32 k = bswap32(*(s + v));
+                        m |= k | (k >> 1) | (k << 1);
                     }
-                    if (wr < src.wword) {
-                        m |= bswap32(s[wr + v]) >> 31;
+                    if (0 <= (x - 2)) {
+                        m |= bswap32(*(s + v - 2)) << 31;
+                    }
+                    if ((x + 2) < src.wword) {
+                        m |= bswap32(*(s + v + 2)) >> 31;
                     }
                 }
-
                 m = bswap32(m) & ~sm; // white outline only on transparency
-                sp |= m;              // add white outline
-                sm |= m;              // add white outline
+                sp |= m;
+                sm |= m;
             }
-
             *d = (*d & ~sm) | (sp & sm); // copy mode
+            d += 1;
+            s += 2;
         }
     }
 }
@@ -1097,6 +1061,7 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode)
     i32 r = (d) >> 1;
     if (d <= 3) {
         rec_i32 rf = {p.x - r, p.y - r, d, d};
+        gfx_rec_fill(ctx, rf, mode);
         return;
     }
 

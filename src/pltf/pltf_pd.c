@@ -26,6 +26,7 @@ typedef struct {
 typedef struct {
     SoundSource   *soundsource;
     PDButtons      b;
+    bool32         reduce_flashing;
     bool32         acc_active;
     PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
     LCDBitmap     *menubm;
@@ -43,6 +44,9 @@ float (*PD_system_getElapsedTime)(void);
 int (*PD_file_read)(SDFile *file, void *buf, uint len);
 int (*PD_file_write)(SDFile *file, const void *buf, uint len);
 void (*PD_system_getAccelerometer)(f32 *outx, f32 *outy, f32 *outz);
+int (*PD_file_listfiles)(const char *path,
+                         void (*callback)(const char *filename, void *userdata),
+                         void *userdata, int showhidden);
 
 int pltf_pd_update(void *user);
 int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len);
@@ -67,8 +71,10 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_file_write               = PD->file->write;
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD_system_realloc           = PD->system->realloc;
+        PD_file_listfiles           = PD->file->listfiles;
 
-        g_PD.menubm = PD->graphics->newBitmap(400, 240, kColorWhite);
+        g_PD.menubm          = PD->graphics->newBitmap(400, 240, kColorWhite);
+        g_PD.reduce_flashing = PD->system->getReduceFlashing();
         PD->display->setRefreshRate(0.f);
         PD->system->resetElapsedTime();
 
@@ -109,11 +115,6 @@ int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len)
 {
     pltf_internal_audio(lbuf, rbuf, len);
     return 1;
-}
-
-bool32 pltf_pd_reduce_flicker()
-{
-    return (bool32)PD->system->getReduceFlashing();
 }
 
 void pltf_pd_update_rows(i32 from_incl, i32 to_incl)
@@ -189,6 +190,11 @@ void pltf_accelerometer(f32 *x, f32 *y, f32 *z)
     } else {
         *x = 0.f, *y = 0.f, *z = 0.f;
     }
+}
+
+bool32 pltf_reduce_flashing()
+{
+    return g_PD.reduce_flashing;
 }
 
 void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)

@@ -24,6 +24,7 @@ typedef struct grapplinghook_s {
     i32          state;
     i32          n_ang;
     i32          destroy_tick;
+    i32          throw_snd_iID;
     v2_f32       anghist[GHOOK_N_HIST];
     v2_i32       p;
     v2_i16       p_q8;
@@ -49,6 +50,7 @@ bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,
 bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
                                       i32 sx, i32 sy);
 
+i32    grapplinghook_pulling_force_hero(g_s *g);
 v2_i32 rope_recalc_v(g_s *g, rope_s *r, ropenode_s *rn,
                      v2_i32 subpos_q8, v2_i32 v_q8);
 v2_i32 grapplinghook_vlaunch_from_angle(i32 a_q16, i32 vel);

@@ -47,6 +47,10 @@ void hero_on_animate(g_s *g, obj_s *o)
     sprite->trec.w = 64;
     sprite->trec.h = 64;
 
+    if (h->impact_ticks) {
+        h->impact_ticks--;
+    }
+
     // h->holds_weapon = 0;
 
     if ((HERO_HURT_TICKS * 3) / 4 <= h->hurt_ticks) {

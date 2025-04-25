@@ -35,7 +35,21 @@ void game_draw(g_s *g)
     tile_map_bounds_s tilebounds = tile_map_bounds_rec(g, camrec);
     area_s           *area       = &g->area;
 
-    area_draw_bg(g, &g->area, camoffset_raw, camoff);
+    if (g->darken_bg_q12 == 4096) {
+        tex_clr(ctx.dst, GFX_COL_BLACK);
+    } else {
+        area_draw_bg(g, &g->area, camoffset_raw, camoff);
+
+        if (g->darken_bg_q12) {
+            gfx_ctx_s ctxdarken = ctx;
+            ctxdarken.pat       = gfx_pattern_interpolate(g->darken_bg_q12, 4096);
+            gfx_rec_fill(ctxdarken, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
+        }
+    }
+
+    if (g->cuts.on_draw_background) {
+        g->cuts.on_draw_background(g, &g->cuts, camoff);
+    }
 
     switch (area->fx_type) {
     case AFX_RAIN: {
@@ -75,7 +89,6 @@ void game_draw(g_s *g)
 
     render_fluids(g, camoff, tilebounds);
     grass_draw(g, camrec, camoff);
-    boss_draw(g, &g->boss, camoff);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoff);
 
     if (g->render_map_doors || 1) {
@@ -97,6 +110,7 @@ void game_draw(g_s *g)
         rec_i32    rpit = {mp->x, g->tiles_y - 1, mp->w, 1};
         game_draw_door_or_pit(ctx, g, rpit, camoff, 1);
     }
+    boss_draw(g, camoff);
     render_terrain(g, tilebounds, camoff);
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, I32_MAX);
@@ -204,30 +218,15 @@ void game_draw(g_s *g)
         spm_pop();
     }
 
-#if 0
-    rec_i32   rfilld     = {0, 0, 400, 240};
-    gfx_ctx_s ctxdisplay = gfx_ctx_display();
-    ctxdisplay.pat       = gfx_pattern_2x2(B2(10), B2(01));
-    gfx_rec_fill(ctxdisplay, rfilld, PRIM_MODE_BLACK);
-#endif
-
-    switch (g->substate) {
-    case 0: break;
-    case SUBSTATE_TEXTBOX:
-        dialog_draw(g);
-        break;
-    case SUBSTATE_GAMEOVER:
-        gameover_draw(g, camoff);
-        break;
-    case SUBSTATE_MAPTRANSITION:
-        maptransition_draw(g, camoff);
-        break;
-    case SUBSTATE_POWERUP:
-        hero_powerup_draw(g, camoff);
-        break;
+    boss_draw_post(g, camoff);
+    if (g->cuts.on_draw) {
+        g->cuts.on_draw(g, &g->cuts, camoff);
     }
-
     cam->prev_gfx_offs = camoff;
+
+    if (g->dialog.state) {
+        dialog_draw(g);
+    }
 }
 
 static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit)
@@ -759,5 +758,48 @@ void draw_light_circle(gfx_ctx_s ctx, v2_i32 p, i32 radius, i32 strength)
             ctxw.pat = pts[i];
             gfx_rec_strip(ctxw, x1, y, dx << 1, GFX_COL_WHITE);
         }
+    }
+}
+
+void render_map_transition_in(g_s *g, v2_i32 cam, i32 t, i32 t2)
+{
+    tex_s     display = asset_tex(0);
+    tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
+    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
+    gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
+    ctxfill.pat       = gfx_pattern_interpolate(t2 - t, t2);
+
+    rec_i32 rfill = {0, 0, tmp.w, tmp.h};
+    gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK_WHITE);
+
+    if (ohero) {
+        gfx_ctx_s ctxc = gfx_ctx_default(tmp);
+        v2_i32    cpos = v2_i32_add(obj_pos_center(ohero), cam);
+        i32       cird = ease_out_quad(0, 200, min_i32(t, t2 / 2), t2 / 2);
+        gfx_cir_fill(ctxc, cpos, cird, GFX_COL_WHITE);
+    }
+
+    u32 *p1 = display.px;
+    u32 *p2 = tmp.px;
+    for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
+        *p1++ &= *p2++;
+    }
+}
+
+void render_map_transition_out(g_s *g, v2_i32 cam, i32 t, i32 t2)
+{
+    tex_s     display = asset_tex(0);
+    tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
+    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
+    gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
+    ctxfill.pat       = gfx_pattern_interpolate(t, t2);
+
+    rec_i32 rfill = {0, 0, tmp.w, tmp.h};
+    gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK_WHITE);
+
+    u32 *p1 = display.px;
+    u32 *p2 = tmp.px;
+    for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
+        *p1++ &= *p2++;
     }
 }

@@ -6,22 +6,26 @@
 #define BOSS_H
 
 #include "boss_golem.h"
+#include "boss_plant.h"
 #include "gamedef.h"
 
 enum {
-    BOSS_NONE,
-    BOSS_GOLEM,
+    BOSS_ID_NONE,
+    BOSS_ID_GOLEM,
+    BOSS_ID_PLANT,
 };
 
 typedef struct {
     i32 type;
     union {
         boss_golem_s golem;
+        boss_plant_s plant;
     };
 } boss_s;
 
-void boss_init(g_s *g, boss_s *b, i32 type);
-void boss_update(g_s *g, boss_s *b);
-void boss_draw(g_s *g, boss_s *b, v2_i32 cam);
+void boss_init(g_s *g, i32 type, map_obj_s *mo);
+void boss_update(g_s *g);
+void boss_draw(g_s *g, v2_i32 cam);
+void boss_draw_post(g_s *g, v2_i32 cam);
 
 #endif

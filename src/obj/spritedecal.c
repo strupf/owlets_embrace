@@ -72,7 +72,7 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
     return o;
 }
 
-void objanim_create(g_s *g, v2_i32 p, i32 objanimID)
+obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
 {
     obj_s         *o  = obj_create(g);
     spritedecal_s *sd = (spritedecal_s *)o->mem;
@@ -155,4 +155,5 @@ void objanim_create(g_s *g, v2_i32 p, i32 objanimID)
     spr->offs.x = -sd->w / 2;
     spr->offs.y = -sd->h / 2;
     spr->trec   = asset_texrec(texID, sd->x, sd->y, sd->w, sd->h);
+    return o;
 }

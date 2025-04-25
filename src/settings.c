@@ -7,7 +7,7 @@
 #include "pltf/pltf.h"
 
 typedef struct {
-    ALIGNAS(4)
+    ALIGNAS(8)
     u32 version;
     u16 checksum;
     u8  unused[2];

@@ -60,7 +60,7 @@ texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h)
     return tr;
 }
 
-b32 snd_play(i32 ID, f32 vol, f32 pitch)
+i32 snd_play(i32 ID, f32 vol, f32 pitch)
 {
     return snd_instance_play(asset_snd(ID), vol, pitch);
 }

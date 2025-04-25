@@ -54,7 +54,7 @@ void particle_emitter_emit(g_s *g, particle_emit_s *e, i32 n)
         p->v_q8.y    = e->v_q8.y + rngsr_sym_i32(&pr->seed, e->v_q8_range.y);
         p->a_q8.x    = e->a_q8.x + rngsr_sym_i32(&pr->seed, e->a_q8_range.x);
         p->a_q8.y    = e->a_q8.y + rngsr_sym_i32(&pr->seed, e->a_q8_range.y);
-        p->ticks_max = rngsr_u32(&pr->seed, e->ticks_min, e->ticks_max);
+        p->ticks_max = rngsr_i32(&pr->seed, e->ticks_min, e->ticks_max);
         p->mode      = e->mode;
         p->type      = e->type;
         p->drag      = e->drag;
@@ -65,8 +65,8 @@ void particle_emitter_emit(g_s *g, particle_emit_s *e, i32 n)
             p->p.y += o->pos.y;
         }
         if (e->p_range_r) {
-            i32 a = (i32)rngs_u32_bound(&pr->seed, 1 << 17);
-            i32 r = (i32)rngs_u32_bound(&pr->seed, e->p_range_r);
+            i32 a = (i32)rngs_i32_bound(&pr->seed, 1 << 17);
+            i32 r = (i32)rngs_i32_bound(&pr->seed, e->p_range_r);
             p->p.x += (sin_q15(a) * r) >> 15;
             p->p.y += (cos_q15(a) * r) >> 15;
         }
@@ -74,8 +74,8 @@ void particle_emitter_emit(g_s *g, particle_emit_s *e, i32 n)
         switch (e->type & PARTICLE_MASK_TYPE) {
         case PARTICLE_TYPE_CIR:
         case PARTICLE_TYPE_REC: {
-            p->prim.size_beg = rngsr_u32(&pr->seed, e->size_beg_min, e->size_beg_max);
-            p->prim.size_end = rngsr_u32(&pr->seed, e->size_end_min, e->size_end_max);
+            p->prim.size_beg = rngsr_i32(&pr->seed, e->size_beg_min, e->size_beg_max);
+            p->prim.size_end = rngsr_i32(&pr->seed, e->size_end_min, e->size_end_max);
             break;
         }
         case PARTICLE_TYPE_TEX: {

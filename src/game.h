@@ -10,17 +10,16 @@
 #include "boss/boss.h"
 #include "cam.h"
 #include "coins.h"
+#include "cs/cs.h"
 #include "dialog.h"
 #include "fluid_area.h"
 #include "gamedef.h"
-#include "gameover.h"
 #include "grapplinghook.h"
 #include "hero.h"
-#include "hero_powerup.h"
 #include "map_loader.h"
-#include "maptransition.h"
 #include "minimap.h"
 #include "obj.h"
+#include "obj/companion.h"
 #include "particle.h"
 #include "particle_defs.h"
 #include "rope.h"
@@ -28,9 +27,9 @@
 #include "settings.h"
 #include "steering.h"
 #include "tile_map.h"
-#include "title.h"
 #include "wiggle.h"
 
+#define GAME_N_ROOMS        256
 #define SAVE_TICKS          100
 #define SAVE_TICKS_FADE_OUT 80
 
@@ -58,8 +57,15 @@ enum {
 };
 
 enum {
+    TRIGGER_DIALOG_NEW_FRAME = 512,
+    TRIGGER_DIALOG_END_FRAME = 513,
+    TRIGGER_DIALOG_END       = 514,
+    TRIGGER_DIALOG           = 515,
     TRIGGER_BATTLEROOM_ENTER = 10000,
     TRIGGER_BATTLEROOM_LEAVE = 10001,
+    TRIGGER_CS_UPGRADE       = 11000,
+    TRIGGER_COMPANION_FIND   = 9000,
+    TRIGGER_BOSS_PLANT       = 10100,
 };
 
 enum {
@@ -74,14 +80,22 @@ enum {
 
 typedef struct {
     u32 hash;
+    u8  flags;
+    u8  unused[3];
     i16 x;
     i16 y;
     u16 w;
     u16 h;
 } map_room_wad_s;
 
+enum {
+    MAP_ROOM_FLAG_NOT_MAPPED = 1 << 0,
+};
+
 typedef struct {
     u32   hash;
+    u8    flags;
+    u8    unused[3];
     i16   x;
     i16   y;
     u16   w;
@@ -122,7 +136,10 @@ struct g_s {
     inp_s           inp; // current input state
     i32             tick;
     i32             tick_animation;
+    i32             tick_playtime;
     u32             map_hash;
+    //
+    inp_state_s     hero_control_feed;
     i16             n_map_rooms;
     u8              n_map_doors;
     u8              n_map_pits;
@@ -130,30 +147,28 @@ struct g_s {
     u8              freeze_tick;
     u8              substate;
     bool8           dark;
+    bool8           previewmode;
+    bool8           block_update;
     bool8           block_hero_control;
     bool8           speedrun;
     bool8           render_map_doors;
-    bool8           activeinput;
     u8              hero_hitID;
-    map_room_s     *map_rooms; // permanently allocated
+    map_room_s      map_rooms[GAME_N_ROOMS];
     map_room_s     *map_room_cur;
     map_door_s      map_doors[16];
     map_pit_s       map_pits[16];
     v2_i32          cam_prev;
     v2_i32          cam_prev_world;
     area_s          area;
-    //
-    gameover_s      gameover;
-    maptransition_s maptransition;
-    hero_powerup_s  powerup;
     dialog_s        dialog;
     grapplinghook_s ghook;
     coins_s         coins;
     minimap_s       minimap;
     cam_s           cam;
+    cs_s            cuts;
     u32             events_frame; // flags
-    u32             hero_hurt_lp_tick;
-    u8              musicname[8];
+    u32             hurt_lp_tick;
+    u16             musicID;
     u8              mapname[32];
     u32             enemies_killed;
     i32             tiles_x;
@@ -177,7 +192,8 @@ struct g_s {
     obj_s           obj_raw[NUM_OBJ];
     boss_s          boss;
     battleroom_s    battleroom;
-    u16             save_ticks;
+    i16             darken_bg_add;
+    i16             darken_bg_q12; // fading background to black
     u32             n_grass;
     grass_s         grass[NUM_GRASS];
     u32             n_deco_verlet;
@@ -206,18 +222,24 @@ allocator_s game_allocator(g_s *g);
 i32    gameplay_time(g_s *g);
 i32    gameplay_time_since(g_s *g, i32 t);
 void   game_load_savefile(g_s *g);
+void   game_update_savefile(g_s *g);
 bool32 game_save_savefile(g_s *g, v2_i32 pos);
 void   game_on_trigger(g_s *g, i32 trigger);
 void   game_on_solid_appear(g_s *g);
 bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb);
 bool32 hero_attackbox(g_s *g, hitbox_s box);
 void   objs_animate(g_s *g);
+obj_s *obj_find_ID(g_s *g, i32 objID, obj_s *o);
 void   game_on_solid_appear_ext(g_s *g, obj_s *s);
 void   obj_interact(g_s *g, obj_s *o, obj_s *ohero);
-void   game_open_map(void *ctx, i32 opt);
 void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
 i32    game_hero_hitID_next(g_s *g);
+void   game_cue_area_music(g_s *g);
+
+// positive: fade bg to black
+// negative: fade black to bg
+void game_darken_bg(g_s *g, i32 speed);
 
 // returns a number [0, n_frames-1]
 // tick is the time variable
@@ -255,8 +277,8 @@ static i32 anim_total_ticks(frame_ticks_s *f)
 
 static inline i32 gfx_spr_flip_rng(bool32 x, bool32 y)
 {
-    i32 res = (rngr_u32(0, x != 0) ? SPR_FLIP_X : 0) |
-              (rngr_u32(0, y != 0) ? SPR_FLIP_Y : 0);
+    i32 res = (rngr_i32(0, x != 0) ? SPR_FLIP_X : 0) |
+              (rngr_i32(0, y != 0) ? SPR_FLIP_Y : 0);
     return res;
 }
 

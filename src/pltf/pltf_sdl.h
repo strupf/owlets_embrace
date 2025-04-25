@@ -15,6 +15,8 @@
 #define pltf_log(...)
 #endif
 
+void   pltf_sdl_audio_lock();
+void   pltf_sdl_audio_unlock();
 bool32 pltf_sdl_key(i32 k);
 bool32 pltf_sdl_jkey(i32 k);
 void   pltf_sdl_txt_inp_set_cb(void (*char_add)(char c, void *ctx), // callbacks for text input

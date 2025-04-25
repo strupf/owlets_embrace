@@ -35,8 +35,7 @@ typedef struct app_s {
     savefile_s      save;
     i32             state;
     marena_s        ma;
-
-    byte mem[MMEGABYTE(8)];
+    byte            mem[MMEGABYTE(8)];
 } app_s;
 
 extern app_s *APP;
@@ -66,5 +65,7 @@ static inline allocator_s app_allocator()
 
 void app_menu_callback_map(void *ctx, i32 opt);
 void app_menu_callback_settings(void *ctx, i32 opt);
+void app_menu_callback_mus(void *ctx, i32 opt);
+void app_menu_callback_resetsave(void *ctx, i32 opt);
 
 #endif

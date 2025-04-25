@@ -49,63 +49,57 @@ void render_ui(g_s *g, v2_i32 camoff)
         gfx_spr(ctx_af, tlabel, (v2_i32){loc.x, loc.y}, 0, 0);
     }
 #endif
-
-    if (g->save_ticks) {
-        i32       saveframe = ((g->save_ticks >> 1) % 14) * 32;
-        gfx_ctx_s ctx_save  = ctx;
-        if (56 <= g->save_ticks) { // (14 * 2) << 1, two turns
-            saveframe = 0;
-            i32 t0    = g->save_ticks - SAVE_TICKS_FADE_OUT;
-            if (0 <= t0) {
-                i32 t1       = SAVE_TICKS - SAVE_TICKS_FADE_OUT;
-                ctx_save.pat = gfx_pattern_interpolate(t1 - t0, t1);
-            }
-        }
-
-        texrec_s trsave = asset_texrec(TEXID_MISCOBJ, 512 + saveframe, 0, 32, 32);
-        gfx_spr(ctx_save, trsave, CINIT(v2_i32){16, 200}, 0, 0);
-    }
 }
 
 void render_hurt_ui(g_s *g, obj_s *ohero)
 {
-#define HURT_VFX_FRIZZLE_STR 3
-#define HURT_VFX_FRIZZLE     8
+#define HURT_VFX_FRIZZLE 8
 
     gfx_ctx_s ctx = gfx_ctx_display();
-    if (ohero->health == 0) return;
+    if (ohero->health == 0 || ohero->health == ohero->health_max) return;
 
-    hero_s *h       = (hero_s *)ohero->heap;
-    i32     rad_off = (3 * sin_q15(g->tick << 10)) >> 15;
-    if (1 < ohero->health) {
-        if (!h->ticks_health) return;
-        rad_off += lerp_i32(20, 0,
-                            h->ticks_health, HERO_LOW_HP_ANIM_TICKS_RECOVER);
-    }
-    if (1 == ohero->health && h->ticks_health) {
-        rad_off -= ease_in_quad(0, 60,
-                                h->ticks_health, HERO_LOW_HP_ANIM_TICKS_HIT);
+    hero_s *h           = (hero_s *)ohero->heap;
+    i32     frizzle_str = 0;
+    i32     pulse_off   = 0;
+    i32     rad_off_add = 0;
+
+    switch (ohero->health) {
+    case 1:
+        rad_off_add = 20;
+        pulse_off   = 3;
+        frizzle_str = 3;
+        break;
+    case 2:
+        rad_off_add = 0;
+        pulse_off   = 2;
+        frizzle_str = 1;
+        break;
     }
 
-    u32 sfrizzle = (g->tick);
+    i32 rad_off = (pulse_off * sin_q15(g->tick_animation << 10)) >> 15;
+    rad_off -= ease_in_quad(0, 60, h->ticks_health, HERO_LOW_HP_ANIM_TICKS_HIT);
+    rad_off -= rad_off_add;
+
+    u32 sfrizzle = (g->tick_animation);
     i32 off_x1   = 0;
-    i32 off_x2   = rngsr_sym_i32(&sfrizzle, HURT_VFX_FRIZZLE_STR);
+    i32 off_x2   = rngsr_sym_i32(&sfrizzle, frizzle_str);
 
     for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {
         i32 ym = y & (HURT_VFX_FRIZZLE - 1);
         if (ym == 0) {
             off_x1 = off_x2;
-            off_x2 = rngsr_sym_i32(&sfrizzle, HURT_VFX_FRIZZLE_STR);
+            off_x2 = rngsr_sym_i32(&sfrizzle, frizzle_str);
         }
 
         i32 off_x = lerp_i32(off_x1, off_x2, ym, HURT_VFX_FRIZZLE);
 
         for (i32 rh = 0; rh < 2; rh++) {
-            ctx.pat   = gfx_pattern_bayer_4x4(16 - rh * 4); // pat no. 12, 16
-            ctx.pat   = gfx_pattern_shift(ctx.pat, 1, 0);
-            i32 r     = (196 - rh * 11) + rad_off;
-            i32 dt_sq = pow2_i32(r) - pow2_i32(PLTF_DISPLAY_H / 2 - y);
-            i32 x1    = PLTF_DISPLAY_W;
+            i32 ptbase = ohero->health == 2 ? 14 : 16;
+            ctx.pat    = gfx_pattern_bayer_4x4(ptbase - rh * 4); // pat no. 12, 16
+            ctx.pat    = gfx_pattern_shift(ctx.pat, 1, 0);
+            i32 r      = (216 - rh * 11) + rad_off;
+            i32 dt_sq  = pow2_i32(r) - pow2_i32(PLTF_DISPLAY_H / 2 - y);
+            i32 x1     = PLTF_DISPLAY_W;
 
             if (0 < dt_sq) {
                 i32 dt = sqrt_i32(dt_sq);

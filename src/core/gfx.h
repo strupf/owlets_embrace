@@ -118,19 +118,26 @@ enum {
 #define gfx_pattern_white() gfx_pattern_100()
 #define gfx_pattern_black() gfx_pattern_0()
 
-tex_s         tex_framebuffer();
-tex_s         tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err);
-texrec_s      texrec_from_tex(tex_s t);
-i32           tex_px_at(tex_s tex, i32 x, i32 y);
-i32           tex_mk_at(tex_s tex, i32 x, i32 y);
-void          tex_px(tex_s tex, i32 x, i32 y, i32 col);
-void          tex_mk(tex_s tex, i32 x, i32 y, i32 col);
-void          tex_outline(tex_s tex, i32 x, i32 y, i32 w, i32 h, i32 col, bool32 dia);
-void          tex_outline_white(tex_s tex);
-void          tex_outline_col_small(tex_s tex, i32 col);
-void          tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia);
-void          tex_outline_col_ext(tex_s tex, i32 col, b32 dia);
-void          tex_merge_to_opaque(tex_s dst, tex_s src);
+tex_s    tex_framebuffer();
+tex_s    tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err);
+texrec_s texrec_from_tex(tex_s t);
+i32      tex_px_at(tex_s tex, i32 x, i32 y);
+i32      tex_mk_at(tex_s tex, i32 x, i32 y);
+void     tex_px(tex_s tex, i32 x, i32 y, i32 col);
+void     tex_mk(tex_s tex, i32 x, i32 y, i32 col);
+void     tex_outline_white(tex_s tex);
+void     tex_outline_col_small(tex_s tex, i32 col);
+void     tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia);
+void     tex_outline_col_ext(tex_s tex, i32 col, b32 dia);
+
+// merges two textures of the same size:
+// src: top texture, transparency
+// dst: bot texture, opaque
+void tex_merge_to_opaque(tex_s dst, tex_s src);
+
+// outlines and merges two textures of the same size:
+// src: top texture, transparency
+// dst: bot texture, opaque
 void          tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src);
 gfx_ctx_s     gfx_ctx_default(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();

@@ -68,8 +68,10 @@ void *wad_open(u32 h, void **o_f, wad_el_s **o_e);
 // returns file handle or null
 void *wad_open_str(const void *name, void **o_f, wad_el_s **o_e);
 
+wad_el_s *wad_seek(void *f, wad_el_s *efrom, u32 hash);
 wad_el_s *wad_seek_str(void *f, wad_el_s *efrom, const void *name);
 
+void *wad_r_spm(void *f, wad_el_s *efrom, u32 hash);
 void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name);
 void *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name);
 void *wad_r_str(void *f, wad_el_s *efrom, const void *name, void *dst);

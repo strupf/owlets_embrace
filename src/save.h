@@ -9,13 +9,15 @@
 #include "minimap.h"
 
 enum {
-    SAVE_EV_NEW_GAME        = 1000,
-    SAVE_EV_INTRO_PLAYED    = 1010,
-    SAVE_EV_COMPANION_FOUND = 1020,
-    SAVE_EV_UNLOCKED_MAP    = 1030,
-    SAVE_EV_BOSS_GOLEM      = 1100,
+    SAVE_EV_NEW_GAME              = 1000,
+    SAVE_EV_INTRO_PLAYED          = 1010,
+    SAVE_EV_COMPANION_FOUND       = 1020,
+    SAVE_EV_UNLOCKED_MAP          = 1030,
+    SAVE_EV_BOSS_GOLEM            = 1100,
+    SAVE_EV_BOSS_PLANT            = 1101,
+    SAVE_EV_BOSS_PLANT_INTRO_SEEN = 1102,
     //
-    NUM_SAVE_EV             = 1536
+    NUM_SAVE_EV                   = 1280
 };
 
 b32 save_event_register(g_s *g, i32 ID);
@@ -30,7 +32,7 @@ enum {
 };
 
 typedef struct {
-    ALIGNAS(4)
+    ALIGNAS(8)
     u32 version;
     u16 checksum;
     u8  unused[2];
@@ -66,6 +68,5 @@ err32 savefile_w(i32 slot, savefile_s *s);
 // tries to read a savefile into save; 0 on success
 err32 savefile_r(i32 slot, savefile_s *s);
 b32   savefile_del(i32 slot);
-b32   savefile_cpy(i32 slot_from, i32 slot_to);
 
 #endif

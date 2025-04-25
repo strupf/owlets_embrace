@@ -112,6 +112,60 @@ static inline usize align_usize(usize s, usize alignment)
     return (s + alignment - 1) & ~(alignment - 1);
 }
 
+// linux style circular, double linked list with a dummy node as a header
+typedef struct lnode_s lnode_s;
+struct lnode_s {
+    lnode_s *next;
+    lnode_s *prev;
+};
+
+#define LNODE_GET(PTR, T, MEMBER) (T *)((uptr)(PTR) - offsetof(T, MEMBER))
+#define LNODE_FOR_EACH(PHEAD, IT) \
+    for (lnode_s *IT = (PHEAD)->next; IT != (PHEAD); IT = IT->next)
+
+static inline void lnode_head_init(lnode_s *n)
+{
+    n->next = n;
+    n->prev = n;
+}
+
+#define lnode_add lnode_add_after
+
+static bool32 lnode_empty(lnode_s *n)
+{
+    return (n->next == n);
+}
+
+// adds a node after n
+static inline void lnode_add_after(lnode_s *n, lnode_s *n_to_add)
+{
+    n->next->prev  = n_to_add;
+    n_to_add->next = n->next;
+    n_to_add->prev = n;
+    n->next        = n_to_add;
+}
+
+// adds a node before n
+static inline void lnode_add_before(lnode_s *n, lnode_s *n_to_add)
+{
+    n->prev->next  = n_to_add;
+    n_to_add->prev = n->prev;
+    n_to_add->next = n;
+    n->prev        = n_to_add;
+}
+
+static inline void lnode_del(lnode_s *n)
+{
+    n->next->prev = n->prev;
+    n->prev->next = n->next;
+}
+
+#if PLTF_PD_HW
+#define PREFETCH __builtin_prefetch
+#else
+#define PREFETCH(X)
+#endif
+
 #if PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
 #if 1

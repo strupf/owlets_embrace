@@ -148,6 +148,6 @@ void npc_on_interact(g_s *g, obj_s *o)
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }
     o->v_q8.x = 0;
-    dialog_open(g, o->filename);
+    // dialog_open(g, o->filename);
     // textbox_load_dialog(g, o->filename);
 }

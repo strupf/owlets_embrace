@@ -13,6 +13,7 @@
 #include "core/inp.h"
 #include "core/spm.h"
 #include "textinput.h"
+#include "util/bitrw.h"
 #include "util/easing.h"
 #include "util/json.h"
 #include "util/marena.h"
@@ -21,10 +22,12 @@
 #include "util/sorting.h"
 #include "util/str.h"
 
+#define GAME_DEMO  1
+//
 #define GAME_V_MAJ 0
 #define GAME_V_MIN 1
 #define GAME_V_PAT 0
-#define GAME_V_DEV 0 // preview version post-release
+#define GAME_V_DEV 0 // dev version pre-release - 0 for public release
 
 #define GAME_VERSION_GEN(A, B, C, D) (((u32)(A) << 24) | \
                                       ((u32)(B) << 16) | \
@@ -46,11 +49,10 @@ typedef struct {
 
 static game_version_s game_version_decode(u32 v)
 {
-    game_version_s r = {0};
-    r.vmaj           = 0xFF & (v >> 24);
-    r.vmin           = 0xFF & (v >> 16);
-    r.vpat           = 0xFF & (v >> 8);
-    r.vdev           = 0xFF & (v);
+    game_version_s r = {0xFF & (v >> 24),
+                        0xFF & (v >> 16),
+                        0xFF & (v >> 8),
+                        0xFF & (v >> 0)};
     return r;
 }
 
@@ -69,11 +71,9 @@ typedef struct obj_handle_s {
     u32    generation;
 } obj_handle_s;
 
-#define LEN_HERO_NAME        16
-#define LEN_AREA_FILENAME    64
-#define FADETICKS_AREALABEL  150
-#define NUM_WORLD_ROOMS      64
-#define NUM_WORLD_ROOM_TILES 256
+#define LEN_HERO_NAME       16
+#define LEN_AREA_FILENAME   64
+#define FADETICKS_AREALABEL 150
 
 enum {
     DIRECTION_NONE,
@@ -270,13 +270,11 @@ static inline i32 frame_from_ticks_loop(u32 t, u32 frames)
 
 // maps time t to a frame number [0; frames), looping back and forth
 // one loop is 0 to frames - 1 and back to 0
-static i32 frame_from_ticks_pingpong(u32 t, u32 frames)
+static i32 frame_from_ticks_pingpong(i32 t, i32 frames)
 {
-    u32 n = (frames << 1) - 1;
-    u32 x = (((t % (n << 1)) * (frames - 1)) << 1) / n;
-    u32 f = x % ((frames << 1) - 2);
-    if (f < frames) return f;
-    return (frames - (f % frames) - 2);
+    i32 n = (frames << 1) - 2;
+    i32 k = modu_i32(t, n);
+    return (frames <= k ? n - k : k);
 }
 
 #endif

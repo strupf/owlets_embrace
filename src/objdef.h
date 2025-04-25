@@ -25,7 +25,7 @@ enum {
     OBJID_CLOCKPULSE,
     OBJID_WATERCOL,
     OBJID_CRAWLER,
-    OBJID_HERO_POWERUP,
+    OBJID_HERO_UPGRADE,
     OBJID_MOVINGPLATFORM,
     OBJID_NPC,
     OBJID_TELEPORT,
@@ -64,14 +64,21 @@ enum {
     OBJID_BOULDER,
     OBJID_BOULDER_SPAWN,
     OBJID_TIMER,
+    OBJID_HEALTHDROP,
+    OBJID_EXIT_BLOCKER,
     OBJID_BOSS_GOLEM,
     OBJID_BOSS_GOLEM_PLATFORM,
+    //
+    OBJID_BOSS_PLANT_TENTACLE,
+    OBJID_BOSS_PLANT_EYE,
+    OBJID_BOSS_PLANT_EYE_FAKE_L,
+    OBJID_BOSS_PLANT_EYE_FAKE_R,
 };
 
 enum {
     OBJ_TAG_HERO,
     OBJ_TAG_HOOK,
-    OBJ_TAG_CARRIED,
+    OBJ_TAG_COMPANION,
     OBJ_TAG_BOSS,
     //
     NUM_OBJ_TAGS
@@ -101,11 +108,11 @@ void      toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      toggleblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
 void      toggleblock_on_animate(g_s *g, obj_s *o);
 void      crawler_load(g_s *g, map_obj_s *mo);
-void      hero_powerup_obj_load(g_s *g, map_obj_s *mo);
-void      hero_powerup_obj_on_update(g_s *g, obj_s *o);
-void      hero_powerup_obj_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-i32       hero_powerup_obj_ID(obj_s *o);
-i32       hero_powerup_saveID(obj_s *o);
+void      hero_upgrade_load(g_s *g, map_obj_s *mo);
+i32       hero_upgrade_saveID(obj_s *o);
+void      hero_upgrade_put_orb_infront(obj_s *o);
+void      hero_upgrade_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
+v2_i32    hero_upgrade_orb_pos(obj_s *o);
 void      movingplatform_load(g_s *g, map_obj_s *mo);
 void      npc_load(g_s *g, map_obj_s *mo);
 void      npc_on_update(g_s *g, obj_s *o);
@@ -183,5 +190,6 @@ void      pickup_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
 void      fallingstonespawn_load(g_s *g, map_obj_s *mo);
+obj_s    *healthdrop_spawn(g_s *g, v2_i32 p);
 
 #endif

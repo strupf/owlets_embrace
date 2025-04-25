@@ -55,7 +55,7 @@ void map_obj_parse(g_s *g, map_obj_s *o)
     } else if (str_eq_nc(o->name, "Steamplatform")) {
         steam_platform_load(g, o);
     } else if (str_eq_nc(o->name, "Hero_Powerup")) {
-        hero_powerup_obj_load(g, o);
+        hero_upgrade_load(g, o);
     } else if (str_eq_nc(o->name, "NPC")) {
         npc_load(g, o);
     } else if (str_eq_nc(o->name, "Crawler")) {
@@ -219,6 +219,7 @@ static i32    map_prop_i32(map_properties_s p, const char *name);
 static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
 static v2_i16 map_prop_pt(map_properties_s p, const char *name);
+map_obj_s    *map_obj_find(map_header_s *hd, void *f, wad_el_s *e, const char *name);
 
 void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 void loader_load_bgauto(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
@@ -226,6 +227,28 @@ void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 
 void game_load_map(g_s *g, u32 map_hash)
 {
+    // READ FILE ===============================================================
+    void     *f;
+    wad_el_s *wad_el;
+    if (!wad_open(map_hash, &f, &wad_el)) {
+        pltf_log("Can't load map file! %u\n", map_hash);
+        BAD_PATH
+    }
+
+    spm_push();
+    map_header_s *hd = (map_header_s *)spm_alloc_aligned(wad_el->size, 4);
+    pltf_file_r(f, hd, wad_el->size);
+    map_properties_s mapp = {(void *)(hd + 1), hd->n_prop};
+
+    const i32 w = hd->w;
+    const i32 h = hd->h;
+    g->map_hash = map_hash;
+    g->tiles_x  = w;
+    g->tiles_y  = h;
+    g->pixel_x  = w << 4;
+    g->pixel_y  = h << 4;
+    assert((w * h) <= NUM_TILES);
+
     for (obj_each(g, o)) {
         if (o->ID != OBJID_HERO) {
             obj_delete(g, o);
@@ -233,10 +256,14 @@ void game_load_map(g_s *g, u32 map_hash)
     }
     objs_cull_to_delete(g);
 
-    mclr_static_arr(g->tiles);
-    mclr_static_arr(g->rtiles);
-    mclr_static_arr(g->fluid_streams);
+    mclr_field(g->boss);
+    mclr(g->tiles, sizeof(tile_s) * w * h);
+    mclr(g->fluid_streams, sizeof(u8) * w * h);
     mclr_static_arr(g->fluid_areas);
+    for (i32 n = 0; n < NUM_TILELAYER; n++) {
+        mclr(&g->rtiles[n], sizeof(u16) * w * h);
+    }
+
     mclr_field(g->particle_sys);
     mclr_field(g->ghook);
     mclr_field(g->battleroom);
@@ -252,19 +279,9 @@ void game_load_map(g_s *g, u32 map_hash)
     g->n_fluid_areas    = 0;
     g->n_map_doors      = 0;
     g->n_map_pits       = 0;
-
-    // g->areaname.fadeticks = 1;
-
+    g->darken_bg_q12    = 0;
+    g->darken_bg_add    = 0;
     marena_reset(&g->memarena, 0);
-
-    // READ FILE ===============================================================
-
-    void     *f;
-    wad_el_s *wad_el;
-    if (!wad_open(map_hash, &f, &wad_el)) {
-        pltf_log("Can't load map file! %u\n", map_hash);
-        BAD_PATH
-    }
 
     for (i32 n = 0; n < g->n_map_rooms; n++) {
         map_room_s *mn = &g->map_rooms[n];
@@ -275,12 +292,10 @@ void game_load_map(g_s *g, u32 map_hash)
     }
     assert(g->map_room_cur);
 
-    spm_push();
-    map_header_s *hd = (map_header_s *)spm_alloc_aligned(wad_el->size, 4);
-    pltf_file_r(f, hd, wad_el->size);
-    map_properties_s mapp   = {(void *)(hd + 1), hd->n_prop};
-    i32              areaID = map_prop_i32(mapp, "Area_ID");
-    i32              areafx = map_prop_i32(mapp, "ENV_VFX");
+    // PROPERTIES ==============================================================
+    // mcpy(g->areaname.label, hd.name, 32);
+    i32 areaID = map_prop_i32(mapp, "Area_ID");
+    i32 areafx = map_prop_i32(mapp, "ENV_VFX");
 
     for (i32 n = 0; n < hd->n_entries; n++) {
         map_door_s  *md = &g->map_doors[g->n_map_doors++];
@@ -292,6 +307,15 @@ void game_load_map(g_s *g, u32 map_hash)
     }
 
     tex_s *tbg = &APP->assets.tex[TEXID_BG_PARALLAX];
+
+    if (0) {
+    } else if (hd->hash == wad_hash("L_BOSSPLANT")) {
+        map_obj_s *mo = map_obj_find(hd, f, wad_el, "Bossplant");
+        pltf_log("%i %i %i %i\n", mo->x, mo->y, mo->w, mo->h);
+        tex_s *tboss = &APP->assets.tex[TEXID_BOSSPLANT];
+        tex_from_wad(f, 0, "T_BOSSPLANT", game_allocator(g), tboss);
+        boss_init(g, BOSS_ID_PLANT, mo);
+    }
 
     switch (areaID) {
     default: break;
@@ -312,19 +336,12 @@ void game_load_map(g_s *g, u32 map_hash)
     }
     area_setup(g, &g->area, areaID, areafxID);
 
-    const i32 w = hd->w;
-    const i32 h = hd->h;
-    g->map_hash = map_hash;
-    g->tiles_x  = w;
-    g->tiles_y  = h;
-    g->pixel_x  = w << 4;
-    g->pixel_y  = h << 4;
-    assert((w * h) <= NUM_TILES);
+    i32 musicID = map_prop_i32(mapp, "MUSICID");
+    g->musicID  = musicID;
+    if (!g->previewmode)
+        game_cue_area_music(g);
 
-    // PROPERTIES ==============================================================
-    // mcpy(g->areaname.label, hd.name, 32);
     mcpy(g->mapname, hd->name, 32);
-    mcpy(g->musicname, hd->music, 8);
 
     prerender_area_label(g);
     loader_load_terrain(g, f, wad_el, w, h);
@@ -646,7 +663,7 @@ static bool32 map_dual_border(tilelayer_u16 tiles, i32 x, i32 y,
     if (map_terrain_type(t) == 6) return 0;
 
     u32 seed = ((x | u) + ((y | v)));
-    u32 r    = rngs_u32(&seed);
+    u32 r    = rngs_i32(&seed);
     if (r < 0x80000000U) return 0;
 
     if (t != map_terrain_pack(type, TILE_BLOCK)) return 0;
@@ -917,6 +934,21 @@ void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
     if (!prop || prop->type != MAP_PROP_ARRAY) return 0;
     *num = prop->u.n;
     return (prop + 1);
+}
+
+map_obj_s *map_obj_find(map_header_s *hd, void *f, wad_el_s *e, const char *name)
+{
+    byte *objp = (byte *)wad_rd_spm_str(f, e, "OBJS");
+
+    for (i32 n = 0; n < hd->n_obj; n++) {
+        map_obj_s *o = (map_obj_s *)objp;
+
+        if (str_eq_nc(o->name, name)) {
+            return o;
+        }
+        objp += o->bytes;
+    }
+    return 0;
 }
 
 #if 1

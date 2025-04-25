@@ -4,68 +4,39 @@
 
 #include "rng.h"
 
-static u32 g_rng_seed = 213;
+static u32 g_rng_seed = 314159265;
 
-// Originally based on good ol' xorshift. However, when placing tiles using
-// rng() with x and y as an input sometimes there were long strides of the
-// same tiles -> repeating. Thus I needed a better PRNG.
-//
-// www.pcg-random.org
-// PCG, rxs_m_xs_32
-// github.com/imneme/pcg-cpp/blob/master/include/pcg_random.hpp#L947
-u32 rngs_u32(u32 *s)
+// xorshift
+i32 rngs_i32(u32 *s)
 {
-    u32 x = *s;
-    x ^= x >> ((x >> 28) + 4);
-    x *= 277803737U;
+    u32 x = (*s ? *s : 314159265); // seed non-zero
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
     *s = x;
-    return ((x >> 22) ^ x);
-}
 
-u32 rng_u32()
-{
-    return rngs_u32(&g_rng_seed);
-}
-
-i32 rngs_i32(u32 *seed)
-{
-    return (i32)rngs_u32(seed);
+    // scramble and return high 16 bits only (more random)
+    return (i32)((x * 2463534241U) >> 16);
 }
 
 i32 rng_i32()
 {
-    return (i32)rng_u32();
+    return rngs_i32(&g_rng_seed);
 }
 
-u32 rngs_u32_bound(u32 *s, u32 hi)
+i32 rngs_i32_bound(u32 *s, i32 hi)
 {
-    u32 r = rngs_u32(s);
-    return (hi == U32_MAX ? r : r % (hi + 1));
-}
-
-u32 rng_u32_bound(u32 hi)
-{
-    return rngs_u32_bound(&g_rng_seed, hi);
+    return (rngs_i32(s) % (hi + 1));
 }
 
 i32 rngsr_i32(u32 *seed, i32 lo, i32 hi)
 {
-    return lo + (i32)rngs_u32_bound(seed, (u32)(hi - lo));
+    return lo + rngs_i32_bound(seed, (hi - lo));
 }
 
 i32 rngr_i32(i32 lo, i32 hi)
 {
     return rngsr_i32(&g_rng_seed, lo, hi);
-}
-
-u32 rngsr_u32(u32 *seed, u32 lo, u32 hi)
-{
-    return lo + rngs_u32_bound(seed, hi - lo);
-}
-
-u32 rngr_u32(u32 lo, u32 hi)
-{
-    return rngsr_u32(&g_rng_seed, lo, hi);
 }
 
 i32 rngr_sym_i32(i32 hi)
@@ -80,7 +51,7 @@ i32 rngsr_sym_i32(u32 *seed, i32 hi)
 
 f32 rngs_f32(u32 *seed)
 {
-    return (rngs_u32(seed) / (f32)0xFFFFFFFFU);
+    return ((f32)rngs_i32(seed) * 0.000015259f);
 }
 
 f32 rng_f32()

@@ -32,6 +32,9 @@ obj_s *triggerarea_spawn(g_s *g, rec_i32 r, i32 tr_enter, i32 tr_leave, b32 once
 
 void triggerarea_load(g_s *g, map_obj_s *mo)
 {
+    i32 se = map_obj_i32(mo, "only_load_if_not_saveID");
+    if (se && save_event_exists(g, se)) return;
+
     i32 saveID = map_obj_i32(mo, "saveID");
     if (save_event_exists(g, saveID)) return;
 
@@ -51,19 +54,26 @@ void triggerarea_on_update(g_s *g, obj_s *o)
     if (!ohero) return;
 
     bool32 occupied = overlap_rec(obj_aabb(ohero), obj_aabb(o));
-    if (occupied && !t->occupied && t->trigger_enter) {
-        game_on_trigger(g, t->trigger_enter);
-        if (t->once) { // only once
-            save_event_register(g, t->saveID);
-            obj_delete(g, o);
+
+    if (occupied) {
+        if (!t->occupied && t->trigger_enter) {
+            game_on_trigger(g, t->trigger_enter);
+
+            if (t->once) { // only once
+                save_event_register(g, t->saveID);
+                obj_delete(g, o);
+            }
+        }
+    } else {
+        if (t->occupied && t->trigger_leave) {
+            game_on_trigger(g, t->trigger_leave);
+
+            if (t->once) { // only once
+                save_event_register(g, t->saveID);
+                obj_delete(g, o);
+            }
         }
     }
-    if (!occupied && t->occupied && t->trigger_leave) {
-        game_on_trigger(g, t->trigger_leave);
-        if (t->once) { // only once
-            save_event_register(g, t->saveID);
-            obj_delete(g, o);
-        }
-    }
+
     t->occupied = occupied;
 }

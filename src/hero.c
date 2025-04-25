@@ -40,7 +40,6 @@ void   hero_start_jump(g_s *g, obj_s *o, i32 ID);
 void   hero_hurt(g_s *g, obj_s *o, i32 damage);
 void   hero_on_squish(g_s *g, obj_s *o);
 bool32 hero_try_stand_up(g_s *g, obj_s *o);
-void   hero_start_jump(g_s *g, obj_s *o, i32 ID);
 
 obj_s *hero_create(g_s *g)
 {
@@ -61,10 +60,9 @@ obj_s *hero_create(g_s *g)
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_GLUE_GROUND |
                     OBJ_MOVER_ONE_WAY_PLAT |
-                    OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_AVOID_HEADBUMP |
                     OBJ_MOVER_SLIDE_Y_NEG;
-    o->health_max      = 2;
+    o->health_max      = 3;
     o->health          = o->health_max;
     o->render_priority = RENDER_PRIO_HERO;
     o->w               = HERO_WIDTH;
@@ -74,13 +72,6 @@ obj_s *hero_create(g_s *g)
     o->light_radius    = 100;
     o->light_strength  = 7;
     return o;
-}
-
-void hero_abort_grapple(g_s *g, obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    grapplinghook_destroy(g, &g->ghook);
-    h->b_hold_tick = 0;
 }
 
 // return 0 to skip the hero update afterwards
@@ -94,7 +85,7 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
     rope_s            *r        = o->rope;
     hero_interaction_s i        = hero_get_interaction(g, o);
 
-    if (inp_btn_jp(INP_DU) && hero_ibuf_tap(h, INP_DU, 12)) {
+    if (grounded && inp_btn_jp(INP_DU) && hero_ibuf_tap(h, INP_DU, 12)) {
         minimap_open(g);
         return 1;
     }
@@ -186,7 +177,8 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
         return 0;
     }
 
-    bool32 can_swap = !h->crouched &&
+    bool32 can_swap = hero_has_upgrade(g, HERO_UPGRADE_SPEAR) &&
+                      !h->crouched &&
                       !o->rope &&
                       (st == HERO_ST_GROUND || st == HERO_ST_AIR);
 
@@ -277,7 +269,7 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
 
         if (o->rope && g->ghook.state != GRAPPLINGHOOK_FLYING) {
             o->rope->len_max_q4 =
-                clamp_i32(o->rope->len_max_q4 + dtl,
+                clamp_i32(o->rope->len_max_q4 - dtl,
                           HERO_ROPE_LEN_MIN,
                           HERO_ROPE_LEN_MAX);
         }
@@ -379,15 +371,18 @@ void hero_check_safe_pos(g_s *g, obj_s *o)
 
 void hero_on_update(g_s *g, obj_s *o, inp_s inp)
 {
+    hero_s *h          = (hero_s *)o->heap;
+    h->n_ibuf          = (h->n_ibuf + 1) & (HERO_LEN_INPUT_BUF - 1);
+    h->ibuf[h->n_ibuf] = inp.c.actions & 0xFF;
+
     hero_check_safe_pos(g, o);
     if (hero_special_input(g, o, inp) == 0) {
         return;
     }
 
-    hero_s *h      = (hero_s *)o->heap;
-    i32     dpad_x = inps_x(inp);
-    i32     dpad_y = inps_y(inp);
-    i32     st     = hero_get_actual_state(g, o);
+    i32 dpad_x = inps_x(inp);
+    i32 dpad_y = inps_y(inp);
+    i32 st     = hero_get_actual_state(g, o);
 
     if (st == HERO_ST_WATER && h->state_prev != HERO_ST_WATER) {
         v2_i32 splashpos = obj_pos_center(o);
@@ -409,15 +404,13 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
     }
 
     bool32 might_jump = !h->spinattack && !h->attack_tick;
-    if (h->impact_ticks) {
-        h->impact_ticks--;
-    }
     if (h->item_swap_fade) {
         h->item_swap_fade -= sgn_i32(h->item_swap_fade);
     }
     if (h->ticks_health) {
         h->ticks_health--;
     }
+    // pltf_log("%i\n", o->health);
     if (h->spinattack) {
         h->spinattack++;
         if (HERO_TICKS_SPIN_ATTACK <= h->spinattack) {
@@ -489,23 +482,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         hero_stamina_update_ui(o, h->stamina_upgrades << 7);
     }
 
-    if (o->health < o->health_max && !h->health_restore_tick) {
-        h->health_restore_tick = 1;
-    }
-
-    if (h->health_restore_tick) {
-        h->health_restore_tick++;
-        if (HERO_HEALTH_RESTORE_TICKS <= h->health_restore_tick) {
-            if (o->health < o->health_max) {
-                o->health++;
-                h->health_restore_tick = 1;
-                h->ticks_health        = HERO_LOW_HP_ANIM_TICKS_RECOVER;
-            } else {
-                h->health_restore_tick = 0;
-            }
-        }
-    }
-
     rope_s *r              = o->rope;
     bool32  rope_stretched = (r && (r->len_max_q4 * 254) <= (rope_len_q4(g, r) << 8));
 
@@ -535,7 +511,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         } else if (o->health) {
             if (1000 <= o->v_q8.y) {
                 f32 vol = (1.f * (f32)o->v_q8.y) / 2000.f;
-                snd_play(SNDID_STEP, min_f32(vol, 1.f) * 1.2f, 1.f);
             }
             if (500 <= o->v_q8.y) {
                 v2_i32 posc = obj_pos_bottom_center(o);
@@ -546,7 +521,11 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
             }
             if (250 <= o->v_q8.y) {
                 h->impact_ticks = min_i32(o->v_q8.y >> 8, 8) + 2;
+                snd_play(SNDID_LANDING,
+                         0.25f * (min_f32(o->v_q8.y, 1500.f) - 250.f) / 1250.f,
+                         rngr_f32(0.9f, 1.1f));
             }
+
             o->v_q8.y = 0;
         } else {
             if (h->dead_bounce) {
@@ -697,10 +676,7 @@ void hero_on_squish(g_s *g, obj_s *o)
 
         v2_i32 p = obj_pos_bottom_center(o);
         particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_SQUISH, p);
-
-        if (g->substate != SUBSTATE_GAMEOVER) {
-            gameover_start(g);
-        }
+        cs_gameover_enter(g);
     }
 }
 
@@ -709,13 +685,10 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
     hero_s *h = (hero_s *)o->heap;
     if (h->invincibility_ticks || !o->health || !damage) return;
 
-    h->health_restore_tick = 0;
-    o->health              = u8_subs(o->health, damage);
+    o->health = u8_subs(o->health, damage);
 
     if (o->health) {
-        if (o->health == 1) {
-            h->ticks_health = HERO_LOW_HP_ANIM_TICKS_HIT;
-        }
+        h->ticks_health        = HERO_LOW_HP_ANIM_TICKS_HIT;
         h->hurt_ticks          = HERO_HURT_TICKS;
         h->invincibility_ticks = HERO_INVINCIBILITY_TICKS;
     } else {
@@ -726,9 +699,7 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
         o->flags &= ~OBJ_FLAG_CLAMP_ROOM_Y; // let hero fall through floor
         hero_itemswap_cancel(o);
         hero_action_ungrapple(g, o);
-        if (g->substate != SUBSTATE_GAMEOVER) {
-            gameover_start(g);
-        }
+        cs_gameover_enter(g);
     }
 }
 
@@ -754,13 +725,13 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
     h->jumpticks      = (u8)jv.ticks;
     o->v_q8.y         = -jv.vy;
     if (ID == HERO_JUMP_GROUND) {
-        snd_play(SNDID_JUMP, 1.f, 1.f);
+        snd_play(SNDID_JUMP, 0.7f, rngr_f32(0.9f, 1.1f));
         v2_i32 prtp = obj_pos_bottom_center(o);
         prtp.y -= 4;
         particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
     }
     if (ID == HERO_JUMP_FLY) {
-        snd_play(SNDID_WING1, 2.f, rngr_f32(0.8f, 1.2f));
+        h->jump_snd_iID = snd_play(SNDID_WING, 0.9f, rngr_f32(0.9f, 1.1f));
     }
 }
 
@@ -858,10 +829,10 @@ v2_i32 hero_hook_aim_dir(hero_s *h)
 
 void hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel)
 {
-    hero_s *h       = (hero_s *)o->heap;
-    v2_i32  vlaunch = grapplinghook_vlaunch_from_angle(ang_q16, vel);
-    snd_play(SNDID_HOOK_THROW, 1.f, 1.f);
-    v2_i32 center = obj_pos_center(o);
+    hero_s *h              = (hero_s *)o->heap;
+    v2_i32  vlaunch        = grapplinghook_vlaunch_from_angle(ang_q16, vel);
+    g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.35f, rngr_f32(0.95f, 1.05f));
+    v2_i32 center          = obj_pos_center(o);
 
     if (0 < o->v_q8.y) {
         o->v_q8.y >>= 1;
@@ -1055,12 +1026,10 @@ void hero_do_inair(g_s *g, obj_s *o, inp_s inp)
                 o->v_q8.y -= ch;
                 if (h->jump_index == HERO_JUMP_FLY) {
                     hero_stamina_modify(o, -64);
-                    if (h->jumpticks == jv.ticks - 8) {
-                        snd_play(SNDID_WING1, 1.8f, 0.5f);
-                    }
                 }
                 h->jumpticks--;
             } else { // cut jump short
+                snd_instance_stop_fade(h->jump_snd_iID, 200, 256);
                 obj_vy_q8_mul(o, 128);
                 h->jumpticks = 0;
                 h->walljump_tick >>= 1;
@@ -1426,6 +1395,7 @@ void hero_do_walking(g_s *g, obj_s *o, inp_s inp)
                 o->facing   = vs;
                 h->sprint   = 0;
                 h->skidding = 15;
+                snd_play(SNDID_STOPSPRINT, 0.1f, rngr_f32(0.9f, 1.1f));
             } else {
                 obj_vx_q8_mul(o, 128);
             }
@@ -1875,19 +1845,26 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
         switch (it->ID) {
         case OBJID_COIN: {
-            if (v2_i32_distancesq(hcenter, obj_pos_center(it)) < POW2(20)) {
+            if (v2_i32_distancesq(hcenter, obj_pos_center(it)) < POW2(50)) {
                 coins_change(g, +1);
-                snd_play(SNDID_COIN, 1.f, 1.f);
+                snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
                 obj_delete(g, it);
             }
             break;
         }
-        case OBJID_HERO_POWERUP: {
+        case OBJID_HEALTHDROP: {
+            o->health = min_i32(o->health + 1, o->health_max);
+            obj_delete(g, it);
+            break;
+        }
+        case OBJID_HERO_UPGRADE: {
+#if 0
             hero_powerup_collected(g, hero_powerup_obj_ID(it));
             save_event_register(g, hero_powerup_saveID(it));
             obj_delete(g, it);
             objs_cull_to_delete(g);
             collected_upgrade = 1;
+#endif
             break;
         }
         case OBJID_STAMINARESTORER: {
@@ -1921,7 +1898,7 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
     }
 
     if (!collected_upgrade) {
-        maptransition_try_hero_slide(g);
+        cs_maptransition_try_slide_enter(g);
     }
 
     if (hero_dmg && !h->invincibility_ticks) {
@@ -1943,6 +1920,6 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
         o->v_q8.x = h->safe_v.x;
         o->v_q8.y = h->safe_v.y;
         o->facing = (i8)h->safe_facing;
-        maptransition_teleport(g, g->map_hash, h->safe_pos);
+        // maptransition_teleport(g, g->map_hash, h->safe_pos);
     }
 }

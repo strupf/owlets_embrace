@@ -655,8 +655,10 @@ void rope_verletsim(g_s *g, rope_s *r)
         if (contained) continue;
 
         // figure out previous and next corner of verlet particle
-        verlet_pos_s prev_vp = {-1};
-        verlet_pos_s next_vp = {ROPE_VERLET_N};
+        verlet_pos_s prev_vp = {0};
+        verlet_pos_s next_vp = {0};
+        prev_vp.i            = -1;
+        next_vp.i            = ROPE_VERLET_N;
 
         for (i32 i = 0; i < n_vpos; i++) {
             verlet_pos_s vp = vpos[i];

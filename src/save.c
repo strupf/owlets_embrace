@@ -67,7 +67,6 @@ err32 savefile_r(i32 slot, savefile_s *s)
         }
         default: { // unsupported
             res |= SAVE_ERR_VERSION;
-
             break;
         }
         }
@@ -86,41 +85,30 @@ b32 savefile_del(i32 slot)
     return pltf_file_del(savefile_name(slot));
 }
 
-b32 savefile_cpy(i32 slot_from, i32 slot_to)
-{
-    spm_push();
-    savefile_s *s = spm_alloct(savefile_s);
-    b32         r =
-        savefile_r(slot_from, s) == 0 &&
-        savefile_w(slot_to, s) == 0;
-    spm_pop();
-    return r;
-}
-
 err32 savefile_read_data(save_header_s h, void *f, void *buf, usize s)
 {
-    err32 r = 0;
-    if (pltf_file_r_checked(f, buf, s)) {
-        if (h.checksum != crc16(buf, s)) {
-            pltf_log("Mismatching save file checksum!\n");
-            r = SAVE_ERR_CHECKSUM;
-        }
-    } else {
-        r = SAVE_ERR_RW;
+    if (!pltf_file_r_checked(f, buf, s)) return SAVE_ERR_RW;
+
+    if (h.checksum != crc16(buf, s)) {
+        pltf_log("Mismatching save file checksum!\n");
+        return SAVE_ERR_CHECKSUM;
     }
-    return r;
+    return 0;
 }
 
 b32 save_event_register(g_s *g, i32 ID)
 {
-    if (!(0 <= ID && ID < NUM_SAVE_EV)) return 0;
-    if (save_event_exists(g, ID)) return 0;
-    g->save_events[ID >> 5] |= (u32)1 << (ID & 31);
-    return 1;
+    if (0 < ID && ID < NUM_SAVE_EV && !save_event_exists(g, ID)) {
+        g->save_events[ID >> 5] |= (u32)1 << (ID & 31);
+        return 1;
+    }
+    return 0;
 }
 
 b32 save_event_exists(g_s *g, i32 ID)
 {
-    if (!(0 <= ID && ID < NUM_SAVE_EV)) return 0;
-    return (g->save_events[ID >> 5] & ((u32)1 << (ID & 31)));
+    if (0 < ID && ID < NUM_SAVE_EV) {
+        return (g->save_events[ID >> 5] & ((u32)1 << (ID & 31)));
+    }
+    return 0;
 }

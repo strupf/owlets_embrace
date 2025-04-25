@@ -17,7 +17,7 @@ typedef struct {
     u32      n_stack;
     marena_s m;
     ALIGNAS(4)
-    byte mem[MKILOBYTE(1024)];
+    byte mem[MKILOBYTE(512)];
 } spm_s;
 
 #define spm_alloct(T)     (T *)spm_alloc_aligned(sizeof(T), ALIGNOF(T))

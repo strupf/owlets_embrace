@@ -21,8 +21,8 @@ void areafx_wind_update(g_s *g, areafx_wind_s *fx)
         }
 
         p->circcooldown--;
-        if (p->circcooldown <= 0 && rng_u32() < 0x4000000U) { // enter wind circle animation
-            p->ticks        = rngr_u32(12, 15);
+        if (p->circcooldown <= 0 && rng_i32() < 0x4000000U) { // enter wind circle animation
+            p->ticks        = rngr_i32(12, 15);
             p->circticks    = p->ticks;
             p->circc.x      = p->p_q8.x;
             p->circc.y      = p->p_q8.y - AREAFX_WIND_R;
@@ -47,7 +47,7 @@ void areafx_wind_update(g_s *g, areafx_wind_s *fx)
     }
 
     // SPAWN PARTICLES
-    if (fx->n < AREAFX_WINDPT && rng_u32() <= 0x20000000U) {
+    if (fx->n < AREAFX_WINDPT && rng_i32() <= 0x20000000U) {
         areafx_windpt_s *p = &fx->p[fx->n++];
         mclr(p, sizeof(areafx_windpt_s));
         p->p_q8.y       = rngr_i32(0, AREAFX_WIND_SIZEY << 8);

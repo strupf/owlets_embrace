@@ -48,13 +48,9 @@ enum {
 #if PLTF_PD
 #define pltf_audio_set_volume(V)
 #define pltf_audio_get_volume() 1.f
-#define pltf_audio_lock()
-#define pltf_audio_unlock()
 #else
 void pltf_audio_set_volume(f32 vol);
 f32  pltf_audio_get_volume();
-void pltf_audio_lock();
-void pltf_audio_unlock();
 #endif
 
 i32    app_init();
@@ -75,6 +71,7 @@ void  *pltf_1bit_buffer();
 bool32 pltf_accelerometer_enabled();
 void   pltf_accelerometer_set(bool32 enabled);
 void   pltf_accelerometer(f32 *x, f32 *y, f32 *z);
+bool32 pltf_reduce_flashing();
 void   pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t);
 void  *pltf_file_open(const char *path, i32 pltf_file_mode);
 void  *pltf_file_open_r(const char *path);

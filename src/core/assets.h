@@ -27,6 +27,7 @@ enum {
 enum {
     TEXID_DISPLAY,
     TEXID_DISPLAY_TMP,
+    TEXID_DISPLAY_TMP_MASK,
     TEXID_KEYBOARD,
     TEXID_BUTTONS,
     TEXID_HERO,
@@ -72,10 +73,12 @@ enum {
     TEXID_FLUIDS,
     TEXID_JUMPER,
     TEXID_CHEST,
+    TEXID_HEARTDROP,
     TEXID_TRAMPOLINE,
     TEXID_STALACTITE,
     TEXID_STAMINARESTORE,
     TEXID_BGOLEM,
+    TEXID_BOSSPLANT,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -86,6 +89,7 @@ enum {
     FNTID_SMALL,
     FNTID_MEDIUM,
     FNTID_LARGE,
+    FNTID_VLARGE,
     //
     NUM_FNTID
 };
@@ -124,7 +128,7 @@ enum {
     SNDID_FOOTSTEP_SAND,
     SNDID_FOOTSTEP_DIRT,
     SNDID_WING,
-    SNDID_WING1,
+    SNDID_WING_BIG,
     SNDID_HOOK_READY,
     SNDID_WATER_SPLASH_BIG,
     SNDID_WATER_SPLASH_SMALL,
@@ -141,6 +145,11 @@ enum {
     SNDID_STOMP_START,
     SNDID_STOMP_LAND,
     SNDID_ENEMY_EXPLO,
+    SNDID_LANDING,
+    SNDID_STOPSPRINT,
+    SNDID_MENU1,
+    SNDID_MENU2,
+    SNDID_MENU3,
     //
     NUM_SNDID
 };
@@ -155,6 +164,7 @@ enum {
     ANIID_UPGRADE,
     ANIID_COMPANION_BUMP,
     ANIID_CURSOR,
+    ANIID_HEALTHDROP,
     //
     NUM_ANIID
 };
@@ -186,7 +196,7 @@ ani_s    asset_ani(i32 ID);
 i32      asset_tex_put(tex_s t);
 tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
-b32      snd_play(i32 ID, f32 vol, f32 pitch);
+i32      snd_play(i32 ID, f32 vol, f32 pitch);
 //
 err32    tex_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, tex_s *o_t);

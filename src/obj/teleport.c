@@ -14,7 +14,7 @@ void teleport_on_interact(g_s *g, obj_s *o)
 {
     teleport_s *t   = (teleport_s *)o->mem;
     v2_i32      pos = {t->tx, t->ty};
-    maptransition_teleport(g, t->hash, pos);
+    // maptransition_teleport(g, t->hash, pos);
 }
 
 void teleport_load(g_s *g, map_obj_s *mo)

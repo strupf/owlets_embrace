@@ -80,6 +80,11 @@ void obj_delete(g_s *g, obj_s *o)
     }
 }
 
+void obj_handle_delete(g_s *g, obj_handle_s h)
+{
+    obj_delete(g, obj_from_obj_handle(h));
+}
+
 bool32 obj_tag(g_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag]) return 0;

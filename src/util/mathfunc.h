@@ -696,21 +696,21 @@ static inline i32 v2_i32_distance(v2_i32 a, v2_i32 b)
     return sqrt_u32(v2_i32_distancesq(a, b));
 }
 
-static inline v2_i32 v2_i32_setlenl(v2_i32 a, u32 l, u32 len)
+static inline v2_i32 v2_i32_setlenl(v2_i32 a, u32 l, u32 new_l)
 {
     v2_i32 r = {0};
     if (l == 0) {
-        r.x = len;
+        r.x = new_l;
     } else {
-        r.x = (i32)(((i64)a.x * (i64)len) / (i64)l);
-        r.y = (i32)(((i64)a.y * (i64)len) / (i64)l);
+        r.x = (i32)(((i64)a.x * (i64)new_l) / (i64)l);
+        r.y = (i32)(((i64)a.y * (i64)new_l) / (i64)l);
     }
     return r;
 }
 
 static inline v2_i32 v2_i32_setlenl_small(v2_i32 a, u32 len_curr, u32 len)
 {
-    v2_i32 r = {len};
+    v2_i32 r = {len, 0};
     if (len_curr) {
         r.x = i32_mul(a.x, (i32)len) / (i32)len_curr;
         r.y = i32_mul(a.y, (i32)len) / (i32)len_curr;
@@ -867,13 +867,13 @@ static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
     return r;
 }
 
-static inline v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 len)
+static inline v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 new_l)
 {
     if (l == 0.f) {
-        return CINIT(v2_f32){len, 0.f};
+        return CINIT(v2_f32){new_l, 0.f};
     }
 
-    v2_f32 r = {a.x * (len / l), a.y * (len / l)};
+    v2_f32 r = {a.x * (new_l / l), a.y * (new_l / l)};
     return r;
 }
 
@@ -1157,12 +1157,10 @@ static bool32 overlap_lineseg_line_excl(lineseg_i32 la, line_i32 lb)
 
 // projects a point onto a line and clamps it to the endpoints if not infinite
 // S = A + [(B - A) * u] / den
-static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
+static ratio_s project_pnt_dir_ratio(v2_i32 pnt, v2_i32 dir)
 {
-    v2_i32 pnt = v2_i32_sub(p, a);
-    v2_i32 dir = v2_i32_sub(b, a);
-    u32    d   = v2_i32_lensq(dir);
-    i32    s   = v2_i32_dot(dir, pnt);
+    u32 d = v2_i32_lensq(dir);
+    i32 s = v2_i32_dot(dir, pnt);
     if ((u32)I32_MAX < d) { // reduce precision to fit both into i32
         d >>= 1;
         s >>= 1;
@@ -1171,10 +1169,27 @@ static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
     return r;
 }
 
+// projects a point onto a line and clamps it to the endpoints if not infinite
+// S = A + [(B - A) * u] / den
+static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
+{
+    v2_i32 pnt = v2_i32_sub(p, a);
+    v2_i32 dir = v2_i32_sub(b, a);
+    return project_pnt_dir_ratio(pnt, dir);
+}
+
 static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 {
     ratio_s r = project_pnt_line_ratio(p, a, b);
     v2_i32  t = v2_i32_lerp_i64(a, b, r.num, r.den);
+    return t;
+}
+
+static v2_i32 project_pnt_dir(v2_i32 p, v2_i32 dir)
+{
+    ratio_s r = project_pnt_dir_ratio(p, dir);
+    v2_i32  t = {(i32)(((i64)dir.x * r.num) / r.den),
+                 (i32)(((i64)dir.y * r.num) / r.den)};
     return t;
 }
 
@@ -1450,13 +1465,14 @@ static v2_f32 v2f_lerp(v2_f32 a, v2_f32 b, f32 t)
     return r;
 }
 
+// 0x1021 polynomial
 static u16 crc16_next(u16 c, u8 v)
 {
-    // 0x1021 polynomial
     u16 r = (u16)v;
     r ^= (c >> 8);
     r ^= (r >> 4);
-    r ^= (r << 5) ^ (r << 12) ^ (c << 8);
+    r ^= (r << 5) ^ (r << 12);
+    r ^= (c << 8);
     return r;
 }
 

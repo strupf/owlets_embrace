@@ -7,6 +7,7 @@
 
 enum {
     COMPANION_ST_IDLE,
+    COMPANION_ST_CS,
     COMPANION_ST_SWAP_ITEMS,
     COMPANION_ST_ATTACK,
     COMPANION_ST_COLLECT_COIN,
@@ -16,15 +17,26 @@ enum {
 #define COMPANION_DSTSQ_ENEMY          8000
 #define COMPANION_DSTSQ_HERO_COME_BACK 35000
 
-typedef struct {
+typedef struct companion_s {
     b8 sit;
     b8 holds_spear;
     u8 attack_tick;
     u8 hitID;
+    //
+    void (*cs_arrived_cb)(g_s *g, obj_s *o);
+    v2_i32 cs_pos_src;
+    v2_i32 cs_pos_dst;
+    i16    cs_t_move_total;
+    i16    cs_t_move;
+    u8     cs_animID;
+    u8     cs_anim_n;
 } companion_s;
 
 void     companion_on_update(g_s *g, obj_s *o);
+void     companion_on_update_gameplay(g_s *g, obj_s *o);
 void     companion_on_animate(g_s *g, obj_s *o);
+void     companion_on_animate_gameplay(g_s *g, obj_s *o);
+void     companion_on_animate_cs(g_s *g, obj_s *o);
 void     companion_follow_hero(g_s *g, obj_s *o, obj_s *ohero);
 void     companion_swap_items(g_s *g, obj_s *o, obj_s *ohero);
 bool32   companion_sit(g_s *g, obj_s *o, obj_s *ohero);
@@ -37,15 +49,23 @@ obj_s *companion_create(g_s *g)
     obj_s       *o = obj_create(g);
     companion_s *c = (companion_s *)o->mem;
     o->ID          = OBJID_HERO_COMPANION;
-    o->on_update   = companion_on_update;
-    o->on_animate  = companion_on_animate;
-    o->w           = 16;
-    o->h           = 16;
-    o->facing      = +1;
+    obj_tag(g, o, OBJ_TAG_COMPANION);
+    o->on_update  = companion_on_update;
+    o->on_animate = companion_on_animate;
+    o->w          = 16;
+    o->h          = 16;
+    o->facing     = +1;
     return o;
 }
 
 void companion_on_update(g_s *g, obj_s *o)
+{
+    if (o->state != COMPANION_ST_CS) {
+        companion_on_update_gameplay(g, o);
+    }
+}
+
+void companion_on_update_gameplay(g_s *g, obj_s *o)
 {
     companion_s *c     = (companion_s *)o->mem;
     obj_s       *ohero = obj_get_hero(g);
@@ -174,7 +194,9 @@ void companion_on_update(g_s *g, obj_s *o)
     }
     obj_move_by_v_q8(g, o);
 
-    if (ohero && !((hero_s *)ohero->heap)->holds_spear) {
+    if (ohero &&
+        hero_has_upgrade(g, HERO_UPGRADE_SPEAR) &&
+        !((hero_s *)ohero->heap)->holds_spear) {
         c->holds_spear = 1;
     } else {
         c->holds_spear = 0;
@@ -182,6 +204,18 @@ void companion_on_update(g_s *g, obj_s *o)
 }
 
 void companion_on_animate(g_s *g, obj_s *o)
+{
+    switch (o->state) {
+    case COMPANION_ST_CS:
+        companion_on_animate_cs(g, o);
+        break;
+    default:
+        companion_on_animate_gameplay(g, o);
+        break;
+    }
+}
+
+void companion_on_animate_gameplay(g_s *g, obj_s *o)
 {
     companion_s *c = (companion_s *)o->mem;
 
@@ -438,4 +472,105 @@ obj_s *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max)
         }
     }
     return target;
+}
+
+void companion_on_animate_cs(g_s *g, obj_s *o)
+{
+    companion_s *c = (companion_s *)o->mem;
+
+    // UPDATE -----------------
+    if (c->cs_t_move_total) {
+        c->cs_t_move++;
+
+        v2_i32 pcenter = obj_pos_center(o);
+        v2_i32 p       = v2_i32_lerp(c->cs_pos_src, c->cs_pos_dst,
+                                     c->cs_t_move, c->cs_t_move_total);
+        obj_move(g, o, p.x - pcenter.x, p.y - pcenter.y);
+        if (c->cs_t_move_total <= c->cs_t_move) {
+            c->cs_t_move       = 0;
+            c->cs_t_move_total = 0;
+            if (c->cs_arrived_cb) {
+                c->cs_arrived_cb(g, o);
+            }
+        }
+    }
+
+    // ANIMATE ----------------
+    obj_sprite_s *spr = &o->sprites[0];
+    o->n_sprites      = 1;
+    o->animation++;
+    if (o->facing == +1) {
+        spr->flip = SPR_FLIP_X;
+    } else {
+        spr->flip = 0;
+    }
+
+    spr->offs.x = (o->w - 96) / 2;
+    spr->offs.y = (o->h - 64) / 2 - 2;
+
+    i32 frx = 0;
+    i32 fry = 0;
+    switch (c->cs_animID) {
+    case COMPANION_CS_ANIM_FLY: {
+        fry = 0;
+        frx = ani_frame(ANIID_COMPANION_FLY, o->animation);
+        break;
+    }
+    case COMPANION_CS_ANIM_NOD: {
+        fry   = 0;
+        frx   = ani_frame(ANIID_COMPANION_FLY, o->animation);
+        i32 l = ani_len(ANIID_COMPANION_FLY);
+        i32 k = o->animation % (4 * l);
+        if (k < 2 * l) { // confirming nod animation, synced to animation
+            i32 co   = cos_q15((k << 17) / l) - 32768;
+            i32 co2  = pow2_i32(co >> 1) >> 14;
+            i32 offs = (co2 * 16) >> 16;
+            spr->offs.y += offs;
+        }
+
+        break;
+    }
+    }
+
+    spr->trec = asset_texrec(TEXID_COMPANION, frx * 96, fry * 64, 96, 64);
+}
+
+void companion_cs_start(obj_s *o)
+{
+    companion_s *c     = (companion_s *)o->mem;
+    o->state           = COMPANION_ST_CS;
+    c->cs_animID       = 0;
+    c->cs_anim_n       = 0;
+    c->cs_t_move       = 0;
+    c->cs_t_move_total = 0;
+}
+
+void companion_cs_leave(obj_s *o)
+{
+    companion_s *c = (companion_s *)o->mem;
+    o->state       = COMPANION_ST_IDLE;
+}
+
+void companion_cs_set_anim(obj_s *o, i32 animID, i32 facing)
+{
+    companion_s *c = (companion_s *)o->mem;
+    if (animID && animID != c->cs_animID) {
+        c->cs_animID = animID;
+        o->animation = 0;
+    }
+    if (o->facing) {
+        o->facing = facing;
+    }
+}
+
+void companion_cs_move_to(obj_s *o, v2_i32 p, i32 t,
+                          void (*arrived_cb)(g_s *g, obj_s *o))
+{
+    companion_s *c     = (companion_s *)o->mem;
+    v2_i32       pc    = obj_pos_center(o);
+    c->cs_pos_src      = pc;
+    c->cs_pos_dst      = p;
+    c->cs_t_move_total = t;
+    c->cs_t_move       = 0;
+    c->cs_arrived_cb   = arrived_cb;
 }

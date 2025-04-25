@@ -23,10 +23,12 @@ static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
 
 void cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y)
 {
-    c->shake_ticks     = ticks;
-    c->shake_ticks_max = ticks;
-    c->shake_str_x     = str_x;
-    c->shake_str_y     = str_y;
+    if (!pltf_reduce_flashing()) {
+        c->shake_ticks     = ticks;
+        c->shake_ticks_max = ticks;
+        c->shake_str_x     = str_x;
+        c->shake_str_y     = str_y;
+    }
 }
 
 void cam_screenshake(cam_s *c, i32 ticks, i32 str)
@@ -57,6 +59,7 @@ v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
     pos = v2_i32_add(pos, c->shake);
     return pos;
 }
+
 v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
 {
     v2_i32 pos        = cam_pos_px_top_left(g, c);
@@ -133,7 +136,8 @@ void cam_update(g_s *g, cam_s *c)
         v2_f32 attract   = {0};
 
         v2_i32 pos_px = v2_i32_shr(c->pos_q8, 8);
-        pos_px.x += c->offs_x + clamp_sym_i32(hero->v_q8.x >> 4, 64);
+        // pos_px.x += c->offs_x + clamp_sym_i32(hero->v_q8.x >> 4, 64);
+        pos_px.x += c->offs_x;
         pos_px = cam_constrain_to_room(g, pos_px);
 
         for (obj_each(g, o)) {

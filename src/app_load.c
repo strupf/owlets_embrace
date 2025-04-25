@@ -59,16 +59,19 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_FLUIDS, "T_FLUIDS");
     app_load_tex_internal(&l, TEXID_BOULDER, "T_BOULDER");
     app_load_tex_internal(&l, TEXID_UPGRADE, "T_UPGRADE");
+    app_load_tex_internal(&l, TEXID_HEARTDROP, "T_HEARTDROP");
 
     {
-        tex_s t = tex_create(400, 240, 0, app_allocator(), 0);
-
-        APP->assets.tex[TEXID_PAUSE_TEX] = t;
+        APP->assets.tex[TEXID_PAUSE_TEX] =
+            tex_create(400, 240, 0, app_allocator(), 0);
     }
     {
-        tex_s t = tex_create(400, 240, 0, app_allocator(), 0);
-        mclr(t.px, t.wword * t.h);
-        APP->assets.tex[TEXID_DISPLAY_TMP] = t;
+        APP->assets.tex[TEXID_DISPLAY_TMP] =
+            tex_create(400, 240, 0, app_allocator(), 0);
+    }
+    {
+        APP->assets.tex[TEXID_DISPLAY_TMP_MASK] =
+            tex_create(400, 240, 1, app_allocator(), 0);
     }
 
 LOAD_FNT:;
@@ -81,6 +84,7 @@ LOAD_FNT:;
     app_load_fnt_internal(&l, FNTID_SMALL, "F_SMALL");
     app_load_fnt_internal(&l, FNTID_MEDIUM, "F_MEDIUM");
     app_load_fnt_internal(&l, FNTID_LARGE, "F_LARGE");
+    app_load_fnt_internal(&l, FNTID_VLARGE, "F_VLARGE");
 
 LOAD_SND:;
     // SND ---------------------------------------------------------------------
@@ -90,11 +94,20 @@ LOAD_SND:;
         goto LOAD_ANI;
     }
     app_load_snd_internal(&l, SNDID_JUMP, "S_JUMP01");
-    app_load_snd_internal(&l, SNDID_KLONG, "S_HOOK");
+    app_load_snd_internal(&l, SNDID_WING, "S_DOUBLEJUMP5");
+    // app_load_snd_internal(&l, SNDID_WING_BIG, "S_DOUBLEJUMP2");
+    app_load_snd_internal(&l, SNDID_KLONG, "S_HOOK5");
     app_load_snd_internal(&l, SNDID_SPEAR_ATTACK, "S_SPEAR_ATTACK");
     app_load_snd_internal(&l, SNDID_STOMP_LAND, "S_STOMP");
     app_load_snd_internal(&l, SNDID_STOMP_START, "S_STOMP_START");
     app_load_snd_internal(&l, SNDID_ENEMY_EXPLO, "S_ENEMY_EXPLO");
+    app_load_snd_internal(&l, SNDID_STOPSPRINT, "S_STOPSPRINT");
+    app_load_snd_internal(&l, SNDID_LANDING, "S_LANDING");
+    app_load_snd_internal(&l, SNDID_COIN, "S_COINX");
+    app_load_snd_internal(&l, SNDID_MENU1, "S_MENU1");
+    app_load_snd_internal(&l, SNDID_MENU2, "S_MENU2");
+    app_load_snd_internal(&l, SNDID_MENU3, "S_MENU3");
+    app_load_snd_internal(&l, SNDID_HOOK_THROW, "S_THROWHOOK");
 
 LOAD_ANI:;
     // ANI ---------------------------------------------------------------------
@@ -112,6 +125,7 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_BUTTON, "A_BUTTON");
     app_load_ani_internal(&l, ANIID_UPGRADE, "A_UPGRADE");
     app_load_ani_internal(&l, ANIID_CURSOR, "A_CURSOR");
+    app_load_ani_internal(&l, ANIID_HEALTHDROP, "A_HEALTHDROP");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {
@@ -159,7 +173,7 @@ static void app_load_fnt_internal(app_load_s *l, i32 ID, const void *name)
     }
 
     usize fsize = 256 + sizeof(fnt_kerning_s) * header.n_kerning;
-    char *fmem  = (u8 *)l->allocator.allocfunc(l->allocator.ctx, fsize, 1);
+    byte *fmem  = (byte *)l->allocator.allocfunc(l->allocator.ctx, fsize, 1);
 
     if (!fmem) {
         l->err |= ASSETS_ERR_FNT | ASSETS_ERR_ALLOC;

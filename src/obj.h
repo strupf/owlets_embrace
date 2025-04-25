@@ -24,6 +24,7 @@
 #define OBJ_FLAG_ENEMY          ((u64)1 << 10)
 #define OBJ_FLAG_COLLECTIBLE    ((u64)1 << 11)
 #define OBJ_FLAG_HURT_ON_TOUCH  ((u64)1 << 12)
+#define OBJ_FLAG_DESTROY_HOOK   ((u64)1 << 13)
 #define OBJ_FLAG_CLAMP_ROOM_X   ((u64)1 << 15)
 #define OBJ_FLAG_CLAMP_ROOM_Y   ((u64)1 << 16)
 #define OBJ_FLAG_BOSS           ((u64)1 << 17)
@@ -91,6 +92,7 @@ typedef struct {
 } obj_sprite_s;
 
 typedef void (*obj_action_f)(g_s *g, obj_s *o);
+typedef void (*obj_hooked_f)(g_s *g, obj_s *o, b32 hooked);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
@@ -127,6 +129,7 @@ struct obj_s {
     obj_action_f     on_squish;         // void f(g_s *g, obj_s *o);
     obj_action_f     on_touchhurt_hero; // void f(g_s *g, obj_s *o);
     obj_action_f     on_interact;       // void f(g_s *g, obj_s *o);
+    obj_hooked_f     on_hook;           // void f(g_s *g, obj_s *o, bool32 hooked);
     //
     v2_i32           pos; // position in pixels
     v2_i16           subpos_q8;
@@ -179,6 +182,7 @@ bool32       obj_handle_valid(obj_handle_s h);
 bool32       obj_handle_present_but_valid(obj_handle_s h);
 obj_s       *obj_create(g_s *g);
 void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
+void         obj_handle_delete(g_s *g, obj_handle_s h);
 bool32       obj_tag(g_s *g, obj_s *o, i32 tag);
 bool32       obj_untag(g_s *g, obj_s *o, i32 tag);
 obj_s       *obj_get_tagged(g_s *g, i32 tag);
@@ -224,6 +228,6 @@ enum {
     OBJANIM_BOULDER_POOF,
 };
 
-void objanim_create(g_s *g, v2_i32 p, i32 objanimID);
+obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID);
 
 #endif

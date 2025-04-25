@@ -12,11 +12,20 @@
 
 app_s *APP;
 
+void app_menu_callback_resetsave(void *ctx, i32 opt)
+{
+    cs_resetsave_enter(&APP->game);
+}
+
 void app_menu_callback_map(void *ctx, i32 opt)
 {
     if (!APP->game.minimap.state) {
         minimap_open_via_menu(&APP->game);
     }
+}
+
+void app_menu_callback_mus(void *ctx, i32 opt)
+{
 }
 
 void app_menu_callback_settings(void *ctx, i32 opt)
@@ -44,23 +53,8 @@ i32 app_init()
         // more like a warning
     }
 
-    i32 x_half   = 40 >> 1;
-    i32 w_attach = 50;
-    i32 w_mid    = 70;
-    for (i32 x = 0; x < x_half; x++) {
-
-        i32 a_q16 = ((w_attach - w_mid) << 16) / pow_i32(x_half, 3);
-
-        i32 w = ((a_q16 * pow_i32(-(x - x_half), 3)) >> 16) + w_mid;
-        // return w;
-        //   pltf_log("%i\n", w);
-    }
-
     pltf_audio_set_volume(1.f);
     pltf_accelerometer_set(1);
-#if PLTF_PD
-    pltf_pd_menu_add("settings", app_menu_callback_settings, 0);
-#endif
     err32 err_settings = settings_load(&SETTINGS); // try to use settings file
     aud_init();
     assets_init();
@@ -73,7 +67,8 @@ i32 app_init()
     spm_init();
     g_s *g = &APP->game;
     game_init(g);
-
+    savefile_s *s = &APP->save;
+    g->savefile   = s;
 #if 1
     typedef struct {
         u32 hash;
@@ -86,39 +81,35 @@ i32 app_init()
     savefile_del(2);
 
     // create a playtesting savefile
-    // mus_play("MUS_05");
-    g->save_slot = 0;
-    spm_push();
-    savefile_s  *s  = spm_alloctz(savefile_s, 1);
+
     hero_spawn_s hs = {0};
     void        *f  = wad_open_str("SPAWN", 0, 0);
-    s->save[SAVE_EV_COMPANION_FOUND / 32] |=
-        (u32)1 << (SAVE_EV_COMPANION_FOUND & 31);
-
     pltf_file_r_checked(f, &hs, sizeof(hero_spawn_s));
     pltf_file_close(f);
+
+    mclr(s, sizeof(savefile_s));
     {
-        str_cpy(s->name, "Lukas");
+        str_cpy(s->name, "Demo");
+        s->save[SAVE_EV_COMPANION_FOUND / 32] |=
+            (u32)1 << (SAVE_EV_COMPANION_FOUND & 31);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
         s->upgrades   = 0xFFFFFFFFU;
+        s->upgrades &= ~(1 << HERO_UPGRADE_SPEAR);
         s->stamina    = 5;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
     }
     savefile_w(0, s);
-    spm_pop();
 
     title_init(&APP->title);
-
-#if TITLE_SKIP_TO_GAME
-    title_start_game(APP, 0);
+    mus_play_extv("M_SHOWCASE", 0, 0, 0, 100, 128);
 #endif
-
-#endif
-    pltf_log("\nAPP MEM remaining: %i %%\n\n",
-             (i32)((100 * marena_rem(&APP->ma)) / APP->ma.bufsize));
+    usize mrem = marena_rem(&APP->ma);
+    pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
+             (i32)((100 * mrem) / APP->ma.bufsize),
+             (i32)(mrem / 1024));
     pltf_sync_timestep();
     return 0;
 }
@@ -181,7 +172,6 @@ void app_draw()
 #if PLTF_PD
     pltf_pd_update_rows(0, 239);
 #endif
-
     tex_clr(asset_tex(0), GFX_COL_WHITE);
     gfx_ctx_s ctx = gfx_ctx_display();
     g_s      *g   = &APP->game;
@@ -199,32 +189,17 @@ void app_draw()
     if (sm->active) {
         settings_menu_draw(sm);
     }
-
-    if (textinput_active()) {
-        textinput_draw();
-    }
-
-#if 0
-    tex_clr(ctx.dst, GFX_COL_BLACK);
-
-    fnt_s f     = asset_fnt(FNTID_MEDIUM);
-    char  ch[2] = {'A'};
-
-    i32 nx = 8;
-
-    for (i32 y = 0; y < 3; y++) {
-        for (i32 x = 0; x < nx; x++) {
-            fnt_draw_str(ctx, f, (v2_i32){25 + (x * 380) / nx, 100 + 36 * y}, ch, SPR_MODE_WHITE);
-            ch[0]++;
-        }
-    }
-#endif
 }
 
 void app_close()
 {
     aud_destroy();
     if (APP) {
+        if (APP->state == APP_ST_GAME) {
+            g_s *g = &APP->game;
+            game_update_savefile(g);
+            savefile_w(g->save_slot, g->savefile);
+        }
         pltf_mem_free_aligned(APP);
     }
 }

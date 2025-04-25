@@ -36,6 +36,7 @@ void jumper_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HERO_JUMPSTOMPABLE |
                OBJ_FLAG_ENEMY |
+               OBJ_FLAG_CLAMP_ROOM_X |
                0;
     o->moverflags = OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_TERRAIN_COLLISIONS;

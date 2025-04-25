@@ -98,26 +98,36 @@ void *wad_open_str(const void *name, void **o_f, wad_el_s **o_e)
     return wad_open(h, o_f, o_e);
 }
 
-wad_el_s *wad_seek_str(void *f, wad_el_s *efrom, const void *name)
+wad_el_s *wad_seek(void *f, wad_el_s *efrom, u32 hash)
 {
     if (!f) return 0;
 
-    wad_el_s *e = wad_el_find(wad_hash(name), efrom);
+    wad_el_s *e = wad_el_find(hash, efrom);
     if (!e) return 0;
 
     pltf_file_seek_set(f, e->offs);
     return e;
 }
 
-void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name)
+wad_el_s *wad_seek_str(void *f, wad_el_s *efrom, const void *name)
 {
-    wad_el_s *e = wad_seek_str(f, efrom, name);
+    return wad_seek(f, efrom, wad_hash(name));
+}
+
+void *wad_r_spm(void *f, wad_el_s *efrom, u32 hash)
+{
+    wad_el_s *e = wad_seek(f, efrom, hash);
     if (!e) return 0;
 
     void *dst = spm_alloc(e->size);
     if (!pltf_file_r_checked(f, dst, e->size))
         return 0;
     return dst;
+}
+
+void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name)
+{
+    return wad_r_spm(f, efrom, wad_hash(name));
 }
 
 void *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name)
@@ -154,6 +164,7 @@ void *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst)
 
 u32 wad_hash(const void *str)
 {
+    if (!str) return 0;
     const u8 *s = (const u8 *)str;
     u32       h = 0;
     for (i32 n = 0; s[n] != '\0'; n++) {

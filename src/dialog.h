@@ -7,12 +7,10 @@
 
 #include "gamedef.h"
 
-#define DIALOG_NUM_LINES          16
 #define DIALOG_NUM_CHARS_PER_LINE 48
 #define DIALOG_SPEED_DEFAULT      8
 #define DIALOG_CHARS_PER_CHOICE   16
 #define DIALOG_NUM_CHOICES        4
-#define DIALOG_NUM_RENDER_LINES   2
 
 enum {
     DIALOG_ID1_SHOP  = 0x10,
@@ -34,10 +32,10 @@ enum {
 };
 
 typedef struct {
-    u8 c;
-    u8 flags_ticks; // 4 hi bits = flags, 4 lo bits = speed
-    u8 sndID;
-    u8 sndvol;
+    ALIGNAS(4)
+    u8  c;
+    u8  flags_ticks; // 4 hi bits = flags, 4 lo bits = speed
+    u16 trigger;
 } dialog_char_s;
 
 typedef struct {
@@ -52,27 +50,32 @@ typedef struct {
     u8 chars[DIALOG_CHARS_PER_CHOICE];
 } dialog_choice_s;
 
+typedef struct dialog_frame_s {
+    u8            n_lines;
+    u8            trigger;
+    dialog_line_s lines[2];
+} dialog_frame_s;
+
 typedef struct dialog_s {
     i32 state;
-    i32 ticks_auto; // auto playing cutscene textbox
     i32 tick;
     i32 tick_char;
-    i32 cur_char;
-    i32 cur_line;
-    i32 cur_choice;
-    i32 render_line;
-    i32 n_lines;
-    i32 n_choices;
-    b32 slide_display;
+    b8  script_input;
+    u8  cur_choice;
+    u8  n_choices;
+    u8  n_frames;
+    u8  c_frame;
+    u8  c_line;
 
-    dialog_line_s   lines[DIALOG_NUM_LINES];
     dialog_choice_s choices[DIALOG_NUM_CHOICES];
+    dialog_frame_s  frames[32];
 } dialog_s;
 
-void dialog_open(g_s *g, const char *tag);
 void dialog_open_wad(g_s *g, const void *name);
+void dialog_open_wad_hash(g_s *g, u32 hash);
 void dialog_update(g_s *g);
 void dialog_close(g_s *g);
 void dialog_draw(g_s *g);
+void dialog_continue_next_frame(g_s *g);
 
 #endif
