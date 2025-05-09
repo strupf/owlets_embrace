@@ -88,11 +88,22 @@ void game_tick(g_s *g, inp_state_s inpstate)
 
     if (g->hurt_lp_tick) {
         g->hurt_lp_tick--;
-        i32 lp = 6;
-        if (g->hurt_lp_tick < HERO_HURT_LP_TICKS_FADE) {
-            lp = lerp_i32(0, lp, g->hurt_lp_tick, HERO_HURT_LP_TICKS_FADE);
+
+        // works for now
+        switch (g->hurt_lp_tick) {
+        case 80 - 3 * 0: aud_set_lowpass(1); break;
+        case 80 - 3 * 1: aud_set_lowpass(2); break;
+        case 80 - 3 * 2: aud_set_lowpass(3); break;
+        case 80 - 3 * 3: aud_set_lowpass(4); break;
+        case 80 - 3 * 4: aud_set_lowpass(5); break;
+        case 80 - 3 * 5: aud_set_lowpass(6); break;
+        case 0 + 6 * 5: aud_set_lowpass(5); break;
+        case 0 + 6 * 4: aud_set_lowpass(4); break;
+        case 0 + 6 * 3: aud_set_lowpass(3); break;
+        case 0 + 6 * 2: aud_set_lowpass(2); break;
+        case 0 + 6 * 1: aud_set_lowpass(1); break;
+        case 0 + 6 * 0: aud_set_lowpass(0); break;
         }
-        aud_set_lowpass(lp);
     }
 
     bool32 tick_gp = 1;
@@ -137,7 +148,7 @@ void game_tick_gameplay(g_s *g)
     battleroom_on_update(g);
 
     obj_s *ohero = obj_get_hero(g);
-    if (ohero) {
+    if (ohero && !(ohero->flags & OBJ_FLAG_DONT_UPDATE)) {
         hero_s *h = (hero_s *)&g->hero;
 
         bool32 control_hero = !g->block_hero_control && !h->squish;
@@ -149,11 +160,14 @@ void game_tick_gameplay(g_s *g)
     }
 
     for (obj_each(g, o)) {
+        if (o->flags & OBJ_FLAG_DONT_UPDATE) continue;
+
         o->v_prev_q8     = o->v_q8;
         bool32 do_update = 1;
 
         if (o->flags & OBJ_FLAG_ENEMY) {
             enemy_s *enemy = &o->enemy;
+            v2_i32   pos   = obj_pos_center(o);
             do_update      = (enemy->hurt_tick == 0);
 
             if (enemy->flash_tick) {
@@ -164,29 +178,35 @@ void game_tick_gameplay(g_s *g)
             }
             if (enemy->hurt_tick < 0) {
                 enemy->hurt_tick++;
+                i32 htick = -enemy->hurt_tick;
 
-                switch (-enemy->hurt_tick) {
-                case 7: {
-                    snd_play(SNDID_ENEMY_EXPLO, 1.f, rngr_f32(0.9f, 1.1f));
-                    break;
+                if (enemy->explode_on_death) {
+                    switch (htick) {
+                    case 7: {
+                        snd_play(SNDID_ENEMY_EXPLO, 1.f, rngr_f32(0.9f, 1.1f));
+                        break;
+                    }
+                    case 4: {
+                        objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
+                        break;
+                    }
+                    }
                 }
-                case 4: {
-                    v2_i32 pos = obj_pos_center(o);
-                    objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
-                    break;
-                }
-                case 0: {
-                    v2_i32 pos = obj_pos_center(o);
-                    for (i32 n = 0; n < 5; n++) {
-                        obj_s *ocoin  = coin_create(g);
-                        ocoin->pos.x  = pos.x - (ocoin->w >> 1);
-                        ocoin->pos.y  = pos.y - (ocoin->h >> 1) - 10;
-                        ocoin->v_q8.y = -rngr_i32(1000, 1500);
-                        ocoin->v_q8.x = rngr_sym_i32(300);
+
+                if (htick == 0) {
+                    if (enemy->coins_on_death) {
+                        for (i32 n = 0; n < 5; n++) {
+                            obj_s *ocoin  = coin_create(g);
+                            ocoin->pos.x  = pos.x - (ocoin->w >> 1);
+                            ocoin->pos.y  = pos.y - (ocoin->h >> 1) - 10;
+                            ocoin->v_q8.y = -rngr_i32(1000, 1500);
+                            ocoin->v_q8.x = rngr_sym_i32(300);
+                        }
+                        v2_i32 phealth  = {pos.x, pos.y - 24};
+                        obj_s *ohealth  = healthdrop_spawn(g, phealth);
+                        ohealth->v_q8.y = -500;
                     }
                     obj_delete(g, o);
-                    break;
-                }
                 }
             }
         }
@@ -259,8 +279,8 @@ void game_tick_gameplay(g_s *g)
 void game_anim(g_s *g)
 {
     cam_update(g, &g->cam);
-    g->cam_prev_world = cam_pos_px_top_left(g, &g->cam);
-    g->darken_bg_q12  = clamp_i32(g->darken_bg_q12 + g->darken_bg_add, 0, 4096);
+    g->cam_center    = cam_pos_px_center(g, &g->cam);
+    g->darken_bg_q12 = clamp_i32(g->darken_bg_q12 + g->darken_bg_add, 0, 4096);
 
     switch (g->area.fx_type) {
     case AFX_SNOW: areafx_snow_update(g, &g->area.fx.snow); break;
@@ -283,6 +303,7 @@ void game_anim(g_s *g)
     area_update(g, &g->area);
     coins_update(g);
     objs_animate(g);
+    hero_animate_ui(g);
 }
 
 void game_resume(g_s *g)
@@ -349,7 +370,11 @@ void game_load_savefile(g_s *g)
         mcpy(g->save_events, s->save, sizeof(g->save_events));
         mcpy(h->name, s->name, sizeof(h->name));
         mcpy(g->minimap.pins, s->pins, sizeof(g->minimap.pins));
-        mcpy(g->minimap.visited, s->map_visited, sizeof(g->minimap.visited));
+        for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
+            u32 v                            = s->map_visited[n];
+            g->minimap.visited[(n << 1) + 0] = v;
+            g->minimap.visited[(n << 1) + 1] = v;
+        }
         g->tick             = s->tick;
         h->upgrades         = s->upgrades;
         g->minimap.n_pins   = s->n_map_pins;
@@ -380,7 +405,10 @@ void game_update_savefile(g_s *g)
         mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
-        mcpy(s->map_visited, g->minimap.visited, sizeof(s->map_visited));
+        for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
+            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] |
+                                g->minimap.visited[(n << 1) + 1];
+        }
         s->tick           = g->tick;
         s->upgrades       = h->upgrades;
         s->n_map_pins     = g->minimap.n_pins;
@@ -419,18 +447,21 @@ void game_on_trigger(g_s *g, i32 trigger)
     }
 
     switch (trigger) {
-    case TRIGGER_BOSS_PLANT: {
+    case TRIGGER_BOSS_PLANT:
         boss_plant_wake_up(g);
         break;
-    }
-    case TRIGGER_COMPANION_FIND: {
+    case 9000:
         cs_demo_1_enter(g);
         break;
-    }
-    case TRIGGER_CS_UPGRADE: {
+    case 9001:
+        cs_demo_2_enter(g);
+        break;
+    case 9005:
+        cs_demo_3_enter(g);
+        break;
+    case TRIGGER_CS_UPGRADE:
         cs_powerup_enter(g);
         break;
-    }
     }
 
     pltf_log("trigger %i\n", trigger);
@@ -440,13 +471,6 @@ void game_on_trigger(g_s *g, i32 trigger)
             o->on_trigger(g, o, trigger);
         }
     }
-}
-
-i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks)
-{
-    i32 i = ((tick * n_frames) / freqticks) % n_frames;
-    assert(0 <= i && i < n_frames);
-    return i;
 }
 
 void game_on_solid_appear_ext(g_s *g, obj_s *s)
@@ -568,7 +592,7 @@ void game_unlock_map(g_s *g)
 {
     save_event_register(g, SAVE_EV_UNLOCKED_MAP);
 #ifdef PLTF_PD
-    pltf_pd_menu_add("Map", game_open_map, g);
+    // pltf_pd_menu_add("Map", game_open_map, g);
 #endif
 }
 
@@ -583,7 +607,7 @@ void objs_animate(g_s *g)
 
 obj_s *obj_find_ID(g_s *g, i32 objID, obj_s *o)
 {
-    for (obj_s *i = o ? o : g->obj_head_busy; i; i = i->next) {
+    for (obj_s *i = o ? o->next : g->obj_head_busy; i; i = i->next) {
         if (i->ID == objID) {
             return i;
         }
@@ -609,7 +633,17 @@ void game_cue_area_music(g_s *g)
 {
     switch (g->musicID) {
     case 0: mus_play_extv(0, 0, 0, 1000, 0, 0); break;
-    case 1: mus_play_extv("M_CAVE", 0, 0, 1000, 1000, 256); break;
-    case 2: mus_play_extv("M_WATERFALL", 0, 0, 1000, 1000, 256); break;
+    case 1: mus_play_extv("M_CAVE", 11294, 0, 1000, 1000, 256); break;
+    case 2: mus_play_extv("M_WATERFALL", 5143, 0, 1000, 1000, 256); break;
     }
+}
+
+bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
+                     f32 *vol, f32 *pan)
+{
+    if (vol) {
+        i32 l = max_i32(r - v2_i32_distance_appr(g->cam_center, pos), 0);
+        *vol  = vol_max * (f32)l / (f32)r;
+    }
+    return 1;
 }

@@ -13,8 +13,8 @@
 #define DIALOG_NUM_CHOICES        4
 
 enum {
-    DIALOG_ID1_SHOP  = 0x10,
-    DIALOG_ID1_CLOSE = 0xFF,
+    DIALOG_POS_BOT = 0,
+    DIALOG_POS_TOP = 1
 };
 
 enum {
@@ -51,8 +51,10 @@ typedef struct {
 } dialog_choice_s;
 
 typedef struct dialog_frame_s {
+    u8            speak_voice;
     u8            n_lines;
     u8            trigger;
+    u8            pos;
     dialog_line_s lines[2];
 } dialog_frame_s;
 
@@ -61,16 +63,20 @@ typedef struct dialog_s {
     i32 tick;
     i32 tick_char;
     b8  script_input;
+    u8  pos;
     u8  cur_choice;
     u8  n_choices;
     u8  n_frames;
     u8  c_frame;
     u8  c_line;
+    u8  speak_counter; // for playing "speak" sound effects
+    u8  last_char_spoken;
 
     dialog_choice_s choices[DIALOG_NUM_CHOICES];
     dialog_frame_s  frames[32];
 } dialog_s;
 
+void dialog_open_wad_pos(g_s *g, const void *name, i32 pos);
 void dialog_open_wad(g_s *g, const void *name);
 void dialog_open_wad_hash(g_s *g, u32 hash);
 void dialog_update(g_s *g);

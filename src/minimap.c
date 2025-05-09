@@ -186,11 +186,10 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
                 i32 sx = nx + mr->x;
                 i32 sy = ny + mr->y;
                 i32 vi = minimap_screen_visited(g, sx, sy);
-                if (vi & MINIMAP_SCREEN_VISITED) continue;
+                if (vi == 2) continue;
 
-                rec_i32   r = {pos.x + nx, pos.y + ny, 25, 15};
-                gfx_ctx_s ctxfill =
-                    (vi & MINIMAP_SCREEN_VISITED_TMP) ? ctx_obscured : ctx;
+                rec_i32   r       = {pos.x + nx, pos.y + ny, 25, 15};
+                gfx_ctx_s ctxfill = vi ? ctx_obscured : ctx;
                 gfx_rec_fill(ctxfill, r, GFX_COL_BLACK);
             }
         }
@@ -428,24 +427,25 @@ void minimap_confirm_visited(g_s *g)
 {
     minimap_s *m = &g->minimap;
 
-    u32 *v = m->visited;
-    for (i32 n = 0; n < ARRLEN(m->visited); n++, v++) {
-        *v |= (*v >> 1) & 0x55555555U; // write all permanently visited to temporary visited as well
-        *v |= (*v << 1) & 0xAAAAAAAAU; // convert all temporary to permanently visited
+    for (i32 n = 0; n < ARRLEN(m->visited); n += 2) {
+        m->visited[n + MINIMAP_SCREEN_INDEX_CONFIRMED] =
+            m->visited[n + MINIMAP_SCREEN_INDEX_VISITED];
     }
 }
 
 void minimap_try_visit_screen(g_s *g)
 {
-    sizeof(savefile_s);
     minimap_s *m  = &g->minimap;
     v2_i32     ph = minimap_hero_pos(g);
     i32        sx = ph.x / 25;
     i32        sy = ph.y / 15;
     assert(0 <= sx && sx < MINIMAP_SCREENS_X);
     assert(0 <= sy && sy < MINIMAP_SCREENS_Y);
-    i32 k = (sx + sy * MINIMAP_SCREENS_X) << 1;
-    m->visited[k >> 5] |= (u32)1 << (k & 31);
+    i32 k = (sx + sy * MINIMAP_SCREENS_X);
+    m->visited[((k >> 5) << 1) + 0] |= (u32)1 << (k & 31);
+#if GAME_DEMO
+    m->visited[((k >> 5) << 1) + 1] |= (u32)1 << (k & 31);
+#endif
 }
 
 i32 minimap_screen_visited(g_s *g, i32 tx, i32 ty)
@@ -455,9 +455,10 @@ i32 minimap_screen_visited(g_s *g, i32 tx, i32 ty)
     i32        sy = ty / 15;
     assert(0 <= sx && sx < MINIMAP_SCREENS_X);
     assert(0 <= sy && sy < MINIMAP_SCREENS_Y);
-    i32 k = (sx + sy * MINIMAP_SCREENS_X) << 1;
-    i32 r = m->visited[k >> 5] >> (k & 31);
-    return (r & 3);
+    i32 k  = (sx + sy * MINIMAP_SCREENS_X);
+    i32 r1 = (m->visited[((k >> 5) << 1) + 0] >> (k & 31)) & 1;
+    i32 r2 = (m->visited[((k >> 5) << 1) + 1] >> (k & 31)) & 1;
+    return (r1 + r2);
 }
 
 v2_i32 minimap_hero_pos(g_s *g)

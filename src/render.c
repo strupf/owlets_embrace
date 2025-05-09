@@ -47,10 +47,6 @@ void game_draw(g_s *g)
         }
     }
 
-    if (g->cuts.on_draw_background) {
-        g->cuts.on_draw_background(g, &g->cuts, camoff);
-    }
-
     switch (area->fx_type) {
     case AFX_RAIN: {
         areafx_rain_draw(g, &area->fx.rain, camoff);
@@ -78,6 +74,18 @@ void game_draw(g_s *g)
     render_tilemap(g, TILELAYER_BG_TILE, tilebounds, camoff);
     deco_verlet_draw(g, camoff);
 
+    if (g->render_map_doors) {
+        for (i32 n = 0; n < g->n_map_doors; n++) {
+            map_door_s *md    = &g->map_doors[n];
+            rec_i32     rdoor = {md->x, md->y, md->w, md->h};
+            game_draw_door_or_pit(ctx, g, rdoor, camoff, 0);
+        }
+    }
+
+    if (g->cuts.on_draw_background) {
+        g->cuts.on_draw_background(g, &g->cuts, camoff);
+    }
+
     if (ohero && ohero->rope) {
         grapplinghook_draw(g, &g->ghook, camoff);
     }
@@ -91,13 +99,6 @@ void game_draw(g_s *g)
     grass_draw(g, camrec, camoff);
     render_tilemap(g, TILELAYER_PROP_FG, tilebounds, camoff);
 
-    if (g->render_map_doors || 1) {
-        for (i32 n = 0; n < g->n_map_doors; n++) {
-            map_door_s *md    = &g->map_doors[n];
-            rec_i32     rdoor = {md->x, md->y, md->w, md->h};
-            game_draw_door_or_pit(ctx, g, rdoor, camoff, 0);
-        }
-    }
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_FLUID_AREA);
     for (i32 n = 0; n < g->n_fluid_areas; n++) {
         fluid_area_draw(ctx, &g->fluid_areas[n], camoff, 1);
@@ -113,7 +114,7 @@ void game_draw(g_s *g)
     boss_draw(g, camoff);
     render_terrain(g, tilebounds, camoff);
 
-    i_obj = objs_draw(ctx, g, camoff, i_obj, I32_MAX);
+    i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_UI_LEVEL);
 
     if (g->dark) {
         spm_push();
@@ -191,6 +192,7 @@ void game_draw(g_s *g)
 
     render_ui(g, camoff);
 
+#if 0
     i32 breath_t = hero_breath_tick(ohero);
     if (breath_t) {
         spm_push();
@@ -217,12 +219,15 @@ void game_draw(g_s *g)
         }
         spm_pop();
     }
+#endif
 
     boss_draw_post(g, camoff);
     if (g->cuts.on_draw) {
         g->cuts.on_draw(g, &g->cuts, camoff);
     }
     cam->prev_gfx_offs = camoff;
+
+    i_obj = objs_draw(ctx, g, camoff, i_obj, I32_MAX);
 
     if (g->dialog.state) {
         dialog_draw(g);
@@ -297,6 +302,7 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
         obj_s *o = g->obj_render[i];
         if (prio <= o->render_priority) break;
 
+        if (o->flags & OBJ_FLAG_DONT_SHOW) continue;
         if (o->blinking && ((g->tick_animation >> 1) & 1)) continue;
 
         v2_i32 ppos = v2_i32_add(o->pos, cam);
@@ -332,7 +338,8 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
         if (o->on_draw) {
             o->on_draw(g, o, cam);
         }
-#ifdef PLTF_DEBUG
+
+#if PLTF_DEBUG && 0
         pltf_debugr(ppos.x, ppos.y, o->w, o->h, 0xFF, 0, 0, 1);
         if (o->flags & OBJ_FLAG_RENDER_AABB) {
             gfx_ctx_s ctx_aabb = ctx;
@@ -416,7 +423,7 @@ void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
             v2_i32 p = {(x << 4) + camoffset.x, (y << 4) + camoffset.y};
 
             if (rt.ty == 0) continue;
-#if defined(PLTF_DEBUG) && 0
+#if PLTF_DEBUG && 0
             i32 t1 = g->tiles[x + y * g->tiles_x].collision;
             if (!(0 < t1 && t1 < NUM_TILE_SHAPES)) continue;
             texrec_s tr1 = asset_texrec(TEXID_COLLISION_TILES, 0, t1 * 16, 16, 16);
@@ -431,6 +438,7 @@ void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 camoffset)
     }
 
     sort_z_tile_spr(tile_spr, n_tile_spr);
+
     spm_push();
     tex_s     tglare   = tex_create(32, 16, 1, spm_allocator(), 0);
     gfx_ctx_s ctxglare = gfx_ctx_default(tglare);
@@ -659,7 +667,7 @@ i32 tileindex_terrain_block(i32 tx, i32 ty, i32 tile_type, i32 x, i32 y)
         } else if (x == tx - 1) { // bottom
             tilex = 7, tiley = 0;
         } else { // middle
-            tilex = 4, tiley = 7;
+            tilex = 3, tiley = 7;
         }
     } else { // big block
         if (0) {

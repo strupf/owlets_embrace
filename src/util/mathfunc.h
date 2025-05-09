@@ -167,7 +167,11 @@ static inline u32 u32_mul_checked(u32 a, u32 b)
     return (u32)r;
 }
 
+#if PLTF_DEBUG
 #define MATHFUNC_USE_OVERFLOW_CHECK 1
+#else
+#define MATHFUNC_USE_OVERFLOW_CHECK 0
+#endif
 
 #if MATHFUNC_USE_OVERFLOW_CHECK
 #define i32_add(A, B) i32_add_checked(A, B)

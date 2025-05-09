@@ -9,96 +9,8 @@
 #include "render.h"
 #include "util/str.h"
 
-void map_obj_parse(g_s *g, map_obj_s *o)
-{
-    if (0) {
-    } else if (str_eq_nc(o->name, "Coin")) {
-        coin_load(g, o);
-    } else if (str_eq_nc(o->name, "Solidlever")) {
-        solidlever_load(g, o);
-    } else if (str_eq_nc(o->name, "Rotor")) {
-        rotor_load(g, o);
-    } else if (str_eq_nc(o->name, "Savepoint")) {
-        savepoint_load(g, o);
-    } else if (str_eq_nc(o->name, "Door")) {
-        door_load(g, o);
-    } else if (str_eq_nc(o->name, "Jumper")) {
-        jumper_load(g, o);
-    } else if (str_eq_nc(o->name, "Watercol")) {
-        watercol_load(g, o);
-    } else if (str_eq_nc(o->name, "Trampoline")) {
-        trampoline_load(g, o);
-    } else if (str_eq_nc(o->name, "Windarea")) {
-        windarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Waterleaf")) {
-        waterleaf_load(g, o);
-    } else if (str_eq_nc(o->name, "Chest")) {
-        chest_load(g, o);
-    } else if (str_eq_nc(o->name, "Fallingblock")) {
-        fallingblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Fallingstone")) {
-        fallingstonespawn_load(g, o);
-    } else if (str_eq_nc(o->name, "Light")) {
-        light_load(g, o);
-    } else if (str_eq_nc(o->name, "Ditherarea")) {
-        ditherarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Stompfloor")) {
-        stompable_block_load(g, o);
-    } else if (str_eq_nc(o->name, "Staminarestorer")) {
-        staminarestorer_load(g, o);
-    } else if (str_eq_nc(o->name, "Flyblob")) {
-        flyblob_load(g, o);
-    } else if (str_eq_nc(o->name, "Switch")) {
-        switch_load(g, o);
-    } else if (str_eq_nc(o->name, "Budplant")) {
-        budplant_load(g, o);
-    } else if (str_eq_nc(o->name, "Steamplatform")) {
-        steam_platform_load(g, o);
-    } else if (str_eq_nc(o->name, "Hero_Powerup")) {
-        hero_upgrade_load(g, o);
-    } else if (str_eq_nc(o->name, "NPC")) {
-        npc_load(g, o);
-    } else if (str_eq_nc(o->name, "Crawler")) {
-        crawler_load(g, o);
-    } else if (str_eq_nc(o->name, "Pushblock")) {
-        pushblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Toggleblock")) {
-        toggleblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Moving_Plat")) {
-        movingplatform_load(g, o);
-    } else if (str_eq_nc(o->name, "Crumbleblock")) {
-        crumbleblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Teleport")) {
-        teleport_load(g, o);
-    } else if (str_eq_nc(o->name, "Stalactite")) {
-        stalactite_load(g, o);
-    } else if (str_eq_nc(o->name, "Flyer")) {
-        flyer_load(g, o);
-    } else if (str_eq_nc(o->name, "Clockpulse")) {
-        clockpulse_load(g, o);
-    } else if (str_eq_nc(o->name, "Triggerarea")) {
-        triggerarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Hooklever")) {
-        hooklever_load(g, o);
-    } else if (str_eq_nc(o->name, "Cam_Attractor")) {
-        camattractor_static_load(g, o);
-    } else if (str_eq_nc(o->name, "Cam")) {
-        cam_s *cam    = &g->cam;
-        cam->locked_x = map_obj_bool(o, "Locked_X");
-        cam->locked_y = map_obj_bool(o, "Locked_Y");
-        if (cam->locked_x) {
-            cam->pos_q8.x = (o->x + PLTF_DISPLAY_W / 2) << 8;
-        }
-        if (cam->locked_y) {
-            cam->pos_q8.y = (o->y + PLTF_DISPLAY_H / 2) << 8;
-        }
-    } else if (str_eq_nc(o->name, "Fluid")) {
-        rec_i32 rfluid = {o->x, o->y, o->w, o->h};
-        i32     type   = map_obj_bool(o, "Lava") ? FLUID_AREA_LAVA
-                                                 : FLUID_AREA_WATER;
-        fluid_area_create(g, rfluid, type, map_obj_bool(o, "Surface"));
-    }
-}
+void map_obj_load_misc(g_s *g, map_obj_s *mo);
+void map_obj_parse(g_s *g, map_obj_s *o);
 
 typedef struct {
     u16 tile;
@@ -116,7 +28,6 @@ typedef struct {
 typedef struct map_header_s {
     u32         hash;
     u8          name[32];
-    u8          music[8];
     i32         x;
     i32         y;
     u16         w;
@@ -281,6 +192,7 @@ void game_load_map(g_s *g, u32 map_hash)
     g->n_map_pits       = 0;
     g->darken_bg_q12    = 0;
     g->darken_bg_add    = 0;
+    g->n_save_points    = 0;
     marena_reset(&g->memarena, 0);
 
     for (i32 n = 0; n < g->n_map_rooms; n++) {
@@ -311,9 +223,6 @@ void game_load_map(g_s *g, u32 map_hash)
     if (0) {
     } else if (hd->hash == wad_hash("L_BOSSPLANT")) {
         map_obj_s *mo = map_obj_find(hd, f, wad_el, "Bossplant");
-        pltf_log("%i %i %i %i\n", mo->x, mo->y, mo->w, mo->h);
-        tex_s *tboss = &APP->assets.tex[TEXID_BOSSPLANT];
-        tex_from_wad(f, 0, "T_BOSSPLANT", game_allocator(g), tboss);
         boss_init(g, BOSS_ID_PLANT, mo);
     }
 
@@ -336,10 +245,13 @@ void game_load_map(g_s *g, u32 map_hash)
     }
     area_setup(g, &g->area, areaID, areafxID);
 
-    i32 musicID = map_prop_i32(mapp, "MUSICID");
-    g->musicID  = musicID;
-    if (!g->previewmode)
+    i32    musicID    = map_prop_i32(mapp, "MUSICID");
+    bool32 same_music = musicID == g->musicID;
+    g->musicID        = musicID;
+
+    if (!g->previewmode && !same_music) {
         game_cue_area_music(g);
+    }
 
     mcpy(g->mapname, hd->name, 32);
 
@@ -664,7 +576,7 @@ static bool32 map_dual_border(tilelayer_u16 tiles, i32 x, i32 y,
 
     u32 seed = ((x | u) + ((y | v)));
     u32 r    = rngs_i32(&seed);
-    if (r < 0x80000000U) return 0;
+    if (r < 0x8000) return 0;
 
     if (t != map_terrain_pack(type, TILE_BLOCK)) return 0;
     return (march == map_marching_squares(tiles, u, v));
@@ -787,10 +699,12 @@ static void map_at_terrain(g_s *g, tilelayer_u16 tiles, i32 x, i32 y)
         tcoord.x += coords.x;
         tcoord.y += coords.y;
 
-        if (0 < y && (ttype == 3) &&
+#if 0
+        if (0 < y && (ttype == TILE_TYPE_BRIGHT_STONE || ttype == TILE_TYPE_DARK_STONE || ttype == TILE_TYPE_DARK_LEAVES) &&
             map_terrain_type(tiles.t[x + (y - 1) * tiles.w]) == 0) {
             grass_put(g, x, y - 1);
         }
+#endif
         break;
     }
     case TILE_SLOPE_45_0:

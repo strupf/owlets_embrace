@@ -5,10 +5,11 @@
 #ifndef PLTF_TYPES_H
 #define PLTF_TYPES_H
 
-#define PLTF_DEBUG      1
-#define PLTF_ENABLE_LOG 1
+#define PLTF_DEBUG      0
+#define PLTF_ENABLE_LOG 0
+#define PLTF_EDIT_PD    0 // edit PD code files? -> enable PLTF_PD_HW code paths
 
-#if 0 // edit PD code files? -> enable PLTF_PD_HW code paths
+#if PLTF_EDIT_PD
 #undef PLTF_SDL
 #define PLTF_PD    1
 #define PLTF_PD_HW 1
@@ -37,6 +38,37 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#if PLTF_PD_HW
+#define PREFETCH __builtin_prefetch
+#else
+#define PREFETCH(X)
+#endif
+
+#if PLTF_PD_HW
+void (*PD_system_error)(const char *format, ...);
+#if 1
+#undef assert
+#define assert(X)
+#else
+#undef assert
+#define assert(X)                                \
+    {                                            \
+        if (!(X)) {                              \
+            PD_system_error("ASSERT: " #X "\n"); \
+        }                                        \
+    }
+#endif
+#elif PLTF_SDL && 1 // use SDL assert instead of std?
+#include "SDL2/SDL_assert.h"
+#undef assert
+#define assert SDL_assert
+#endif
+
+#if !PLTF_DEBUG
+#undef assert
+#define assert(X)
+#endif
 
 typedef char           byte;
 typedef float          f32;
@@ -83,6 +115,13 @@ typedef i32            err32;
 #define U32_C(X) (X##U)
 #define I64_C(X) (X##LL)
 #define U64_C(X) (X##ULL)
+
+#define Q_X(X, ONE) (i32)((f32)(X) * (ONE))
+#define Q_8(X)      Q_X(X, 256.f)
+#define Q_10(X)     Q_X(X, 1024.f)
+#define Q_12(X)     Q_X(X, 4096.f)
+#define Q_15(X)     Q_X(X, 32768.f)
+#define Q_16(X)     Q_X(X, 65536.f)
 
 #if __cplusplus // C++
 #define CINIT(T) T
@@ -159,37 +198,6 @@ static inline void lnode_del(lnode_s *n)
     n->next->prev = n->prev;
     n->prev->next = n->next;
 }
-
-#if PLTF_PD_HW
-#define PREFETCH __builtin_prefetch
-#else
-#define PREFETCH(X)
-#endif
-
-#if PLTF_PD_HW
-void (*PD_system_error)(const char *format, ...);
-#if 1
-#undef assert
-#define assert(X)
-#else
-#undef assert
-#define assert(X)                                \
-    {                                            \
-        if (!(X)) {                              \
-            PD_system_error("ASSERT: " #X "\n"); \
-        }                                        \
-    }
-#endif
-#elif PLTF_SDL && 1 // use SDL assert instead of std?
-#include "SDL2/SDL_assert.h"
-#undef assert
-#define assert SDL_assert
-#endif
-
-#ifndef PLTF_DEBUG
-#undef assert
-#define assert(X)
-#endif
 
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager

@@ -75,7 +75,6 @@ void inp_update()
                     (f32)SETTINGS_SHAKE_SENS_MAX;
     if (threshold <= (dx * dx + dy * dy + dz * dz)) {
         i->actions |= INP_SHAKE;
-        pltf_log("SHAKE");
     }
 }
 

@@ -15,6 +15,13 @@ typedef struct {
 } bitrw_s;
 
 // read up to 32 bits from the buffer
+u32 bitrw_r_stream(bitrw_s *br, i32                                   nbits,
+                   void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx);
+
+i32 bitrw_r1_stream(bitrw_s *br,
+                    void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx);
+
+// read up to 32 bits from the buffer
 u32 bitrw_r(bitrw_s *br, i32 nbits);
 
 // write up to 32 bits to the buffer

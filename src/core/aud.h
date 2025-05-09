@@ -8,8 +8,8 @@
 #include "pltf/pltf.h"
 #include "qoa.h"
 
-#define NUM_SNDCHANNEL    16
-#define NUM_AUD_CMD_QUEUE 64
+#define NUM_SNDCHANNEL    12
+#define NUM_AUD_CMD_QUEUE 32
 
 #if 0
 #define AUD_MUS_ASSERT assert
@@ -26,6 +26,9 @@ enum {
 };
 
 typedef struct snd_s {
+#if PLTF_PD
+    ALIGNAS(8)
+#endif
     void *dat;
     u32   num_samples;
 } snd_s;
@@ -37,6 +40,7 @@ enum {
     AUD_CMD_MUS_STOP,
     AUD_CMD_MUS_VOL,
     AUD_CMD_MUS_LOOP,
+    AUD_CMD_STOP_ALL_SND,
     AUD_CMD_LOWPASS,
 };
 
@@ -130,7 +134,8 @@ typedef struct aud_s {
     u32          i_cmd_w_tmp; // write index, copied to i_cmd_w on commit
     u32          i_cmd_w;     // visible to audio thread/context
     u32          i_cmd_r;
-    i32          lowpass;
+    i16          lowpass;
+    i16          lowpass_dst;
     i32          lowpass_l;
     i32          lowpass_r;
     i32          snd_iID;
@@ -145,6 +150,7 @@ void  aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len);
 void  aud_allow_playing_new_snd(bool32 enabled);
 void  aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
 void  aud_cmd_queue_commit();
+void  aud_stop_all_snd_instances();
 void  mus_play(const void *fname);
 void  mus_play_extv(const void *fname, u32 s1, u32 s2,
                     i32 t_fade_out, i32 t_fade_in, i32 v_q8);

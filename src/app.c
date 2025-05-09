@@ -3,14 +3,24 @@
 // =============================================================================
 
 #include "app.h"
-#include "app_load.h"
 #include "core/assets.h"
 #include "core/inp.h"
 #include "core/spm.h"
 #include "render.h"
-#include "textinput.h"
 
 app_s *APP;
+#if TIMING_ENABLED
+timing_s TIMING;
+#endif
+
+err32 app_load_assets();
+
+void app_menu_callback_timing(void *ctx, i32 opt)
+{
+#if TIMING_ENABLED
+    TIMING.show = opt;
+#endif
+}
 
 void app_menu_callback_resetsave(void *ctx, i32 opt)
 {
@@ -69,6 +79,15 @@ i32 app_init()
     game_init(g);
     savefile_s *s = &APP->save;
     g->savefile   = s;
+
+#if TIMING_ENABLED
+    TIMING.show = TIMING_SHOW_DEFAULT;
+#endif
+#if PLTF_PD
+#if TIMING_ENABLED
+    pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
+#endif
+#endif
 #if 1
     typedef struct {
         u32 hash;
@@ -90,21 +109,25 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        s->save[SAVE_EV_COMPANION_FOUND / 32] |=
-            (u32)1 << (SAVE_EV_COMPANION_FOUND & 31);
+        // savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
-        s->upgrades   = 0xFFFFFFFFU;
-        s->upgrades &= ~(1 << HERO_UPGRADE_SPEAR);
-        s->stamina    = 5;
-        s->hero_pos.x = hs.x;
-        s->hero_pos.y = hs.y;
+        s->upgrades =
+            HERO_UPGRADE_SWIM |
+            HERO_UPGRADE_STOMP |
+            HERO_UPGRADE_FLY |
+            // HERO_UPGRADE_HOOK |
+            HERO_UPGRADE_CLIMB |
+            0;
+        s->stamina = 2;
     }
     savefile_w(0, s);
 
     title_init(&APP->title);
-    mus_play_extv("M_SHOWCASE", 0, 0, 0, 100, 128);
+#if !TITLE_SKIP_TO_GAME
+    mus_play_extv("M_SHOWCASE", 0, 0, 0, 500, 256);
+#endif
 #endif
     usize mrem = marena_rem(&APP->ma);
     pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
@@ -145,12 +168,10 @@ static void app_tick_step()
         APP->aud.v_sfx_q8 = max_i32(APP->aud.v_sfx_q8 - 32, 0);
     }
 #endif
-
+#if TIMING_ENABLED
+    timing_beg(TIMING_ID_TICK);
+#endif
     inp_update();
-    if (textinput_active()) {
-        textinput_update();
-        return;
-    }
 
     g_s *g = &APP->game;
 
@@ -165,10 +186,16 @@ static void app_tick_step()
         break;
     }
     }
+#if TIMING_ENABLED
+    timing_end(TIMING_ID_TICK);
+#endif
 }
 
 void app_draw()
 {
+#if TIMING_ENABLED
+    timing_beg(TIMING_ID_DRAW);
+#endif
 #if PLTF_PD
     pltf_pd_update_rows(0, 239);
 #endif
@@ -189,6 +216,10 @@ void app_draw()
     if (sm->active) {
         settings_menu_draw(sm);
     }
+#if TIMING_ENABLED
+    timing_end(TIMING_ID_DRAW);
+    timing_end_frame();
+#endif
 }
 
 void app_close()

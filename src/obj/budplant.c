@@ -8,15 +8,20 @@ enum {
     BUDPLANT_ST_IDLE,
     BUDPLANT_ST_PREPARING,
     BUDPLANT_ST_SHAKING,
-    BUDPLANT_ST_SHOOTING
+    BUDPLANT_ST_SHOOTING,
+};
+
+enum {
+    BUDPLANT_SUBID_STATIONARY,
+    BUDPLANT_SUBID_PROJECTILE,
 };
 
 typedef struct {
-    i32 x;
+    i32 cooldown;
 } budplant_s;
 
 #define BUDPLANT_TICKS_PREPARE  25
-#define BUDPLANT_TICKS_SHAKING  30
+#define BUDPLANT_TICKS_SHAKING  20
 #define BUDPLANT_TICKS_SHOOTING 25
 
 void bpgrenade_create(g_s *g, v2_i32 pos, v2_i32 vel);
@@ -35,6 +40,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_HERO_JUMPSTOMPABLE;
+    o->subID              = BUDPLANT_SUBID_STATIONARY;
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->on_update          = budplant_on_update;
     o->on_animate         = budplant_on_animate;
@@ -55,15 +61,30 @@ void budplant_load(g_s *g, map_obj_s *mo)
 
 void budplant_on_update(g_s *g, obj_s *o)
 {
-    budplant_s *bp = (budplant_s *)o->mem;
+    budplant_s *bp    = (budplant_s *)o->mem;
+    obj_s      *ohero = obj_get_hero(g);
     o->timer++;
 
     switch (o->state) {
-    case BUDPLANT_ST_IDLE:
-        if (50 <= o->timer && (rng_i32() < 0x3000000U || 150 <= o->timer)) {
-            o->timer = 0, o->state++;
+    case BUDPLANT_ST_IDLE: {
+        if (bp->cooldown) {
+            bp->cooldown--;
+            break;
+        }
+
+        if (ohero && obj_dist_appr(o, ohero) < 100) {
+            o->subtimer++;
+        } else if (o->subtimer) {
+            o->subtimer--;
+        }
+
+        if (35 <= o->subtimer) {
+            o->timer    = 0;
+            o->state    = BUDPLANT_ST_SHAKING;
+            o->subtimer = 0;
         }
         break;
+    }
     case BUDPLANT_ST_PREPARING:
         if (BUDPLANT_TICKS_PREPARE <= o->timer) {
             o->timer = 0, o->state++;
@@ -75,20 +96,20 @@ void budplant_on_update(g_s *g, obj_s *o)
         }
         break;
     case BUDPLANT_ST_SHOOTING: {
-#define BUDPLANT_PROJ_OFFS 32
+        if (o->timer == 10) {
+            v2_i32 oanim = obj_pos_center(o);
+            oanim.y -= 32;
 
-        if ((BUDPLANT_TICKS_SHOOTING * 13) / 16 == o->timer) {
-            v2_i32 ppos = obj_pos_center(o);
-            v2_i32 pv   = {rngr_sym_i32(600), -rngr_i32(1400, 1700)};
-            ppos.y -= BUDPLANT_PROJ_OFFS;
-
-            bpgrenade_create(g, ppos, pv);
-            f32 vol = cam_snd_scale(g, o->pos, 300);
-            snd_play(SNDID_PROJECTILE_SPIT, vol, rngr_f32(0.9f, 1.1f));
+            f32 vol;
+            snd_cam_param(g, 1.f, oanim, 300, &vol, 0);
+            snd_play(SNDID_EXPLOPOOF, vol, rngr_f32(0.9f, 1.1f));
+            hitbox_tmp_cir(g, oanim.x, oanim.y, 64);
+            objanim_create(g, oanim, OBJANIMID_EXPLODE_GRENADE);
         }
         if (BUDPLANT_TICKS_SHOOTING <= o->timer) {
-            o->timer = 0;
-            o->state = BUDPLANT_ST_IDLE;
+            o->timer     = 0;
+            o->state     = BUDPLANT_ST_IDLE;
+            bp->cooldown = 35;
         }
         break;
     }
@@ -109,8 +130,18 @@ void budplant_on_animate(g_s *g, obj_s *o)
     switch (o->state) {
     default: break;
     case BUDPLANT_ST_IDLE: {
-        imgy = 0;
-        imgx = (o->timer >> 3) & 3;
+        if (o->subtimer) {
+            if (20 <= o->subtimer) {
+                imgy = 2;
+                imgx = (o->timer / 3) & 1;
+            } else {
+                imgy = 1;
+                imgx = lerp_i32(0, 8, o->subtimer, 20);
+            }
+        } else {
+            imgy = 0;
+            imgx = (o->timer >> 3) & 3;
+        }
         break;
     }
     case BUDPLANT_ST_PREPARING: {
@@ -122,6 +153,10 @@ void budplant_on_animate(g_s *g, obj_s *o)
     case BUDPLANT_ST_SHAKING: {
         imgy = 2;
         imgx = (o->timer / 3) & 1;
+
+        if (o->timer < 6) {
+            imgx += 2;
+        }
         break;
     }
     case BUDPLANT_ST_SHOOTING: {

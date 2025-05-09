@@ -13,23 +13,23 @@ bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy)
     return (t && dt_x == 0);
 }
 
-bool32 hero_has_upgrade(g_s *g, i32 ID)
+bool32 hero_has_upgrade(g_s *g, u32 ID)
 {
     hero_s *h = &g->hero;
-    return (h->upgrades & ((u32)1 << ID));
+    return (h->upgrades & ID);
 }
 
-void hero_add_upgrade(g_s *g, i32 ID)
+void hero_add_upgrade(g_s *g, u32 ID)
 {
     hero_s *h = &g->hero;
-    h->upgrades |= (u32)1 << ID;
+    h->upgrades |= ID;
     pltf_log("# ADD UPGRADE: %i\n", ID);
 }
 
-void hero_rem_upgrade(g_s *g, i32 ID)
+void hero_rem_upgrade(g_s *g, u32 ID)
 {
     hero_s *h = &g->hero;
-    h->upgrades &= ~((u32)1 << ID);
+    h->upgrades &= ~ID;
     pltf_log("# DEL UPGRADE: %i\n", ID);
 }
 
@@ -113,17 +113,6 @@ i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
     }
 
     return 1;
-}
-
-i32 hero_breath_tick(obj_s *o)
-{
-    hero_s *h = (hero_s *)o->heap;
-    return 0;
-}
-
-i32 hero_breath_tick_max(g_s *g)
-{
-    return (hero_has_upgrade(g, HERO_UPGRADE_DIVE) ? 2500 : 100);
 }
 
 i32 hero_swim_frameID(i32 animation)
@@ -424,4 +413,20 @@ i32 hero_aim_throw_strength(obj_s *o)
     }
     return lerp_i32(HERO_AIM_THROW_STR_MIN, HERO_AIM_THROW_STR_MAX,
                     t << 1, HERO_AIM_STR_TICKS_PERIOD);
+}
+
+void hero_animate_ui(g_s *g)
+{
+    obj_s *o = obj_get_hero(g);
+    if (!o) return;
+    hero_s *h = (hero_s *)o->heap;
+
+    if (h->jump_ui_may_hide) {
+        h->stamina_ui_fade_out = max_i32((i32)h->stamina_ui_fade_out - 1, 0);
+    } else {
+        h->stamina_ui_fade_out = min_i32((i32)h->stamina_ui_fade_out + 3, STAMINA_UI_TICKS_HIDE);
+    }
+    if (h->stamina_ui_collected_tick) {
+        h->stamina_ui_collected_tick--;
+    }
 }

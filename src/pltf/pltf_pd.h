@@ -44,6 +44,8 @@ void  *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
                             void (*func)(void *ctx, i32 opt), void *ctx);
 void  *pltf_pd_menu_add(const char *title,
                         void (*func)(void *ctx, i32 opt), void *ctx);
+void  *pltf_pd_menu_add_check(const char *title, i32                  v,
+                              void (*func)(void *ctx, i32 opt), void *ctx);
 i32    pltf_pd_menu_opt_val(void *itemp);
 void   pltf_pd_menu_opt_val_set(void *itemp, i32 v);
 void   pltf_pd_menu_rem(void *itemp);

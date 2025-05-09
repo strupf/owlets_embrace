@@ -83,6 +83,9 @@ void fallingstone_on_update(g_s *g, obj_s *o)
     }
     case FALLINGSTONE_ST_FALLING: {
         if (o->bumpflags) {
+            f32 vol;
+            snd_cam_param(g, 0.25f, obj_pos_center(o), 300, &vol, 0);
+            snd_play(SNDID_EXPLO1, vol, rngr_f32(0.9f, 1.1f));
             fallingstone_burst(g, o);
         } else {
             o->v_q8.y += 48;

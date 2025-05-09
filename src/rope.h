@@ -14,6 +14,7 @@ typedef struct rope_s     rope_s;
 typedef struct ropenode_s ropenode_s;
 
 typedef struct rope_pt_s {
+    ALIGNAS(16)
     v2_i32 p;
     v2_i32 pp;
 } rope_pt_s;

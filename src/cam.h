@@ -43,6 +43,5 @@ rec_i32 cam_rec_px(g_s *g, cam_s *c);
 void    cam_init_level(g_s *g, cam_s *c);
 void    cam_update(g_s *g, cam_s *c);
 v2_i32  cam_offset_max(g_s *g, cam_s *c);
-f32     cam_snd_scale(g_s *g, v2_i32 p, u32 dst_max);
 
 #endif

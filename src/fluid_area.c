@@ -16,9 +16,10 @@ typedef struct {
 typedef struct {
     ALIGNAS(32)
     fluid_particle_s *pt;
+    b32               is_idle;
     i32               num;
-    i32               steps;
-    i32               substeps;
+    i16               steps;
+    i16               substeps;
     i32               dampening;
     u32               rng_seed;
     i32               rng_range;
@@ -55,7 +56,7 @@ fluid_area_s *fluid_area_create(g_s *g, rec_i32 r, i32 type, b32 surface)
             a->s.c1    = 2200;
             a->s.c2    = 120;
             a->s.d_q16 = 64200;
-            a->s.steps = 5;
+            a->s.steps = 4;
             break;
         case FLUID_AREA_LAVA:
             a->s.r     = 8;
@@ -84,19 +85,21 @@ void fluid_surface_step(fluid_surface_s *b)
         for (i32 n = 1; n < b->n - 1; n++) {
             fluid_pt_s *p = &b->pts[n];
             i32         f = 0;
-            f += b->pts[n - 1].y_q8 - p->y_q8;
-            f += b->pts[n + 1].y_q8 - p->y_q8;
+            f += (p - 1)->y_q8 - p->y_q8;
+            f += (p + 1)->y_q8 - p->y_q8;
             p->v_q8 += (f * b->c1 - p->y_q8 * b->c2) >> 16;
         }
 
         for (i32 n = b->n - 2; 1 <= n; n--) {
-            b->pts[n].y_q8 += b->pts[n].v_q8;
+            fluid_pt_s *p = &b->pts[n];
+            p->y_q8 += p->v_q8;
         }
     }
 
     b->min_y = I8_MAX;
     b->max_y = I8_MIN;
 
+    i32 vmax = 0;
     // dampening
     for (i32 n = 0; n < b->n; n++) {
         fluid_pt_s *p = &b->pts[n];
@@ -105,6 +108,7 @@ void fluid_surface_step(fluid_surface_s *b)
         i32 y    = fluid_pt_y(p->y_q8);
         b->min_y = min_i32(b->min_y, y);
         b->max_y = max_i32(b->max_y, y);
+        vmax     = max_i32(vmax, p->v_q8);
     }
 }
 

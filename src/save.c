@@ -96,10 +96,18 @@ err32 savefile_read_data(save_header_s h, void *f, void *buf, usize s)
     return 0;
 }
 
+void savefile_save_event_register(savefile_s *s, i32 ID)
+{
+    if (0 < ID && ID < NUM_SAVE_EV) {
+        s->save[ID >> 5] |= (u32)1 << (ID & 31);
+    }
+}
+
 b32 save_event_register(g_s *g, i32 ID)
 {
     if (0 < ID && ID < NUM_SAVE_EV && !save_event_exists(g, ID)) {
         g->save_events[ID >> 5] |= (u32)1 << (ID & 31);
+        pltf_log("saveID %i\n", ID);
         return 1;
     }
     return 0;

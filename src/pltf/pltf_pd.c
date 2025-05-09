@@ -295,11 +295,19 @@ void *pltf_pd_menu_add(const char *title,
     PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
     if (!i) return 0;
 
-    pltf_log("setup\n");
-    i->type = PD_MENU_ITEM_SIMPLE;
-    pltf_log("API\n");
+    i->type  = PD_MENU_ITEM_SIMPLE;
     i->itemp = PD->system->addMenuItem(title, pltf_pd_menu_cb, (void *)i);
-    pltf_log("ret\n");
+    return i;
+}
+
+void *pltf_pd_menu_add_check(const char *title, i32                  v,
+                             void (*func)(void *ctx, i32 opt), void *ctx)
+{
+    PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
+    if (!i) return 0;
+
+    i->type  = PD_MENU_ITEM_CHECKMARK;
+    i->itemp = PD->system->addCheckmarkMenuItem(title, v, pltf_pd_menu_cb, (void *)i);
     return i;
 }
 

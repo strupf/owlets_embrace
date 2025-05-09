@@ -35,6 +35,7 @@ static_assert(sizeof(maptransition_s) <= CS_MEM_BYTES, "Size");
 
 void cs_maptransition_update(g_s *g, cs_s *cs);
 void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam);
+void cs_maptransition_load_map(g_s *g, cs_s *cs);
 
 void cs_maptransition_enter(g_s *g)
 {
@@ -144,6 +145,22 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
     return 1;
 }
 
+void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
+{
+    obj_s *o = obj_get_hero(g);
+    assert(o);
+
+    cs_s            *cs = &g->cuts;
+    maptransition_s *mt = (maptransition_s *)cs->mem;
+    cs_maptransition_enter(g);
+    cs_maptransition_init(g, cs, map_hash,
+                          MAPTRANSITION_TYPE_TELEPORT, pos);
+    g->block_update = 1;
+    mt->hero_v_q8.x = 0;
+    mt->hero_v_q8.y = 0;
+    hero_s *h       = (hero_s *)o->heap;
+}
+
 void cs_maptransition_update(g_s *g, cs_s *cs)
 {
     maptransition_s *mt = (maptransition_s *)cs->mem;
@@ -160,31 +177,13 @@ void cs_maptransition_update(g_s *g, cs_s *cs)
         if (MAPTRANSITION_TICKS_F_BLACK <= cs->tick) {
             cs->tick = 0;
             cs->phase++;
-
-            obj_s *ohero = obj_get_hero(g);
-            if (ohero) {
-                ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
-                ohero->pos.y = mt->hero_feet.y - ohero->h;
-                if (mt->dir) {
-                    ohero->v_q8 = mt->hero_v_q8;
-                }
-            }
-
-            game_load_map(g, mt->map_hash);
-
-            if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
-                // companion_spawn(g, ohero);
-            }
-
-            cam_init_level(g, &g->cam);
-            aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
-            objs_animate(g);
-            aud_allow_playing_new_snd(1);
+            cs_maptransition_load_map(g, cs);
         }
         break;
     }
     case MAPTRANSITION_FADE_IN: {
         if (MAPTRANSITION_TICKS_F_IN <= cs->tick) {
+            g->block_update = 0;
             cs_reset(g);
         }
         break;
@@ -210,4 +209,46 @@ void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam)
         break;
     }
     }
+}
+
+void cs_maptransition_load_map(g_s *g, cs_s *cs)
+{
+    maptransition_s *mt    = (maptransition_s *)cs->mem;
+    obj_s           *ohero = obj_get_hero(g);
+
+    if (ohero) {
+        ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
+        ohero->pos.y = mt->hero_feet.y - ohero->h;
+        if (mt->dir) {
+            ohero->v_q8 = mt->hero_v_q8;
+        }
+    }
+
+    game_load_map(g, mt->map_hash);
+
+    if (ohero) {
+        v2_i32  hpos = obj_pos_center(ohero);
+        v2_i32 *sp   = 0;
+        u32     dc   = U32_MAX;
+        for (i32 n = 0; n < g->n_save_points; n++) {
+            u32 d = v2_i32_distancesq(g->save_points[n], hpos);
+            if (d < dc) {
+                sp = &g->save_points[n];
+                dc = d;
+            }
+        }
+
+        if (sp) {
+            game_save_savefile(g, *sp);
+        }
+    }
+
+    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+        companion_spawn(g, ohero);
+    }
+
+    cam_init_level(g, &g->cam);
+    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    objs_animate(g);
+    aud_allow_playing_new_snd(1);
 }

@@ -21,7 +21,7 @@ settings_s SETTINGS;
 
 err32 settings_load(settings_s *s)
 {
-#if PLTF_DEBUG && 1 // just load and override default settings for dev purposes
+#if 1 // just load and override default settings for dev purposes
     settings_default(s);
     return 0;
 #endif

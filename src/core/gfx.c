@@ -61,7 +61,7 @@ static i32 tex_px_at_unsafe(tex_s tex, i32 x, i32 y)
     return 0;
 }
 
-static i32 tex_mk_at_unsafe(tex_s tex, i32 x, i32 y)
+i32 tex_mk_at_unsafe(tex_s tex, i32 x, i32 y)
 {
     if (tex.fmt == TEX_FMT_OPAQUE) return 1;
 
@@ -69,7 +69,7 @@ static i32 tex_mk_at_unsafe(tex_s tex, i32 x, i32 y)
     return (tex.px[y * tex.wword + ((x >> 5) << 1) + 1] & b);
 }
 
-static void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
+void tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 {
     u32  b = bswap32(0x80000000 >> (x & 31));
     u32 *p = NULL;
@@ -576,41 +576,29 @@ void tex_clr(tex_s dst, i32 col)
     }
 }
 
-// used for simple sprites
 typedef struct {
-    u32          *dp;   // pixel
-    u16           dmax; // count of dst words -1
-    u16           dadd;
-    u32           ml;   // boundary mask left
-    u32           mr;   // boundary mask right
-    i16           mode; // drawing mode
-    i16           doff; // bitoffset of first dst bit
+    u32          *dp; // pixel
+    u32           ml; // boundary mask left
+    u32           mr; // boundary mask right
     u16           dst_wword;
     i16           y;
+    u8            dmax; // count of dst words -1
+    u8            mode; // drawing mode
+    u8            dadd;
+    u8            doff; // bitoffset of first dst bit
     gfx_pattern_s pat;
 } span_blit_s;
 
+static span_blit_s span_blit_change_y(span_blit_s s, i32 y)
+{
+    span_blit_s r = s;
+    r.dp          = s.dp + (y - s.y) * s.dst_wword;
+    r.y           = y;
+    return r;
+}
+
 static span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
 {
-#if 0
-    i32         nbit = (x2 + 1) - x1; // number of bits in a row to blit
-    i32         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
-    span_blit_s i    = {0};
-    i.y              = y;
-    i.doff           = x1 & 31;
-    i.dmax           = (i.doff + nbit - 1) >> 5;                       // number of touched dst words -1
-    i.mode           = mode;                                           // sprite masking mode
-    i.ml             = bswap32(0xFFFFFFFF >> (31 & i.doff));           // mask to cut off boundary left
-    i.mr             = bswap32(0xFFFFFFFF << (31 & (-i.doff - nbit))); // mask to cut off boundary right
-    if (i.dmax == 0) {
-        i.ml &= i.mr;
-    }
-    i.dst_wword = ctx.dst.wword;
-    i.dp        = &ctx.dst.px[((x1 >> 5) << lsh) + y * ctx.dst.wword];
-    i.dadd      = 1 + lsh;
-    i.pat       = ctx.pat;
-    return i;
-#else
     i32         nbit = (x2 + 1) - x1; // number of bits in a row to blit
     i32         lsh  = (ctx.dst.fmt == TEX_FMT_MASK);
     span_blit_s info = {0};
@@ -625,7 +613,6 @@ static span_blit_s span_blit_gen(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, i32 mode)
     info.dadd        = 1 + lsh;
     info.pat         = ctx.pat;
     return info;
-#endif
 }
 
 static inline void span_blit_incr_y(span_blit_s *info)
@@ -911,7 +898,7 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode)
 
     for (const u8 *c = (const u8 *)s; *c; c++) {
         i32 i = *(c);
-        if (32 < i && i < 127) {
+        if (i && i < 127) {
             t.x = (i & 31) * fnt.grid_w;
             t.y = (i >> 5) * fnt.grid_h;
             gfx_spr(ctx, t, p, 0, mode);
@@ -919,6 +906,77 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode)
 
         p.x += fnt.widths[i] + fnt.tracking - fnt_kerning(fnt, i, *(c + 1));
     }
+}
+
+void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str, i32 style, b32 centeredx)
+{
+    i32 px = 0;
+    if (centeredx) {
+        px = fnt_length_px(f, str);
+    }
+
+    ALIGNAS(8) u32 pxtmp[((256 >> 5) << 1) * 32] = {0};
+
+    tex_s textmp = {0};
+    textmp.w     = 256;
+    textmp.h     = 32;
+    textmp.wword = (textmp.w >> 5) << 1;
+    textmp.px    = pxtmp;
+    textmp.fmt   = 1;
+
+    gfx_ctx_s ctxtmp = gfx_ctx_default(textmp);
+
+    switch (style) {
+    case 0: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_INV);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        break;
+    }
+    case 1: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        break;
+    }
+    case 2: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
+        // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
+        break;
+    }
+    case 3: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        break;
+    }
+    case 4: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_INV);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
+        break;
+    }
+    case 5: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
+        break;
+    }
+    case 6: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_INV);
+        break;
+    }
+    case 7: {
+        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, 0);
+        break;
+    }
+    }
+
+    gfx_spr(ctx, texrec_from_tex(textmp), (v2_i32){pos.x - 4 - px / 2, pos.y - 2}, 0, 0);
 }
 
 i32 fnt_length_px(fnt_s fnt, const void *txt)
@@ -1058,26 +1116,56 @@ void gfx_cir_fill(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 mode)
 {
     if (d <= 0) return;
 
-    i32 r = (d) >> 1;
-    if (d <= 3) {
-        rec_i32 rf = {p.x - r, p.y - r, d, d};
-        gfx_rec_fill(ctx, rf, mode);
+    i32 r = d >> 1;
+    if (d <= 2) {
+        rec_i32 rec = {p.x - r, p.y - r, d, d};
+        gfx_rec_fill(ctx, rec, mode);
         return;
     }
 
-    i32 ymin = max_i32(ctx.clip_y1, p.y - r);
-    i32 ymax = min_i32(ctx.clip_y2, p.y - r + d);
-    i32 dc   = (d * d + 2) >> 2;
+    rec_i32 rb = {p.x - r - 1, p.y - r - 1, d + 1, d + 1};
+    rec_i32 rt = {ctx.clip_x1, ctx.clip_y1,
+                  ctx.clip_x2 - ctx.clip_x1, ctx.clip_y2 - ctx.clip_y1};
+    if (!overlap_rec(rb, rt)) return;
 
-    for (i32 yy = ymin; yy <= ymax; yy++) {
-        i32 ls = dc - pow2_i32(p.y - yy);
-        if (ls < 0) continue;
-        i32 xx = sqrt_u32(ls + 2);
-        i32 x1 = max_i32(p.x - xx, ctx.clip_x1);
-        i32 x2 = min_i32(p.x + xx, ctx.clip_x2);
-        if (x1 <= x2) {
-            span_blit_s b = span_blit_gen(ctx, yy, x1, x2, mode);
-            prim_blit_span(b);
+    i32 e = -d + (d == 3 ? +1 : -1);
+    i32 x = r; // radius
+    i32 y = 0;
+    i32 m = (d & 1 ? +1 : 0);
+
+    while (y <= x) {
+        i32 ay  = p.y + y + m;
+        i32 cy  = p.y + x + m;
+        i32 by  = p.y - y;
+        i32 dy  = p.y - x;
+        i32 ax0 = max_i32(p.x - x, ctx.clip_x1);
+        i32 cx0 = max_i32(p.x - y, ctx.clip_x1);
+        i32 ax1 = min_i32(p.x + x + m, ctx.clip_x2);
+        i32 cx1 = min_i32(p.x + y + m, ctx.clip_x2);
+
+        span_blit_s sa = span_blit_gen(ctx, ay, ax0, ax1, mode);
+        span_blit_s sc = span_blit_gen(ctx, cy, cx0, cx1, mode);
+
+        if (ctx.clip_y1 <= cy && cy <= ctx.clip_y2) {
+            prim_blit_span(sc);
+        }
+        if (ctx.clip_y1 <= dy && dy <= ctx.clip_y2) {
+            prim_blit_span(span_blit_change_y(sc, dy));
+        }
+        if (ctx.clip_y1 <= ay && ay <= ctx.clip_y2) {
+            prim_blit_span(sa);
+        }
+        if (ctx.clip_y1 <= by && by <= ctx.clip_y2 && ay != by) {
+            prim_blit_span(span_blit_change_y(sa, by));
+        }
+
+        e += y << 1;
+        y++;
+        e += y << 1;
+
+        if (0 <= e) {
+            x--;
+            e -= x << 2;
         }
     }
 }
@@ -1096,53 +1184,87 @@ typedef struct {
 // draws thick lines spanning 512 scanlines or less
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
 {
+    // initialize spans
+    gfx_span_s spans[512];
+    i32        r    = d >> 1;
+    i32        ymin = max_i32(min_i32(a.y, b.y) - r - 1, ctx.clip_y1);
+    i32        ymax = min_i32(max_i32(a.y, b.y) + r + 1, ctx.clip_y2);
+    i32        ydif = ymax - ymin;
+
+    for (i32 n = 0; n <= ydif; n++) {
+        gfx_span_s *s = &spans[n];
+        s->x1         = U16_MAX;
+        s->x2         = 0;
+    }
+
+    i32 m  = (d & 1 ? +1 : 0);
     i32 dx = +abs_i32(b.x - a.x);
     i32 dy = -abs_i32(b.y - a.y);
     i32 sx = a.x < b.x ? +1 : -1;
     i32 sy = a.y < b.y ? +1 : -1;
     i32 er = dx + dy;
     i32 xi = a.x;
-    i32 yi = a.y;
-
-    // initialize spans
-    gfx_span_s spans[512];
-    i32        r    = (d) >> 1;
-    i32        ymin = max_i32(min_i32(a.y, b.y) - r - 1, ctx.clip_y1);
-    i32        ymax = min_i32(max_i32(a.y, b.y) + r + 1, ctx.clip_y2);
-    i32        dc   = (d * d + 2) >> 2;
-
-    for (i32 n = ymin; n <= ymax; n++) {
-        gfx_span_s *s = &spans[n - ymin];
-        s->x1         = U16_MAX;
-        s->x2         = 0;
-    }
+    i32 xj = b.x;
+    i32 yi = a.y - ymin;
+    i32 yj = b.y - ymin;
 
     // generate spans
     while (1) {
-        for (i32 yy = -r; yy <= d - r; yy++) {
-            i32 py = yi - yy;
+        i32 e = -d - 1;
+        i32 x = r; // radius
+        i32 y = 0;
 
-            if (ymin <= py && py <= ymax) {
-                i32         ls = dc - pow2_i32(yy);
-                i32         xx = sqrt_u32(ls + 1);
-                gfx_span_s *s  = &spans[py - ymin];
-                s->x1          = min_i32(s->x1, max_i32(xi - xx, ctx.clip_x1));
-                s->x2          = max_i32(s->x2, min_i32(xi + xx, ctx.clip_x2));
+        while (y <= x) {
+            i32 ay  = yi + y + m;
+            i32 cy  = yi + x + m;
+            i32 by  = yi - y;
+            i32 dy  = yi - x;
+            i32 ax0 = xi - x;
+            i32 cx0 = xi - y;
+            i32 ax1 = xi + x + m;
+            i32 cx1 = xi + y + m;
+
+            if (0 <= ay && ay <= ydif) {
+                gfx_span_s *s = &spans[ay];
+                s->x1         = clamp_i32(s->x1, ctx.clip_x1, ax0);
+                s->x2         = clamp_i32(s->x2, ax1, ctx.clip_x2);
+            }
+            if (0 <= by && by <= ydif) {
+                gfx_span_s *s = &spans[by];
+                s->x1         = clamp_i32(s->x1, ctx.clip_x1, ax0);
+                s->x2         = clamp_i32(s->x2, ax1, ctx.clip_x2);
+            }
+            if (0 <= cy && cy <= ydif) {
+                gfx_span_s *s = &spans[cy];
+                s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
+                s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
+            }
+            if (0 <= dy && dy <= ydif) {
+                gfx_span_s *s = &spans[dy];
+                s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
+                s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
+            }
+            e += y << 1;
+            y++;
+            e += y << 1;
+
+            if (0 <= e) {
+                x--;
+                e -= x << 2;
             }
         }
-
-        if (xi == b.x && yi == b.y) break;
+        if (xi == xj && yi == yj) break;
         i32 e2 = er << 1;
         if (e2 >= dy) { er += dy, xi += sx; }
         if (e2 <= dx) { er += dx, yi += sy; }
     }
 
     // blit spans
-    for (i32 n = ymin; n <= ymax; n++) {
-        gfx_span_s *s = &spans[n - ymin];
-        if (s->x1 <= s->x2) {
-            span_blit_s b = span_blit_gen(ctx, n, s->x1, s->x2, mode);
-            prim_blit_span(b);
+    for (i32 n = 0; n <= ydif; n++) {
+        gfx_span_s *s = &spans[n];
+
+        if (ctx.clip_x1 <= s->x1 && s->x2 <= ctx.clip_x2 && s->x1 <= s->x2) {
+            prim_blit_span(span_blit_gen(ctx, n + ymin, s->x1, s->x2, mode));
         }
     }
 }

@@ -28,7 +28,6 @@ enum {
     TEXID_DISPLAY,
     TEXID_DISPLAY_TMP,
     TEXID_DISPLAY_TMP_MASK,
-    TEXID_KEYBOARD,
     TEXID_BUTTONS,
     TEXID_HERO,
     TEXID_COMPANION,
@@ -42,7 +41,6 @@ enum {
     TEXID_UI,
     TEXID_PLANTS,
     TEXID_BOULDER,
-    TEXID_CLOUDS,
     TEXID_FLSURF,
     TEXID_SOLIDLEVER,
     TEXID_WATERCOL,
@@ -54,9 +52,7 @@ enum {
     TEXID_CRAWLER,
     TEXID_MISCOBJ,
     TEXID_HOOK,
-    TEXID_MAINMENU,
     TEXID_GEMS,
-    TEXID_AREALABEL,
     TEXID_SAVEPOINT,
     TEXID_CRUMBLE,
     TEXID_NPC,
@@ -98,30 +94,23 @@ enum {
     SNDID_DEFAULT,
     SNDID_HOOK_ATTACH,
     SNDID_KLONG,
-    SNDID_SPEAK,
-    SNDID_STEP,
+    SNDID_SPEAK0,
+    SNDID_SPEAK1,
+    SNDID_SPEAK2,
+    SNDID_SPEAK3,
+    SNDID_SPEAK4,
     SNDID_SWITCH,
     SNDID_SWOOSH,
     SNDID_HIT_ENEMY,
-    SNDID_SHROOMY_JUMP,
     SNDID_JUMP,
-    SNDID_DOOR_TOGGLE,
-    SNDID_MENU_NEXT_ITEM,
-    SNDID_MENU_NONEXT_ITEM,
     SNDID_COIN,
     SNDID_ENEMY_HURT,
-    SNDID_ENEMY_DIE,
     SNDID_CRUMBLE_BREAKING,
     SNDID_CRUMBLE_BREAK,
     SNDID_DOOR_KEY_SPAWNED,
     SNDID_DOOR_UNLOCKED,
     SNDID_UPGRADE,
     SNDID_HOOK_THROW,
-    SNDID_KB_DENIAL,
-    SNDID_KB_KEY,
-    SNDID_KB_CLICK,
-    SNDID_KB_SELECTION,
-    SNDID_KB_SELECTION_REV,
     SNDID_FOOTSTEP_LEAVES,
     SNDID_FOOTSTEP_GRASS,
     SNDID_FOOTSTEP_MUD,
@@ -129,16 +118,14 @@ enum {
     SNDID_FOOTSTEP_DIRT,
     SNDID_WING,
     SNDID_WING_BIG,
-    SNDID_HOOK_READY,
     SNDID_WATER_SPLASH_BIG,
     SNDID_WATER_SPLASH_SMALL,
     SNDID_WATER_SWIM_1,
     SNDID_WATER_SWIM_2,
     SNDID_WATER_OUT_OF,
-    SNDID_WEAPON_EQUIP,
-    SNDID_WEAPON_UNEQUIP,
     SNDID_STOMP,
     SNDID_SKID,
+    SNDID_EXPLO1,
     SNDID_PROJECTILE_SPIT,
     SNDID_PROJECTILE_WALL,
     SNDID_SPEAR_ATTACK,
@@ -147,9 +134,18 @@ enum {
     SNDID_ENEMY_EXPLO,
     SNDID_LANDING,
     SNDID_STOPSPRINT,
+    SNDID_BPLANT_SWOOSH,
+    SNDID_BPLANT_SHOW,
+    SNDID_BPLANT_HIDE,
+    SNDID_EXPLOPOOF,
+    SNDID_HURT,
     SNDID_MENU1,
     SNDID_MENU2,
     SNDID_MENU3,
+    SNDID_PLANTPULSE,
+    SNDID_RUMBLE,
+    SNDID_JUMPON,
+    SNDID_ENEMY_DIE,
     //
     NUM_SNDID
 };
@@ -159,12 +155,14 @@ enum {
     ANIID_HERO_ATTACK_AIR,
     ANIID_COMPANION_FLY,
     ANIID_COMPANION_ATTACK,
+    ANIID_COMPANION_BUMP,
+    ANIID_COMPANION_HUH,
     ANIID_GEMS,
     ANIID_BUTTON,
     ANIID_UPGRADE,
-    ANIID_COMPANION_BUMP,
     ANIID_CURSOR,
     ANIID_HEALTHDROP,
+    ANIID_BPLANT_HOP,
     //
     NUM_ANIID
 };
@@ -189,6 +187,7 @@ typedef struct {
 } assets_s;
 
 i32      assets_init();
+tex_s   *asset_texptr(i32 ID);
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);
 fnt_s    asset_fnt(i32 ID);
@@ -197,15 +196,19 @@ i32      asset_tex_put(tex_s t);
 tex_s    asset_tex_putID(i32 ID, tex_s t);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
 i32      snd_play(i32 ID, f32 vol, f32 pitch);
+i32      snd_play_ext(i32 ID, f32 vol, f32 pitch, bool32 loop);
 //
+err32    tex_from_wad_ID(i32 ID, const void *name, allocator_s a);
+err32    tex_from_wad_ID_ext(void *f, i32 ID, const void *name,
+                             allocator_s a);
+err32    tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t);
 err32    tex_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, tex_s *o_t);
 err32    snd_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, snd_s *o_s);
 err32    ani_from_wad(void *f, wad_el_s *wf, const void *name,
                       allocator_s a, ani_s *o_a);
-
-i32 ani_frame(i32 ID, i32 ticks);
-i32 ani_len(i32 ID);
+i32      ani_frame(i32 ID, i32 ticks);
+i32      ani_len(i32 ID);
 
 #endif

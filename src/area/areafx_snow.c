@@ -7,6 +7,7 @@
 
 void areafx_snow_setup(g_s *g, areafx_snow_s *fx)
 {
+    mclr(fx, sizeof(areafx_snow_s));
     switch (fx->type) {
     case AREAFX_SNOW_NO_WIND: {
         fx->n = 200;

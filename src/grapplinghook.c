@@ -294,7 +294,7 @@ bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
         return 1;
     default:
         // hooked
-        snd_play(SNDID_KLONG, 0.15f, rngr_f32(0.9f, 1.1f));
+        snd_play(SNDID_KLONG, 0.25f, rngr_f32(0.9f, 1.1f));
         h->state = GRAPPLINGHOOK_HOOKED_TERRAIN;
         grapplinghook_do_hook(g, h);
         particle_emit_ID(g, PARTICLE_EMIT_ID_HOOK_TERRAIN, h->p);

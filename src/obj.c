@@ -29,11 +29,6 @@ bool32 obj_handle_valid(obj_handle_s h)
     return (h.o && h.o->generation == h.generation);
 }
 
-bool32 obj_handle_present_but_valid(obj_handle_s h)
-{
-    return (h.o && h.o->generation != h.generation);
-}
-
 obj_s *obj_create(g_s *g)
 {
     obj_s *o = g->obj_head_free;
@@ -55,7 +50,7 @@ obj_s *obj_create(g_s *g)
     g->obj_head_busy   = o;
 #if PLTF_DEBUG
     o->magic = OBJ_MAGIC;
-
+#if 0
     static u32 n_warn = NUM_OBJ / 2;
     u32        n_pool = 0;
     for (obj_s *op = g->obj_head_free; op; op = op->next) {
@@ -65,6 +60,7 @@ obj_s *obj_create(g_s *g)
         n_warn = n_pool;
         pltf_log("+++ OBJ POOL: ONLY %i LEFT!\n", n_warn);
     }
+#endif
 #endif
     return o;
 }
@@ -316,11 +312,13 @@ bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
 
 enemy_s enemy_default()
 {
-    enemy_s e       = {0};
-    e.sndID_die     = SNDID_ENEMY_DIE;
-    e.sndID_hurt    = SNDID_ENEMY_HURT;
-    e.hurt_tick_max = 20;
-    e.die_tick_max  = 40;
+    enemy_s e          = {0};
+    e.sndID_die        = SNDID_ENEMY_DIE;
+    e.sndID_hurt       = SNDID_ENEMY_HURT;
+    e.hurt_tick_max    = 20;
+    e.die_tick_max     = 40;
+    e.coins_on_death   = 1;
+    e.explode_on_death = 1;
     return e;
 }
 
@@ -346,10 +344,6 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
     }
 }
 
-void obj_on_hooked(g_s *g, obj_s *o)
-{
-}
-
 bool32 obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index)
 {
     if (!oactor) return 0;
@@ -363,4 +357,14 @@ bool32 obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index)
         }
     }
     return 0;
+}
+
+i32 obj_distsq(obj_s *a, obj_s *b)
+{
+    return v2_i32_distancesq(obj_pos_center(a), obj_pos_center(b));
+}
+
+i32 obj_dist_appr(obj_s *a, obj_s *b)
+{
+    return v2_i32_distance_appr(obj_pos_center(a), obj_pos_center(b));
 }

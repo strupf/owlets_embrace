@@ -41,6 +41,9 @@ void cs_resetsave_update(g_s *g, cs_s *cs)
         if (CS_RESETSAVE_TICKS_BLACK <= cs->tick) {
             cs->tick = 0;
             cs->phase++;
+            mus_play_ext(0, 0, 0, 0, 100, 0, 0);
+            g->musicID = 0;
+            aud_stop_all_snd_instances();
             game_update_savefile(g);
             game_load_savefile(g);
             g->block_update = 0;

@@ -65,8 +65,8 @@ void render_hurt_ui(g_s *g, obj_s *ohero)
 
     switch (ohero->health) {
     case 1:
-        rad_off_add = 20;
-        pulse_off   = 3;
+        rad_off_add = 35;
+        pulse_off   = 4;
         frizzle_str = 3;
         break;
     case 2:

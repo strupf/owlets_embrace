@@ -46,7 +46,7 @@ static void crumbleblock_start_breaking(g_s *g, obj_s *o)
         o->timer = CRUMBLE_TICKS_BREAK;
 
         i32 nx = o->w >> 4;
-        i32 ny = o->w >> 4;
+        i32 ny = o->h >> 4;
         for (i32 tx = 0; tx < nx; tx++) {
             v2_i32 p1 = {o->pos.x + tx * 16 + 8, o->pos.y + 4};
             particle_emit_ID(g, PARTICLE_EMIT_ID_CRUMBLEBLOCK, p1);
@@ -100,7 +100,7 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
     case CRUMBLE_STATE_BREAKING: {
         o->timer--;
         if (0 < o->timer) break;
-
+        snd_play(SNDID_EXPLO1, 0.1f, rngr_f32(0.9f, 1.1f));
         crumbleblock_break(g, o);
         cam_screenshake_xy(&g->cam, 16, 1, 1);
         break;

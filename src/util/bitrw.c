@@ -5,6 +5,48 @@
 #include "bitrw.h"
 #include "mathfunc.h"
 
+// read up to 32 bits from the buffer
+u32 bitrw_r_stream(bitrw_s *br, i32                                   nbits,
+                   void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx)
+{
+    // fast path and prevents undefined shifting behaviour below
+    if (nbits == 32 && br->pos == 0) {
+        u32 v = *br->b;
+        br->b++;
+        on_new_word(br, ctx);
+        return v;
+    }
+
+    u32 x = 0;
+    i32 n = nbits;
+    while (n) {
+        i32 s = min_i32(n, 32 - br->pos);                  // bits to read (in this word)
+        u32 k = (*br->b >> br->pos) & (((u32)1 << s) - 1); // shift + mask read bits
+        x     = (x << s) | k;                              // assemble bits to resulting value
+        n -= s;
+        br->pos += s;
+        if (br->pos == 32) { // word is fully read, advance
+            br->pos = 0;
+            br->b++;
+            on_new_word(br, ctx);
+        }
+    }
+    return x;
+}
+
+i32 bitrw_r1_stream(bitrw_s *br,
+                    void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx)
+{
+    i32 x = (*br->b >> br->pos) & 1; // shift + mask read bits
+    br->pos++;
+    if (br->pos == 32) { // word is fully read, advance
+        br->pos = 0;
+        br->b++;
+        on_new_word(br, ctx);
+    }
+    return x;
+}
+
 u32 bitrw_r(bitrw_s *br, i32 nbits)
 {
     // fast path and prevents undefined shifting behaviour below

@@ -10,9 +10,11 @@
 #include "particle.h"
 #include "rope.h"
 
-#define NUM_OBJ       512
+#define NUM_OBJ       256
 #define OBJ_MEM_BYTES 512
 
+#define OBJ_FLAG_DONT_UPDATE    ((u64)1 << 0)
+#define OBJ_FLAG_DONT_SHOW      ((u64)1 << 1)
 #define OBJ_FLAG_INTERACTABLE   ((u64)1 << 2)
 #define OBJ_FLAG_PLATFORM       ((u64)1 << 3)
 #define OBJ_FLAG_HERO_PLATFORM  ((u64)1 << 4) // platform for the hero only
@@ -36,8 +38,9 @@
 #define OBJ_FLAG_SOLID          ((u64)1 << 62)
 #define OBJ_FLAG_RENDER_AABB    ((u64)1 << 63)
 
-#define OBJ_FLAG_GRABBABLE_SOLID (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
-#define OBJ_FLAG_PLATFORM_ANY    (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
+#define OBJ_FLAG_DONT_SHOW_UPDATE (OBJ_FLAG_DONT_UPDATE | OBJ_FLAG_DONT_SHOW)
+#define OBJ_FLAG_GRABBABLE_SOLID  (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
+#define OBJ_FLAG_PLATFORM_ANY     (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
 
 #define OBJ_FLAG_HERO_JUMPSTOMPABLE (OBJ_FLAG_HERO_STOMPABLE | \
                                      OBJ_FLAG_HERO_JUMPABLE)
@@ -101,6 +104,8 @@ typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
 typedef struct enemy_s {
     obj_action_f on_hurt; // void f(g_s *g, obj_s *o);
     b8           hurt_on_jump;
+    b8           explode_on_death;
+    b8           coins_on_death;
     u8           sndID_hurt;
     u8           sndID_die;
     i8           hurt_tick; // 0< hurt, <0 die
@@ -179,7 +184,6 @@ obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);
 bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
-bool32       obj_handle_present_but_valid(obj_handle_s h);
 obj_s       *obj_create(g_s *g);
 void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
 void         obj_handle_delete(g_s *g, obj_handle_s h);
@@ -204,7 +208,6 @@ bool32       obj_grounded(g_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(g_s *g, obj_s *o);
-void         obj_on_hooked(g_s *g, obj_s *o);
 void         obj_move_by_q8(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
 void         obj_move_by_v_q8(g_s *g, obj_s *o);
 void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
@@ -216,6 +219,8 @@ bool32       blocked_excl(g_s *g, rec_i32 r, obj_s *o);
 bool32       obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index);
 enemy_s      enemy_default();
 void         enemy_hurt(g_s *g, obj_s *o, i32 dmg);
+i32          obj_distsq(obj_s *a, obj_s *b);    // between centers
+i32          obj_dist_appr(obj_s *a, obj_s *b); // between centers
 
 enum {
     OBJANIMID_NULL,

@@ -9,6 +9,8 @@
 
 // https://easings.net/
 
+typedef i32 (*ease_i32)(i32 a, i32 b, i32 num, i32 den);
+
 static inline i32 ease_lin(i32 a, i32 b, i32 num, i32 den)
 {
     return lerp_i32(a, b, num, den);

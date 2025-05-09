@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "app_load.h"
+#include "app.h"
 
 typedef struct {
     err32       err;
@@ -58,21 +58,16 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_GEMS, "T_GEMS");
     app_load_tex_internal(&l, TEXID_FLUIDS, "T_FLUIDS");
     app_load_tex_internal(&l, TEXID_BOULDER, "T_BOULDER");
-    app_load_tex_internal(&l, TEXID_UPGRADE, "T_UPGRADE");
     app_load_tex_internal(&l, TEXID_HEARTDROP, "T_HEARTDROP");
+    app_load_tex_internal(&l, TEXID_PLANTS, "T_PLANTS");
+    APP->assets.tex[TEXID_PAUSE_TEX] =
+        tex_create(400, 240, 0, app_allocator(), 0);
 
-    {
-        APP->assets.tex[TEXID_PAUSE_TEX] =
-            tex_create(400, 240, 0, app_allocator(), 0);
-    }
-    {
-        APP->assets.tex[TEXID_DISPLAY_TMP] =
-            tex_create(400, 240, 0, app_allocator(), 0);
-    }
-    {
-        APP->assets.tex[TEXID_DISPLAY_TMP_MASK] =
-            tex_create(400, 240, 1, app_allocator(), 0);
-    }
+    APP->assets.tex[TEXID_DISPLAY_TMP] =
+        tex_create(400, 240, 0, app_allocator(), 0);
+
+    APP->assets.tex[TEXID_DISPLAY_TMP_MASK] =
+        tex_create(400, 240, 1, app_allocator(), 0);
 
 LOAD_FNT:;
     // FNT ---------------------------------------------------------------------
@@ -95,9 +90,13 @@ LOAD_SND:;
     }
     app_load_snd_internal(&l, SNDID_JUMP, "S_JUMP01");
     app_load_snd_internal(&l, SNDID_WING, "S_DOUBLEJUMP5");
-    // app_load_snd_internal(&l, SNDID_WING_BIG, "S_DOUBLEJUMP2");
     app_load_snd_internal(&l, SNDID_KLONG, "S_HOOK5");
     app_load_snd_internal(&l, SNDID_SPEAR_ATTACK, "S_SPEAR_ATTACK");
+    app_load_snd_internal(&l, SNDID_SPEAK0, "S_SPEAK0");
+    app_load_snd_internal(&l, SNDID_SPEAK1, "S_SPEAK1");
+    app_load_snd_internal(&l, SNDID_SPEAK2, "S_SPEAK2");
+    app_load_snd_internal(&l, SNDID_SPEAK3, "S_SPEAK3");
+    app_load_snd_internal(&l, SNDID_SPEAK4, "S_SPEAK4");
     app_load_snd_internal(&l, SNDID_STOMP_LAND, "S_STOMP");
     app_load_snd_internal(&l, SNDID_STOMP_START, "S_STOMP_START");
     app_load_snd_internal(&l, SNDID_ENEMY_EXPLO, "S_ENEMY_EXPLO");
@@ -108,6 +107,20 @@ LOAD_SND:;
     app_load_snd_internal(&l, SNDID_MENU2, "S_MENU2");
     app_load_snd_internal(&l, SNDID_MENU3, "S_MENU3");
     app_load_snd_internal(&l, SNDID_HOOK_THROW, "S_THROWHOOK");
+    app_load_snd_internal(&l, SNDID_PLANTPULSE, "S_PLANTPULSE");
+    app_load_snd_internal(&l, SNDID_RUMBLE, "S_RUMBLE");
+    app_load_snd_internal(&l, SNDID_EXPLO1, "S_EXPLO1");
+    app_load_snd_internal(&l, SNDID_BPLANT_SWOOSH, "S_BPLANT_SWOOSH");
+    app_load_snd_internal(&l, SNDID_BPLANT_SHOW, "S_BPLANT_SHOW");
+    app_load_snd_internal(&l, SNDID_BPLANT_HIDE, "S_BPLANT_HIDE");
+    app_load_snd_internal(&l, SNDID_EXPLOPOOF, "S_EXPLOPOOF");
+    app_load_snd_internal(&l, SNDID_WATER_SPLASH_BIG, "S_SPLASH_BIG");
+    app_load_snd_internal(&l, SNDID_WATER_OUT_OF, "S_SPLASH_OUT");
+    app_load_snd_internal(&l, SNDID_WATER_SWIM_1, "S_SWIM_1");
+    app_load_snd_internal(&l, SNDID_WATER_SWIM_2, "S_SWIM_2");
+    app_load_snd_internal(&l, SNDID_JUMPON, "S_JUMPON");
+    app_load_snd_internal(&l, SNDID_ENEMY_DIE, "S_ENEMY_DIE");
+    app_load_snd_internal(&l, SNDID_HURT, "S_HURT");
 
 LOAD_ANI:;
     // ANI ---------------------------------------------------------------------
@@ -121,11 +134,13 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_COMPANION_ATTACK, "A_COMP_ATTACK");
     app_load_ani_internal(&l, ANIID_COMPANION_FLY, "A_COMP_FLY");
     app_load_ani_internal(&l, ANIID_COMPANION_BUMP, "A_COMP_BUMP");
+    app_load_ani_internal(&l, ANIID_COMPANION_HUH, "A_COMP_HUH");
     app_load_ani_internal(&l, ANIID_GEMS, "A_GEMS");
     app_load_ani_internal(&l, ANIID_BUTTON, "A_BUTTON");
     app_load_ani_internal(&l, ANIID_UPGRADE, "A_UPGRADE");
     app_load_ani_internal(&l, ANIID_CURSOR, "A_CURSOR");
     app_load_ani_internal(&l, ANIID_HEALTHDROP, "A_HEALTHDROP");
+    app_load_ani_internal(&l, ANIID_BPLANT_HOP, "A_BPLANT_HOP");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {
@@ -144,7 +159,7 @@ static void app_load_tex_internal(app_load_s *l, i32 ID, const void *name)
     err32  err_t = tex_from_wad(l->f, l->e, name, l->allocator, t);
     if (err_t) {
         l->err |= err_t | ASSETS_ERR_TEX;
-        pltf_log("ERROR LOADING TEX: %i\n", err_t);
+        pltf_log("ERROR LOADING TEX: %i | %s\n", err_t, (const char *)name);
     }
 }
 
@@ -231,6 +246,6 @@ static void app_load_ani_internal(app_load_s *l, i32 ID, const void *name)
     err32  err_s = ani_from_wad(l->f, l->e, name, l->allocator, a);
     if (err_s) {
         l->err |= err_s | ASSETS_ERR_ANI;
-        pltf_log("ERROR LOADING ANI: %i\n", err_s);
+        pltf_log("ERROR LOADING ANI: %i | %s\n", err_s, (const char *)name);
     }
 }

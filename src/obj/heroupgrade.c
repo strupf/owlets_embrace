@@ -28,21 +28,23 @@ void hero_upgrade_load(g_s *g, map_obj_s *mo)
     o->on_animate   = hero_upgrade_on_animate;
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
-    o->state        = map_obj_i32(mo, "ID");
+    o->substate     = map_obj_i32(mo, "ID");
 
     i32 saveID = map_obj_i32(mo, "saveID");
     if (save_event_exists(g, saveID)) {
         o->state = 1;
     } else {
-        o->state = 0;
-    }
-    p->saveID      = saveID;
-    v2_i32 porigin = obj_pos_bottom_center(o);
-    p->orb.x       = porigin.x + 10;
-    p->orb.y       = porigin.y - 53;
+        v2_i32 porigin = obj_pos_bottom_center(o);
+        p->orb.x       = porigin.x + 10;
+        p->orb.y       = porigin.y - 53;
 
-    rec_i32 rtrigger = {mo->x, mo->y, mo->w, mo->h};
-    triggerarea_spawn(g, rtrigger, TRIGGER_CS_UPGRADE, 0, 1);
+        rec_i32 rtrigger = {mo->x, mo->y, mo->w, mo->h};
+        pltf_log("create triggerarea");
+        triggerarea_spawn(g, rtrigger, TRIGGER_CS_UPGRADE, 0, 1);
+    }
+
+    tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_allocator(g));
+    p->saveID = saveID;
 }
 
 v2_i32 hero_upgrade_orb_pos(obj_s *o)
@@ -113,12 +115,15 @@ void hero_upgrade_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 }
 
-i32 hero_upgrade_ID(obj_s *o)
+void hero_upgrade_collect(g_s *g, obj_s *o)
 {
-    return o->state;
+    hero_powup_s *p = (hero_powup_s *)o->mem;
+    hero_add_upgrade(g, (u32)1 << o->substate);
+    save_event_register(g, p->saveID);
+    game_update_savefile(g);
 }
 
-i32 hero_upgrade_saveID(obj_s *o)
+void hero_upgrade_disable_orb(obj_s *o)
 {
-    return o->substate;
+    o->state = 1;
 }

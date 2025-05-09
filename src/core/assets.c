@@ -16,6 +16,12 @@ i32 assets_init()
     return 0;
 }
 
+tex_s *asset_texptr(i32 ID)
+{
+    assert(0 <= ID && ID < NUM_TEXID);
+    return &APP->assets.tex[ID];
+}
+
 tex_s asset_tex(i32 ID)
 {
     assert(0 <= ID && ID < NUM_TEXID);
@@ -62,7 +68,13 @@ texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h)
 
 i32 snd_play(i32 ID, f32 vol, f32 pitch)
 {
-    return snd_instance_play(asset_snd(ID), vol, pitch);
+    return snd_play_ext(ID, vol, pitch, 0);
+}
+
+i32 snd_play_ext(i32 ID, f32 vol, f32 pitch, bool32 loop)
+{
+    if (vol < 0.02f) return 0;
+    return snd_instance_play_ext(asset_snd(ID), vol, pitch, loop);
 }
 
 void asset_mus_fade_to(const char *filename, i32 ticks_out, i32 ticks_in)
@@ -76,6 +88,43 @@ i32 assets_gen_texID()
     i32        ID    = NUM_TEXID_EXPLICIT + texID++;
     assert(ID < NUM_TEXID);
     return ID;
+}
+
+err32 tex_from_wad_ID(i32 ID, const void *name, allocator_s a)
+{
+    return tex_from_wad_ext(name, a, asset_texptr(ID));
+}
+
+err32 tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t)
+{
+    if (!o_t) return ASSETS_ERR_MISC;
+
+    void     *f;
+    wad_el_s *e;
+    if (!wad_open_str(name, &f, &e)) return ASSETS_ERR_WAD_EL;
+
+    tex_header_s h = {0};
+    if (!pltf_file_r_checked(f, &h, sizeof(tex_header_s))) {
+        pltf_file_close(f);
+        return ASSETS_ERR_WAD_READ;
+    }
+
+    err32 err_t = 0;
+    *o_t        = tex_create(h.w, h.h, 1, a, &err_t);
+    if (err_t == 0) {
+        usize size     = sizeof(u32) * o_t->wword * o_t->h;
+        usize size_dec = lzss_decode_file(f, o_t->px);
+        pltf_file_close(f);
+        return (size == size_dec ? 0 : ASSETS_ERR_WAD_READ);
+    }
+    pltf_file_close(f);
+    return ASSETS_ERR_ALLOC;
+}
+
+err32 tex_from_wad_ID_ext(void *f, i32 ID, const void *name,
+                          allocator_s a)
+{
+    return tex_from_wad(f, 0, name, a, asset_texptr(ID));
 }
 
 err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,

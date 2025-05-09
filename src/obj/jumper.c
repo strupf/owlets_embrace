@@ -12,7 +12,7 @@ enum {
     JUMPER_ST_LANDED,
 };
 
-#define JUMPER_TICKS_ANTICIPATE 20
+#define JUMPER_TICKS_ANTICIPATE 15
 #define JUMPER_TICKS_LAND       8
 
 void jumper_on_update(g_s *g, obj_s *o);
@@ -77,7 +77,7 @@ void jumper_on_update(g_s *g, obj_s *o)
         if (ohero) {
             v2_i32 phero = obj_pos_center(ohero);
             v2_i32 pc    = obj_pos_center(o);
-            if (v2_i32_distancesq(phero, pc) < 12000) {
+            if (v2_i32_distancesq(phero, pc) < 14000) {
                 o->state     = JUMPER_ST_ANTICIPATE;
                 o->timer     = 0;
                 o->animation = 0;
@@ -93,11 +93,13 @@ void jumper_on_update(g_s *g, obj_s *o)
             o->v_q8.y    = -2000;
             o->v_q8.x    = o->facing * 500 + rngr_sym_i32(300);
             o->animation = 0;
+            snd_play(SNDID_SPEAR_ATTACK, 1.1f, 1.f);
         }
         break;
     }
     case JUMPER_ST_JUMPING: {
         if (grounded) {
+            snd_play(SNDID_STOMP_LAND, 1.1f, 1.f);
             o->state     = JUMPER_ST_LANDED;
             o->timer     = 0;
             o->animation = 0;

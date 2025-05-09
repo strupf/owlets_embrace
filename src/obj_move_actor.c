@@ -10,6 +10,9 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy);
 
 void obj_move_actor(g_s *g, obj_s *o, i32 dx, i32 dy)
 {
+    if (o->ID == OBJID_HERO && dx) {
+        // pltf_log("walk: %i\n", abs_i32(dx));
+    }
     for (i32 m = abs_i32(dx), s = 0 < dx ? +1 : -1; m; m--) {
         b32 was_grounded = obj_grounded(g, o);
         if (!obj_step_actor(g, o, s, 0)) break;

@@ -12,17 +12,14 @@
 
 // power and movement upgrades
 enum {
-    HERO_UPGRADE_HOOK,
-    HERO_UPGRADE_SPEAR,
-    HERO_UPGRADE_SWIM,
-    HERO_UPGRADE_DIVE,
-    HERO_UPGRADE_SPRINT,
-    HERO_UPGRADE_FLY,
-    HERO_UPGRADE_STOMP,
-    HERO_UPGRADE_CLIMB,
-    HERO_UPGRADE_POWERSTOMP,
-    //
-    NUM_HERO_UPGRADES = 32
+    HERO_UPGRADE_HOOK       = 1 << 0,
+    HERO_UPGRADE_SWIM       = 1 << 1,
+    HERO_UPGRADE_DIVE       = 1 << 2,
+    HERO_UPGRADE_FLY        = 1 << 3,
+    HERO_UPGRADE_CLIMB      = 1 << 4,
+    HERO_UPGRADE_STOMP      = 1 << 5,
+    HERO_UPGRADE_POWERSTOMP = 1 << 6,
+    HERO_UPGRADE_SPEAR      = 1 << 7,
 };
 
 // equippable optional charms
@@ -87,8 +84,8 @@ enum {
 #define HERO_CLIMB_Y1_OFFS             2 // from top downwards
 #define HERO_CLIMB_Y2_OFFS             4 // from bottom upwards
 #define HERO_TICKS_SPIN_ATTACK         22
-#define HERO_HURT_LP_TICKS             150 // duration of lowpass after hurt
-#define HERO_HURT_LP_TICKS_FADE        50  // ticks for fading from hurt lowpass back to normal
+#define HERO_HURT_LP_TICKS             85 // duration of lowpass after hurt
+#define HERO_HURT_LP_TICKS_FADE        30 // ticks for fading from hurt lowpass back to normal
 #define HERO_WATER_THRESHOLD           18
 #define HERO_WIDTH                     14
 #define HERO_X_OFFS_LADDER             ((16 - HERO_WIDTH) >> 1)
@@ -96,7 +93,7 @@ enum {
 #define HERO_HEIGHT_CROUCHED           16
 #define HERO_HEIGHT                    26
 #define HERO_VX_CRAWL                  384
-#define HERO_VX_WALK                   640
+#define HERO_VX_WALK                   768 // was 640
 #define HERO_VX_SPRINT                 896
 #define HERO_VX_MAX_GROUND             1024
 #define HERO_REEL_RATE                 30
@@ -104,8 +101,6 @@ enum {
 #define HEROHOOK_N_HIST                4
 #define HERO_BREATH_TICKS              200
 #define HERO_GRAVITY                   80
-#define HERO_GRAVITY_LOW               40
-#define HERO_LOW_GRAV_TICKS            80
 #define HERO_TICKS_PER_STAMINA_UPGRADE 1024
 #define HERO_DISTSQ_INTERACT           POW2(50)
 #define HERO_DISTSQ_PICKUP             POW2(100)
@@ -150,6 +145,15 @@ typedef struct {
 } jumpstomped_s;
 
 typedef struct hero_s {
+    bool32 cs_active;
+    void (*cs_arrived_cb)(g_s *g, obj_s *o);
+    v2_i32 cs_pos_src;
+    v2_i32 cs_pos_dst;
+    i16    cs_t_move_total;
+    i16    cs_t_move;
+    u8     cs_animID;
+    u8     cs_anim_n;
+    //
     u32    upgrades;
     u32    charms;
     u32    idle_ticks;
@@ -171,6 +175,7 @@ typedef struct hero_s {
     u16    stamina_added;
     u16    stamina;
     i16    ladderx;
+    u8     may_rest;
     u8     hitID;
     u8     ticks_health; // animator tick low health ui
     u8     state_prev;
@@ -206,8 +211,6 @@ typedef struct hero_s {
     u8     edgeticks;
     u8     jump_index; // index into jump parameter table
     u8     jumpticks;
-    u8     low_grav_ticks;
-    u8     low_grav_ticks_0;
     u8     hurt_ticks;
     u8     n_jumpstomped;
     u8     stamina_upgrades;
@@ -224,6 +227,7 @@ i32      hero_special_input(g_s *g, obj_s *o, inp_s inp);
 void     hero_on_update(g_s *g, obj_s *o, inp_s inp);
 void     hero_post_update(g_s *g, obj_s *o, inp_s inp);
 void     hero_on_animate(g_s *g, obj_s *o);
+void     hero_animate_ui(g_s *g);
 i32      hero_get_actual_state(g_s *g, obj_s *o);
 void     hero_on_squish(g_s *g, obj_s *o);
 void     hero_check_rope_intact(g_s *g, obj_s *o);
@@ -239,8 +243,6 @@ bool32   hero_present_and_alive(g_s *g, obj_s **o);
 void     hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel);
 bool32   hero_action_ungrapple(g_s *g, obj_s *o);
 obj_s   *hero_interactable_available(g_s *g, obj_s *o);
-i32      hero_breath_tick(obj_s *o);
-i32      hero_breath_tick_max(g_s *g);
 i32      hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy);
 i32      hero_ladder_or_climbwall_snapdata(g_s *g, obj_s *o, i32 offx, i32 offy, i32 *dt_snap_x);
 i32      hero_swim_frameID(i32 animation);
@@ -251,14 +253,9 @@ void     hero_walljump(g_s *g, obj_s *o, i32 dir);
 bool32   hero_stomping(obj_s *o);
 i32      hero_register_jumpstomped(obj_s *ohero, obj_s *o, bool32 stomped);
 i32      hero_can_grab(g_s *g, obj_s *o, i32 dirx);
-bool32   hero_has_upgrade(g_s *g, i32 ID);
-void     hero_add_upgrade(g_s *g, i32 ID);
-void     hero_rem_upgrade(g_s *g, i32 ID);
-void     hero_set_name(g_s *g, const char *name);
-char    *hero_get_name(g_s *g);
-void     hero_inv_add(g_s *g, i32 ID, i32 n);
-void     hero_inv_rem(g_s *g, i32 ID, i32 n);
-i32      hero_inv_count_of(g_s *g, i32 ID);
+bool32   hero_has_upgrade(g_s *g, u32 ID);
+void     hero_add_upgrade(g_s *g, u32 ID);
+void     hero_rem_upgrade(g_s *g, u32 ID);
 void     hero_ungrab(g_s *g, obj_s *o);
 hitbox_s hero_hitbox_spear(obj_s *o);
 hitbox_s hero_hitbox_spear_air(obj_s *o);
@@ -289,4 +286,5 @@ bool32 hero_ibuf_tap(hero_s *h, i32 b, i32 frames_ago);
 
 // if button was pressed max frames_ago
 bool32 hero_ibuf_pressed(hero_s *h, i32 b, i32 frames_ago);
+
 #endif

@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 
-#define NUM_GRASS          256
+#define NUM_GRASS          512
 #define NUM_WIGGLE         64
 #define NUM_DECO_VERLET_PT 16
 #define NUM_DECO_VERLET    64

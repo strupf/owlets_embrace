@@ -471,62 +471,6 @@ void title_update(app_s *app, title_s *t)
 #endif
 }
 
-void title_draw_fnt_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str, i32 style, b32 centeredx)
-{
-    i32 px = 0;
-    if (centeredx) {
-        px = fnt_length_px(f, str);
-    }
-
-    ALIGNAS(8) u32 pxtmp[((256 >> 5) << 1) * 32] = {0};
-
-    tex_s textmp = {0};
-    textmp.w     = 256;
-    textmp.h     = 32;
-    textmp.wword = (textmp.w >> 5) << 1;
-    textmp.px    = pxtmp;
-    textmp.fmt   = 1;
-
-    gfx_ctx_s ctxtmp = gfx_ctx_default(textmp);
-
-    switch (style) {
-    case 0: {
-        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
-        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
-        break;
-    }
-    case 1: {
-        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
-        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
-        break;
-    }
-    case 2: {
-        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 0);
-        // tex_outline_col_ext_small(textmp, GFX_COL_BLACK, 1);
-        break;
-    }
-    case 3: {
-        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_BLACK);
-        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
-        break;
-    }
-    case 4: {
-        fnt_draw_str(ctxtmp, f, (v2_i32){4, 4}, str, SPR_MODE_WHITE);
-        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
-        tex_outline_col_ext(textmp, GFX_COL_BLACK, 0);
-        break;
-    }
-    }
-
-    gfx_spr(ctx, texrec_from_tex(textmp), (v2_i32){pos.x - 4 - px / 2, pos.y - 2}, 0, 0);
-}
-
 void title_draw_btn(title_s *t, i32 ID)
 {
     gfx_ctx_s ctx  = gfx_ctx_display();
@@ -589,25 +533,25 @@ void title_draw_btn(title_s *t, i32 ID)
         v2_i32          fpos2 = {fpos1.x + 19, fpos1.y};
 
         if (sp->exists) {
-            title_draw_fnt_outline_style(ctx, font, fpos2, sp->name, 3, 0);
+            fnt_draw_outline_style(ctx, font, fpos2, sp->name, 3, 0);
         }
         char snum[2] = {'1' + (ID - TITLE_BTN_SLOT_1), 0};
-        title_draw_fnt_outline_style(ctx, font, fpos1, snum, 4, 0);
+        fnt_draw_outline_style(ctx, font, fpos1, snum, 4, 0);
         break;
     }
     case TITLE_BTN_SPEEDRUN: {
         v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Speedrun", 3, 0);
+        fnt_draw_outline_style(ctx, font, fpos, "Speedrun", 3, 0);
         break;
     }
     case TITLE_BTN_SLOT_COPY: {
         v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Copy", 3, 0);
+        fnt_draw_outline_style(ctx, font, fpos, "Copy", 3, 0);
         break;
     }
     case TITLE_BTN_SLOT_DELETE: {
         v2_i32 fpos = {pbut.x + 10, pbut.y + 4};
-        title_draw_fnt_outline_style(ctx, font, fpos, "Delete", 3, 0);
+        fnt_draw_outline_style(ctx, font, fpos, "Delete", 3, 0);
         break;
     }
     }
@@ -639,12 +583,12 @@ void title_render(title_s *t)
         }
 
         if (t->title_subst) {
-            title_draw_fnt_outline_style(ctx, font, (v2_i32){200, 168},
-                                         "Start", 2, 1);
-            title_draw_fnt_outline_style(ctx, font, (v2_i32){200, 190},
-                                         "Settings", 2, 1);
-            title_draw_fnt_outline_style(ctx, font, (v2_i32){200, 212},
-                                         "Credits", 2, 1);
+            fnt_draw_outline_style(ctx, font, (v2_i32){200, 168},
+                                   "Start", 2, 1);
+            fnt_draw_outline_style(ctx, font, (v2_i32){200, 190},
+                                   "Settings", 2, 1);
+            fnt_draw_outline_style(ctx, font, (v2_i32){200, 212},
+                                   "Credits", 2, 1);
             i32      fr_cursor  = ani_frame(ANIID_CURSOR, t->tick);
             texrec_s tr_cursor  = asset_texrec(TEXID_COVER, 352 + fr_cursor * 32, 384, 32, 32);
             v2_i32   pt_cursor1 = {160 - 16, 168 + 10 + 22 * t->option - 16};
@@ -658,8 +602,13 @@ void title_render(title_s *t)
                 i32       fs   = cos_q15(65536 + (ti2 << 10)) + 32768;
                 i32       pt   = lerp_i32(0, GFX_PATTERN_MAX, min_i32(fs, 32768), 32768);
                 ctxs.pat       = gfx_pattern_bayer_4x4(pt);
-                title_draw_fnt_outline_style(ctxs, font, (v2_i32){200, 190},
-                                             "- Press A/B -", 2, 1);
+
+                u8 fntstr[16] = {0};
+                str_cpy(fntstr, "- Press ");
+                str_append_char(fntstr, FNT_GLYPH_BTN_A);
+                str_append(fntstr, " -");
+                fnt_draw_outline_style(ctxs, font, (v2_i32){200, 190},
+                                       fntstr, 2, 1);
             }
         }
 
@@ -717,15 +666,15 @@ void title_render(title_s *t)
         break;
     }
     case TITLE_ST_FILE_SELECT: {
-        title_draw_fnt_outline_style(ctx, fhead, phead, "Select file", shead, 0);
+        fnt_draw_outline_style(ctx, fhead, phead, "Select file", shead, 0);
         break;
     }
     case TITLE_ST_FILE_SELECTED: {
-        title_draw_fnt_outline_style(ctx, fhead, phead, "Start file?", shead, 0);
+        fnt_draw_outline_style(ctx, fhead, phead, "Start file?", shead, 0);
         break;
     }
     case TITLE_ST_FILE_CPY: {
-        title_draw_fnt_outline_style(ctx, fhead, phead, "Copy to", shead, 0);
+        fnt_draw_outline_style(ctx, fhead, phead, "Copy to", shead, 0);
         break;
     }
     case TITLE_ST_FILE_CPY_CONFIRM: {
@@ -791,9 +740,6 @@ void title_draw_version()
 
     i32 lv = 7 + 4 + 7 * (10 <= GAME_V_MIN ? 2 : 1) + 4 +
              7 * (10 <= GAME_V_PAT ? 2 : 1);
-    if (GAME_V_DEV) {
-        lv += 7 + 7 * (10 <= GAME_V_DEV ? 2 : 1);
-    }
     v2_i32 pnum = {397 - lv, 227};
 
     // major
@@ -832,26 +778,6 @@ void title_draw_version()
     tnum.x = 8 * (GAME_V_PAT % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
-
-    if (GAME_V_DEV) {
-        // slash
-        tnum.x = 88;
-        gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
-        pnum.x += 7;
-
-        if (100 <= GAME_V_DEV) {
-            tnum.x = 8 * (GAME_V_DEV / 100);
-            gfx_spr_tile_32x32(ctx, tnum, pnum);
-            pnum.x += 7;
-        }
-        if (10 <= GAME_V_DEV) {
-            tnum.x = 8 * ((GAME_V_DEV / 10) % 10);
-            gfx_spr_tile_32x32(ctx, tnum, pnum);
-            pnum.x += 7;
-        }
-        tnum.x = 8 * (GAME_V_DEV % 10);
-        gfx_spr_tile_32x32(ctx, tnum, pnum);
-    }
 }
 
 v2_i32 title_btn_pos(title_s *t, i32 ID)

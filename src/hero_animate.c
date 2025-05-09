@@ -195,7 +195,7 @@ void hero_on_animate(g_s *g, obj_s *o)
         if (h->crouched) {
             fr_y = 11;
             if (h->crouched < 0) { // crawling
-                o->animation += o->v_q8.x * o->facing;
+                                   // o->animation += o->v_q8.x * o->facing;
                 fr_x = 5 + modu_i32(o->animation / 1500, 6);
             } else { // sit
                 if (h->crouched < HERO_CROUCHED_MAX_TICKS) {
@@ -247,9 +247,9 @@ void hero_on_animate(g_s *g, obj_s *o)
             i32 va           = abs_i32(o->v_q8.x);
             if (HERO_VX_SPRINT <= va && fr_y == HERO_ANIMID_WALK && !h->holds_spear) {
                 fr_y = HERO_ANIMID_RUN;
-                o->animation += (va * 220) >> 8;
+                // o->animation += (va * 220) >> 8;
             } else {
-                o->animation += va;
+                //  o->animation += va;
             }
 
             if (h->skidding && !h->holds_spear) {
@@ -288,6 +288,10 @@ void hero_on_animate(g_s *g, obj_s *o)
             h->idle_anim = idle_animp + 1;
         } else if (!h->holds_spear && 100 <= h->idle_ticks && rngr_i32(0, 512) == 0) {
             h->idle_anim = 1;
+        }
+
+        if (!h->may_rest) {
+            h->idle_anim = 0;
         }
 
 #define HERO_TICKS_IDLE_SIT 60
@@ -468,7 +472,7 @@ void hero_on_animate(g_s *g, obj_s *o)
 
     sprite->trec.x = sprite->trec.w * (fr_x + fr_x_add);
     sprite->trec.y = sprite->trec.h * fr_y;
-#ifdef PLTF_DEBUG
+#if PLTF_DEBUG && 0
     rec_i32 rsprite = {sprite->trec.x, sprite->trec.y, sprite->trec.w, sprite->trec.h};
     rec_i32 rtex    = {0, 0, sprite->trec.t.w, sprite->trec.t.h};
     rec_i32 rinter;

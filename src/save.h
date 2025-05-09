@@ -9,15 +9,16 @@
 #include "minimap.h"
 
 enum {
-    SAVE_EV_NEW_GAME              = 1000,
-    SAVE_EV_INTRO_PLAYED          = 1010,
-    SAVE_EV_COMPANION_FOUND       = 1020,
-    SAVE_EV_UNLOCKED_MAP          = 1030,
-    SAVE_EV_BOSS_GOLEM            = 1100,
-    SAVE_EV_BOSS_PLANT            = 1101,
-    SAVE_EV_BOSS_PLANT_INTRO_SEEN = 1102,
+    SAVE_EV_NEW_GAME              = 1,
+    SAVE_EV_INTRO_PLAYED          = 2,
+    SAVE_EV_COMPANION_FOUND       = 3,
+    SAVE_EV_UNLOCKED_MAP          = 4,
+    SAVE_EV_CS_POWERUP_FIRST_TIME = 5,
+    SAVE_EV_BOSS_GOLEM            = 200,
+    SAVE_EV_BOSS_PLANT            = 201,
+    SAVE_EV_BOSS_PLANT_INTRO_SEEN = 202,
     //
-    NUM_SAVE_EV                   = 1280
+    NUM_SAVE_EV                   = 1024
 };
 
 b32 save_event_register(g_s *g, i32 ID);
@@ -38,8 +39,6 @@ typedef struct {
     u8  unused[2];
 } save_header_s;
 
-static_assert(sizeof(save_header_s) == 8, "size save header");
-
 typedef struct {
     u32           tick;
     u8            name[LEN_HERO_NAME];
@@ -54,7 +53,7 @@ typedef struct {
     u8            n_map_pins;
     u32           save[NUM_SAVE_EV / 32];
     minimap_pin_s pins[MAP_NUM_PINS];
-    u32           map_visited[MINIMAP_N_SCREENS >> 4];
+    u32           map_visited[MINIMAP_N_SCREENS >> 5]; // 1 instead of 2 bits
 } savefile_s;
 
 // fills in empty/new savefile
@@ -68,5 +67,6 @@ err32 savefile_w(i32 slot, savefile_s *s);
 // tries to read a savefile into save; 0 on success
 err32 savefile_r(i32 slot, savefile_s *s);
 b32   savefile_del(i32 slot);
+void  savefile_save_event_register(savefile_s *s, i32 ID);
 
 #endif

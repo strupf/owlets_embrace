@@ -46,6 +46,7 @@ typedef struct {
 } inp_state_s;
 
 typedef struct {
+    ALIGNAS(8)
     inp_state_s p;
     inp_state_s c;
 } inp_s;

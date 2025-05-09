@@ -31,11 +31,10 @@ void   hero_do_dead_in_air(g_s *g, obj_s *o);
 void   hero_do_dead_in_water(g_s *g, obj_s *o);
 i32    hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o);
 bool32 hero_on_valid_ladder_or_climbwall(g_s *g, obj_s *o, i32 offx, i32 offy);
-
+i32    hero_get_actual_state(g_s *g, obj_s *o);
 void   hero_inair_jump(g_s *g, obj_s *o, inp_s inp, b32 can_air_jump);
 void   hero_leave_and_clear_inair(obj_s *o);
 void   hero_restore_grounded_stuff(g_s *g, obj_s *o);
-i32    hero_get_actual_state(g_s *g, obj_s *o);
 void   hero_start_jump(g_s *g, obj_s *o, i32 ID);
 void   hero_hurt(g_s *g, obj_s *o, i32 damage);
 void   hero_on_squish(g_s *g, obj_s *o);
@@ -132,7 +131,7 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
                        !o->rope &&
                        0 < dpad_y;
     if (can_stomp && inps_btn_jp(inp, INP_A)) {
-        snd_play(SNDID_STOMP_START, 1.0f, 1.0f);
+        snd_play(SNDID_STOMP_START, 0.5f, 1.0f);
         h->stomp  = 1;
         o->v_q8.x = 0;
         o->v_q8.y = 0;
@@ -146,7 +145,8 @@ i32 hero_special_input(g_s *g, obj_s *o, inp_s inp)
                                 !h->ladder &&
                                 !h->holds_spear &&
                                 !h->grabbing;
-    if (can_snap_to_ladder && inps_btn_jp(inp, INP_DU) &&
+    if (can_snap_to_ladder &&
+        (inps_btn_jp(inp, INP_DU) | inps_btn_jp(inp, INP_DD)) &&
         hero_try_snap_to_ladder_or_climbwall(g, o)) {
         grapplinghook_destroy(g, &g->ghook);
         hero_itemswap_cancel(o);
@@ -397,8 +397,11 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         }
 
         i32 particleID = PARTICLE_EMIT_ID_HERO_WATER_SPLASH;
-        if (1000 <= o->v_q8.y) {
+        if (1500 <= o->v_q8.y) {
             particleID = PARTICLE_EMIT_ID_HERO_WATER_SPLASH_BIG;
+            snd_play(SNDID_WATER_SPLASH_BIG, 0.50f, 1.f);
+        } else {
+            snd_play(SNDID_WATER_SPLASH_BIG, 0.25f, 1.f);
         }
         particle_emit_ID(g, particleID, splashpos);
     }
@@ -467,14 +470,6 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         g->objrender_dirty = 1;
     }
 
-    if (h->jump_ui_may_hide) {
-        h->stamina_ui_fade_out = max_i32((i32)h->stamina_ui_fade_out - 1, 0);
-    } else {
-        h->stamina_ui_fade_out = min_i32((i32)h->stamina_ui_fade_out + 3, STAMINA_UI_TICKS_HIDE);
-    }
-    if (h->stamina_ui_collected_tick) {
-        h->stamina_ui_collected_tick--;
-    }
     if (st == HERO_ST_AIR) {
         hero_stamina_update_ui(o, (i32)!h->stamina_ui_collected_tick << 7);
     } else {
@@ -522,7 +517,7 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
             if (250 <= o->v_q8.y) {
                 h->impact_ticks = min_i32(o->v_q8.y >> 8, 8) + 2;
                 snd_play(SNDID_LANDING,
-                         0.25f * (min_f32(o->v_q8.y, 1500.f) - 250.f) / 1250.f,
+                         0.6f * (min_f32(o->v_q8.y, 1500.f) - 250.f) / 1250.f,
                          rngr_f32(0.9f, 1.1f));
             }
 
@@ -632,14 +627,26 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
         break;
     }
     case HERO_ST_AIR: {
-        i32 grav = HERO_GRAVITY;
+        // low gravity at peak of jump curve
+        // lerp from normal gravity to lowest gravity and back again
+#define LOW_GRAV_Q8 160
+#define LOW_GRAV_LO -200 // v q8 when low gravity starts
+#define LOW_GRAV_HI +100 // v q8 when low gravity ends
+#define LOW_GRAV_PK +0   // v q8 with lowest gravity
 
-        if (h->low_grav_ticks) {
-            i32 gt0 = pow2_i32(h->low_grav_ticks_0);
-            i32 gt1 = pow2_i32(h->low_grav_ticks - h->low_grav_ticks_0);
-            grav    = lerp_i32(HERO_GRAVITY_LOW, HERO_GRAVITY, gt1, gt0);
-            h->low_grav_ticks--;
+        i32 grav_k_q8 = 256;
+        if (LOW_GRAV_LO < o->v_q8.y && o->v_q8.y <= LOW_GRAV_PK) {
+            i32 k1    = o->v_q8.y - LOW_GRAV_LO;
+            i32 k2    = LOW_GRAV_PK - LOW_GRAV_LO;
+            grav_k_q8 = lerp_i32(256, LOW_GRAV_Q8, k1, k2);
         }
+        if (LOW_GRAV_PK <= o->v_q8.y && o->v_q8.y < LOW_GRAV_HI) {
+            i32 k1    = o->v_q8.y - LOW_GRAV_PK;
+            i32 k2    = LOW_GRAV_HI - LOW_GRAV_PK;
+            grav_k_q8 = lerp_i32(LOW_GRAV_Q8, 256, k1, k2);
+        }
+        i32 grav = (HERO_GRAVITY * grav_k_q8) >> 8;
+
         if (h->spinattack) {
             grav >>= 1;
         }
@@ -657,8 +664,18 @@ void hero_on_update(g_s *g, obj_s *o, inp_s inp)
     }
     }
 
-    h->state_prev = h->state_curr;
-    h->state_curr = st;
+    h->state_prev = st;
+
+    if (h->crouched < 0) {
+        o->animation += o->v_q8.x * o->facing;
+    } else if (st == HERO_ST_GROUND) {
+        i32 va = abs_i32(o->v_q8.x);
+        if (HERO_VX_SPRINT <= va) {
+            o->animation += (va * 220) >> 8;
+        } else {
+            o->animation += va;
+        }
+    }
 }
 
 void hero_on_squish(g_s *g, obj_s *o)
@@ -686,6 +703,7 @@ void hero_hurt(g_s *g, obj_s *o, i32 damage)
     if (h->invincibility_ticks || !o->health || !damage) return;
 
     o->health = u8_subs(o->health, damage);
+    snd_play(SNDID_HURT, 1.2f, 1.f);
 
     if (o->health) {
         h->ticks_health        = HERO_LOW_HP_ANIM_TICKS_HIT;
@@ -725,13 +743,13 @@ void hero_start_jump(g_s *g, obj_s *o, i32 ID)
     h->jumpticks      = (u8)jv.ticks;
     o->v_q8.y         = -jv.vy;
     if (ID == HERO_JUMP_GROUND) {
-        snd_play(SNDID_JUMP, 0.7f, rngr_f32(0.9f, 1.1f));
+        snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
         v2_i32 prtp = obj_pos_bottom_center(o);
         prtp.y -= 4;
         particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
     }
     if (ID == HERO_JUMP_FLY) {
-        h->jump_snd_iID = snd_play(SNDID_WING, 0.9f, rngr_f32(0.9f, 1.1f));
+        h->jump_snd_iID = snd_play(SNDID_WING, 1.4f, rngr_f32(0.9f, 1.1f));
     }
 }
 
@@ -794,7 +812,7 @@ void hero_restore_grounded_stuff(g_s *g, obj_s *o)
     h->edgeticks       = 6;
     if (h->stomp) {
         h->stomp = 0;
-        snd_play(SNDID_STOMP, 1.f, 1.f);
+        snd_play(SNDID_STOMP, 0.5f, 1.f);
     }
     staminarestorer_respawn_all(g, o);
     hero_stamina_add_ui(o, 10000);
@@ -831,7 +849,7 @@ void hero_action_throw_grapple(g_s *g, obj_s *o, i32 ang_q16, i32 vel)
 {
     hero_s *h              = (hero_s *)o->heap;
     v2_i32  vlaunch        = grapplinghook_vlaunch_from_angle(ang_q16, vel);
-    g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.35f, rngr_f32(0.95f, 1.05f));
+    g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
     v2_i32 center          = obj_pos_center(o);
 
     if (0 < o->v_q8.y) {
@@ -858,18 +876,14 @@ bool32 hero_action_ungrapple(g_s *g, obj_s *o)
         mulx = 280;
     }
     if (abs_i32(o->v_q8.y) < 600) {
-        muly = 270;
+        muly = 280;
     }
 
     obj_v_q8_mul(o, mulx, muly);
+    if (o->v_q8.y <= 0) {
+        o->v_q8.y -= 200;
+    }
     o->v_q8.x += 200 * sgn_i32(o->v_q8.x);
-    o->v_q8.y += o->v_q8.y < 0 ? -200 : 0;
-
-#define LOW_G_TICKS_VEL 4000
-    i32 low_g_v         = min_i32(abs_i32(o->v_q8.y), LOW_G_TICKS_VEL);
-    h->low_grav_ticks_0 = HERO_LOW_GRAV_TICKS;
-    h->low_grav_ticks   = lerp_i32(0, HERO_LOW_GRAV_TICKS, low_g_v, LOW_G_TICKS_VEL);
-
     return 1;
 }
 
@@ -878,7 +892,7 @@ void hero_stomped_ground(g_s *g, obj_s *o)
     hero_s *h = (hero_s *)o->heap;
     if (h->stomp) {
         h->stomp = 0;
-        snd_play(SNDID_STOMP, 1.f, 1.f);
+        snd_play(SNDID_STOMP, 0.25f, 1.f);
     }
 }
 
@@ -1108,7 +1122,7 @@ void hero_inair_jump(g_s *g, obj_s *o, inp_s inp, b32 can_air_jump)
     } else if (jump_wall) {
         hero_walljump(g, o, dpad_x);
     } else if (jump_midair) {
-        hero_stamina_modify(o, -192);
+        hero_stamina_modify(o, -384);
         hero_start_jump(g, o, HERO_JUMP_FLY);
 
         v2_i32 dcpos = obj_pos_center(o);
@@ -1156,7 +1170,7 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
         obj_move(g, o, 0, -water_depth);
         hero_start_jump(g, o, HERO_JUMP_WATER);
         particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_WATER_SPLASH, hcenter);
-        snd_play(SNDID_WATER_OUT_OF, 0.5f, 1.f);
+        snd_play(SNDID_WATER_OUT_OF, 0.35f, 1.f);
         return;
     }
 
@@ -1174,13 +1188,13 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
         i32 fid2 = hero_swim_frameID(o->animation + 1);
         if (o->animation == 0 || (fid2 == 0 && fid1 != fid2)) {
             h->swimsfx_delay = 20;
-            snd_play(SNDID_WATER_SWIM_1, 0.30f, rngr_f32(0.9f, 1.1f));
+            snd_play(SNDID_WATER_SWIM_1, 0.25f, rngr_f32(0.9f, 1.1f));
         }
     } else {
         i32 fid1 = hero_swim_frameID_idle(o->animation);
         i32 fid2 = hero_swim_frameID_idle(o->animation + 1);
         if (o->animation == 0 || ((fid2 == 0 || fid2 == 4) && fid1 != fid2)) {
-            snd_play(SNDID_WATER_SWIM_2, 0.15f, rngr_f32(0.9f, 1.1f));
+            snd_play(SNDID_WATER_SWIM_2, 0.20f, rngr_f32(0.9f, 1.1f));
         }
     }
 
@@ -1215,7 +1229,10 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
         if (!overlap_rec(fr, heroaabb)) continue;
 
         i32 ax = abs_i32(o->v_q8.x);
-        fluid_area_impact(fa, hcenter.x - fa->x, 10, rngr_sym_i32(10), FLUID_AREA_IMPACT_FLAT);
+        hcenter.x += sgn_i32(o->v_q8.x) * 10;
+        fluid_area_impact(fa, hcenter.x - fa->x, 10,
+                          -ax / 15 + rngr_sym_i32(10) + ((8 * sin_q15(g->tick_animation << 13)) >> 15),
+                          FLUID_AREA_IMPACT_FLAT);
     }
 
     if (dpad_x != sgn_i32(o->v_q8.x)) {
@@ -1223,7 +1240,7 @@ void hero_do_swimming(g_s *g, obj_s *o, inp_s inp)
     }
     if (dpad_x) {
         i32 i0 = (dpad_x == sgn_i32(o->v_q8.x) ? abs_i32(o->v_q8.x) : 0);
-        i32 ax = (max_i32(512 - i0, 0) * 32) >> 8;
+        i32 ax = (max_i32(768 - i0, 0) * 32) >> 8;
         o->v_q8.x += ax * dpad_x;
     }
 }
@@ -1240,7 +1257,7 @@ void hero_do_climbing(g_s *g, obj_s *o, inp_s inp)
     } else if (dpad_y && sta) {
         i32 N = 3;
         if (dpad_y < 0) {
-            hero_stamina_modify(o, -24);
+            hero_stamina_modify(o, -28);
             N = 2;
             o->animation += 2;
         } else {
@@ -1252,7 +1269,6 @@ void hero_do_climbing(g_s *g, obj_s *o, inp_s inp)
             rec_i32 r = {o->pos.x, o->pos.y + dpad_y, o->w, o->h};
             if (map_blocked(g, r) ||
                 !hero_is_climbing_offs(g, o, o->facing, 0, dpad_y)) {
-                pltf_log("STOP");
                 break;
             }
 
@@ -1616,34 +1632,6 @@ i32 hero_try_snap_to_ladder_or_climbwall(g_s *g, obj_s *o)
     return snap_to;
 }
 
-void hero_set_name(g_s *g, const char *name)
-{
-    hero_s *h = &g->hero;
-    str_cpy((char *)h->name, name);
-}
-
-char *hero_get_name(g_s *g)
-{
-    hero_s *h = &g->hero;
-    return (char *)&h->name[0];
-}
-
-void hero_inv_add(g_s *g, i32 ID, i32 n)
-{
-}
-
-void hero_inv_rem(g_s *g, i32 ID, i32 n)
-{
-}
-
-i32 hero_inv_count_of(g_s *g, i32 ID)
-{
-
-    return 0;
-}
-
-i32 hero_get_actual_state(g_s *g, obj_s *o);
-
 void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 {
     hero_s *h   = (hero_s *)o->heap;
@@ -1674,6 +1662,7 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
         if (i->enemy.hurt_on_jump && i->health) {
             enemy_hurt(g, i, 1);
+            snd_play(SNDID_JUMPON, 1.0f, 1.f);
             bounced = 1;
         }
 
@@ -1716,7 +1705,7 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
 
         if (grounded || stomp_bounce) {
             if (grounded) {
-                snd_play(SNDID_STOMP_LAND, 1.0f, 1.0f);
+                snd_play(SNDID_STOMP_LAND, 0.5f, 1.0f);
                 h->stomp = -HERO_STOMP_LANDING_TICKS;
             }
 
@@ -1920,6 +1909,6 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
         o->v_q8.x = h->safe_v.x;
         o->v_q8.y = h->safe_v.y;
         o->facing = (i8)h->safe_facing;
-        // maptransition_teleport(g, g->map_hash, h->safe_pos);
+        cs_maptransition_teleport(g, g->map_hash, h->safe_pos);
     }
 }

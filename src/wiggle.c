@@ -49,7 +49,7 @@ void grass_draw(g_s *g, rec_i32 camrec, v2_i32 camoffset)
             v2_i32 p = pos;
             p.y += i;
             p.x += (gr->x_q8 * (15 - i)) >> 8; // shear
-            trgrass.x = 224 + 8;
+            trgrass.x = 0 + 8;
             trgrass.y = i + gr->type * 16;
             trgrass.w = 16;
             trgrass.h = 1;

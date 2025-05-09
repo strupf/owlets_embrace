@@ -12,7 +12,6 @@
 #include "core/gfx.h"
 #include "core/inp.h"
 #include "core/spm.h"
-#include "textinput.h"
 #include "util/bitrw.h"
 #include "util/easing.h"
 #include "util/json.h"
@@ -27,24 +26,19 @@
 #define GAME_V_MAJ 0
 #define GAME_V_MIN 1
 #define GAME_V_PAT 0
-#define GAME_V_DEV 0 // dev version pre-release - 0 for public release
 
-#define GAME_VERSION_GEN(A, B, C, D) (((u32)(A) << 24) | \
-                                      ((u32)(B) << 16) | \
-                                      ((u32)(C) << 8) |  \
-                                      ((u32)(D)))
+#define GAME_VERSION_GEN(A, B, C) (((u32)(A) << 16) | \
+                                   ((u32)(B) << 8) |  \
+                                   ((u32)(C) << 0))
 
-#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJ, \
-                                      GAME_V_MIN, \
-                                      GAME_V_PAT, \
-                                      GAME_V_DEV)
+#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJ, GAME_V_MIN, GAME_V_PAT)
 
 typedef struct {
     ALIGNAS(4)
+    u8 unused;
     u8 vmaj;
     u8 vmin;
     u8 vpat;
-    u8 vdev;
 } game_version_s;
 
 static game_version_s game_version_decode(u32 v)
@@ -67,6 +61,9 @@ typedef struct obj_s obj_s;
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
 typedef struct obj_handle_s {
+#if PLTF_PD
+    ALIGNAS(8)
+#endif
     obj_s *o;
     u32    generation;
 } obj_handle_s;

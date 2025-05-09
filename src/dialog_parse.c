@@ -7,8 +7,12 @@
 
 typedef struct dialog_parser_s {
     u8              *c;
+    i32              has_flags_ticks_tmp;
+    i32              flags_ticks_tmp;
     i32              flags_ticks;
     i32              next_trigger;
+    i32              voice;
+    i32              pos;
     dialog_line_s   *line;
     dialog_choice_s *choice;
     dialog_frame_s  *frame;
@@ -21,6 +25,7 @@ void   dialog_parse_cmd(g_s *g, dialog_s *d, dialog_parser_s *p);
 void   dialog_set_speed(dialog_parser_s *p, i32 ticks);
 void   dialog_newframe_cmd(dialog_s *d, dialog_parser_s *p);
 void   dialog_newline_cmd(dialog_s *d, dialog_parser_s *p);
+i32    dialog_set_speed_x(i32 f, i32 ticks);
 
 void dialog_newline_cmd(dialog_s *d, dialog_parser_s *p)
 {
@@ -40,7 +45,9 @@ void dialog_newframe_cmd(dialog_s *d, dialog_parser_s *p)
     p->frame = &d->frames[d->n_frames++];
     mclr(p->frame, sizeof(dialog_frame_s));
 
-    p->line = &p->frame->lines[p->frame->n_lines++];
+    p->frame->pos         = p->pos;
+    p->frame->speak_voice = p->voice;
+    p->line               = &p->frame->lines[p->frame->n_lines++];
 }
 
 void dialog_parse_string(g_s *g, dialog_s *d, const char *str)
@@ -92,24 +99,16 @@ void dialog_parse_string(g_s *g, dialog_s *d, const char *str)
         }
     }
 ENDPARSING:;
-
-#if 0
-    for (i32 n = 0; n < d->n_frames; n++) {
-        dialog_frame_s *frame = &d->frames[n];
-        for (i32 k = 0; k < frame->n_lines; k++) {
-            dialog_line_s *line = &frame->lines[k];
-            for (i32 i = 0; i < line->n_chars; i++) {
-                pltf_log("%c", (char)line->chars[i].c);
-            }
-            pltf_log("\n");
-        }
-        pltf_log("---\n");
-    }
-#endif
 }
 
 bool32 dialog_line_try_add_char(dialog_parser_s *p, dialog_char_s c)
 {
+    if (p->has_flags_ticks_tmp) {
+        c.flags_ticks          = p->flags_ticks_tmp;
+        p->has_flags_ticks_tmp = 0;
+    } else {
+        c.flags_ticks = p->flags_ticks;
+    }
     c.trigger       = p->next_trigger;
     p->next_trigger = 0;
     if (p->line && p->line->n_chars < DIALOG_NUM_CHARS_PER_LINE) {
@@ -124,6 +123,11 @@ void dialog_parse_cmd(g_s *g, dialog_s *d, dialog_parser_s *p)
     assert(*p->c == '{');
     p->c++;
     switch (*p->c) {
+    case '.': // {.E}
+        p->flags_ticks_tmp     = dialog_set_speed_x(p->flags_ticks, num_from_hex(p->c[1]));
+        p->has_flags_ticks_tmp = 1;
+        p->c += 2;
+        break;
     case 'n':
         p->c++;
         dialog_newline_cmd(d, p);
@@ -157,46 +161,54 @@ void dialog_parse_cmd(g_s *g, dialog_s *d, dialog_parser_s *p)
         p->c++;
         break;
     }
-    default: {
-        if (0) {
-        } else if (dialog_str_equals(p->c, "Player")) {
-            p->c += 6; // + "Player"
-            for (u8 *pc = &g->hero.name[0]; *pc != '\0'; pc++) {
-                dialog_char_s namec = {0};
-                namec.c             = *pc;
-                namec.flags_ticks   = p->flags_ticks;
-                dialog_line_try_add_char(p, namec);
-            }
-        } else if (dialog_str_equals(p->c, "Trigger")) { // Trigger:FF
-            p->next_trigger = dialog_conv_hex(p->c[8 + 0], p->c[8 + 1]);
-            p->c += 10;
-        } else if (dialog_str_equals(p->c, "Symbol")) { // Symbol:EF
-            i32           sID   = dialog_conv_hex(p->c[7 + 0], p->c[7 + 1]);
-            dialog_char_s namec = {0};
-            namec.c             = sID;
-            namec.flags_ticks   = p->flags_ticks;
-            dialog_line_try_add_char(p, namec);
-            p->c += 9;
-        } else if (dialog_str_equals(p->c, "Choice")) {
-            p->c += 7; // {Choice:Yes, please!:FF:01}
-            dialog_choice_s *choice = &d->choices[d->n_choices++];
-            u8              *cc     = &choice->chars[0];
-            while (*p->c != ':') {
-                *cc = *p->c;
-                cc++;
-                p->c++;
-            }
-            choice->ID1 = dialog_conv_hex(p->c[1], p->c[2]);
-            if (p->c[3] == ':') {
-                choice->ID2 = dialog_conv_hex(p->c[4], p->c[5]);
-                p->c += 6;
-            } else {
-                p->c += 3;
-            }
-        } else {
-        }
-        break;
     }
+
+    if (0) {
+    } else if (dialog_str_equals(p->c, "Player")) {
+        p->c += 6; // + "Player"
+        for (u8 *pc = &g->hero.name[0]; *pc != '\0'; pc++) {
+            dialog_char_s namec = {0};
+            namec.c             = *pc;
+            dialog_line_try_add_char(p, namec);
+        }
+    } else if (dialog_str_equals(p->c, "Trigger")) { // Trigger:FF
+        p->next_trigger = dialog_conv_hex(p->c[8 + 0], p->c[8 + 1]);
+        p->c += 10;
+    } else if (dialog_str_equals(p->c, "top")) { // Top/bot
+        p->pos        = DIALOG_POS_TOP;
+        p->frame->pos = p->pos;
+        p->c += 3;
+    } else if (dialog_str_equals(p->c, "bot")) { // Top/bot
+        p->pos        = DIALOG_POS_BOT;
+        p->frame->pos = p->pos;
+        p->c += 3;
+    } else if (dialog_str_equals(p->c, "Voice")) { // Voice:F
+        p->voice              = dialog_conv_hex(0, p->c[6]);
+        p->frame->speak_voice = p->voice;
+        p->c += 7;
+    } else if (dialog_str_equals(p->c, "Char")) { // Char:EF
+        i32           sID   = dialog_conv_hex(p->c[5 + 0], p->c[5 + 1]);
+        dialog_char_s namec = {0};
+        namec.c             = sID;
+        dialog_line_try_add_char(p, namec);
+        p->c += 7;
+    } else if (dialog_str_equals(p->c, "Choice")) {
+        p->c += 7; // {Choice:Yes, please!:FF:01}
+        dialog_choice_s *choice = &d->choices[d->n_choices++];
+        u8              *cc     = &choice->chars[0];
+        while (*p->c != ':') {
+            *cc = *p->c;
+            cc++;
+            p->c++;
+        }
+        choice->ID1 = dialog_conv_hex(p->c[1], p->c[2]);
+        if (p->c[3] == ':') {
+            choice->ID2 = dialog_conv_hex(p->c[4], p->c[5]);
+            p->c += 6;
+        } else {
+            p->c += 3;
+        }
+    } else {
     }
     while (*p->c != '}') {
         p->c++;
@@ -208,9 +220,14 @@ i32 dialog_conv_hex(i32 c1, i32 c2)
     return ((num_from_hex(c1) << 4) | num_from_hex(c2));
 }
 
+i32 dialog_set_speed_x(i32 f, i32 ticks)
+{
+    return ((f & ~0xF) | (ticks & 0xF));
+}
+
 void dialog_set_speed(dialog_parser_s *p, i32 ticks)
 {
-    p->flags_ticks = (p->flags_ticks & ~0xF) | (ticks & 0xF);
+    p->flags_ticks = dialog_set_speed_x(p->flags_ticks, ticks);
 }
 
 bool32 dialog_str_equals(u8 *c, const char *strc)
@@ -220,7 +237,7 @@ bool32 dialog_str_equals(u8 *c, const char *strc)
 
     while (1) {
         if (*y == '\0' || *y == '}') return 1;
-        if (*x != *y) break;
+        if (char_lower(*x) != char_lower(*y)) break;
         x++;
         y++;
     }

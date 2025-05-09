@@ -158,6 +158,12 @@ static inline void str_append(void *dst, const void *src)
     }
 }
 
+static inline void str_append_char(void *dst, i32 c)
+{
+    u8 ch[2] = {(u8)c, '\0'};
+    str_append(dst, ch);
+}
+
 // appends string b -> overwrites null-char and places a new null-char
 static void str_append_i(void *dst, i32 i)
 {
@@ -209,7 +215,7 @@ static i32 num_from_hex(i32 c)
     case 'F':
     case 'f': return 15;
     }
-    return -1;
+    return 0;
 }
 
 static i32 hex_from_num(i32 c)
@@ -331,9 +337,5 @@ static int QX_gen(const char *str, int q)
 
     return (neg ? -n : +n);
 }
-
-#define Q_4(NUM)  (int)((NUM) * 16.f)
-#define Q_8(NUM)  (int)((NUM) * 256.f)
-#define Q_16(NUM) (int)((NUM) * 65536.f)
 
 #endif

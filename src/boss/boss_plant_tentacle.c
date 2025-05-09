@@ -13,6 +13,8 @@
 #define BPLANT_TENTACLE_N_SEG           16
 
 typedef struct {
+    u16          t_emerge;
+    u16          t_active;
     bplant_seg_s seg[BPLANT_TENTACLE_N_SEG];
 } boss_plant_tentacle_s;
 
@@ -32,11 +34,12 @@ static inline i32 boss_plant_tentacle_dat(i32 n)
 
 void boss_plant_tentacle_on_update(g_s *g, obj_s *o)
 {
+    boss_plant_tentacle_s *b = (boss_plant_tentacle_s *)o->mem;
     o->timer++;
 
     switch (o->state) {
     case BPLANT_TENTACLE_ANTICIPATE: {
-        if (50 <= o->timer) {
+        if (b->t_emerge <= o->timer) {
             o->timer = 0;
             o->state++;
         }
@@ -51,7 +54,7 @@ void boss_plant_tentacle_on_update(g_s *g, obj_s *o)
         break;
     }
     case BPLANT_TENTACLE_SHOWN: {
-        if (BPLANT_TENTACLE_TICKS_SHOW <= o->timer) {
+        if (b->t_active <= o->timer) {
             o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
             o->timer = 0;
             o->state++;
@@ -131,7 +134,7 @@ void boss_plant_tentacle_on_draw(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)
     // tentacle
     for (i32 n = 0; n < BPLANT_TENTACLE_N_SEG; n++) {
         v2_i32    pos = v2_i32_add(pos2, v2_i32_shr(b->seg[n].p_q8, 8));
-        i32       d   = max_i32(32 - n * 2, 3);
+        i32       d   = max_i32(30 - n * 2, 3);
         gfx_ctx_s c2  = c;
         c2.pat        = gfx_pattern_50();
         gfx_cir_fill(c2, pos, d, PRIM_MODE_BLACK_WHITE);
@@ -140,7 +143,7 @@ void boss_plant_tentacle_on_draw(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)
     // middle shading
     for (i32 n = 3; n < BPLANT_TENTACLE_N_SEG; n++) {
         v2_i32 pos = v2_i32_add(pos2, v2_i32_shr(b->seg[n].p_q8, 8));
-        i32    d   = 24 - n * 2;
+        i32    d   = 22 - n * 2;
         if (d <= 0) break;
         gfx_cir_fill(c, pos, d, PRIM_MODE_WHITE);
     }
@@ -244,12 +247,12 @@ void boss_plant_tentacle_on_animate(g_s *g, obj_s *o)
     }
 }
 
-obj_s *boss_plant_tentacle_emerge(g_s *g, i32 x, i32 y)
+obj_s *boss_plant_tentacle_emerge(g_s *g, i32 x, i32 y, i32 t_emerge, i32 t_active)
 {
     obj_s *o      = obj_create(g);
     o->ID         = OBJID_BOSS_PLANT_TENTACLE;
     o->w          = 24;
-    o->h          = 100;
+    o->h          = 90;
     o->pos.x      = g->boss.plant.x + x - o->w / 2;
     o->pos.y      = g->boss.plant.y + y - o->h;
     o->on_animate = boss_plant_tentacle_on_animate;
@@ -257,8 +260,10 @@ obj_s *boss_plant_tentacle_emerge(g_s *g, i32 x, i32 y)
     o->state      = BPLANT_TENTACLE_ANTICIPATE;
     o->animation  = rng_i32() & 255;
 
-    boss_plant_tentacle_s *b    = (boss_plant_tentacle_s *)o->mem;
-    i32                    segp = 0;
+    boss_plant_tentacle_s *b = (boss_plant_tentacle_s *)o->mem;
+    b->t_emerge              = t_emerge;
+    b->t_active              = t_active;
+    i32 segp                 = 0;
     for (i32 n = 0; n < BPLANT_TENTACLE_N_SEG; n++) {
         b->seg[n].p_q8.y = segp;
         b->seg[n].pp_q8  = b->seg[n].p_q8;

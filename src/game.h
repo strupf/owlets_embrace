@@ -19,9 +19,10 @@
 #include "map_loader.h"
 #include "minimap.h"
 #include "obj.h"
-#include "obj/companion.h"
+#include "obj/puppet.h"
 #include "particle.h"
 #include "particle_defs.h"
+#include "render.h"
 #include "rope.h"
 #include "save.h"
 #include "settings.h"
@@ -29,9 +30,7 @@
 #include "tile_map.h"
 #include "wiggle.h"
 
-#define GAME_N_ROOMS        256
-#define SAVE_TICKS          100
-#define SAVE_TICKS_FADE_OUT 80
+#define GAME_N_ROOMS 256
 
 enum {
     EVENT_HIT_ENEMY       = 1 << 0,
@@ -46,15 +45,10 @@ enum {
     IT;                           \
     IT = IT->next
 
-enum {
-    SUBSTATE_NONE,
-    SUBSTATE_TEXTBOX,
-    SUBSTATE_MAPTRANSITION,
-    SUBSTATE_GAMEOVER,
-    SUBSTATE_POWERUP,
-    SUBSTATE_MENUSCREEN,
-    SUBSTATE_CAMERA_PAN,
-};
+#define obj_each_objID(G, IT, OID)      \
+    obj_s *IT = obj_find_ID(G, OID, 0); \
+    IT;                                 \
+    IT = obj_find_ID(G, OID, IT)
 
 enum {
     TRIGGER_DIALOG_NEW_FRAME = 512,
@@ -74,6 +68,7 @@ enum {
     RENDER_PRIO_HERO                  = 24,
     RENDER_PRIO_INFRONT_FLUID_AREA    = 32,
     RENDER_PRIO_INFRONT_TERRAIN_LAYER = 40,
+    RENDER_PRIO_UI_LEVEL              = 240,
     //
     RENDER_PRIO_DEFAULT_OBJ           = RENDER_PRIO_HERO - 1,
 };
@@ -158,7 +153,7 @@ struct g_s {
     map_door_s      map_doors[16];
     map_pit_s       map_pits[16];
     v2_i32          cam_prev;
-    v2_i32          cam_prev_world;
+    v2_i32          cam_center;
     area_s          area;
     dialog_s        dialog;
     grapplinghook_s ghook;
@@ -175,7 +170,6 @@ struct g_s {
     i32             tiles_y;
     i32             pixel_x;
     i32             pixel_y;
-    i32             interact_ui_tick;
     tile_s          tiles[NUM_TILES];
     u16             rtiles[NUM_TILELAYER][NUM_TILES];
     u8              fluid_streams[NUM_TILES];
@@ -200,9 +194,10 @@ struct g_s {
     deco_verlet_s   deco_verlet[NUM_DECO_VERLET];
     i32             n_fluid_areas;
     fluid_area_s    fluid_areas[16];
-    i32             ui_fade_q16;
     hero_s          hero;
     particle_sys_s  particle_sys;
+    i32             n_save_points;
+    v2_i32          save_points[8];
     u32             save_events[NUM_SAVE_EV / 32];
     marena_s        memarena;
     byte            mem[MKILOBYTE(512)];
@@ -236,44 +231,12 @@ void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
 i32    game_hero_hitID_next(g_s *g);
 void   game_cue_area_music(g_s *g);
+bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
+                     f32 *vol, f32 *pan);
 
 // positive: fade bg to black
 // negative: fade black to bg
 void game_darken_bg(g_s *g, i32 speed);
-
-// returns a number [0, n_frames-1]
-// tick is the time variable
-// freqticks is how many ticks are needed for one loop
-i32 tick_to_index_freq(i32 tick, i32 n_frames, i32 freqticks);
-
-#define NUM_FRAME_TICKS 64
-
-typedef struct {
-    u8 ticks[NUM_FRAME_TICKS];
-} frame_ticks_s;
-
-static i32 anim_frame_from_ticks(i32 ticks, frame_ticks_s *f)
-{
-    i32 a = 0;
-    for (i32 i = 0; i < NUM_FRAME_TICKS; i++) {
-        i32 t = f->ticks[i];
-        if (t == 0) return (i - 1);
-        a += t;
-        if (ticks <= a) return i;
-    }
-    return 0;
-}
-
-static i32 anim_total_ticks(frame_ticks_s *f)
-{
-    i32 time = 0;
-    for (i32 i = 0; i < NUM_FRAME_TICKS; i++) {
-        i32 t = f->ticks[i];
-        if (t == 0) break;
-        time += t;
-    }
-    return time;
-}
 
 static inline i32 gfx_spr_flip_rng(bool32 x, bool32 y)
 {

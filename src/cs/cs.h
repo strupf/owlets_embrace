@@ -9,9 +9,15 @@
 
 void   cs_powerup_enter(g_s *g);
 void   cs_demo_1_enter(g_s *g);
+void   cs_demo_2_enter(g_s *g);
+void   cs_demo_3_enter(g_s *g);
 void   cs_resetsave_enter(g_s *g);
 void   cs_gameover_enter(g_s *g);
 bool32 cs_maptransition_try_slide_enter(g_s *g);
+void   cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos);
+void   cs_explain_hook_enter(g_s *g);
+void   cs_bossplant_intro_enter(g_s *g);
+void   cs_bossplant_outro_enter(g_s *g);
 
 enum {
     CS_ID_NONE,
@@ -31,7 +37,12 @@ typedef struct cs_s cs_s;
 struct cs_s {
     i32 tick;
     u16 ID;
-    u8  phase;
+    u16 phase;
+    u8  counter0;
+    u8  counter1;
+    u8  counter2;
+    u8  counter3;
+
     void (*on_trigger)(g_s *g, cs_s *cs, i32 trigger);
     void (*on_update)(g_s *g, cs_s *cs);
     void (*on_draw)(g_s *g, cs_s *cs, v2_i32 cam);

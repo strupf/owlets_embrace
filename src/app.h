@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "settings_menu.h"
 #include "title.h"
+#include "util/timing.h"
 #include "wad.h"
 
 #define APP_STRUCT_ALIGNMENT 32
@@ -63,6 +64,7 @@ static inline allocator_s app_allocator()
     return a;
 }
 
+void app_menu_callback_timing(void *ctx, i32 opt);
 void app_menu_callback_map(void *ctx, i32 opt);
 void app_menu_callback_settings(void *ctx, i32 opt);
 void app_menu_callback_mus(void *ctx, i32 opt);

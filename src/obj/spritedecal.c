@@ -105,7 +105,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
         sd->y              = 0;
         sd->w              = 128;
         sd->h              = 128;
-        sd->t_og           = 30;
+        sd->t_og           = 40;
         break;
     case OBJANIMID_STOMP_R:
     case OBJANIMID_STOMP_L:

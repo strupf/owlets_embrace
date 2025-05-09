@@ -18,7 +18,11 @@ err32 aud_init()
 {
     aud_s *aud    = &APP->aud;
     aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 8) / SETTINGS_VOL_MAX;
-    aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 9) / SETTINGS_VOL_MAX;
+    aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
+#if 0
+    aud->v_mus_q8 = 0;
+    aud->v_sfx_q8 = 0;
+#endif
     return 0;
 }
 
@@ -128,15 +132,22 @@ void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len)
         }
     }
 
+    // "fade" lowpass to target lowpass intensity to avoid clicking
+    if (a->lowpass < a->lowpass_dst) {
+        a->lowpass++;
+    } else if (a->lowpass > a->lowpass_dst) {
+        a->lowpass--;
+    }
+
     if (a->lowpass) {
         i16 *lb = lbuf;
         i16 *rb = rbuf;
         for (i32 n = 0; n < len; n++) {
-            a->lowpass_l += ((i32)*lb - a->lowpass_l) >> a->lowpass;
+            a->lowpass_l += ((i32)*lb - (i32)a->lowpass_l) / a->lowpass;
             *lb++ = (i16)a->lowpass_l;
         }
         for (i32 n = 0; n < len; n++) {
-            a->lowpass_r += ((i32)*rb - a->lowpass_r) >> a->lowpass;
+            a->lowpass_r += ((i32)*rb - (i32)a->lowpass_r) / a->lowpass;
             *rb++ = (i16)a->lowpass_r;
         }
     }
@@ -229,12 +240,21 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
             mc->v_fade0    = 0;
             mc->t_fade_out = 0;
         }
-        // pltf_log("applied cmd\n");
+        break;
+    }
+    case AUD_CMD_STOP_ALL_SND: {
+        for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
+            sndchannel_s *ch = &APP->aud.sndchannel[i];
+            if (ch->snd_iID) {
+                ch->stop_ticks = 100;
+                ch->stop_tick  = 0;
+            }
+        }
         break;
     }
     case AUD_CMD_LOWPASS: {
         aud_cmd_lowpass_s *c = &cmd_u.c.lowpass;
-        APP->aud.lowpass     = c->v;
+        APP->aud.lowpass_dst = 1 << c->v;
         break;
     }
     }
@@ -371,7 +391,7 @@ i32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
 
     i32 vol_q8   = (i32)(vol * 256.5f);
     i32 pitch_q8 = (i32)(pitch * 256.5f);
-    if (vol_q8 == 0) return 0;
+    if (vol_q8 <= 4) return 0; // might as well not play it
 
     a->snd_iID = (a->snd_iID < I32_MAX ? a->snd_iID + 1 : 1);
 
@@ -401,5 +421,12 @@ void snd_instance_stop_fade(i32 iID, i32 ms, i32 vmod_q8)
     c->iID                 = iID;
     c->stop_ticks          = (ms * 44100) / 1000;
     c->vmod_q8             = vmod_q8;
+    aud_push_cmd(cmd);
+}
+
+void aud_stop_all_snd_instances()
+{
+    aud_cmd_s cmd = {0};
+    cmd.type      = AUD_CMD_STOP_ALL_SND;
     aud_push_cmd(cmd);
 }

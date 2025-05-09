@@ -19,10 +19,9 @@ enum {
     OBJID_DUMMYSOLID,
     OBJID_TOGGLEBLOCK,
     OBJID_SOLIDLEVER,
-    OBJID_FISH,
-    OBJID_PICKUP,
     OBJID_HOOKYEETER,
     OBJID_CLOCKPULSE,
+    OBJID_MISC,
     OBJID_WATERCOL,
     OBJID_CRAWLER,
     OBJID_HERO_UPGRADE,
@@ -36,7 +35,6 @@ enum {
     OBJID_FLYER,
     OBJID_TRIGGERAREA,
     OBJID_PUSHBLOCK,
-    OBJID_KEY,
     OBJID_HOOKLEVER,
     OBJID_COIN,
     OBJID_ROTOR,
@@ -49,7 +47,6 @@ enum {
     OBJID_PROJECTILE,
     OBJID_STAMINARESTORER,
     OBJID_CRABLER,
-    OBJID_CRANKSWITCH,
     OBJID_CAMATTRACTOR,
     OBJID_FLYBLOB,
     OBJID_DITHERAREA,
@@ -65,9 +62,13 @@ enum {
     OBJID_BOULDER_SPAWN,
     OBJID_TIMER,
     OBJID_HEALTHDROP,
+    OBJID_CRACKBLOCK,
     OBJID_EXIT_BLOCKER,
     OBJID_BOSS_GOLEM,
     OBJID_BOSS_GOLEM_PLATFORM,
+    //
+    OBJID_PUPPET_HERO,
+    OBJID_PUPPET_COMPANION,
     //
     OBJID_BOSS_PLANT_TENTACLE,
     OBJID_BOSS_PLANT_EYE,
@@ -91,12 +92,6 @@ enum {
     PROJECTILE_ID_STALACTITE_BREAK,
 };
 
-enum {
-    PICKUP_ID_NONE,
-    PICKUP_ID_BOMB,
-    PICKUP_ID_WEAPON,
-};
-
 void      clockpulse_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_on_hooked(g_s *g, obj_s *o);
@@ -109,15 +104,17 @@ void      toggleblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
 void      toggleblock_on_animate(g_s *g, obj_s *o);
 void      crawler_load(g_s *g, map_obj_s *mo);
 void      hero_upgrade_load(g_s *g, map_obj_s *mo);
-i32       hero_upgrade_saveID(obj_s *o);
 void      hero_upgrade_put_orb_infront(obj_s *o);
 void      hero_upgrade_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
 v2_i32    hero_upgrade_orb_pos(obj_s *o);
+void      hero_upgrade_disable_orb(obj_s *o);
+void      hero_upgrade_collect(g_s *g, obj_s *o);
 void      movingplatform_load(g_s *g, map_obj_s *mo);
 void      npc_load(g_s *g, map_obj_s *mo);
 void      npc_on_update(g_s *g, obj_s *o);
 void      npc_on_animate(g_s *g, obj_s *o);
 void      npc_on_interact(g_s *g, obj_s *o);
+void      crackblock_load(g_s *g, map_obj_s *mo);
 obj_s    *sign_popup_create(g_s *g);
 void      sign_popup_load(g_s *g, map_obj_s *mo);
 void      sign_popup_on_update(g_s *g, obj_s *o);
@@ -157,8 +154,6 @@ void      stompable_block_break(g_s *g, obj_s *o);
 void      light_load(g_s *g, map_obj_s *mo);
 void      light_update(g_s *g, obj_s *o);
 void      fallingblock_load(g_s *g, map_obj_s *mo);
-void      fallingblock_on_update(g_s *g, obj_s *o);
-void      fallingblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void      chest_load(g_s *g, map_obj_s *mo);
 void      chest_on_open(g_s *g, obj_s *o);
 void      waterleaf_load(g_s *g, map_obj_s *mo);
@@ -184,9 +179,6 @@ void      hookyeeter_on_hook(g_s *g, obj_s *o);
 void      hookyeeter_on_unhook(g_s *g, obj_s *o);
 void      jumper_load(g_s *g, map_obj_s *mo);
 void      solidlever_load(g_s *g, map_obj_s *mo);
-void      fish_load(g_s *g, map_obj_s *mo);
-obj_s    *pickup_create(g_s *g, v2_i32 p, i32 pickupID);
-void      pickup_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
 void      fallingstonespawn_load(g_s *g, map_obj_s *mo);

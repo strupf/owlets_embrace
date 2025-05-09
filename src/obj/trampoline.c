@@ -141,8 +141,8 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
             }
             if (overlap_rec(r, obj_rec_bottom(i))) {
                 o->substate = DIR_Y_POS;
-                if (i->v_q8.y > +1000) {
-                    i->v_q8.y = -2000;
+                if (i->v_q8.y > +500) {
+                    i->v_q8.y = -2500;
                     i->bumpflags &= ~OBJ_BUMP_Y_POS;
                     o->timer = 1;
                     h->stomp = 0;
@@ -174,8 +174,6 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
                 i->v_q8.y             = -1300;
                 h->air_block_ticks_og = 80;
                 h->air_block_ticks    = bounced * h->air_block_ticks_og;
-                h->low_grav_ticks_0   = 50;
-                h->low_grav_ticks     = 50;
                 o->timer              = 1;
             }
             break;

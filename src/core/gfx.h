@@ -19,6 +19,7 @@ enum {
 };
 
 typedef struct {
+    ALIGNAS(16)
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     i32  w;
     i32  h;
@@ -48,11 +49,6 @@ typedef struct gfx_ctx_s {
     i32           clip_y1;
     i32           clip_y2;
 } gfx_ctx_s;
-
-#ifdef PLTF_PD_HW
-static_assert(sizeof(texrec_s) == 32, "texrec size");
-static_assert(sizeof(gfx_ctx_s) == 64, "gfx_ctx size");
-#endif
 
 typedef struct {
     u8 c1;
@@ -125,10 +121,26 @@ i32      tex_px_at(tex_s tex, i32 x, i32 y);
 i32      tex_mk_at(tex_s tex, i32 x, i32 y);
 void     tex_px(tex_s tex, i32 x, i32 y, i32 col);
 void     tex_mk(tex_s tex, i32 x, i32 y, i32 col);
-void     tex_outline_white(tex_s tex);
-void     tex_outline_col_small(tex_s tex, i32 col);
-void     tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia);
-void     tex_outline_col_ext(tex_s tex, i32 col, b32 dia);
+void     tex_px_unsafe(tex_s tex, i32 x, i32 y, i32 col);
+
+static inline void tex_px_unsafe_opaque(tex_s tex, i32 x, i32 y, i32 col)
+{
+    u32  b = bswap32(0x80000000 >> (x & 31));
+    u32 *p = &tex.px[y * tex.wword + (x >> 5)];
+    *p     = (col == 0 ? *p & ~b : *p | b);
+}
+
+static inline void tex_px_unsafe_opaque_black(tex_s tex, i32 x, i32 y)
+{
+    u32  b = bswap32(0x80000000 >> (x & 31));
+    u32 *p = &tex.px[y * tex.wword + (x >> 5)];
+    *p     = *p & ~b;
+}
+
+void tex_outline_white(tex_s tex);
+void tex_outline_col_small(tex_s tex, i32 col);
+void tex_outline_col_ext_small(tex_s tex, i32 col, b32 dia);
+void tex_outline_col_ext(tex_s tex, i32 col, b32 dia);
 
 // merges two textures of the same size:
 // src: top texture, transparency
@@ -188,6 +200,8 @@ void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
                              i32 a1, i32 a2, i32 mode);
 //
 void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode);
+void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos,
+                            const void *str, i32 style, b32 centeredx);
 i32  fnt_length_px(fnt_s fnt, const void *txt);
 i32  fnt_kerning(fnt_s fnt, i32 c1, i32 c2);
 
@@ -220,5 +234,87 @@ static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, i32 mode)
 
     *dm |= sm;
 }
+
+enum {
+    FNT_GLYPH_NULL   = 0,
+    //
+    FNT_GLYPH_BTN_DL = 1,
+    FNT_GLYPH_BTN_DR,
+    FNT_GLYPH_BTN_DU,
+    FNT_GLYPH_BTN_DD,
+    FNT_GLYPH_BTN_A,
+    FNT_GLYPH_BTN_B,
+    FNT_GLYPH_BTN_DPAD,
+    FNT_GLYPH_BTN_MENU,
+    FNT_GLYPH_CRANK,
+    // ASCII
+    FNT_GLYPH_SPACE = 32,
+    // numbers
+    FNT_GLYPH_0     = 48,
+    FNT_GLYPH_1     = 49,
+    FNT_GLYPH_2     = 50,
+    FNT_GLYPH_3     = 51,
+    FNT_GLYPH_4     = 52,
+    FNT_GLYPH_5     = 53,
+    FNT_GLYPH_6     = 54,
+    FNT_GLYPH_7     = 55,
+    FNT_GLYPH_8     = 56,
+    FNT_GLYPH_9     = 57,
+    // upper case
+    FNT_GLYPH_A     = 65,
+    FNT_GLYPH_B     = 66,
+    FNT_GLYPH_C     = 67,
+    FNT_GLYPH_D     = 68,
+    FNT_GLYPH_E     = 69,
+    FNT_GLYPH_F     = 70,
+    FNT_GLYPH_G     = 71,
+    FNT_GLYPH_H     = 72,
+    FNT_GLYPH_I     = 73,
+    FNT_GLYPH_J     = 74,
+    FNT_GLYPH_K     = 75,
+    FNT_GLYPH_L     = 76,
+    FNT_GLYPH_M     = 77,
+    FNT_GLYPH_N     = 78,
+    FNT_GLYPH_O     = 79,
+    FNT_GLYPH_P     = 80,
+    FNT_GLYPH_Q     = 81,
+    FNT_GLYPH_R     = 82,
+    FNT_GLYPH_S     = 83,
+    FNT_GLYPH_T     = 84,
+    FNT_GLYPH_U     = 85,
+    FNT_GLYPH_V     = 86,
+    FNT_GLYPH_W     = 87,
+    FNT_GLYPH_X     = 88,
+    FNT_GLYPH_Y     = 89,
+    FNT_GLYPH_Z     = 90,
+    // lower case
+    FNT_GLYPH_A_L   = 97,
+    FNT_GLYPH_B_L   = 98,
+    FNT_GLYPH_C_L   = 99,
+    FNT_GLYPH_D_L   = 100,
+    FNT_GLYPH_E_L   = 101,
+    FNT_GLYPH_F_L   = 102,
+    FNT_GLYPH_G_L   = 103,
+    FNT_GLYPH_H_L   = 104,
+    FNT_GLYPH_I_L   = 105,
+    FNT_GLYPH_J_L   = 106,
+    FNT_GLYPH_K_L   = 107,
+    FNT_GLYPH_L_L   = 108,
+    FNT_GLYPH_M_L   = 109,
+    FNT_GLYPH_N_L   = 110,
+    FNT_GLYPH_O_L   = 111,
+    FNT_GLYPH_P_L   = 112,
+    FNT_GLYPH_Q_L   = 113,
+    FNT_GLYPH_R_L   = 114,
+    FNT_GLYPH_S_L   = 115,
+    FNT_GLYPH_T_L   = 116,
+    FNT_GLYPH_U_L   = 117,
+    FNT_GLYPH_V_L   = 118,
+    FNT_GLYPH_W_L   = 119,
+    FNT_GLYPH_X_L   = 120,
+    FNT_GLYPH_Y_L   = 121,
+    FNT_GLYPH_Z_L   = 122,
+
+};
 
 #endif

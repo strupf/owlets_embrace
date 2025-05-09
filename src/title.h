@@ -7,11 +7,10 @@
 
 #include "gamedef.h"
 #include "save.h"
-#include "textinput.h"
 
 typedef struct app_s app_s;
 
-#define TITLE_SKIP_TO_GAME 1
+#define TITLE_SKIP_TO_GAME 0
 
 enum {
     TITLE_MAIN_FADE_OUT,
@@ -65,7 +64,6 @@ typedef struct title_s {
     title_btn_s    buttons[NUM_TITLE_BTNS];
     //
     save_preview_s saves[3];
-    textinput_s    tinput;
     i8             comp_btnID;
     v2_i32         pos_comp_target;
     v2_i32         pos_comp_q8;
