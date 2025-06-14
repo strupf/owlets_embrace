@@ -5,9 +5,7 @@
 #ifndef PLTF_TYPES_H
 #define PLTF_TYPES_H
 
-#define PLTF_DEBUG      0
-#define PLTF_ENABLE_LOG 0
-#define PLTF_EDIT_PD    0 // edit PD code files? -> enable PLTF_PD_HW code paths
+#include "pltf_config.h"
 
 #if PLTF_EDIT_PD
 #undef PLTF_SDL
@@ -117,6 +115,7 @@ typedef i32            err32;
 #define U64_C(X) (X##ULL)
 
 #define Q_X(X, ONE) (i32)((f32)(X) * (ONE))
+#define Q_VOBJ(X)   Q_X(X, 4096.f)
 #define Q_8(X)      Q_X(X, 256.f)
 #define Q_10(X)     Q_X(X, 1024.f)
 #define Q_12(X)     Q_X(X, 4096.f)
@@ -202,11 +201,13 @@ static inline void lnode_del(lnode_s *n)
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
 typedef struct {
+    ALIGNAS(8)
     void *(*allocf)(void *ctx, usize s);
     void *ctx;
 } alloc_s;
 
 typedef struct {
+    ALIGNAS(8)
     void *(*allocfunc)(void *ctx, usize s, usize alignment);
     void *ctx;
 } allocator_s;
@@ -263,6 +264,7 @@ typedef struct {
 typedef ratio_i32 ratio_s;
 
 typedef struct {
+    ALIGNAS(16)
     i32 x, y, w, h;
 } rec_i32;
 

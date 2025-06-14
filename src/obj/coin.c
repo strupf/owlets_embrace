@@ -9,6 +9,7 @@
 
 enum {
     COIN_ST_IDLE,
+    COIN_ST_PREHOMING,
     COIN_ST_HOMING,
 };
 
@@ -27,11 +28,12 @@ obj_s *coin_create(g_s *g)
     o->flags      = OBJ_FLAG_ACTOR;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_ONE_WAY_PLAT;
-    o->timer          = COIN_TIME;
-    o->animation      = rngr_i32(0, 50);
-    o->n_sprites      = 1;
-    obj_sprite_s *spr = &o->sprites[0];
-    spr->flip         = gfx_spr_flip_rng(1, 0);
+    o->timer           = COIN_TIME;
+    o->animation       = rngr_i32(0, 50);
+    o->n_sprites       = 1;
+    obj_sprite_s *spr  = &o->sprites[0];
+    spr->flip          = gfx_spr_flip_rng(1, 0);
+    o->render_priority = RENDER_PRIO_HERO + 1;
     return o;
 }
 
@@ -61,13 +63,49 @@ void coin_on_update(g_s *g, obj_s *o)
         phero = obj_pos_center(ohero);
     }
     v2_i32 p = obj_pos_center(o);
+    o->subtimer++;
 
     switch (o->state) {
-    case COIN_ST_IDLE: {
+    case COIN_ST_IDLE:
+    case COIN_ST_PREHOMING: {
+        o->v_q12.y += Q_VOBJ(0.27);
+        o->v_q12.y = min_i32(o->v_q12.y, Q_VOBJ(6.0));
+
+        if (obj_grounded(g, o)) {
+            obj_vx_q8_mul(o, 220);
+        }
+
+        if (o->bumpflags & OBJ_BUMP_X) {
+            obj_vx_q8_mul(o, -192);
+        }
+        if (o->bumpflags & OBJ_BUMP_Y) {
+            if (o->v_q12.y < Q_VOBJ(0.5)) {
+                o->v_q12.y = 0;
+            } else {
+                obj_vx_q8_mul(o, +210);
+                obj_vy_q8_mul(o, -160);
+            }
+        }
+        o->bumpflags = 0;
+
+        if (abs_i32(o->v_q12.x) < Q_VOBJ(0.1)) {
+            o->v_q12.x = 0;
+        }
+
+        // already tagged for collect, but keep coins for a minimum time on screen
+        if (o->state == COIN_ST_PREHOMING) {
+            if (10 <= o->subtimer) {
+                o->state      = COIN_ST_HOMING;
+                o->moverflags = 0;
+            }
+            break;
+        }
+
         // hero attract coins
         if (ohero && v2_i32_distancesq(phero, p) <= COIN_HOMING_DISTSQ) {
-            o->state      = COIN_ST_HOMING;
-            o->moverflags = 0;
+            o->state    = COIN_ST_PREHOMING;
+            o->timer    = 0;
+            o->blinking = 0;
             break;
         }
 
@@ -79,40 +117,16 @@ void coin_on_update(g_s *g, obj_s *o)
         if (o->timer < 120) {
             o->blinking = 1;
         }
-
-        o->v_q8.y += 70;
-        o->v_q8.y = min_i32(o->v_q8.y, 256 * 6);
-
-        if (obj_grounded(g, o)) {
-            obj_vx_q8_mul(o, 230);
-        }
-
-        if (o->bumpflags & OBJ_BUMP_X) {
-            obj_vx_q8_mul(o, -192);
-        }
-        if (o->bumpflags & OBJ_BUMP_Y) {
-            if (o->v_q8.y < 400) {
-                o->v_q8.y = 0;
-            } else {
-                obj_vx_q8_mul(o, +210);
-                obj_vy_q8_mul(o, -160);
-            }
-        }
-        o->bumpflags = 0;
-
-        if (abs_i32(o->v_q8.x) < 16) {
-            o->v_q8.x = 0;
-        }
         break;
     }
     case COIN_ST_HOMING: {
         obj_s *ohero = obj_get_hero(g);
         if (ohero) {
-            v2_i32 v  = v2_i32_from_i16(o->v_q8);
-            v2_i32 vs = steer_seek(p, v, phero, 900);
-            o->v_q8.x += vs.x >> 1;
-            o->v_q8.y += vs.y >> 1;
+            v2_i32 vs = steer_seek(p, o->v_q12, phero, Q_VOBJ(4.7));
+            o->v_q12.x += vs.x >> 1;
+            o->v_q12.y += vs.y >> 1;
         } else {
+            // consider it collected
             coins_change(g, +1);
             obj_delete(g, o);
         }
@@ -121,5 +135,14 @@ void coin_on_update(g_s *g, obj_s *o)
     }
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
+}
+
+void coin_try_collect(g_s *g, obj_s *o, v2_i32 heropos)
+{
+    if (o->state == COIN_ST_HOMING && v2_i32_distancesq(heropos, obj_pos_center(o)) < POW2(50)) {
+        coins_change(g, +1);
+        snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
+        obj_delete(g, o);
+    }
 }

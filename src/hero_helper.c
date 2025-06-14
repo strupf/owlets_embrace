@@ -84,14 +84,29 @@ i32 hero_can_grab(g_s *g, obj_s *o, i32 dirx)
 
 void hero_walljump(g_s *g, obj_s *o, i32 dir)
 {
-    hero_s *h             = (hero_s *)o->heap;
+    hero_s *h = (hero_s *)o->heap;
+
+    if (!h->climbing) {
+        rec_i32 r = obj_aabb(o);
+        // move onto wall
+        for (i32 n = 1; n < HERO_WALLJUMP_THRESHOLD_PX; n++) {
+            if (map_blocked_excl_offs(g, r, o, -dir * n, 0)) {
+                obj_move(g, o, -dir * (n - 1), 0);
+                break;
+            }
+        }
+    }
     h->climbing           = 0;
     h->impact_ticks       = 0;
     h->air_block_ticks_og = WALLJUMP_MOM_TICKS;
     h->air_block_ticks    = dir * WALLJUMP_MOM_TICKS;
+    h->walljump_tick      = dir * WALLJUMP_TICKS;
+    h->walljump_glue      = 4;
     o->animation          = 0;
     o->facing             = dir;
-    o->v_q8.x             = dir * 700;
+    o->v_q12.x            = dir * Q_VOBJ(2.0);
+    o->v_q12.y            = 0;
+
     hero_start_jump(g, o, HERO_JUMP_WALL);
 }
 
@@ -99,7 +114,7 @@ i32 hero_is_climbing_offs(g_s *g, obj_s *o, i32 facing, i32 dx, i32 dy)
 {
     if (!facing) return 0;
     rec_i32 r = {o->pos.x + dx, o->pos.y + dy, o->w, o->h};
-    if (!!map_blocked(g, r)) return 0;
+    if (map_blocked(g, r)) return 0;
     if (obj_grounded(g, o)) return 0;
 
     i32 x  = dx + (0 < facing ? o->pos.x + o->w : o->pos.x - 1);
@@ -128,7 +143,6 @@ i32 hero_swim_frameID_idle(i32 animation)
 void hero_leave_and_clear_inair(obj_s *o)
 {
     hero_s *h             = (hero_s *)o->heap;
-    h->spinattack         = 0;
     h->jumpticks          = 0;
     h->walljump_tick      = 0;
     h->air_block_ticks    = 0;
@@ -291,57 +305,25 @@ bool32 hero_ibuf_pressed(hero_s *h, i32 b, i32 frames_ago)
     return 0;
 }
 
-hitbox_s hero_hitbox_spear(obj_s *o)
+hitbox_s hero_hitbox_wingattack(obj_s *o)
 {
     hero_s  *h  = (hero_s *)o->heap;
     hitbox_s hb = {0};
     hb.hitID    = h->hitID;
     hb.damage   = 1;
-    hb.r.w      = 64;
-    hb.r.h      = 40;
+    hb.r.w      = 38;
+    hb.r.h      = 32;
     hb.r.x      = o->pos.x + o->w / 2;
-    hb.r.y      = o->pos.y - 12;
+    hb.r.y      = o->pos.y - 6;
     if (o->facing < 0) {
         hb.r.x -= hb.r.w;
     }
 
+#if PLTF_DEV_ENV
     i32 hbx = hb.r.x + APP->game.cam_prev.x;
     i32 hby = hb.r.y + APP->game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
-    return hb;
-}
-
-hitbox_s hero_hitbox_spear_air(obj_s *o)
-{
-    hero_s  *h  = (hero_s *)o->heap;
-    hitbox_s hb = {0};
-    hb.hitID    = h->hitID;
-    hb.damage   = 1;
-    hb.r.w      = 50;
-    hb.r.h      = 50;
-    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
-    hb.r.y      = o->pos.y + (o->h - hb.r.h) / 2 - 10;
-
-    i32 hbx = hb.r.x + APP->game.cam_prev.x;
-    i32 hby = hb.r.y + APP->game.cam_prev.y;
-    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
-    return hb;
-}
-
-hitbox_s hero_hitbox_spinattack(obj_s *o)
-{
-    hero_s  *h  = (hero_s *)o->heap;
-    hitbox_s hb = {0};
-    hb.hitID    = h->hitID;
-    hb.damage   = 1;
-    hb.r.w      = 50;
-    hb.r.h      = HERO_HEIGHT;
-    hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
-    hb.r.y      = o->pos.y;
-
-    i32 hbx = hb.r.x + APP->game.cam_prev.x;
-    i32 hby = hb.r.y + APP->game.cam_prev.y;
-    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
+#endif
     return hb;
 }
 
@@ -356,9 +338,11 @@ hitbox_s hero_hitbox_stomp(obj_s *o)
     hb.r.x      = o->pos.x + (o->w - hb.r.w) / 2;
     hb.r.y      = o->pos.y - 8;
 
+#if PLTF_DEV_ENV
     i32 hbx = hb.r.x + APP->game.cam_prev.x;
     i32 hby = hb.r.y + APP->game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
+#endif
     return hb;
 }
 
@@ -374,21 +358,12 @@ hitbox_s hero_hitbox_powerstomp(obj_s *o)
     hb.r.y      = o->pos.y - 24;
     hb.flags    = HITBOX_FLAG_POWERSTOMP;
 
+#if PLTF_DEV_ENV
     i32 hbx = hb.r.x + APP->game.cam_prev.x;
     i32 hby = hb.r.y + APP->game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
+#endif
     return hb;
-}
-
-void hero_itemswap_cancel(obj_s *o)
-{
-    hero_s *h        = (hero_s *)o->heap;
-    h->hook_aim_mode = 0;
-    if (h->item_swap_tick) {
-        h->item_swap_tick_saved = h->item_swap_tick;
-        h->item_swap_tick       = 0;
-        h->item_swap_fade       = -HERO_ITEMSWAP_TICKS_FADE;
-    }
 }
 
 void hero_aim_abort(obj_s *o)

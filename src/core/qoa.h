@@ -61,10 +61,10 @@ typedef struct { // 8 + 4 + 4 + 4 = 20
     i16 w[2];
 } qoa_lms_s;
 
-typedef struct {
-    u64       s;
-    i16      *deq;
-    qoa_lms_s lms;
+typedef struct qoa_dec_s {
+    u64       s;   // 8
+    qoa_lms_s lms; // 8
+    i16      *deq; // 4
 } qoa_dec_s;
 
 // MUSIC
@@ -94,8 +94,8 @@ bool32 qoa_mus_active(qoa_mus_s *q);
 // data is already loaded into memory
 // can be pitched
 typedef struct qoa_sfx_s {
-    u64      *slices; // slice array in memory
     qoa_dec_s ds;
+    u64      *slices;      // slice array in memory
     u32       num_slices;  // total number of slices
     u32       cur_slice;   // current slice index
     u32       pos_pitched; // pos in samples in pitched length

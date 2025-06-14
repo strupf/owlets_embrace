@@ -20,7 +20,7 @@ void squishblock_create(g_s *g, map_obj_s *mo)
     o->pos.y     = mo->y;
     o->w         = mo->w;
     o->h         = mo->h;
-    o->flags     = OBJ_FLAG_SOLID | OBJ_FLAG_RENDER_AABB;
+    o->flags     = OBJ_FLAG_SOLID;
 }
 
 void squishblock_on_update(g_s *g, obj_s *o)

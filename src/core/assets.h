@@ -35,7 +35,9 @@ enum {
     TEXID_TILESET_BG_AUTO,
     TEXID_TILESET_PROPS,
     TEXID_TILESET_DECO,
+    TEXID_TILESET_FRONT,
     TEXID_BG_PARALLAX,
+    TEXID_FG_IMG,
     TEXID_PAUSE_TEX,
     TEXID_COVER,
     TEXID_UI,
@@ -46,13 +48,13 @@ enum {
     TEXID_WATERCOL,
     TEXID_EXPLO1,
     TEXID_UPGRADE,
-    TEXID_TITLE,
     TEXID_PARTICLES,
     TEXID_SWITCH,
     TEXID_CRAWLER,
     TEXID_MISCOBJ,
     TEXID_HOOK,
     TEXID_GEMS,
+    TEXID_WIND,
     TEXID_SAVEPOINT,
     TEXID_CRUMBLE,
     TEXID_NPC,
@@ -86,6 +88,7 @@ enum {
     FNTID_MEDIUM,
     FNTID_LARGE,
     FNTID_VLARGE,
+    FNTID_VVLARGE,
     //
     NUM_FNTID
 };
@@ -110,6 +113,7 @@ enum {
     SNDID_DOOR_KEY_SPAWNED,
     SNDID_DOOR_UNLOCKED,
     SNDID_UPGRADE,
+    SNDID_BOSSWIN,
     SNDID_HOOK_THROW,
     SNDID_FOOTSTEP_LEAVES,
     SNDID_FOOTSTEP_GRASS,
@@ -146,6 +150,7 @@ enum {
     SNDID_RUMBLE,
     SNDID_JUMPON,
     SNDID_ENEMY_DIE,
+    SNDID_WINGATTACK,
     //
     NUM_SNDID
 };
@@ -163,6 +168,7 @@ enum {
     ANIID_CURSOR,
     ANIID_HEALTHDROP,
     ANIID_BPLANT_HOP,
+    ANIID_PREPARE_SWAP,
     //
     NUM_ANIID
 };
@@ -174,6 +180,7 @@ typedef struct {
 } ani_frame_s;
 
 typedef struct {
+    ALIGNAS(8)
     ani_frame_s *f;
     u16          ticks; // total length in ticks
     u16          n;     // number of frames
@@ -198,17 +205,19 @@ texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
 i32      snd_play(i32 ID, f32 vol, f32 pitch);
 i32      snd_play_ext(i32 ID, f32 vol, f32 pitch, bool32 loop);
 //
+err32    snd_from_wad_ID(i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ID(i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ID_ext(void *f, i32 ID, const void *name,
                              allocator_s a);
 err32    tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t);
-err32    tex_from_wad(void *f, wad_el_s *wf, const void *name,
-                      allocator_s a, tex_s *o_t);
-err32    snd_from_wad(void *f, wad_el_s *wf, const void *name,
-                      allocator_s a, snd_s *o_s);
-err32    ani_from_wad(void *f, wad_el_s *wf, const void *name,
-                      allocator_s a, ani_s *o_a);
-i32      ani_frame(i32 ID, i32 ticks);
-i32      ani_len(i32 ID);
+
+err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
+                   allocator_s a, tex_s *o_t);
+err32 snd_from_wad(void *f, wad_el_s *wf, const void *name,
+                   allocator_s a, snd_s *o_s);
+err32 ani_from_wad(void *f, wad_el_s *wf, const void *name,
+                   allocator_s a, ani_s *o_a);
+i32   ani_frame(i32 ID, i32 ticks);
+i32   ani_len(i32 ID);
 
 #endif

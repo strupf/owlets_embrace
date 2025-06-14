@@ -8,42 +8,21 @@
 #include "core/spm.h"
 #include "render.h"
 
+#if APP_USE_MALLOC
 app_s *APP;
+#else
+app_s APPMEM;
+#endif
+
 #if TIMING_ENABLED
 timing_s TIMING;
 #endif
 
 err32 app_load_assets();
 
-void app_menu_callback_timing(void *ctx, i32 opt)
-{
-#if TIMING_ENABLED
-    TIMING.show = opt;
-#endif
-}
-
-void app_menu_callback_resetsave(void *ctx, i32 opt)
-{
-    cs_resetsave_enter(&APP->game);
-}
-
-void app_menu_callback_map(void *ctx, i32 opt)
-{
-    if (!APP->game.minimap.state) {
-        minimap_open_via_menu(&APP->game);
-    }
-}
-
-void app_menu_callback_mus(void *ctx, i32 opt)
-{
-}
-
-void app_menu_callback_settings(void *ctx, i32 opt)
-{
-}
-
 i32 app_init()
 {
+#if APP_USE_MALLOC
     // allocate majority of memory dynamically so
     // a proper "not enough memory" error can be reported
     APP = (app_s *)pltf_mem_alloc_aligned(sizeof(app_s), APP_STRUCT_ALIGNMENT);
@@ -51,44 +30,41 @@ i32 app_init()
         return 1;
     }
     mclr(APP, sizeof(app_s));
+#endif
 
     err32 err_wad_core = wad_init_file("oe.wad");
     if (err_wad_core != 0) {
         return (err_wad_core | ASSETS_ERR_WAD_INIT);
     }
 
-    err32 err_wad_mus = 0;
-    err_wad_mus |= wad_init_file("oe_mus_stereo.wad");
-    if (err_wad_mus) {
-        // more like a warning
-    }
-
     pltf_audio_set_volume(1.f);
-    pltf_accelerometer_set(1);
     err32 err_settings = settings_load(&SETTINGS); // try to use settings file
     aud_init();
     assets_init();
-    marena_init(&APP->ma, APP->mem, sizeof(APP->mem));
     inp_init();
+    marena_init(&APP->ma, APP->mem, sizeof(APP->mem));
 
     err32 err_assets = app_load_assets();
     app_set_mode(SETTINGS.mode);
-
-    spm_init();
-    g_s *g = &APP->game;
-    game_init(g);
+    g_s        *g = &APP->game;
     savefile_s *s = &APP->save;
-    g->savefile   = s;
+    spm_init();
+    game_init(g);
+    g->savefile = s;
 
 #if TIMING_ENABLED
     TIMING.show = TIMING_SHOW_DEFAULT;
 #endif
 #if PLTF_PD
+    const char *options[3] = {"0", "1", "2"};
+    // pltf_pd_menu_add_opt("align", options, 3, app_menu_callback_pattern, 0);
+    // pltf_pd_menu_add_check("Align 4", 0, app_menu_callback_pattern, 0);
 #if TIMING_ENABLED
     pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
 #endif
 #endif
 #if 1
+
     typedef struct {
         u32 hash;
         i32 x;
@@ -109,7 +85,7 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        // savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
+        savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
@@ -117,10 +93,10 @@ i32 app_init()
             HERO_UPGRADE_SWIM |
             HERO_UPGRADE_STOMP |
             HERO_UPGRADE_FLY |
-            // HERO_UPGRADE_HOOK |
+            HERO_UPGRADE_HOOK |
             HERO_UPGRADE_CLIMB |
             0;
-        s->stamina = 2;
+        s->stamina = 5;
     }
     savefile_w(0, s);
 
@@ -173,19 +149,24 @@ static void app_tick_step()
 #endif
     inp_update();
 
-    g_s *g = &APP->game;
+    g_s             *g  = &APP->game;
+    settings_menu_s *sm = &APP->settings_menu;
+    if (sm->active) {
+        settings_menu_update(sm);
+    } else {
+        switch (APP->state) {
+        case APP_ST_TITLE: {
+            title_update(APP, &APP->title);
+            break;
+        }
+        case APP_ST_GAME: {
+            inp_state_s istate = inp_cur().c;
+            game_tick(g, istate);
+            break;
+        }
+        }
+    }
 
-    switch (APP->state) {
-    case APP_ST_TITLE: {
-        title_update(APP, &APP->title);
-        break;
-    }
-    case APP_ST_GAME: {
-        inp_state_s istate = inp_cur().c;
-        game_tick(g, istate);
-        break;
-    }
-    }
 #if TIMING_ENABLED
     timing_end(TIMING_ID_TICK);
 #endif
@@ -199,7 +180,7 @@ void app_draw()
 #if PLTF_PD
     pltf_pd_update_rows(0, 239);
 #endif
-    tex_clr(asset_tex(0), GFX_COL_WHITE);
+
     gfx_ctx_s ctx = gfx_ctx_display();
     g_s      *g   = &APP->game;
 
@@ -211,6 +192,14 @@ void app_draw()
         game_draw(g);
         break;
     }
+
+#if 0
+    if (pltf_sdl_key(SDL_SCANCODE_RETURN)) {
+        gfx_ctx_s ctx2 = ctx;
+        ctx2.pat       = gfx_pattern_bayer_4x4(8);
+        gfx_rec_fill(ctx2, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
+    }
+#endif
 
     settings_menu_s *sm = &APP->settings_menu;
     if (sm->active) {
@@ -231,7 +220,9 @@ void app_close()
             game_update_savefile(g);
             savefile_w(g->save_slot, g->savefile);
         }
+#if APP_USE_MALLOC
         pltf_mem_free_aligned(APP);
+#endif
     }
 }
 
@@ -281,21 +272,41 @@ void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment)
 void app_set_mode(i32 mode)
 {
     switch (mode) {
-    case SETTINGS_MODE_NORMAL: {
+    case SETTINGS_MODE_NORMAL:
         pltf_set_fps_mode(PLTF_FPS_MODE_UNCAPPED);
         break;
-    }
-    case SETTINGS_MODE_STREAMING: {
+    case SETTINGS_MODE_STREAMING:
         pltf_set_fps_mode(PLTF_FPS_MODE_UNCAPPED);
         break;
-    }
-    case SETTINGS_MODE_POWER_SAVING: {
+    case SETTINGS_MODE_POWER_SAVING:
         pltf_set_fps_mode(PLTF_FPS_MODE_40);
         break;
-    }
-    case SETTINGS_MODE_30_FPS: {
+    case SETTINGS_MODE_30_FPS:
         pltf_set_fps_mode(PLTF_FPS_MODE_30);
         break;
     }
+}
+
+void app_menu_callback_timing(void *ctx, i32 opt)
+{
+#if TIMING_ENABLED
+    TIMING.show = opt;
+#endif
+}
+
+void app_menu_callback_resetsave(void *ctx, i32 opt)
+{
+    cs_resetsave_enter(&APP->game);
+}
+
+void app_menu_callback_map(void *ctx, i32 opt)
+{
+    if (!APP->game.minimap.state) {
+        minimap_open_via_menu(&APP->game);
     }
+}
+
+void app_menu_callback_pattern(void *ctx, i32 opt)
+{
+    APP->opt = opt;
 }

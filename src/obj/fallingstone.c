@@ -88,14 +88,14 @@ void fallingstone_on_update(g_s *g, obj_s *o)
             snd_play(SNDID_EXPLO1, vol, rngr_f32(0.9f, 1.1f));
             fallingstone_burst(g, o);
         } else {
-            o->v_q8.y += 48;
-            if (FALLINGSTONE_VY <= o->v_q8.y) {
-                o->v_q8.y = FALLINGSTONE_VY;
+            o->v_q12.y += Q_VOBJ(0.25);
+            if (Q_VOBJ(4.0) <= o->v_q12.y) {
+                o->v_q12.y = Q_VOBJ(4.0);
                 o->animation += o->substate;
             } else if (o->timer & 1) {
                 o->animation += o->substate;
             }
-            obj_move_by_v_q8(g, o);
+            obj_move_by_v_q12(g, o);
         }
         break;
     }

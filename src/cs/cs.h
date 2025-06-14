@@ -48,8 +48,8 @@ struct cs_s {
     void (*on_draw)(g_s *g, cs_s *cs, v2_i32 cam);
     void (*on_draw_bh_terrain)(g_s *g, cs_s *cs, v2_i32 cam);
     void (*on_draw_background)(g_s *g, cs_s *cs, v2_i32 cam);
-
-    ALIGNAS(8) byte mem[CS_MEM_BYTES];
+    ALIGNAS(8)
+    byte mem[CS_MEM_BYTES];
 };
 
 void cs_reset(g_s *g);

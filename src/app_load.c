@@ -35,6 +35,7 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_TILESET_BG_AUTO, "T_TSBGA");
     app_load_tex_internal(&l, TEXID_TILESET_PROPS, "T_TSPROP");
     app_load_tex_internal(&l, TEXID_TILESET_DECO, "T_TSDECO");
+    app_load_tex_internal(&l, TEXID_TILESET_FRONT, "T_TSFRONT");
     app_load_tex_internal(&l, TEXID_HERO, "T_HERO");
     app_load_tex_internal(&l, TEXID_ROTOR, "T_ROTOR");
     app_load_tex_internal(&l, TEXID_BGOLEM, "T_BGOLEM");
@@ -60,6 +61,8 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_BOULDER, "T_BOULDER");
     app_load_tex_internal(&l, TEXID_HEARTDROP, "T_HEARTDROP");
     app_load_tex_internal(&l, TEXID_PLANTS, "T_PLANTS");
+    app_load_tex_internal(&l, TEXID_FLYING_BUG, "T_FLYBUG");
+    app_load_tex_internal(&l, TEXID_WIND, "T_WIND");
     APP->assets.tex[TEXID_PAUSE_TEX] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
@@ -80,6 +83,7 @@ LOAD_FNT:;
     app_load_fnt_internal(&l, FNTID_MEDIUM, "F_MEDIUM");
     app_load_fnt_internal(&l, FNTID_LARGE, "F_LARGE");
     app_load_fnt_internal(&l, FNTID_VLARGE, "F_VLARGE");
+    app_load_fnt_internal(&l, FNTID_VVLARGE, "F_VVLARGE");
 
 LOAD_SND:;
     // SND ---------------------------------------------------------------------
@@ -121,6 +125,8 @@ LOAD_SND:;
     app_load_snd_internal(&l, SNDID_JUMPON, "S_JUMPON");
     app_load_snd_internal(&l, SNDID_ENEMY_DIE, "S_ENEMY_DIE");
     app_load_snd_internal(&l, SNDID_HURT, "S_HURT");
+    app_load_snd_internal(&l, SNDID_BOSSWIN, "S_BOSSWIN");
+    app_load_snd_internal(&l, SNDID_WINGATTACK, "S_WINGATTACK");
 
 LOAD_ANI:;
     // ANI ---------------------------------------------------------------------
@@ -141,6 +147,7 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_CURSOR, "A_CURSOR");
     app_load_ani_internal(&l, ANIID_HEALTHDROP, "A_HEALTHDROP");
     app_load_ani_internal(&l, ANIID_BPLANT_HOP, "A_BPLANT_HOP");
+    app_load_ani_internal(&l, ANIID_PREPARE_SWAP, "A_PREPARE_SWAP");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {

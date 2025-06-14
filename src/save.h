@@ -45,11 +45,11 @@ typedef struct {
     u32           map_hash;
     v2_i16        hero_pos;
     u32           upgrades;
-    u32           enemies_killed;
-    u16           pos_x;
-    u16           pos_y;
     u16           coins;
     u8            stamina;
+    u8            stamina_pieces;
+    u8            health;
+    u8            health_max;
     u8            n_map_pins;
     u32           save[NUM_SAVE_EV / 32];
     minimap_pin_s pins[MAP_NUM_PINS];

@@ -16,8 +16,7 @@ obj_s *hookyeeter_create(g_s *g)
     o->ID    = OBJID_HOOKYEETER;
     o->w     = 32;
     o->h     = 32;
-    o->flags = OBJ_FLAG_RENDER_AABB |
-               OBJ_FLAG_HOOKABLE;
+    o->flags = OBJ_FLAG_HOOKABLE;
     return o;
 }
 

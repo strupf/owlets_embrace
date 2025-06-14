@@ -6,25 +6,6 @@
 #include "app.h"
 #include "game.h"
 
-#define NUM_WATER_TILES 128
-
-typedef struct {
-    i32 y_q12;
-    i32 v_q12;
-} fluid_particle_s;
-
-typedef struct {
-    ALIGNAS(32)
-    fluid_particle_s *pt;
-    b32               is_idle;
-    i32               num;
-    i16               steps;
-    i16               substeps;
-    i32               dampening;
-    u32               rng_seed;
-    i32               rng_range;
-} fluid_particles_s;
-
 i32 fluid_pt_y(i32 y_q8)
 {
     return ((y_q8 >> 8) + 8);
@@ -116,6 +97,9 @@ void fluid_area_update(fluid_area_s *b)
 {
     if (b->s.pts) {
         b->tick++;
+        if (b->ticks_to_idle) {
+            b->ticks_to_idle--;
+        }
         fluid_surface_step(&b->s);
     }
 }
@@ -129,6 +113,8 @@ void fluid_area_impact(fluid_area_s *b, i32 x_mid, i32 w, i32 str, i32 type)
     i32 i1 = min_i32(x1 / wi + 1, b->s.n - 2);
     i32 id = i1 - i0;
     if (id == 0) return;
+
+    b->ticks_to_idle = 400;
 
     for (i32 i = i0; i <= i1; i++) {
         fluid_pt_s *p = &b->s.pts[i];
@@ -158,42 +144,7 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
         break;
     case 1:
         if (b->type == FLUID_AREA_LAVA) {
-            fill_col                      = PRIM_MODE_BLACK_WHITE;
-            const gfx_pattern_s lavapt[4] = {
-                gfx_pattern_8x8(B8(00000000),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00000000)),
-                gfx_pattern_8x8(B8(00000000),
-                                B8(00010000),
-                                B8(00000010),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(00100000),
-                                B8(00000001),
-                                B8(00000000)),
-                gfx_pattern_8x8(B8(00000000),
-                                B8(01010000),
-                                B8(00001010),
-                                B8(00000000),
-                                B8(00000000),
-                                B8(10100000),
-                                B8(00000101),
-                                B8(00000000)),
-                gfx_pattern_8x8(B8(00100000),
-                                B8(01010000),
-                                B8(00001010),
-                                B8(00000100),
-                                B8(01000000),
-                                B8(10100000),
-                                B8(00000101),
-                                B8(00000010))
-
-            };
+            fill_col = PRIM_MODE_BLACK_WHITE;
 
             i32 t   = b->tick << 10;
             i32 shr = ((4 * (sin_q15(t) + 32767)) / 65536);
@@ -215,10 +166,6 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
             } else {
                 pID = 0;
             }
-
-            ctx_fill.pat = gfx_pattern_shift(lavapt[pID],
-                                             cam.x + shr,
-                                             cam.y + shl);
         } else {
             fill_col     = GFX_COL_BLACK;
             ctx_fill.pat = gfx_pattern_2x2(B2(11), B2(01));

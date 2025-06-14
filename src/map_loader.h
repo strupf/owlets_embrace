@@ -9,8 +9,7 @@
 #include "util/lzss.h"
 
 typedef struct {
-    u32 IID[4];
-    u32 ID;
+    u32 editorID;
     u8  name[24];
     u16 bytes;  // total size in bytes
     u16 n_prop; // number of properties

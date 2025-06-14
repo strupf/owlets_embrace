@@ -60,16 +60,16 @@ err32 savefile_r(i32 slot, savefile_s *s)
     err32         res = 0;
     save_header_s h   = {0};
     if (pltf_file_r_checked(f, &h, sizeof(save_header_s))) {
-        switch (h.version) {
-        case GAME_VERSION: { // up to date version
-            res |= savefile_read_data(h, f, s, sizeof(savefile_s));
-            break;
-        }
-        default: { // unsupported
+        game_version_s v = game_version_decode(h.version);
+#if 1
+        res |= savefile_read_data(h, f, s, sizeof(savefile_s));
+#else
+        if (v.vmaj == 0) {
             res |= SAVE_ERR_VERSION;
-            break;
+        } else {
+            res |= savefile_read_data(h, f, s, sizeof(savefile_s));
         }
-        }
+#endif
     } else {
         res |= SAVE_ERR_RW;
     }

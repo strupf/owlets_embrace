@@ -32,7 +32,6 @@ void watercol_load(g_s *g, map_obj_s *mo)
     obj_s      *o = obj_create(g);
     watercol_s *w = (watercol_s *)o->mem;
     o->ID         = OBJID_WATERCOL;
-    o->flags      = OBJ_FLAG_RENDER_AABB;
     o->w          = 48;
     w->h_max      = map_obj_i32(mo, "H_Max");
     o->pos.y      = mo->y;

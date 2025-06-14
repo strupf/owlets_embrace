@@ -435,17 +435,26 @@ void minimap_confirm_visited(g_s *g)
 
 void minimap_try_visit_screen(g_s *g)
 {
-    minimap_s *m  = &g->minimap;
-    v2_i32     ph = minimap_hero_pos(g);
-    i32        sx = ph.x / 25;
-    i32        sy = ph.y / 15;
-    assert(0 <= sx && sx < MINIMAP_SCREENS_X);
-    assert(0 <= sy && sy < MINIMAP_SCREENS_Y);
-    i32 k = (sx + sy * MINIMAP_SCREENS_X);
-    m->visited[((k >> 5) << 1) + 0] |= (u32)1 << (k & 31);
+    minimap_s  *m  = &g->minimap;
+    v2_i32      ph = minimap_hero_pos(g);
+    map_room_s *mr = g->map_room_cur;
+
+    i32 sx1 = max_i32(mr->x, ph.x - 8) / 25;
+    i32 sy1 = max_i32(mr->y, ph.y - 4) / 15;
+    i32 sx2 = min_i32(mr->x + mr->w - 1, ph.x + 8) / 25;
+    i32 sy2 = min_i32(mr->y + mr->h - 1, ph.y + 4) / 15;
+
+    for (i32 sy = sy1; sy <= sy2; sy++) {
+        assert(0 <= sy && sy < MINIMAP_SCREENS_Y);
+        for (i32 sx = sx1; sx <= sx2; sx++) {
+            assert(0 <= sx && sx < MINIMAP_SCREENS_X);
+            i32 k = (sx + sy * MINIMAP_SCREENS_X);
+            m->visited[((k >> 5) << 1) + 0] |= (u32)1 << (k & 31);
 #if GAME_DEMO
-    m->visited[((k >> 5) << 1) + 1] |= (u32)1 << (k & 31);
+            m->visited[((k >> 5) << 1) + 1] |= (u32)1 << (k & 31);
 #endif
+        }
+    }
 }
 
 i32 minimap_screen_visited(g_s *g, i32 tx, i32 ty)

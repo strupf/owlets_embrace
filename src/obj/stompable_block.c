@@ -152,20 +152,17 @@ void stompable_block_on_update(g_s *g, obj_s *o)
     stompable_block_s *b = (stompable_block_s *)o->mem;
     switch (o->state) {
     case STOMPABLEBLOCK_IDLE: {
-        obj_s *ohero;
-
         if (o->timer) {
             o->timer--;
         }
 
+        obj_s *ohero = 0;
         if (!hero_present_and_alive(g, &ohero)) {
             b->standingon = 0;
             break;
         }
 
-        rec_i32 herofeet   = obj_rec_bottom(ohero);
-        bool32  standingon = overlap_rec(herofeet, obj_aabb(o)) &&
-                            obj_grounded(g, ohero);
+        bool32 standingon = obj_standing_on(ohero, o, 0, 0);
 
         if (!b->standingon && standingon) {
             o->timer = 16;

@@ -22,7 +22,7 @@ void grass_animate(g_s *g)
         rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
 
         if (ohero && overlap_rec(r, obj_aabb(ohero))) {
-            gr->v_q8 += ohero->v_q8.x >> 4;
+            gr->v_q8 += ohero->v_q12.x >> 4;
         }
 
         gr->v_q8 += rngr_sym_i32(6) - ((gr->x_q8 * 15) >> 8);

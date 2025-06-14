@@ -28,9 +28,23 @@
 #include "settings.h"
 #include "steering.h"
 #include "tile_map.h"
+#include "ui.h"
 #include "wiggle.h"
 
 #define GAME_N_ROOMS 256
+
+enum {
+    AREANAME_ST_INACTIVE,
+    AREANAME_ST_DELAY,
+    AREANAME_ST_FADE_IN,
+    AREANAME_ST_SHOW,
+    AREANAME_ST_FADE_OUT
+};
+
+#define AREANAME_TICKS_DELAY 30
+#define AREANAME_TICKS_IN    30
+#define AREANAME_TICKS_SHOW  255
+#define AREANAME_TICKS_OUT   30
 
 enum {
     EVENT_HIT_ENEMY       = 1 << 0,
@@ -99,7 +113,7 @@ typedef struct {
 } map_room_s;
 
 typedef struct {
-    ALIGNAS(4)
+    ALIGNAS(8)
     u16 x;
     u16 y;
     u16 w;
@@ -125,6 +139,15 @@ typedef struct {
     i16 rec_w;
     i16 rec_h;
 } hitbox_tmp_s;
+
+enum {
+    FFTILE_SOLID       = 1 << 0,
+    FFTILE_VISITED     = 1 << 1,
+    FFTILE_NEIGHBOUR_L = 1 << 2,
+    FFTILE_NEIGHBOUR_R = 1 << 3,
+    FFTILE_NEIGHBOUR_U = 1 << 4,
+    FFTILE_NEIGHBOUR_D = 1 << 5,
+};
 
 struct g_s {
     savefile_s     *savefile;
@@ -164,7 +187,9 @@ struct g_s {
     u32             events_frame; // flags
     u32             hurt_lp_tick;
     u16             musicID;
-    u8              mapname[32];
+    u8              areaname[32];
+    u8              area_anim_tick;
+    u8              area_anim_st;
     u32             enemies_killed;
     i32             tiles_x;
     i32             tiles_y;
@@ -173,6 +198,8 @@ struct g_s {
     tile_s          tiles[NUM_TILES];
     u16             rtiles[NUM_TILELAYER][NUM_TILES];
     u8              fluid_streams[NUM_TILES];
+    i16             bg_offx;
+    i16             bg_offy;
     i32             n_hitbox_tmp;
     hitbox_tmp_s    hitbox_tmp[16];
     obj_s          *obj_head_busy; // linked list
@@ -200,7 +227,7 @@ struct g_s {
     v2_i32          save_points[8];
     u32             save_events[NUM_SAVE_EV / 32];
     marena_s        memarena;
-    byte            mem[MKILOBYTE(512)];
+    byte            mem[MKILOBYTE(1024)];
 };
 
 void        game_init(g_s *g);

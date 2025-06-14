@@ -8,15 +8,16 @@
 void areafx_snow_setup(g_s *g, areafx_snow_s *fx)
 {
     mclr(fx, sizeof(areafx_snow_s));
+
     switch (fx->type) {
     case AREAFX_SNOW_NO_WIND: {
-        fx->n = 200;
+        fx->n = 220;
         for (i32 n = 0; n < fx->n; n++) {
             areafx_snowflake_s *sf = &fx->snowflakes[n];
             sf->p_q4.x             = rngr_i32(0, AREAFX_SNOW_W - 1) << 4;
             sf->p_q4.y             = rngr_i32(0, AREAFX_SNOW_H - 1) << 4;
             sf->v_q4.x             = -rngr_i32(10, 160);
-            sf->v_q4.y             = 30;
+            sf->v_q4.y             = 10;
         }
         break;
     }
@@ -44,8 +45,8 @@ void areafx_snow_update(g_s *g, areafx_snow_s *fx)
 
         switch (fx->type) {
         case AREAFX_SNOW_NO_WIND: {
-            i32 vy     = sf->v_q4.y + rngr_sym_i32(4);
-            sf->v_q4.y = clamp_i32(vy, -20, +60);
+            i32 vy     = sf->v_q4.y + rngr_sym_i32(8);
+            sf->v_q4.y = clamp_i32(vy, -20, +40);
             i32 vx     = sf->v_q4.x + rngr_sym_i32(4);
             sf->v_q4.x = clamp_i32(vx, -180, 30);
             break;
@@ -71,7 +72,7 @@ void areafx_snow_draw(g_s *g, areafx_snow_s *fx, v2_i32 cam)
         p.y &= AREAFX_SNOW_H - 1;
         p.x -= (AREAFX_SNOW_W - PLTF_DISPLAY_W) >> 1;
         p.y -= (AREAFX_SNOW_H - PLTF_DISPLAY_H) >> 1;
-        i32     s = (6 * n) / fx->n + 1;
+        i32     s = (8 * n) / fx->n + 1;
         rec_i32 r = {p.x, p.y, s, s};
         gfx_cir_fill(ctx, p, s, GFX_COL_WHITE);
     }

@@ -58,7 +58,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
     }
     case 3: {
         if (cs->tick == 240) {
-            mus_play_extv("M_BOSS", 9484, 0, 0, 100, 256);
+            mus_play_extv("M_BOSS", 418236, 0, 0, 100, 256);
         }
         switch (cs->tick) {
         case 1:

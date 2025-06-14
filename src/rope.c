@@ -592,9 +592,9 @@ void rope_verletsim(g_s *g, rope_s *r)
     // calculated current length in Q8
     u32          ropelen_q8 = 1 + (rope_len_q4(g, r) << 4); // +1 to avoid div 0
     i32          n_vpos     = 0;
-    verlet_pos_s vpos[64]   = {0};
-    verlet_pos_s vp_beg     = {0, v2_i32_shl(r->tail->p, 8)};
-    vpos[n_vpos++]          = vp_beg;
+    verlet_pos_s vpos[64];
+    verlet_pos_s vp_beg = {0, v2_i32_shl(r->tail->p, 8)};
+    vpos[n_vpos++]      = vp_beg;
 
     u32 dista = 0;
     for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
@@ -621,7 +621,7 @@ void rope_verletsim(g_s *g, rope_s *r)
         pt->pp = tmp;
     }
 
-    for (i32 k = 0; k < 12; k++) {
+    for (i32 k = 0; k < 3; k++) {
         for (i32 n = 1; n < ROPE_VERLET_N; n++) {
             rope_pt_s *p1 = &r->ropept[n - 1];
             rope_pt_s *p2 = &r->ropept[n];
@@ -646,6 +646,7 @@ void rope_verletsim(g_s *g, rope_s *r)
     // straighten rope
     for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {
         bool32 contained = 0;
+
         for (i32 i = 0; i < n_vpos; i++) {
             if (vpos[i].i == n) {
                 contained = 1; // is fixed to corner already
@@ -662,6 +663,7 @@ void rope_verletsim(g_s *g, rope_s *r)
 
         for (i32 i = 0; i < n_vpos; i++) {
             verlet_pos_s vp = vpos[i];
+
             if (prev_vp.i < vp.i && vp.i < n) {
                 prev_vp = vpos[i];
             }

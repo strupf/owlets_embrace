@@ -44,6 +44,7 @@ void hero_upgrade_load(g_s *g, map_obj_s *mo)
     }
 
     tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_allocator(g));
+    snd_from_wad_ID(SNDID_UPGRADE, "S_UPGRADE", game_allocator(g));
     p->saveID = saveID;
 }
 

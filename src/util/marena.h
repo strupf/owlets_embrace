@@ -8,6 +8,7 @@
 #include "pltf/pltf_types.h"
 
 typedef struct marena_s {
+    ALIGNAS(16)
     byte *p;
     byte *buf;
     usize bufsize;

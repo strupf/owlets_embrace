@@ -8,6 +8,15 @@
 #include "gamedef.h"
 #include "rope.h"
 
+typedef struct {
+    i32    m_q8;
+    v2_i16 v_q8;
+    v2_i16 a_q8;
+} ropeobj_param_s;
+
+#define ROPEOBJ_M_INF I32_MAX
+#define ROPEOBJ_F_INF I32_MAX
+
 enum {
     GRAPPLINGHOOK_INACTICE,
     GRAPPLINGHOOK_FLYING,
@@ -21,18 +30,24 @@ enum {
 #define GHOOK_N_HIST      4
 
 typedef struct grapplinghook_s {
-    i32          state;
-    i32          n_ang;
-    i32          destroy_tick;
-    i32          throw_snd_iID;
-    v2_f32       anghist[GHOOK_N_HIST];
-    v2_i32       p;
-    v2_i16       p_q8;
-    v2_i16       v_q8;
-    obj_handle_s o1;
-    obj_handle_s o2;
-    ropenode_s  *rn; // in case of no hooked obj
-    rope_s       rope;
+    i32             state;
+    i32             n_ang;
+    i32             destroy_tick;
+    i32             throw_snd_iID;
+    ropeobj_param_s param1;
+    ropeobj_param_s param2;
+    i32             f_cache_dt;
+    i32             f_cache_o1;
+    i32             f_cache_o2;
+    i32             destroy_tick_q8;
+    v2_f32          anghist[GHOOK_N_HIST];
+    v2_i32          p;
+    v2_i16          p_q8;
+    v2_i16          v_q8;
+    obj_handle_s    o1;
+    obj_handle_s    o2;
+    ropenode_s     *rn; // in case of no hooked obj
+    rope_s          rope;
 } grapplinghook_s;
 
 void   grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero,
@@ -42,6 +57,8 @@ void   grapplinghook_update(g_s *g, grapplinghook_s *h);
 bool32 grapplinghook_rope_intact(g_s *g, grapplinghook_s *h);
 void   grapplinghook_animate(g_s *g, grapplinghook_s *h);
 void   grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam);
+void   grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *h);
+i32    grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj);
 
 // grapplinghook at offset sx/sy
 bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,

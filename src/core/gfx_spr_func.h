@@ -5,6 +5,18 @@
 #include "gfx.h"
 #include "util/mathfunc.h"
 
+#if 0
+#undef SPRBLIT_FUNCNAME
+#undef SPRBLIT_SRC_MASK
+#undef SPRBLIT_DST_MASK
+#undef SPRBLIT_FLIPPEDX
+
+#define SPRBLIT_FUNCNAME gfx_spr_sm_fx
+#define SPRBLIT_SRC_MASK 0
+#define SPRBLIT_DST_MASK 0
+#define SPRBLIT_FLIPPEDX 0
+#endif
+
 #ifndef SPRBLIT_FUNCNAME
 #define SPRBLIT_FUNCNAME gfx_spr_func
 #define SPRBLIT_SRC_MASK 1
@@ -19,64 +31,80 @@
 #define SPRBLIT_GET_WORD(X)              (X)
 #define SPRBLIT_CHECK_PS(PS, PS_L, PS_R) ((PS) < (PS_R))
 #endif
+
+#if SPRBLIT_FLIPPEDX
+#if SPRBLIT_SRC_MASK
+#define SPRBLIT_INCR_SRC -2
+#else
+#define SPRBLIT_INCR_SRC -1
+#endif
+#else
+#if SPRBLIT_SRC_MASK
+#define SPRBLIT_INCR_SRC +2
+#else
+#define SPRBLIT_INCR_SRC +1
+#endif
+#endif
+
 #if SPRBLIT_DST_MASK
+#define SPRBLIT_INCR_DST                        2
 #define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_pm(DP, DM, SP, (SM) & (PT), M)
+#else
+#define SPRBLIT_INCR_DST 1
+#if SPRBLIT_FUNCTION_COPY
+#define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p_copy(DP, SP, (SM) & (PT))
 #else
 #define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p(DP, SP, (SM) & (PT), M)
 #endif
+#endif
 
-void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 mode)
+void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 mode)
 {
-    i32 rx = trec.x;
-    i32 ry = trec.y;
-    i32 rw = trec.w;
-    i32 rh = trec.h;
-    i32 px = psrc.x;
-    i32 py = psrc.y;
-    i32 x1 = max_i32(ctx.clip_x1, px);
-    i32 y1 = max_i32(ctx.clip_y1, py);
-    i32 x2 = min_i32(ctx.clip_x2, px + rw - 1);
-    i32 y2 = min_i32(ctx.clip_y2, py + rh - 1);
+    i32 x1 = max_i32(ctx.clip_x1, psrc.x);
+    i32 y1 = max_i32(ctx.clip_y1, psrc.y);
+    i32 x2 = min_i32(ctx.clip_x2, psrc.x + t_rec.w - 1);
+    i32 y2 = min_i32(ctx.clip_y2, psrc.y + t_rec.h - 1);
     if (x2 < x1 || y2 < y1) return;
 
-    tex_s dst  = ctx.dst;
-    tex_s src  = trec.t;
-    i32   sy   = flip & SPR_FLIP_Y ? -1 : +1;
-    i32   sx   = 1 - 2 * SPRBLIT_FLIPPEDX;
-    i32   di   = +1 << SPRBLIT_DST_MASK;
-    i32   si   = sx << SPRBLIT_SRC_MASK;
-    i32   wd   = dst.wword >> SPRBLIT_DST_MASK;
-    i32   ws   = src.wword >> SPRBLIT_SRC_MASK;
-    i32   id   = dst.wword;
-    i32   is   = src.wword * sy;
-    u32   ww   = (x2 >> 5) - (x1 >> 5); // number of destination words - 1
-    u32   cl   = bswap32(0xFFFFFFFF >> (31 & x1));
-    u32   cr   = bswap32(0xFFFFFFFF << (31 & (u32)(-x2 - 1)));
-    i32   u1   = rx - sx * px + (SPRBLIT_FLIPPEDX ? rw - (x2 + 1) : x1); // first bit index in src row
-    i32   os   = 31 & (sx * u1 - SPRBLIT_FLIPPEDX * (x2 - x1 + 1));
-    i32   of   = os - (x1 & 31);
-    i32   sn   = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
-    i32   ll   = 31 & of;
-    i32   rr   = 32 - ll;
-    i32   ys   = ry + sy * (y1 - py) + (sy < 0) * (rh - 1);
-    u32  *pt_y = ctx.pat.p;
-    u32  *pd_y = &dst.px[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
-    u32  *ps_y = &src.px[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
+    i32 sy = flip & SPR_FLIP_Y ? -1 : +1;
+    i32 wd = ctx.dst.wword >> SPRBLIT_DST_MASK;
+    i32 ws = t_rec.t.wword >> SPRBLIT_SRC_MASK;
+    i32 is = t_rec.t.wword * sy;
+    i32 ww = (x2 >> 5) - (x1 >> 5); // number of destination words - 1
+    u32 cl = bswap32(0xFFFFFFFF >> (31 & x1));
+    u32 cr = bswap32(0xFFFFFFFF << (31 & (u32)(-x2 - 1)));
+#if SPRBLIT_FLIPPEDX
+    i32 u1 = t_rec.x + psrc.x + t_rec.w - (x2 + 1); // first bit index in src row
+    i32 os = 31 & (-u1 - (x2 - x1 + 1));
+#else
+    i32 u1 = t_rec.x - psrc.x + x1; // first bit index in src row
+    i32 os = 31 & u1;
+#endif
+    i32  of   = os - (x1 & 31);
+    i32  sn   = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
+    i32  ll   = 31 & of;
+    i32  rr   = 32 - ll;
+    i32  ys   = t_rec.y + sy * (y1 - psrc.y) + (sy < 0) * (t_rec.h - 1);
+    u32 *pd_y = &ctx.dst.px[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
+    u32 *ps_y = &t_rec.t.px[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
 
     assert(0 <= (u1 >> 5) && ((u1 >> 5) + (sn >> SPRBLIT_SRC_MASK)) < ws);
 
-    for (i32 yd = y1; yd <= y2; yd++, ys += sy, pd_y += id, ps_y += is) {
+    for (i32 yd = y1;
+         yd <= y2;
+         yd++, ys += sy, pd_y += ctx.dst.wword, ps_y += is) {
+        //
         u32 *ps_l = ps_y;
         u32 *ps_r = ps_y + sn;
         u32 *ps   = ps_y + sn * SPRBLIT_FLIPPEDX;
         u32 *pd   = pd_y;
 #if PLTF_DEBUG
-        assert(0 <= ys && ys < src.h);
-        u32 *ps_a = &src.px[(0 + ys * ws) << SPRBLIT_SRC_MASK];
-        u32 *ps_b = &src.px[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
+        assert(0 <= ys && ys < t_rec.t.h);
+        u32 *ps_a = &t_rec.t.px[(0 + ys * ws) << SPRBLIT_SRC_MASK];
+        u32 *ps_b = &t_rec.t.px[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
         assert(ps_a <= ps && ps <= ps_b);
 #endif
-        u32 pt = pt_y[yd & 7];
+        u32 pt = ctx.pat.p[yd & 3];
         u32 zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
         u32 sp = zp << ll;
 #if SPRBLIT_SRC_MASK
@@ -87,7 +115,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #endif
 
         if (0 < sn && 0 <= of) {
-            ps += si;
+            ps += SPRBLIT_INCR_SRC;
 #if PLTF_DEBUG
             assert(ps_a <= ps && ps <= ps_b);
 #endif
@@ -108,10 +136,13 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 
         if (ww) { // bitmap spans over 2+ dst words
             SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
-            pd += di;
+            pd += SPRBLIT_INCR_DST;
 
-            for (u32 *pi = pd + ((ww - 1) << SPRBLIT_DST_MASK); pd != pi; pd += di) {
-                ps += si;
+            for (u32 *pi = pd + ((ww - 1) << SPRBLIT_DST_MASK);
+                 pd != pi;
+                 pd += SPRBLIT_INCR_DST) {
+                //
+                ps += SPRBLIT_INCR_SRC;
 #if PLTF_DEBUG
                 assert(ps_a <= ps && ps <= ps_b);
 #endif
@@ -137,7 +168,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #endif
 
             if (SPRBLIT_CHECK_PS(ps, ps_l, ps_r)) {
-                ps += si;
+                ps += SPRBLIT_INCR_SRC;
 #if PLTF_DEBUG
                 assert(ps_a <= ps && ps <= ps_b);
 #endif
@@ -161,3 +192,5 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s trec, v2_i32 psrc, i32 flip, i32 m
 #undef SPRBLIT_GET_WORD
 #undef SPRBLIT_CHECK_PS
 #undef SPRBLIT_FUNCTION
+#undef SPRBLIT_INCR_DST
+#undef SPRBLIT_INCR_SRC

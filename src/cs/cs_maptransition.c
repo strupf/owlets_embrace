@@ -18,7 +18,7 @@ enum {
 
 typedef struct maptransition_s {
     v2_i32 hero_feet;
-    v2_i16 hero_v_q8;
+    v2_i32 hero_v_q12;
     u32    map_hash;
     u8     fade_phase;
     u8     type;
@@ -30,7 +30,7 @@ typedef struct maptransition_s {
 static_assert(sizeof(maptransition_s) <= CS_MEM_BYTES, "Size");
 
 #define MAPTRANSITION_TICKS_F_OUT   15
-#define MAPTRANSITION_TICKS_F_BLACK 10
+#define MAPTRANSITION_TICKS_F_BLACK 15
 #define MAPTRANSITION_TICKS_F_IN    25
 
 void cs_maptransition_update(g_s *g, cs_s *cs);
@@ -58,11 +58,11 @@ void cs_maptransition_init(g_s *g, cs_s *cs, u32 map_hash, i32 type, v2_i32 hero
     mt->fade_phase         = 1;
     h->safe_pos.x          = hero_feet.x;
     h->safe_pos.y          = hero_feet.y;
-    h->safe_v.x            = sgn_i32(ohero->v_q8.x) * 500;
+    h->safe_v.x            = sgn_i32(ohero->v_q12.x) * Q_VOBJ(2.0);
     h->safe_v.y            = 0;
     h->safe_facing         = ohero->facing;
-    if (ohero->v_q8.y < 0) {
-        h->safe_v.y = -1000;
+    if (ohero->v_q12.y < 0) {
+        h->safe_v.y = -Q_VOBJ(4.0);
     }
     grapplinghook_destroy(g, &g->ghook);
 }
@@ -108,7 +108,7 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
 
     aabb.x -= (mneighbor->x - mcur->x) << 4;
     aabb.y -= (mneighbor->y - mcur->y) << 4;
-    v2_i16 hvel = o->v_q8;
+    v2_i32 hvel = o->v_q12;
 
     switch (touchedbounds) {
     case DIRECTION_E:
@@ -119,7 +119,7 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         break;
     case DIRECTION_N:
         aabb.y       = (mneighbor->h << 4) - aabb.h - 8;
-        hvel.y       = min_i32(hvel.y, -1200);
+        hvel.y       = min_i32(hvel.y, -Q_VOBJ(5.0));
         // if A pressed before transition and released the vy will be reduced,
         // resulting in the player not making the screen transition
         // -> clear jumpticks
@@ -140,7 +140,7 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
                           MAPTRANSITION_TYPE_SLIDE, feet);
     g->block_update = 1;
     mt->dir         = touchedbounds;
-    mt->hero_v_q8   = hvel;
+    mt->hero_v_q12  = hvel;
     o->bumpflags    = 0;
     return 1;
 }
@@ -155,10 +155,10 @@ void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
     cs_maptransition_enter(g);
     cs_maptransition_init(g, cs, map_hash,
                           MAPTRANSITION_TYPE_TELEPORT, pos);
-    g->block_update = 1;
-    mt->hero_v_q8.x = 0;
-    mt->hero_v_q8.y = 0;
-    hero_s *h       = (hero_s *)o->heap;
+    g->block_update  = 1;
+    mt->hero_v_q12.x = 0;
+    mt->hero_v_q12.y = 0;
+    hero_s *h        = (hero_s *)o->heap;
 }
 
 void cs_maptransition_update(g_s *g, cs_s *cs)
@@ -174,10 +174,12 @@ void cs_maptransition_update(g_s *g, cs_s *cs)
         break;
     }
     case MAPTRANSITION_FADE_BLACK: {
+        if (cs->tick == 2) {
+            cs_maptransition_load_map(g, cs); // sets tick variable
+        }
         if (MAPTRANSITION_TICKS_F_BLACK <= cs->tick) {
             cs->tick = 0;
             cs->phase++;
-            cs_maptransition_load_map(g, cs);
         }
         break;
     }
@@ -213,6 +215,7 @@ void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam)
 
 void cs_maptransition_load_map(g_s *g, cs_s *cs)
 {
+    f32              t1    = pltf_seconds();
     maptransition_s *mt    = (maptransition_s *)cs->mem;
     obj_s           *ohero = obj_get_hero(g);
 
@@ -220,8 +223,13 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
         ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
         ohero->pos.y = mt->hero_feet.y - ohero->h;
         if (mt->dir) {
-            ohero->v_q8 = mt->hero_v_q8;
+            ohero->v_q12 = mt->hero_v_q12;
         }
+    }
+    hero_s *h = (hero_s *)ohero->heap;
+    for (i32 n = 0; n < ARRLEN(h->hooktrail); n++) {
+        h->hooktrail[n].p  = v2_i32_shl(obj_pos_center(ohero), 8);
+        h->hooktrail[n].pp = v2_i32_shl(obj_pos_center(ohero), 8);
     }
 
     game_load_map(g, mt->map_hash);
@@ -251,4 +259,17 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     objs_animate(g);
     aud_allow_playing_new_snd(1);
+
+    i32 ticks_loaded = (i32)((pltf_seconds() - t1) * 50.f + 0.5f);
+    if (g->speedrun) {
+        // don't adjust black phase time to not discriminate different
+        // playdate CPU revisions. Also keep it short
+        cs->tick = MAPTRANSITION_TICKS_F_BLACK - 1;
+    } else {
+        // adjust black phase time for time needed to load so it's
+        // more constant across all transitions, whether the map to load
+        // is big (slower loading) or small (faster loading)
+        cs->tick = min_i32(MAPTRANSITION_TICKS_F_BLACK, 2 + ticks_loaded);
+    }
+    pltf_sync_timestep();
 }

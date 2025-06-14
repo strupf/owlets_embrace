@@ -16,5 +16,5 @@ b32 cs_wait_and_pause_for_hero_idle(g_s *g)
     grapplinghook_destroy(g, &g->ghook);
     if (!ohero) return 1;
     if (!obj_grounded(g, ohero)) return 0;
-    return (ohero->v_q8.x == 0);
+    return (ohero->v_q12.x == 0);
 }

@@ -204,6 +204,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
     case 14: {
         switch (cs->tick) {
         case 50: {
+            snd_play(SNDID_UPGRADE, 1.f, 1.f);
             v2_i32 comppos = {opos.x - 100, opos.y + 60};
             v2_i32 heropos = {0, -30};
             puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_UPGR_RISE, 0);

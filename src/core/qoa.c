@@ -9,7 +9,7 @@
 #include "pltf/pltf_intrin.h"
 #include "util/mathfunc.h"
 
-ALIGNAS(16)
+ALIGNAS(32)
 static const i16 qoa_deq[16][8] = {
     {1, -1, 3, -3, 5, -5, 7, -7},
     {5, -5, 18, -18, 32, -32, 49, -49},
@@ -58,7 +58,6 @@ static inline i32 qoa_decode_sample(qoa_dec_s *d)
 {
     i32 dq = d->deq[d->s >> 61];
     d->s <<= 3;
-    PREFETCH(&d->deq[d->s >> 61]);
     i32 pr = i16x2_dot(i16x2_ld(&d->lms.w[0]), i16x2_ld(&d->lms.h[0])) >> 13;
     i32 sp = ssat(pr + dq, 16);
     i32 dt = dq >> 4;

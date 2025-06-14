@@ -25,14 +25,14 @@ enum {
     OBJID_WATERCOL,
     OBJID_CRAWLER,
     OBJID_HERO_UPGRADE,
-    OBJID_MOVINGPLATFORM,
+    OBJID_GEMPILE,
     OBJID_NPC,
     OBJID_TELEPORT,
     OBJID_JUMPER,
-    OBJID_COLLECTIBLE,
     OBJID_STALACTITE,
     OBJID_STALACTITE_SPAWN,
     OBJID_FLYER,
+    OBJID_SPRINYBLOCK,
     OBJID_TRIGGERAREA,
     OBJID_PUSHBLOCK,
     OBJID_HOOKLEVER,
@@ -57,6 +57,7 @@ enum {
     OBJID_WATERLEAF,
     OBJID_WINDAREA,
     OBJID_TRAMPOLINE,
+    OBJID_PULLEYBLOCK,
     OBJID_SAVEPOINT,
     OBJID_BOULDER,
     OBJID_BOULDER_SPAWN,
@@ -109,18 +110,11 @@ void      hero_upgrade_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
 v2_i32    hero_upgrade_orb_pos(obj_s *o);
 void      hero_upgrade_disable_orb(obj_s *o);
 void      hero_upgrade_collect(g_s *g, obj_s *o);
-void      movingplatform_load(g_s *g, map_obj_s *mo);
 void      npc_load(g_s *g, map_obj_s *mo);
 void      npc_on_update(g_s *g, obj_s *o);
 void      npc_on_animate(g_s *g, obj_s *o);
 void      npc_on_interact(g_s *g, obj_s *o);
 void      crackblock_load(g_s *g, map_obj_s *mo);
-obj_s    *sign_popup_create(g_s *g);
-void      sign_popup_load(g_s *g, map_obj_s *mo);
-void      sign_popup_on_update(g_s *g, obj_s *o);
-void      sign_popup_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-obj_s    *sign_create(g_s *g);
-void      sign_load(g_s *g, map_obj_s *mo);
 void      teleport_load(g_s *g, map_obj_s *mo);
 void      stalactite_load(g_s *g, map_obj_s *mo);
 void      stalactite_on_update(g_s *g, obj_s *o);
@@ -134,8 +128,6 @@ void      hooklever_on_update(g_s *g, obj_s *o);
 ratio_i32 hooklever_spring_ratio(obj_s *o);
 obj_s    *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                              i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip);
-void      spritedecal_on_update(g_s *g, obj_s *o);
-void      spritedecal_on_animate(g_s *g, obj_s *o);
 void      pushblock_load(g_s *g, map_obj_s *mo);
 void      steam_platform_load(g_s *g, map_obj_s *mo);
 void      budplant_load(g_s *g, map_obj_s *mo);
@@ -160,11 +152,11 @@ void      waterleaf_load(g_s *g, map_obj_s *mo);
 void      waterleaf_on_update(g_s *g, obj_s *o);
 void      waterleaf_on_animate(g_s *g, obj_s *o);
 void      windarea_load(g_s *g, map_obj_s *mo);
-void      windarea_on_animate(g_s *g, obj_s *o);
 void      windarea_on_update(g_s *g, obj_s *o);
 void      windarea_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 obj_s    *coin_create(g_s *g);
 void      coin_load(g_s *g, map_obj_s *mo);
+void      coin_try_collect(g_s *g, obj_s *o, v2_i32 heropos);
 void      door_load(g_s *g, map_obj_s *mo);
 void      trampoline_load(g_s *g, map_obj_s *mo);
 void      trampolines_do_bounce(g_s *g);
@@ -183,5 +175,11 @@ obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
 void      fallingstonespawn_load(g_s *g, map_obj_s *mo);
 obj_s    *healthdrop_spawn(g_s *g, v2_i32 p);
+void      springyblock_load(g_s *g, map_obj_s *mo);
+void      pulleyblocks_setup(g_s *g);
+void      pulleyblock_load_parent(g_s *g, map_obj_s *mo);
+void      pulleyblock_load_child(g_s *g, map_obj_s *mo);
+void      gempile_load(g_s *g, map_obj_s *mo);
+void      gempile_on_hit(g_s *g, obj_s *o);
 
 #endif

@@ -17,10 +17,12 @@ static void       muschannel_stop(muschannel_s *mc);
 err32 aud_init()
 {
     aud_s *aud    = &APP->aud;
-    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 8) / SETTINGS_VOL_MAX;
+    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 6) / SETTINGS_VOL_MAX;
     aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
 #if 0
     aud->v_mus_q8 = 0;
+#endif
+#if 0
     aud->v_sfx_q8 = 0;
 #endif
     return 0;
@@ -333,7 +335,7 @@ void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_o
     c->channelID            = channelID;
     c->hash                 = wad_hash(fname);
     c->vol_q8               = v_q8;
-    c->loop_s1              = (s1 * 44100) / 1000;
+    c->loop_s1              = s1;
     c->loop_s2              = (s2 * 44100) / 1000;
     c->ticks_in             = (t_fade_in * 44100) / 1000;
     c->ticks_out            = (t_fade_out * 44100) / 1000;

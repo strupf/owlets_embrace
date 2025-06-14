@@ -43,11 +43,15 @@ obj_s *obj_create(g_s *g)
 
     u32 gen = o->generation;
     mclr(o, sizeof(obj_s));
-    o->generation      = gen;
-    o->next            = g->obj_head_busy;
+    o->generation = gen;
+    o->prev       = 0;
+    o->next       = g->obj_head_busy;
+    if (g->obj_head_busy) {
+        g->obj_head_busy->prev = o;
+    }
+    g->obj_head_busy   = o;
     o->render_priority = RENDER_PRIO_DEFAULT_OBJ;
     o->on_squish       = obj_delete;
-    g->obj_head_busy   = o;
 #if PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 #if 0
@@ -84,7 +88,6 @@ void obj_handle_delete(g_s *g, obj_handle_s h)
 bool32 obj_tag(g_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag]) return 0;
-    o->tags |= (u32)1 << tag;
     g->obj_tag[tag] = o;
     return 1;
 }
@@ -92,7 +95,6 @@ bool32 obj_tag(g_s *g, obj_s *o, i32 tag)
 bool32 obj_untag(g_s *g, obj_s *o, i32 tag)
 {
     if (g->obj_tag[tag] != o) return 0;
-    o->tags &= ~((u32)1 << tag);
     g->obj_tag[tag] = 0;
     return 1;
 }
@@ -114,6 +116,7 @@ void objs_cull_to_delete(g_s *g)
                 g->obj_tag[k] = 0;
             }
         }
+
         for (u32 k = 0; k < g->n_objrender; k++) {
             if (g->obj_render[k] == o) {
                 g->obj_render[k] = g->obj_render[--g->n_objrender];
@@ -121,15 +124,14 @@ void objs_cull_to_delete(g_s *g)
             }
         }
 
+        if (o->next) {
+            o->next->prev = o->prev;
+        }
+        if (o->prev) {
+            o->prev->next = o->next;
+        }
         if (g->obj_head_busy == o) {
             g->obj_head_busy = o->next;
-        } else {
-            for (obj_each(g, ot)) {
-                if (ot->next == o) {
-                    ot->next = o->next;
-                    break;
-                }
-            }
         }
 
         o->next          = g->obj_head_free;
@@ -172,25 +174,25 @@ void squish_delete(g_s *g, obj_s *o)
     obj_delete(g, o);
 }
 
-void obj_move_by_q8(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8)
+void obj_move_by_q12(g_s *g, obj_s *o, i32 dx_q12, i32 dy_q12)
 {
-    o->subpos_q8.x += dx_q8;
-    o->subpos_q8.y += dy_q8;
-    i32 dx = o->subpos_q8.x >> 8;
-    i32 dy = o->subpos_q8.y >> 8;
-    o->subpos_q8.x &= 0xFF;
-    o->subpos_q8.y &= 0xFF;
+    o->subpos_q12.x += dx_q12;
+    o->subpos_q12.y += dy_q12;
+    i32 dx = o->subpos_q12.x >> 12;
+    i32 dy = o->subpos_q12.y >> 12;
+    o->subpos_q12.x &= 0xFFF;
+    o->subpos_q12.y &= 0xFFF;
 
     obj_move(g, o, dx, dy);
 }
 
-void obj_move_by_v_q8(g_s *g, obj_s *o)
+void obj_move_by_v_q12(g_s *g, obj_s *o)
 {
-    o->subpos_q8 = v2_i16_add(o->subpos_q8, o->v_q8);
-    i32 dx       = o->subpos_q8.x >> 8;
-    i32 dy       = o->subpos_q8.y >> 8;
-    o->subpos_q8.x &= 0xFF;
-    o->subpos_q8.y &= 0xFF;
+    o->subpos_q12 = v2_i32_add(o->subpos_q12, o->v_q12);
+    i32 dx        = o->subpos_q12.x >> 12;
+    i32 dy        = o->subpos_q12.y >> 12;
+    o->subpos_q12.x &= 0xFFF;
+    o->subpos_q12.y &= 0xFFF;
 
     obj_move(g, o, dx, dy);
 }
@@ -203,12 +205,28 @@ void obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8)
 
 void obj_vx_q8_mul(obj_s *o, i32 mx_q8)
 {
-    o->v_q8.x = (o->v_q8.x * mx_q8) / 256;
+    o->v_q12.x = i32_mul(o->v_q12.x, mx_q8) / 256;
 }
 
 void obj_vy_q8_mul(obj_s *o, i32 my_q8)
 {
-    o->v_q8.y = (o->v_q8.y * my_q8) / 256;
+    o->v_q12.y = i32_mul(o->v_q12.y, my_q8) / 256;
+}
+
+void obj_v_q12_mul(obj_s *o, i32 mx_q12, i32 my_q12)
+{
+    obj_vx_q12_mul(o, mx_q12);
+    obj_vy_q12_mul(o, my_q12);
+}
+
+void obj_vx_q12_mul(obj_s *o, i32 mx_q12)
+{
+    o->v_q12.x = i32_mul(o->v_q12.x, mx_q12) / 4096;
+}
+
+void obj_vy_q12_mul(obj_s *o, i32 my_q12)
+{
+    o->v_q12.y = i32_mul(o->v_q12.y, my_q12) / 4096;
 }
 
 bool32 overlap_obj(obj_s *a, obj_s *b)
@@ -338,7 +356,7 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
         o->enemy.hurt_tick = o->enemy.hurt_tick_max;
     }
 
-    o->enemy.flash_tick = 4;
+    o->enemy.flash_tick = 6;
     if (o->enemy.on_hurt) {
         o->enemy.on_hurt(g, o);
     }
@@ -367,4 +385,13 @@ i32 obj_distsq(obj_s *a, obj_s *b)
 i32 obj_dist_appr(obj_s *a, obj_s *b)
 {
     return v2_i32_distance_appr(obj_pos_center(a), obj_pos_center(b));
+}
+
+bool32 obj_standing_on(obj_s *o_standing_on, obj_s *o_plat, i32 offx, i32 offy)
+{
+    if (!o_standing_on || !o_plat) return 0;
+
+    rec_i32 rb = obj_rec_bottom(o_standing_on);
+    rec_i32 rt = {o_plat->pos.x + offx, o_plat->pos.y + offy, o_plat->w, 1};
+    return overlap_rec(rb, rt);
 }

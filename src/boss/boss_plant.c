@@ -169,8 +169,8 @@ void boss_plant_barrier_poof(g_s *g)
         o1->render_priority = 255;
         o2->render_priority = 255;
     }
-    snd_play(SNDID_STOMP_LAND, 1.5f, 1.f);
-    snd_play(SNDID_LANDING, 1.5f, 1.f);
+    snd_play(SNDID_STOMP_LAND, 1.2f, 1.f);
+    snd_play(SNDID_LANDING, 1.2f, 1.f);
 }
 
 // BOSS
@@ -656,6 +656,7 @@ void boss_plant_on_killed_eye(g_s *g, obj_s *o)
         objs_cull_to_delete(g);
         aud_stop_all_snd_instances();
         cs_bossplant_outro_enter(g);
+        snd_play(SNDID_BOSSWIN, 1.f, 1.f);
         break;
     }
     case OBJID_BOSS_PLANT_EYE_FAKE_L:

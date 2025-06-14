@@ -30,24 +30,20 @@ err32 settings_load(settings_s *s)
 
     settings_header_s h   = {0};
     err32             res = 0;
+
     if (pltf_file_r_checked(f, &h, sizeof(settings_header_s))) {
-        switch (h.version) {
-        case GAME_VERSION: {
-            if (pltf_file_r_checked(f, s, sizeof(settings_s))) {
-                res |= SETTINGS_ERR_RW;
-                break;
-            }
+        game_version_s v = game_version_decode(h.version);
 
-            if (h.checksum != crc16(s, sizeof(settings_s))) {
-                res |= SETTINGS_ERR_CHECKSUM;
-            }
-            break;
-        }
-
-        default: { // reading unsupported file
+        if (v.vmaj == 0) {
             res |= SETTINGS_ERR_VERSION;
-            break;
-        }
+        } else {
+            if (pltf_file_r_checked(f, s, sizeof(settings_s))) {
+                if (h.checksum != crc16(s, sizeof(settings_s))) {
+                    res |= SETTINGS_ERR_CHECKSUM;
+                }
+            } else {
+                res |= SETTINGS_ERR_RW;
+            }
         }
     } else {
         res |= SETTINGS_ERR_RW;
@@ -89,4 +85,5 @@ void settings_default(settings_s *s)
     s->shake_sensitivity = SETTINGS_SHAKE_SENS_MAX / 2;
     s->vol_mus           = SETTINGS_VOL_MAX;
     s->vol_sfx           = SETTINGS_VOL_MAX;
+    s->swap_ticks        = (SETTINGS_SWAP_TICKS_MIN + SETTINGS_SWAP_TICKS_MAX) / 2;
 }

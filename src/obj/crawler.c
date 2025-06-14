@@ -242,6 +242,6 @@ void crawler_on_animate(g_s *g, obj_s *o)
 
 void crawler_on_hurt(g_s *g, obj_s *o)
 {
-    o->v_q8.x = 0;
-    o->v_q8.y = 0;
+    o->v_q12.x = 0;
+    o->v_q12.y = 0;
 }

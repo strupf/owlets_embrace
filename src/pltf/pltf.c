@@ -7,6 +7,7 @@
 #define PLTF_SHOW_FPS 0 // show FPS, UPS, logic time and draw time
 
 typedef struct pltf_s {
+    ALIGNAS(32)
     void *framebuffer;
     i32   tick;
     f32   lasttime;
@@ -83,6 +84,10 @@ i32 pltf_internal_update()
     PLTF.ups_counter += n_ticks;
     PLTF.ups_ft_acc += pltf_seconds() - time;
 #endif
+
+    if (1 < n_ticks) {
+        pltf_log("SKIP\n");
+    }
 
     if (n_ticks) {
 #if PLTF_SHOW_FPS

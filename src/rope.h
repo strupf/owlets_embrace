@@ -20,13 +20,15 @@ typedef struct rope_pt_s {
 } rope_pt_s;
 
 struct ropenode_s {
+    ALIGNAS(16)
     ropenode_s *next;
     ropenode_s *prev;
     v2_i32      p;
 };
 
 struct rope_s {
-    bool32       active;
+    bool16       active;
+    bool16       dirty;
     u32          len_max_q4;
     obj_handle_s o_head;
     obj_handle_s o_tail;
@@ -36,7 +38,6 @@ struct rope_s {
     ropenode_s  *tail;
     v2_i32       pmin;
     v2_i32       pmax;
-    bool32       dirty;
     ropenode_s  *pool;
     ropenode_s   nodesraw[NUM_ROPE_NODES];
 };

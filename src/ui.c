@@ -2,18 +2,16 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef WINDTUNNEL_H
-#define WINDTUNNEL_H
+#include "ui.h"
+#include "game.h"
 
-#include "gamedef.h"
+enum {
+    UI_HEALTH,
+    UI_COINS
+};
 
-typedef struct {
-    u8 *v;
-} windtunnel_s;
-
-void windtunnel_init(g_s *g, windtunnel_s *wt)
-{
-    wt->v = game_alloc(g, sizeof(u8) * g->tiles_x * g->tiles_y, 4);
-}
-
-#endif
+void ui_init(g_s *g);
+void ui_update(g_s *g);
+void ui_draw(g_s *g);
+void ui_hide_all(g_s *g);
+void ui_show_all(g_s *g);

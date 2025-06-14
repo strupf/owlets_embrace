@@ -68,10 +68,10 @@ void npc_on_update(g_s *g, obj_s *o)
 {
     bool32 bumpedx = o->bumpflags & OBJ_BUMP_X;
     if (o->bumpflags & OBJ_BUMP_Y) {
-        o->v_q8.y = 0;
+        o->v_q12.y = 0;
     }
     if (bumpedx) {
-        o->v_q8.x = 0;
+        o->v_q12.x = 0;
     }
     o->bumpflags = 0;
 
@@ -90,22 +90,22 @@ void npc_on_update(g_s *g, obj_s *o)
         // ramp up velocity
 
         if (--o->timer <= 0) {
-            if (abs_i32(o->v_q8.x) < 10) {
-                o->v_q8.x = 0;
+            if (abs_i32(o->v_q12.x) < 10) {
+                o->v_q12.x = 0;
             }
             if (o->timer < -100) {
-                o->timer  = rngr_i32(80, 150);
-                o->v_q8.x = rngr_i32(-1, +1);
-                if (o->v_q8.x != 0) {
-                    o->facing = sgn_i32(o->v_q8.x);
+                o->timer   = rngr_i32(80, 150);
+                o->v_q12.x = rngr_i32(-1, +1);
+                if (o->v_q12.x != 0) {
+                    o->facing = sgn_i32(o->v_q12.x);
                 }
             }
         } else {
-            o->v_q8.x <<= 1;
+            o->v_q12.x <<= 1;
         }
 
-        if (obj_would_fall_down_next(g, o, sgn_i32(o->v_q8.x))) {
-            o->v_q8.x = 0;
+        if (obj_would_fall_down_next(g, o, sgn_i32(o->v_q12.x))) {
+            o->v_q12.x = 0;
         }
     } break;
     }
@@ -119,12 +119,12 @@ void npc_on_animate(g_s *g, obj_s *o)
 
     switch (npc_get_state(g, o)) {
     case NPC_GROUNDED: {
-        if (o->v_q8.x == 0) {
+        if (o->v_q12.x == 0) {
             o->animation++;
 
             frame = 0 + ((o->animation / 6) % 6);
         } else {
-            o->animation += abs_i32(o->v_q8.x);
+            o->animation += abs_i32(o->v_q12.x);
             frame = 0 + ((o->animation >> 10) % 6);
         }
         break;
@@ -147,7 +147,7 @@ void npc_on_interact(g_s *g, obj_s *o)
     if (ohero) {
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }
-    o->v_q8.x = 0;
+    o->v_q12.x = 0;
     // dialog_open(g, o->filename);
     // textbox_load_dialog(g, o->filename);
 }

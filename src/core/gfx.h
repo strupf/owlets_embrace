@@ -36,18 +36,19 @@ typedef struct { // size: 32 byte on 32-bit CPU (pointer size) = cacheline PD
     i32   h;
 } texrec_s;
 
-typedef struct { // 32 bytes in size = cacheline on Playdate
-    ALIGNAS(32)
-    u32 p[8];
+typedef struct gfx_pattern_s { // 32 bytes in size = cacheline on Playdate
+    ALIGNAS(16)
+    u32 p[4];
 } gfx_pattern_s;
 
 typedef struct gfx_ctx_s {
-    gfx_pattern_s pat;
+    ALIGNAS(32)
     tex_s         dst;
     i32           clip_x1;
     i32           clip_x2;
     i32           clip_y1;
     i32           clip_y2;
+    gfx_pattern_s pat;
 } gfx_ctx_s;
 
 typedef struct {
@@ -57,6 +58,7 @@ typedef struct {
 } fnt_kerning_s;
 
 typedef struct {
+    ALIGNAS(32)
     tex_s          t;
     u8            *widths;
     fnt_kerning_s *kerning;
@@ -165,22 +167,17 @@ void          tex_clr(tex_s dst, i32 col);
 gfx_pattern_s gfx_pattern_inv(gfx_pattern_s p);
 gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
 gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
-gfx_pattern_s gfx_pattern_8x8(i32 p0, i32 p1, i32 p2, i32 p3, i32 p4, i32 p5, i32 p6, i32 p7);
 gfx_pattern_s gfx_pattern_bayer_4x4(i32 i);
 gfx_pattern_s gfx_pattern_shift(gfx_pattern_s p, i32 x, i32 y);
 gfx_pattern_s gfx_pattern_interpolate(i32 num, i32 den);
 gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den, i32 (*ease)(i32 a, i32 b, i32 num, i32 den));
 void          gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode);
+void          gfx_spr_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip);
 void          gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos);
-void          gfx_spr_rotated(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle);
-void          gfx_spr_rotscl(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, v2_i32 origin, f32 angle,
-                             f32 sclx, f32 scly);
-
-// tiles spr across screen with tile dimensions tx/ty (pass 0 if not tiled)
-void gfx_spr_tiled(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, i32 tx, i32 ty);
 
 // tiles spr across screen (true/false for x/y)
-void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 x, bool32 y);
+void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 tilex, bool32 tiley);
+void gfx_spr_tileds_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, bool32 tilex, bool32 tiley);
 //
 void gfx_rec_fill(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
 void gfx_rec_fill_opaque(gfx_ctx_s ctx, rec_i32 rec, i32 mode);
@@ -198,6 +195,8 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2);
 void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
 void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
                              i32 a1, i32 a2, i32 mode);
+void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro,
+                              i32 a1_q17, i32 a2_q17, i32 mode);
 //
 void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode);
 void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos,
@@ -234,6 +233,25 @@ static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, i32 mode)
 
     *dm |= sm;
 }
+
+static inline void spr_blit_p_copy(u32 *dp, u32 sp, u32 sm)
+{
+    *dp = (*dp & ~sm) | (sp & sm);
+}
+
+#define TEX_STACK(NAME, W, H, MASK)                                      \
+    ALIGNAS(8) u32 NAME##_px[(((W) >> 5) << ((MASK) != 0)) * (H)] = {0}; \
+                                                                         \
+    tex_s NAME = {0};                                                    \
+    NAME.w     = W;                                                      \
+    NAME.h     = H;                                                      \
+    NAME.wword = (((W) >> 5) << ((MASK) != 0));                          \
+    NAME.px    = NAME##_px;                                              \
+    NAME.fmt   = ((MASK) != 0);
+
+#define TEX_STACK_CTX(NAME, W, H, MASK) \
+    TEX_STACK(NAME, W, H, MASK)         \
+    gfx_ctx_s NAME##_ctx = gfx_ctx_default(NAME);
 
 enum {
     FNT_GLYPH_NULL   = 0,

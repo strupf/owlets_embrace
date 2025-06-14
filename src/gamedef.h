@@ -25,7 +25,7 @@
 //
 #define GAME_V_MAJ 0
 #define GAME_V_MIN 1
-#define GAME_V_PAT 0
+#define GAME_V_PAT 2
 
 #define GAME_VERSION_GEN(A, B, C) (((u32)(A) << 16) | \
                                    ((u32)(B) << 8) |  \
@@ -61,9 +61,7 @@ typedef struct obj_s obj_s;
 // object pointer is valid (still exists) if:
 //   o != NULL && GID == o->GID
 typedef struct obj_handle_s {
-#if PLTF_PD
     ALIGNAS(8)
-#endif
     obj_s *o;
     u32    generation;
 } obj_handle_s;
@@ -221,6 +219,7 @@ enum {
 };
 
 typedef struct hitbox_s {
+    ALIGNAS(32)
     rec_i32 r;
     v2_i16  force_q8;
     u8      damage;
@@ -229,7 +228,7 @@ typedef struct hitbox_s {
 } hitbox_s;
 
 typedef struct time_real_s {
-    ALIGNAS(4)
+    ALIGNAS(8)
     u16 h;
     u16 m;
     u16 s;

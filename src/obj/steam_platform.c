@@ -32,7 +32,7 @@ void steam_platform_load(g_s *g, map_obj_s *mo)
     obj_s            *o  = obj_create(g);
     steam_platform_s *sp = (steam_platform_s *)o->mem;
     o->ID                = OBJID_STEAM_PLATFORM;
-    o->flags             = OBJ_FLAG_RENDER_AABB | OBJ_FLAG_SOLID;
+    o->flags             = OBJ_FLAG_SOLID;
     o->w                 = mo->w;
     o->h                 = mo->h;
     o->pos.x             = mo->x;

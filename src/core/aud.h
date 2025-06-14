@@ -26,9 +26,7 @@ enum {
 };
 
 typedef struct snd_s {
-#if PLTF_PD
     ALIGNAS(8)
-#endif
     void *dat;
     u32   num_samples;
 } snd_s;
@@ -58,7 +56,7 @@ typedef struct {
     i32 vmod_q8;
 } aud_cmd_snd_mod_s;
 
-typedef struct {
+typedef struct { // 24 bytes
     u32 hash;
     u32 loop_s1;
     u32 loop_s2;
@@ -85,7 +83,7 @@ typedef struct {
 } aud_cmd_lowpass_s;
 
 typedef struct {
-    ALIGNAS(16)
+    ALIGNAS(32)
     u32 type;
     union {
         aud_cmd_snd_play_s snd_play;
@@ -96,6 +94,10 @@ typedef struct {
         aud_cmd_lowpass_s  lowpass;
     } c;
 } aud_cmd_s;
+
+#if PLTF_PD_HW // cache line alignment on the hardware
+static_assert(sizeof(aud_cmd_s) == 32, "audio cmd size");
+#endif
 
 typedef struct sndchannel_s {
     qoa_sfx_s qoa_dat;

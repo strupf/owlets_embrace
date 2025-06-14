@@ -30,7 +30,7 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
     o->on_update    = projectile_on_update;
     o->on_animate   = projectile_on_animate;
     o->on_draw      = projectile_on_draw;
-    o->v_q8         = v2_i16_from_i32(vel);
+    o->v_q12        = vel;
     o->subID        = subID;
     //
     o->flags =
@@ -73,20 +73,10 @@ obj_s *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID)
 void projectile_on_update(g_s *g, obj_s *o)
 {
     projectile_s *p = (projectile_s *)o->mem;
-    o->v_q8.y += p->gravity;
+    o->v_q12.y += p->gravity;
 
     switch (o->subID) {
     case PROJECTILE_ID_STALACTITE_BREAK: {
-        break;
-    }
-    case PROJECTILE_ID_BUDPLANT: {
-        o->timer++;
-        if (o->bumpflags & OBJ_BUMP_X) {
-            o->v_q8.x = -(o->v_q8.x * 140) / 256;
-        }
-        if (o->bumpflags & OBJ_BUMP_Y) {
-            o->v_q8.y = -(o->v_q8.y * 140) / 256;
-        }
         break;
     }
     default:
@@ -114,7 +104,7 @@ void projectile_on_update(g_s *g, obj_s *o)
         p->n_hist              = (p->n_hist + 1) % p->hist_len;
         p->pos_hist[p->n_hist] = o->pos;
     }
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void projectile_on_animate(g_s *g, obj_s *o)

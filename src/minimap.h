@@ -34,13 +34,13 @@ typedef struct {
 } minimap_pin_s;
 
 typedef struct {
-    u8  state;
     i32 centerx;
     i32 centery;
     i32 cursorx;
     i32 cursory;
     i16 herox;
     i16 heroy;
+    u8  state;
     u8  tick;
     u8  pin_selected;
     u8  n_pins;

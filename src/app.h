@@ -17,6 +17,7 @@
 #include "util/timing.h"
 #include "wad.h"
 
+#define APP_USE_MALLOC       0
 #define APP_STRUCT_ALIGNMENT 32
 
 enum {
@@ -37,9 +38,15 @@ typedef struct app_s {
     i32             state;
     marena_s        ma;
     byte            mem[MMEGABYTE(8)];
+    i32             opt;
 } app_s;
 
+#if APP_USE_MALLOC
 extern app_s *APP;
+#else
+extern app_s APPMEM;
+#define APP (&APPMEM)
+#endif
 
 i32   app_init();
 void  app_tick();
@@ -64,10 +71,9 @@ static inline allocator_s app_allocator()
     return a;
 }
 
+void app_menu_callback_pattern(void *ctx, i32 opt);
 void app_menu_callback_timing(void *ctx, i32 opt);
 void app_menu_callback_map(void *ctx, i32 opt);
-void app_menu_callback_settings(void *ctx, i32 opt);
-void app_menu_callback_mus(void *ctx, i32 opt);
 void app_menu_callback_resetsave(void *ctx, i32 opt);
 
 #endif

@@ -56,8 +56,7 @@ void boss_golem_init(g_s *g, boss_golem_s *b)
     o->pos.y = 360;
     o->w     = 64;
     o->h     = 64;
-    o->flags = OBJ_FLAG_RENDER_AABB |
-               OBJ_FLAG_HERO_JUMPABLE |
+    o->flags = OBJ_FLAG_HERO_JUMPABLE |
                OBJ_FLAG_HERO_STOMPABLE;
 }
 

@@ -90,8 +90,8 @@ void stalactite_on_update(g_s *g, obj_s *o)
     }
     case STALACTITE_FALLING: {
         o->timer++;
-        o->v_q8.y = min_i32(o->v_q8.y + 70, 256 * 5);
-        obj_move_by_v_q8(g, o);
+        o->v_q12.y = min_i32(o->v_q12.y + Q_VOBJ(0.27), Q_VOBJ(5.0));
+        obj_move_by_v_q12(g, o);
         break;
     }
     }

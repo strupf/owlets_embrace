@@ -19,7 +19,7 @@ void bpgrenade_create(g_s *g, v2_i32 pos, v2_i32 vel)
     o->ID         = OBJID_BUDPLANT_GRENADE;
     o->on_update  = bpgrenade_on_update;
     o->on_animate = bpgrenade_on_animate;
-    o->v_q8       = v2_i16_from_i32(vel);
+    o->v_q12      = vel;
     o->w          = 8;
     o->h          = 8;
     o->pos.x      = pos.x - o->w / 2;
@@ -43,15 +43,15 @@ void bpgrenade_on_update(g_s *g, obj_s *o)
             bpgrenade_explode(g, o);
         } else {
             if (o->bumpflags & OBJ_BUMP_X) {
-                o->v_q8.x = -(o->v_q8.x * 140) / 256;
+                o->v_q12.x = -(o->v_q12.x * 140) / 256;
             }
             if (o->bumpflags & OBJ_BUMP_Y) {
-                o->v_q8.y = -(o->v_q8.y * 140) / 256;
+                o->v_q12.y = -(o->v_q12.y * 140) / 256;
             }
             o->bumpflags = 0;
 
-            o->v_q8.y += 50;
-            obj_move_by_v_q8(g, o);
+            o->v_q12.y += Q_VOBJ(0.2);
+            obj_move_by_v_q12(g, o);
         }
         break;
     }

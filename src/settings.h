@@ -25,14 +25,17 @@ enum {
 #define SETTINGS_VOL_MAX          16
 #define SETTINGS_SHAKE_SENS_MAX   8
 #define SETTINGS_SHAKE_SMOOTH_MAX 8
+#define SETTINGS_SWAP_TICKS_MIN   20
+#define SETTINGS_SWAP_TICKS_MAX   40
 
 typedef struct {
-    ALIGNAS(4)
+    ALIGNAS(32)
     u8 mode;
     u8 shake_sensitivity;
     u8 shake_smooth;
     u8 vol_mus;
     u8 vol_sfx;
+    u8 swap_ticks;
 } settings_s;
 
 extern settings_s SETTINGS;

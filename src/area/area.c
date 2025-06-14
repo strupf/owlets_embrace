@@ -6,10 +6,15 @@
 #include "game.h"
 #include "render.h"
 
+static i32 coord_parallax(i32 p, i32 v_q8, i32 a)
+{
+    return (((((p * v_q8) >> 8) & ~a)));
+}
+
 static v2_i32 area_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 {
-    v2_i32 p = {((cam.x * x_q8) >> 8) & ~ax,
-                ((cam.y * y_q8) >> 8) & ~ay};
+    v2_i32 p = {-(((-cam.x * x_q8) >> 8) & ~ax),
+                -(((-cam.y * y_q8) >> 8) & ~ay)};
     return p;
 }
 
@@ -49,77 +54,79 @@ void area_update(g_s *g, area_s *a)
     }
 }
 
+#include "app.h"
 void area_draw_bg(g_s *g, area_s *a, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s     tdisplay = asset_tex(0);
     gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
 
-    gfx_fill_rows(tdisplay, gfx_pattern_white(), 0, ctx.clip_y2);
     // return; // <==== RETURN
 
+    i32 alx = APP->opt ? 3 : 1;
+    i32 aly = APP->opt ? 3 : 1;
+    if (APP->opt == 1) {
+        cam_al = cam;
+    }
+    alx = 3;
+    aly = 3;
+    //  cam_al  = cam;
+    // alx     = 3;
+    // aly     = 3;
     switch (a->ID) {
-    case AREA_ID_CAVE:
-    case AREA_ID_CAVE_DEEP:
-    case AREA_ID_BLACK:
-        gfx_fill_rows(tdisplay, gfx_pattern_black(), 0, ctx.clip_y2);
-        break;
-    case AREA_ID_MOUNTAIN:
-    case AREA_ID_MOUNTAIN_RAINY:
-        gfx_fill_rows(tdisplay, gfx_pattern_2x2(B2(10), B2(11)), 0, ctx.clip_y2);
-        break;
-    case AREA_ID_FOREST:
-    case AREA_ID_WHITE:
-    default:
-        gfx_fill_rows(tdisplay, gfx_pattern_white(), 0, ctx.clip_y2);
+    case 9: {
+        texrec_s tr_bg = asset_texrec(TEXID_BG_PARALLAX, 0, 1024, 512, 256);
+        // gfx_fill_rows(tdisplay, gfx_pattern_bayer_4x4(1), 0, ctx.clip_y2);
+
+        texrec_s tr_far  = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_mid  = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+        v2_i32   pos_far = {coord_parallax(cam_al.x + g->bg_offx, 192, alx),
+                            coord_parallax(cam_al.y + g->bg_offy, 192, aly)};
+        v2_i32   pos_mid = {coord_parallax(cam_al.x + g->bg_offx, 128, alx),
+                            coord_parallax(cam_al.y + g->bg_offy, 128, aly)};
+
+#if 0 
+        static i32 p1;
+        static i32 p2;
+        pltf_log("%i | %i\n", abs_i32(p1 - pos_far.x), abs_i32(p2 - cam.x));
+        p1 = pos_far.x;
+        p2 = cam.x;
+#endif
+        gfx_spr_copy(ctx, tr_bg, (v2_i32){0}, 0);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
         break;
     }
-
-#if defined(PLTF_PD_HW) || 0
-#define ALIGN_PATTERN 3
-#else
-#define ALIGN_PATTERN 1
-#endif
-
-    switch (a->ID) {
     case AREA_ID_MOUNTAIN:
     case AREA_ID_MOUNTAIN_RAINY: {
-        texrec_s tr_far   = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 256);
-        texrec_s tr_near  = asset_texrec(TEXID_BG_PARALLAX, 0, 256, 1024, 256);
-        v2_i32   pos_far  = area_parallax(cam, 50, 0, 1, 1);
-        v2_i32   pos_near = area_parallax(cam, 100, 0, 1, 1);
-        pos_near.y += 20;
 
-        gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
-        gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);
         break;
     }
     case AREA_ID_CAVE:
     case AREA_ID_CAVE_DEEP: {
-        texrec_s tr_far  = asset_texrec(TEXID_BG_PARALLAX, 0, 1024, 448, 512);
-        texrec_s tr_mid  = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 448, 512);
-        texrec_s tr_near = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 448, 512);
 
-        v2_i32 pos_far  = area_parallax(cam, 32, 0, ALIGN_PATTERN, ALIGN_PATTERN);
-        v2_i32 pos_mid  = area_parallax(cam, 64, 0, ALIGN_PATTERN, ALIGN_PATTERN);
-        v2_i32 pos_near = area_parallax(cam, 128, 0, 1, 1);
-        gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
-        gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
-        gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);
         break;
     }
     case AREA_ID_FOREST: {
-        texrec_s tr_far   = asset_texrec(TEXID_BG_PARALLAX, 0, 256 + 0, 512, 256);
-        texrec_s tr_mid   = asset_texrec(TEXID_BG_PARALLAX, 0, 256 + 512, 512, 256);
-        texrec_s tr_near  = asset_texrec(TEXID_BG_PARALLAX, 0, 256 + 1024, 512, 256);
-        v2_i32   pos_far  = area_parallax(cam, 25, -5, 1, 1);
-        v2_i32   pos_mid  = area_parallax(cam, 50, -10, 1, 1);
-        v2_i32   pos_near = area_parallax(cam, 75, -15, 1, 1);
-        pos_far.y -= 24;
-        pos_mid.y -= 10;
-        pos_near.y -= 0;
-        gfx_spr_tileds(ctx, tr_far, pos_far, 0, 0, 1, 0);
-        gfx_spr_tileds(ctx, tr_mid, pos_mid, 0, 0, 1, 0);
-        gfx_spr_tileds(ctx, tr_near, pos_near, 0, 0, 1, 0);
+#define USE_DARK_FOREST 0
+
+#if USE_DARK_FOREST
+
+        gfx_fill_rows(tdisplay, gfx_pattern_bayer_4x4(15), 0, ctx.clip_y2);
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 1024, 1024, 512);
+#else
+        texrec_s tr_bg = asset_texrec(TEXID_BG_PARALLAX, 0, 1536, 512, 256);
+        gfx_spr_copy(ctx, tr_bg, (v2_i32){0}, 0);
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+#endif
+
+        v2_i32 pos_far = {coord_parallax(cam_al.x + g->bg_offx, 192, alx),
+                          coord_parallax(cam_al.y + g->bg_offy, 192, aly)};
+        v2_i32 pos_mid = {coord_parallax(cam_al.x + g->bg_offx, 128, alx),
+                          coord_parallax(cam_al.y + g->bg_offy, 128, aly)};
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
         break;
     }
     case AREA_ID_SAVE: {

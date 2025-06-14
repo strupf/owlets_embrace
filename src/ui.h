@@ -2,18 +2,17 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef WINDTUNNEL_H
-#define WINDTUNNEL_H
+#ifndef UI_H
+#define UI_H
 
 #include "gamedef.h"
 
-typedef struct {
-    u8 *v;
-} windtunnel_s;
+typedef struct ui_s {
+    i32 x;
+} ui_s;
 
-void windtunnel_init(g_s *g, windtunnel_s *wt)
-{
-    wt->v = game_alloc(g, sizeof(u8) * g->tiles_x * g->tiles_y, 4);
-}
+void ui_init(g_s *g);
+void ui_update(g_s *g);
+void ui_draw(g_s *g);
 
 #endif

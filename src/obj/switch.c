@@ -49,8 +49,7 @@ void switch_load(g_s *g, map_obj_s *mo)
     o->flags =
         OBJ_FLAG_INTERACTABLE |
         OBJ_FLAG_HERO_JUMPABLE |
-        OBJ_FLAG_HERO_STOMPABLE |
-        OBJ_FLAG_RENDER_AABB;
+        OBJ_FLAG_HERO_STOMPABLE;
     // o->on_interact       = switch_on_interact;
     o->n_sprites         = 1;
     o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);

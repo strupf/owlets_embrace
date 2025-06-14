@@ -120,10 +120,10 @@ void boss_plant_eye_move_to_centerpx(g_s *g, obj_s *o, i32 x, i32 y)
     i32    dx      = (x - o->w / 2) - o->pos.x;
     i32    dy      = (y - o->h / 2) - o->pos.y;
     obj_move(g, o, dx, dy);
-    o->subpos_q8.x = 0;
-    o->subpos_q8.y = 0;
-    o->v_q8.x      = 0;
-    o->v_q8.y      = 0;
+    o->subpos_q12.x = 0;
+    o->subpos_q12.y = 0;
+    o->v_q12.x      = 0;
+    o->v_q12.y      = 0;
 }
 
 void boss_plant_eye_move_to_centerpx_keepv(g_s *g, obj_s *o, i32 x, i32 y)
@@ -257,8 +257,8 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
             e->jank_tick++;
             v2_i32 plerp = v2_i32_lerp(pcenter, e->jank_pos, e->jank_tick, 40);
             obj_move(g, o, plerp.x - pcenter.x, plerp.y - pcenter.y);
-            o->v_q8.x = 0;
-            o->v_q8.y = 0;
+            o->v_q12.x = 0;
+            o->v_q12.y = 0;
             if (e->jank_tick == 40) {
                 e->jank_tick = 0;
                 o->subtimer  = 0;
@@ -286,12 +286,12 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
             e->active_tear = 1;
             e->hooked_cd   = 20;
             v2_i32 dtr     = v2_i32_sub(hcenter, pcenter);
-            v2_i32 steer   = steer_seek(pcenter, v2_i32_from_i16(o->v_q8), hcenter, 1200);
-            o->v_q8.x += steer.x / 4;
-            o->v_q8.y += steer.y / 4;
-            o->v_q8.x += sgn_i32(dtr.x) << 3;
-            o->v_q8.y += sgn_i32(dtr.y) << 2;
-            o->v_q8.x += inp_x() << 7;
+            v2_i32 steer   = steer_seek(pcenter, o->v_q12, hcenter, Q_VOBJ(5.0));
+            o->v_q12.x += steer.x / 4;
+            o->v_q12.y += steer.y / 4;
+            o->v_q12.x += sgn_i32(dtr.x) << 8;
+            o->v_q12.y += sgn_i32(dtr.y) << 6;
+            o->v_q12.x += inp_x() << 12;
         } else if (e->hooked_cd) {
             back_to_anchor = 0;
             e->hooked_cd--;
@@ -308,27 +308,27 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
                           panchor.y + e->anchor_y};
         v2_i32 dtr     = v2_i32_sub(goalpos, pcenter);
         if (v2_i32_lensq(dtr) < 10) {
-            o->v_q8.x = 0;
-            o->v_q8.y = 0;
+            o->v_q12.x = 0;
+            o->v_q12.y = 0;
             boss_plant_eye_move_to_centerpx(g, o, goalpos.x, goalpos.y);
         } else {
-            v2_i32 steer = steer_seek(pcenter, v2_i32_from_i16(o->v_q8), goalpos, 850);
-            o->v_q8.x += steer.x / 4;
-            o->v_q8.y += steer.y / 4;
+            v2_i32 steer = steer_seek(pcenter, o->v_q12, goalpos, Q_VOBJ(3.0));
+            o->v_q12.x += steer.x / 4;
+            o->v_q12.y += steer.y / 4;
         }
     }
 
     if (e->tear_off_tick_needed <= e->tear_off_tick) {
         grapplinghook_destroy(g, &g->ghook);
-        ohero->v_q8.x = 0;
-        ohero->v_q8.y >>= 1;
+        ohero->v_q12.x = 0;
+        ohero->v_q12.y >>= 1;
 
         e->tear_off_tick      = 0;
         e->n_segs             = 0;
         o->state              = BOSS_PLANT_EYE_RIPPED;
         o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
-        o->v_q8.x             = 400 * (rngr_i32(0, 1) * 2 - 1);
-        o->v_q8.y             = 0;
+        o->v_q12.x            = Q_VOBJ(1.6) * (rngr_i32(0, 1) * 2 - 1);
+        o->v_q12.y            = 0;
         o->flags              = OBJ_FLAG_ACTOR;
         o->enemy              = enemy_default();
         o->enemy.hurt_on_jump = 1;
@@ -351,7 +351,7 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
 
         boss_plant_on_eye_tear_off(g, o);
     } else {
-        obj_move_by_v_q8(g, o);
+        obj_move_by_v_q12(g, o);
 
         pcenter       = obj_pos_center(o);
         v2_i32 dt     = v2_i32_sub(pcenter, panchor);
@@ -412,21 +412,21 @@ void boss_plant_eye_on_update_ripped(g_s *g, obj_s *o)
     v2_i32            pcenter  = obj_pos_center(o);
     bool32            grounded = obj_grounded(g, o);
 
-    o->v_q8.y += 50;
+    o->v_q12.y += Q_VOBJ(0.2);
     if (o->bumpflags & OBJ_BUMP_Y) {
-        o->v_q8.y = 0;
+        o->v_q12.y = 0;
         o->flags |=
             OBJ_FLAG_ENEMY |
             OBJ_FLAG_HERO_JUMPSTOMPABLE;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
-        o->v_q8.x = -o->v_q8.x;
+        o->v_q12.x = -o->v_q12.x;
     }
     o->bumpflags = 0;
 
     if (grounded) {
-        o->v_q8.x = 0;
-        o->v_q8.y = 0;
+        o->v_q12.x = 0;
+        o->v_q12.y = 0;
         o->subtimer++;
 
         i32 jumpticks = o->ID == OBJID_BOSS_PLANT_EYE ? 10 : 25;
@@ -439,31 +439,31 @@ void boss_plant_eye_on_update_ripped(g_s *g, obj_s *o)
 
             switch (o->ID) {
             case OBJID_BOSS_PLANT_EYE: {
-                o->v_q8.y = -rngr_i32(900, 1300);
-                jx        = rngr_i32(200, 800);
+                o->v_q12.y = -rngr_i32(Q_VOBJ(4.0), Q_VOBJ(5.0));
+                jx         = rngr_i32(Q_VOBJ(0.8), Q_VOBJ(3.0));
                 break;
             }
             case OBJID_BOSS_PLANT_EYE_FAKE_R:
             case OBJID_BOSS_PLANT_EYE_FAKE_L: {
-                o->v_q8.y = -rngr_i32(900, 1300);
-                jx        = rngr_i32(200, 700);
+                o->v_q12.y = -rngr_i32(Q_VOBJ(4.0), Q_VOBJ(5.0));
+                jx         = rngr_i32(Q_VOBJ(0.8), Q_VOBJ(3.0));
                 break;
             }
             }
 
             if (0) {
             } else if (dx <= -120) {
-                o->v_q8.x = +jx;
+                o->v_q12.x = +jx;
             } else if (dx >= +120) {
-                o->v_q8.x = -jx;
+                o->v_q12.x = -jx;
             } else {
-                o->v_q8.x = jx * (rngr_i32(0, 1) * 2 - 1);
+                o->v_q12.x = jx * (rngr_i32(0, 1) * 2 - 1);
             }
         }
     } else {
         o->subtimer = 0;
     }
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void boss_plant_eye_on_animate(g_s *g, obj_s *o)
@@ -475,10 +475,10 @@ void boss_plant_eye_on_animate(g_s *g, obj_s *o)
     o->animation++;
 
     if (o->state == BOSS_PLANT_EYE_RIPPED) {
-        if (o->v_q8.x < 0) {
+        if (o->v_q12.x < 0) {
             o->facing = -1;
         }
-        if (o->v_q8.x > 0) {
+        if (o->v_q12.x > 0) {
             o->facing = +1;
         }
     }
@@ -720,8 +720,8 @@ bool32 boss_plant_eye_try_attack(g_s *g, obj_s *o, i32 slash_y_slot, i32 slash_s
     e->pos_src          = obj_pos_center(o);
     o->state            = BOSS_PLANT_EYE_ATTACK;
     o->timer            = 0;
-    o->v_q8.x           = 0;
-    o->v_q8.y           = 0;
+    o->v_q12.x          = 0;
+    o->v_q12.y          = 0;
     e->slash_y_slot     = slash_y_slot;
     e->slash_sig        = slash_sig;
     o->substate         = x_slash != 0;

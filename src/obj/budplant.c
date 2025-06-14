@@ -38,8 +38,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->ID    = OBJID_BUDPLANT;
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
-               OBJ_FLAG_ENEMY |
-               OBJ_FLAG_HERO_JUMPSTOMPABLE;
+               OBJ_FLAG_ENEMY;
     o->subID              = BUDPLANT_SUBID_STATIONARY;
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->on_update          = budplant_on_update;
@@ -48,7 +47,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
     o->h                  = 24;
     o->pos.x              = mo->x + (mo->w - o->w) / 2;
     o->pos.y              = mo->y + (mo->h - o->h);
-    o->health_max         = 2;
+    o->health_max         = 3;
     o->health             = o->health_max;
     o->enemy              = enemy_default();
     o->enemy.hurt_on_jump = 1;

@@ -15,7 +15,7 @@ enum {
 #define ROTOR_ALERT_TICKS     20
 #define ROTOR_ATTACK_TICKS    150
 #define ROTOR_SHOW_UP_TICKS   30
-#define ROTOR_V_MAX           1024
+#define ROTOR_V_MAX           Q_VOBJ(4.0)
 #define ROTOR_DETECT_BOX_W    92
 #define ROTOR_DETECT_BOX_H    48
 #define ROTOR_ROT_SPEED_TICKS 35
@@ -65,13 +65,13 @@ void rotor_on_update(g_s *g, obj_s *o)
     rotor_s *r = (rotor_s *)o->mem;
     o->flags |= (OBJ_FLAG_HERO_STOMPABLE | OBJ_FLAG_HERO_JUMPABLE);
     o->timer++;
-    o->v_q8.y += 70;
+    o->v_q12.y += Q_VOBJ(0.27);
 
     if (o->bumpflags & OBJ_BUMP_Y) {
-        o->v_q8.y = 0;
+        o->v_q12.y = 0;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
-        o->v_q8.x = -o->v_q8.x;
+        o->v_q12.x = -o->v_q12.x;
     }
     o->bumpflags = 0;
 
@@ -82,7 +82,7 @@ void rotor_on_update(g_s *g, obj_s *o)
     case ROTOR_ALERT:
     case ROTOR_SHOW_UP:
         if (grounded) {
-            o->v_q8.x = 0;
+            o->v_q12.x = 0;
         }
         break;
     }
@@ -124,7 +124,7 @@ void rotor_on_update(g_s *g, obj_s *o)
             o->timer     = 0;
             o->state     = ROTOR_ATTACK;
             o->animation = 0;
-            o->v_q8.x    = r->rot_dir * 256;
+            o->v_q12.x   = r->rot_dir * Q_VOBJ(1.0);
         }
         break;
     }
@@ -140,15 +140,15 @@ void rotor_on_update(g_s *g, obj_s *o)
             i32 num      = o->timer;
             i32 den      = ROTOR_ROT_SPEED_TICKS;
             r->rot_speed = lerp_i32(0, ROTOR_ROT_SPEED_MAX, num, den);
-            o->v_q8.x    = sgn_i32(o->v_q8.x) * ease_out_quad(1, ROTOR_V_MAX, num, den);
+            o->v_q12.x   = sgn_i32(o->v_q12.x) * ease_out_quad(1, ROTOR_V_MAX, num, den);
         } else if (ROTOR_ROT_T_SLOWDOWN <= o->timer) {
             i32 num      = o->timer - ROTOR_ROT_T_SLOWDOWN;
             i32 den      = ROTOR_ROT_SPEED_TICKS;
             r->rot_speed = lerp_i32(ROTOR_ROT_SPEED_MAX, 0, num, den);
-            o->v_q8.x    = sgn_i32(o->v_q8.x) * ease_out_quad(ROTOR_V_MAX, 1, num, den);
+            o->v_q12.x   = sgn_i32(o->v_q12.x) * ease_out_quad(ROTOR_V_MAX, 1, num, den);
         } else {
             r->rot_speed = ROTOR_ROT_SPEED_MAX;
-            o->v_q8.x    = sgn_i32(o->v_q8.x) * ROTOR_V_MAX;
+            o->v_q12.x   = sgn_i32(o->v_q12.x) * ROTOR_V_MAX;
         }
 
         if (ROTOR_ATTACK_TICKS <= o->timer && grounded) {
@@ -166,7 +166,7 @@ void rotor_on_update(g_s *g, obj_s *o)
     }
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void rotor_on_animate(g_s *g, obj_s *o)
@@ -219,8 +219,8 @@ void rotor_on_animate(g_s *g, obj_s *o)
 
 void rotor_on_hurt(g_s *g, obj_s *o)
 {
-    o->state  = ROTOR_ALERT;
-    o->timer  = 0;
-    o->v_q8.x = 0;
-    o->v_q8.y = 0;
+    o->state   = ROTOR_ALERT;
+    o->timer   = 0;
+    o->v_q12.x = 0;
+    o->v_q12.y = 0;
 }

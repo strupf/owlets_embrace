@@ -43,8 +43,8 @@ void flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb)
     default: return;
     }
 
-    o->v_q8.x = 0;
-    o->v_q8.y = 0;
+    o->v_q12.x = 0;
+    o->v_q12.y = 0;
     if (o->health == 2) {
         o->state        = FLYBLOB_STATE_AGGRESSIVE;
         f->attack_timer = 0;
@@ -150,24 +150,24 @@ void flyblob_on_update(g_s *g, obj_s *o)
 
         i32    hover_dsq = f->attack_timer ? FLYBLOB_HOVER_DSQ : FLYBLOB_ATTACK_DSQ / 2;
         i32    hoverd    = dsq_hero - hover_dsq;
-        v2_i32 vv        = v2_i32_from_i16(o->v_q8);
+        v2_i32 vv        = o->v_q12;
 
         if (hoverd < 0) { // keep distance
             i32 dt = clamp_i32(-hoverd / 8, 8, 256);
-            vv     = v2_i32_inv(v2_i32_setlen(vhero, dt));
+            vv     = v2_i32_inv(v2_i32_setlen(vhero, dt << 4));
         } else {
             i32 dt = clamp_i32(hoverd / 2, 8, 256);
-            vv     = v2_i32_setlen(vhero, dt);
+            vv     = v2_i32_setlen(vhero, dt << 4);
         }
-        o->v_q8 = v2_i16_from_i32(vv);
+        o->v_q12 = vv;
 
         if (f->attack_timer) {
             f->attack_timer--;
         } else if (dsq_hero < FLYBLOB_ATTACK_DSQ) {
             f->attack_tick  = 1;
             f->attack_timer = 100;
-            o->v_q8.x       = 0;
-            o->v_q8.y       = 0;
+            o->v_q12.x      = 0;
+            o->v_q12.y      = 0;
         }
         break;
     }
@@ -176,11 +176,11 @@ void flyblob_on_update(g_s *g, obj_s *o)
         o->timer = 0;
         o->state = FLYBLOB_STATE_FALLING;
         if (f->force_x == 0) {
-            o->v_q8.x = 0;
-            o->v_q8.y = 500;
+            o->v_q12.x = 0;
+            o->v_q12.y = Q_VOBJ(2.0);
         } else {
-            o->v_q8.x = (f->force_x * 1000) >> 8;
-            o->v_q8.y = -600;
+            o->v_q12.x = (f->force_x * 1000) >> 8;
+            o->v_q12.y = -Q_VOBJ(2.5);
         }
         break;
     }
@@ -188,35 +188,35 @@ void flyblob_on_update(g_s *g, obj_s *o)
         if (20 <= o->timer)
             o->flags &= OBJ_FLAG_HURT_ON_TOUCH;
         if (obj_grounded(g, o)) {
-            o->state  = FLYBLOB_STATE_GROUND;
-            o->timer  = 0;
-            o->v_q8.x = 0;
-            o->v_q8.y = 0;
+            o->state   = FLYBLOB_STATE_GROUND;
+            o->timer   = 0;
+            o->v_q12.x = 0;
+            o->v_q12.y = 0;
             break;
         }
 
-        o->v_q8.y += 50;
+        o->v_q12.y += 50;
         obj_vx_q8_mul(o, 240);
         break;
     }
     case FLYBLOB_STATE_GROUND: {
-        o->v_q8.y += 50;
+        o->v_q12.y += 50;
         if (o->bumpflags & OBJ_BUMP_Y) {
-            o->v_q8.y = 0;
+            o->v_q12.y = 0;
         }
         if (o->bumpflags & OBJ_BUMP_X) {
-            o->v_q8.x = -o->v_q8.x;
+            o->v_q12.x = -o->v_q12.x;
         }
         o->bumpflags = 0;
         if (o->timer < FLYBLOB_TICKS_HIT_GROUND) {
-            o->v_q8.x = 0;
+            o->v_q12.x = 0;
             break;
         }
         if (o->timer == FLYBLOB_TICKS_HIT_GROUND) {
-            o->v_q8.x = 128;
+            o->v_q12.x = Q_VOBJ(0.5);
         }
 
-        i32 vs = sgn_i32(o->v_q8.x);
+        i32 vs = sgn_i32(o->v_q12.x);
         if (vs) {
             o->facing = vs;
         }
@@ -225,34 +225,34 @@ void flyblob_on_update(g_s *g, obj_s *o)
     case FLYBLOB_STATE_PULL_UP: {
         if (100 <= o->timer) {
             g->freeze_tick = 2;
-            o->v_q8.y >>= 1;
+            o->v_q12.y >>= 1;
             flyblob_on_unhooked(g, o);
             break;
         }
         if (o->bumpflags & OBJ_BUMP_Y) {
-            o->v_q8.y = 0;
+            o->v_q12.y = 0;
         }
         if (o->bumpflags & OBJ_BUMP_X) {
-            o->v_q8.x = -o->v_q8.x;
+            o->v_q12.x = -o->v_q12.x;
         }
         o->bumpflags = 0;
 
-        i32 acc_y = min_i32(o->timer << 1, 64 + 32);
-        o->v_q8.y = max_i32(o->v_q8.y - acc_y, -256 * 6);
+        i32 acc_y  = min_i32(o->timer << 1, Q_VOBJ(0.37));
+        o->v_q12.y = max_i32(o->v_q12.y - acc_y, -Q_VOBJ(6.0));
 
         break;
     }
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void flyblob_on_hook(g_s *g, obj_s *o)
 {
     o->timer         = 0;
     o->state         = FLYBLOB_STATE_PULL_UP;
-    o->v_q8.x        = 0;
-    o->v_q8.y        = 0;
+    o->v_q12.x       = 0;
+    o->v_q12.y       = 0;
     o->cam_attract_r = 250;
 }
 
@@ -335,10 +335,10 @@ void flyblob_on_animate(g_s *g, obj_s *o)
         framey = 2;
         framex = 6 + (((o->timer - FLYBLOB_TICKS_POP) >> 1) & 3);
         if (o->bumpflags & OBJ_BUMP_X) {
-            o->v_q8.x = (-o->v_q8.x * 200) >> 8;
+            o->v_q12.x = (-o->v_q12.x * 200) >> 8;
         }
         if (o->bumpflags & OBJ_BUMP_Y) {
-            o->v_q8.y = (-o->v_q8.y * 200) >> 8;
+            o->v_q12.y = (-o->v_q12.y * 200) >> 8;
         }
         o->bumpflags = 0;
         break;

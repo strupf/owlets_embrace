@@ -167,11 +167,7 @@ static inline u32 u32_mul_checked(u32 a, u32 b)
     return (u32)r;
 }
 
-#if PLTF_DEBUG
-#define MATHFUNC_USE_OVERFLOW_CHECK 1
-#else
-#define MATHFUNC_USE_OVERFLOW_CHECK 0
-#endif
+#define MATHFUNC_USE_OVERFLOW_CHECK PLTF_DEBUG
 
 #if MATHFUNC_USE_OVERFLOW_CHECK
 #define i32_add(A, B) i32_add_checked(A, B)
@@ -1165,11 +1161,8 @@ static ratio_s project_pnt_dir_ratio(v2_i32 pnt, v2_i32 dir)
 {
     u32 d = v2_i32_lensq(dir);
     i32 s = v2_i32_dot(dir, pnt);
-    if ((u32)I32_MAX < d) { // reduce precision to fit both into i32
-        d >>= 1;
-        s >>= 1;
-    }
-    ratio_s r = {s, (i32)d};
+    assert(d <= (u32)I32_MAX);
+    ratio_s r = {(i32)s, (i32)d};
     return r;
 }
 
@@ -1192,9 +1185,19 @@ static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 static v2_i32 project_pnt_dir(v2_i32 p, v2_i32 dir)
 {
     ratio_s r = project_pnt_dir_ratio(p, dir);
-    v2_i32  t = {(i32)(((i64)dir.x * r.num) / r.den),
-                 (i32)(((i64)dir.y * r.num) / r.den)};
+    v2_i32  t = {(i32)(((i64)dir.x * (i64)r.num) / r.den),
+                 (i32)(((i64)dir.y * (i64)r.num) / r.den)};
     return t;
+}
+
+static i32 project_pnt_dir_len(v2_i32 p, v2_i32 dir)
+{
+    return v2_i32_len(project_pnt_dir(p, dir));
+}
+
+static i32 project_pnt_dir_len_appr(v2_i32 p, v2_i32 dir)
+{
+    return v2_i32_len_appr(project_pnt_dir(p, dir));
 }
 
 static void barycentric_uvw(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 p,

@@ -95,6 +95,19 @@ err32 tex_from_wad_ID(i32 ID, const void *name, allocator_s a)
     return tex_from_wad_ext(name, a, asset_texptr(ID));
 }
 
+err32 snd_from_wad_ID(i32 ID, const void *name, allocator_s a)
+{
+    void     *f;
+    wad_el_s *el;
+    if (wad_open(wad_hash(name), &f, &el)) {
+        snd_s *s = &APP->assets.snd[ID];
+        err32  e = snd_from_wad(f, el, name, a, s);
+        pltf_file_close(f);
+        return e;
+    }
+    return ASSETS_ERR_WAD_EL;
+}
+
 err32 tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t)
 {
     if (!o_t) return ASSETS_ERR_MISC;
@@ -229,6 +242,5 @@ i32 ani_frame(i32 ID, i32 ticks)
 
 i32 ani_len(i32 ID)
 {
-    ani_s a = asset_ani(ID);
-    return a.ticks;
+    return asset_ani(ID).ticks;
 }

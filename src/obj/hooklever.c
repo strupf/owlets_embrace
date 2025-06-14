@@ -104,7 +104,7 @@ void hooklever_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     o->ID    = OBJID_HOOKLEVER;
-    o->flags = OBJ_FLAG_RENDER_AABB | OBJ_FLAG_SOLID;
+    o->flags = OBJ_FLAG_SOLID;
 
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;

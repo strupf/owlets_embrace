@@ -8,7 +8,7 @@
 #define PLTF_SDL_SCALE_LAUNCH   1
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
 #define PLTF_SDL_SW_RENDERER    0 || PLTF_SDL_RECORD_1080P
-#define PLTF_SDL_USE_DEBUG_RECS 0 && !PLTF_SDL_RECORD_1080P
+#define PLTF_SDL_USE_DEBUG_RECS 1 && !PLTF_SDL_RECORD_1080P
 #define PLTF_SDL_NUM_DEBUG_RECS 256
 #define PLTF_SDL_WINDOW_TITLE   "Owlet's Embrace"
 
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 
     // -------------------------------------------------------------------------
     // RUN
-    pltf_set_fps(120.f);
+    pltf_set_fps(144.f);
     g_SDL.timeorigin = SDL_GetPerformanceCounter();
     i32 res          = pltf_internal_init();
     if (res == 0) {

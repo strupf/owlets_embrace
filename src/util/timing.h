@@ -12,7 +12,7 @@
 #define TIMING_ENABLED 0
 
 #if TIMING_ENABLED
-#define TIMING_SHOW_DEFAULT 0 // whether graphs are showing per default
+#define TIMING_SHOW_DEFAULT 1 // whether graphs are showing per default
 //
 #define TIMING_Y_SCL        1000.f // note: result in seconds
 #define TIMING_W_GRAPH      64     // pixels
@@ -27,7 +27,14 @@ enum {
     TIMING_NUM_GRAPHS
 };
 
+#if 0 // render all graphs?
+#define TIMING_N_RENDER TIMING_NUM_GRAPHS
+#else
+#define TIMING_N_RENDER 1
+#endif
+
 typedef struct {
+    ALIGNAS(16)
     f32 avg;
     f32 acc;
     f32 t0;
@@ -35,6 +42,7 @@ typedef struct {
 } timing_el_s;
 
 typedef struct {
+    ALIGNAS(16)
     bool32      show;
     i32         c;
     i32         n;
@@ -93,7 +101,7 @@ static void timing_end_frame()
     rec_i32   rcanvas = {xleft, 0, TIMING_W_GRAPH, (TIMING_H_GRAPH + 2) * TIMING_NUM_GRAPHS};
     gfx_rec_fill_opaque(ctx, rcanvas, PRIM_MODE_WHITE);
 
-    for (i32 i = 0; i < TIMING_NUM_GRAPHS; i++) {
+    for (i32 i = 0; i < TIMING_N_RENDER; i++) {
         timing_el_s *el      = &t->el[i];
         i32          yg      = (TIMING_H_GRAPH + 2) * i;
         rec_i32      rborder = {xleft, yg + TIMING_H_GRAPH, TIMING_W_GRAPH, 2};

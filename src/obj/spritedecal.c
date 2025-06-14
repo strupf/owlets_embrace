@@ -16,6 +16,9 @@ typedef struct {
     u16          h;
 } spritedecal_s;
 
+void spritedecal_on_update(g_s *g, obj_s *o);
+void spritedecal_on_animate(g_s *g, obj_s *o);
+
 void spritedecal_on_update(g_s *g, obj_s *o)
 {
     spritedecal_s *sd = (spritedecal_s *)o->mem;
@@ -25,7 +28,7 @@ void spritedecal_on_update(g_s *g, obj_s *o)
         return;
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 
     obj_sprite_s *spr    = &o->sprites[0];
     obj_s        *parent = obj_from_obj_handle(sd->parent);
@@ -49,7 +52,6 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
     obj_s         *o   = obj_create(g);
     spritedecal_s *sd  = (spritedecal_s *)o->mem;
     o->ID              = OBJID_SPRITEDECAL;
-    o->flags           = OBJ_FLAG_SPRITE;
     o->n_sprites       = 1;
     o->render_priority = render_priority;
     obj_sprite_s *spr  = &o->sprites[0];

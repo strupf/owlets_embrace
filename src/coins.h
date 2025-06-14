@@ -10,6 +10,7 @@
 #define COINS_MAX 999
 
 typedef struct {
+    ALIGNAS(16)
     i16 n;
     i16 n_change;
     i16 ticks_change;

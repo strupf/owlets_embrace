@@ -84,15 +84,12 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
         if (!ohero) break;
 
         hero_s *h           = (hero_s *)ohero->heap;
-        rec_i32 r           = {o->pos.x, o->pos.y, o->w, 1};
         rec_i32 rclimb      = {ohero->pos.x - 1,
                                ohero->pos.y + HERO_CLIMB_Y1_OFFS,
                                ohero->w + 2,
                                ohero->h - HERO_CLIMB_Y1_OFFS - HERO_CLIMB_Y2_OFFS};
-        bool32  standing_on = 0 <= ohero->v_q8.y &&
-                             overlap_rec(obj_rec_bottom(ohero), r);
-        bool32 climbing_on = h->climbing && overlap_rec(rclimb, obj_aabb(o));
-        if (standing_on || climbing_on) {
+        bool32  climbing_on = h->climbing && overlap_rec(rclimb, obj_aabb(o));
+        if (obj_standing_on(ohero, o, 0, 0) || climbing_on) {
             crumbleblock_start_breaking(g, o);
         }
         break;
@@ -100,6 +97,7 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
     case CRUMBLE_STATE_BREAKING: {
         o->timer--;
         if (0 < o->timer) break;
+
         snd_play(SNDID_EXPLO1, 0.1f, rngr_f32(0.9f, 1.1f));
         crumbleblock_break(g, o);
         cam_screenshake_xy(&g->cam, 16, 1, 1);

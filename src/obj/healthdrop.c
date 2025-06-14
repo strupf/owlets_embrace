@@ -49,29 +49,29 @@ void healthdrop_on_update(g_s *g, obj_s *o)
             if (o->timer < 100) {
                 o->blinking = 1;
             }
-            o->v_q8.y += 10;
-            o->v_q8.y = min_i32(o->v_q8.y, 128 * 1);
+            o->v_q12.y += Q_VOBJ(0.05);
+            o->v_q12.y = min_i32(o->v_q12.y, Q_VOBJ(0.5));
 
             if (o->bumpflags & OBJ_BUMP_X) {
                 obj_vx_q8_mul(o, -192);
             }
             if (o->bumpflags & OBJ_BUMP_Y) {
-                o->v_q8.y = 0;
+                o->v_q12.y = 0;
             }
             o->bumpflags = 0;
 
-            if (abs_i32(o->v_q8.x) < 16) {
-                o->v_q8.x = 0;
+            if (abs_i32(o->v_q12.x) < Q_VOBJ(0.1)) {
+                o->v_q12.x = 0;
             }
         }
         break;
     }
     case HEALTHDROP_ST_HOMING: {
         if (ohero) {
-            v2_i32 v  = v2_i32_from_i16(o->v_q8);
-            v2_i32 vs = steer_seek(p, v, phero, 600);
-            o->v_q8.x += vs.x >> 2;
-            o->v_q8.y += vs.y >> 2;
+            v2_i32 v  = o->v_q12;
+            v2_i32 vs = steer_seek(p, v, phero, Q_VOBJ(2.3));
+            o->v_q12.x += vs.x >> 2;
+            o->v_q12.y += vs.y >> 2;
         } else {
             obj_delete(g, o);
         }
@@ -79,7 +79,7 @@ void healthdrop_on_update(g_s *g, obj_s *o)
     }
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void healthdrop_on_animate(g_s *g, obj_s *o)

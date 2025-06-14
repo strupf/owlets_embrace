@@ -5,12 +5,8 @@
 #include "cam.h"
 #include "game.h"
 
-#define CAM_W                     PLTF_DISPLAY_W
-#define CAM_H                     PLTF_DISPLAY_H
-#define CAM_WH                    (PLTF_DISPLAY_W >> 1)
-#define CAM_HH                    (PLTF_DISPLAY_H >> 1)
 #define CAM_FACE_OFFS_X           54
-#define CAM_Y_NEW_BASE_MIN_SPEED  (1 << 7)
+#define CAM_Y_NEW_BASE_MIN_SPEED  (2 << 7)
 #define CAM_X_LOOKAHEAD_MIN_SPEED (1 << 7)
 #define CAM_HERO_Y_BOT            172                   // lower = camera positioned lower
 #define CAM_HERO_Y_TOP            (CAM_HERO_Y_BOT - 74) // tune for jump height
@@ -38,9 +34,9 @@ void cam_screenshake(cam_s *c, i32 ticks, i32 str)
 
 v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
 {
-    v2_i32 pos        = cam_pos_px_center(g, c);
-    v2_i32 pos_center = {pos.x - CAM_WH, pos.y - CAM_HH};
-    return pos_center;
+    v2_i32 pos_center = cam_pos_px_center(g, c);
+    v2_i32 pos        = {pos_center.x - CAM_WH, pos_center.y - CAM_HH};
+    return pos;
 }
 
 v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
@@ -97,7 +93,7 @@ void cam_update(g_s *g, cam_s *c)
         bool32 herogrounded = obj_grounded(g, hero);
         i32    hero_bot_q8  = herop.y << 8;
 
-        if (herogrounded && 0 <= hero->v_q8.y) {
+        if (herogrounded && 0 <= hero->v_q12.y) {
             // move camera upwards if hero landed on new platform
             // "new base height"
             i32 cam_y_bot_q8 = c->pos_q8.y + CAM_OFFS_Q8_BOT; // align bottom with platform
@@ -174,7 +170,7 @@ void cam_update(g_s *g, cam_s *c)
             c->attract.x *= 0.96f;
             c->attract.y *= 0.96f;
 
-            c->offs_x += hero->facing * 1 + sgn_i32(hero->v_q8.x) * 1;
+            c->offs_x += hero->facing * 2 + sgn_i32(hero->v_q12.x) * 0;
             c->offs_x      = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
             c->can_align_x = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
         }

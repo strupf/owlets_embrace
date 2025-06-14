@@ -53,14 +53,14 @@ void jumper_on_update(g_s *g, obj_s *o)
     o->animation++;
 
     if (o->bumpflags & OBJ_BUMP_X) {
-        o->v_q8.x = -o->v_q8.x / 2;
+        o->v_q12.x = -o->v_q12.x / 2;
     }
     if (o->bumpflags & OBJ_BUMP_Y) {
-        o->v_q8.y = 0;
+        o->v_q12.y = 0;
     }
     o->bumpflags = 0;
 
-    o->v_q8.y += 90;
+    o->v_q12.y += Q_VOBJ(0.3);
     bool32 grounded = obj_grounded(g, o);
     if (!grounded && o->state != JUMPER_ST_JUMPING) {
         o->state = JUMPER_ST_JUMPING;
@@ -68,7 +68,7 @@ void jumper_on_update(g_s *g, obj_s *o)
     }
 
     if (grounded) {
-        o->v_q8.x = 0;
+        o->v_q12.x = 0;
     }
 
     switch (o->state) {
@@ -90,8 +90,8 @@ void jumper_on_update(g_s *g, obj_s *o)
         if (JUMPER_TICKS_ANTICIPATE <= o->timer) {
             o->state     = JUMPER_ST_JUMPING;
             o->timer     = 0;
-            o->v_q8.y    = -2000;
-            o->v_q8.x    = o->facing * 500 + rngr_sym_i32(300);
+            o->v_q12.y   = -Q_VOBJ(8.0);
+            o->v_q12.x   = o->facing * Q_VOBJ(2.0) + rngr_sym_i32(Q_VOBJ(0.7));
             o->animation = 0;
             snd_play(SNDID_SPEAR_ATTACK, 1.1f, 1.f);
         }
@@ -116,14 +116,14 @@ void jumper_on_update(g_s *g, obj_s *o)
     }
     }
 
-    obj_move_by_v_q8(g, o);
+    obj_move_by_v_q12(g, o);
 }
 
 void jumper_on_hurt(g_s *g, obj_s *o)
 {
-    o->v_q8.x = 0;
-    o->v_q8.y = 0;
-    o->timer  = 0;
+    o->v_q12.x = 0;
+    o->v_q12.y = 0;
+    o->timer   = 0;
 }
 
 void jumper_on_animate(g_s *g, obj_s *o)
@@ -158,11 +158,11 @@ void jumper_on_animate(g_s *g, obj_s *o)
         spr->offs.y += 10;
         if (o->timer < 6) {
             fr_x = (3 <= o->timer);
-        } else if (o->v_q8.y < -200) {
+        } else if (o->v_q12.y < -Q_VOBJ(0.8)) {
             fr_x = 2;
-        } else if (o->v_q8.y < +300) {
+        } else if (o->v_q12.y < +Q_VOBJ(1.2)) {
             fr_x = 3;
-        } else if (o->v_q8.y < +800) {
+        } else if (o->v_q12.y < +Q_VOBJ(2.3)) {
             fr_x = 4;
         } else {
             fr_x = 5;

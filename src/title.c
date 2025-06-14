@@ -601,9 +601,10 @@ void title_render(title_s *t)
                 gfx_ctx_s ctxs = ctx;
                 i32       fs   = cos_q15(65536 + (ti2 << 10)) + 32768;
                 i32       pt   = lerp_i32(0, GFX_PATTERN_MAX, min_i32(fs, 32768), 32768);
-                ctxs.pat       = gfx_pattern_bayer_4x4(pt);
 
-                u8 fntstr[16] = {0};
+                ctxs.pat = gfx_pattern_bayer_4x4(pt);
+
+                u8 fntstr[32] = {0};
                 str_cpy(fntstr, "- Press ");
                 str_append_char(fntstr, FNT_GLYPH_BTN_A);
                 str_append(fntstr, " -");

@@ -8,6 +8,10 @@
 #include "gamedef.h"
 
 #define CAM_TRG_FADE_MAX 4096
+#define CAM_W            PLTF_DISPLAY_W
+#define CAM_H            PLTF_DISPLAY_H
+#define CAM_WH           (PLTF_DISPLAY_W >> 1)
+#define CAM_HH           (PLTF_DISPLAY_H >> 1)
 
 typedef struct cam_s {
     v2_i32 prev_gfx_offs;

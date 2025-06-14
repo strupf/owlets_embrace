@@ -134,7 +134,7 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
             if (i == o) continue;
 
             rec_i32 rplat = {i->pos.x, i->pos.y, i->w, 1};
-            if (overlap_rec(ro, rplat)) {
+            if (overlap_rec(rb, rplat)) {
                 if ((i->flags & OBJ_FLAG_PLATFORM))
                     coll_platform |= 1;
                 coll_platform |= (o->ID == OBJID_HERO) &&

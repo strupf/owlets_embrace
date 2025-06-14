@@ -12,6 +12,7 @@ void settings_menu_enter(settings_menu_s *sm)
     mclr(sm, sizeof(settings_menu_s));
     err32 err      = settings_load(&sm->settings);
     sm->fade_enter = 1;
+    sm->active     = 1;
 }
 
 void settings_menu_update(settings_menu_s *sm)
@@ -122,9 +123,29 @@ void settings_menu_navigate(settings_menu_s *sm)
     }
 }
 
+#define SETTINGS_MENU_TEXT_Y_SPACING 20
+#define SETTINGS_MENU_TEXT_X         20
+#define SETTINGS_MENU_TEXT_Y         50
+
 void settings_menu_draw(settings_menu_s *sm)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
+
+    fnt_s fnt = asset_fnt(FNTID_MEDIUM);
+
+    tex_clr(ctx.dst, GFX_COL_WHITE);
+
+    v2_i32 p1 = {20, 50};
+
+    fnt_draw_str(ctx, fnt,
+                 (v2_i32){SETTINGS_MENU_TEXT_X, SETTINGS_MENU_TEXT_Y},
+                 "Volume music", 0);
+    fnt_draw_str(ctx, fnt,
+                 (v2_i32){SETTINGS_MENU_TEXT_X, SETTINGS_MENU_TEXT_Y + 1 * SETTINGS_MENU_TEXT_Y_SPACING},
+                 "Volume sound effects", 0);
+    fnt_draw_str(ctx, fnt,
+                 (v2_i32){SETTINGS_MENU_TEXT_X, SETTINGS_MENU_TEXT_Y + 2 * SETTINGS_MENU_TEXT_Y_SPACING},
+                 "Power saving", 0);
 
     switch (sm->opt) {
     case SETTINGS_MENU_OPT_EXIT_CONFIRM: {

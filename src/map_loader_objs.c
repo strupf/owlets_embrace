@@ -9,6 +9,8 @@ void map_obj_parse(g_s *g, map_obj_s *o)
     if (0) {
     } else if (str_eq_nc(o->name, "MISC")) {
         map_obj_load_misc(g, o);
+    } else if (str_eq_nc(o->name, "Gempile")) {
+        gempile_load(g, o);
     } else if (str_eq_nc(o->name, "Coin")) {
         coin_load(g, o);
     } else if (str_eq_nc(o->name, "Solidlever")) {
@@ -27,8 +29,17 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         crackblock_load(g, o);
     } else if (str_eq_nc(o->name, "Trampoline")) {
         trampoline_load(g, o);
-    } else if (str_eq_nc(o->name, "Windarea")) {
+    } else if (str_eq_nc(o->name, "Windarea_U") ||
+               str_eq_nc(o->name, "Windarea_D") ||
+               str_eq_nc(o->name, "Windarea_L") ||
+               str_eq_nc(o->name, "Windarea_R")) {
         windarea_load(g, o);
+    } else if (str_eq_nc(o->name, "Pulleyblock_Parent")) {
+        pulleyblock_load_parent(g, o);
+    } else if (str_eq_nc(o->name, "Pulleyblock_Child")) {
+        pulleyblock_load_child(g, o);
+    } else if (str_eq_nc(o->name, "Springyblock")) {
+        springyblock_load(g, o);
     } else if (str_eq_nc(o->name, "Waterleaf")) {
         waterleaf_load(g, o);
     } else if (str_eq_nc(o->name, "Chest")) {
@@ -63,8 +74,6 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         pushblock_load(g, o);
     } else if (str_eq_nc(o->name, "Toggleblock")) {
         toggleblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Moving_Plat")) {
-        movingplatform_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
         crumbleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Teleport")) {

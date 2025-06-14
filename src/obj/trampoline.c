@@ -133,16 +133,16 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
         case TRAMPOLINE_HOR: {
             if (overlap_rec(r, obj_rec_top(i))) {
                 o->substate = DIR_Y_NEG;
-                if (i->v_q8.y < -100) {
-                    i->v_q8.y = +1000;
+                if (i->v_q12.y < -Q_VOBJ(0.39)) {
+                    i->v_q12.y = +Q_VOBJ(3.9);
                     i->bumpflags &= ~OBJ_BUMP_Y_NEG;
                     o->timer = 1;
                 }
             }
             if (overlap_rec(r, obj_rec_bottom(i))) {
                 o->substate = DIR_Y_POS;
-                if (i->v_q8.y > +500) {
-                    i->v_q8.y = -2500;
+                if (i->v_q12.y > +Q_VOBJ(2.0)) {
+                    i->v_q12.y = -Q_VOBJ(9.7);
                     i->bumpflags &= ~OBJ_BUMP_Y_POS;
                     o->timer = 1;
                     h->stomp = 0;
@@ -155,14 +155,14 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
             i32 bounced = 0;
             if (overlap_rec(r, obj_rec_left(i))) {
                 o->substate = DIR_X_NEG;
-                if (i->v_q8.x < -TRAMPOLINE_VX_TRESHOLD) {
+                if (i->v_q12.x < -TRAMPOLINE_VX_TRESHOLD) {
                     bounced = +1;
                     i->bumpflags &= ~OBJ_BUMP_X_NEG;
                 }
             }
             if (overlap_rec(r, obj_rec_right(i))) {
                 o->substate = DIR_X_POS;
-                if (i->v_q8.x > +TRAMPOLINE_VX_TRESHOLD) {
+                if (i->v_q12.x > +TRAMPOLINE_VX_TRESHOLD) {
                     bounced = -1;
                     i->bumpflags &= ~OBJ_BUMP_X_POS;
                 }
@@ -170,8 +170,8 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
 
             if (bounced) {
                 g->freeze_tick        = 2;
-                i->v_q8.x             = +3000 * bounced;
-                i->v_q8.y             = -1300;
+                i->v_q12.x            = +Q_VOBJ(11.7) * bounced;
+                i->v_q12.y            = -Q_VOBJ(5.1);
                 h->air_block_ticks_og = 80;
                 h->air_block_ticks    = bounced * h->air_block_ticks_og;
                 o->timer              = 1;

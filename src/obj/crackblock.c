@@ -56,10 +56,10 @@ void crackblock_on_update(g_s *g, obj_s *o)
         break;
     }
     case CRACKBLOCK_ST_FALL: {
-        o->v_q8.y += 70;
-        o->subpos_q8.y += o->v_q8.y;
-        i32 dy = o->subpos_q8.y >> 8;
-        o->subpos_q8.y &= 255;
+        o->v_q12.y += 70;
+        o->subpos_q12.y += o->v_q12.y;
+        i32 dy = o->subpos_q12.y >> 8;
+        o->subpos_q12.y &= 255;
 
         for (i32 k = 0; k < dy; k++) {
             if (!map_blocked(g, obj_rec_bottom(o))) {
@@ -69,7 +69,7 @@ void crackblock_on_update(g_s *g, obj_s *o)
 
             // landed on the floor
             // spawn dust explosions
-            o->v_q8.y    = 0;
+            o->v_q12.y   = 0;
             o->on_update = 0;
             cam_screenshake_xy(&g->cam, 15, 0, 4);
             snd_play(SNDID_EXPLO1, 0.3f, 1.5f);

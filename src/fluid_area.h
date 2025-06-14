@@ -7,11 +7,12 @@
 
 #include "gamedef.h"
 
-#define NUM_WATER       16
-#define OCEAN_W_WORDS   PLTF_DISPLAY_WWORDS
-#define OCEAN_W_PX      PLTF_DISPLAY_W
-#define OCEAN_H_PX      PLTF_DISPLAY_H
-#define OCEAN_NUM_SPANS 512
+#define NUM_WATER 16
+
+enum {
+    FLUID_AREA_WATER,
+    FLUID_AREA_LAVA
+};
 
 typedef struct fluid_pt_s {
     ALIGNAS(4)
@@ -19,12 +20,8 @@ typedef struct fluid_pt_s {
     i16 v_q8;
 } fluid_pt_s;
 
-enum {
-    FLUID_AREA_WATER,
-    FLUID_AREA_LAVA
-};
-
 typedef struct {
+    ALIGNAS(16)
     fluid_pt_s *pts;
     u16         n;
     u16         d_q16;
@@ -37,13 +34,15 @@ typedef struct {
 } fluid_surface_s;
 
 typedef struct {
+    ALIGNAS(32)
     fluid_surface_s s;
-    i32             type;
     i32             tick;
-    i32             x;
-    i32             y;
-    i32             w;
-    i32             h;
+    u16             type;
+    u16             ticks_to_idle;
+    u16             x;
+    u16             y;
+    u16             w;
+    u16             h;
 } fluid_area_s;
 
 void          fluid_surface_step(fluid_surface_s *b);
