@@ -2,9 +2,9 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "areafx.h"
 #include "game.h"
 
+#if 0
 void areafx_rain_setup(g_s *g, areafx_rain_s *fx)
 {
     fx->n_drops        = 100;
@@ -82,3 +82,4 @@ void areafx_rain_draw_lightning(g_s *g, areafx_rain_s *fx, v2_i32 cam)
         gfx_rec_fill(ctx_light, CINIT(rec_i32){0, 0, 400, 240}, PRIM_MODE_WHITE);
     }
 }
+#endif

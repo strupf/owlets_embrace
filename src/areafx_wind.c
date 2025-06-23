@@ -2,9 +2,9 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "areafx.h"
 #include "game.h"
 
+#if 0
 void areafx_wind_setup(g_s *g, areafx_wind_s *fx)
 {
 }
@@ -89,3 +89,4 @@ void areafx_wind_draw(g_s *g, areafx_wind_s *fx, v2_i32 cam)
         }
     }
 }
+#endif

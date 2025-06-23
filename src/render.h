@@ -15,6 +15,7 @@ enum {
 
 #include "gamedef.h"
 
+void   foreground_draw(g_s *g, v2_i32 cam_al, v2_i32 cam);
 void   render_tilemap(g_s *g, i32 layer, tile_map_bounds_s bounds, v2_i32 cam);
 void   render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam);
 void   render_ui(g_s *g);

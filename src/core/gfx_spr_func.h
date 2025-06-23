@@ -48,13 +48,13 @@
 
 #if SPRBLIT_DST_MASK
 #define SPRBLIT_INCR_DST                        2
-#define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_pm(DP, DM, SP, (SM) & (PT), M)
+#define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_pm(DP, DM, SP, SM, PT, M)
 #else
 #define SPRBLIT_INCR_DST 1
 #if SPRBLIT_FUNCTION_COPY
 #define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p_copy(DP, SP, (SM) & (PT))
 #else
-#define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p(DP, SP, (SM) & (PT), M)
+#define SPRBLIT_FUNCTION(DP, DM, SP, SM, PT, M) spr_blit_p(DP, SP, SM, PT, M)
 #endif
 #endif
 
@@ -80,10 +80,11 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 
     i32 u1 = t_rec.x - psrc.x + x1; // first bit index in src row
     i32 os = 31 & u1;
 #endif
-    i32  of   = os - (x1 & 31);
-    i32  sn   = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
-    i32  ll   = 31 & of;
-    i32  rr   = 32 - ll;
+    i32 of = os - (x1 & 31);
+    i32 sn = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
+    i32 ll = 31 & of;
+    // i32  rr   = 32 - ll;
+#define rr (32 - ll)
     i32  ys   = t_rec.y + sy * (y1 - psrc.y) + (sy < 0) * (t_rec.h - 1);
     u32 *pd_y = &ctx.dst.px[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
     u32 *ps_y = &t_rec.t.px[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
@@ -187,6 +188,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 
         sm &= cr; // apply right clip
         SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
     }
+#undef rr
 }
 
 #undef SPRBLIT_GET_WORD

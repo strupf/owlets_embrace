@@ -104,14 +104,17 @@ void boss_plant_tentacle_pt_update(g_s *g)
 
     switch (b->tentacle_pt) {
     case BOSS_PLANT_TENTACLE_PT_BURST_0: {
-        for (i32 n = -10; n <= +10; n += 4) {
-            boss_plant_tentacle_try_emerge_ext(g, n, 50, 30);
-        }
+        boss_plant_tentacle_try_emerge_ext(g, -7, 50, 30);
+        boss_plant_tentacle_try_emerge_ext(g, -5, 50, 30);
+        boss_plant_tentacle_try_emerge_ext(g, -2, 50, 30);
+        boss_plant_tentacle_try_emerge_ext(g, +2, 50, 30);
+        boss_plant_tentacle_try_emerge_ext(g, +5, 50, 30);
+        boss_plant_tentacle_try_emerge_ext(g, +7, 50, 30);
         b->tentacle_pt = 0;
         break;
     }
     case BOSS_PLANT_TENTACLE_PT_BURST_1: {
-        for (i32 n = -8; n <= +8; n += 4) {
+        for (i32 n = -6; n <= +6; n += 3) {
             boss_plant_tentacle_try_emerge_ext(g, n, 50, 30);
         }
         b->tentacle_pt = 0;
@@ -123,7 +126,7 @@ void boss_plant_tentacle_pt_update(g_s *g)
 
         if (0 <= b->tick_tentacle_pt) {
             b->tick_tentacle_pt -= 15;
-            i32 posx = -d * 11 + 2 * d * b->tentacle_pt_n;
+            i32 posx = -d * 8 + 2 * d * b->tentacle_pt_n;
             if (!(b->tentacle_pt_spare_x - 1 <= posx &&
                   posx <= b->tentacle_pt_spare_x + 1)) {
                 boss_plant_tentacle_try_emerge_ext(g, posx, 35, 35);
@@ -421,8 +424,8 @@ void boss_plant_update(g_s *g)
                 break;
             }
             }
-        } else if ((300 <= b->phase_tick && !any_eye_attacking) ||
-                   (150 <= b->phase_tick && n_eyes_fake == 0 &&
+        } else if ((320 <= b->phase_tick && !any_eye_attacking) ||
+                   (200 <= b->phase_tick && n_eyes_fake == 0 &&
                     !any_eye_hooked)) {
             b->phase_tick = 0;
             b->phase      = BOSS_PLANT_CLOSED;
@@ -455,7 +458,7 @@ void boss_plant_tentacle_try_emerge_ext(g_s *g, i32 tile_x, i32 t_emerge, i32 t_
     for (i32 n = 0; n < ARRLEN(b->tentacles); n++) {
         if (obj_handle_valid(b->tentacles[n])) continue;
 
-        obj_s *ot       = boss_plant_tentacle_emerge(g, tile_x * 16, 240 - 16, t_emerge, t_active);
+        obj_s *ot       = boss_plant_tentacle_emerge(g, tile_x * 24, 240 - 16, t_emerge, t_active);
         b->tentacles[n] = obj_handle_from_obj(ot);
 
         // snd_play_ext(SNDID_RUMBLE, 2.5f, 1.f, 0);

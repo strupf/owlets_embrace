@@ -53,24 +53,23 @@ typedef struct {
     u8  unused[3];
 } qoa_file_header_s;
 
-// MUSIC
-// unpitched streaming of qoa data from file
-typedef struct { // 8 + 4 + 4 + 4 = 20
-    ALIGNAS(4)
-    i16 h[2]; // qoa predictor values
+// qoa predictor values
+typedef struct {
+    ALIGNAS(8)
+    i16 h[2];
     i16 w[2];
 } qoa_lms_s;
 
 typedef struct qoa_dec_s {
-    u64       s;   // 8
-    qoa_lms_s lms; // 8
-    i16      *deq; // 4
+    ALIGNAS(32)
+    u64       s;       // 8
+    qoa_lms_s lms;     // 8
+    i16       deqt[8]; // 16
 } qoa_dec_s;
 
 // MUSIC
 // unpitched streaming of qoa data from file
 typedef struct qoa_mus_s {
-    ALIGNAS(32)
     qoa_dec_s ds[2];
     void     *f;    // wad handle opened at startup of app
     u32       seek; // pos in file + highest bit set if stereo
@@ -95,7 +94,6 @@ bool32 qoa_mus_active(qoa_mus_s *q);
 // can be pitched
 typedef struct qoa_sfx_s {
     qoa_dec_s ds;
-    u64      *slices;      // slice array in memory
     u32       num_slices;  // total number of slices
     u32       cur_slice;   // current slice index
     u32       pos_pitched; // pos in samples in pitched length
@@ -104,10 +102,11 @@ typedef struct qoa_sfx_s {
     u32       len;         // unpitched length in samples
     u16       ipitch_q8;   // inverse pitch in Q8
     i16       sample;      // last decoded sample
-    i16       v_q8;        // volume in Q8
-    i16       pan_q8;      // -256 = left only, 0 = center, +256 right only
     u8        spos;        // currently decoded sample in slice [0,19]
     bool8     repeat;
+    i16       v_q8;   // volume in Q8
+    i16       pan_q8; // -256 = left only, 0 = center, +256 right only
+    u64      *slices; // slice array in memory
 } qoa_sfx_s;
 
 bool32 qoa_sfx_start(qoa_sfx_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat);

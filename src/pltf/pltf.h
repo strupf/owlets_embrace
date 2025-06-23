@@ -41,8 +41,7 @@ enum {
 
 enum {
     PLTF_FPS_MODE_UNCAPPED,
-    PLTF_FPS_MODE_40,
-    PLTF_FPS_MODE_30
+    PLTF_FPS_MODE_40
 };
 
 #if PLTF_PD
@@ -60,6 +59,7 @@ void   app_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void   app_close();
 void   app_pause();
 void   app_resume();
+void   app_mirror(b32 enable);
 // to be implemented by platform
 void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
@@ -94,6 +94,7 @@ void   pltf_internal_set_fps(f32 fps);
 void   pltf_internal_close();
 void   pltf_internal_pause();
 void   pltf_internal_resume();
+void   pltf_internal_mirror(b32 enabled);
 //
 void  *pltf_mem_alloc_aligned(usize s, usize alignment);
 void   pltf_mem_free_aligned(void *p);

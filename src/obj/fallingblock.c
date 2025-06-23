@@ -41,7 +41,10 @@ void fallingblock_on_update(g_s *g, obj_s *o)
 void fallingblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
-    render_tile_terrain_block(ctx, v2_i32_add(o->pos, cam),
+    v2_i32    pos = v2_i32_add(o->pos, cam);
+    pos.x &= ~1;
+    pos.y &= ~1;
+    render_tile_terrain_block(ctx, pos,
                               o->w >> 4, o->h >> 4,
                               TILE_TYPE_BRIGHT_STONE);
 }

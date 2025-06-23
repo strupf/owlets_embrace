@@ -26,7 +26,6 @@ enum {
 };
 
 typedef struct snd_s {
-    ALIGNAS(8)
     void *dat;
     u32   num_samples;
 } snd_s;
@@ -56,14 +55,15 @@ typedef struct {
     i32 vmod_q8;
 } aud_cmd_snd_mod_s;
 
-typedef struct { // 24 bytes
+typedef struct aud_cmd_mus_play_s { // 28 bytes
     u32 hash;
+    u32 start_at;
     u32 loop_s1;
     u32 loop_s2;
     u32 ticks_out;
     u32 ticks_in;
-    u16 channelID;
     u16 vol_q8;
+    u16 channelID;
 } aud_cmd_mus_play_s;
 
 typedef struct {
@@ -127,6 +127,7 @@ typedef struct muschannel_s {
     u32       t_fade_in;
     u32       loop_s1;
     u32       loop_s2;
+    u32       start_at;
 } muschannel_s;
 
 typedef struct aud_s {
@@ -155,6 +156,8 @@ void  aud_cmd_queue_commit();
 void  aud_stop_all_snd_instances();
 void  mus_play(const void *fname);
 void  mus_play_extv(const void *fname, u32 s1, u32 s2,
+                    i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void  mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2,
                     i32 t_fade_out, i32 t_fade_in, i32 v_q8);
 void  mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2,
                    i32 t_fade_out, i32 t_fade_in, i32 v_q8);

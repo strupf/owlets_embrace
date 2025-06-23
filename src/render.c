@@ -67,7 +67,6 @@ void draw_gameplay(g_s *g)
     tex_s             texdisplay = asset_tex(0);
     gfx_ctx_s         ctx        = gfx_ctx_default(texdisplay);
     tile_map_bounds_s tilebounds = tile_map_bounds_rec(g, camrec);
-    area_s           *area       = &g->area;
 
     if (ohero) {
         // slightly adjust player sprite position
@@ -89,8 +88,7 @@ void draw_gameplay(g_s *g)
     if (g->darken_bg_q12 == 4096) {
         tex_clr(ctx.dst, GFX_COL_BLACK);
     } else {
-        tex_clr(ctx.dst, GFX_COL_WHITE);
-        //  area_draw_bg(g, &g->area, camoffset_raw, camoff);
+        background_draw(g, camoffset_raw, camoff);
 
         if (g->darken_bg_q12) {
             gfx_ctx_s ctxdarken = ctx;
@@ -99,15 +97,11 @@ void draw_gameplay(g_s *g)
         }
     }
 
-    switch (area->fx_type) {
-    case AFX_RAIN: {
-        areafx_rain_draw(g, &area->fx.rain, camoff);
+    switch (g->vfx_ID) {
+    default: break;
+    case VFX_ID_SNOW:
+        vfx_area_snow_draw(g, camoff);
         break;
-    }
-    case AFX_SNOW: {
-        areafx_snow_draw(g, &area->fx.snow, camoff);
-        break;
-    }
     }
     particle_sys_draw(g, camoff);
 
@@ -171,6 +165,7 @@ void draw_gameplay(g_s *g)
 
     tile_map_bounds_s tilebounds2 = tile_map_bounds_rec(g, camrec_fg);
     render_tilemap(g, TILELAYER_FG, tilebounds2, camoff_fg);
+    foreground_draw(g, camoffset_raw, camoff);
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_UI_LEVEL);
     // texrec_s trfg = asset_texrec(TEXID_BG_PARALLAX, 512, 0, 512, 512);
@@ -200,8 +195,10 @@ void draw_gameplay(g_s *g)
         spm_pop();
     }
 
-    if (area->fx_type == AFX_HEAT) {
-        areafx_heat_draw(g, &area->fx.heat, camoff);
+    switch (g->vfx_ID) {
+    case VFX_ID_HEAT:
+        vfx_area_heat_draw(g, camoff);
+        break;
     }
 
     // fill out of bounds with black
@@ -320,12 +317,8 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
             if (!sprite.trec.t.px) continue;
 
             v2_i32 sprpos = v2_i32_add(ppos, v2_i32_from_i16(sprite.offs));
-            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, 0);
-            if (o->enemy.flash_tick) {
-                gfx_ctx_s ctxf = ctx;
-                ctxf.pat       = gfx_pattern_2x2(B2(11), B2(01));
-                gfx_spr(ctxf, sprite.trec, sprpos, sprite.flip, SPR_MODE_WHITE);
-            }
+            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip,
+                    o->enemy.flash_tick ? SPR_MODE_WHITE : 0);
         }
         if (o->on_draw) {
             o->on_draw(g, o, cam);
@@ -780,5 +773,28 @@ void render_map_transition_out(g_s *g, v2_i32 cam, i32 t, i32 t2)
     u32 *p2 = tmp.px;
     for (i32 n = 0; n < PLTF_DISPLAY_NUM_WORDS; n++) {
         *p1++ &= *p2++;
+    }
+}
+
+void foreground_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
+{
+    texrec_s  tr  = asset_texrec(TEXID_FOREGROUND, 0, 0, 0, 0);
+    gfx_ctx_s ctx = gfx_ctx_display();
+    // ctx.pat       = gfx_pattern_75();
+
+    for (i32 n = 0; n < g->n_fg; n++) {
+        foreground_el_s *fg = &g->fg_el[n];
+
+        i32    wx = -cam_al.x + CAM_WH;
+        i32    wy = -cam_al.y + CAM_HH;
+        i32    ox = ((wx - fg->x) * fg->k_q8) >> 8;
+        i32    oy = ((wy - fg->y) * fg->k_q8) >> 8;
+        v2_i32 p  = {fg->x + cam_al.x - fg->tw / 2 - ox,
+                     fg->y + cam_al.y - fg->th / 2 - oy};
+        tr.x      = fg->tx;
+        tr.y      = fg->ty;
+        tr.w      = fg->tw;
+        tr.h      = fg->th;
+        gfx_spr(ctx, tr, p, 0, SPR_MODE_BLACK_ONLY_WHITE_PT_OPAQUE);
     }
 }

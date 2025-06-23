@@ -16,8 +16,8 @@ static void       muschannel_stop(muschannel_s *mc);
 // no callback yet - can't be interruped
 err32 aud_init()
 {
-    aud_s *aud    = &APP->aud;
-    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 6) / SETTINGS_VOL_MAX;
+    aud_s *aud    = &APP.aud;
+    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 7) / SETTINGS_VOL_MAX;
     aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
 #if 0
     aud->v_mus_q8 = 0;
@@ -32,7 +32,7 @@ err32 aud_init()
 void aud_destroy()
 {
     for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
-        qoa_mus_end(&APP->aud.muschannel[n].qoa_str);
+        qoa_mus_end(&APP.aud.muschannel[n].qoa_str);
     }
 }
 
@@ -67,6 +67,9 @@ void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len)
                     c->hash_stream = c->hash_queued;
                     qoa_mus_start(q, f);
                     qoa_mus_set_loop(q, c->loop_s1, c->loop_s2);
+                    if (c->start_at) {
+                        qoa_mus_seek(q, c->start_at);
+                    }
                 } else {
                     c->fadestate = 0;
                 }
@@ -164,7 +167,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
 
         sndchannel_s *ch = 0;
         for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *cht = &APP->aud.sndchannel[i];
+            sndchannel_s *cht = &APP.aud.sndchannel[i];
             if (cht->snd_iID == c->iID) {
                 ch = cht;
                 break;
@@ -183,7 +186,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
         aud_cmd_snd_play_s *c = &cmd_u.c.snd_play;
 
         for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *ch = &APP->aud.sndchannel[i];
+            sndchannel_s *ch = &APP.aud.sndchannel[i];
             if (ch->snd_iID) continue;
 
             qoa_sfx_s *q = &ch->qoa_dat;
@@ -198,7 +201,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
     }
     case AUD_CMD_MUS_VOL: {
         aud_cmd_mus_vol_s *c  = &cmd_u.c.mus_vol;
-        muschannel_s      *mc = &APP->aud.muschannel[c->channelID];
+        muschannel_s      *mc = &APP.aud.muschannel[c->channelID];
         qoa_mus_s         *q  = &mc->qoa_str;
         if (qoa_mus_active(q)) {
             mc->fadestate = MUSCHANNEL_FADE_IN;
@@ -211,7 +214,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
     }
     case AUD_CMD_MUS_LOOP: {
         aud_cmd_mus_loop_s *c  = &cmd_u.c.mus_loop;
-        muschannel_s       *mc = &APP->aud.muschannel[c->channelID];
+        muschannel_s       *mc = &APP.aud.muschannel[c->channelID];
         qoa_mus_s          *q  = &mc->qoa_str;
         if (qoa_mus_active(q)) {
             q->loop_s1 = c->loop_s1;
@@ -221,7 +224,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
     }
     case AUD_CMD_MUS_PLAY: {
         aud_cmd_mus_play_s *c  = &cmd_u.c.mus_play;
-        muschannel_s       *mc = &APP->aud.muschannel[c->channelID];
+        muschannel_s       *mc = &APP.aud.muschannel[c->channelID];
         qoa_mus_s          *q  = &mc->qoa_str;
 
         if (!qoa_mus_active(q) && c->hash == 0) break;
@@ -234,6 +237,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
         mc->v_fade1     = 0;
         mc->v_fade2     = c->vol_q8;
         mc->fadestate   = MUSCHANNEL_FADE_OUT;
+        mc->start_at    = c->start_at;
 
         if (qoa_mus_active(q)) {
             mc->t_fade_out = c->ticks_out;
@@ -246,7 +250,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
     }
     case AUD_CMD_STOP_ALL_SND: {
         for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *ch = &APP->aud.sndchannel[i];
+            sndchannel_s *ch = &APP.aud.sndchannel[i];
             if (ch->snd_iID) {
                 ch->stop_ticks = 100;
                 ch->stop_tick  = 0;
@@ -256,7 +260,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
     }
     case AUD_CMD_LOWPASS: {
         aud_cmd_lowpass_s *c = &cmd_u.c.lowpass;
-        APP->aud.lowpass_dst = 1 << c->v;
+        APP.aud.lowpass_dst  = 1 << c->v;
         break;
     }
     }
@@ -264,7 +268,7 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
 
 void aud_allow_playing_new_snd(bool32 enabled)
 {
-    APP->aud.snd_playing_disabled = !enabled;
+    APP.aud.snd_playing_disabled = !enabled;
 }
 
 // Called by gameplay thread/context
@@ -272,12 +276,12 @@ static void aud_push_cmd(aud_cmd_s c)
 {
     // temporary write index
     // peek new position and see if the queue is full
-    u32 i = aud_cmd_next_index(APP->aud.i_cmd_w_tmp);
+    u32 i = aud_cmd_next_index(APP.aud.i_cmd_w_tmp);
 #if PLTF_SDL
     // lock and unlock thread mutex when using SDL
     pltf_sdl_audio_lock();
 #endif
-    bool32 is_full = (i == APP->aud.i_cmd_r);
+    bool32 is_full = (i == APP.aud.i_cmd_r);
 #if PLTF_SDL
     pltf_sdl_audio_unlock();
 #endif
@@ -285,8 +289,8 @@ static void aud_push_cmd(aud_cmd_s c)
     if (is_full) { // temporary read index
         // pltf_log("+++ Audio Queue Full!\n");
     } else {
-        APP->aud.cmds[APP->aud.i_cmd_w_tmp] = c;
-        APP->aud.i_cmd_w_tmp                = i;
+        APP.aud.cmds[APP.aud.i_cmd_w_tmp] = c;
+        APP.aud.i_cmd_w_tmp               = i;
     }
 }
 
@@ -308,7 +312,7 @@ void aud_cmd_queue_commit()
 #if PLTF_SDL
     pltf_sdl_audio_lock();
 #endif
-    APP->aud.i_cmd_w = APP->aud.i_cmd_w_tmp;
+    APP.aud.i_cmd_w = APP.aud.i_cmd_w_tmp;
 #if PLTF_SDL
     pltf_sdl_audio_unlock();
 #endif
@@ -339,6 +343,24 @@ void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_o
     c->loop_s2              = (s2 * 44100) / 1000;
     c->ticks_in             = (t_fade_in * 44100) / 1000;
     c->ticks_out            = (t_fade_out * 44100) / 1000;
+    aud_push_cmd(cmd);
+}
+
+void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2,
+                   i32 t_fade_out, i32 t_fade_in, i32 v_q8)
+{
+    aud_cmd_s           cmd = {0};
+    aud_cmd_mus_play_s *c   = &cmd.c.mus_play;
+    sizeof(aud_cmd_mus_play_s);
+    cmd.type     = AUD_CMD_MUS_PLAY;
+    c->channelID = 0;
+    c->start_at  = start_at;
+    c->hash      = wad_hash(fname);
+    c->vol_q8    = v_q8;
+    c->loop_s1   = s1;
+    c->loop_s2   = (s2 * 44100) / 1000;
+    c->ticks_in  = (t_fade_in * 44100) / 1000;
+    c->ticks_out = (t_fade_out * 44100) / 1000;
     aud_push_cmd(cmd);
 }
 
@@ -386,7 +408,7 @@ i32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
 
 i32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
 {
-    aud_s *a = &APP->aud;
+    aud_s *a = &APP.aud;
 
     if (a->snd_playing_disabled) return 0;
     if (!s.dat) return 0;

@@ -198,6 +198,8 @@ static inline void lnode_del(lnode_s *n)
     n->prev->next = n->next;
 }
 
+typedef i32 (*ease_i32)(i32 a, i32 b, i32 num, i32 den);
+
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
 typedef struct {

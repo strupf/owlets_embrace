@@ -63,7 +63,7 @@ void title_to_state(title_s *t, i32 state, i32 fade)
 
 void title_init(title_s *t)
 {
-    g_s *g = &APP->game;
+    g_s *g = &APP.game;
     title_load_previews(t);
     t->preload_slot     = -1;
     g->render_map_doors = 0;
@@ -77,7 +77,7 @@ void title_start_game(app_s *app, i32 slot)
     app->title.start_tick = 0;
     game_cue_area_music(g);
 #if PLTF_PD
-    pltf_pd_menu_add("savepoint", app_menu_callback_resetsave, 0);
+    // pltf_pd_menu_add("savepoint", app_menu_callback_resetsave, 0);
     pltf_pd_menu_add("map", app_menu_callback_map, 0);
 #endif
 }
@@ -391,7 +391,7 @@ void title_update(app_s *app, title_s *t)
             snd_play(SNDID_MENU3, 1.f, 1.f);
             t->copy_to = t->option;
 
-            savefile_s *s = &APP->save;
+            savefile_s *s = &APP.save;
 
             err32 err_r = savefile_r(t->selected, s);
             if (err_r == 0) {
@@ -452,7 +452,7 @@ void title_update(app_s *app, title_s *t)
 
     if (0 <= t->preload_slot) {
         inp_state_s istate = {0};
-        game_tick(&APP->game, istate);
+        game_tick(&APP.game, istate);
     }
 
     switch (t->preload_fade_dir) {
@@ -482,6 +482,9 @@ void title_draw_btn(title_s *t, i32 ID)
     case TITLE_BTN_SLOT_1:
     case TITLE_BTN_SLOT_2:
     case TITLE_BTN_SLOT_3: {
+#if GAME_DEMO
+        if (ID != TITLE_BTN_SLOT_1) return;
+#endif
         tbut.y = 384;
         tbut.x += 5 * 32;
         tbut.w = 5 * 32;
@@ -614,7 +617,7 @@ void title_render(title_s *t)
         }
 
     } else if (0 <= t->preload_slot) {
-        game_draw(&APP->game);
+        game_draw(&APP.game);
         mcpy(tex.px, ctx.dst.px, sizeof(u32) * tex.wword * tex.h);
 
         i32 ti    = min_i32(t->start_tick, TITLE_START_SLIDE_TICKS);
@@ -695,7 +698,7 @@ void title_render(title_s *t)
 
 void title_load_previews(title_s *t)
 {
-    savefile_s *s = &APP->save;
+    savefile_s *s = &APP.save;
 
     for (i32 n = 0; n < 3; n++) {
         save_preview_s pr = {0};

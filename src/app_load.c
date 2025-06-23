@@ -18,7 +18,7 @@ static void app_load_ani_internal(app_load_s *l, i32 ID, const void *name);
 
 err32 app_load_assets()
 {
-    g_s      *g = &APP->game;
+    g_s      *g = &APP.game;
     void     *f = 0;
     wad_el_s *e = 0;
     if (!wad_open_str("WAD_MAIN", &f, &e)) return ASSETS_ERR_WAD_OPEN;
@@ -35,11 +35,10 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_TILESET_BG_AUTO, "T_TSBGA");
     app_load_tex_internal(&l, TEXID_TILESET_PROPS, "T_TSPROP");
     app_load_tex_internal(&l, TEXID_TILESET_DECO, "T_TSDECO");
-    app_load_tex_internal(&l, TEXID_TILESET_FRONT, "T_TSFRONT");
     app_load_tex_internal(&l, TEXID_HERO, "T_HERO");
     app_load_tex_internal(&l, TEXID_ROTOR, "T_ROTOR");
-    app_load_tex_internal(&l, TEXID_BGOLEM, "T_BGOLEM");
     app_load_tex_internal(&l, TEXID_FLSURF, "T_FLSURF");
+    app_load_tex_internal(&l, TEXID_MUSHROOM, "T_MUSHROOM");
     app_load_tex_internal(&l, TEXID_FLYBLOB, "T_FBLOB");
     app_load_tex_internal(&l, TEXID_SOLIDLEVER, "T_SOLIDLEVER");
     app_load_tex_internal(&l, TEXID_JUMPER, "T_JUMPER");
@@ -63,14 +62,17 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_PLANTS, "T_PLANTS");
     app_load_tex_internal(&l, TEXID_FLYING_BUG, "T_FLYBUG");
     app_load_tex_internal(&l, TEXID_WIND, "T_WIND");
-    APP->assets.tex[TEXID_PAUSE_TEX] =
+    app_load_tex_internal(&l, TEXID_FOREGROUND, "T_FOREGROUND");
+    APP.assets.tex[TEXID_PAUSE_TEX] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
-    APP->assets.tex[TEXID_DISPLAY_TMP] =
+    APP.assets.tex[TEXID_DISPLAY_TMP] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
-    APP->assets.tex[TEXID_DISPLAY_TMP_MASK] =
+    APP.assets.tex[TEXID_DISPLAY_TMP_MASK] =
         tex_create(400, 240, 1, app_allocator(), 0);
+    APP.assets.tex[TEXID_BG_PARALLAX_PERF] =
+        tex_create(400, 240, 0, app_allocator(), 0);
 
 LOAD_FNT:;
     // FNT ---------------------------------------------------------------------
@@ -148,6 +150,7 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_HEALTHDROP, "A_HEALTHDROP");
     app_load_ani_internal(&l, ANIID_BPLANT_HOP, "A_BPLANT_HOP");
     app_load_ani_internal(&l, ANIID_PREPARE_SWAP, "A_PREPARE_SWAP");
+    app_load_ani_internal(&l, ANIID_FBLOB_ATTACK, "A_FBLOB_ATTACK");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {
@@ -162,7 +165,7 @@ static void app_load_tex_internal(app_load_s *l, i32 ID, const void *name)
 {
     // if (l->err) return;
 
-    tex_s *t     = &APP->assets.tex[ID];
+    tex_s *t     = &APP.assets.tex[ID];
     err32  err_t = tex_from_wad(l->f, l->e, name, l->allocator, t);
     if (err_t) {
         l->err |= err_t | ASSETS_ERR_TEX;
@@ -181,7 +184,7 @@ static void app_load_fnt_internal(app_load_s *l, i32 ID, const void *name)
 {
     // if (l->err) return;
 
-    fnt_s    *f = &APP->assets.fnt[ID];
+    fnt_s    *f = &APP.assets.fnt[ID];
     wad_el_s *e = wad_seek_str(l->f, l->e, name);
     if (!e) {
         l->err |= ASSETS_ERR_FNT | ASSETS_ERR_WAD_EL;
@@ -239,7 +242,7 @@ static void app_load_snd_internal(app_load_s *l, i32 ID, const void *name)
 {
     // if (l->err) return;
 
-    snd_s *s     = &APP->assets.snd[ID];
+    snd_s *s     = &APP.assets.snd[ID];
     err32  err_s = snd_from_wad(l->f, l->e, name, l->allocator, s);
     if (err_s) {
         l->err |= err_s | ASSETS_ERR_SND;
@@ -249,7 +252,7 @@ static void app_load_snd_internal(app_load_s *l, i32 ID, const void *name)
 
 static void app_load_ani_internal(app_load_s *l, i32 ID, const void *name)
 {
-    ani_s *a     = &APP->assets.ani[ID];
+    ani_s *a     = &APP.assets.ani[ID];
     err32  err_s = ani_from_wad(l->f, l->e, name, l->allocator, a);
     if (err_s) {
         l->err |= err_s | ASSETS_ERR_ANI;

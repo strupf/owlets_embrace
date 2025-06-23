@@ -98,6 +98,12 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
     case kEventResume:
         pltf_internal_resume();
         break;
+    case kEventMirrorStarted:
+        pltf_internal_mirror(1);
+        break;
+    case kEventMirrorEnded:
+        pltf_internal_mirror(0);
+        break;
     default: break;
     }
     return 0;

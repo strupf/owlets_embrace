@@ -17,6 +17,9 @@ extern void *(*PD_system_realloc)(void *ptr, size_t size);
 extern int (*PD_file_listfiles)(const char *path,
                                 void (*callback)(const char *filename, void *userdata),
                                 void *userdata, int showhidden);
+
+#define pltf_log_always PD_system_logToConsole
+
 #if PLTF_ENABLE_LOG
 #define pltf_log PD_system_logToConsole
 #else

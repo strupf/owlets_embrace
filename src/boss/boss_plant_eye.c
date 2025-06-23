@@ -95,7 +95,7 @@ obj_s *boss_plant_eye_create(g_s *g, i32 ID)
         e->anchor_x             = ID == OBJID_BOSS_PLANT_EYE_FAKE_R ? +70 : -70;
         e->anchor_y             = 60;
         e->tear_off_tick_needed = 200;
-        o->w                    = 28;
+        o->w                    = 32;
         o->h                    = 28;
         o->health               = 2;
         break;
@@ -250,8 +250,7 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
         break;
     }
     case BOSS_PLANT_EYE_HOOKED: {
-        truncate_len  = 1;
-        pulling_force = grapplinghook_pulling_force_hero(g);
+        truncate_len = 1;
 
         if (e->jank_tick) {
             e->jank_tick++;
@@ -279,19 +278,16 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
                 }
             }
         }
+        v2_i32 vpull = {0};
+        i32    fpull = grapplinghook_f_at_obj_proj_v(&g->ghook, o, (v2_i32){0}, &vpull);
 
-        if (pulling_force) {
+        if (fpull) {
             back_to_anchor = 0;
             e->tear_off_tick++;
             e->active_tear = 1;
             e->hooked_cd   = 20;
-            v2_i32 dtr     = v2_i32_sub(hcenter, pcenter);
-            v2_i32 steer   = steer_seek(pcenter, o->v_q12, hcenter, Q_VOBJ(5.0));
-            o->v_q12.x += steer.x / 4;
-            o->v_q12.y += steer.y / 4;
-            o->v_q12.x += sgn_i32(dtr.x) << 8;
-            o->v_q12.y += sgn_i32(dtr.y) << 6;
-            o->v_q12.x += inp_x() << 12;
+            o->v_q12.x += vpull.x >> 0;
+            o->v_q12.y += vpull.y >> 2;
         } else if (e->hooked_cd) {
             back_to_anchor = 0;
             e->hooked_cd--;
@@ -351,6 +347,8 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
 
         boss_plant_on_eye_tear_off(g, o);
     } else {
+        o->v_q12.x = clamp_sym_i32(o->v_q12.x, 20000);
+        o->v_q12.y = clamp_sym_i32(o->v_q12.y, 20000);
         obj_move_by_v_q12(g, o);
 
         pcenter       = obj_pos_center(o);
@@ -416,6 +414,7 @@ void boss_plant_eye_on_update_ripped(g_s *g, obj_s *o)
     if (o->bumpflags & OBJ_BUMP_Y) {
         o->v_q12.y = 0;
         o->flags |=
+            OBJ_FLAG_HURT_ON_TOUCH |
             OBJ_FLAG_ENEMY |
             OBJ_FLAG_HERO_JUMPSTOMPABLE;
     }
@@ -652,6 +651,12 @@ void boss_plant_eye_draw_ripped(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)
         break;
     }
     }
+
+    i32      kk      = (o->animation >> 1) % 10;
+    texrec_s trarrow = asset_texrec(TEXID_BOSSPLANT, kk * 32, 448 + 32, 32, 32);
+    pcenter.x += 16;
+    pcenter.y -= 8;
+    gfx_spr(ctx, trarrow, pcenter, 0, 0);
 }
 
 void boss_plant_eye_on_hook(g_s *g, obj_s *o, b32 hooked)

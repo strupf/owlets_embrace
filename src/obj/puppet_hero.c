@@ -6,10 +6,11 @@
 
 obj_s *puppet_hero_put(g_s *g, obj_s *ohero)
 {
-    obj_s *o  = puppet_create(g, OBJID_PUPPET_HERO);
-    o->pos.x  = ohero->pos.x + ohero->w / 2;
-    o->pos.y  = ohero->pos.y + ohero->h;
-    o->facing = ohero->facing;
+    obj_s *o           = puppet_create(g, OBJID_PUPPET_HERO);
+    o->pos.x           = ohero->pos.x + ohero->w / 2;
+    o->pos.y           = ohero->pos.y + ohero->h;
+    o->facing          = ohero->facing;
+    o->render_priority = RENDER_PRIO_HERO;
     ohero->flags |= OBJ_FLAG_DONT_SHOW_UPDATE;
     return o;
 }
@@ -80,13 +81,18 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         break;
     }
     case PUPPET_HERO_ANIMID_AVENGE: {
-        fy = 16;
-        fx = min_i32(anim_t >> 3, 2);
+        fy = 14;
+        fx = 9 + min_i32(anim_t >> 3, 2);
         break;
     }
     case PUPPET_HERO_ANIMID_QUICKDUCK: {
-        fy = 14;
+        fy = 11;
         fx = 2;
+        break;
+    }
+    case PUPPET_HERO_ANIMID_HOLD_ARM: {
+        fy = 14;
+        fx = 6 + min_i32((anim_t >> 2), 5);
         break;
     }
     }

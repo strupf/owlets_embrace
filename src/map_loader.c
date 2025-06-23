@@ -21,16 +21,24 @@ typedef struct {
 
 typedef struct map_header_s {
     u32         hash;
-    u8          name[32];
     i32         x;
     i32         y;
     u16         w;
     u16         h;
-    u16         n_obj;
+    u16         n_fg;
+    u8          n_obj;
     u8          n_prop;
     u8          n_entries;
     map_entry_s entries[16];
 } map_header_s;
+
+typedef struct {
+    i16 x;
+    i16 y;
+    u16 kwh; // width, height, scrolling factor packed
+    u8  tx;  // tile data
+    u8  ty;
+} map_fg_s;
 
 typedef struct {
     u8 *t;
@@ -122,12 +130,10 @@ static i32    map_prop_i32(map_properties_s p, const char *name);
 static f32    map_prop_f32(map_properties_s p, const char *name);
 static bool32 map_prop_bool(map_properties_s p, const char *name);
 static v2_i16 map_prop_pt(map_properties_s p, const char *name);
-map_obj_s    *map_obj_find(map_header_s *hd, void *f, wad_el_s *e, const char *name);
 
 void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h, u32 *seed_visuals);
 void loader_load_bgauto(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
-void loader_load_fg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 
 void game_load_map(g_s *g, u32 map_hash)
 {
@@ -167,6 +173,7 @@ void game_load_map(g_s *g, u32 map_hash)
     mclr_field(g->boss);
     mclr(g->tiles, sizeof(tile_s) * w * h);
     mclr(g->fluid_streams, sizeof(u8) * w * h);
+    mclr_static_arr(g->fg_el);
     mclr_static_arr(g->fluid_areas);
     for (i32 n = 0; n < NUM_TILELAYER; n++) {
         mclr(&g->rtiles[n], sizeof(u16) * w * h);
@@ -190,6 +197,7 @@ void game_load_map(g_s *g, u32 map_hash)
     g->darken_bg_q12    = 0;
     g->darken_bg_add    = 0;
     g->n_save_points    = 0;
+    g->n_fg             = 0;
     marena_reset(&g->memarena, 0);
 
     for (i32 n = 0; n < g->n_map_rooms; n++) {
@@ -202,9 +210,10 @@ void game_load_map(g_s *g, u32 map_hash)
     assert(g->map_room_cur);
 
     // PROPERTIES ==============================================================
-    // mcpy(g->areaname.label, hd.name, 32);
-    i32 areaID = map_prop_i32(mapp, "Area_ID");
-    i32 areafx = map_prop_i32(mapp, "ENV_VFX");
+    i32 area_ID       = map_prop_i32(mapp, "AREA_ID");
+    i32 vfx_ID        = map_prop_i32(mapp, "VFX_ID");
+    i32 music_ID      = map_prop_i32(mapp, "MUSIC_ID");
+    i32 background_ID = map_prop_i32(mapp, "BACKGROUND_ID");
 
     for (i32 n = 0; n < hd->n_entries; n++) {
         map_door_s  *md = &g->map_doors[g->n_map_doors++];
@@ -215,37 +224,46 @@ void game_load_map(g_s *g, u32 map_hash)
         md->h           = me->h;
     }
 
-    tex_s *tbg = &APP->assets.tex[TEXID_BG_PARALLAX];
-
-    if (0) {
-    } else if (hd->hash == wad_hash("L_BOSSPLANT")) {
-        map_obj_s *mo = map_obj_find(hd, f, wad_el, "Bossplant");
-        boss_init(g, BOSS_ID_PLANT, mo);
-    }
-
-    switch (areaID) {
+    switch (vfx_ID) {
     default: break;
-    case 9: tex_from_wad(f, 0, "T_BG006", game_allocator(g), tbg); break; // snow
-    case 7: tex_from_wad(f, 0, "T_BG005", game_allocator(g), tbg); break; // forest
-    case 5: tex_from_wad(f, 0, "T_BG002", game_allocator(g), tbg); break; // case
-    case 3: tex_from_wad(f, 0, "T_BG003", game_allocator(g), tbg); break; // mountain
-    case AREA_ID_SAVE:
-        tex_from_wad(f, 0, "T_BGSAVE01", game_allocator(g), tbg);
-        break; // save
+    case VFX_ID_SNOW:
+        vfx_area_snow_setup(g);
+        break;
     }
 
-    i32 areafxID = 0;
-
-    switch (areafx) {
+    tex_s *tbg = &APP.assets.tex[TEXID_BG_PARALLAX];
+    switch (background_ID) {
     default: break;
-    case 1: areafxID = AFX_SNOW; break;
-    case 2: areafxID = AFX_HEAT; break;
+    case BACKGROUND_ID_CAVE:
+        tex_from_wad(f, 0, "T_BG_CAVE", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_FOREST_DARK:
+    case BACKGROUND_ID_FOREST_BRIGHT:
+        tex_from_wad(f, 0, "T_BG_FOREST", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_SNOW:
+        tex_from_wad(f, 0, "T_BG_SNOW", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_WATERFALL:
+        tex_from_wad(f, 0, "T_BG_WATERFALL", game_allocator(g), tbg);
+        break;
     }
-    area_setup(g, &g->area, areaID, areafxID);
+    background_perf_prepare(g);
 
-    i32    musicID    = map_prop_i32(mapp, "MUSICID");
-    bool32 same_music = musicID == g->musicID;
-    g->musicID        = musicID;
+    switch (area_ID) {
+    case AREA_ID_DEEP_FOREST:
+        str_cpy(g->areaname, "Deep Forest");
+        break;
+    case AREA_ID_SNOW_PEAKS:
+        str_cpy(g->areaname, "Snow Peaks");
+        break;
+    }
+
+    bool32 same_music = music_ID == g->music_ID;
+    g->music_ID       = music_ID;
+    g->area_ID        = area_ID;
+    g->background_ID  = background_ID;
+    g->vfx_ID         = vfx_ID;
 
     if (!g->previewmode && !same_music) {
         game_cue_area_music(g);
@@ -255,77 +273,50 @@ void game_load_map(g_s *g, u32 map_hash)
         g->area_anim_st   = 1;
         g->area_anim_tick = 0;
     }
-    map_prop_strs(mapp, "Name", g->areaname);
 
     loader_load_terrain(g, f, wad_el, w, h, &seed_visuals);
     loader_load_bgauto(g, f, wad_el, w, h);
     loader_load_bg(g, f, wad_el, w, h);
-    loader_load_fg(g, f, wad_el, w, h);
     wad_rd_str(f, wad_el, "FLUIDS", g->fluid_streams);
 
-    byte *objmem = (byte *)wad_rd_spm_str(f, wad_el, "OBJS");
-    {
-        // check and initialize battle room
-        battleroom_s *br              = &g->battleroom;
-        byte         *obj_ptr         = objmem;
-        usize         size_br_enemies = 0;
-
-        for (i32 n = 0; n < hd->n_obj; n++) {
-            map_obj_s *o = (map_obj_s *)obj_ptr;
-            if (map_obj_bool(o, "Battleroom")) {
-                // preview how many battleroom enemies there are
-                br->n_enemies++;
-                size_br_enemies += o->bytes;
-            }
-            if (str_eq_nc(o->name, "Battleroom")) {
-                i32 br_saveID = map_obj_i32(o, "saveID");
-                if (save_event_exists(g, br_saveID)) {
-                    pltf_log("Battleroom already done\n");
-                    break;
-                }
-
-                pltf_log("Init battleroom\n");
-                br->state  = BATTLEROOM_IDLE;
-                br->saveID = br_saveID;
-                br->r.x    = o->x;
-                br->r.y    = o->y;
-                br->r.w    = o->w;
-                br->r.h    = o->h;
-
-                if (map_obj_has_nonnull_prop(o, "campos")) {
-                    br->has_camfocus = 1;
-                    v2_i16 campos    = map_obj_pt(o, "campos");
-                    br->camfocus.x   = campos.x * 16;
-                    br->camfocus.y   = campos.y * 16;
-                }
-            }
-            obj_ptr += o->bytes;
-        }
-
-        if (br->state) {
-            // copy battleroom enemy data
-            obj_ptr         = objmem; // reset obj pointer
-            br->mem_enemies = game_alloc(g, size_br_enemies, 4);
-            byte *brmem     = (byte *)br->mem_enemies;
-            for (i32 n = 0; n < hd->n_obj; n++) {
-                map_obj_s *o = (map_obj_s *)obj_ptr;
-                if (map_obj_bool(o, "Battleroom")) {
-                    mcpy(brmem, o, o->bytes);
-                    brmem += o->bytes;
-                }
-                obj_ptr += o->bytes;
-            }
+    map_fg_s *mfg = (map_fg_s *)wad_r_spm_str(f, wad_el, "FOREGROUND");
+    for (i32 n = 0; n < hd->n_fg; n++, mfg++) {
+        foreground_el_s *fg_el = &g->fg_el[g->n_fg++];
+        i32              tw    = B8(01111111) & (mfg->kwh >> 7);
+        i32              th    = B8(01111111) & (mfg->kwh);
+        i32              kq    = (mfg->kwh >> 14);
+        fg_el->x               = mfg->x;
+        fg_el->y               = mfg->y;
+        fg_el->tx              = (i32)mfg->tx << 4;
+        fg_el->ty              = (i32)mfg->ty << 4;
+        fg_el->tw              = (i32)(1 + tw) << 4;
+        fg_el->th              = (i32)(1 + th) << 4;
+        switch (kq) {
+        case 0: fg_el->k_q8 = 12; break;
+        case 1: fg_el->k_q8 = 24; break;
+        case 2: fg_el->k_q8 = 48; break;
+        case 3: fg_el->k_q8 = 64; break;
         }
     }
-    {
-        byte *obj_ptr = objmem;
-        for (i32 n = 0; n < hd->n_obj; n++) {
-            map_obj_s *o = (map_obj_s *)obj_ptr;
-            if (!map_obj_bool(o, "Battleroom")) {
-                map_obj_parse(g, o);
-            }
-            obj_ptr += o->bytes;
+
+    wad_el_s *e_objs = wad_seek_str(f, wad_el, "OBJS");
+    g->map_objs      = game_alloc(g, e_objs->size, 4);
+    g->n_map_objs    = hd->n_obj;
+    pltf_file_r(f, g->map_objs, e_objs->size);
+
+    if (0) {
+    } else if (hd->hash == wad_hash("L_BOSSPLANT")) {
+        map_obj_s *mo = map_obj_find(g, "Bossplant");
+        boss_init(g, BOSS_ID_PLANT, mo);
+    }
+
+    byte *obj_ptr = (byte *)g->map_objs;
+    for (i32 n = 0; n < hd->n_obj; n++) {
+        map_obj_s *o = (map_obj_s *)obj_ptr;
+        if (!map_obj_bool(o, "Battleroom")) {
+            map_obj_parse(g, o);
         }
+        obj_ptr += o->bytes;
     }
 
     spm_pop();
@@ -446,25 +437,6 @@ void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
     spm_pop();
 }
 
-void loader_load_fg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h)
-{
-    spm_push();
-    u16 *tmem = (u16 *)wad_rd_spm_str(f, wad_el, "FOREGROUND");
-
-    for (i32 y = 0; y < h; y++) {
-        for (i32 x = 0; x < w; x++) {
-            i32 i = x + y * w;
-            i32 t = tmem[i];
-            if (!t) continue;
-
-            i32 tx, ty, fl;
-            map_proptile_decode(t, &tx, &ty, &fl);
-            g->rtiles[TILELAYER_FG][i] = tx + ty * 16;
-        }
-    }
-    spm_pop();
-}
-
 static bool32 autotile_bg_is(tilelayer_u8 tiles, i32 x, i32 y, i32 sx, i32 sy)
 {
     i32 u = x + sx;
@@ -482,6 +454,7 @@ static bool32 at_types_blending(i32 a, i32 b)
     if (b == TILE_TYPE_INVISIBLE_CONNECTING ||
         a == TILE_TYPE_THORNS ||
         a == TILE_TYPE_DARK_OBSIDIAN) return 1;
+    if (b == TILE_TYPE_THORNS) return 0;
 
     if (a == 25) return 0;
     if (tile_type_color(a) == tile_type_color(b)) return 1;
@@ -862,11 +835,11 @@ void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
     return (prop + 1);
 }
 
-map_obj_s *map_obj_find(map_header_s *hd, void *f, wad_el_s *e, const char *name)
+map_obj_s *map_obj_find(g_s *g, const char *name)
 {
-    byte *objp = (byte *)wad_rd_spm_str(f, e, "OBJS");
+    byte *objp = (byte *)g->map_objs;
 
-    for (i32 n = 0; n < hd->n_obj; n++) {
+    for (i32 n = 0; n < g->n_map_objs; n++) {
         map_obj_s *o = (map_obj_s *)objp;
 
         if (str_eq_nc(o->name, name)) {

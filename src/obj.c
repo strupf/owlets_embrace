@@ -333,8 +333,8 @@ enemy_s enemy_default()
     enemy_s e          = {0};
     e.sndID_die        = SNDID_ENEMY_DIE;
     e.sndID_hurt       = SNDID_ENEMY_HURT;
-    e.hurt_tick_max    = 20;
-    e.die_tick_max     = 40;
+    e.hurt_tick_max    = 12;
+    e.die_tick_max     = 5;
     e.coins_on_death   = 1;
     e.explode_on_death = 1;
     return e;
@@ -356,7 +356,7 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
         o->enemy.hurt_tick = o->enemy.hurt_tick_max;
     }
 
-    o->enemy.flash_tick = 6;
+    o->enemy.flash_tick = 3;
     if (o->enemy.on_hurt) {
         o->enemy.on_hurt(g, o);
     }

@@ -50,12 +50,26 @@ void cs_demo_3_update(g_s *g, cs_s *cs)
     }
     case 2: {
         if (10 <= cs->tick) {
+            cs->tick = 0;
+            cs->phase++;
+            puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_HOLD_ARM, 0);
+            v2_i32 phero = obj_pos_center(dm->puppet_hero);
+            phero.y -= 16;
+            phero.x -= dm->puppet_hero->facing * 8;
+            puppet_move_ext(dm->puppet_comp, phero, 40, ease_in_out_quad, 0, 0, 0);
+        }
+        break;
+    }
+    case 3: {
+        if (40 <= cs->tick) {
             // leave
             g->block_hero_control = 0;
             obj_s *ohero          = obj_get_hero(g);
             puppet_hero_replace_and_del(g, ohero, dm->puppet_hero);
             obj_s *ocomp = companion_create(g);
             puppet_companion_replace_and_del(g, ocomp, dm->puppet_comp);
+            g->hero.mode = HERO_MODE_COMBAT;
+            hero_add_upgrade(g, HERO_UPGRADE_COMPANION);
             cs_reset(g);
         }
         break;

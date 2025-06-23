@@ -6,10 +6,11 @@
 
 obj_s *puppet_companion_put(g_s *g, obj_s *ocomp)
 {
-    obj_s *o  = puppet_create(g, OBJID_PUPPET_COMPANION);
-    o->pos.x  = ocomp->pos.x + ocomp->w / 2;
-    o->pos.y  = ocomp->pos.y + ocomp->h / 2;
-    o->facing = ocomp->facing;
+    obj_s *o           = puppet_create(g, OBJID_PUPPET_COMPANION);
+    o->pos.x           = ocomp->pos.x + ocomp->w / 2;
+    o->pos.y           = ocomp->pos.y + ocomp->h / 2;
+    o->facing          = ocomp->facing;
+    o->render_priority = RENDER_PRIO_HERO - 1;
     ocomp->flags |= OBJ_FLAG_DONT_SHOW_UPDATE;
     return o;
 }

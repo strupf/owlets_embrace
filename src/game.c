@@ -10,7 +10,7 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
-    g->savefile      = &APP->save;
+    g->savefile      = &APP.save;
     g->obj_head_free = &g->obj_raw[0];
     for (i32 n = 0; n < NUM_OBJ; n++) {
         obj_s *o = &g->obj_raw[n];
@@ -182,11 +182,11 @@ void game_tick_gameplay(g_s *g)
 
                 if (enemy->explode_on_death) {
                     switch (htick) {
-                    case 7: {
+                    case 7 - 3: {
                         snd_play(SNDID_ENEMY_EXPLO, 1.f, rngr_f32(0.9f, 1.1f));
                         break;
                     }
-                    case 4: {
+                    case 4 - 3: {
                         objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
                         break;
                     }
@@ -304,9 +304,9 @@ void game_anim(g_s *g)
         break;
     }
 
-    switch (g->area.fx_type) {
-    case AFX_SNOW: areafx_snow_update(g, &g->area.fx.snow); break;
-    case AFX_HEAT: areafx_heat_update(g, &g->area.fx.heat); break;
+    switch (g->vfx_ID) {
+    default: break;
+    case VFX_ID_SNOW: vfx_area_snow_update(g); break;
     }
 
     // every other tick to save some CPU cycles;
@@ -333,7 +333,6 @@ void game_anim(g_s *g)
     }
 
     particle_sys_update(g);
-    area_update(g, &g->area);
     coins_update(g);
     objs_animate(g);
     hero_animate_ui(g);
@@ -423,6 +422,7 @@ void game_load_savefile(g_s *g)
     if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
         companion_spawn(g, o);
     }
+
     cam_init_level(g, &g->cam);
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     objs_animate(g);
@@ -604,6 +604,13 @@ bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
         }
         break;
     }
+    case OBJID_FLYBLOB: {
+        if (o->substate != box.hitID) {
+            flyblob_on_hit(g, o, box);
+            return 1;
+        }
+        break;
+    }
     }
 
     bool32 do_hit = (o->flags & OBJ_FLAG_ENEMY) &&
@@ -614,6 +621,13 @@ bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
         g->freeze_tick      = max_i32(g->freeze_tick, 3);
         o->enemy.hero_hitID = box.hitID;
         enemy_hurt(g, o, box.damage);
+        v2_i32 pbox = obj_pos_center(o);
+        pbox.y -= 8;
+        if (o->facing < 0) {
+            objanim_create(g, pbox, OBJANIMID_HERO_HIT_L);
+        } else {
+            objanim_create(g, pbox, OBJANIMID_HERO_HIT_R);
+        }
         return 1;
     }
     return 0;
@@ -672,10 +686,28 @@ void game_darken_bg(g_s *g, i32 speed)
 
 void game_cue_area_music(g_s *g)
 {
-    switch (g->musicID) {
-    case 0: mus_play_extv(0, 0, 0, 1000, 0, 0); break;
-    case 1: mus_play_extv("M_CAVE", 498083, 0, 1000, 0, 256); break;
-    case 2: mus_play_extv("M_WATERFALL", 226822, 0, 1000, 0, 256); break;
+    switch (g->music_ID) {
+    case MUSIC_ID_NONE:
+        mus_play_extv(0, 0, 0, 1000, 0, 0);
+        break;
+    case MUSIC_ID_CAVE:
+        mus_play_extv("M_CAVE", 498083, 0, 1000, 0, 256);
+        break;
+    case MUSIC_ID_WATERFALL:
+        mus_play_extv("M_WATERFALL", 226822, 0, 1000, 0, 256);
+        break;
+    case MUSIC_ID_SNOW:
+        mus_play_extv("M_SNOW", 368146, 0, 1000, 0, 256);
+        break;
+    case MUSIC_ID_FOREST:
+        mus_play_extv("M_FOREST", 769768, 0, 1000, 0, 256);
+        break;
+    case MUSIC_ID_ANCIENT_TREE:
+        mus_play_extv("M_ANCIENT_TREE", 564480, 0, 1000, 0, 256);
+        break;
+    case MUSIC_ID_INTRO:
+        mus_play_extv("M_INTRO", 325679, 0, 1000, 0, 256);
+        break;
     }
 }
 

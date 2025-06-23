@@ -19,31 +19,31 @@ i32 assets_init()
 tex_s *asset_texptr(i32 ID)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    return &APP->assets.tex[ID];
+    return &APP.assets.tex[ID];
 }
 
 tex_s asset_tex(i32 ID)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    return APP->assets.tex[ID];
+    return APP.assets.tex[ID];
 }
 
 snd_s asset_snd(i32 ID)
 {
     assert(0 <= ID && ID < NUM_SNDID);
-    return APP->assets.snd[ID];
+    return APP.assets.snd[ID];
 }
 
 fnt_s asset_fnt(i32 ID)
 {
     assert(0 <= ID && ID < NUM_FNTID);
-    return APP->assets.fnt[ID];
+    return APP.assets.fnt[ID];
 }
 
 ani_s asset_ani(i32 ID)
 {
     assert(0 <= ID && ID < NUM_ANIID);
-    return APP->assets.ani[ID];
+    return APP.assets.ani[ID];
 }
 
 i32 asset_tex_put(tex_s t)
@@ -56,7 +56,7 @@ i32 asset_tex_put(tex_s t)
 tex_s asset_tex_putID(i32 ID, tex_s t)
 {
     assert(0 <= ID && ID < NUM_TEXID);
-    APP->assets.tex[ID] = t;
+    APP.assets.tex[ID] = t;
     return t;
 }
 
@@ -100,7 +100,7 @@ err32 snd_from_wad_ID(i32 ID, const void *name, allocator_s a)
     void     *f;
     wad_el_s *el;
     if (wad_open(wad_hash(name), &f, &el)) {
-        snd_s *s = &APP->assets.snd[ID];
+        snd_s *s = &APP.assets.snd[ID];
         err32  e = snd_from_wad(f, el, name, a, s);
         pltf_file_close(f);
         return e;
@@ -154,7 +154,7 @@ err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
     }
 
     err32 err_t = 0;
-    *o_t        = tex_create(h.w, h.h, 1, a, &err_t);
+    *o_t        = tex_create(h.w, h.h, h.fmt, a, &err_t);
     if (err_t == 0) {
         usize size     = sizeof(u32) * o_t->wword * o_t->h;
         usize size_dec = lzss_decode_file(f, o_t->px);
@@ -211,7 +211,7 @@ err32 ani_from_wad(void *f, wad_el_s *wf, const void *name,
     }
 
     usize size = sizeof(ani_frame_s) * h.n;
-    void *mem  = a.allocfunc(a.ctx, size, 2);
+    void *mem  = a.allocfunc(a.ctx, size, 32);
     if (mem) {
         o_a->n     = h.n;
         o_a->ticks = h.ticks;

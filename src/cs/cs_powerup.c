@@ -102,19 +102,24 @@ void cs_powerup_update(g_s *g, cs_s *cs)
 
             // create hero puppet, freeze and hide the actual object
             obj_s *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
-            v2_i32 hctr     = obj_pos_bottom_center(ohero);
+            v2_i32 hctrp    = obj_pos_center(ohero);
             pu->puppet_hero = puppet_hero_put(g, ohero);
-            i32 hfacing     = camc.x < hctr.x ? -1 : +1;
+            i32 hfacing     = camc.x < hctrp.x ? -1 : +1;
             puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_IDLE, hfacing);
 
             // if present: create companion puppet
             if (ocomp) {
                 pu->puppet_comp = puppet_companion_put(g, ocomp);
+                if (g->hero.mode == HERO_MODE_COMBAT) {
+                    hctrp.y -= 8;
+                    hctrp.x -= hfacing * 8;
+                    pu->puppet_comp->pos = hctrp;
+                }
 
                 if (!pu->first_time_seen) {
                     // move companion puppet to position
-                    v2_i32 comppos = {opos.x - 40, opos.y - 10};
-                    puppet_move(pu->puppet_comp, comppos, 60);
+                    v2_i32 comppos = {opos.x - 40, opos.y - 0};
+                    puppet_move(pu->puppet_comp, comppos, 40);
                 }
                 puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, hfacing);
             }
@@ -129,15 +134,20 @@ void cs_powerup_update(g_s *g, cs_s *cs)
         break;
     }
     case 1: {
-        if (60 == cs->tick) {
-            dialog_open_wad(g, "D_UPGR_1");
+        if (40 == cs->tick) {
+            // dialog_open_wad(g, "D_UPGR_1");
             g->dialog.pos = DIALOG_POS_TOP;
             puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_HUH, +1);
+        }
+        if (150 == cs->tick) {
+            // puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, +1);
+            cs->phase++;
+            cs->tick = 0;
         }
         break;
     }
     case 2: {
-        if (20 == cs->tick) {
+        if (10 == cs->tick) {
             cs->phase++;
             cs->tick = 0;
         }
@@ -146,6 +156,8 @@ void cs_powerup_update(g_s *g, cs_s *cs)
     case 3: {
         cs->phase = 10;
         cs->tick  = 0;
+
+        puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, +1);
 
         // slowly move orb and companion upwards
         v2_i32 orbtarget = {opos.x, opos.y - 50};
@@ -160,10 +172,10 @@ void cs_powerup_update(g_s *g, cs_s *cs)
     case 10: {
         switch (cs->tick) {
         case 30:
-            mus_play_extv(0, 0, 0, 2000, 0, 0);
             hero_upgrade_put_orb_infront(pu->o);
             break;
         case 130:
+            mus_play_extv(0, 0, 0, 2000, 0, 0);
             pu->puppet_hero->render_priority = RENDER_PRIO_UI_LEVEL;
             g->objrender_dirty               = 1;
             break;
@@ -315,6 +327,9 @@ void cs_powerup_leave(g_s *g)
     puppet_hero_replace_and_del(g, ohero, pu->puppet_hero);
     if (ocomp) {
         puppet_companion_replace_and_del(g, ocomp, pu->puppet_comp);
+    }
+    if (hero_has_upgrade(g, HERO_UPGRADE_HOOK)) {
+        g->hero.mode = HERO_MODE_NORMAL;
     }
     g->block_hero_control = 0;
     g->cam.has_trg        = 0;

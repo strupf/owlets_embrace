@@ -51,8 +51,6 @@ void grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero,
     }
 }
 
-void flyblob_on_unhooked(g_s *g, obj_s *o);
-
 void grapplinghook_unhook_obj(g_s *g, obj_s *o)
 {
     o->rope     = 0;
@@ -66,6 +64,7 @@ void grapplinghook_unhook_obj(g_s *g, obj_s *o)
 void grapplinghook_destroy(g_s *g, grapplinghook_s *h)
 {
     if (!h->state) return;
+
     h->state           = GRAPPLINGHOOK_INACTICE;
     h->destroy_tick_q8 = 256;
     obj_s *o1          = obj_from_obj_handle(h->o1);
@@ -84,7 +83,7 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
 {
     if (h->state == GRAPPLINGHOOK_INACTICE) {
         if (h->destroy_tick_q8) {
-            h->destroy_tick_q8 = max_i32(h->destroy_tick_q8 - 32, 0);
+            h->destroy_tick_q8 = max_i32(h->destroy_tick_q8 - 48, 0);
             h->rope.head->p    = obj_pos_center(obj_get_hero(g));
             rope_verletsim(g, &h->rope);
         }
@@ -247,7 +246,7 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
         gfx_lin_thick(ctxhookpt, p1, p2, GFX_COL_WHITE, 4);
     }
 
-    if (h->state != GRAPPLINGHOOK_HOOKED_OBJ) {
+    if (h->state && h->state != GRAPPLINGHOOK_HOOKED_OBJ) {
         v2_f32 vhook = {0};
         for (i32 i = 0; i < HEROHOOK_N_HIST; i++) {
             vhook = v2f_add(vhook, gh->anghist[i]);
@@ -513,7 +512,7 @@ void grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *gh)
     }
 }
 
-i32 grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj)
+i32 grapplinghook_f_at_obj_proj_v(grapplinghook_s *gh, obj_s *o, v2_i32 dproj, v2_i32 *f_out)
 {
     obj_s      *o1 = obj_from_obj_handle(gh->o1);
     obj_s      *o2 = obj_from_obj_handle(gh->o2);
@@ -525,18 +524,38 @@ i32 grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj)
     } else if (o == o2) {
         rn = gh->rope.tail;
     } else {
+        if (f_out) {
+            f_out->x = 0;
+            f_out->y = 0;
+        }
         return 0;
     }
 
-    v2_i32 dt = rope_v_pulling_at_obj(&gh->rope, rn, o);
-    i32    dp = v2_i32_dot(dt, dproj);
     i32    f  = gh->f_cache_dt + gh->f_cache_o1 + gh->f_cache_o2;
-    if (dproj.x || dproj.y) {
-        f = project_pnt_dir_len(v2_i32_setlen(dt, f), dproj);
+    v2_i32 dt = rope_v_pulling_at_obj(&gh->rope, rn, o);
+    assert(dt.x | dt.y);
+    v2_i32 f_dt = v2_i32_setlen(dt, f);
+
+    if (dproj.x | dproj.y) {
+        v2_i32 f_proj = project_pnt_dir(f_dt, dproj);
+        f             = v2_i32_len(f_proj);
+
+        if (f_out) {
+            *f_out = f_proj;
+        }
+    } else {
+        *f_out = f_dt;
     }
+
+    i32 dp = v2_i32_dot(dt, dproj);
     if (dp < 0) return +f;
     if (dp > 0) return -f;
     return f;
+}
+
+i32 grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj)
+{
+    return grapplinghook_f_at_obj_proj_v(gh, o, dproj, 0);
 }
 
 i32 rope_pulling_force_of_ropeobj(rope_s *r, ropenode_s *rn, obj_s *o, ropeobj_param_s param)

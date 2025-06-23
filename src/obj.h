@@ -92,7 +92,7 @@ typedef void (*obj_hooked_f)(g_s *g, obj_s *o, b32 hooked);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+typedef i32  (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
 typedef void (*obj_impulse_f)(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
 
 typedef struct enemy_s {
@@ -236,6 +236,8 @@ enum {
     OBJANIMID_STOMP_L_STRONG,
     OBJANIMID_STOMP_R_STRONG,
     OBJANIM_BOULDER_POOF,
+    OBJANIMID_HERO_HIT_R,
+    OBJANIMID_HERO_HIT_L,
 };
 
 obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID);

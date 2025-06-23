@@ -41,7 +41,7 @@ i32 pltf_internal_init()
     return 0;
 }
 
-// FRAMESKIP MODE ASSUMES CALLRATE OF THIS FUNCTION = 37.5 PER SECOND
+// 40 FPS ASSUMES CALLRATE OF THIS FUNCTION = 40x PER SECOND
 // -> GAME SPEED DEPENDS ON IT
 i32 pltf_internal_update()
 {
@@ -50,29 +50,28 @@ i32 pltf_internal_update()
     PLTF.lasttime = time;
 
     i32 n_ticks = 0; // number of logical update ticks this frame
+    PLTF.ups_timeacc += timedt;
+    if (PLTF_UPS_DT_CAP < PLTF.ups_timeacc) {
+        PLTF.ups_timeacc = PLTF_UPS_DT_CAP;
+    }
 
     switch (PLTF.fps_mode) {
     case PLTF_FPS_MODE_UNCAPPED: {
-        PLTF.ups_timeacc += timedt;
-        if (PLTF_UPS_DT_CAP < PLTF.ups_timeacc) {
-            PLTF.ups_timeacc = PLTF_UPS_DT_CAP;
-        }
-        while (PLTF_UPS_DT_TEST <= PLTF.ups_timeacc) {
-            PLTF.ups_timeacc -= PLTF_UPS_DT;
-            n_ticks++;
-        }
         break;
     }
-    case PLTF_FPS_MODE_40: { // 2111 | ... = 50 update ticks over 40 frames
+    case PLTF_FPS_MODE_40: {
+        // 2111 | ... = 50 update ticks over 40 frames
+        // relies on a fixed refresh rate
         PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) % 4;
         n_ticks            = 1 + (PLTF.fps_mode_step <= 0);
+        PLTF.ups_timeacc -= PLTF_UPS_DT * (f32)n_ticks;
         break;
     }
-    case PLTF_FPS_MODE_30: { // 221 | ... = 50 update ticks over 30 frames
-        PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) % 3;
-        n_ticks            = 1 + (PLTF.fps_mode_step <= 1);
-        break;
     }
+
+    while (PLTF_UPS_DT_TEST <= PLTF.ups_timeacc) {
+        PLTF.ups_timeacc -= PLTF_UPS_DT;
+        n_ticks++;
     }
 
     for (i32 n = 0; n < n_ticks; n++) {
@@ -84,10 +83,6 @@ i32 pltf_internal_update()
     PLTF.ups_counter += n_ticks;
     PLTF.ups_ft_acc += pltf_seconds() - time;
 #endif
-
-    if (1 < n_ticks) {
-        pltf_log("SKIP\n");
-    }
 
     if (n_ticks) {
 #if PLTF_SHOW_FPS
@@ -164,10 +159,6 @@ void pltf_set_fps_mode(i32 fps_mode)
         pltf_internal_set_fps(40.0f);
         break;
     }
-    case PLTF_FPS_MODE_30: {
-        pltf_internal_set_fps(30.0f);
-        break;
-    }
     }
 }
 
@@ -237,6 +228,11 @@ void pltf_internal_resume()
     app_resume();
 }
 
+void pltf_internal_mirror(b32 enabled)
+{
+    app_mirror(enabled);
+}
+
 void *pltf_mem_alloc_aligned(usize s, usize alignment)
 {
     assert(0 <= alignment && alignment <= 64);
@@ -281,6 +277,10 @@ void app_pause()
 }
 
 void app_resume()
+{
+}
+
+void app_mirror(b32 enable)
 {
 }
 

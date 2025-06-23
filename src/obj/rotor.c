@@ -12,13 +12,13 @@ enum {
 };
 
 #define ROTOR_IDLE_TICKS_MIN  50
-#define ROTOR_ALERT_TICKS     20
-#define ROTOR_ATTACK_TICKS    150
+#define ROTOR_ALERT_TICKS     15
+#define ROTOR_ATTACK_TICKS    120
 #define ROTOR_SHOW_UP_TICKS   30
 #define ROTOR_V_MAX           Q_VOBJ(4.0)
 #define ROTOR_DETECT_BOX_W    92
 #define ROTOR_DETECT_BOX_H    48
-#define ROTOR_ROT_SPEED_TICKS 35
+#define ROTOR_ROT_SPEED_TICKS 25
 #define ROTOR_ROT_SPEED_MAX   192
 #define ROTOR_ROT_T_SLOWDOWN  (ROTOR_ATTACK_TICKS - ROTOR_ROT_SPEED_TICKS)
 
@@ -42,8 +42,8 @@ void rotor_load(g_s *g, map_obj_s *mo)
 
     o->w          = 26;
     o->h          = 16;
-    o->pos.x      = mo->x - (o->w - 16) / 2;
-    o->pos.y      = mo->y - (o->h - 16);
+    o->pos.x      = mo->x - (o->w - 32) / 2;
+    o->pos.y      = mo->y - (o->h - 32);
     o->n_sprites  = 1;
     r->rot_speed  = 64;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
@@ -52,9 +52,7 @@ void rotor_load(g_s *g, map_obj_s *mo)
     o->flags  = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ACTOR |
-               OBJ_FLAG_ENEMY |
-               OBJ_FLAG_HERO_JUMPABLE |
-               OBJ_FLAG_HERO_STOMPABLE;
+               OBJ_FLAG_ENEMY;
     o->enemy              = enemy_default();
     o->enemy.on_hurt      = rotor_on_hurt;
     o->enemy.hurt_on_jump = 1;
@@ -63,7 +61,6 @@ void rotor_load(g_s *g, map_obj_s *mo)
 void rotor_on_update(g_s *g, obj_s *o)
 {
     rotor_s *r = (rotor_s *)o->mem;
-    o->flags |= (OBJ_FLAG_HERO_STOMPABLE | OBJ_FLAG_HERO_JUMPABLE);
     o->timer++;
     o->v_q12.y += Q_VOBJ(0.27);
 
@@ -129,8 +126,6 @@ void rotor_on_update(g_s *g, obj_s *o)
         break;
     }
     case ROTOR_ATTACK: {
-        o->flags &= ~(OBJ_FLAG_HERO_STOMPABLE | OBJ_FLAG_HERO_JUMPABLE);
-
         if (!grounded) {
             o->timer = min_i32(o->timer, ROTOR_ATTACK_TICKS - 16);
         }
@@ -177,24 +172,46 @@ void rotor_on_animate(g_s *g, obj_s *o)
     i32 state   = o->state;
     i32 fr_x    = 0;
     i32 fr_y    = 0;
-    spr->offs.x = (o->w - 48) / 2;
-    spr->offs.y = -(48 - o->h);
+    spr->offs.x = (o->w - 64) / 2;
+    spr->offs.y = -(40 - o->h);
+
+    obj_s *ohero = obj_get_hero(g);
+    if (ohero) {
+        v2_i32 po = obj_pos_center(o);
+        v2_i32 ph = obj_pos_center(ohero);
+        if (po.x < ph.x) {
+            o->facing = +1;
+        }
+        if (po.x > ph.x) {
+            o->facing = -1;
+        }
+    }
+
+    if (0 < o->facing) {
+        spr->flip = SPR_FLIP_X;
+    } else {
+        spr->flip = 0;
+    }
 
     if (o->enemy.hurt_tick) { // display hurt frame
-        fr_x  = 0;
-        fr_y  = 3;
+        fr_x  = 4;
+        fr_y  = 0;
         state = -1;
     }
 
     switch (state) {
     case ROTOR_IDLE: {
         o->animation++;
-        fr_x = (o->animation >> 3) & 3;
+        i32 k = o->animation >> 3;
+        fr_x  = k & 3;
+        if ((k & 15) <= 3) {
+            fr_y = 1;
+        }
         break;
     }
     case ROTOR_ALERT: {
-        fr_y = 1;
-        fr_x = min_i32(lerp_i32(0, 4, o->timer, ROTOR_ALERT_TICKS), 3);
+        fr_y = 2;
+        fr_x = min_i32(lerp_i32(0, 5, o->timer, ROTOR_ALERT_TICKS), 4);
         break;
     }
     case ROTOR_ATTACK: {
@@ -204,23 +221,27 @@ void rotor_on_animate(g_s *g, obj_s *o)
             o->animation -= 256;
         }
         fr_x = r->frame;
-        fr_y = 2;
+        fr_y = 3;
         break;
     }
     case ROTOR_SHOW_UP: {
-        fr_y = 1;
-        fr_x = 3 - min_i32(lerp_i32(0, 4, o->timer, ROTOR_SHOW_UP_TICKS), 3);
+        fr_y = 2;
+        fr_x = 4 - min_i32(lerp_i32(0, 5, o->timer, ROTOR_SHOW_UP_TICKS), 4);
         break;
     }
     }
 
-    spr->trec = asset_texrec(TEXID_ROTOR, fr_x * 48, fr_y * 48, 48, 48);
+    spr->trec = asset_texrec(TEXID_ROTOR, fr_x * 64, fr_y * 40, 64, 40);
 }
 
 void rotor_on_hurt(g_s *g, obj_s *o)
 {
-    o->state   = ROTOR_ALERT;
-    o->timer   = 0;
-    o->v_q12.x = 0;
     o->v_q12.y = 0;
+    if (o->state == ROTOR_ATTACK) {
+        o->v_q12.x = -o->v_q12.x;
+    } else {
+        o->state   = ROTOR_ALERT;
+        o->timer   = 0;
+        o->v_q12.x = 0;
+    }
 }

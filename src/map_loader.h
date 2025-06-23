@@ -32,7 +32,8 @@ bool32 map_obj_bool(map_obj_s *mo, const char *name);
 v2_i16 map_obj_pt(map_obj_s *mo, const char *name);
 void  *map_obj_arr(map_obj_s *mo, const char *name, i32 *num);
 
-void map_obj_parse(g_s *g, map_obj_s *o);
-void game_load_map(g_s *g, u32 map_hash);
+void       map_obj_parse(g_s *g, map_obj_s *o);
+void       game_load_map(g_s *g, u32 map_hash);
+map_obj_s *map_obj_find(g_s *g, const char *name);
 
 #endif

@@ -37,13 +37,14 @@ enum {
     TEXID_TILESET_DECO,
     TEXID_TILESET_FRONT,
     TEXID_BG_PARALLAX,
-    TEXID_FG_IMG,
+    TEXID_BG_PARALLAX_PERF,
     TEXID_PAUSE_TEX,
     TEXID_COVER,
     TEXID_UI,
     TEXID_PLANTS,
     TEXID_BOULDER,
     TEXID_FLSURF,
+    TEXID_MUSHROOM,
     TEXID_SOLIDLEVER,
     TEXID_WATERCOL,
     TEXID_EXPLO1,
@@ -64,18 +65,17 @@ enum {
     TEXID_WINDGUSH,
     TEXID_COLLISION_TILES,
     TEXID_FLYING_BUG,
-    TEXID_TITLE_SCREEN,
     TEXID_BUDPLANT,
     TEXID_FLYBLOB,
     TEXID_EXPLOSIONS,
     TEXID_FLUIDS,
     TEXID_JUMPER,
+    TEXID_FOREGROUND,
     TEXID_CHEST,
     TEXID_HEARTDROP,
     TEXID_TRAMPOLINE,
     TEXID_STALACTITE,
     TEXID_STAMINARESTORE,
-    TEXID_BGOLEM,
     TEXID_BOSSPLANT,
     //
     NUM_TEXID_EXPLICIT,
@@ -169,6 +169,7 @@ enum {
     ANIID_HEALTHDROP,
     ANIID_BPLANT_HOP,
     ANIID_PREPARE_SWAP,
+    ANIID_FBLOB_ATTACK,
     //
     NUM_ANIID
 };
@@ -187,10 +188,10 @@ typedef struct {
 } ani_s;
 
 typedef struct {
-    tex_s tex[NUM_TEXID];
-    snd_s snd[NUM_SNDID];
-    fnt_s fnt[NUM_FNTID];
-    ani_s ani[NUM_ANIID];
+    tex_s            tex[NUM_TEXID];
+    fnt_s            fnt[NUM_FNTID];
+    ani_s            ani[NUM_ANIID];
+    ALIGNAS(8) snd_s snd[NUM_SNDID];
 } assets_s;
 
 i32      assets_init();

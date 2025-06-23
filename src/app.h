@@ -17,12 +17,16 @@
 #include "util/timing.h"
 #include "wad.h"
 
-#define APP_USE_MALLOC       0
 #define APP_STRUCT_ALIGNMENT 32
 
 enum {
     APP_ST_TITLE,
     APP_ST_GAME
+};
+
+enum {
+    APP_FLAG_PD_MIRROR          = 1 << 0,
+    APP_FLAG_PD_REDUCE_FLASHING = 1 << 1,
 };
 
 typedef struct app_s {
@@ -39,14 +43,10 @@ typedef struct app_s {
     marena_s        ma;
     byte            mem[MMEGABYTE(8)];
     i32             opt;
+    i32             flags;
 } app_s;
 
-#if APP_USE_MALLOC
-extern app_s *APP;
-#else
-extern app_s APPMEM;
-#define APP (&APPMEM)
-#endif
+extern app_s APP;
 
 i32   app_init();
 void  app_tick();
@@ -55,6 +55,7 @@ void  app_close();
 void  app_resume();
 void  app_pause();
 void  app_audio(i16 *lbuf, i16 *rbuf, i32 len);
+void  app_mirror(b32 enable);
 //
 // allocate persistent memory
 void *app_alloc(usize s);
@@ -67,7 +68,7 @@ void app_set_mode(i32 mode); // settings mode
 
 static inline allocator_s app_allocator()
 {
-    allocator_s a = {app_alloc_aligned_ctx, &APP->ma};
+    allocator_s a = {app_alloc_aligned_ctx, &APP.ma};
     return a;
 }
 

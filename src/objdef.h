@@ -40,6 +40,7 @@ enum {
     OBJID_ROTOR,
     OBJID_SPRITEDECAL,
     OBJID_STEAM_PLATFORM,
+    OBJID_TUTORIALTEXT,
     OBJID_BUDPLANT,
     OBJID_BUDPLANT_GRENADE,
     OBJID_FALLINGSTONE,
@@ -64,6 +65,7 @@ enum {
     OBJID_TIMER,
     OBJID_HEALTHDROP,
     OBJID_CRACKBLOCK,
+    OBJID_MUSHROOM,
     OBJID_EXIT_BLOCKER,
     OBJID_BOSS_GOLEM,
     OBJID_BOSS_GOLEM_PLATFORM,
@@ -162,9 +164,6 @@ void      trampoline_load(g_s *g, map_obj_s *mo);
 void      trampolines_do_bounce(g_s *g);
 void      savepoint_load(g_s *g, map_obj_s *mo);
 void      rotor_load(g_s *g, map_obj_s *mo);
-void      watercol_load(g_s *g, map_obj_s *mo);
-void      watercol_on_update(g_s *g, obj_s *o);
-void      watercol_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 obj_s    *hookyeeter_create(g_s *g);
 void      hookyeeter_on_update(g_s *g, obj_s *o);
 void      hookyeeter_on_hook(g_s *g, obj_s *o);
@@ -173,6 +172,7 @@ void      jumper_load(g_s *g, map_obj_s *mo);
 void      solidlever_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
+void      companion_on_enter_mode(g_s *g, obj_s *o, i32 mode);
 void      fallingstonespawn_load(g_s *g, map_obj_s *mo);
 obj_s    *healthdrop_spawn(g_s *g, v2_i32 p);
 void      springyblock_load(g_s *g, map_obj_s *mo);
@@ -181,5 +181,8 @@ void      pulleyblock_load_parent(g_s *g, map_obj_s *mo);
 void      pulleyblock_load_child(g_s *g, map_obj_s *mo);
 void      gempile_load(g_s *g, map_obj_s *mo);
 void      gempile_on_hit(g_s *g, obj_s *o);
+void      mushroom_load(g_s *g, map_obj_s *mo);
+void      mushroom_on_jump_on(g_s *g, obj_s *o);
+void      tutorialtext_load(g_s *g, map_obj_s *mo);
 
 #endif

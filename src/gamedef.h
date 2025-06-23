@@ -24,8 +24,8 @@
 #define GAME_DEMO  1
 //
 #define GAME_V_MAJ 0
-#define GAME_V_MIN 1
-#define GAME_V_PAT 2
+#define GAME_V_MIN 2
+#define GAME_V_PAT 0
 
 #define GAME_VERSION_GEN(A, B, C) (((u32)(A) << 16) | \
                                    ((u32)(B) << 8) |  \
@@ -69,6 +69,23 @@ typedef struct obj_handle_s {
 #define LEN_HERO_NAME       16
 #define LEN_AREA_FILENAME   64
 #define FADETICKS_AREALABEL 150
+
+enum {
+    MUSIC_ID_NONE,
+    MUSIC_ID_CAVE,
+    MUSIC_ID_WATERFALL,
+    MUSIC_ID_SNOW,
+    MUSIC_ID_FOREST,
+    MUSIC_ID_ANCIENT_TREE,
+    MUSIC_ID_INTRO,
+};
+
+enum {
+    AREA_ID_NONE,
+    AREA_ID_DEEP_FOREST,
+    AREA_ID_CAVE,
+    AREA_ID_SNOW_PEAKS,
+};
 
 enum {
     DIRECTION_NONE,

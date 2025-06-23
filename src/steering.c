@@ -74,6 +74,7 @@ v2_f32 steerf_arrival(v2_f32 p,
     if (l < radius) {
         vset = (vmax * l) / radius;
     }
+    vset     = max_f32(vset, 0.01f);
     e        = v2f_setlenl(e, l, vset);
     v2_f32 r = v2f_sub(e, v);
     return r;

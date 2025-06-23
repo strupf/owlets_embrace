@@ -161,6 +161,10 @@ struct playdate_sprite
 	// 2.1
 	void (*setCenter)(LCDSprite* s, float x, float y);
 	void (*getCenter)(LCDSprite* s, float* x, float* y);
+	
+	// 2.7
+	void (*setTilemap)(LCDSprite* s, LCDTileMap* tilemap);
+	LCDTileMap* (*getTilemap)(LCDSprite* s);
 };
 
 #endif /* pdext_sprite_h */

@@ -1,0 +1,121 @@
+// =============================================================================
+// Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
+// =============================================================================
+
+#include "app.h"
+#include "game.h"
+#include "render.h"
+
+static i32 coord_parallax(i32 p, i32 v_q8, i32 a)
+{
+    return ((((p * v_q8) >> 8) & ~a));
+}
+
+void background_perf_prepare(g_s *g)
+{
+    tex_s t = asset_tex(TEXID_BG_PARALLAX_PERF);
+    tex_clr(t, GFX_COL_WHITE);
+
+    switch (g->background_ID) {
+    case BACKGROUND_ID_SNOW: {
+
+        break;
+    }
+    case BACKGROUND_ID_CAVE: {
+
+        break;
+    }
+    case BACKGROUND_ID_WATERFALL: {
+
+        break;
+    }
+    case BACKGROUND_ID_FOREST_DARK:
+    case BACKGROUND_ID_FOREST_BRIGHT: {
+
+        break;
+    }
+    }
+}
+
+void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
+{
+    tex_s     tdisplay = asset_tex(0);
+    gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
+    i32       alx      = APP.opt ? 3 : 1;
+    i32       aly      = APP.opt ? 3 : 1;
+    alx                = 3;
+    aly                = 3;
+    //  APP.opt            = pltf_sdl_key(SDL_SCANCODE_SPACE);
+
+    cam_al.y = cam.y;
+    if (APP.opt) {
+        alx = 1;
+    }
+
+    v2_i32 pos_mid  = {coord_parallax(cam_al.x + g->bg_offx, 192, alx),
+                       coord_parallax(cam_al.y + g->bg_offy, 192, aly)};
+    v2_i32 pos_far  = {coord_parallax(cam_al.x + g->bg_offx, 128, 3),
+                       coord_parallax(cam_al.y + g->bg_offy, 128, aly)};
+    v2_i32 pos_vfar = {coord_parallax(cam_al.x + g->bg_offx, 64, alx),
+                       coord_parallax(cam_al.y + g->bg_offy, 64, aly)};
+
+    switch (g->background_ID) {
+    case BACKGROUND_ID_WHITE:
+        tex_clr(tdisplay, GFX_COL_WHITE);
+        break;
+    case BACKGROUND_ID_BLACK:
+        tex_clr(tdisplay, GFX_COL_BLACK);
+        break;
+    case BACKGROUND_ID_SNOW: {
+        texrec_s tr_mirror = asset_texrec(TEXID_BG_PARALLAX_PERF, 0, 0, 1024, 512);
+        texrec_s tr_bg     = asset_texrec(TEXID_BG_PARALLAX, 0, 1024, 512, 256);
+        texrec_s tr_mid    = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_far    = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+
+        gfx_spr_copy(ctx, tr_bg, (v2_i32){0}, 0);
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    case BACKGROUND_ID_CAVE: {
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+        if (APP.opt == 2) {
+            // tr_far.y += 1024;
+            tr_mid.y += 1024;
+        }
+        tex_clr(tdisplay, GFX_COL_BLACK);
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    case BACKGROUND_ID_WATERFALL: {
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+        gfx_fill_rows(tdisplay, gfx_pattern_bayer_4x4(0), 0, ctx.clip_y2);
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    case BACKGROUND_ID_FOREST_DARK: {
+        tex_clr(tdisplay, GFX_COL_BLACK);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 1024, 1024, 512);
+
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    case BACKGROUND_ID_FOREST_BRIGHT: {
+        texrec_s tr_bg = asset_texrec(TEXID_BG_PARALLAX, 0, 1536, 512, 256);
+        gfx_spr_copy(ctx, tr_bg, (v2_i32){0}, 0);
+        gfx_fill_rows(tdisplay, gfx_pattern_bayer_4x4(2), 0, ctx.clip_y2);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 1536, 1024, 512);
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
+
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    }
+}

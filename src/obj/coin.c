@@ -79,7 +79,7 @@ void coin_on_update(g_s *g, obj_s *o)
             obj_vx_q8_mul(o, -192);
         }
         if (o->bumpflags & OBJ_BUMP_Y) {
-            if (o->v_q12.y < Q_VOBJ(0.5)) {
+            if (o->v_q12.y < Q_VOBJ(0.75)) {
                 o->v_q12.y = 0;
             } else {
                 obj_vx_q8_mul(o, +210);

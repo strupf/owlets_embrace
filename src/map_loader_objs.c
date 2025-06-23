@@ -19,12 +19,14 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         rotor_load(g, o);
     } else if (str_eq_nc(o->name, "Savepoint")) {
         savepoint_load(g, o);
+    } else if (str_eq_nc(o->name, "Mushroom")) {
+        mushroom_load(g, o);
     } else if (str_eq_nc(o->name, "Door")) {
         door_load(g, o);
     } else if (str_eq_nc(o->name, "Jumper")) {
         jumper_load(g, o);
-    } else if (str_eq_nc(o->name, "Watercol")) {
-        watercol_load(g, o);
+    } else if (str_eq_nc(o->name, "Tutorialtext")) {
+        tutorialtext_load(g, o);
     } else if (str_eq_nc(o->name, "Crackblock")) {
         crackblock_load(g, o);
     } else if (str_eq_nc(o->name, "Trampoline")) {
@@ -90,15 +92,17 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         hooklever_load(g, o);
     } else if (str_eq_nc(o->name, "Cam_Attractor")) {
         camattractor_static_load(g, o);
+    } else if (str_eq_nc(o->name, "Battleroom")) {
+        battleroom_load(g, o);
     } else if (str_eq_nc(o->name, "Cam")) {
         cam_s *cam    = &g->cam;
         cam->locked_x = map_obj_bool(o, "Locked_X");
         cam->locked_y = map_obj_bool(o, "Locked_Y");
         if (cam->locked_x) {
-            cam->pos_q8.x = (o->x + PLTF_DISPLAY_W / 2) << 8;
+            cam->pos.x = (o->x + PLTF_DISPLAY_W / 2);
         }
         if (cam->locked_y) {
-            cam->pos_q8.y = (o->y + PLTF_DISPLAY_H / 2) << 8;
+            cam->pos.y = (o->y + PLTF_DISPLAY_H / 2);
         }
     } else if (str_eq_nc(o->name, "Fluid")) {
         rec_i32 rfluid = {o->x, o->y, o->w, o->h};

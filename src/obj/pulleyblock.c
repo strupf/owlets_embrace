@@ -93,7 +93,7 @@ void pulleyblock_on_update(g_s *g, obj_s *o)
     bool32 hero_standing_on = 0;
 
     if (ohero && (overlap_rec(obj_aabb(o), obj_rec_bottom(ohero)) || ohero->linked_solid.o == o)) {
-        f += 100;
+        f += Q_VOBJ(0.4);
         hero_standing_on = 1;
     }
 
@@ -113,7 +113,7 @@ void pulleyblock_on_update(g_s *g, obj_s *o)
             f *= s->movsign;
         }
 
-        oparent->v_q12.y += f >> 3;
+        oparent->v_q12.y += f >> 5;
         oparent->v_q12.y = clamp_sym_i32(oparent->v_q12.y, Q_VOBJ(4.0));
     }
 }
@@ -123,11 +123,11 @@ void pulleyblock_on_update_parent(g_s *g, obj_s *o)
     pulleyblock_s *s = (pulleyblock_s *)o->mem;
     pulleyblock_on_update(g, o);
 
-    obj_vy_q8_mul(o, Q_VOBJ(0.95));
+    obj_vy_q8_mul(o, Q_8(0.95));
     o->subpos_q12.y += o->v_q12.y;
-    i32 tm = clamp_i32(o->pos.y + (o->subpos_q12.y >> 8), s->y0, s->y1) -
+    i32 tm = clamp_i32(o->pos.y + (o->subpos_q12.y >> 12), s->y0, s->y1) -
              o->pos.y;
-    o->subpos_q12.y &= 255;
+    o->subpos_q12.y &= 0xFFF;
     obj_move(g, o, 0, tm);
 
     if (o->v_q12.y < 0 && o->pos.y == s->y0) {

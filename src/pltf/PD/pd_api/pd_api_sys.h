@@ -30,6 +30,15 @@ typedef enum
 	kPDLanguageUnknown,
 } PDLanguage;
 
+typedef void AccessRequestCallback(bool allowed, void* userdata);
+
+enum accessReply
+{
+	kAccessAsk,
+	kAccessDeny,
+	kAccessAllow
+};
+
 #endif
 
 struct PDDateTime
@@ -103,7 +112,7 @@ struct playdate_sys
 	// 1.4
 	float (*getBatteryPercentage)(void);
 	float (*getBatteryVoltage)(void);
-	
+
 	// 1.13
 	int32_t (*getTimezoneOffset)(void);
 	int (*shouldDisplay24HourTime)(void);
@@ -118,6 +127,15 @@ struct playdate_sys
 	void (*setSerialMessageCallback)(void (*callback)(const char* data));
 	int (*vaFormatString)(char **outstr, const char *fmt, va_list args);
 	int (*parseString)(const char *str, const char *format, ...);
+	
+	// ???
+	void (*delay)(uint32_t milliseconds);
+
+	// 2.7
+	void (*getServerTime)(void (*callback)(const char* time, const char* err));
+	void (*restartGame)(const char* launchargs);
+	const char* (*getLaunchArgs)(const char** outpath);
+	bool (*sendMirrorData)(uint8_t command, void* data, int len);
 };
 
 #endif /* pdext_sys_h */

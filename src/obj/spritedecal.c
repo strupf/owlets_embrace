@@ -151,6 +151,18 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
         sd->h              = 64;
         sd->t_og           = 20;
         break;
+    case OBJANIMID_HERO_HIT_R:
+    case OBJANIMID_HERO_HIT_L:
+        texID              = TEXID_PARTICLES;
+        spr->flip          = objanimID == OBJANIMID_HERO_HIT_L ? 0 : SPR_FLIP_X;
+        o->render_priority = RENDER_PRIO_HERO - 1;
+        sd->n_frames       = 8;
+        sd->x              = 0 * 64;
+        sd->y              = 1024;
+        sd->w              = 64;
+        sd->h              = 64;
+        sd->t_og           = 14;
+        break;
     }
 
     o->pos      = p;

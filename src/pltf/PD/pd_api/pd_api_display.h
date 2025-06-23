@@ -21,6 +21,10 @@ struct playdate_display
 	void (*setMosaic)(unsigned int x, unsigned int y);
 	void (*setFlipped)(int x, int y);
 	void (*setOffset)(int x, int y);
+
+	// 2.7
+	float (*getRefreshRate)(void);
+	float (*getFPS)(void);
 };
 
 #endif /* pdext_display_h */

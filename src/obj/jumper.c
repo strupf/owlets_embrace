@@ -25,16 +25,16 @@ void jumper_load(g_s *g, map_obj_s *mo)
     o->ID         = OBJID_JUMPER;
     o->on_update  = jumper_on_update;
     o->on_animate = jumper_on_animate;
-    o->w          = 16;
-    o->h          = 16;
+    o->w          = 24;
+    o->h          = 18;
     o->pos.x      = mo->x;
-    o->pos.y      = mo->y;
+    o->pos.y      = mo->y + mo->h - o->h;
     o->facing     = 1;
 
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_KILL_OFFSCREEN |
-               OBJ_FLAG_HERO_JUMPSTOMPABLE |
+               // OBJ_FLAG_HERO_JUMPSTOMPABLE |
                OBJ_FLAG_ENEMY |
                OBJ_FLAG_CLAMP_ROOM_X |
                0;
@@ -60,7 +60,7 @@ void jumper_on_update(g_s *g, obj_s *o)
     }
     o->bumpflags = 0;
 
-    o->v_q12.y += Q_VOBJ(0.3);
+    o->v_q12.y += Q_VOBJ(0.35);
     bool32 grounded = obj_grounded(g, o);
     if (!grounded && o->state != JUMPER_ST_JUMPING) {
         o->state = JUMPER_ST_JUMPING;
@@ -91,9 +91,9 @@ void jumper_on_update(g_s *g, obj_s *o)
             o->state     = JUMPER_ST_JUMPING;
             o->timer     = 0;
             o->v_q12.y   = -Q_VOBJ(8.0);
-            o->v_q12.x   = o->facing * Q_VOBJ(2.0) + rngr_sym_i32(Q_VOBJ(0.7));
+            o->v_q12.x   = o->facing * Q_VOBJ(2.2) + rngr_sym_i32(Q_VOBJ(0.7));
             o->animation = 0;
-            snd_play(SNDID_SPEAR_ATTACK, 1.1f, 1.f);
+            snd_play(SNDID_SPEAR_ATTACK, 0.75f, 1.f);
         }
         break;
     }
@@ -103,6 +103,13 @@ void jumper_on_update(g_s *g, obj_s *o)
             o->state     = JUMPER_ST_LANDED;
             o->timer     = 0;
             o->animation = 0;
+
+            v2_i32 pp = obj_pos_bottom_center(o);
+            v2_i32 pr = {pp.x + 8, pp.y};
+            v2_i32 pl = {pp.x - 8, pp.y};
+
+            objanim_create(g, pl, OBJANIMID_STOMP_L);
+            objanim_create(g, pr, OBJANIMID_STOMP_R);
         }
         break;
     }

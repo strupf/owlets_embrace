@@ -9,9 +9,11 @@ typedef struct {
     obj_s        *puppet_comp;
     obj_s        *puppet_hero;
     v2_i32        eyepos_1;
+    bool32        seen;
 } cs_bossplant_intro_s;
 
-#define CS_BOSSPLANT_INTRO_FAST 0
+#define CS_BOSSPLANT_INTRO_FAST  0
+#define CS_BOSSPLANT_INTRO_SHORT 1
 
 void cs_bossplant_intro_update(g_s *g, cs_s *cs);
 void cs_bossplant_intro_on_trigger(g_s *g, cs_s *cs, i32 trigger);
@@ -28,6 +30,12 @@ void cs_bossplant_intro_enter(g_s *g)
     dm->bp                = &g->boss.plant;
     cs->on_trigger        = cs_bossplant_intro_on_trigger;
     g->block_hero_control = 1;
+    if (save_event_exists(g, 222)) {
+        dm->seen = 1;
+    } else {
+        save_event_register(g, 222);
+        game_update_savefile(g);
+    }
 }
 
 void cs_bossplant_intro_update(g_s *g, cs_s *cs)
@@ -44,61 +52,90 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
         mus_play_extv(0, 0, 0, 2000, 0, 0);
         cs->phase++;
         cs->tick = 0;
+        if (dm->seen) {
+            game_darken_bg(g, +128);
+        }
 
         obj_s *ohero    = obj_get_hero(g);
         obj_s *ocomp    = obj_get_tagged(g, OBJ_TAG_COMPANION);
         dm->puppet_hero = puppet_hero_put(g, ohero);
         puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
         dm->puppet_comp = puppet_companion_put(g, ocomp);
-        v2_i32 hpos     = {dm->bp->x - 115, dm->bp->y + 74};
+
+        if (g->hero.mode == HERO_MODE_COMBAT) {
+            v2_i32 hp = obj_pos_center(ohero);
+            hp.y -= 16;
+            hp.x -= ohero->facing * 8;
+            dm->puppet_comp->pos = hp;
+        }
+
+        v2_i32 hpos = {dm->bp->x - 115, dm->bp->y + 74};
 
         puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, +1);
         puppet_move_ext(dm->puppet_comp, hpos, 40, 0, 0, cs_bossplant_intro_cb_comp, cs);
         break;
     }
     case 3: {
-        if (cs->tick == 240) {
-            mus_play_extv("M_BOSS", 418236, 0, 0, 100, 256);
-        }
-        switch (cs->tick) {
-        case 1:
-            game_darken_bg(g, +24);
-            break;
-        case 110:
-        case 410:
-            puppet_move_ext(dm->puppet_comp, (v2_i32){-20, 0}, 30, 0, 1, 0, cs);
-            break;
-        case 150:
-            dm->bp->phase      = BOSS_PLANT_INTRO0;
-            dm->bp->tick       = 0;
-            dm->bp->phase_tick = 0;
-            break;
+        if (dm->seen) {
+            if (cs->tick == 20) {
+                mus_play_extx("M_BOSS", 280271, 418236, 0, 10, 10, 256);
+
+                cs->phase           = 11;
+                cs->tick            = 0;
+                dm->bp->plant_frame = 2;
+                snd_play(SNDID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
+                boss_plant_eye_show(g, o_eye);
+                boss_plant_eye_show(g, o_eyefl);
+                boss_plant_eye_show(g, o_eyefr);
+                puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_SHOOK, 0);
+                puppet_move_ext(dm->puppet_hero, (v2_i32){-20, 0}, 80, 0, 1, 0, 0);
+                puppet_move_ext(dm->puppet_comp, (v2_i32){dm->bp->x - 120, dm->bp->y + 100}, 10, 0, 0, 0, 0);
+            }
+        } else {
+            if (cs->tick == 240) {
+                mus_play_extv("M_BOSS", 418236, 0, 0, 100, 256);
+            }
+
+            switch (cs->tick) {
+            case 1:
+                game_darken_bg(g, +24);
+                break;
+            case 110:
+            case 410:
+                puppet_move_ext(dm->puppet_comp, (v2_i32){-20, 0}, 30, 0, 1, 0, cs);
+                break;
+            case 150:
+                dm->bp->phase      = BOSS_PLANT_INTRO0;
+                dm->bp->tick       = 0;
+                dm->bp->phase_tick = 0;
+                break;
 #if !CS_BOSSPLANT_INTRO_FAST
-        case 260:
-            puppet_move_ext(dm->puppet_comp, (v2_i32){+20, 0}, 30, 0, 1, 0, cs);
-            break;
-        case 100:
-        case 300:
-        case 350:
-        case 400:
-            snd_play(SNDID_STOMP_LAND, 0.75f, 1.f);
-            puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_BUMP_ONCE, 0);
-            break;
-        case 550:
+            case 260:
+                puppet_move_ext(dm->puppet_comp, (v2_i32){+20, 0}, 30, 0, 1, 0, cs);
+                break;
+            case 100:
+            case 300:
+            case 350:
+            case 400:
+                snd_play(SNDID_STOMP_LAND, 0.75f, 1.f);
+                puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_BUMP_ONCE, 0);
+                break;
+            case 550:
 #else
-        case 151:
+            case 151:
 #endif
-            cs->phase           = 11;
-            cs->tick            = 0;
-            dm->bp->plant_frame = 2;
-            snd_play(SNDID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
-            boss_plant_eye_show(g, o_eye);
-            boss_plant_eye_show(g, o_eyefl);
-            boss_plant_eye_show(g, o_eyefr);
-            puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_SHOOK, 0);
-            puppet_move_ext(dm->puppet_hero, (v2_i32){-20, 0}, 80, 0, 1, 0, 0);
-            puppet_move_ext(dm->puppet_comp, (v2_i32){dm->bp->x - 120, dm->bp->y + 100}, 10, 0, 0, 0, 0);
-            break;
+                cs->phase           = 11;
+                cs->tick            = 0;
+                dm->bp->plant_frame = 2;
+                snd_play(SNDID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
+                boss_plant_eye_show(g, o_eye);
+                boss_plant_eye_show(g, o_eyefl);
+                boss_plant_eye_show(g, o_eyefr);
+                puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_SHOOK, 0);
+                puppet_move_ext(dm->puppet_hero, (v2_i32){-20, 0}, 80, 0, 1, 0, 0);
+                puppet_move_ext(dm->puppet_comp, (v2_i32){dm->bp->x - 120, dm->bp->y + 100}, 10, 0, 0, 0, 0);
+                break;
+            }
         }
         break;
     }
@@ -181,10 +218,12 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
 #endif
             // leave
             g->block_hero_control = 0;
-            dm->bp->phase         = BOSS_PLANT_CLOSED;
-            dm->bp->tick          = 0;
-            dm->bp->phase_tick    = 0;
-            dm->bp->draw_vines    = 1;
+            g->hero.upgrades &= ~HERO_UPGRADE_COMPANION;
+            g->hero.mode       = HERO_MODE_NORMAL;
+            dm->bp->phase      = BOSS_PLANT_CLOSED;
+            dm->bp->tick       = 0;
+            dm->bp->phase_tick = 0;
+            dm->bp->draw_vines = 1;
 
             obj_s *ohero = obj_get_hero(g);
             puppet_hero_replace_and_del(g, ohero, dm->puppet_hero);
@@ -226,10 +265,15 @@ void cs_bossplant_intro_cb_comp(g_s *g, obj_s *o, void *ctx)
     switch (cs->phase) {
     default: break;
     case 1: {
-        cs->phase++;
-        cs->tick = 0;
-        puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_HUH, 0);
-        dialog_open_wad_pos(g, "D_BPLANT_0", DIALOG_POS_BOT);
+        if (dm->seen) {
+            cs->phase = 3;
+            cs->tick  = 0;
+        } else {
+            cs->phase++;
+            cs->tick = 0;
+            puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_HUH, 0);
+            dialog_open_wad_pos(g, "D_BPLANT_0", DIALOG_POS_BOT);
+        }
         break;
     }
     }

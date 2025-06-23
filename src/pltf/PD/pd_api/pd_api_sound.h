@@ -545,8 +545,8 @@ struct playdate_sound_channel
 	int (*addSource)(SoundChannel* channel, SoundSource* source);
 	int (*removeSource)(SoundChannel* channel, SoundSource* source);
 	SoundSource* (*addCallbackSource)(SoundChannel* channel, AudioSourceFunction* callback, void* context, int stereo);
-	void (*addEffect)(SoundChannel* channel, SoundEffect* effect);
-	void (*removeEffect)(SoundChannel* channel, SoundEffect* effect);
+	int (*addEffect)(SoundChannel* channel, SoundEffect* effect);
+	int (*removeEffect)(SoundChannel* channel, SoundEffect* effect);
 	void (*setVolume)(SoundChannel* channel, float volume);
 	float (*getVolume)(SoundChannel* channel);
 	void (*setVolumeModulator)(SoundChannel* channel, PDSynthSignalValue* mod);

@@ -320,8 +320,8 @@ hitbox_s hero_hitbox_wingattack(obj_s *o)
     }
 
 #if PLTF_DEV_ENV
-    i32 hbx = hb.r.x + APP->game.cam_prev.x;
-    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    i32 hbx = hb.r.x + APP.game.cam_prev.x;
+    i32 hby = hb.r.y + APP.game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
 #endif
     return hb;
@@ -339,8 +339,8 @@ hitbox_s hero_hitbox_stomp(obj_s *o)
     hb.r.y      = o->pos.y - 8;
 
 #if PLTF_DEV_ENV
-    i32 hbx = hb.r.x + APP->game.cam_prev.x;
-    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    i32 hbx = hb.r.x + APP.game.cam_prev.x;
+    i32 hby = hb.r.y + APP.game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
 #endif
     return hb;
@@ -359,8 +359,8 @@ hitbox_s hero_hitbox_powerstomp(obj_s *o)
     hb.flags    = HITBOX_FLAG_POWERSTOMP;
 
 #if PLTF_DEV_ENV
-    i32 hbx = hb.r.x + APP->game.cam_prev.x;
-    i32 hby = hb.r.y + APP->game.cam_prev.y;
+    i32 hbx = hb.r.x + APP.game.cam_prev.x;
+    i32 hby = hb.r.y + APP.game.cam_prev.y;
     pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 10);
 #endif
     return hb;

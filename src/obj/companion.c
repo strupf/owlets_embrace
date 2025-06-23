@@ -118,6 +118,8 @@ void companion_on_update(g_s *g, obj_s *o)
             if (ohero) {
                 i32 dst = v2_i32_distance_appr(p1, obj_pos_center(ohero));
                 if (dst < 20) {
+                    coins_change(g, 1);
+                    snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
                     c->carries_item = 0;
                     o->state        = COMPANION_ST_IDLE;
                     o->timer        = 0;
@@ -225,25 +227,50 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         fr_x = ani_frame(ANIID_COMPANION_FLY, o->animation);
     }
 
+    if (ohero) {
+        hero_s *h = (hero_s *)ohero->heap;
+        if (h->b_hold_tick && h->b_hold_tick < 12) {
+            fr_y = 9;
+            fr_x = lerp_i32(1, 5, h->b_hold_tick, 12);
+        }
+    }
     tr.x = fr_x * tr.w;
     tr.y = fr_y * tr.h;
 
-#if 0
-    obj_sprite_s *spr2 = &o->sprites[0];
-    if (c->carries_item) {
-        o->animation++;
-        i32 fry      = ani_frame(ANIID_GEMS, o->animation);
-        i32 frx      = 0;
-        spr2->offs.x = (o->w - 32) / 2 - 2;
-        spr2->offs.y = 12 + (o->h - 24) / 2;
-        spr2->trec   = asset_texrec(TEXID_GEMS, frx * 32, fry * 24, 32, 24);
-    } else {
-        spr2->trec.t.px = 0;
-    }
-#endif
-
     gfx_ctx_s ctx = gfx_ctx_display();
+
+    if (c->carries_item) {
+        i32    fry  = ani_frame(ANIID_GEMS, o->animation);
+        i32    frx  = 0;
+        v2_i32 pgem = v2_i32_add(pc, cam);
+        pgem.y += 2;
+        pgem.x -= 16;
+        texrec_s trgem = asset_texrec(TEXID_GEMS, frx * 32, fry * 24, 32, 24);
+        gfx_spr(ctx, trgem, pgem, fl, 0);
+    }
+
     gfx_spr(ctx, tr, p, fl, 0);
+}
+
+void companion_on_enter_mode(g_s *g, obj_s *o, i32 mode)
+{
+    companion_s *c = (companion_s *)o->mem;
+
+    switch (mode) {
+    case HERO_MODE_NORMAL: {
+
+        break;
+    }
+    case HERO_MODE_COMBAT: {
+        if (c->carries_item) {
+            coins_change(g, 1);
+            snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
+            c->carries_item = 0;
+        }
+
+        break;
+    }
+    }
 }
 
 void companion_avoid_terrain(g_s *g, obj_s *o)
@@ -279,7 +306,7 @@ void companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos)
     companion_avoid_terrain(g, o);
 
     i32 rad  = 90;
-    i32 vmax = Q_VOBJ(3.5);
+    i32 vmax = Q_VOBJ(5.0);
     i32 dst  = v2_i32_distance_appr(p1, pos);
     i32 vm   = vmax;
     if (dst < rad) {
@@ -290,7 +317,7 @@ void companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos)
     if (100 <= dst) {
         to_add = v2_i32_add(to_add, c->tile_avoid);
     }
-    to_add = v2_i32_truncate_fast(to_add, Q_VOBJ(0.5));
+    to_add = v2_i32_truncate_fast(to_add, Q_VOBJ(0.35));
 
     o->v_q12.x += to_add.x;
     o->v_q12.y += to_add.y;

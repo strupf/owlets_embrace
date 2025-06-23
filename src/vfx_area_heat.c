@@ -2,21 +2,24 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "areafx.h"
 #include "game.h"
 
-void areafx_heat_setup(g_s *g, areafx_heat_s *fx)
+void vfx_area_heat_setup(g_s *g)
 {
+    g->vfx_area_mem     = game_alloct(g, vfx_area_heat_s);
+    vfx_area_heat_s *fx = (vfx_area_heat_s *)g->vfx_area_mem;
 }
 
-void areafx_heat_update(g_s *g, areafx_heat_s *fx)
+void vfx_area_heat_update(g_s *g)
 {
+    vfx_area_heat_s *fx = (vfx_area_heat_s *)g->vfx_area_mem;
     fx->tick += 1500 + 200;
 }
 
-void areafx_heat_draw(g_s *g, areafx_heat_s *fx, v2_i32 cam)
+void vfx_area_heat_draw(g_s *g, v2_i32 cam)
 {
-    tex_s t = asset_tex(0);
+    vfx_area_heat_s *fx = (vfx_area_heat_s *)g->vfx_area_mem;
+    tex_s            t  = asset_tex(0);
 
     // shift scanlines left and right
     for (i32 y = 0; y < PLTF_DISPLAY_H; y++) {

@@ -59,6 +59,7 @@ void   grapplinghook_animate(g_s *g, grapplinghook_s *h);
 void   grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam);
 void   grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *h);
 i32    grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj);
+i32    grapplinghook_f_at_obj_proj_v(grapplinghook_s *gh, obj_s *o, v2_i32 dproj, v2_i32 *f_out);
 
 // grapplinghook at offset sx/sy
 bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,

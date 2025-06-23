@@ -756,6 +756,14 @@ static v2_i32 v2_i32_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
     return v;
 }
 
+static v2_i32 v2_i32_ease(v2_i32 a, v2_i32 b, i32 num, i32 den, ease_i32 f)
+{
+    ease_i32 ef = f ? f : lerp_i32;
+    v2_i32   v  = {ef(a.x, b.x, num, den),
+                   ef(a.y, b.y, num, den)};
+    return v;
+}
+
 static v2_i32 v2_i32_lerp_i64(v2_i32 a, v2_i32 b, i64 num, i64 den)
 {
     v2_i32 v = {(i32)lerp_i64(a.x, b.x, num, den),
@@ -1185,8 +1193,12 @@ static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 static v2_i32 project_pnt_dir(v2_i32 p, v2_i32 dir)
 {
     ratio_s r = project_pnt_dir_ratio(p, dir);
-    v2_i32  t = {(i32)(((i64)dir.x * (i64)r.num) / r.den),
-                 (i32)(((i64)dir.y * (i64)r.num) / r.den)};
+    i64     x = (((i64)dir.x * (i64)r.num) / r.den);
+    i64     y = (((i64)dir.y * (i64)r.num) / r.den);
+    assert(I32_MIN <= x && x <= I32_MAX);
+    assert(I32_MIN <= y && y <= I32_MAX);
+    v2_i32 t = {(i32)x,
+                (i32)y};
     return t;
 }
 

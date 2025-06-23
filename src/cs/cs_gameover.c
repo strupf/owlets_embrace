@@ -76,7 +76,7 @@ void cs_gameover_update(g_s *g, cs_s *cs)
             cs->tick = 0;
             cs->phase++;
             mus_play_ext(0, 0, 0, 0, 100, 0, 0);
-            g->musicID = 0;
+            g->music_ID = 0;
             aud_stop_all_snd_instances();
             game_load_savefile(g);
         }

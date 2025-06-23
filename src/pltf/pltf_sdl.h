@@ -9,6 +9,8 @@
 #include "pltf_types.h"
 #include <stdio.h>
 
+#define pltf_log_always printf
+
 #if PLTF_ENABLE_LOG
 #define pltf_log printf
 #else

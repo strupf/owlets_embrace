@@ -15,7 +15,7 @@ err32 wad_init_file(const void *filename)
     void *f = pltf_file_open_r((const char *)filename);
     if (!f) return WAD_ERR_OPEN;
 
-    wad_s       *w  = &APP->wad;
+    wad_s       *w  = &APP.wad;
     err32        r  = 0;
     wad_header_s wh = {0};
 
@@ -60,10 +60,10 @@ err32 wad_init_file(const void *filename)
 wad_el_s *wad_el_find(u32 h, wad_el_s *efrom)
 {
     if (!h) return 0;
-    i32 n_beg = efrom ? (i32)(efrom - APP->wad.entries) : 0;
+    i32 n_beg = efrom ? (i32)(efrom - APP.wad.entries) : 0;
 
-    for (i32 n = n_beg; n < APP->wad.n_entries; n++) {
-        wad_el_s *e = &APP->wad.entries[n];
+    for (i32 n = n_beg; n < APP.wad.n_entries; n++) {
+        wad_el_s *e = &APP.wad.entries[n];
 
         if (e->hash == h) {
             // if passed efrom only return a result if found in the same file

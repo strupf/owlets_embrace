@@ -9,15 +9,16 @@
 #include "util/marena.h"
 
 typedef struct {
-#if PLTF_DEV_ENV
-    bool32 lowestleft_disabled;
-    usize  lowestleft;
-#endif
-    void    *stack[8];
+    ALIGNAS(32)
+    void    *stack[6];
     u32      n_stack;
     marena_s m;
     ALIGNAS(4)
     byte mem[MKILOBYTE(512)];
+#if PLTF_DEV_ENV
+    bool32 lowestleft_disabled;
+    usize  lowestleft;
+#endif
 } spm_s;
 
 #define spm_alloct(T)     (T *)spm_alloc_aligned(sizeof(T), ALIGNOF(T))

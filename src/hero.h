@@ -19,7 +19,7 @@ enum {
     HERO_UPGRADE_CLIMB      = 1 << 4,
     HERO_UPGRADE_STOMP      = 1 << 5,
     HERO_UPGRADE_POWERSTOMP = 1 << 6,
-    HERO_UPGRADE_SPEAR      = 1 << 7,
+    HERO_UPGRADE_COMPANION  = 1 << 7,
 };
 
 // equippable optional charms

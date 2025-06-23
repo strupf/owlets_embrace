@@ -9,6 +9,8 @@ enum {
     BUDPLANT_ST_PREPARING,
     BUDPLANT_ST_SHAKING,
     BUDPLANT_ST_SHOOTING,
+    BUDPLANT_ST_POP_OUT,
+    BUDPLANT_ST_WALK,
 };
 
 enum {
@@ -23,6 +25,7 @@ typedef struct {
 #define BUDPLANT_TICKS_PREPARE  25
 #define BUDPLANT_TICKS_SHAKING  20
 #define BUDPLANT_TICKS_SHOOTING 25
+#define BUDPLANT_TICKS_POP_OUT  16
 
 void bpgrenade_create(g_s *g, v2_i32 pos, v2_i32 vel);
 //
@@ -110,6 +113,16 @@ void budplant_on_update(g_s *g, obj_s *o)
             o->state     = BUDPLANT_ST_IDLE;
             bp->cooldown = 35;
         }
+        break;
+    }
+    case BUDPLANT_ST_POP_OUT: {
+        if (BUDPLANT_TICKS_POP_OUT <= o->timer) {
+            o->state = BUDPLANT_ST_WALK;
+            o->timer = 0;
+        }
+        break;
+    }
+    case BUDPLANT_ST_WALK: {
         break;
     }
     default: break;

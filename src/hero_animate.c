@@ -391,7 +391,7 @@ void hero_on_animate(g_s *g, obj_s *o)
     }
     }
 
-    if (h->mode == HERO_MODE_COMBAT) {
+    if (h->mode == HERO_MODE_COMBAT && hero_has_upgrade(g, HERO_UPGRADE_COMPANION)) {
         fr_y += 24;
     }
     sprite->trec.x = sprite->trec.w * (fr_x + fr_x_add);

@@ -5,7 +5,7 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "area/area.h"
+#include "background.h"
 #include "boss/battleroom.h"
 #include "boss/boss.h"
 #include "cam.h"
@@ -29,6 +29,7 @@
 #include "steering.h"
 #include "tile_map.h"
 #include "ui.h"
+#include "vfx_area.h"
 #include "wiggle.h"
 
 #define GAME_N_ROOMS 256
@@ -102,6 +103,7 @@ enum {
 };
 
 typedef struct {
+    tex_s t;
     u32   hash;
     u8    flags;
     u8    unused[3];
@@ -109,7 +111,6 @@ typedef struct {
     i16   y;
     u16   w;
     u16   h;
-    tex_s t;
 } map_room_s;
 
 typedef struct {
@@ -140,14 +141,16 @@ typedef struct {
     i16 rec_h;
 } hitbox_tmp_s;
 
-enum {
-    FFTILE_SOLID       = 1 << 0,
-    FFTILE_VISITED     = 1 << 1,
-    FFTILE_NEIGHBOUR_L = 1 << 2,
-    FFTILE_NEIGHBOUR_R = 1 << 3,
-    FFTILE_NEIGHBOUR_U = 1 << 4,
-    FFTILE_NEIGHBOUR_D = 1 << 5,
-};
+typedef struct {
+    ALIGNAS(16)
+    i16 x;
+    i16 y;
+    u16 tx;
+    u16 ty;
+    u16 tw;
+    u16 th;
+    u8  k_q8; // parallax factor
+} foreground_el_s;
 
 struct g_s {
     savefile_s     *savefile;
@@ -159,6 +162,7 @@ struct g_s {
     //
     inp_state_s     hero_control_feed;
     i16             n_map_rooms;
+    i16             n_fg;
     u8              n_map_doors;
     u8              n_map_pits;
     u8              save_slot;
@@ -177,7 +181,6 @@ struct g_s {
     map_pit_s       map_pits[16];
     v2_i32          cam_prev;
     v2_i32          cam_center;
-    area_s          area;
     dialog_s        dialog;
     grapplinghook_s ghook;
     coins_s         coins;
@@ -186,7 +189,10 @@ struct g_s {
     cs_s            cuts;
     u32             events_frame; // flags
     u32             hurt_lp_tick;
-    u16             musicID;
+    u8              music_ID;
+    u8              area_ID;
+    u8              background_ID;
+    u8              vfx_ID;
     u8              areaname[32];
     u8              area_anim_tick;
     u8              area_anim_st;
@@ -211,10 +217,14 @@ struct g_s {
     u16             n_objrender;
     obj_s          *obj_render[NUM_OBJ]; // sorted render array
     obj_s           obj_raw[NUM_OBJ];
+    void           *vfx_area_mem;
+    i32             n_map_objs;
+    void           *map_objs;
     boss_s          boss;
     battleroom_s    battleroom;
     i16             darken_bg_add;
     i16             darken_bg_q12; // fading background to black
+    foreground_el_s fg_el[256];
     u32             n_grass;
     grass_s         grass[NUM_GRASS];
     u32             n_deco_verlet;
@@ -227,7 +237,7 @@ struct g_s {
     v2_i32          save_points[8];
     u32             save_events[NUM_SAVE_EV / 32];
     marena_s        memarena;
-    byte            mem[MKILOBYTE(1024)];
+    byte            mem[MKILOBYTE(2048)];
 };
 
 void        game_init(g_s *g);

@@ -97,13 +97,12 @@ tex_s tex_framebuffer()
 
 tex_s tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err)
 {
-    tex_s t         = {0};
-    b32   m         = mask != 0;
-    u32   waligned  = (w + 31) & ~31;
-    u32   wword     = (waligned >> 5) << (i32)m;
-    u32   size      = sizeof(u32) * wword * h;
-    u32   alignment = 4 << m;
-    void *mem       = a.allocfunc(a.ctx, size, alignment);
+    tex_s t        = {0};
+    b32   m        = mask != 0;
+    u32   waligned = (w + 31) & ~31;
+    u32   wword    = (waligned >> 5) << (i32)m;
+    u32   size     = sizeof(u32) * wword * h;
+    void *mem      = a.allocfunc(a.ctx, size, 32);
     if (mem) {
         t.px    = (u32 *)mem;
         t.fmt   = m;
@@ -954,6 +953,12 @@ void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str,
         fnt_draw_str(textmp_ctx, f, (v2_i32){4, 4}, str, 0);
         break;
     }
+    case 8: {
+        fnt_draw_str(textmp_ctx, f, (v2_i32){4, 4}, str, 0);
+        tex_outline_col_ext(textmp, GFX_COL_WHITE, 1);
+        tex_outline_col_ext(textmp, GFX_COL_BLACK, 1);
+        break;
+    }
     }
 
     i32 px = centeredx ? fnt_length_px(f, str) : 0;
@@ -1268,56 +1273,9 @@ void gfx_tri(gfx_ctx_s ctx, tri_i32 t, i32 mode)
     gfx_lin_thick(ctx, t.p[1], t.p[2], mode, 2);
 }
 
-void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode){
-    NOT_IMPLEMENTED}
-
-i32 cmp_int_poly(const void *a, const void *b)
+void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode)
 {
-    i32 x = *(const i32 *)a;
-    i32 y = *(const i32 *)b;
-    if (x < y) return -1;
-    if (x > y) return +1;
-    return 0;
-}
-
-void gfx_poly_fill(gfx_ctx_s ctx, v2_i32 *pt, i32 n_pt, i32 mode)
-{
-    i32 y1 = 0x10000;
-    i32 y2 = 0;
-    for (i32 i = 0; i < n_pt; i++) {
-        y1 = min_i32(y1, pt[i].y);
-        y2 = max_i32(y2, pt[i].y);
-    }
-
-    y1 = max_i32(y1, ctx.clip_y1);
-    y2 = min_i32(y2, ctx.clip_y2);
-
-    i32 nx[64] = {0};
-    for (i32 y = y1; y <= y2; y++) {
-        i32 ns = 0;
-        for (i32 i = 0, j = n_pt - 1; i < n_pt; j = i, i++) {
-            v2_i32 pi = pt[i];
-            v2_i32 pj = pt[j];
-            if (!((pi.y < y && y <= pj.y) || (pj.y < y && y <= pi.y)))
-                continue;
-            nx[ns++] = pi.x + ((pj.x - pi.x) * (y - pi.y)) / (pj.y - pi.y);
-        }
-
-        sort_array(nx, ns, sizeof(i32), cmp_int_poly);
-
-        for (i32 i = 0; i < ns; i += 2) {
-            i32 x1 = nx[i];
-            if (ctx.clip_x2 < x1) break;
-            i32 x2 = nx[i + 1];
-            if (x2 <= ctx.clip_x1) continue;
-
-            x1 = max_i32(x1, ctx.clip_x1);
-            x2 = min_i32(x2, ctx.clip_x2);
-
-            span_blit_s s = span_blit_gen(ctx, y, x1, x2, mode);
-            prim_blit_span(s);
-        }
-    }
+    NOT_IMPLEMENTED
 }
 
 void gfx_spr_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip)
@@ -1392,7 +1350,7 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
     }
 
     for (i32 y = y1; y <= y2; y++, sp += src.t.wword, dp += ctx.dst.wword) {
-        u32 zp = bswap32(*(sp));
+        u32 zp = bswap32(*(sp + 0));
         u32 zm = bswap32(*(sp + 1));
         u32 p  = bswap32((u32)((u64)zp << l) | (u32)((u64)zp >> r));
         u32 m  = bswap32((u32)((u64)zm << l) | (u32)((u64)zm >> r));

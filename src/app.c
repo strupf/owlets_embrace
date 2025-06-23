@@ -8,11 +8,7 @@
 #include "core/spm.h"
 #include "render.h"
 
-#if APP_USE_MALLOC
-app_s *APP;
-#else
-app_s APPMEM;
-#endif
+app_s APP;
 
 #if TIMING_ENABLED
 timing_s TIMING;
@@ -22,15 +18,7 @@ err32 app_load_assets();
 
 i32 app_init()
 {
-#if APP_USE_MALLOC
-    // allocate majority of memory dynamically so
-    // a proper "not enough memory" error can be reported
-    APP = (app_s *)pltf_mem_alloc_aligned(sizeof(app_s), APP_STRUCT_ALIGNMENT);
-    if (!APP) {
-        return 1;
-    }
-    mclr(APP, sizeof(app_s));
-#endif
+    (sizeof(app_s) / 1024);
 
     err32 err_wad_core = wad_init_file("oe.wad");
     if (err_wad_core != 0) {
@@ -42,12 +30,12 @@ i32 app_init()
     aud_init();
     assets_init();
     inp_init();
-    marena_init(&APP->ma, APP->mem, sizeof(APP->mem));
+    marena_init(&APP.ma, APP.mem, sizeof(APP.mem));
 
     err32 err_assets = app_load_assets();
     app_set_mode(SETTINGS.mode);
-    g_s        *g = &APP->game;
-    savefile_s *s = &APP->save;
+    g_s        *g = &APP.game;
+    savefile_s *s = &APP.save;
     spm_init();
     game_init(g);
     g->savefile = s;
@@ -56,8 +44,8 @@ i32 app_init()
     TIMING.show = TIMING_SHOW_DEFAULT;
 #endif
 #if PLTF_PD
-    const char *options[3] = {"0", "1", "2"};
-    // pltf_pd_menu_add_opt("align", options, 3, app_menu_callback_pattern, 0);
+    const char *options[3] = {"Tap", "Hold", "Alt"};
+    pltf_pd_menu_add_opt("Hook Type", options, 2, app_menu_callback_pattern, 0);
     // pltf_pd_menu_add_check("Align 4", 0, app_menu_callback_pattern, 0);
 #if TIMING_ENABLED
     pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
@@ -85,29 +73,30 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
+        //  savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
         s->upgrades =
             HERO_UPGRADE_SWIM |
-            HERO_UPGRADE_STOMP |
+            // HERO_UPGRADE_STOMP |
             HERO_UPGRADE_FLY |
-            HERO_UPGRADE_HOOK |
+            //  HERO_UPGRADE_HOOK |
             HERO_UPGRADE_CLIMB |
+            //  HERO_UPGRADE_COMPANION |
             0;
-        s->stamina = 5;
+        s->stamina = 2;
     }
     savefile_w(0, s);
 
-    title_init(&APP->title);
+    title_init(&APP.title);
 #if !TITLE_SKIP_TO_GAME
-    mus_play_extv("M_SHOWCASE", 0, 0, 0, 500, 256);
+    mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
 #endif
 #endif
-    usize mrem = marena_rem(&APP->ma);
+    usize mrem = marena_rem(&APP.ma);
     pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
-             (i32)((100 * mrem) / APP->ma.bufsize),
+             (i32)((100 * mrem) / APP.ma.bufsize),
              (i32)(mrem / 1024));
     pltf_sync_timestep();
     return 0;
@@ -132,16 +121,16 @@ static void app_tick_step()
     }
 
     if (pltf_sdl_jkey(SDL_GetScancodeFromKey(SDLK_PLUS))) {
-        APP->aud.v_sfx_q8 = min_i32(APP->aud.v_sfx_q8 + 32, 256);
+        APP.aud.v_sfx_q8 = min_i32(APP.aud.v_sfx_q8 + 32, 256);
     }
     if (pltf_sdl_jkey(SDL_GetScancodeFromKey(SDLK_MINUS))) {
-        APP->aud.v_sfx_q8 = max_i32(APP->aud.v_sfx_q8 - 32, 0);
+        APP.aud.v_sfx_q8 = max_i32(APP.aud.v_sfx_q8 - 32, 0);
     }
     if (pltf_sdl_jkey(SDL_SCANCODE_2)) {
-        APP->aud.v_sfx_q8 = min_i32(APP->aud.v_sfx_q8 + 32, 256);
+        APP.aud.v_sfx_q8 = min_i32(APP.aud.v_sfx_q8 + 32, 256);
     }
     if (pltf_sdl_jkey(SDL_SCANCODE_1)) {
-        APP->aud.v_sfx_q8 = max_i32(APP->aud.v_sfx_q8 - 32, 0);
+        APP.aud.v_sfx_q8 = max_i32(APP.aud.v_sfx_q8 - 32, 0);
     }
 #endif
 #if TIMING_ENABLED
@@ -149,14 +138,14 @@ static void app_tick_step()
 #endif
     inp_update();
 
-    g_s             *g  = &APP->game;
-    settings_menu_s *sm = &APP->settings_menu;
+    g_s             *g  = &APP.game;
+    settings_menu_s *sm = &APP.settings_menu;
     if (sm->active) {
         settings_menu_update(sm);
     } else {
-        switch (APP->state) {
+        switch (APP.state) {
         case APP_ST_TITLE: {
-            title_update(APP, &APP->title);
+            title_update(&APP, &APP.title);
             break;
         }
         case APP_ST_GAME: {
@@ -182,26 +171,18 @@ void app_draw()
 #endif
 
     gfx_ctx_s ctx = gfx_ctx_display();
-    g_s      *g   = &APP->game;
+    g_s      *g   = &APP.game;
 
-    switch (APP->state) {
+    switch (APP.state) {
     case APP_ST_TITLE:
-        title_render(&APP->title);
+        title_render(&APP.title);
         break;
     case APP_ST_GAME:
         game_draw(g);
         break;
     }
 
-#if 0
-    if (pltf_sdl_key(SDL_SCANCODE_RETURN)) {
-        gfx_ctx_s ctx2 = ctx;
-        ctx2.pat       = gfx_pattern_bayer_4x4(8);
-        gfx_rec_fill(ctx2, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
-    }
-#endif
-
-    settings_menu_s *sm = &APP->settings_menu;
+    settings_menu_s *sm = &APP.settings_menu;
     if (sm->active) {
         settings_menu_draw(sm);
     }
@@ -214,43 +195,43 @@ void app_draw()
 void app_close()
 {
     aud_destroy();
-    if (APP) {
-        if (APP->state == APP_ST_GAME) {
-            g_s *g = &APP->game;
-            game_update_savefile(g);
-            savefile_w(g->save_slot, g->savefile);
-        }
-#if APP_USE_MALLOC
-        pltf_mem_free_aligned(APP);
-#endif
+    if (APP.state == APP_ST_GAME) {
+        g_s *g = &APP.game;
+        game_update_savefile(g);
+        savefile_w(g->save_slot, g->savefile);
     }
 }
 
 void app_resume()
 {
     inp_on_resume();
-    game_resume(&APP->game);
+    game_resume(&APP.game);
 }
 
 void app_pause()
 {
 #if PLTF_PD
-    if (APP->state == APP_ST_TITLE) {
-        title_paused(&APP->title);
+    if (APP.state == APP_ST_TITLE) {
+        title_paused(&APP.title);
     } else {
-        game_paused(&APP->game);
+        game_paused(&APP.game);
     }
 #endif
 }
 
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
-    aud_audio(&APP->aud, lbuf, rbuf, len);
+    aud_audio(&APP.aud, lbuf, rbuf, len);
+}
+
+void app_mirror(b32 enable)
+{
+    APP.flags = enable;
 }
 
 void *app_alloc(usize s)
 {
-    void *mem = marena_alloc(&APP->ma, s);
+    void *mem = marena_alloc(&APP.ma, s);
     assert(mem);
     mclr(mem, s);
     return mem;
@@ -258,7 +239,7 @@ void *app_alloc(usize s)
 
 void *app_alloc_aligned(usize s, usize alignment)
 {
-    void *mem = marena_alloc_aligned(&APP->ma, s, alignment);
+    void *mem = marena_alloc_aligned(&APP.ma, s, alignment);
     assert(mem);
     mclr(mem, s);
     return mem;
@@ -281,9 +262,6 @@ void app_set_mode(i32 mode)
     case SETTINGS_MODE_POWER_SAVING:
         pltf_set_fps_mode(PLTF_FPS_MODE_40);
         break;
-    case SETTINGS_MODE_30_FPS:
-        pltf_set_fps_mode(PLTF_FPS_MODE_30);
-        break;
     }
 }
 
@@ -296,17 +274,17 @@ void app_menu_callback_timing(void *ctx, i32 opt)
 
 void app_menu_callback_resetsave(void *ctx, i32 opt)
 {
-    cs_resetsave_enter(&APP->game);
+    cs_resetsave_enter(&APP.game);
 }
 
 void app_menu_callback_map(void *ctx, i32 opt)
 {
-    if (!APP->game.minimap.state) {
-        minimap_open_via_menu(&APP->game);
+    if (!APP.game.minimap.state) {
+        minimap_open_via_menu(&APP.game);
     }
 }
 
 void app_menu_callback_pattern(void *ctx, i32 opt)
 {
-    APP->opt = opt;
+    APP.opt = opt;
 }
