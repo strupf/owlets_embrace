@@ -686,6 +686,33 @@ void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 ti
     }
 }
 
+void render_tile_terrain_block_wrapped(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type)
+{
+    pos.x &= ~1;
+    pos.y &= ~1;
+    render_tile_terrain_block(ctx, pos, tx, ty, tile_type);
+
+    texrec_s tr = asset_texrec(TEXID_TILESET_TERRAIN, 32, 0, 32, 32);
+
+    i32 posx = pos.x + ((tx << 3)) - 16;
+
+    for (i32 y = 0; y < ty; y++) {
+        tr.y      = 0;
+        i32 tilex = 1;
+        i32 tiley = 1;
+        if (y == 0) {
+            tiley = 1;
+        } else if (y == ty - 1) {
+            tiley = 3;
+        } else {
+            tiley = 2;
+        }
+        tr.y     = (tilex + (tiley) * 12) << 5;
+        v2_i32 p = {posx, pos.y + (y << 4) - 8};
+        gfx_spr(ctx, tr, p, 0, 0);
+    }
+}
+
 void render_map_doors(g_s *g, v2_i32 camoff)
 {
 }

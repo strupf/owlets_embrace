@@ -73,7 +73,7 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        //  savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
+        // savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;

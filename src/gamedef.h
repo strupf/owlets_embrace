@@ -25,7 +25,7 @@
 //
 #define GAME_V_MAJ 0
 #define GAME_V_MIN 2
-#define GAME_V_PAT 0
+#define GAME_V_PAT 1
 
 #define GAME_VERSION_GEN(A, B, C) (((u32)(A) << 16) | \
                                    ((u32)(B) << 8) |  \

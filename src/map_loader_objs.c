@@ -31,6 +31,8 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         crackblock_load(g, o);
     } else if (str_eq_nc(o->name, "Trampoline")) {
         trampoline_load(g, o);
+    } else if (str_eq_nc(o->name, "Hangingblock")) {
+        hangingblock_load(g, o);
     } else if (str_eq_nc(o->name, "Windarea_U") ||
                str_eq_nc(o->name, "Windarea_D") ||
                str_eq_nc(o->name, "Windarea_L") ||

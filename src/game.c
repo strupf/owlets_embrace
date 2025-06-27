@@ -567,6 +567,13 @@ bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
         if (0 <= strongest) {
             res |= hero_attackbox_o(g, o, boxes[strongest]);
         }
+
+        if (o->ID == OBJID_HANGINGBLOCK && !o->state) {
+            if (overlap_rec(hangingblock_rec_line(o), boxes[0].r)) {
+                hangingblock_on_hit(g, o);
+                res |= 1;
+            }
+        }
     }
     return res;
 }

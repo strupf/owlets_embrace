@@ -54,7 +54,6 @@ obj_s *hero_create(g_s *g)
     o->flags =
         OBJ_FLAG_ACTOR |
         OBJ_FLAG_CLAMP_ROOM_X |
-        OBJ_FLAG_KILL_OFFSCREEN |
         OBJ_FLAG_LIGHT;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_GLUE_GROUND |
@@ -1976,7 +1975,7 @@ void hero_post_update(g_s *g, obj_s *o, inp_s inp)
         coins_show_idle(g);
     }
 
-    if (g->pixel_y < o->pos.y) {
+    if (g->pixel_y + 64 < o->pos.y) {
         o->v_q12.x = h->safe_v.x;
         o->v_q12.y = h->safe_v.y;
         o->facing  = (i8)h->safe_facing;

@@ -100,6 +100,6 @@ void crackblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     p.x &= ~1;
     p.y &= ~1;
-    render_tile_terrain_block(ctx, p, o->w >> 4, o->h >> 4,
-                              TILE_TYPE_BRIGHT_STONE);
+    render_tile_terrain_block_wrapped(ctx, p, o->w >> 4, o->h >> 4,
+                                      TILE_TYPE_BRIGHT_STONE);
 }

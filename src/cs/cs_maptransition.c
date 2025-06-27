@@ -227,10 +227,6 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
         }
     }
     hero_s *h = (hero_s *)ohero->heap;
-    for (i32 n = 0; n < ARRLEN(h->hooktrail); n++) {
-        h->hooktrail[n].p  = v2_i32_shl(obj_pos_center(ohero), 8);
-        h->hooktrail[n].pp = v2_i32_shl(obj_pos_center(ohero), 8);
-    }
 
     game_load_map(g, mt->map_hash);
 

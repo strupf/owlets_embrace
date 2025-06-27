@@ -15,6 +15,7 @@ enum {
     OBJID_HOOK,
     OBJID_DOOR,
     OBJID_CRUMBLEBLOCK,
+    OBJID_HANGINGBLOCK,
     OBJID_SWITCH,
     OBJID_DUMMYSOLID,
     OBJID_TOGGLEBLOCK,
@@ -135,6 +136,9 @@ void      steam_platform_load(g_s *g, map_obj_s *mo);
 void      budplant_load(g_s *g, map_obj_s *mo);
 obj_s    *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void      projectile_on_collision(g_s *g, obj_s *o);
+void      hangingblock_load(g_s *g, map_obj_s *mo);
+rec_i32   hangingblock_rec_line(obj_s *o);
+void      hangingblock_on_hit(g_s *g, obj_s *o);
 void      flyblob_load(g_s *g, map_obj_s *mo);
 void      flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb);
 void      staminarestorer_load(g_s *g, map_obj_s *mo);
