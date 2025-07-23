@@ -119,7 +119,7 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
             i32 tx1 = (ri.x + ri.w - 1) >> 4;
 
             for (i32 tx = tx0; tx <= tx1; tx++) {
-                switch (g->tiles[tx + ty * g->tiles_x].collision) {
+                switch (g->tiles[tx + ty * g->tiles_x].shape) {
                 case TILE_ONE_WAY:
                 case TILE_LADDER_ONE_WAY:
                     coll_platform = 1;

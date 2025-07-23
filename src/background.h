@@ -16,10 +16,11 @@ enum {
     BACKGROUND_ID_CAVE      = 12,
     BACKGROUND_ID_SNOW      = 16,
     BACKGROUND_ID_WATERFALL = 20,
+    BACKGROUND_ID_VERTICAL  = 24,
 };
 
 // prerender background for performance mode
-void background_perf_prepare(g_s *g);
+void background_init_and_load_from_wad(g_s *g, i32 ID, void *f);
 void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam);
 
 #endif

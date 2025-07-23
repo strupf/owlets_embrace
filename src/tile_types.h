@@ -16,10 +16,7 @@ enum {
     TILE_TYPE_DARK_STONE               = 4,
     TILE_TYPE_DARK_STONE_PEBBLE        = 5,
     TILE_TYPE_DARK_OBSIDIAN            = 6,
-    TILE_TYPE_DARK_2                   = 7,
-    TILE_TYPE_DARK_3                   = 8,
-    TILE_TYPE_DARK_4                   = 9,
-    TILE_TYPE_DARK_5                   = 10,
+    TILE_TYPE_MUSHROOMS                = 10,
     //
     TILE_TYPE_BRIGHT_STONE             = 11,
     TILE_TYPE_BRIGHT_SNOW              = 12,
@@ -39,6 +36,16 @@ enum {
     TILE_TYPE_COLOR_DARK,
     TILE_TYPE_COLOR_BLACK
 };
+
+typedef struct tile_s {
+    ALIGNAS(4)
+    u16 ty;
+    u8  type;  // 6 bits for type
+    u8  shape; // collision shape
+} tile_s;
+
+#define TILE_TYPE_FLAG_INNER_GRADIENT (1 << 7)
+#define TILE_TYPE_MASK                B8(00111111)
 
 static i32 tile_type_color(i32 t)
 {
@@ -80,6 +87,22 @@ static i32 tile_type_render_priority(i32 t)
     }
 
     return t;
+}
+
+static void tile_set(tile_s *t, i32 type, i32 shape)
+{
+    t->type  = type;
+    t->shape = shape;
+}
+
+static inline i32 tile_get_type(tile_s *t)
+{
+    return (t->type & TILE_TYPE_MASK);
+}
+
+static inline i32 tile_get_shape(tile_s *t)
+{
+    return t->shape;
 }
 
 #endif

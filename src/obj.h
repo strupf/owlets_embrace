@@ -92,7 +92,7 @@ typedef void (*obj_hooked_f)(g_s *g, obj_s *o, b32 hooked);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
 typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef i32  (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
 typedef void (*obj_impulse_f)(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
 
 typedef struct enemy_s {
@@ -150,7 +150,7 @@ struct obj_s {
     i32              animation;
     i32              timer;
     i32              subtimer;
-    u16              cam_attract_r;
+    i16              cam_attract_r;
     i8               facing; // -1 left, +1 right
     u8               render_priority;
     u8               health;
@@ -162,7 +162,8 @@ struct obj_s {
     u8               n_sprites;
     u8               n_ignored_solids;
     ropeobj_param_s  ropeobj;
-    v2_i8            interact_offs; // offset of interaction UI
+    v2_i8            offs_interact_ui; // offset of interaction UI
+    v2_i8            offs_interact;    // offset of interaction anchor (logic) from center
     enemy_s          enemy;
     ropenode_s      *ropenode;
     rope_s          *rope;
@@ -177,6 +178,7 @@ struct obj_s {
 };
 
 #define obj_get_hero(G) obj_get_tagged(G, OBJ_TAG_HERO)
+#define obj_get_comp(G) obj_get_tagged(G, OBJ_TAG_COMPANION)
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
 obj_s       *obj_from_obj_handle(obj_handle_s h);

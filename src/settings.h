@@ -8,10 +8,9 @@
 #include "pltf/pltf_types.h"
 
 enum {
-    SETTINGS_MODE_NORMAL,    // 50.0 FPS, hi details
-    SETTINGS_MODE_STREAMING, // 50.0 FPS, lo details
-    SETTINGS_MODE_POWER_SAVING,
-    SETTINGS_MODE_30_FPS
+    SETTINGS_MODE_NORMAL,      // 50 FPS, hi details
+    SETTINGS_MODE_STREAMING,   // 50 FPS, lo details
+    SETTINGS_MODE_POWER_SAVING // 40 FPS
 };
 
 enum {
@@ -28,15 +27,39 @@ enum {
 #define SETTINGS_SWAP_TICKS_MIN   20
 #define SETTINGS_SWAP_TICKS_MAX   40
 
+enum {
+    SETTINGS_EL_MODE,
+    SETTINGS_EL_VOL_MUS,
+    SETTINGS_EL_VOL_SFX,
+    SETTINGS_EL_CROUCH_MODE,
+    //
+    NUM_SETTINGS_EL
+};
+
 typedef struct {
     ALIGNAS(32)
-    u8 mode;
-    u8 shake_sensitivity;
-    u8 shake_smooth;
-    u8 vol_mus;
-    u8 vol_sfx;
-    u8 swap_ticks;
+    u8  mode;
+    u8  shake_sensitivity;
+    u8  shake_smooth;
+    u8  vol_mus;
+    u8  vol_sfx;
+    u8  swap_ticks;
+    u16 settings_el[NUM_SETTINGS_EL]; // settings values
 } settings_s;
+
+typedef struct {
+    u8 v_curr;
+    u8 v_prev;
+    u8 tick;
+} settings_el_s;
+
+typedef struct {
+    u8            active;
+    u8            n_curr;
+    u8            n_prev; // current selected setting
+    u8            tick_lerp;
+    settings_el_s settings_el[NUM_SETTINGS_EL]; // settings values
+} settings_m_s;
 
 extern settings_s SETTINGS;
 
@@ -44,5 +67,9 @@ extern settings_s SETTINGS;
 void  settings_default(settings_s *s);
 err32 settings_load(settings_s *s);
 err32 settings_save(settings_s *s);
+
+i32  settings_actual_value_of(settings_m_s *s, i32 elID);
+void settings_update(settings_m_s *s);
+void settings_draw(settings_m_s *s);
 
 #endif

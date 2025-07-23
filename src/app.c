@@ -73,26 +73,25 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        // savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
+        savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
         s->upgrades =
             HERO_UPGRADE_SWIM |
-            // HERO_UPGRADE_STOMP |
+            HERO_UPGRADE_STOMP |
+            HERO_UPGRADE_POWERSTOMP |
             HERO_UPGRADE_FLY |
-            //  HERO_UPGRADE_HOOK |
+            HERO_UPGRADE_HOOK |
             HERO_UPGRADE_CLIMB |
-            //  HERO_UPGRADE_COMPANION |
+            HERO_UPGRADE_COMPANION |
             0;
-        s->stamina = 2;
+        s->stamina    = 5;
+        s->health_max = 6;
     }
     savefile_w(0, s);
 
     title_init(&APP.title);
-#if !TITLE_SKIP_TO_GAME
-    mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
-#endif
 #endif
     usize mrem = marena_rem(&APP.ma);
     pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
@@ -138,10 +137,10 @@ static void app_tick_step()
 #endif
     inp_update();
 
-    g_s             *g  = &APP.game;
-    settings_menu_s *sm = &APP.settings_menu;
-    if (sm->active) {
-        settings_menu_update(sm);
+    g_s *g = &APP.game;
+
+    if (APP.sm.active) {
+        settings_update(&APP.sm);
     } else {
         switch (APP.state) {
         case APP_ST_TITLE: {
@@ -182,13 +181,18 @@ void app_draw()
         break;
     }
 
-    settings_menu_s *sm = &APP.settings_menu;
-    if (sm->active) {
-        settings_menu_draw(sm);
+    if (APP.sm.active) {
+        settings_draw(&APP.sm);
     }
 #if TIMING_ENABLED
     timing_end(TIMING_ID_DRAW);
     timing_end_frame();
+#endif
+#if PLTF_DEV_ENV && 0
+    if (pltf_sdl_key(SDL_SCANCODE_SPACE)) {
+        gfx_ctx_s cc = ctx;
+        gfx_rec_fill(cc, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK_WHITE);
+    }
 #endif
 }
 

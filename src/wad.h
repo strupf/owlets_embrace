@@ -24,15 +24,15 @@ typedef struct {
 } wad_header_s;
 
 typedef struct {
-    u32 hash; // really a 8-character string
+    u32 hash; // hash of resource name
     u32 offs; // begin of memory block in file
     u32 size; // size of memory block
 } wad_el_file_s;
 
-typedef struct {
+typedef struct wad_el_s {
     ALIGNAS(16)
     u8 *filename;
-    u32 hash; // really a 8-character string
+    u32 hash; // hash of resource name
     u32 offs; // begin of memory block in file
     u32 size; // size of memory block
 } wad_el_s;

@@ -84,6 +84,8 @@
 #undef SPRBLIT_FLIPPEDX
 #undef SPRBLIT_FUNCTION_COPY
 
+static const u32 g_bayer_8x8[65 * 8];
+
 tex_s tex_framebuffer()
 {
     tex_s t = {0};
@@ -518,10 +520,14 @@ gfx_ctx_s gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h)
 
 gfx_pattern_s gfx_pattern_inv(gfx_pattern_s p)
 {
-    gfx_pattern_s r = {{~p.p[0], ~p.p[1], ~p.p[2], ~p.p[3]}};
+    gfx_pattern_s r = {0};
+    for (i32 i = 0; i < 8; i++) {
+        r.p[i] = ~p.p[i];
+    }
     return r;
 }
 
+// 01
 gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1)
 {
     gfx_pattern_s pat  = {0};
@@ -531,6 +537,8 @@ gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1)
         u32 pb       = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
         pat.p[i + 0] = pb;
         pat.p[i + 2] = pb;
+        pat.p[i + 4] = pb;
+        pat.p[i + 6] = pb;
     }
     return pat;
 }
@@ -540,48 +548,40 @@ gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3)
     gfx_pattern_s pat  = {0};
     u32           p[4] = {p0, p1, p2, p3};
     for (i32 i = 0; i < 4; i++) {
-        u32 pa   = ((u32)p[i] << 4) | ((u32)p[i]);
-        u32 pb   = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
-        pat.p[i] = pb;
+        u32 pa       = (p[i] << 4) | (p[i]);
+        u32 pb       = (pa << 24) | (pa << 16) | (pa << 8) | (pa);
+        pat.p[i + 0] = pb;
+        pat.p[i + 4] = pb;
     }
     return pat;
 }
 
 gfx_pattern_s gfx_pattern_bayer_4x4(i32 i)
 {
-    ALIGNAS(16)
-    static const u32 ditherpat[GFX_PATTERN_NUM * 4] = {
-        0x00000000, 0x00000000, 0x00000000, 0x00000000,
-        0x88888888, 0x00000000, 0x00000000, 0x00000000,
-        0x88888888, 0x00000000, 0x22222222, 0x00000000,
-        0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
-        0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
-        0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
-        0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
-        0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
-        0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
-        0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
-        0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
-        0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
-        0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
-        0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
-        0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
-        0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
-        0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+    // the 4x4 patterns are mapped to a table of 8x8 patterns
+    // index of equivalent 8x8 = 4 * (index of 4x4)
+    gfx_pattern_s pat = {0};
+    i32           n   = clamp_i32(i, 0, 16); // pattern index
+    mcpy(pat.p, &g_bayer_8x8[n << 5], sizeof(gfx_pattern_s));
+    return pat;
+}
 
-    const u32    *p   = &ditherpat[clamp_i32(i, 0, GFX_PATTERN_MAX) << 2];
-    gfx_pattern_s pat = {{p[0], p[1], p[2], p[3]}};
+gfx_pattern_s gfx_pattern_bayer_8x8(i32 i)
+{
+    gfx_pattern_s pat = {0};
+    i32           n   = clamp_i32(i, 0, 64); // pattern index
+    mcpy(pat.p, &g_bayer_8x8[n << 3], sizeof(gfx_pattern_s));
     return pat;
 }
 
 gfx_pattern_s gfx_pattern_shift(gfx_pattern_s p, i32 x, i32 y)
 {
     gfx_pattern_s pat = {0};
-    i32           s   = (x & 3);
+    i32           s   = (x & 7);
 
-    for (i32 i = 0; i < 4; i++) {
-        u32 k    = p.p[(i - y) & 3];
-        pat.p[i] = (k >> s) | (k << (4 - s));
+    for (i32 i = 0; i < 8; i++) {
+        u32 k    = p.p[(i - y) & 7];
+        pat.p[i] = (k >> s) | (k << (8 - s));
     }
     return pat;
 }
@@ -737,7 +737,7 @@ static void apply_prim_mode(u32 *dp, u32 *dm, u32 sm, i32 mode, u32 pt)
 static void prim_blit_span(span_blit_s info)
 {
     u32 *dp = (u32 *)info.dp;
-    u32  pt = info.pat.p[info.y & 3];
+    u32  pt = info.pat.p[info.y & 7];
     u32  m  = info.ml;
     for (i32 i = 0; i < info.dmax; i++) {
         apply_prim_mode(dp, info.dadd == 2 ? dp + 1 : 0, m, info.mode, pt);
@@ -763,7 +763,7 @@ static void apply_prim_mode_X(u32 *dp, u32 sm, i32 mode, u32 pt)
 static void prim_blit_span_X(span_blit_s info)
 {
     u32 *dp = (u32 *)info.dp;
-    u32  pt = info.pat.p[info.y & 3];
+    u32  pt = info.pat.p[info.y & 7];
     u32  m  = info.ml;
 
     for (i32 i = 0; i < info.dmax; i++) {
@@ -777,7 +777,7 @@ static void prim_blit_span_X(span_blit_s info)
 static void prim_blit_span_Y(span_blit_s info)
 {
     u32 *dp = (u32 *)info.dp;
-    u32  pt = info.pat.p[info.y & 3];
+    u32  pt = info.pat.p[info.y & 7];
     u32  m  = info.ml;
 
     for (i32 i = 0; i < info.dmax; i++) {
@@ -872,7 +872,7 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2)
     assert(0 <= y1 && y2 < dst.h);
     u32 *px = &dst.px[y1 * dst.wword];
     for (i32 y = y1; y <= y2; y++) {
-        u32 p = ~pat.p[y & 3];
+        u32 p = ~pat.p[y & 7];
         for (i32 x = 0; x < dst.wword; x++) {
             *px++ = p;
         }
@@ -1454,3 +1454,136 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro,
         }
     }
 }
+
+ALIGNAS(32)
+static const u32 g_bayer_8x8[65 * 8] = {
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0x80808080, 0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0x80808080, 0x00000000, 0x00000000, 0x00000000,
+    0x08080808, 0x00000000, 0x00000000, 0x00000000,
+    0x88888888, 0x00000000, 0x00000000, 0x00000000,
+    0x08080808, 0x00000000, 0x00000000, 0x00000000,
+    0x88888888, 0x00000000, 0x00000000, 0x00000000,
+    0x88888888, 0x00000000, 0x00000000, 0x00000000,
+    0x88888888, 0x00000000, 0x20202020, 0x00000000,
+    0x88888888, 0x00000000, 0x00000000, 0x00000000,
+    0x88888888, 0x00000000, 0x20202020, 0x00000000,
+    0x88888888, 0x00000000, 0x02020202, 0x00000000,
+    0x88888888, 0x00000000, 0x22222222, 0x00000000,
+    0x88888888, 0x00000000, 0x02020202, 0x00000000,
+    0x88888888, 0x00000000, 0x22222222, 0x00000000,
+    0x88888888, 0x00000000, 0x22222222, 0x00000000,
+    0xA8A8A8A8, 0x00000000, 0x22222222, 0x00000000,
+    0x88888888, 0x00000000, 0x22222222, 0x00000000,
+    0xA8A8A8A8, 0x00000000, 0x22222222, 0x00000000,
+    0x8A8A8A8A, 0x00000000, 0x22222222, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
+    0x8A8A8A8A, 0x00000000, 0x22222222, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xA2A2A2A2, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x22222222, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xA2A2A2A2, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x2A2A2A2A, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0x2A2A2A2A, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x40404040, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x00000000, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x40404040, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x04040404, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x04040404, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x10101010,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x00000000,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x10101010,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x01010101,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x01010101,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x54545454, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x44444444, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x54545454, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x45454545, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x45454545, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x51515151,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x11111111,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x51515151,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x15151515,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x15151515,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEAEAEAEA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xAAAAAAAA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEAEAEAEA, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xAEAEAEAE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xAEAEAEAE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBABABABA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xAAAAAAAA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBABABABA, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xABABABAB, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xABABABAB, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFEFEFEFE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xEEEEEEEE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFEFEFEFE, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xEFEFEFEF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xEFEFEFEF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFBFBFBFB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBBBBBBBB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFBFBFBFB, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBFBFBFBF, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xBFBFBFBF, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xD5D5D5D5, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0x55555555, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xD5D5D5D5, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0x5D5D5D5D, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0x5D5D5D5D, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x75757575,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x55555555,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x75757575,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x57575757,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x57575757,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFDFDFDFD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xDDDDDDDD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFDFDFDFD, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xDFDFDFDF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xDFDFDFDF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xF7F7F7F7,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x77777777,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xF7F7F7F7,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x7F7F7F7F,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x7F7F7F7F,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};

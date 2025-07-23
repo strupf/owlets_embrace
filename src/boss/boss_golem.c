@@ -103,9 +103,8 @@ void boss_golem_slam_cracking(g_s *g, boss_golem_s *b)
     i32 n  = 0;
     for (i32 y = y1; y <= y2; y++) {
         for (i32 x = x1; x <= x2; x++) {
-            i32 i         = x + y * g->tiles_x;
-            b->tiles[n]   = g->tiles[i];
-            g->tiles[i].u = 0;
+            i32 i       = x + y * g->tiles_x;
+            b->tiles[n] = g->tiles[i];
             n++;
         }
     }

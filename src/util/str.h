@@ -45,8 +45,8 @@ static inline i32 str_cmp(const void *a, const void *b)
     const u8 *x = (const u8 *)a;
     const u8 *y = (const u8 *)b;
     while (1) {
+        if (*y == '\0') return 0;
         if (*x != *y) return ((i32)*x - (i32)*y);
-        if (*x == '\0') return 0;
         x++;
         y++;
     }
@@ -92,7 +92,7 @@ static inline void *str_contains(const void *str, const void *sequence)
         if (!x) return 0;
 
         i32 e = str_cmp(x, sequence);
-        if (0 <= e) return (void *)x; // equal until null of sequence
+        if (e == 0) return (void *)x; // equal until null of sequence
 
         x++;
     }

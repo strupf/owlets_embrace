@@ -156,7 +156,7 @@ static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
 
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-            i32 t = g->tiles[x + y * g->tiles_x].collision;
+            i32 t = g->tiles[x + y * g->tiles_x].shape;
             if (!(0 < t && t < NUM_TILE_SHAPES)) continue;
             v2_i32 pos = {x << 4, y << 4};
             if (TILE_IS_BLOCK(t)) {
@@ -444,7 +444,7 @@ void tighten_ropesegment(g_s *g, rope_s *r,
 
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-            i32 t = g->tiles[x + y * g->tiles_x].collision;
+            i32 t = g->tiles[x + y * g->tiles_x].shape;
             if (!TILE_IS_SHAPE(t)) continue;
 
             v2_i32 pos = {x << 4, y << 4};
@@ -547,7 +547,7 @@ bool32 rope_is_intact(g_s *g, rope_s *r)
 
         for (i32 y = bounds.y1; y <= bounds.y2; y++) {
             for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-                i32 t = g->tiles[x + y * g->tiles_x].collision;
+                i32 t = g->tiles[x + y * g->tiles_x].shape;
                 if (!(0 < t && t < NUM_TILE_SHAPES)) continue;
 
                 v2_i32 pos = {x << 4, y << 4};

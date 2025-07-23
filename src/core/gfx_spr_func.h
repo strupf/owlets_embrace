@@ -80,11 +80,10 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 
     i32 u1 = t_rec.x - psrc.x + x1; // first bit index in src row
     i32 os = 31 & u1;
 #endif
-    i32 of = os - (x1 & 31);
-    i32 sn = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
-    i32 ll = 31 & of;
-    // i32  rr   = 32 - ll;
-#define rr (32 - ll)
+    i32  of   = os - (x1 & 31);
+    i32  sn   = ((os + x2 - x1) >> 5) << SPRBLIT_SRC_MASK;
+    i32  ll   = 31 & of;
+    i32  rr   = 32 - ll;
     i32  ys   = t_rec.y + sy * (y1 - psrc.y) + (sy < 0) * (t_rec.h - 1);
     u32 *pd_y = &ctx.dst.px[((x1 >> 5) + y1 * wd) << SPRBLIT_DST_MASK];
     u32 *ps_y = &t_rec.t.px[((u1 >> 5) + ys * ws) << SPRBLIT_SRC_MASK];
@@ -105,7 +104,7 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 
         u32 *ps_b = &t_rec.t.px[(ws - 1 + ys * ws) << SPRBLIT_SRC_MASK];
         assert(ps_a <= ps && ps <= ps_b);
 #endif
-        u32 pt = ctx.pat.p[yd & 3];
+        u32 pt = ctx.pat.p[yd & 7];
         u32 zp = SPRBLIT_GET_WORD(bswap32(*(ps + 0)));
         u32 sp = zp << ll;
 #if SPRBLIT_SRC_MASK
@@ -188,7 +187,6 @@ void SPRBLIT_FUNCNAME(gfx_ctx_s ctx, texrec_s t_rec, v2_i32 psrc, i32 flip, i32 
         sm &= cr; // apply right clip
         SPRBLIT_FUNCTION(pd, pd + 1, sp, sm, pt, mode);
     }
-#undef rr
 }
 
 #undef SPRBLIT_GET_WORD

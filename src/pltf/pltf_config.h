@@ -6,7 +6,7 @@
 #define PLTF_CONFIG_H
 
 #ifndef PLTF_RELEASE
-#define PLTF_RELEASE 1
+#define PLTF_RELEASE 0
 #endif
 
 #if PLTF_RELEASE

@@ -35,19 +35,21 @@ void hero_rem_upgrade(g_s *g, u32 ID)
 
 obj_s *hero_interactable_available(g_s *g, obj_s *o)
 {
-    u32    d_sq = HERO_DISTSQ_INTERACT;
-    obj_s *res  = 0;
+    u32    d_sq = POW2(HERO_DIST_INTERACT);
     v2_i32 hc   = obj_pos_bottom_center(o);
+    obj_s *res  = 0;
 
-    for (obj_each(g, it)) {
-        if (!(it->flags & OBJ_FLAG_INTERACTABLE)) continue;
+    for (obj_each(g, i)) {
+        if (!(i->flags & OBJ_FLAG_INTERACTABLE)) continue;
 
-        it->interactable_hovered = 0;
-        v2_i32 p                 = obj_pos_bottom_center(it);
-        u32    d                 = v2_i32_distancesq(hc, p);
+        i->interactable_hovered = 0;
+
+        v2_i32 p = {i->pos.x + (i->w >> 1) + i->offs_interact.x,
+                    i->pos.y + (i->h >> 1) + i->offs_interact.y};
+        u32    d = v2_i32_distancesq(hc, p);
         if (d < d_sq) {
             d_sq = d;
-            res  = it;
+            res  = i;
         }
     }
     if (res) {
@@ -60,6 +62,7 @@ obj_s *hero_interactable_available(g_s *g, obj_s *o)
 void hero_check_rope_intact(g_s *g, obj_s *o)
 {
     if (!o->rope || !o->ropenode) return;
+
     hero_s *h = (hero_s *)o->heap;
     rope_s *r = o->rope;
     if (!rope_is_intact(g, r)) {
@@ -104,7 +107,7 @@ void hero_walljump(g_s *g, obj_s *o, i32 dir)
     h->walljump_glue      = 4;
     o->animation          = 0;
     o->facing             = dir;
-    o->v_q12.x            = dir * Q_VOBJ(2.0);
+    o->v_q12.x            = dir * WALLJUMP_VX;
     o->v_q12.y            = 0;
 
     hero_start_jump(g, o, HERO_JUMP_WALL);

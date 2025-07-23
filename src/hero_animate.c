@@ -47,15 +47,22 @@ void hero_on_animate(g_s *g, obj_s *o)
     sprite->trec.t = asset_tex(TEXID_HERO);
     sprite->flip   = o->facing == -1 ? SPR_FLIP_X : 0;
     sprite->offs.x = o->w / 2 - 32;
-    sprite->offs.y = o->h - 64 + 16;
+    sprite->offs.y = o->h - 64 + 16 + 1;
     i32 fr_y       = 0;
     i32 fr_x       = 0;
-    i32 fr_x_add   = 0;
     i32 state      = hero_get_actual_state(g, o);
     sprite->trec.w = 64;
     sprite->trec.h = 64;
     if (h->impact_ticks) {
         h->impact_ticks--;
+    }
+    if (h->hook_throw_anim_tick) {
+        h->hook_throw_anim_tick--;
+        sprite->offs.y -= 16;
+        fr_y  = 5;
+        fr_x  = lerp_i32(10, 14, HERO_THROW_HOOK_ANIM_TICKS - h->hook_throw_anim_tick, HERO_THROW_HOOK_ANIM_TICKS);
+        fr_x  = min_i32(fr_x, 13);
+        state = 0;
     }
 
     if ((HERO_HURT_TICKS * 3) / 4 <= h->hurt_ticks) {
@@ -394,13 +401,6 @@ void hero_on_animate(g_s *g, obj_s *o)
     if (h->mode == HERO_MODE_COMBAT && hero_has_upgrade(g, HERO_UPGRADE_COMPANION)) {
         fr_y += 24;
     }
-    sprite->trec.x = sprite->trec.w * (fr_x + fr_x_add);
+    sprite->trec.x = sprite->trec.w * fr_x;
     sprite->trec.y = sprite->trec.h * fr_y;
-#if PLTF_DEBUG && 0
-    rec_i32 rsprite = {sprite->trec.x, sprite->trec.y, sprite->trec.w, sprite->trec.h};
-    rec_i32 rtex    = {0, 0, sprite->trec.t.w, sprite->trec.t.h};
-    rec_i32 rinter;
-    intersect_rec(rtex, rsprite, &rinter);
-    assert(rinter.w == sprite->trec.w && rinter.h == sprite->trec.h);
-#endif
 }

@@ -68,6 +68,9 @@ void title_init(title_s *t)
     t->preload_slot     = -1;
     g->render_map_doors = 0;
     g->previewmode      = 1;
+#if !TITLE_SKIP_TO_GAME
+    mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
+#endif
 }
 
 void title_start_game(app_s *app, i32 slot)
@@ -215,8 +218,18 @@ void title_update(app_s *app, title_s *t)
             }
 #else
             if (t->title_subst) {
-                if (inp_btn_jp(INP_A)) {
-                    t->title_fade_dir = +1; // fade
+                if (dy) {
+                    t->option = clamp_i32(t->option + dy, 0, 2);
+                } else if (inp_btn_jp(INP_A)) {
+                    switch (t->option) {
+                    case 0:
+                        t->title_fade_dir = +1; // fade
+                        break;
+                    case 1:
+                        APP.sm.n_curr = 0;
+                        APP.sm.active = 1;
+                        break;
+                    }
                     snd_play(SNDID_MENU3, 1.f, 1.f);
                 }
             } else {

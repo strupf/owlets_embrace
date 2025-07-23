@@ -12,20 +12,18 @@
 
 // power and movement upgrades
 enum {
-    HERO_UPGRADE_HOOK       = 1 << 0,
-    HERO_UPGRADE_SWIM       = 1 << 1,
-    HERO_UPGRADE_DIVE       = 1 << 2,
-    HERO_UPGRADE_FLY        = 1 << 3,
-    HERO_UPGRADE_CLIMB      = 1 << 4,
-    HERO_UPGRADE_STOMP      = 1 << 5,
-    HERO_UPGRADE_POWERSTOMP = 1 << 6,
-    HERO_UPGRADE_COMPANION  = 1 << 7,
-};
-
-// equippable optional charms
-enum {
-    HERO_CHARM_ATTRACT_COINS,
-    //
+    HERO_UPGRADE_HOOK                = 1 << 0,
+    HERO_UPGRADE_SWIM                = 1 << 1,
+    HERO_UPGRADE_DIVE                = 1 << 2,
+    HERO_UPGRADE_FLY                 = 1 << 3,
+    HERO_UPGRADE_CLIMB               = 1 << 4,
+    HERO_UPGRADE_STOMP               = 1 << 5,
+    HERO_UPGRADE_POWERSTOMP          = 1 << 6,
+    HERO_UPGRADE_COMPANION           = 1 << 7, // companion available
+    HERO_UPGRADE_COMP_COLLECT        = 1 << 8,
+    HERO_UPGRADE_COMP_FIND_HIDDEN    = 1 << 9,
+    HERO_UPGRADE_COMP_ATTACK_ENEMIES = 1 << 10,
+    HERO_UPGRADE_HOMING_ITEMS        = 1 << 11,
 };
 
 enum {
@@ -62,6 +60,8 @@ enum {
 #define HERO_B_HOLD_SWAP           30
 #define HERO_B_HOLD_SWAP_THRESHOLD 15
 
+#define HERO_THROW_HOOK_ANIM_TICKS     12
+#define HERO_TICKS_UNHOOKED_MOM        20
 #define HERO_CRANK_BUILDUP_Q16         30000
 #define HERO_DROWN_TICKS               150
 #define HERO_AIM_STR_TICKS_PERIOD      100
@@ -74,11 +74,9 @@ enum {
 #define HERO_LOW_HP_ANIM_TICKS_RECOVER 20
 #define HERO_LEN_INPUT_BUF             32
 #define HERO_SQUISH_TICKS              35
-#define HERO_CLIMB_Y1_OFFS             2 // from top downwards
-#define HERO_CLIMB_Y2_OFFS             4 // from bottom upwards
-#define HERO_TICKS_SPIN_ATTACK         22
+#define HERO_CLIMB_Y1_OFFS             2  // from top downwards
+#define HERO_CLIMB_Y2_OFFS             4  // from bottom upwards
 #define HERO_HURT_LP_TICKS             85 // duration of lowpass after hurt
-#define HERO_HURT_LP_TICKS_FADE        30 // ticks for fading from hurt lowpass back to normal
 #define HERO_WATER_THRESHOLD           18
 #define HERO_WIDTH                     14
 #define HERO_X_OFFS_LADDER             ((16 - HERO_WIDTH) >> 1)
@@ -92,14 +90,13 @@ enum {
 #define HERO_REEL_RATE                 30
 #define HERO_SWIM_TICKS                50 // duration of swimming without upgrade
 #define HEROHOOK_N_HIST                4
-#define HERO_GRAVITY                   Q_VOBJ(0.3125)
+#define HERO_GRAVITY                   Q_VOBJ(0.32)
 #define HERO_TICKS_PER_STAMINA_UPGRADE 1024
-#define HERO_DISTSQ_INTERACT           POW2(50)
-#define HERO_DISTSQ_PICKUP             POW2(100)
+#define HERO_DIST_INTERACT             50 // distance center-center to interact
 #define HERO_TICKS_STOMP_INIT          6
 #define STAMINA_UI_TICKS_HIDE          12
-#define WALLJUMP_ANIM_TICKS            10
-#define WALLJUMP_MOM_TICKS             55
+#define WALLJUMP_VX                    Q_VOBJ(3.0)
+#define WALLJUMP_MOM_TICKS             25
 #define WALLJUMP_TICKS                 20
 #define HERO_WALLJUMP_THRESHOLD_PX     12
 #define HERO_NUM_JUMPED_ON             8
@@ -108,10 +105,6 @@ enum {
 #define HERO_HURT_TICKS                50
 #define HERO_INVINCIBILITY_TICKS       100
 #define HERO_W_STOMP_ADD_SYMM          4
-//
-#define HERO_ITEMSWAP_TICKS            25
-#define HERO_ITEMSWAP_TICKS_INIT       15
-#define HERO_ITEMSWAP_TICKS_FADE       25
 
 enum {
     HERO_JUMP_WATER,
@@ -139,11 +132,6 @@ typedef struct {
     bool32       stomped;
 } jumpstomped_s;
 
-typedef struct {
-    v2_i32 p;
-    v2_i32 pp;
-} hero_hook_trail_el_s;
-
 typedef struct hero_s {
     u32    upgrades;
     i32    crank_acc_q16;
@@ -156,6 +144,10 @@ typedef struct hero_s {
     u16    idle_animID;
     u32    idle_anim_tick;
     u32    idle_tick;
+    i32    momentum;
+    i32    momentum_wall;
+    u8     hook_throw_anim_tick;
+    u8     is_pushing;
     v2_i32 safe_pos;
     v2_i16 safe_v;
     v2_i8  render_align_offs;
@@ -163,6 +155,8 @@ typedef struct hero_s {
     i16    air_block_ticks;
     i16    air_block_ticks_og;
     u8     drown_tick;
+    u8     unhooked_mom;
+    u8     stomp_hook_mom;
     u16    stamina_ui_collected_tick;
     u16    stamina_ui_fade_out;
     u16    stamina_added;
@@ -173,7 +167,6 @@ typedef struct hero_s {
     u8     ticks_health; // animator tick low health ui
     u8     state_prev;
     u8     state_curr;
-    b8     ropepulled;
     u8     gliding;
     b8     was_grounded_upd;
     b8     was_grounded_upd_post;
@@ -194,6 +187,7 @@ typedef struct hero_s {
     u8     swimsfx_delay;
     u8     invincibility_ticks;
     u8     stamina_pieces;
+    u8     health_pieces;
     u8     skidding;
     u8     b_hold_tick;
     u8     attack_ID;
@@ -210,9 +204,8 @@ typedef struct hero_s {
     u8     ibuf[HERO_LEN_INPUT_BUF]; // circular buffer of button states
     u8     name[LEN_HERO_NAME];
 
-    hero_hook_trail_el_s hooktrail[4];
-    obj_handle_s         obj_grabbed;
-    jumpstomped_s        jumpstomped[HERO_NUM_JUMPED_ON];
+    obj_handle_s  obj_grabbed;
+    jumpstomped_s jumpstomped[HERO_NUM_JUMPED_ON];
 } hero_s;
 
 obj_s   *hero_create(g_s *g);
@@ -243,6 +236,7 @@ i32      hero_swim_frameID_idle(i32 animation);
 v2_i32   hero_hook_aim_dir(hero_s *h);
 void     hero_stomped_ground(g_s *g, obj_s *o);
 void     hero_walljump(g_s *g, obj_s *o, i32 dir);
+void     hero_start_jump(g_s *g, obj_s *o, i32 ID);
 bool32   hero_stomping(obj_s *o);
 i32      hero_register_jumpstomped(obj_s *ohero, obj_s *o, bool32 stomped);
 i32      hero_can_grab(g_s *g, obj_s *o, i32 dirx);

@@ -63,6 +63,10 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_FLYING_BUG, "T_FLYBUG");
     app_load_tex_internal(&l, TEXID_WIND, "T_WIND");
     app_load_tex_internal(&l, TEXID_FOREGROUND, "T_FOREGROUND");
+    app_load_tex_internal(&l, TEXID_FEATHERUPGR, "T_FEATHERUPGR");
+    app_load_tex_internal(&l, TEXID_DRILLER, "T_DRILLER");
+    app_load_tex_internal(&l, TEXID_ROOTS, "T_ROOT");
+    app_load_tex_internal(&l, TEXID_MOLE, "T_MOLE");
     APP.assets.tex[TEXID_PAUSE_TEX] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
@@ -151,6 +155,8 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_BPLANT_HOP, "A_BPLANT_HOP");
     app_load_ani_internal(&l, ANIID_PREPARE_SWAP, "A_PREPARE_SWAP");
     app_load_ani_internal(&l, ANIID_FBLOB_ATTACK, "A_FBLOB_ATTACK");
+    app_load_ani_internal(&l, ANIID_MOLE_DIG_OUT, "A_MOLE_DIG_OUT");
+    app_load_ani_internal(&l, ANIID_MOLE_DIG_IN, "A_MOLE_DIG_IN");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {

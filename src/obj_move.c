@@ -20,7 +20,7 @@ bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
         i32 tx1 = (ri.x + ri.w - 1) >> 4;
 
         for (i32 tx = tx0; tx <= tx1; tx++) {
-            switch (g->tiles[tx + ty * g->tiles_x].collision) {
+            switch (g->tiles[tx + ty * g->tiles_x].shape) {
             case TILE_ONE_WAY:
             case TILE_LADDER_ONE_WAY:
                 return 1;
@@ -52,7 +52,7 @@ bool32 obj_blocked_by_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
         i32 tx1 = (ri.x + ri.w - 1) >> 4;
 
         for (i32 tx = tx0; tx <= tx1; tx++) {
-            switch (g->tiles[tx + ty * g->tiles_x].collision) {
+            switch (g->tiles[tx + ty * g->tiles_x].shape) {
             case TILE_ONE_WAY:
             case TILE_LADDER_ONE_WAY:
                 return 1;

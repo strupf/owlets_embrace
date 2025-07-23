@@ -36,8 +36,6 @@ enum {
     NUM_TILELAYER
 };
 
-#define TILE_WATER_MASK     0x80
-#define TILE_ICE_MASK       0x40
 #define TILE_IS_BLOCK(X)    (TILE_BLOCK == (X))
 #define TILE_IS_SLOPE_45(X) (TILE_SLOPE_45_0 <= (X) && (X) <= TILE_SLOPE_45_3)
 #define TILE_IS_SHAPE(X)    (1 <= (X) && (X) < NUM_TILE_SHAPES)
@@ -46,15 +44,6 @@ typedef struct {
     i32     n;
     tri_i32 t[2];
 } tile_tris_s;
-
-typedef union {
-    struct {
-        u16 ty;
-        u8  type;      // 6 bits for type, 1 bit for water, 1 bit for iced
-        u8  collision; // collision shape
-    };
-    u32 u;
-} tile_s;
 
 bool32  tile_solid_pt(i32 shape, i32 x, i32 y);
 bool32  tile_solid_r(i32 shape, i32 x0, i32 y0, i32 x1, i32 y1);
@@ -89,5 +78,30 @@ typedef struct {
 tile_map_bounds_s tile_map_bounds_rec(g_s *g, rec_i32 r);
 tile_map_bounds_s tile_map_bounds_pts(g_s *g, v2_i32 p0, v2_i32 p1);
 tile_map_bounds_s tile_map_bounds_tri(g_s *g, tri_i32 t);
+
+// bits for marching squares (neighbours)
+// 128  1 2
+//  64 XX 4
+//  32 16 8
+enum {
+    AT_N  = B8(00000001),
+    AT_E  = B8(00000100),
+    AT_S  = B8(00010000),
+    AT_W  = B8(01000000),
+    AT_NE = B8(00000010),
+    AT_SE = B8(00001000),
+    AT_SW = B8(00100000),
+    AT_NW = B8(10000000)
+};
+
+// offx and offy only affect the visual tile randomizer
+void autotile_terrain_section(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy,
+                              i32 rx, i32 ry, i32 rw, i32 rh);
+// offx and offy only affect the visual tile randomizer
+void autotile_terrain(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy);
+
+// convert u8 array to background autotiles
+void               autotilebg(g_s *g, u8 *tiles);
+extern const v2_i8 g_autotile_coords[256];
 
 #endif

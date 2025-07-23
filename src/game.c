@@ -49,7 +49,6 @@ void game_tick(g_s *g, inp_state_s inpstate)
 {
     g->inp.p = g->inp.c;
     g->inp.c = inpstate;
-
 #if PLTF_DEV_ENV
     i32 ab = -1;
 #if 0
@@ -413,6 +412,9 @@ void game_load_savefile(g_s *g)
         g->coins.n          = s->coins;
         h->stamina_upgrades = s->stamina;
         h->stamina_pieces   = s->stamina_pieces;
+        h->health_pieces    = s->health_pieces;
+        o->health_max       = s->health_max;
+        o->health           = o->health_max;
     }
 
     game_load_map(g, s->map_hash);
@@ -448,6 +450,8 @@ void game_update_savefile(g_s *g)
         s->coins          = coins_total(g);
         s->stamina        = h->stamina_upgrades;
         s->stamina_pieces = h->stamina_pieces;
+        s->health_pieces  = h->health_pieces;
+        s->health_max     = 3;
     }
     pltf_sync_timestep();
 }
@@ -469,41 +473,6 @@ bool32 game_save_savefile(g_s *g, v2_i32 pos)
     }
     pltf_sync_timestep();
     return (res == 0);
-}
-
-void game_on_trigger(g_s *g, i32 trigger)
-{
-    if (!trigger) return;
-
-    if (g->cuts.on_trigger) {
-        g->cuts.on_trigger(g, &g->cuts, trigger);
-    }
-
-    switch (trigger) {
-    case TRIGGER_BOSS_PLANT:
-        boss_plant_wake_up(g);
-        break;
-    case 9000:
-        cs_demo_1_enter(g);
-        break;
-    case 9001:
-        cs_demo_2_enter(g);
-        break;
-    case 9005:
-        cs_demo_3_enter(g);
-        break;
-    case TRIGGER_CS_UPGRADE:
-        cs_powerup_enter(g);
-        break;
-    }
-
-    pltf_log("trigger %i\n", trigger);
-
-    for (obj_each(g, o)) {
-        if (o->on_trigger) {
-            o->on_trigger(g, o, trigger);
-        }
-    }
 }
 
 void game_on_solid_appear_ext(g_s *g, obj_s *s)
@@ -566,13 +535,6 @@ bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
 
         if (0 <= strongest) {
             res |= hero_attackbox_o(g, o, boxes[strongest]);
-        }
-
-        if (o->ID == OBJID_HANGINGBLOCK && !o->state) {
-            if (overlap_rec(hangingblock_rec_line(o), boxes[0].r)) {
-                hangingblock_on_hit(g, o);
-                res |= 1;
-            }
         }
     }
     return res;

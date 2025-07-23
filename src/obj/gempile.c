@@ -15,12 +15,11 @@ void gempile_load(g_s *g, map_obj_s *mo)
     i32 saveID = map_obj_i32(mo, "saveID");
     if (save_event_exists(g, saveID)) return;
 
-    obj_s *o      = obj_create(g);
-    o->ID         = OBJID_GEMPILE;
-    o->w          = 40;
-    o->h          = 24;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y + (mo->h - o->h);
+    obj_s *o = obj_create(g);
+    o->ID    = OBJID_GEMPILE;
+    o->w     = 40;
+    o->h     = 24;
+    obj_place_to_map_obj(o, mo, 0, +1);
     o->n_sprites  = 1;
     o->on_animate = gempile_on_animate;
     o->health_max = GEMPILE_N_HITS;
@@ -35,6 +34,11 @@ void gempile_on_animate(g_s *g, obj_s *o)
     spr->trec         = asset_texrec(TEXID_GEMS, 0, 144, 64, 48);
     spr->offs.x       = -((spr->trec.w - o->w) >> 1);
     spr->offs.y       = -(spr->trec.h - o->h);
+
+    if (o->animation) {
+        o->animation--;
+        spr->trec.y += 48;
+    }
 }
 
 void gempile_on_hit(g_s *g, obj_s *o)
@@ -45,7 +49,7 @@ void gempile_on_hit(g_s *g, obj_s *o)
     v2_i32 pc     = obj_pos_center(o);
     i32    n_gems = o->health == 0 ? GEMPILE_GEMS_ON_DESTROY
                                    : GEMPILE_GEMS_ON_HIT;
-
+    o->animation  = 12;
     for (i32 n = 0; n < n_gems; n++) {
         obj_s *i = coin_create(g);
         if (!i) {

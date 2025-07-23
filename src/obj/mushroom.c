@@ -25,9 +25,8 @@ void mushroom_load(g_s *g, map_obj_s *mo)
     o->on_hook   = mushroom_on_hook;
     o->w         = 32;
     o->h         = 24;
-    o->pos.x     = mo->x;
-    o->pos.y     = mo->y + (mo->h - o->h);
-    o->flags     = OBJ_FLAG_HERO_JUMPSTOMPABLE;
+    obj_place_to_map_obj(o, mo, 0, +1);
+    o->flags = OBJ_FLAG_HERO_JUMPSTOMPABLE;
 }
 
 void mushroom_on_update(g_s *g, obj_s *o)
@@ -35,7 +34,7 @@ void mushroom_on_update(g_s *g, obj_s *o)
     switch (o->state) {
     case MUSHROOM_JUMPED_ON: {
         if (o->timer < 30) {
-            g->cam.force_lower_ceiling = min_i32(o->timer << 2, 30);
+            g->cam.chero.force_lower_ceiling = min_i32(o->timer << 2, 30);
         }
         o->timer++;
         if (MUSHROOM_BOUNCE_TICKS <= o->timer) {

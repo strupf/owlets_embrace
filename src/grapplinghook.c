@@ -13,7 +13,11 @@ void grapplinghook_do_hook(g_s *g, grapplinghook_s *h)
     obj_s *ohero     = obj_from_obj_handle(h->o1);
     i32    herostate = hero_get_actual_state(g, ohero);
     if (herostate == HERO_ST_AIR) {
-        clen_q4 = (clen_q4 * 245) >> 8;
+#if HERO_USE_HOOK_TEST
+        clen_q4 = (clen_q4 * 252) >> 8;
+#else
+        clen_q4 = (clen_q4 * 248) >> 8;
+#endif
     }
     h->rope.len_max_q4 = clamp_i32(clen_q4,
                                    HERO_ROPE_LEN_MIN,
@@ -98,7 +102,10 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
     switch (h->state) {
     case GRAPPLINGHOOK_FLYING: {
         h->p_q8 = v2_i16_add(h->p_q8, h->v_q8);
+
+#if !HERO_USE_HOOK_TEST
         h->v_q8.y += GRAPPLING_HOOK_GRAV;
+#endif
 
         i32 dx = h->p_q8.x >> 8;
         i32 dy = h->p_q8.y >> 8;
@@ -146,9 +153,11 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
     }
     case GRAPPLINGHOOK_HOOKED_TERRAIN: {
         rec_i32 rsurround = {h->p.x - 1, h->p.y - 1, 3, 3};
+#if !HERO_USE_HOOK_TEST
         if (!map_blocked(g, rsurround)) {
             grapplinghook_destroy(g, h);
         }
+#endif
         break;
     }
     case GRAPPLINGHOOK_HOOKED_OBJ: {
@@ -260,6 +269,12 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
     }
 }
 
+void grapplinghook_anchor_in_place(g_s *g, grapplinghook_s *h)
+{
+    h->state = GRAPPLINGHOOK_HOOKED_TERRAIN;
+    grapplinghook_do_hook(g, h);
+}
+
 bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
                                       i32 sx, i32 sy)
 {
@@ -270,7 +285,7 @@ bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
         return 0;
 
     tile_s t = g->tiles[(x >> 4) + (y >> 4) * g->tiles_x];
-    if (!tile_solid_pt(t.collision, x & 15, y & 15))
+    if (!tile_solid_pt(t.shape, x & 15, y & 15))
         return 0;
 
     switch (t.type & 63) {
@@ -548,9 +563,7 @@ i32 grapplinghook_f_at_obj_proj_v(grapplinghook_s *gh, obj_s *o, v2_i32 dproj, v
     }
 
     i32 dp = v2_i32_dot(dt, dproj);
-    if (dp < 0) return +f;
-    if (dp > 0) return -f;
-    return f;
+    return (dp <= 0 ? +f : -f);
 }
 
 i32 grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj)

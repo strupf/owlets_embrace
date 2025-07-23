@@ -6,9 +6,31 @@
 #include "game.h"
 #include "render.h"
 
-static i32 coord_parallax(i32 p, i32 v_q8, i32 a)
+void background_perf_prepare(g_s *g);
+
+void background_init_and_load_from_wad(g_s *g, i32 ID, void *f)
 {
-    return ((((p * v_q8) >> 8) & ~a));
+    tex_s *tbg = &APP.assets.tex[TEXID_BG_PARALLAX];
+    switch (ID) {
+    default: break;
+    case BACKGROUND_ID_CAVE:
+        tex_from_wad(f, 0, "T_BG_CAVE", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_FOREST_DARK:
+    case BACKGROUND_ID_FOREST_BRIGHT:
+        tex_from_wad(f, 0, "T_BG_FOREST", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_SNOW:
+        tex_from_wad(f, 0, "T_BG_SNOW", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_WATERFALL:
+        tex_from_wad(f, 0, "T_BG_WATERFALL", game_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_VERTICAL:
+        tex_from_wad(f, 0, "T_BG_VERTICAL", game_allocator(g), tbg);
+        break;
+    }
+    background_perf_prepare(g);
 }
 
 void background_perf_prepare(g_s *g)
@@ -35,6 +57,11 @@ void background_perf_prepare(g_s *g)
         break;
     }
     }
+}
+
+static i32 coord_parallax(i32 p, i32 v_q8, i32 a)
+{
+    return (((p * v_q8) >> 8) & ~a);
 }
 
 void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
@@ -115,6 +142,18 @@ void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
 
         gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
         gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
+        break;
+    }
+    case BACKGROUND_ID_VERTICAL: {
+        gfx_fill_rows(tdisplay, gfx_pattern_bayer_4x4(14), 0, ctx.clip_y2);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 768, 512);
+        texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 768, 512);
+        pos_mid.x       = coord_parallax(cam_al.x, 192, alx);
+        pos_far.x       = coord_parallax(cam_al.x, 128, 3);
+        pos_far.x -= 192;
+        pos_mid.x -= 160;
+        gfx_spr_tileds_copy(ctx, tr_far, pos_far, 0, 1);
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 0, 1);
         break;
     }
     }

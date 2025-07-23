@@ -8,6 +8,7 @@
 #include "gamedef.h"
 
 void   cs_powerup_enter(g_s *g);
+void   cs_intro_comp_1_enter(g_s *g);
 void   cs_demo_1_enter(g_s *g);
 void   cs_demo_2_enter(g_s *g);
 void   cs_demo_3_enter(g_s *g);
@@ -18,6 +19,10 @@ void   cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos);
 void   cs_explain_hook_enter(g_s *g);
 void   cs_bossplant_intro_enter(g_s *g);
 void   cs_bossplant_outro_enter(g_s *g);
+void   cs_finding_comp_enter(g_s *g);
+void   cs_finding_hook_enter(g_s *g);
+void   cs_aquire_heartpiece_enter(g_s *g, bool32 is_stamina);
+void   cs_mole_1_enter(g_s *g);
 
 enum {
     CS_ID_NONE,
@@ -35,13 +40,16 @@ enum {
 
 typedef struct cs_s cs_s;
 struct cs_s {
-    i32 tick;
-    u16 ID;
-    u16 phase;
-    u8  counter0;
-    u8  counter1;
-    u8  counter2;
-    u8  counter3;
+    i32    tick;
+    u16    ID;
+    u16    phase;
+    u8     counter0;
+    u8     counter1;
+    u8     counter2;
+    u8     counter3;
+    obj_s *p_comp;
+    obj_s *p_hero;
+    obj_s *p_o[4];
 
     void (*on_trigger)(g_s *g, cs_s *cs, i32 trigger);
     void (*on_update)(g_s *g, cs_s *cs);

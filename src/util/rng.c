@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "rng.h"
+#include "mathfunc.h"
 
 static u32 g_rng_seed = 314159265;
 
@@ -31,7 +32,7 @@ i32 rngs_i32_bound(u32 *s, i32 hi)
 
 i32 rngsr_i32(u32 *seed, i32 lo, i32 hi)
 {
-    return lo + rngs_i32_bound(seed, (hi - lo));
+    return i32_range(rngs_i32(seed), lo, hi);
 }
 
 i32 rngr_i32(i32 lo, i32 hi)

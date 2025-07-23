@@ -18,10 +18,8 @@ enum {
     PARTICLE_TYPE_REC,
     PARTICLE_TYPE_TEX,
     //
-    PARTICLE_NUM_TYPES
-};
-
-enum {
+    PARTICLE_NUM_TYPES,
+    //
     PARTICLE_FLAG_COLLISIONS = 1 << 6,
     PARTICLE_FLAG_FADE_OUT   = 1 << 7,
 };

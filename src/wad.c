@@ -135,7 +135,8 @@ void *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name)
     wad_el_s *e = wad_seek_str(f, efrom, name);
     if (!e) return 0;
 
-    void *dst = spm_alloc(e->size);
+    u32   s   = lzss_decode_file_peek_size(f);
+    void *dst = spm_alloc(s);
     lzss_decode_file(f, dst);
     return dst;
 }

@@ -14,16 +14,23 @@ enum {
     OBJID_HERO_COMPANION,
     OBJID_HOOK,
     OBJID_DOOR,
+    OBJID_BIGCRAB,
+    OBJID_MOLE,
     OBJID_CRUMBLEBLOCK,
-    OBJID_HANGINGBLOCK,
+    OBJID_SHORTCUTBLOCK,
     OBJID_SWITCH,
     OBJID_DUMMYSOLID,
-    OBJID_TOGGLEBLOCK,
+    OBJID_MUSHROOMBLOCK,
+    OBJID_DRILLER,
+    OBJID_DRILLERSPAWN,
     OBJID_SOLIDLEVER,
+    OBJID_LOOKAHEAD,
+    OBJID_HEARTPIECE,
     OBJID_HOOKYEETER,
     OBJID_CLOCKPULSE,
     OBJID_MISC,
     OBJID_WATERCOL,
+    OBJID_MOVINGBLOCK,
     OBJID_CRAWLER,
     OBJID_HERO_UPGRADE,
     OBJID_GEMPILE,
@@ -73,6 +80,7 @@ enum {
     //
     OBJID_PUPPET_HERO,
     OBJID_PUPPET_COMPANION,
+    OBJID_PUPPET_MOLE,
     //
     OBJID_BOSS_PLANT_TENTACLE,
     OBJID_BOSS_PLANT_EYE,
@@ -102,10 +110,7 @@ void      crumbleblock_on_hooked(g_s *g, obj_s *o);
 void      crumbleblock_break(g_s *g, obj_s *o);
 void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
-void      toggleblock_load(g_s *g, map_obj_s *mo);
-void      toggleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void      toggleblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
-void      toggleblock_on_animate(g_s *g, obj_s *o);
+void      mushroomblock_load(g_s *g, map_obj_s *mo);
 void      crawler_load(g_s *g, map_obj_s *mo);
 void      hero_upgrade_load(g_s *g, map_obj_s *mo);
 void      hero_upgrade_put_orb_infront(obj_s *o);
@@ -136,16 +141,13 @@ void      steam_platform_load(g_s *g, map_obj_s *mo);
 void      budplant_load(g_s *g, map_obj_s *mo);
 obj_s    *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void      projectile_on_collision(g_s *g, obj_s *o);
-void      hangingblock_load(g_s *g, map_obj_s *mo);
-rec_i32   hangingblock_rec_line(obj_s *o);
-void      hangingblock_on_hit(g_s *g, obj_s *o);
 void      flyblob_load(g_s *g, map_obj_s *mo);
 void      flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb);
 void      staminarestorer_load(g_s *g, map_obj_s *mo);
 bool32    staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero);
 void      staminarestorer_respawn_all(g_s *g, obj_s *o);
-void      camattractor_static_load(g_s *g, map_obj_s *mo);
-v2_i32    camattractor_static_closest_pt(obj_s *o, v2_i32 pt);
+void      camattractor_load(g_s *g, map_obj_s *mo);
+v2_i32    camattractor_closest_pt(obj_s *o, v2_i32 pt);
 void      ditherarea_load(g_s *g, map_obj_s *mo);
 void      stompable_block_load(g_s *g, map_obj_s *mo);
 void      stompable_block_break(g_s *g, obj_s *o);
@@ -188,5 +190,13 @@ void      gempile_on_hit(g_s *g, obj_s *o);
 void      mushroom_load(g_s *g, map_obj_s *mo);
 void      mushroom_on_jump_on(g_s *g, obj_s *o);
 void      tutorialtext_load(g_s *g, map_obj_s *mo);
-
+void      lookahead_load(g_s *g, map_obj_s *mo);
+void      lookahead_start(g_s *g, obj_s *o);
+void      heart_or_stamina_piece_load(g_s *g, map_obj_s *mo, bool32 is_stamina);
+void      heartpiece_on_collect(g_s *g, obj_s *o);
+void      bigcrab_load(g_s *g, map_obj_s *mo);
+void      drillerspawn_load(g_s *g, map_obj_s *mo);
+void      drillers_setup(g_s *g);
+void      movingblock_load(g_s *g, map_obj_s *mo);
+void      shortcutblock_load(g_s *g, map_obj_s *mo);
 #endif

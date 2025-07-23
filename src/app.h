@@ -12,7 +12,6 @@
 #include "pltf/pltf.h"
 #include "save.h"
 #include "settings.h"
-#include "settings_menu.h"
 #include "title.h"
 #include "util/timing.h"
 #include "wad.h"
@@ -31,19 +30,19 @@ enum {
 
 typedef struct app_s {
     ALIGNAS(APP_STRUCT_ALIGNMENT)
-    wad_s           wad;
-    assets_s        assets;
-    spm_s           spm;
-    aud_s           aud;
-    g_s             game;
-    title_s         title;
-    settings_menu_s settings_menu;
-    savefile_s      save;
-    i32             state;
-    marena_s        ma;
-    byte            mem[MMEGABYTE(8)];
-    i32             opt;
-    i32             flags;
+    wad_s        wad;
+    assets_s     assets;
+    spm_s        spm;
+    aud_s        aud;
+    g_s          game;
+    title_s      title;
+    savefile_s   save;
+    marena_s     ma;
+    byte         mem[MMEGABYTE(8)];
+    i32          state;
+    i32          opt;
+    i32          flags;
+    settings_m_s sm;
 } app_s;
 
 extern app_s APP;

@@ -95,6 +95,28 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         fx = 6 + min_i32((anim_t >> 2), 5);
         break;
     }
+    case PUPPET_HERO_ANIMID_PRESENT_ABOVE: {
+        fx = 11 + min_i32(anim_t >> 1, 2);
+        fy = 8;
+        break;
+    }
+    case PUPPET_HERO_ANIMID_PRESENT_ABOVE_COMP: {
+        fx = 11 + min_i32(anim_t >> 1, 2);
+        fy = 32;
+        break;
+    }
+    case PUPPET_HERO_ANIMID_OFF_BALANCE: {
+        i32 t = frame_from_ticks_pingpong(anim_t >> 1, 6);
+        fx    = 8 + t;
+        fy    = 4;
+        break;
+    }
+    case PUPPET_HERO_ANIMID_OFF_BALANCE_COMP: {
+        i32 t = frame_from_ticks_pingpong(anim_t >> 1, 6);
+        fx    = 8 + t;
+        fy    = 28;
+        break;
+    }
     }
 
     spr->trec = asset_texrec(TEXID_HERO, fx * fw, fy * fh, fw, fh);

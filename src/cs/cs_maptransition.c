@@ -127,7 +127,7 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         break;
     case DIRECTION_S:
         aabb.y = 2;
-        hvel.y = 512;
+        hvel.y = Q_VOBJ(1.0);
         break;
     }
 

@@ -51,6 +51,8 @@ void pushblock_on_update(g_s *g, obj_s *o)
 void pushblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     v2_i32 pos = v2_i32_add(o->pos, cam);
+    pos.x &= ~1;
+    pos.y &= ~1;
     render_tile_terrain_block(gfx_ctx_display(), pos, o->w / 16, o->h / 16, TILE_TYPE_BRIGHT_STONE);
 }
 

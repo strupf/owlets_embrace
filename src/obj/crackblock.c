@@ -9,8 +9,14 @@
 enum {
     CRACKBLOCK_ST_IDLE,
     CRACKBLOCK_ST_SHAKE,
-    CRACKBLOCK_ST_FALL
+    CRACKBLOCK_ST_FALL,
+    CRACKBLOCK_ST_IDLE_FELL,
 };
+
+typedef struct {
+    // 1 tile bigger on each side
+    tile_s *tiles;
+} crackblock_s;
 
 #define CRACKBLOCK_SHAKE_T 20
 
@@ -20,20 +26,62 @@ void crackblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void crackblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
+    o->ID    = OBJID_CRACKBLOCK;
+    o->pos.x = mo->x;
+    o->pos.y = mo->y;
+    o->w     = mo->w;
+    o->h     = mo->h;
 
-    o->ID              = OBJID_CRACKBLOCK;
-    o->flags           = OBJ_FLAG_SOLID | OBJ_FLAG_CLIMBABLE;
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y;
-    o->w               = mo->w;
-    o->h               = mo->h;
-    o->on_update       = crackblock_on_update;
-    o->on_draw         = crackblock_on_draw;
     o->render_priority = RENDER_PRIO_INFRONT_FLUID_AREA - 1;
+    crackblock_s *b    = (crackblock_s *)o->mem;
+
+    // need 1 tile of space around the actual bounding box for autotiling
+    i32 px   = o->pos.x >> 4;
+    i32 py   = o->pos.y >> 4;
+    i32 nx   = o->w >> 4;
+    i32 ny   = o->h >> 4;
+    b->tiles = game_alloctn(g, tile_s, (nx + 2) * (ny + 2));
+
+    // autotiling this stone
+    for (i32 y = 0; y < ny; y++) {
+        for (i32 x = 0; x < nx; x++) {
+            tile_s *tb = &b->tiles[(1 + x) + (1 + y) * (nx + 2)];
+            tb->type   = 11;
+            tb->shape  = TILE_BLOCK;
+        }
+    }
+    autotile_terrain(b->tiles, nx + 2, ny + 2, 0, 0);
+
+    i32 saveID = map_obj_i32(mo, "saveID");
+    if (save_event_exists(g, saveID)) {
+        o->state   = CRACKBLOCK_ST_IDLE_FELL;
+        o->on_draw = crackblock_on_draw;
+        o->flags   = OBJ_FLAG_SOLID | OBJ_FLAG_CLIMBABLE;
+        rec_i32 rb = obj_rec_bottom(o);
+        for (i32 steps = 1024; steps && !map_blocked(g, rb); steps--) {
+            o->pos.y++;
+            rb.y++;
+        }
+    } else {
+        o->substate  = saveID;
+        o->on_update = crackblock_on_update;
+
+        // place static terrain tiles
+        for (i32 y = 0; y < ny; y++) {
+            for (i32 x = 0; x < nx; x++) {
+                tile_s *t = &g->tiles[(px + x) + (py + y) * g->tiles_x];
+                t->type   = TILE_TYPE_BRIGHT_STONE;
+                t->shape  = TILE_BLOCK;
+            }
+        }
+        autotile_terrain_section(g->tiles, g->tiles_x, g->tiles_y, 0, 0,
+                                 px - 2, py - 2, nx + 4, ny + 4);
+    }
 }
 
 void crackblock_on_update(g_s *g, obj_s *o)
 {
+    crackblock_s *b = (crackblock_s *)o->mem;
     o->timer++;
 
     switch (o->state) {
@@ -41,10 +89,23 @@ void crackblock_on_update(g_s *g, obj_s *o)
         obj_s *ohero = obj_get_hero(g);
         if (!ohero) break;
 
-        if (overlap_rec(obj_rec_bottom(ohero), obj_aabb(o)) ||
-            obj_from_obj_handle(ohero->linked_solid) == o) {
+        rec_i32 rh = obj_aabb(ohero);
+        if (overlap_rec_touch(obj_aabb(o), rh)) {
             o->timer = 0;
             o->state++;
+            o->on_draw = crackblock_on_draw;
+            o->flags   = OBJ_FLAG_SOLID | OBJ_FLAG_CLIMBABLE;
+
+            // clear static terrain tiles
+            i32 px = o->pos.x >> 4;
+            i32 py = o->pos.y >> 4;
+            i32 nx = o->w >> 4;
+            i32 ny = o->h >> 4;
+            for (i32 y = 0; y < ny; y++) {
+                mclr(&g->tiles[(px) + (py + y) * g->tiles_x], sizeof(tile_s) * nx);
+            }
+            autotile_terrain_section(g->tiles, g->tiles_x, g->tiles_y, 0, 0,
+                                     px - 2, py - 2, nx + 4, ny + 4);
         }
         break;
     }
@@ -69,8 +130,9 @@ void crackblock_on_update(g_s *g, obj_s *o)
 
             // landed on the floor
             // spawn dust explosions
-            o->v_q12.y   = 0;
+            save_event_register(g, o->substate);
             o->on_update = 0;
+            o->v_q12.y   = 0;
             cam_screenshake_xy(&g->cam, 15, 0, 4);
             snd_play(SNDID_EXPLO1, 0.3f, 1.5f);
 
@@ -100,6 +162,16 @@ void crackblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
     p.x &= ~1;
     p.y &= ~1;
-    render_tile_terrain_block_wrapped(ctx, p, o->w >> 4, o->h >> 4,
-                                      TILE_TYPE_BRIGHT_STONE);
+
+    crackblock_s *b  = (crackblock_s *)o->mem;
+    i32           nx = o->w >> 4;
+    i32           ny = o->h >> 4;
+    for (i32 y = 0; y < ny; y++) {
+        for (i32 x = 0; x < nx; x++) {
+            tile_s  *t    = &b->tiles[(1 + x) + (1 + y) * (nx + 2)];
+            texrec_s trec = {asset_tex(TEXID_TILESET_TERRAIN), 0, (i32)t->ty << 5, 32, 32};
+            v2_i32   pos  = {p.x + x * 16 - 8, p.y + y * 16 - 8};
+            gfx_spr_tile_32x32(ctx, trec, pos);
+        }
+    }
 }

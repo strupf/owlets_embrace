@@ -7,8 +7,9 @@
 
 #include "pltf/pltf_intrin.h"
 
-#define PI_FLOAT  3.1415927f
-#define PI2_FLOAT 6.2831853f
+#define PI_FLOAT      3.1415927f
+#define PI2_FLOAT     6.2831853f
+#define PI2_FLOAT_INV 0.15915494f
 
 #define QX_FRAC(Q, D, N) (((D) << (Q)) / (N))
 #define Q8_FRAC(D, N)    QX_FRAC(8, D, N)
@@ -108,6 +109,11 @@ static inline f32 sgn_f32(f32 a)
     if (a < 0.f) return -1.f;
     if (a > 0.f) return +1.f;
     return 0.f;
+}
+
+static i32 i32_range(i32 v, i32 lo, i32 hi)
+{
+    return lo + (v % (hi - lo + 1));
 }
 
 #define SAT_ADD_SUB_IMPL(T, MINV, MAXV)           \
@@ -267,9 +273,12 @@ static i32 amax_bmin_i32(i32 x, i32 y)
     i32 ya = abs_i32(y);
     u32 lo = (u32)min_i32(xa, ya);
     u32 hi = (u32)max_i32(xa, ya);
+    // a0 = 1
+    // b0 = 0
+    // a1 = 29/32
+    // b1 = 61/128
     u32 z  = u32_add(u32_mul(hi, 29) >> 5, u32_mul(lo, 61) >> 7);
-    // u32 z = u32_add(u32_mul(hi, 7) >> 3, u32_mul(lo, 17) >> 5); // less prone to overflow on high values
-    return max_u32(hi, z);
+    return (i32)max_u32(hi, z);
 }
 
 // https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm
@@ -511,7 +520,7 @@ static inline i32 acos_q16(i32 x)
 
 static f32 cos_f(f32 x)
 {
-    i32 y = (i32)(fmodf(x / PI2_FLOAT, 1.f) * 131072.f);
+    i32 y = (i32)(fmodf(x * PI2_FLOAT_INV, 1.f) * 131072.f);
     return ((f32)cos_q15(y) / 32768.f);
 }
 
@@ -520,9 +529,33 @@ static inline f32 sin_f(f32 x)
     return cos_f(x - PI_FLOAT * .5f);
 }
 
-static inline f32 atan2_f(f32 y, f32 x)
+// https://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization/
+// what is this magic?
+static f32 atan2_f(f32 y, f32 x)
 {
-    return atan2f(y, x);
+    // 0.7853982f = 1/4 pi
+    // 2.3561945f = 3/4 pi
+    f32 a;
+    f32 ya = abs_f32(y) + 0.00000001f; // kludge to prevent 0/0 condition
+    if (0 <= x) {
+        a = 0.7853982f - 0.7853982f * ((x - ya) / (x + ya));
+    } else {
+        a = 2.3561945f - 0.7853982f * ((x + ya) / (ya - x));
+    }
+
+    return (0 <= y ? +a : -a);
+}
+
+static i32 atan2_index(f32 y, f32 x, i32 range, i32 adder)
+{
+    i32 a = (i32)((atan2_f(y, x) * (f32)range) * PI2_FLOAT_INV); // div 2pi
+    return (a + range + adder) % range;
+}
+
+static i32 atan2_index_pow2(f32 y, f32 x, i32 range, i32 adder)
+{
+    i32 a = (i32)((atan2_f(y, x) * (f32)range) * PI2_FLOAT_INV); // div 2pi
+    return (a + range + adder) & (range - 1);
 }
 
 // ============================================================================
@@ -648,11 +681,11 @@ static inline i64 v2_i32_crsl(v2_i32 a, v2_i32 b)
     return (i64)a.x * b.y - (i64)a.y * b.x;
 }
 
-static inline u64 v2_i32_lensql(v2_i32 a)
+static inline i64 v2_i32_lensql(v2_i32 a)
 {
     i64 x = (i64)a.x;
     i64 y = (i64)a.y;
-    return ((u64)(x * x) + (u64)(y * y));
+    return (x * x + y * y);
 }
 
 static inline u32 v2_i32_lensq(v2_i32 a)
@@ -1484,8 +1517,115 @@ static v2_f32 v2f_lerp(v2_f32 a, v2_f32 b, f32 t)
     return r;
 }
 
+// return a point along a spline with n_p points
+static v2_i32 v2_i32_spline_internal(v2_i32 *p, i32 n_p, i32 n, u16 k_q16, b32 circ, b32 halved)
+{
+    i32 p0, p1, p2, p3;
+
+    if (circ) {
+        p1 = n;
+        p2 = (p1 + 1) % n_p;
+        p3 = (p1 + 2) % n_p;
+        p0 = (p1 - 1 + n_p) % n_p;
+    } else {
+        p1 = n + 1;
+        p2 = p1 + 1;
+        p3 = p1 + 2;
+        p0 = p1 - 1;
+    }
+
+    i32 k   = (i32)k_q16;
+    i32 kk  = (i32)(((i64)k * k + 32768) >> 16);
+    i32 kkk = (i32)(((i64)kk * k + 32768) >> 16);
+    i32 q1  = -1 * kkk + 2 * kk - k;
+    i32 q2  = +3 * kkk - 5 * kk + 2 * 65536;
+    i32 q3  = -3 * kkk + 4 * kk + k;
+    i32 q4  = +1 * kkk - 1 * kk;
+
+    i64 tx = ((i64)p[p0].x * q1) +
+             ((i64)p[p1].x * q2) +
+             ((i64)p[p2].x * q3) +
+             ((i64)p[p3].x * q4);
+    i64 ty = ((i64)p[p0].y * q1) +
+             ((i64)p[p1].y * q2) +
+             ((i64)p[p2].y * q3) +
+             ((i64)p[p3].y * q4);
+
+    v2_i32 r = {(i32)(tx >> 16), (i32)(ty >> 16)};
+    if (halved) {
+        r.x >>= 1;
+        r.y >>= 1;
+    }
+    return r;
+}
+
+// return a point along a spline with n_p points
+static v2_i32 v2_i32_spline(v2_i32 *p, i32 n_p, i32 n, u16 k_q16, b32 circ)
+{
+    return v2_i32_spline_internal(p, n_p, n, k_q16, circ, 1);
+}
+
+i32 v2_i32_spline_seg_len(v2_i32 *p, i32 n_p, i32 node_from, b32 circ)
+{
+    i32    l     = 0;
+    v2_i32 p_old = v2_i32_spline_internal(p, n_p, node_from, 0, circ, 0);
+
+    for (i32 k_q16 = 0; k_q16 < 65536; k_q16 += 4096) {
+        v2_i32 p_new = v2_i32_spline_internal(p, n_p, node_from, k_q16, circ, 0);
+        l += v2_i32_distance(p_old, p_new);
+        p_old = p_new;
+    }
+    return (l >> 1);
+}
+
+i32 v2_i32_spline_len(v2_i32 *p, i32 n_p, b32 circ)
+{
+    i32 l = 0;
+    for (i32 n = 0; n < n_p; n++) {
+        l += v2_i32_spline_seg_len(p, n_p, n, circ);
+    }
+    return l;
+}
+
+#if 0
+sPoint2D GetSplinePoint(float t, bool bLooped = false)
+	{
+		int p0, p1, p2, p3;
+		if (!bLooped)
+		{
+			p1 = (int)t + 1;
+			p2 = p1 + 1;
+			p3 = p2 + 1;
+			p0 = p1 - 1;
+		}
+		else
+		{
+			p1 = (int)t;
+			p2 = (p1 + 1) % points.size();
+			p3 = (p2 + 1) % points.size();
+			p0 = p1 >= 1 ? p1 - 1 : points.size() - 1;
+		}
+
+		t = t - (int)t;
+
+		float tt = t * t;
+		float ttt = tt * t;
+
+		float q1 = -ttt + 2.0f*tt - t;
+		float q2 = 3.0f*ttt - 5.0f*tt + 2.0f;
+		float q3 = -3.0f*ttt + 4.0f*tt + t;
+		float q4 = ttt - tt;
+
+		float tx = 0.5f * (points[p0].x * q1 + points[p1].x * q2 + points[p2].x * q3 + points[p3].x * q4);
+		float ty = 0.5f * (points[p0].y * q1 + points[p1].y * q2 + points[p2].y * q3 + points[p3].y * q4);
+
+		return{ tx, ty };
+	}
+#endif
+
 // 0x1021 polynomial
-static u16 crc16_next(u16 c, u8 v)
+static u16
+crc16_next(u16 c, u8 v)
 {
     u16 r = (u16)v;
     r ^= (c >> 8);

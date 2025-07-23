@@ -13,6 +13,7 @@
 #include "cs/cs.h"
 #include "dialog.h"
 #include "fluid_area.h"
+#include "game_trigger.h"
 #include "gamedef.h"
 #include "grapplinghook.h"
 #include "hero.h"
@@ -65,17 +66,10 @@ enum {
     IT;                                 \
     IT = obj_find_ID(G, OID, IT)
 
-enum {
-    TRIGGER_DIALOG_NEW_FRAME = 512,
-    TRIGGER_DIALOG_END_FRAME = 513,
-    TRIGGER_DIALOG_END       = 514,
-    TRIGGER_DIALOG           = 515,
-    TRIGGER_BATTLEROOM_ENTER = 10000,
-    TRIGGER_BATTLEROOM_LEAVE = 10001,
-    TRIGGER_CS_UPGRADE       = 11000,
-    TRIGGER_COMPANION_FIND   = 9000,
-    TRIGGER_BOSS_PLANT       = 10100,
-};
+#define map_obj_each(G, IT)                   \
+    map_obj_s *IT = (map_obj_s *)G->map_objs; \
+    (byte *)IT < (byte *)G->map_objs_end;     \
+    IT = (map_obj_s *)((byte *)IT + IT->bytes)
 
 enum {
     RENDER_PRIO_BACKGROUND            = 8,
@@ -218,8 +212,8 @@ struct g_s {
     obj_s          *obj_render[NUM_OBJ]; // sorted render array
     obj_s           obj_raw[NUM_OBJ];
     void           *vfx_area_mem;
-    i32             n_map_objs;
     void           *map_objs;
+    void           *map_objs_end;
     boss_s          boss;
     battleroom_s    battleroom;
     i16             darken_bg_add;
@@ -263,7 +257,6 @@ bool32 hero_attackbox(g_s *g, hitbox_s box);
 void   objs_animate(g_s *g);
 obj_s *obj_find_ID(g_s *g, i32 objID, obj_s *o);
 void   game_on_solid_appear_ext(g_s *g, obj_s *s);
-void   obj_interact(g_s *g, obj_s *o, obj_s *ohero);
 void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
 i32    game_hero_hitID_next(g_s *g);

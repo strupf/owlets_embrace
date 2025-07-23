@@ -40,10 +40,9 @@ void rotor_load(g_s *g, map_obj_s *mo)
     o->on_update  = rotor_on_update;
     o->on_animate = rotor_on_animate;
 
-    o->w          = 26;
-    o->h          = 16;
-    o->pos.x      = mo->x - (o->w - 32) / 2;
-    o->pos.y      = mo->y - (o->h - 32);
+    o->w = 26;
+    o->h = 16;
+    obj_place_to_map_obj(o, mo, 0, +1);
     o->n_sprites  = 1;
     r->rot_speed  = 64;
     o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |

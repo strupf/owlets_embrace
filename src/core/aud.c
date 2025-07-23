@@ -19,7 +19,7 @@ err32 aud_init()
     aud_s *aud    = &APP.aud;
     aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 7) / SETTINGS_VOL_MAX;
     aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
-#if 0
+#if 1
     aud->v_mus_q8 = 0;
 #endif
 #if 0

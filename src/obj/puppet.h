@@ -21,6 +21,10 @@ enum {
     PUPPET_HERO_ANIMID_AVENGE,
     PUPPET_HERO_ANIMID_QUICKDUCK,
     PUPPET_HERO_ANIMID_HOLD_ARM,
+    PUPPET_HERO_ANIMID_PRESENT_ABOVE,      // receive item frame
+    PUPPET_HERO_ANIMID_PRESENT_ABOVE_COMP, // receive item frame
+    PUPPET_HERO_ANIMID_OFF_BALANCE,
+    PUPPET_HERO_ANIMID_OFF_BALANCE_COMP,
 };
 
 enum {
@@ -34,6 +38,15 @@ enum {
     PUPPET_COMPANION_ANIMID_BUMP_ONCE,
     PUPPET_COMPANION_ANIMID_NOD_ONCE,
     PUPPET_COMPANION_ANIMID_TUMBLE,
+};
+
+enum {
+    PUPPET_MOLE_ANIMID_NONE,
+    //
+    PUPPET_MOLE_ANIMID_IDLE,
+    PUPPET_MOLE_ANIMID_WALK,
+    PUPPET_MOLE_ANIMID_DIG_OUT,
+    PUPPET_MOLE_ANIMID_DIG_IN,
 };
 
 typedef struct puppet_s {
@@ -63,5 +76,6 @@ obj_s *puppet_hero_put(g_s *g, obj_s *ohero);
 void   puppet_hero_replace_and_del(g_s *g, obj_s *ohero, obj_s *o);
 obj_s *puppet_companion_put(g_s *g, obj_s *ocomp);
 void   puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *o);
+obj_s *puppet_mole_create(g_s *g, v2_i32 pfeet);
 
 #endif

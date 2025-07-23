@@ -14,6 +14,8 @@ enum {
     SAVE_EV_COMPANION_FOUND       = 3,
     SAVE_EV_UNLOCKED_MAP          = 4,
     SAVE_EV_CS_POWERUP_FIRST_TIME = 5,
+    SAVE_EV_CS_INTRO_COMP_1       = 6,
+    SAVE_EV_CS_HOOK_FOUND         = 7,
     SAVE_EV_BOSS_GOLEM            = 200,
     SAVE_EV_BOSS_PLANT            = 201,
     SAVE_EV_BOSS_PLANT_INTRO_SEEN = 202,
@@ -48,6 +50,7 @@ typedef struct {
     u16           coins;
     u8            stamina;
     u8            stamina_pieces;
+    u8            health_pieces;
     u8            health;
     u8            health_max;
     u8            n_map_pins;

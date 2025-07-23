@@ -74,15 +74,15 @@ void draw_gameplay(g_s *g)
         v2_i32 ppos_hero          = v2_i32_add(ohero->pos, camoff);
         hero->render_align_offs.x = 0;
         hero->render_align_offs.y = 0;
-        if (cam->can_align_x && (ppos_hero.x - 1) == cam->hero_off.x) {
+        if (cam->chero.can_align_x && (ppos_hero.x - 1) == cam->chero.hero_off.x) {
             ppos_hero.x--;
             hero->render_align_offs.x = -1;
         }
-        if (cam->can_align_y && (ppos_hero.y - 1) == cam->hero_off.y) {
+        if (cam->chero.can_align_y && (ppos_hero.y - 1) == cam->chero.hero_off.y) {
             ppos_hero.y--;
             hero->render_align_offs.y = -1;
         }
-        cam->hero_off = ppos_hero;
+        cam->chero.hero_off = ppos_hero;
     }
 
     if (g->darken_bg_q12 == 4096) {
@@ -388,7 +388,7 @@ void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam)
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
             tile_s rt = g->tiles[x + y * g->tiles_x];
-            if (rt.u == 0 || rt.ty == 0) continue;
+            if (rt.ty == 0) continue;
 
             // draw terrain tiles sorted by type, insert in buffer first
             tile_spr_s sp = {tile_type_render_priority(rt.type & 31),
@@ -420,6 +420,7 @@ void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam)
             tex_clr(tglare, GFX_COL_CLEAR);
             tglare_ctx.pat = gfx_pattern_2x2(B2(00), B2(10));
 
+            // diagonal light glare
             for (i32 h = 0; h < 16; h++) {
                 i32 gl_x = sp.y - sp.x + h - 400 + ((g->tick * 14) & 2047);
                 gfx_rec_strip(tglare_ctx, gl_x, h, 30, GFX_COL_WHITE);
@@ -664,6 +665,7 @@ i32 tileindex_terrain_block(i32 tx, i32 ty, i32 tile_type, i32 x, i32 y)
 void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type)
 {
     // check if visible at all
+
     rec_i32 visible_geometry = {pos.x - 8,
                                 pos.y - 8,
                                 (tx << 5) + 8,
@@ -683,33 +685,6 @@ void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 ti
             v2_i32 p = {pos.x + (x << 4) - 8, pos.y + (y << 4) - 8};
             gfx_spr(ctx, tr, p, 0, 0);
         }
-    }
-}
-
-void render_tile_terrain_block_wrapped(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 tile_type)
-{
-    pos.x &= ~1;
-    pos.y &= ~1;
-    render_tile_terrain_block(ctx, pos, tx, ty, tile_type);
-
-    texrec_s tr = asset_texrec(TEXID_TILESET_TERRAIN, 32, 0, 32, 32);
-
-    i32 posx = pos.x + ((tx << 3)) - 16;
-
-    for (i32 y = 0; y < ty; y++) {
-        tr.y      = 0;
-        i32 tilex = 1;
-        i32 tiley = 1;
-        if (y == 0) {
-            tiley = 1;
-        } else if (y == ty - 1) {
-            tiley = 3;
-        } else {
-            tiley = 2;
-        }
-        tr.y     = (tilex + (tiley) * 12) << 5;
-        v2_i32 p = {posx, pos.y + (y << 4) - 8};
-        gfx_spr(ctx, tr, p, 0, 0);
     }
 }
 

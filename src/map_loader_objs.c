@@ -13,6 +13,14 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         gempile_load(g, o);
     } else if (str_eq_nc(o->name, "Coin")) {
         coin_load(g, o);
+    } else if (str_eq_nc(o->name, "Heartpiece")) {
+        heart_or_stamina_piece_load(g, o, 0);
+    } else if (str_eq_nc(o->name, "Staminapiece")) {
+        heart_or_stamina_piece_load(g, o, 1);
+    } else if (str_contains(o->name, "Drillerspawn")) {
+        drillerspawn_load(g, o);
+    } else if (str_contains(o->name, "Shortcutblock")) {
+        shortcutblock_load(g, o);
     } else if (str_eq_nc(o->name, "Solidlever")) {
         solidlever_load(g, o);
     } else if (str_eq_nc(o->name, "Rotor")) {
@@ -31,8 +39,8 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         crackblock_load(g, o);
     } else if (str_eq_nc(o->name, "Trampoline")) {
         trampoline_load(g, o);
-    } else if (str_eq_nc(o->name, "Hangingblock")) {
-        hangingblock_load(g, o);
+    } else if (str_eq_nc(o->name, "Lookahead")) {
+        lookahead_load(g, o);
     } else if (str_eq_nc(o->name, "Windarea_U") ||
                str_eq_nc(o->name, "Windarea_D") ||
                str_eq_nc(o->name, "Windarea_L") ||
@@ -77,7 +85,7 @@ void map_obj_parse(g_s *g, map_obj_s *o)
     } else if (str_eq_nc(o->name, "Pushblock")) {
         pushblock_load(g, o);
     } else if (str_eq_nc(o->name, "Toggleblock")) {
-        toggleblock_load(g, o);
+        mushroomblock_load(g, o);
     } else if (str_eq_nc(o->name, "Crumbleblock")) {
         crumbleblock_load(g, o);
     } else if (str_eq_nc(o->name, "Teleport")) {
@@ -86,6 +94,8 @@ void map_obj_parse(g_s *g, map_obj_s *o)
         stalactite_load(g, o);
     } else if (str_eq_nc(o->name, "Flyer")) {
         flyer_load(g, o);
+    } else if (str_eq_nc(o->name, "Movingblock")) {
+        movingblock_load(g, o);
     } else if (str_eq_nc(o->name, "Clockpulse")) {
         clockpulse_load(g, o);
     } else if (str_eq_nc(o->name, "Triggerarea")) {
@@ -93,19 +103,13 @@ void map_obj_parse(g_s *g, map_obj_s *o)
     } else if (str_eq_nc(o->name, "Hooklever")) {
         hooklever_load(g, o);
     } else if (str_eq_nc(o->name, "Cam_Attractor")) {
-        camattractor_static_load(g, o);
+        camattractor_load(g, o);
     } else if (str_eq_nc(o->name, "Battleroom")) {
         battleroom_load(g, o);
     } else if (str_eq_nc(o->name, "Cam")) {
         cam_s *cam    = &g->cam;
         cam->locked_x = map_obj_bool(o, "Locked_X");
         cam->locked_y = map_obj_bool(o, "Locked_Y");
-        if (cam->locked_x) {
-            cam->pos.x = (o->x + PLTF_DISPLAY_W / 2);
-        }
-        if (cam->locked_y) {
-            cam->pos.y = (o->y + PLTF_DISPLAY_H / 2);
-        }
     } else if (str_eq_nc(o->name, "Fluid")) {
         rec_i32 rfluid = {o->x, o->y, o->w, o->h};
         i32     type   = map_obj_bool(o, "Lava") ? FLUID_AREA_LAVA
@@ -135,6 +139,11 @@ void map_obj_load_misc(g_s *g, map_obj_s *mo)
         o->h        = mo->h;
         o->state    = map_obj_i32(mo, "f1");
         o->substate = map_obj_i32(mo, "f2");
+        break;
+    }
+    case 60: {
+        v2_i32 pfeet = {mo->x + (mo->w >> 1), mo->y + (mo->h)};
+        puppet_mole_create(g, pfeet);
         break;
     }
     case 100: {

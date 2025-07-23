@@ -126,8 +126,8 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
         if (!oi) break;
 
         v2_i32 pbt = v2_i32_add(camoff, obj_pos_center(oi));
-        pbt.x -= 48 / 2 + oi->interact_offs.x;
-        pbt.y -= 48 / 2 + oi->interact_offs.y;
+        pbt.x -= 48 / 2 + oi->offs_interact_ui.x;
+        pbt.y -= 48 / 2 + oi->offs_interact_ui.y;
         texrec_s trb = asset_texrec(TEXID_BUTTONS,
                                     48,
                                     48 * (1 - ani_frame(ANIID_BUTTON, g->tick)),

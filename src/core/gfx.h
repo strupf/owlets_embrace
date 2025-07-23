@@ -18,7 +18,7 @@ enum {
     GFX_COL_CLEAR,
 };
 
-typedef struct {
+typedef struct { // 16 bytes on PD
     ALIGNAS(16)
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     i32  w;
@@ -27,7 +27,7 @@ typedef struct {
     u16  fmt;
 } tex_s;
 
-typedef struct { // size: 32 byte on 32-bit CPU (pointer size) = cacheline PD
+typedef struct { // 32 bytes on PD
     ALIGNAS(32)
     tex_s t;
     i32   x;
@@ -36,12 +36,12 @@ typedef struct { // size: 32 byte on 32-bit CPU (pointer size) = cacheline PD
     i32   h;
 } texrec_s;
 
-typedef struct gfx_pattern_s { // 32 bytes in size = cacheline on Playdate
-    ALIGNAS(16)
-    u32 p[4];
+typedef struct gfx_pattern_s { // 32 bytes
+    ALIGNAS(32)
+    u32 p[8];
 } gfx_pattern_s;
 
-typedef struct gfx_ctx_s {
+typedef struct gfx_ctx_s { // 64 bytes on PD
     ALIGNAS(32)
     tex_s         dst;
     i32           clip_x1;
@@ -172,6 +172,7 @@ gfx_pattern_s gfx_pattern_inv(gfx_pattern_s p);
 gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
 gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
 gfx_pattern_s gfx_pattern_bayer_4x4(i32 i);
+gfx_pattern_s gfx_pattern_bayer_8x8(i32 i);
 gfx_pattern_s gfx_pattern_shift(gfx_pattern_s p, i32 x, i32 y);
 gfx_pattern_s gfx_pattern_interpolate(i32 num, i32 den);
 gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den, i32 (*ease)(i32 a, i32 b, i32 num, i32 den));
@@ -242,6 +243,13 @@ static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 pt, u32 sm, i32 mode)
     case SPR_MODE_WHITE: *dp |= zm; break;
     case SPR_MODE_BLACK_ONLY: zm &= ~sp; // fallthrough
     case SPR_MODE_BLACK: *dp &= ~zm; break;
+
+    case SPR_MODE_BLACK_ONLY_WHITE_PT_OPAQUE: {
+        // zm = sm;
+
+        *dp = (*dp & ~zm) | ((sp | pt) & zm);
+        break;
+    }
     }
 
     *dm |= zm;

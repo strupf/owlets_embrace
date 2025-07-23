@@ -30,9 +30,7 @@ static const i16 qoa_deq[16][8] = {
 };
 
 enum {
-    QOA_MUS_MODE_MO_MO,
     QOA_MUS_MODE_MO_ST,
-    QOA_MUS_MODE_ST_MO,
     QOA_MUS_MODE_ST_ST
 };
 
@@ -99,6 +97,7 @@ void qoa_mus_rewind(qoa_mus_s *q)
     pltf_file_seek_set(q->f, seek + sizeof(qoa_file_header_s));
     q->cur_slice = 0;
     q->pos       = 0;
+    q->spos      = 0;
     qoa_decode_init(&q->ds[0]);
     qoa_decode_init(&q->ds[1]);
 }
@@ -138,89 +137,46 @@ void qoa_mus_end(qoa_mus_s *q)
     mclr(q, sizeof(qoa_mus_s));
 }
 
-// decode mono music into stereo output
-static void qoa_mus_mo_st(qoa_dec_s *d, i32 n, i32 v, i16 *l, i16 *r)
-{
-    for (i32 k = 0; k < n; k++) {
-        i32 s = mul_q16(v, qoa_decode_sample(d));
-        l[k]  = i16_adds((i32)l[k], s);
-        r[k]  = i16_adds((i32)r[k], s);
-    }
-}
-
-// decode mono music into mono output
-static void qoa_mus_mo_mo(qoa_dec_s *d, i32 n, i32 v, i16 *b)
-{
-    for (i32 k = 0; k < n; k++) {
-        i32 s = mul_q16(v, qoa_decode_sample(d));
-        b[k]  = i16_adds((i32)b[k], s);
-    }
-}
-
-// decode stereo music into mono output
-static void qoa_mus_st_mo(qoa_dec_s *dl, qoa_dec_s *dr, i32 n, i32 v, i16 *b)
-{
-    for (i32 k = 0; k < n; k++) {
-        i32 sl = qoa_decode_sample(dl);
-        i32 sr = qoa_decode_sample(dr);
-        i32 s  = mul_q16(v, (sl + sr) >> 1);
-        b[k]   = i16_adds((i32)b[k], s);
-    }
-}
-
-static void qoa_mus_st_st(qoa_dec_s *dl, qoa_dec_s *dr, i32 n, i32 v, i16 *l, i16 *r)
-{
-    qoa_mus_mo_mo(dl, n, v, l);
-    qoa_mus_mo_mo(dr, n, v, r);
-}
-
 void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q16)
 {
     if (!q->f) return;
 
     i16 *br   = rbuf;
     i16 *bl   = lbuf;
-    i32  mode = 0;
-
-    switch (q->seek >> 31) {
-    default: return;
-    case 0: mode = (rbuf ? QOA_MUS_MODE_MO_ST : QOA_MUS_MODE_MO_MO); break;
-    case 1: mode = (rbuf ? QOA_MUS_MODE_ST_ST : QOA_MUS_MODE_ST_MO); break;
-    }
-
-    u32 l = (u32)len;
+    i32  mode = q->seek >> 31; // stereo (1) or mono (0) file
+    u32  l    = (u32)len;
 
     while (l) {
-        u32 spos = q->pos % QOA_SLICE_LEN;
-        u32 n    = min3_u32(QOA_SLICE_LEN - spos, q->loop_s2 - q->pos, l);
+        u32 n = min3_u32(QOA_SLICE_LEN - q->spos, q->loop_s2 - q->pos, l);
         l -= n;
         q->pos += n;
+        q->spos += n;
 
         switch (mode) {
-        case QOA_MUS_MODE_ST_MO:
-            qoa_mus_st_mo(&q->ds[0], &q->ds[1], n, v_q16, bl);
-            bl += n;
-            break;
         case QOA_MUS_MODE_MO_ST:
-            qoa_mus_mo_st(&q->ds[0], n, v_q16, bl, br);
-            bl += n;
-            br += n;
-            break;
-        case QOA_MUS_MODE_MO_MO:
-            qoa_mus_mo_mo(&q->ds[0], n, v_q16, bl);
-            bl += n;
+            // decode mono music into stereo output
+            for (u32 k = 0; k < n; k++) {
+                q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
+                *bl++       = i16_adds((i32)*bl, q->sample_l);
+                *br++       = i16_adds((i32)*br, q->sample_l);
+            }
             break;
         case QOA_MUS_MODE_ST_ST:
-            qoa_mus_st_st(&q->ds[0], &q->ds[1], n, v_q16, bl, br);
-            bl += n;
-            br += n;
+            // decode stereo music into stereo output
+            for (u32 k = 0; k < n; k++) {
+                q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
+                q->sample_r = mul_q16(v_q16, qoa_decode_sample(&q->ds[1]));
+                *br++       = i16_adds((i32)*br, q->sample_r);
+                *bl++       = i16_adds((i32)*bl, q->sample_l);
+            }
             break;
         }
 
         if (q->pos == q->loop_s2) { // loop back
             qoa_mus_seek(q, q->loop_s1);
-        } else if (spos + n == QOA_SLICE_LEN) { // decode a new slice
+        } else if (q->spos == QOA_SLICE_LEN) { // decode a new slice
             q->cur_slice++;
+            q->spos = 0;
 
             if ((q->cur_slice & QOA_FRAME_SLICES_MASK) == 0) {
                 qoa_mus_next_frame(q);
@@ -266,6 +222,7 @@ void qoa_mus_seek(qoa_mus_s *q, u32 pos)
         qoa_mus_next_slice(q);
     }
 
+    q->spos = l;
     for (i32 c = 0; c <= stereo; c++) {
         for (u32 i = 0; i < l; i++) {
             qoa_decode_sample(&q->ds[c]);

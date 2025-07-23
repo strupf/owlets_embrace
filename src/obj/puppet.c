@@ -7,6 +7,7 @@
 void puppet_on_animate(g_s *g, obj_s *o);
 void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t);
 void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t);
+void puppet_mole_on_animate(obj_s *o, i32 animID, i32 anim_t);
 
 obj_s *puppet_create(g_s *g, i32 objID_puppet)
 {
@@ -15,10 +16,6 @@ obj_s *puppet_create(g_s *g, i32 objID_puppet)
     o->ID         = objID_puppet;
     o->on_animate = puppet_on_animate;
     o->facing     = 1;
-
-    if (0) {
-        o->flags = OBJ_FLAG_ACTOR;
-    }
     return o;
 }
 
@@ -46,6 +43,9 @@ void puppet_on_animate(g_s *g, obj_s *o)
         break;
     case OBJID_PUPPET_HERO:
         puppet_hero_on_animate(o, c->animID, c->anim_t);
+        break;
+    case OBJID_PUPPET_MOLE:
+        puppet_mole_on_animate(o, c->animID, c->anim_t);
         break;
     }
 }

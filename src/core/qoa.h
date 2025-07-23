@@ -71,13 +71,17 @@ typedef struct qoa_dec_s {
 // unpitched streaming of qoa data from file
 typedef struct qoa_mus_s {
     qoa_dec_s ds[2];
-    void     *f;    // wad handle opened at startup of app
-    u32       seek; // pos in file + highest bit set if stereo
     u32       num_samples;
     u32       cur_slice; // current slice index
     u32       loop_s1;
     u32       loop_s2;
     u32       pos;
+    i16       sample_l;
+    i16       sample_r;
+    u8        spos;
+    u8        skip;
+    void     *f;                            // wad handle opened at startup of app
+    u32       seek;                         // pos in file + highest bit set if stereo
     u64       slices[QOA_FRAME_SLICES * 2]; // buffer of slices, channels interleaved
 } qoa_mus_s;
 

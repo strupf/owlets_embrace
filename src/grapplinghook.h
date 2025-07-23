@@ -67,6 +67,7 @@ bool32 grapplinghook_try_grab_obj(g_s *g, grapplinghook_s *h,
 // grapplinghook at offset sx/sy
 bool32 grapplinghook_try_grab_terrain(g_s *g, grapplinghook_s *h,
                                       i32 sx, i32 sy);
+void   grapplinghook_anchor_in_place(g_s *g, grapplinghook_s *h);
 
 i32    grapplinghook_pulling_force_hero(g_s *g);
 v2_i32 rope_recalc_v(g_s *g, rope_s *r, ropenode_s *rn,

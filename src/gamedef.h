@@ -21,7 +21,7 @@
 #include "util/sorting.h"
 #include "util/str.h"
 
-#define GAME_DEMO  1
+#define GAME_DEMO  0
 //
 #define GAME_V_MAJ 0
 #define GAME_V_MIN 2
@@ -49,6 +49,8 @@ static game_version_s game_version_decode(u32 v)
                         0xFF & (v >> 0)};
     return r;
 }
+
+#define HERO_USE_HOOK_TEST 0
 
 #define GAME_TICKS_PER_SECOND PLTF_UPS
 #define TICKS_FROM_MS(MS)     (((MS) * GAME_TICKS_PER_SECOND + 500) / 1000)

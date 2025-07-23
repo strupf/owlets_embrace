@@ -55,7 +55,7 @@ void stalactite_load(g_s *g, map_obj_s *mo)
     s->checkr.w = o->w;
     s->checkr.h = 16;
     for (i32 ty = (o->pos.y >> 4) + 1; ty < g->tiles_y; ty++) {
-        i32 t = g->tiles[tx + ty * g->tiles_x].collision;
+        i32 t = g->tiles[tx + ty * g->tiles_x].shape;
         if (TILE_IS_SHAPE(t)) break;
         s->checkr.h += 16;
     }

@@ -38,15 +38,12 @@ void battleroom_on_update(g_s *g)
         game_on_trigger(g, TRIGGER_BATTLEROOM_ENTER);
         b->state = BATTLEROOM_STARTING;
 
-        byte *obj_ptr = (byte *)g->map_objs;
-        for (i32 n = 0; n < g->n_map_objs; n++) {
-            map_obj_s *o = (map_obj_s *)obj_ptr;
+        for (map_obj_each(g, o)) {
             if (str_eq_nc(o->name, "Battleroom_Cam")) {
                 g->cam.has_clamp_rec = 1;
                 rec_i32 rc           = {o->x, o->y, o->w, o->h};
                 g->cam.clamp_rec     = rc;
             }
-            obj_ptr += o->bytes;
         }
 
         b->n_killed_prior = g->enemies_killed;
@@ -121,12 +118,9 @@ void battleroom_on_update(g_s *g)
 
 i32 battleroom_try_spawn_enemies(g_s *g, battleroom_s *b, bool32 do_spawn)
 {
-    i32   n_enemies = 0;
-    byte *obj_ptr   = (byte *)g->map_objs;
-
-    for (i32 n = 0; n < g->n_map_objs; n++) {
-        map_obj_s *o  = (map_obj_s *)obj_ptr;
-        i32        br = map_obj_i32(o, "Battleroom");
+    i32 n_enemies = 0;
+    for (map_obj_each(g, o)) {
+        i32 br = map_obj_i32(o, "Battleroom");
         if (br && (br - 1) == b->phase) {
             n_enemies++;
             if (do_spawn) {
@@ -135,7 +129,6 @@ i32 battleroom_try_spawn_enemies(g_s *g, battleroom_s *b, bool32 do_spawn)
                 objanim_create(g, poof1, OBJANIMID_ENEMY_EXPLODE);
             }
         }
-        obj_ptr += o->bytes;
     }
     return n_enemies;
 }

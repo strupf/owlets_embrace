@@ -44,10 +44,9 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     o->on_animate = flyblob_on_animate;
     o->on_hook    = flyblob_on_hook;
 
-    o->w          = 24;
-    o->h          = 24;
-    o->pos.x      = mo->x + (mo->w - o->w) / 2;
-    o->pos.y      = mo->y + (mo->h - o->h) / 2;
+    o->w = 24;
+    o->h = 24;
+    obj_place_to_map_obj(o, mo, 0, 0);
     o->health_max = 3;
     o->health     = o->health_max;
     o->facing     = 1;
@@ -165,7 +164,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
             break;
         }
 
-        g->cam.force_lower_ceiling = min_i32(o->timer << 1, 50);
+        g->cam.chero.force_lower_ceiling = min_i32(o->timer << 2, 60);
 
         if (o->bumpflags & OBJ_BUMP_Y) {
             o->v_q12.y = 0;
@@ -176,16 +175,19 @@ void flyblob_on_update(g_s *g, obj_s *o)
         o->bumpflags = 0;
 
         v2_i32 frope = {0};
-        grapplinghook_f_at_obj_proj_v(&g->ghook, o, (v2_i32){0}, &frope);
+        i32    f     = grapplinghook_f_at_obj_proj_v(&g->ghook, o, (v2_i32){0}, &frope);
 
-        if (frope.x < -2000) {
-            o->v_q12.x -= 256;
+        if (100 <= f) {
+            if (frope.x < -2000) {
+                o->v_q12.x -= 64;
+            }
+            if (frope.x > +2000) {
+                o->v_q12.x += 64;
+            }
         }
-        if (frope.x > +2000) {
-            o->v_q12.x += 256;
-        }
-        i32 acc_y  = min_i32(o->timer << 3, Q_VOBJ(0.5));
-        o->v_q12.y = max_i32(o->v_q12.y - acc_y, -Q_VOBJ(5.0));
+
+        i32 acc_y  = min_i32(o->timer << 4, Q_VOBJ(0.5));
+        o->v_q12.y = max_i32(o->v_q12.y - acc_y, -Q_VOBJ(6.0));
         break;
     }
     }
