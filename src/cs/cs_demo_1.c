@@ -12,12 +12,12 @@ void cs_demo_1_cb_comp(g_s *g, obj_s *o, void *ctx);
 
 void cs_demo_1_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update         = cs_demo_1_update;
-    cs->on_trigger        = cs_demo_1_on_trigger;
-    g->block_hero_control = 1;
-    cs->p_comp            = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
+    cs->on_update        = cs_demo_1_update;
+    cs->on_trigger       = cs_demo_1_on_trigger;
+    g->block_owl_control = 1;
+    cs->p_comp           = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
 }
 
 void cs_demo_1_update(g_s *g, cs_s *cs)
@@ -25,14 +25,14 @@ void cs_demo_1_update(g_s *g, cs_s *cs)
     switch (cs->phase) {
     default: break;
     case 0: {
-        if (!cs_wait_and_pause_for_hero_idle(g)) break;
+        if (!cs_wait_and_pause_for_owl_idle(g)) break;
 
         cs->phase++;
         cs->tick = 0;
 
-        obj_s *ohero = obj_get_hero(g);
-        cs->p_hero   = puppet_hero_put(g, ohero);
-        puppet_set_anim(cs->p_hero, PUPPET_HERO_ANIMID_IDLE, +1);
+        obj_s *owl = obj_get_owl(g);
+        cs->p_owl  = puppet_owl_put(g, owl);
+        puppet_set_anim(cs->p_owl, PUPPET_OWL_ANIMID_IDLE, +1);
         puppet_move_ext(cs->p_comp, (v2_i32){-30, -50}, 30, 0, 1, cs_demo_1_cb_comp, cs);
         puppet_set_anim(cs->p_comp, PUPPET_COMPANION_ANIMID_FLY, -1);
         break;
@@ -80,10 +80,10 @@ void cs_demo_1_cb_comp(g_s *g, obj_s *o, void *ctx)
         break;
     case 7: {
         // leave
-        cs->p_comp->facing    = -1;
-        g->block_hero_control = 0;
-        obj_s *ohero          = obj_get_hero(g);
-        puppet_hero_replace_and_del(g, ohero, cs->p_hero);
+        cs->p_comp->facing   = -1;
+        g->block_owl_control = 0;
+        obj_s *owl           = obj_get_owl(g);
+        puppet_owl_replace_and_del(g, owl, cs->p_owl);
         cs_reset(g);
         break;
     }
@@ -107,7 +107,7 @@ void cs_demo_1_on_trigger(g_s *g, cs_s *cs, i32 trigger)
             cs->phase++;
             cs->tick = 0;
 
-            puppet_move_ext(cs->p_comp, (v2_i32){cs->p_hero->pos.x + 40, cs->p_hero->pos.y - 24}, 50, ease_in_out_quad, 0, cs_demo_1_cb_comp, cs);
+            puppet_move_ext(cs->p_comp, (v2_i32){cs->p_owl->pos.x + 40, cs->p_owl->pos.y - 24}, 50, ease_in_out_quad, 0, cs_demo_1_cb_comp, cs);
             puppet_set_anim(cs->p_comp, 0, -1);
         }
         break;

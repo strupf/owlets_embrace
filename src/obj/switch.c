@@ -24,8 +24,8 @@ void switch_on_interact(g_s *g, obj_s *o)
 
     if (os->once) {
         o->flags &= ~(OBJ_FLAG_INTERACTABLE |
-                      OBJ_FLAG_HERO_JUMPABLE |
-                      OBJ_FLAG_HERO_STOMPABLE);
+                      OBJ_FLAG_OWL_JUMPABLE |
+                      OBJ_FLAG_OWL_STOMPABLE);
     }
 
     switch (o->state) {
@@ -48,8 +48,8 @@ void switch_load(g_s *g, map_obj_s *mo)
     o->render_priority = RENDER_PRIO_HERO - 1;
     o->flags =
         OBJ_FLAG_INTERACTABLE |
-        OBJ_FLAG_HERO_JUMPABLE |
-        OBJ_FLAG_HERO_STOMPABLE;
+        OBJ_FLAG_OWL_JUMPABLE |
+        OBJ_FLAG_OWL_STOMPABLE;
     // o->on_interact       = switch_on_interact;
     o->n_sprites         = 1;
     o->sprites[0].trec   = asset_texrec(TEXID_SWITCH, 0, 0, 64, 64);

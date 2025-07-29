@@ -111,6 +111,12 @@ static inline f32 sgn_f32(f32 a)
     return 0.f;
 }
 
+// treats positive and negative numbers the same
+static inline i32 shr_balanced_i32(i32 v, i32 s)
+{
+    return (0 <= v ? v >> s : -((-v) >> s));
+}
+
 static i32 i32_range(i32 v, i32 lo, i32 hi)
 {
     return lo + (v % (hi - lo + 1));
@@ -536,7 +542,7 @@ static f32 atan2_f(f32 y, f32 x)
     // 0.7853982f = 1/4 pi
     // 2.3561945f = 3/4 pi
     f32 a;
-    f32 ya = abs_f32(y) + 0.00000001f; // kludge to prevent 0/0 condition
+    f32 ya = abs_f32(y) + 0.00000001f; // prevent div 0
     if (0 <= x) {
         a = 0.7853982f - 0.7853982f * ((x - ya) / (x + ya));
     } else {
@@ -544,6 +550,38 @@ static f32 atan2_f(f32 y, f32 x)
     }
 
     return (0 <= y ? +a : -a);
+}
+
+// returns angle [-PI; +PI] = [-131072; +131072]
+static i32 atan2_i32(i32 y, i32 x)
+{
+#define ATAN2_1_4_PI 32768 // PI/4
+#if 0
+    f32 r_debug = atan2f((f32)y, (f32)x);
+#endif
+
+    if (x == 0) {
+        if (y > 0) return +ATAN2_1_4_PI;
+        if (y < 0) return -ATAN2_1_4_PI;
+        return 0; // "undefined"
+    }
+    if (y == 0) {
+        return (0 < x ? 0 : 2 * ATAN2_1_4_PI);
+    }
+
+    i32 a;
+    i32 ya = abs_i32(y);
+    if (0 < x) {
+        // 0<x, 0<ya -> no div 0 case possible
+        a = (1 * ATAN2_1_4_PI) -
+            (i32)(((i64)ATAN2_1_4_PI * (i64)(x - ya)) / (i64)(x + ya));
+    } else {
+        // x<0, 0<ya -> no div 0 case possible
+        a = (3 * ATAN2_1_4_PI) -
+            (i32)(((i64)ATAN2_1_4_PI * (i64)(x + ya)) / (i64)(ya - x));
+    }
+
+    return (0 < y ? +a : -a);
 }
 
 static i32 atan2_index(f32 y, f32 x, i32 range, i32 adder)
@@ -1062,19 +1100,40 @@ static void points_from_rec_i16(rec_i32 r, v2_i16 *pts)
     pts[3].y = r.y + r.h;
 }
 
+static inline void intersect_line_uv_p(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
+                                       i32 *u, i32 *v, i32 *den, v2_i32 *p)
+{
+    assert(u && v && den);
+    v2_i32 x = v2_i32_sub(a, c);
+    v2_i32 y = v2_i32_sub(c, d);
+    v2_i32 z = v2_i32_sub(a, b);
+    i32    s = v2_i32_crs(x, y);
+    i32    t = v2_i32_crs(x, z);
+    i32    m = v2_i32_crs(z, y);
+    if (u && v && den) {
+        *u   = s;
+        *v   = t;
+        *den = m;
+    }
+    if (p && m) {
+        p->x = a.x + ((b.x - a.x) * s) / m;
+        p->y = a.y + ((b.y - a.y) * s) / m;
+    }
+}
+
 // returns interpolation data for the intersection:
 // S = A + [(B - A) * u] / den;
 // S = C + [(D - C) * v] / den;
 static inline void intersect_line_uv(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
                                      i32 *u, i32 *v, i32 *den)
 {
-    assert(u && v && den);
-    v2_i32 x = v2_i32_sub(a, c);
-    v2_i32 y = v2_i32_sub(c, d);
-    v2_i32 z = v2_i32_sub(a, b);
-    *u       = v2_i32_crs(x, y),
-    *v       = v2_i32_crs(x, z),
-    *den     = v2_i32_crs(z, y);
+    intersect_line_uv_p(a, b, c, d, u, v, den, 0);
+}
+
+static inline void intersect_line(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
+                                  v2_i32 *p)
+{
+    intersect_line_uv_p(a, b, c, d, 0, 0, 0, p);
 }
 
 // returns interpolation data for the intersection:
@@ -1086,7 +1145,7 @@ static inline void intersect_line_u(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,
     v2_i32 x = v2_i32_sub(a, c);
     v2_i32 y = v2_i32_sub(c, d);
     v2_i32 z = v2_i32_sub(a, b);
-    *u       = v2_i32_crs(x, y),
+    *u       = v2_i32_crs(x, y);
     *den     = v2_i32_crs(z, y);
 }
 

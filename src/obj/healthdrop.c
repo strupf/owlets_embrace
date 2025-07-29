@@ -30,7 +30,7 @@ obj_s *healthdrop_spawn(g_s *g, v2_i32 p)
 
 void healthdrop_on_update(g_s *g, obj_s *o)
 {
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
     v2_i32 p     = obj_pos_center(o);
     v2_i32 phero = {0};
     if (ohero) {

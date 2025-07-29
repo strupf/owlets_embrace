@@ -136,11 +136,13 @@ void fluid_area_impact(fluid_area_s *b, i32 x_mid, i32 w, i32 str, i32 type)
 
 void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
 {
-    i32       fill_col = GFX_COL_WHITE;
+    i32       fill_col = PRIM_MODE_WHITE;
     gfx_ctx_s ctx_fill = ctx;
     switch (pass) {
     case 0:
-        fill_col = GFX_COL_WHITE;
+        fill_col     = PRIM_MODE_BLACK_WHITE;
+        ctx_fill.pat = gfx_pattern_2x2(B2(11),
+                                       B2(01));
         break;
     case 1:
         if (b->type == FLUID_AREA_LAVA) {
@@ -167,8 +169,9 @@ void fluid_area_draw(gfx_ctx_s ctx, fluid_area_s *b, v2_i32 cam, i32 pass)
                 pID = 0;
             }
         } else {
-            fill_col     = GFX_COL_BLACK;
-            ctx_fill.pat = gfx_pattern_2x2(B2(11), B2(01));
+            fill_col     = PRIM_MODE_BLACK;
+            ctx_fill.pat = gfx_pattern_2x2(B2(10),
+                                           B2(01));
         }
 
         break;

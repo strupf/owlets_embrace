@@ -149,7 +149,7 @@ bool32 obj_try_wiggle(g_s *g, obj_s *o)
     rec_i32 r = obj_aabb(o);
     if (!map_blocked_excl(g, r, o)) return 1;
 
-    i32 nw = o->ID == OBJID_HERO ? 6 : 4;
+    i32 nw = o->ID == OBJID_OWL ? 6 : 4;
 
     for (i32 n = 1; n <= nw; n++) {
         for (i32 yn = -n; yn <= +n; yn += n) {
@@ -205,12 +205,12 @@ void obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8)
 
 void obj_vx_q8_mul(obj_s *o, i32 mx_q8)
 {
-    o->v_q12.x = i32_mul(o->v_q12.x, mx_q8) / 256;
+    o->v_q12.x = shr_balanced_i32(i32_mul(o->v_q12.x, mx_q8), 8);
 }
 
 void obj_vy_q8_mul(obj_s *o, i32 my_q8)
 {
-    o->v_q12.y = i32_mul(o->v_q12.y, my_q8) / 256;
+    o->v_q12.y = shr_balanced_i32(i32_mul(o->v_q12.y, my_q8), 8);
 }
 
 void obj_v_q12_mul(obj_s *o, i32 mx_q12, i32 my_q12)
@@ -221,12 +221,12 @@ void obj_v_q12_mul(obj_s *o, i32 mx_q12, i32 my_q12)
 
 void obj_vx_q12_mul(obj_s *o, i32 mx_q12)
 {
-    o->v_q12.x = i32_mul(o->v_q12.x, mx_q12) / 4096;
+    o->v_q12.x = shr_balanced_i32(i32_mul(o->v_q12.x, mx_q12), 12);
 }
 
 void obj_vy_q12_mul(obj_s *o, i32 my_q12)
 {
-    o->v_q12.y = i32_mul(o->v_q12.y, my_q12) / 4096;
+    o->v_q12.y = shr_balanced_i32(i32_mul(o->v_q12.y, my_q12), 12);
 }
 
 bool32 overlap_obj(obj_s *a, obj_s *b)
@@ -264,6 +264,16 @@ rec_i32 obj_rec_top(obj_s *o)
     return r;
 }
 
+rec_i32 obj_rec_x_leading(obj_s *o, i32 dx)
+{
+    return (0 <= dx ? obj_rec_right(o) : obj_rec_left(o));
+}
+
+rec_i32 obj_rec_y_leading(obj_s *o, i32 dy)
+{
+    return (0 <= dy ? obj_rec_bottom(o) : obj_rec_top(o));
+}
+
 v2_i32 obj_pos_center(obj_s *o)
 {
     v2_i32 p = {o->pos.x + (o->w >> 1), o->pos.y + (o->h >> 1)};
@@ -290,9 +300,7 @@ bool32 blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy)
     if (tile_map_solid(g, ri)) return 1;
 
     for (obj_each(g, i)) {
-        if (i != o &&
-            (i->flags & OBJ_FLAG_SOLID) &&
-            overlap_rec(r, obj_aabb(i))) {
+        if (i != o && (i->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(i))) {
 
             if (o && (o->flags & OBJ_FLAG_ACTOR) && obj_ignores_solid(o, i, 0))
                 continue;
@@ -350,7 +358,7 @@ void enemy_hurt(g_s *g, obj_s *o, i32 dmg)
         g->enemies_killed++;
         o->on_update       = 0;
         o->enemy.hurt_tick = -o->enemy.die_tick_max;
-        o->flags &= ~OBJ_FLAG_HERO_JUMPSTOMPABLE;
+        o->flags &= ~OBJ_FLAG_OWL_JUMPSTOMPABLE;
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
     } else {
         o->enemy.hurt_tick = o->enemy.hurt_tick_max;

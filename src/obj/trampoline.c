@@ -126,8 +126,8 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
     rec_i32 r = obj_aabb(o);
 
     for (obj_each(g, i)) {
-        if (i->ID != OBJID_HERO) continue;
-        hero_s *h = (hero_s *)i->heap;
+        if (i->ID != OBJID_OWL) continue;
+        owl_s *h = (owl_s *)i->heap;
 
         switch (o->state) {
         case TRAMPOLINE_HOR: {
@@ -144,8 +144,8 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
                 if (i->v_q12.y > +Q_VOBJ(2.0)) {
                     i->v_q12.y = -Q_VOBJ(9.7);
                     i->bumpflags &= ~OBJ_BUMP_Y_POS;
-                    o->timer = 1;
-                    h->stomp = 0;
+                    o->timer     = 1;
+                    h->air_stomp = 0;
                 }
             }
             break;
@@ -169,12 +169,12 @@ void trampoline_do_bounce(g_s *g, obj_s *o)
             }
 
             if (bounced) {
-                g->freeze_tick        = 2;
-                i->v_q12.x            = +Q_VOBJ(11.7) * bounced;
-                i->v_q12.y            = -Q_VOBJ(5.1);
-                h->air_block_ticks_og = 80;
-                h->air_block_ticks    = bounced * h->air_block_ticks_og;
-                o->timer              = 1;
+                g->freeze_tick = 2;
+                i->v_q12.x     = +Q_VOBJ(11.7) * bounced;
+                i->v_q12.y     = -Q_VOBJ(5.1);
+                // h->air_block_ticks_og = 80;
+                //  h->air_block_ticks    = bounced * h->air_block_ticks_og;
+                o->timer       = 1;
             }
             break;
         }

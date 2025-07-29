@@ -591,8 +591,7 @@ gfx_pattern_s gfx_pattern_interpolate(i32 num, i32 den)
     return gfx_pattern_bayer_4x4((num * GFX_PATTERN_NUM) / den);
 }
 
-gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den,
-                                       i32 (*ease)(i32 a, i32 b, i32 num, i32 den))
+gfx_pattern_s gfx_pattern_interpolatec(i32 num, i32 den, i32 (*ease)(i32 a, i32 b, i32 num, i32 den))
 {
     i32 i = ease(0, 16, num, den);
     return gfx_pattern_bayer_4x4(i);
@@ -1207,7 +1206,7 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
             i32 ay  = yi + y + m;
             i32 cy  = yi + x + m;
             i32 by  = yi - y;
-            i32 dy  = yi - x;
+            i32 ky  = yi - x;
             i32 ax0 = xi - x;
             i32 cx0 = xi - y;
             i32 ax1 = xi + x + m;
@@ -1228,8 +1227,8 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
                 s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
                 s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
             }
-            if (0 <= dy && dy <= ydif) {
-                gfx_span_s *s = &spans[dy];
+            if (0 <= ky && ky <= ydif) {
+                gfx_span_s *s = &spans[ky];
                 s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
                 s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
             }
@@ -1361,8 +1360,7 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
 }
 
 // counter clockwise filled from a1 to a2
-void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
-                             i32 a1_q18, i32 a2_q18, i32 mode)
+void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 a1_q18, i32 a2_q18, i32 mode)
 {
     i32 y1 = max_i32(ctx.clip_y1, p.y - r);
     i32 y2 = min_i32(ctx.clip_y2, p.y + r);
@@ -1409,8 +1407,7 @@ void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r,
 }
 
 // counter clockwise filled from a1 to a2
-void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro,
-                              i32 a1_q17, i32 a2_q17, i32 mode)
+void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q17, i32 a2_q17, i32 mode)
 {
     i32 y1 = max_i32(ctx.clip_y1, p.y - ro);
     i32 y2 = min_i32(ctx.clip_y2, p.y + ro);
@@ -1428,7 +1425,7 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro,
     // leaves the circle segment
     for (i32 y = y1; y <= y2; y++) {
         b32 was_inside = 0;
-        i32 x1         = 0;
+        i32 x1_strip   = 0;
 
         for (i32 x = x1; x <= x2; x++) {
             v2_i32 s = {x - p.x, y - p.y};
@@ -1443,14 +1440,14 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro,
             }
 
             if (i && !was_inside) {
-                x1 = x;
+                x1_strip = x;
             } else if (!i && was_inside) {
-                gfx_rec_strip(ctx, x1, y, x - x1, mode);
+                gfx_rec_strip(ctx, x1_strip, y, x - x1_strip, mode);
             }
             was_inside = i;
         }
         if (was_inside) {
-            gfx_rec_strip(ctx, x1, y, x2 - x1, mode);
+            gfx_rec_strip(ctx, x1_strip, y, x2 - x1_strip, mode);
         }
     }
 }

@@ -24,7 +24,7 @@ void gempile_load(g_s *g, map_obj_s *mo)
     o->on_animate = gempile_on_animate;
     o->health_max = GEMPILE_N_HITS;
     o->health     = o->health_max;
-    o->flags      = OBJ_FLAG_HERO_JUMPSTOMPABLE;
+    o->flags      = OBJ_FLAG_OWL_JUMPSTOMPABLE;
     o->state      = saveID;
 }
 

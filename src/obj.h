@@ -17,9 +17,9 @@
 #define OBJ_FLAG_DONT_SHOW      ((u32)1 << 1)
 #define OBJ_FLAG_INTERACTABLE   ((u32)1 << 2)
 #define OBJ_FLAG_PLATFORM       ((u32)1 << 3)
-#define OBJ_FLAG_HERO_PLATFORM  ((u32)1 << 4) // platform for the hero only
-#define OBJ_FLAG_HERO_STOMPABLE ((u32)1 << 5) // platform for the hero only while stomping
-#define OBJ_FLAG_HERO_JUMPABLE  ((u32)1 << 6) // platform for the hero only while falling
+#define OBJ_FLAG_OWL_PLATFORM   ((u32)1 << 4) // platform for the hero only
+#define OBJ_FLAG_OWL_STOMPABLE  ((u32)1 << 5) // platform for the hero only while stomping
+#define OBJ_FLAG_OWL_JUMPABLE   ((u32)1 << 6) // platform for the hero only while falling
 #define OBJ_FLAG_KILL_OFFSCREEN ((u32)1 << 7)
 #define OBJ_FLAG_HOOKABLE       ((u32)1 << 8)
 #define OBJ_FLAG_ENEMY          ((u32)1 << 9)
@@ -32,13 +32,14 @@
 #define OBJ_FLAG_GRAB           ((u32)1 << 16)
 #define OBJ_FLAG_ACTOR          ((u32)1 << 30)
 #define OBJ_FLAG_SOLID          ((u32)1 << 31)
+#define OBJ_FLAG_PUSHABLE_SOLID (((u32)1 << 17) | OBJ_FLAG_SOLID)
 
 #define OBJ_FLAG_DONT_SHOW_UPDATE (OBJ_FLAG_DONT_UPDATE | OBJ_FLAG_DONT_SHOW)
 #define OBJ_FLAG_GRABBABLE_SOLID  (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
-#define OBJ_FLAG_PLATFORM_ANY     (OBJ_FLAG_PLATFORM | OBJ_FLAG_HERO_PLATFORM)
+#define OBJ_FLAG_PLATFORM_ANY     (OBJ_FLAG_PLATFORM | OBJ_FLAG_OWL_PLATFORM)
 
-#define OBJ_FLAG_HERO_JUMPSTOMPABLE (OBJ_FLAG_HERO_STOMPABLE | \
-                                     OBJ_FLAG_HERO_JUMPABLE)
+#define OBJ_FLAG_OWL_JUMPSTOMPABLE (OBJ_FLAG_OWL_STOMPABLE | \
+                                    OBJ_FLAG_OWL_JUMPABLE)
 #define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
 enum {
@@ -177,7 +178,7 @@ struct obj_s {
     u32  magic;
 };
 
-#define obj_get_hero(G) obj_get_tagged(G, OBJ_TAG_HERO)
+#define obj_get_owl(G)  obj_get_tagged(G, OBJ_TAG_OWL)
 #define obj_get_comp(G) obj_get_tagged(G, OBJ_TAG_COMPANION)
 
 obj_handle_s obj_handle_from_obj(obj_s *o);
@@ -197,6 +198,8 @@ rec_i32      obj_rec_left(obj_s *o);
 rec_i32      obj_rec_right(obj_s *o);
 rec_i32      obj_rec_bottom(obj_s *o);
 rec_i32      obj_rec_top(obj_s *o);
+rec_i32      obj_rec_x_leading(obj_s *o, i32 dx);
+rec_i32      obj_rec_y_leading(obj_s *o, i32 dy);
 v2_i32       obj_pos_bottom_center(obj_s *o);
 v2_i32       obj_pos_center(obj_s *o);
 void         obj_move(g_s *g, obj_s *o, i32 dx, i32 dy);

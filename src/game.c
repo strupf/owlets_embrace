@@ -49,41 +49,6 @@ void game_tick(g_s *g, inp_state_s inpstate)
 {
     g->inp.p = g->inp.c;
     g->inp.c = inpstate;
-#if PLTF_DEV_ENV
-    i32 ab = -1;
-#if 0
-    if (pltf_sdl_jkey(SDL_SCANCODE_X)) {
-        g->hero.charms = 1 - g->hero.charms;
-    }
-
-    if (pltf_sdl_jkey(SDL_SCANCODE_0)) ab = 0;
-    if (pltf_sdl_jkey(SDL_SCANCODE_1)) ab = 1;
-    if (pltf_sdl_jkey(SDL_SCANCODE_2)) ab = 2;
-    if (pltf_sdl_jkey(SDL_SCANCODE_3)) ab = 3;
-    if (pltf_sdl_jkey(SDL_SCANCODE_4)) ab = 4;
-    if (pltf_sdl_jkey(SDL_SCANCODE_5)) ab = 5;
-    if (pltf_sdl_jkey(SDL_SCANCODE_6)) ab = 6;
-    if (pltf_sdl_jkey(SDL_SCANCODE_7)) ab = 7;
-    if (pltf_sdl_jkey(SDL_SCANCODE_8)) ab = 8;
-    if (pltf_sdl_jkey(SDL_SCANCODE_9)) ab = 9;
-#endif
-    if (0 <= ab) {
-        if (8 <= ab) {
-            i32 dt                   = ab == 8 ? -1 : +1;
-            g->hero.stamina_upgrades = max_i32(g->hero.stamina_upgrades + dt, 0);
-            g->hero.stamina          = hero_stamina_max(obj_get_hero(g));
-            g->hero.stamina_added    = 0;
-            pltf_log("# STAMINA: %i\n", g->hero.stamina_upgrades);
-        } else {
-            if (hero_has_upgrade(g, ab)) {
-                hero_rem_upgrade(g, ab);
-            } else {
-                hero_add_upgrade(g, ab);
-            }
-        }
-    }
-
-#endif
 
     if (g->hurt_lp_tick) {
         g->hurt_lp_tick--;
@@ -115,9 +80,15 @@ void game_tick(g_s *g, inp_state_s inpstate)
         dialog_update(g);
     }
 
-    if (g->cuts.on_update) {
-        g->cuts.tick++;
-        g->cuts.on_update(g, &g->cuts);
+    cs_s *cs = &g->cs;
+    if (cs->on_update || cs->on_update_inp) {
+        cs->tick++;
+        if (cs->on_update) {
+            cs->on_update(g, cs);
+        }
+        if (cs->on_update_inp) {
+            cs->on_update_inp(g, cs, g->inp);
+        }
     }
 
     if (g->block_update) {
@@ -146,16 +117,16 @@ void game_tick_gameplay(g_s *g)
     boss_update(g);
     battleroom_on_update(g);
 
-    obj_s *ohero = obj_get_hero(g);
-    if (ohero && !(ohero->flags & OBJ_FLAG_DONT_UPDATE)) {
-        hero_s *h = (hero_s *)&g->hero;
+    obj_s *owl  = obj_get_owl(g);
+    inp_s  hinp = {0};
+    if (owl && !(owl->flags & OBJ_FLAG_DONT_UPDATE)) {
+        owl_s *h = (owl_s *)&g->owl;
 
-        bool32 control_hero = !g->block_hero_control && !h->squish;
-        inp_s  hinp         = {0};
+        bool32 control_hero = !g->block_owl_control && !h->squish;
         if (control_hero) {
             hinp = g->inp;
         }
-        hero_on_update(g, ohero, hinp);
+        owl_on_update(g, owl, hinp);
     }
 
     for (obj_each(g, o)) {
@@ -246,24 +217,22 @@ void game_tick_gameplay(g_s *g)
     }
 
     objs_cull_to_delete(g);
+#if 0
     if (hero_present_and_alive(g, &ohero)) {
         inp_s heroinp = inp_cur();
         hero_post_update(g, ohero, heroinp);
+        hero_state_check(g, ohero);
 
         if (ohero->health == 0) {
             cs_gameover_enter(g);
         }
     }
+#endif
+    if ((owl = owl_if_present_and_alive(g))) {
+        owl_on_update_post(g, owl, hinp);
+    }
     objs_cull_to_delete(g);
 
-    if (g->events_frame & EVENT_HERO_DAMAGE) {
-        g->freeze_tick  = max_i32(g->freeze_tick, 8);
-        g->hurt_lp_tick = HERO_HURT_LP_TICKS;
-    }
-    if (g->events_frame & EVENT_HERO_DEATH) {
-        g->freeze_tick  = max_i32(g->freeze_tick, 25);
-        g->hurt_lp_tick = HERO_HURT_LP_TICKS;
-    }
     if (g->events_frame & EVENT_HIT_ENEMY) {
         g->freeze_tick = max_i32(g->freeze_tick, 2);
     }
@@ -316,10 +285,7 @@ void game_anim(g_s *g)
         deco_verlet_animate(g);
     }
 
-    rec_i32 camr = {g->cam_center.x - CAM_WH - 32,
-                    g->cam_center.y - CAM_HH - 32,
-                    CAM_W + 64,
-                    CAM_H + 64};
+    rec_i32 camr = {g->cam_center.x - CAM_WH - 32, g->cam_center.y - CAM_HH - 32, CAM_W + 64, CAM_H + 64};
 
     for (i32 n = 0; n < g->n_fluid_areas; n++) {
         fluid_area_s *fa = &g->fluid_areas[n];
@@ -334,7 +300,7 @@ void game_anim(g_s *g)
     particle_sys_update(g);
     coins_update(g);
     objs_animate(g);
-    hero_animate_ui(g);
+    // hero_animate_ui(g);
 }
 
 void game_resume(g_s *g)
@@ -391,12 +357,12 @@ void game_load_savefile(g_s *g)
     } else { // continue
     }
 
-    obj_delete(g, obj_get_hero(g));
-    mclr(&g->hero, sizeof(hero_s));
+    obj_delete(g, obj_get_owl(g));
+    mclr(&g->owl, sizeof(owl_s));
     objs_cull_to_delete(g);
 
-    obj_s  *o = hero_create(g);
-    hero_s *h = (hero_s *)o->heap;
+    obj_s *o = owl_create(g);
+    owl_s *h = (owl_s *)o->heap;
     {
         mcpy(g->save_events, s->save, sizeof(g->save_events));
         mcpy(h->name, s->name, sizeof(h->name));
@@ -410,11 +376,11 @@ void game_load_savefile(g_s *g)
         h->upgrades         = s->upgrades;
         g->minimap.n_pins   = s->n_map_pins;
         g->coins.n          = s->coins;
-        h->stamina_upgrades = s->stamina;
-        h->stamina_pieces   = s->stamina_pieces;
-        h->health_pieces    = s->health_pieces;
         o->health_max       = s->health_max;
         o->health           = o->health_max;
+        h->stamina_upgrades = s->stamina;
+        h->stamina_max      = h->stamina_upgrades * OWL_STAMINA_PER_CONTAINER;
+        h->stamina          = h->stamina_max;
     }
 
     game_load_map(g, s->map_hash);
@@ -435,23 +401,19 @@ void game_load_savefile(g_s *g)
 void game_update_savefile(g_s *g)
 {
     savefile_s *s = g->savefile;
-    hero_s     *h = &g->hero;
+    owl_s      *h = &g->owl;
     {
         mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
         for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
-            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] |
-                                g->minimap.visited[(n << 1) + 1];
+            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] | g->minimap.visited[(n << 1) + 1];
         }
-        s->tick           = g->tick;
-        s->upgrades       = h->upgrades;
-        s->n_map_pins     = g->minimap.n_pins;
-        s->coins          = coins_total(g);
-        s->stamina        = h->stamina_upgrades;
-        s->stamina_pieces = h->stamina_pieces;
-        s->health_pieces  = h->health_pieces;
-        s->health_max     = 3;
+        s->tick       = g->tick;
+        s->upgrades   = h->upgrades;
+        s->n_map_pins = g->minimap.n_pins;
+        s->coins      = coins_total(g);
+        s->health_max = 3;
     }
     pltf_sync_timestep();
 }
@@ -459,7 +421,7 @@ void game_update_savefile(g_s *g)
 bool32 game_save_savefile(g_s *g, v2_i32 pos)
 {
     savefile_s *s = g->savefile;
-    hero_s     *h = &g->hero;
+    owl_s      *h = &g->owl;
     {
         game_update_savefile(g);
         s->map_hash   = g->map_hash;
@@ -477,9 +439,9 @@ bool32 game_save_savefile(g_s *g, v2_i32 pos)
 
 void game_on_solid_appear_ext(g_s *g, obj_s *s)
 {
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (ohero) {
-        hero_check_rope_intact(g, ohero);
+        // hero_check_rope_intact(g, ohero);
     }
 
     if (s && (s->flags & OBJ_FLAG_SOLID)) {
@@ -639,13 +601,13 @@ obj_s *obj_find_ID(g_s *g, i32 objID, obj_s *o)
     return 0;
 }
 
-i32 game_hero_hitID_next(g_s *g)
+i32 game_owl_hitID_next(g_s *g)
 {
-    g->hero_hitID++;
-    if (g->hero_hitID == 0) {
-        g->hero_hitID = 1;
+    g->owl_hitID++;
+    if (g->owl_hitID == 0) {
+        g->owl_hitID = 1;
     }
-    return (i32)g->hero_hitID;
+    return (i32)g->owl_hitID;
 }
 
 void game_darken_bg(g_s *g, i32 speed)

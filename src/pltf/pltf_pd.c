@@ -143,6 +143,11 @@ bool32 pltf_pd_crank_docked()
     return PD->system->isCrankDocked();
 }
 
+bool32 pltf_pd_flip_y()
+{
+    return PD->system->getFlipped();
+}
+
 u32 pltf_pd_btn()
 {
     PDButtons cur;

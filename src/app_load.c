@@ -67,6 +67,8 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_DRILLER, "T_DRILLER");
     app_load_tex_internal(&l, TEXID_ROOTS, "T_ROOT");
     app_load_tex_internal(&l, TEXID_MOLE, "T_MOLE");
+    app_load_tex_internal(&l, TEXID_LOOKAHEAD, "T_LOOKAHEAD");
+    app_load_tex_internal(&l, TEXID_USECRANK, "T_USECRANK");
     APP.assets.tex[TEXID_PAUSE_TEX] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
@@ -141,8 +143,7 @@ LOAD_ANI:;
         l.err |= ASSETS_ERR_WAD_EL;
         goto LOAD_DONE;
     }
-    app_load_ani_internal(&l, ANIID_HERO_ATTACK, "A_HEROATTACK");
-    app_load_ani_internal(&l, ANIID_HERO_ATTACK_AIR, "A_HEROATTACK_AIR");
+    app_load_ani_internal(&l, ANIID_OWL_ATTACK, "A_HEROATTACK");
     app_load_ani_internal(&l, ANIID_COMPANION_ATTACK, "A_COMP_ATTACK");
     app_load_ani_internal(&l, ANIID_COMPANION_FLY, "A_COMP_FLY");
     app_load_ani_internal(&l, ANIID_COMPANION_BUMP, "A_COMP_BUMP");
@@ -157,6 +158,7 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_FBLOB_ATTACK, "A_FBLOB_ATTACK");
     app_load_ani_internal(&l, ANIID_MOLE_DIG_OUT, "A_MOLE_DIG_OUT");
     app_load_ani_internal(&l, ANIID_MOLE_DIG_IN, "A_MOLE_DIG_IN");
+    app_load_ani_internal(&l, ANIID_LOOKAHEAD, "A_LOOKAHEAD");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {

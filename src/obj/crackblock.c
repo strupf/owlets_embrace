@@ -86,7 +86,7 @@ void crackblock_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case CRACKBLOCK_ST_IDLE: {
-        obj_s *ohero = obj_get_hero(g);
+        obj_s *ohero = obj_get_owl(g);
         if (!ohero) break;
 
         rec_i32 rh = obj_aabb(ohero);

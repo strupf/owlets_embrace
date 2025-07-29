@@ -23,7 +23,7 @@ void cs_bossplant_outro_cb_comp(g_s *g, obj_s *o, void *ctx);
 
 void cs_bossplant_outro_enter(g_s *g)
 {
-    cs_s                 *cs = &g->cuts;
+    cs_s                 *cs = &g->cs;
     cs_bossplant_outro_s *dm = (cs_bossplant_outro_s *)cs->mem;
     cs_reset(g);
     cs->on_update          = cs_bossplant_outro_update;
@@ -68,20 +68,20 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
     case 2: {
         if (CS_BOSSPLANT_OUTRO_TICKS_2 <= cs->tick) {
             cs->phase++;
-            cs->tick      = 0;
-            obj_s  *ohero = obj_get_hero(g);
-            hero_s *h     = (hero_s *)ohero->heap;
-            if (ohero->pos.x < dm->bp->x - 120) {
-                ohero->pos.x = dm->bp->x - 120;
+            cs->tick   = 0;
+            obj_s *owl = obj_get_owl(g);
+            owl_s *h   = (owl_s *)owl->heap;
+            if (owl->pos.x < dm->bp->x - 120) {
+                owl->pos.x = dm->bp->x - 120;
             }
-            if (ohero->pos.x > dm->bp->x + 120) {
-                ohero->pos.x = dm->bp->x + 120;
+            if (owl->pos.x > dm->bp->x + 120) {
+                owl->pos.x = dm->bp->x + 120;
             }
-            ohero->facing          = dm->bp->x < ohero->pos.x ? -1 : +1;
-            h->stamina_ui_fade_out = 0;
-            h->stamina             = hero_stamina_max(ohero);
-            ohero->blinking        = 0;
-            ohero->health          = 3;
+            owl->facing   = dm->bp->x < owl->pos.x ? -1 : +1;
+            // h->stamina_ui_fade_out = 0;
+            // h->stamina             = hero_stamina_max(ohero);
+            owl->blinking = 0;
+            owl->health   = 3;
             obj_delete(g, o_eye);
             obj_delete(g, o_eyefl);
             obj_delete(g, o_eyefr);
@@ -92,21 +92,21 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
     case 3: {
         if (CS_BOSSPLANT_OUTRO_TICKS_3 <= cs->tick) {
             cs->phase++;
-            cs->tick              = 0;
-            g->block_update       = 0;
-            g->block_hero_control = 1;
+            cs->tick             = 0;
+            g->block_update      = 0;
+            g->block_owl_control = 1;
             boss_plant_barrier_poof(g);
             dm->bp->draw_vines = 0;
         }
         break;
     }
     case 4: {
-        if (cs_wait_and_pause_for_hero_idle(g)) {
+        if (cs_wait_and_pause_for_owl_idle(g)) {
             cs->phase++;
             cs->tick        = 0;
-            obj_s *ohero    = obj_get_hero(g);
-            dm->puppet_hero = puppet_hero_put(g, ohero);
-            puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
+            obj_s *owl      = obj_get_owl(g);
+            dm->puppet_hero = puppet_owl_put(g, owl);
+            puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
             game_darken_bg(g, -8);
             mus_play_ext(0, "M_SHOWCASE", 0, 0, 0, 2000, 256);
         }
@@ -126,8 +126,8 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
             dm->puppet_comp        = puppet_create(g, OBJID_PUPPET_COMPANION);
             dm->puppet_comp->pos.x = dm->bp->x;
             dm->puppet_comp->pos.y = dm->bp->y;
-            obj_s *ohero           = obj_get_hero(g);
-            v2_i32 hpos            = obj_pos_center(ohero);
+            obj_s *owl             = obj_get_owl(g);
+            v2_i32 hpos            = obj_pos_center(owl);
             v2_i32 pp              = v2_i32_lerp(dm->puppet_comp->pos, hpos, 80, 100);
             i32    facing          = (pp.x < dm->puppet_comp->pos.x ? -1 : +1);
             puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, facing);

@@ -58,7 +58,7 @@ void triggerarea_load(g_s *g, map_obj_s *mo)
 void triggerarea_on_update(g_s *g, obj_s *o)
 {
     triggerarea_s *t     = (triggerarea_s *)&o->mem;
-    obj_s         *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s         *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (!ohero) return;
 
     bool32 occupied   = overlap_rec(obj_aabb(ohero), obj_aabb(o));

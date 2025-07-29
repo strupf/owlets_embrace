@@ -25,6 +25,16 @@ void inp_update()
     mclr(i, sizeof(inp_state_s));
 #if PLTF_PD
     i->actions = pltf_pd_btn() & B8(00111111);
+    if (SETTINGS.swap_a_b_buttons) {
+        u32 actions = i->actions;
+        i->actions &= ~(INP_A | INP_B);
+        if (actions & INP_A) {
+            i->actions |= INP_B;
+        }
+        if (actions & INP_B) {
+            i->actions |= INP_A;
+        }
+    }
 
     if (pltf_pd_crank_docked()) i->actions |= INP_CRANK_DOCK;
     i->crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
@@ -59,23 +69,6 @@ void inp_update()
     if (pltf_sdl_key(SDL_SCANCODE_M)) i->actions |= INP_A;
     i->actions |= INP_CRANK_DOCK;
 #endif
-
-    // accelerometer (0 if not available)
-    f32 x, y, z;
-    pltf_accelerometer(&x, &y, &z);
-    f32 k = 1.0f * (f32)SETTINGS.shake_smooth /
-            (f32)SETTINGS_SHAKE_SMOOTH_MAX;
-    INP.acc_x     = INP.acc_x + (x - INP.acc_x) * k;
-    INP.acc_y     = INP.acc_y + (y - INP.acc_y) * k;
-    INP.acc_z     = INP.acc_z + (z - INP.acc_z) * k;
-    f32 dx        = x - INP.acc_x;
-    f32 dy        = y - INP.acc_y;
-    f32 dz        = z - INP.acc_z;
-    f32 threshold = 0.5f * (f32)SETTINGS.shake_sensitivity /
-                    (f32)SETTINGS_SHAKE_SENS_MAX;
-    if (threshold <= (dx * dx + dy * dy + dz * dz)) {
-        i->actions |= INP_SHAKE;
-    }
 }
 
 void inp_on_resume()

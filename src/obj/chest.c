@@ -33,7 +33,7 @@ void chest_load(g_s *g, map_obj_s *mo)
     if (save_event_exists(g, saveID)) {
         o->state = CHEST_OPENED;
     } else {
-        o->flags = OBJ_FLAG_HERO_JUMPABLE;
+        o->flags = OBJ_FLAG_OWL_JUMPABLE;
     }
 }
 
@@ -67,7 +67,7 @@ void chest_on_open(g_s *g, obj_s *o)
     if (o->state == CHEST_OPENED) return;
 
     chest_s *c = (chest_s *)o->mem;
-    o->flags &= ~OBJ_FLAG_HERO_JUMPABLE;
+    o->flags &= ~OBJ_FLAG_OWL_JUMPABLE;
     o->state = CHEST_OPENED;
     save_event_register(g, c->saveID);
     v2_i32 p = obj_pos_center(o);

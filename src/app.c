@@ -57,7 +57,7 @@ i32 app_init()
         u32 hash;
         i32 x;
         i32 y;
-    } hero_spawn_s;
+    } owl_spawn_s;
 
     savefile_del(0);
     savefile_del(1);
@@ -65,9 +65,9 @@ i32 app_init()
 
     // create a playtesting savefile
 
-    hero_spawn_s hs = {0};
-    void        *f  = wad_open_str("SPAWN", 0, 0);
-    pltf_file_r_checked(f, &hs, sizeof(hero_spawn_s));
+    owl_spawn_s hs = {0};
+    void       *f  = wad_open_str("SPAWN", 0, 0);
+    pltf_file_r_checked(f, &hs, sizeof(owl_spawn_s));
     pltf_file_close(f);
 
     mclr(s, sizeof(savefile_s));
@@ -77,6 +77,7 @@ i32 app_init()
         s->map_hash   = hs.hash;
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
+#if 0
         s->upgrades =
             HERO_UPGRADE_SWIM |
             HERO_UPGRADE_STOMP |
@@ -86,6 +87,7 @@ i32 app_init()
             HERO_UPGRADE_CLIMB |
             HERO_UPGRADE_COMPANION |
             0;
+#endif
         s->stamina    = 5;
         s->health_max = 6;
     }
@@ -136,6 +138,15 @@ static void app_tick_step()
     timing_beg(TIMING_ID_TICK);
 #endif
     inp_update();
+#if PLTF_PD
+    if (APP.crank_requested) {
+        if (pltf_pd_crank_docked()) {
+            APP.crank_ui_tick++;
+        } else {
+            APP.crank_ui_tick = 0;
+        }
+    }
+#endif
 
     g_s *g = &APP.game;
 
@@ -194,6 +205,32 @@ void app_draw()
         gfx_rec_fill(cc, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK_WHITE);
     }
 #endif
+
+#if PLTF_PD
+    // "USE THE CRANK!"
+    if (APP.crank_requested && APP.crank_ui_tick) {
+        // 40 = duration of "use crank!"
+        // 90 = 3 turns x 2.5 ticks per frame x 12 frames
+        i32 t  = APP.crank_ui_tick % (40 + 90);
+        i32 fx = 0;
+        i32 fy = 0;
+
+        if (40 <= t) { // 10/25 = 2.5 = ticks per frame
+            fy = 1 + (((t - 40) * 10) / 25) % 12;
+        }
+
+        v2_i32 p = {0};
+        if (pltf_pd_flip_y()) {
+            fx  = 1;
+            p.y = 4;
+        } else {
+            p.x = 400 - 128;
+            p.y = 240 - 56;
+        }
+        texrec_s tr = asset_texrec(TEXID_USECRANK, fx * 128, fy * 52, 128, 52);
+        gfx_spr(ctx, tr, p, 0, 0);
+    }
+#endif
 }
 
 void app_close()
@@ -210,6 +247,7 @@ void app_resume()
 {
     inp_on_resume();
     game_resume(&APP.game);
+    APP.crank_ui_tick = 0;
 }
 
 void app_pause()
@@ -254,6 +292,12 @@ void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment)
     return app_alloc_aligned(s, alignment);
 }
 
+allocator_s app_allocator()
+{
+    allocator_s a = {app_alloc_aligned_ctx, &APP.ma};
+    return a;
+}
+
 void app_set_mode(i32 mode)
 {
     switch (mode) {
@@ -266,6 +310,19 @@ void app_set_mode(i32 mode)
     case SETTINGS_MODE_POWER_SAVING:
         pltf_set_fps_mode(PLTF_FPS_MODE_40);
         break;
+    }
+}
+
+void app_crank_requested(b32 enable)
+{
+    if (enable) {
+        if (!APP.crank_requested) {
+            APP.crank_ui_tick = 0;
+        }
+        APP.crank_requested = 1;
+    } else {
+        APP.crank_requested = 0;
+        APP.crank_ui_tick   = 0;
     }
 }
 

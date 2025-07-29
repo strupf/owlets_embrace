@@ -16,7 +16,7 @@ enum {
     INP_DPAD_DIR_NE,
     INP_DPAD_DIR_NW,
     INP_DPAD_DIR_SE,
-    INP_DPAD_DIR_SW,
+    INP_DPAD_DIR_SW
 };
 
 enum {
@@ -36,7 +36,7 @@ enum {
     INP_DD = 1 << 5,
 #endif
     INP_SHAKE      = 1 << 14,
-    INP_CRANK_DOCK = 1 << 15,
+    INP_CRANK_DOCK = 1 << 15
 };
 
 typedef struct {

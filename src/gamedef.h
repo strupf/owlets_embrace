@@ -7,6 +7,7 @@
 
 #include "pltf/pltf.h"
 //
+#include "app_api.h"
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/gfx.h"
@@ -68,7 +69,6 @@ typedef struct obj_handle_s {
     u32    generation;
 } obj_handle_s;
 
-#define LEN_HERO_NAME       16
 #define LEN_AREA_FILENAME   64
 #define FADETICKS_AREALABEL 150
 

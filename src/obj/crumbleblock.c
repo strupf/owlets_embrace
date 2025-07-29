@@ -80,10 +80,12 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case CRUMBLE_STATE_IDLE: {
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
         if (!ohero) break;
 
-        hero_s *h           = (hero_s *)ohero->heap;
+        owl_s *h = (owl_s *)ohero->heap;
+
+#if 0
         rec_i32 rclimb      = {ohero->pos.x - 1,
                                ohero->pos.y + HERO_CLIMB_Y1_OFFS,
                                ohero->w + 2,
@@ -92,6 +94,7 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
         if (obj_standing_on(ohero, o, 0, 0) || climbing_on) {
             crumbleblock_start_breaking(g, o);
         }
+#endif
         break;
     }
     case CRUMBLE_STATE_BREAKING: {

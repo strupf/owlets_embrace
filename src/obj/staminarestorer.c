@@ -107,7 +107,7 @@ bool32 staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero)
         o->state == STAMINARESTORER_RESPAWN) {
         o->state = STAMINARESTORER_COLLECT;
         o->timer = 0;
-        hero_stamina_add_ui(ohero, HERO_TICKS_PER_STAMINA_UPGRADE);
+        // hero_stamina_add_ui(ohero, HERO_TICKS_PER_STAMINA_UPGRADE);
         return 1;
     }
     return 0;
@@ -115,11 +115,11 @@ bool32 staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero)
 
 void staminarestorer_respawn_all(g_s *g, obj_s *o)
 {
-    for (obj_each(g, o)) {
-        if (o->ID != OBJID_STAMINARESTORER) continue;
-        if (o->state != STAMINARESTORER_HIDDEN) continue;
+    for (obj_each(g, i)) {
+        if (i->ID != OBJID_STAMINARESTORER) continue;
+        if (i->state != STAMINARESTORER_HIDDEN) continue;
 
-        o->state = STAMINARESTORER_RESPAWN;
-        o->timer = 0;
+        i->state = STAMINARESTORER_RESPAWN;
+        i->timer = 0;
     }
 }

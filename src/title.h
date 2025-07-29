@@ -20,7 +20,7 @@ enum {
 typedef struct {
     b32 exists;
     i32 tick;
-    u8  name[LEN_HERO_NAME];
+    u8  name[20];
     u8  map_name[32];
 } save_preview_s;
 

@@ -131,7 +131,7 @@ void game_load_map(g_s *g, u32 map_hash)
     assert((w * h) <= NUM_TILES);
 
     for (obj_each(g, o)) {
-        if (o->ID != OBJID_HERO) {
+        if (o->ID != OBJID_OWL) {
             obj_delete(g, o);
         }
     }

@@ -16,7 +16,7 @@
 void render_ui(g_s *g)
 {
     const gfx_ctx_s ctx    = gfx_ctx_display();
-    obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s          *ohero  = obj_get_tagged(g, OBJ_TAG_OWL);
     fnt_s           font_1 = asset_fnt(FNTID_AREA_LABEL);
 
     if (AREANAME_ST_DELAY < g->area_anim_st) {
@@ -34,10 +34,17 @@ void render_ui(g_s *g)
     }
 }
 
-void render_hero_hearts(g_s *g, i32 hp, i32 hp_max)
+void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
 {
-    gfx_ctx_s ctx     = gfx_ctx_display();
-    texrec_s  trheart = asset_texrec(TEXID_BUTTONS, 0, 0, 32, 28);
+    fnt_s     font_1 = asset_fnt(FNTID_AREA_LABEL);
+    gfx_ctx_s ctx    = gfx_ctx_display();
+    owl_s    *h      = (owl_s *)ohero->heap;
+    v2_i32    posh   = v2_i32_add(obj_pos_center(ohero), camoff);
+    //  hero_interaction_s hi     = hero_get_interaction(g, ohero);
+
+    i32      hp      = ohero->health;
+    i32      hp_max  = ohero->health_max;
+    texrec_s trheart = asset_texrec(TEXID_BUTTONS, 0, 0, 32, 28);
 
     for (i32 n = 0; n < hp_max; n += 2) {
         i32 fr_x      = 0;
@@ -76,67 +83,6 @@ void render_hero_hearts(g_s *g, i32 hp, i32 hp_max)
         trheart.y     = (11 + fr_y) << 5;
         gfx_spr_tile_32x32(ctx, trheart, heartp);
     }
-}
-
-void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
-{
-    fnt_s              font_1 = asset_fnt(FNTID_AREA_LABEL);
-    gfx_ctx_s          ctx    = gfx_ctx_display();
-    hero_s            *h      = (hero_s *)ohero->heap;
-    v2_i32             posh   = v2_i32_add(obj_pos_center(ohero), camoff);
-    hero_interaction_s hi     = hero_get_interaction(g, ohero);
-
-    render_hero_hearts(g, ohero->health, ohero->health_max);
-
-#if 0 // crank ring segment filling ui
-    if (500 <= h->crank_swap_buildup || ((h->mode_switched_tick / 3) & 1)) {
-#define HERO_SWAP_TEXW 64
-#define HERO_SWAP_TEXH 32
-
-        TEX_STACK_CTX(textmp, HERO_SWAP_TEXW, HERO_SWAP_TEXH, 1);
-
-        v2_i32 pz1 = {0};
-        v2_i32 pz2 = {HERO_SWAP_TEXW >> 1, 32};
-
-        texrec_s trcir = asset_texrec(TEXID_BUTTONS, 5 * 64, 5 * 64, 64, 64);
-
-        v2_i32 pcir = {posh.x + h->render_align_offs.x - (HERO_SWAP_TEXW >> 1),
-                       posh.y + h->render_align_offs.y - 40};
-
-        i32 cda = 32768;
-        i32 ca1 = 32768 / 2 + 32768 * 2;
-
-        gfx_ctx_s ctxc = ctx;
-        if (!h->mode_switched_tick) {
-            cda      = lerp_i32(0, cda, h->crank_swap_buildup, HERO_CRANK_BUILDUP_Q16);
-            ctxc.pat = gfx_pattern_interpolate(min_i32(h->crank_swap_buildup, 4000), 4000);
-        }
-
-        gfx_fill_circle_ring_seg(textmp_ctx, pz2, 20, 30, ca1, ca1 - 32768, PRIM_MODE_BLACK);
-        gfx_fill_circle_ring_seg(textmp_ctx, pz2, 20, 30, ca1, ca1 - cda, PRIM_MODE_WHITE);
-        gfx_spr(textmp_ctx, trcir, pz1, 0, 0);
-
-        gfx_spr(ctxc, texrec_from_tex(textmp), pcir, 0, 0);
-    }
-#endif
-
-    switch (hi.action) {
-    case HERO_INTERACTION_INTERACT: {
-        obj_s *oi = obj_from_obj_handle(hi.interact);
-        if (!oi) break;
-
-        v2_i32 pbt = v2_i32_add(camoff, obj_pos_center(oi));
-        pbt.x -= 48 / 2 + oi->offs_interact_ui.x;
-        pbt.y -= 48 / 2 + oi->offs_interact_ui.y;
-        texrec_s trb = asset_texrec(TEXID_BUTTONS,
-                                    48,
-                                    48 * (1 - ani_frame(ANIID_BUTTON, g->tick)),
-                                    48,
-                                    48);
-        gfx_spr(ctx, trb, pbt, 0, 0);
-        break;
-    }
-    }
 
     render_stamina_ui(g, ohero, camoff);
     coins_draw(g);
@@ -144,23 +90,24 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
 
 void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
 {
-    hero_s *h = (hero_s *)o->heap;
-    if (!(h->stamina_upgrades && h->stamina_ui_fade_out)) return;
+#if 1
+    owl_s *h = (owl_s *)o->heap;
+    if (!(h->stamina_upgrades && h->stamina_ui_fade_ticks)) return;
 
     gfx_ctx_s ctx   = gfx_ctx_display();
     gfx_ctx_s ctxfh = ctx;
     gfx_ctx_s ctxb  = ctx;
     ctxfh.pat       = gfx_pattern_50();
-    i32 ft0         = hero_stamina_max(o);
-    i32 ftx         = hero_stamina_ui_full(o);
-    i32 fty         = hero_stamina_ui_added(o);
+    i32 ft0         = h->stamina_max;
+    i32 ftx         = h->stamina - h->stamina_added;
+    i32 fty         = h->stamina_added;
 
     v2_i32 p = v2_i32_add(obj_pos_center(o), camoff);
     p.y += h->render_align_offs.y - 42;
     p.x += h->render_align_offs.x;
 
     i32 wi_inner  = ease_out_quad(-2, 12 + h->stamina_upgrades * 4,
-                                  h->stamina_ui_fade_out, STAMINA_UI_TICKS_HIDE);
+                                  h->stamina_ui_fade_ticks, OWL_STAMINA_TICKS_UI_FADE);
     i32 wi_innerh = wi_inner >> 1;
 
     rec_i32 rfill_black = {p.x - wi_innerh - 3, p.y + 5, wi_inner + 6, 6};
@@ -178,7 +125,7 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
     gfx_rec_fill(ctxfh, rfill_whalf, PRIM_MODE_WHITE);
 
     // lines between stamina bars
-    if (ftx && h->stamina_ui_fade_out >= STAMINA_UI_TICKS_HIDE / 2) {
+    if (ftx && h->stamina_ui_fade_ticks >= OWL_STAMINA_TICKS_UI_FADE / 2) {
         for (i32 n = 1; n < h->stamina_upgrades; n++) {
             rec_i32 rline = {p.x - wi_innerh + (n * wi_inner) / h->stamina_upgrades, p.y + 6, 1, 4};
             gfx_rec_fill(ctx, rline, PRIM_MODE_BLACK);
@@ -195,4 +142,5 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
         texrec_s tr_inner = asset_texrec(TEXID_BUTTONS, 41 * 8, 16 * 16, wi_inner, 16);
         gfx_spr(ctx, tr_inner, p_i, 0, 0);
     }
+#endif
 }

@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-obj_s *puppet_hero_put(g_s *g, obj_s *ohero)
+obj_s *puppet_owl_put(g_s *g, obj_s *ohero)
 {
     obj_s *o           = puppet_create(g, OBJID_PUPPET_HERO);
     o->pos.x           = ohero->pos.x + ohero->w / 2;
@@ -15,7 +15,7 @@ obj_s *puppet_hero_put(g_s *g, obj_s *ohero)
     return o;
 }
 
-void puppet_hero_replace_and_del(g_s *g, obj_s *ohero, obj_s *o)
+void puppet_owl_replace_and_del(g_s *g, obj_s *ohero, obj_s *o)
 {
     ohero->pos.x  = o->pos.x - ohero->w / 2;
     ohero->pos.y  = o->pos.y - ohero->h;
@@ -44,7 +44,7 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
 
     switch (animID) {
     default: break;
-    case PUPPET_HERO_ANIMID_IDLE: {
+    case PUPPET_OWL_ANIMID_IDLE: {
         i32 idlea = anim_t / 15;
         fy        = 2;
         fx        = idlea & 3;
@@ -53,13 +53,13 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         }
         break;
     }
-    case PUPPET_HERO_ANIMID_UPGR_INTENSE: {
+    case PUPPET_OWL_ANIMID_UPGR_INTENSE: {
         spr->offs.y += 4;
         fy = 17;
         fx = 2 + ((anim_t >> 2) & 1);
         break;
     }
-    case PUPPET_HERO_ANIMID_UPGR_RISE: {
+    case PUPPET_OWL_ANIMID_UPGR_RISE: {
         spr->offs.y += 4;
         fy = 17;
         if (anim_t < 20) {
@@ -69,49 +69,49 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         }
         break;
     }
-    case PUPPET_HERO_ANIMID_UPGR_CALM: {
+    case PUPPET_OWL_ANIMID_UPGR_CALM: {
         spr->offs.y += 4;
         fy = 17;
         fx = 2 + ((anim_t >> 3) & 1);
         break;
     }
-    case PUPPET_HERO_ANIMID_SHOOK: {
+    case PUPPET_OWL_ANIMID_SHOOK: {
         fy = 7;
         fx = 7 + ((anim_t >> 3) & 1);
         break;
     }
-    case PUPPET_HERO_ANIMID_AVENGE: {
+    case PUPPET_OWL_ANIMID_AVENGE: {
         fy = 14;
         fx = 9 + min_i32(anim_t >> 3, 2);
         break;
     }
-    case PUPPET_HERO_ANIMID_QUICKDUCK: {
+    case PUPPET_OWL_ANIMID_QUICKDUCK: {
         fy = 11;
         fx = 2;
         break;
     }
-    case PUPPET_HERO_ANIMID_HOLD_ARM: {
+    case PUPPET_OWL_ANIMID_HOLD_ARM: {
         fy = 14;
         fx = 6 + min_i32((anim_t >> 2), 5);
         break;
     }
-    case PUPPET_HERO_ANIMID_PRESENT_ABOVE: {
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE: {
         fx = 11 + min_i32(anim_t >> 1, 2);
         fy = 8;
         break;
     }
-    case PUPPET_HERO_ANIMID_PRESENT_ABOVE_COMP: {
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP: {
         fx = 11 + min_i32(anim_t >> 1, 2);
         fy = 32;
         break;
     }
-    case PUPPET_HERO_ANIMID_OFF_BALANCE: {
+    case PUPPET_OWL_ANIMID_OFF_BALANCE: {
         i32 t = frame_from_ticks_pingpong(anim_t >> 1, 6);
         fx    = 8 + t;
         fy    = 4;
         break;
     }
-    case PUPPET_HERO_ANIMID_OFF_BALANCE_COMP: {
+    case PUPPET_OWL_ANIMID_OFF_BALANCE_COMP: {
         i32 t = frame_from_ticks_pingpong(anim_t >> 1, 6);
         fx    = 8 + t;
         fy    = 28;

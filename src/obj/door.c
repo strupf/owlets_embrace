@@ -104,6 +104,7 @@ void door_on_update(g_s *g, obj_s *o)
 
     obj_s *ohero         = 0;
     bool32 hero_detected = 0;
+#if 0
     if (hero_present_and_alive(g, &ohero)) {
         rec_i32 r_tog = {o->pos.x - DOOR_DETECT_PX,
                          o->pos.y,
@@ -111,6 +112,7 @@ void door_on_update(g_s *g, obj_s *o)
                          o->h};
         hero_detected = overlap_rec(obj_aabb(ohero), r_tog);
     }
+#endif
 
     switch (o->substate) {
     case DOOR_ACT_COLLECT: {

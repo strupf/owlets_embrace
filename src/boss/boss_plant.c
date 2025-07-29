@@ -245,8 +245,8 @@ void boss_plant_update(g_s *g)
 {
     boss_plant_s *b           = &g->boss.plant;
     v2_i32        panchor     = {b->x, b->y};
-    obj_s        *ohero       = obj_get_hero(g);
-    v2_i32        phero       = obj_pos_center(ohero);
+    obj_s        *owl         = obj_get_owl(g);
+    v2_i32        powl       = obj_pos_center(owl);
     obj_s        *o_eye       = obj_from_obj_handle(b->eye);
     obj_s        *o_eyefl     = obj_from_obj_handle(b->eye_fake[0]);
     obj_s        *o_eyefr     = obj_from_obj_handle(b->eye_fake[1]);
@@ -347,7 +347,7 @@ void boss_plant_update(g_s *g)
         if (any_eye_hooked) {
             i32 bt = n_eyes_fake <= 1 ? 60 : 80;
             if ((b->phase_tick % bt) == 0) {
-                i32 herox_rel = (phero.x - panchor.x) >> 4;
+                i32 herox_rel = (powl.x - panchor.x) >> 4;
                 herox_rel += rngr_i32(-1, +1);
                 herox_rel = clamp_i32(herox_rel, -9, +9);
                 boss_plant_tentacle_try_emerge_ext(g, herox_rel, 55, 10);
@@ -393,7 +393,7 @@ void boss_plant_update(g_s *g)
                 (b->ripped_intensify == 0 && b->ripped_timer == 50)) {
                 b->ripped_timer = 0;
                 b->ripped_intensify++;
-                i32 herox_rel = (phero.x - panchor.x) >> 4;
+                i32 herox_rel = (powl.x - panchor.x) >> 4;
                 herox_rel += rngr_i32(-1, +1);
                 herox_rel = clamp_i32(herox_rel, -9, +9);
                 boss_plant_tentacle_try_emerge_ext(g, herox_rel, t_emerge, t_show);

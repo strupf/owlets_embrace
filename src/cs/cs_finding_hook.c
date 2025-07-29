@@ -8,10 +8,10 @@ void cs_finding_hook_update(g_s *g, cs_s *cs);
 
 void cs_finding_hook_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update         = cs_finding_hook_update;
-    g->block_hero_control = 1;
+    cs->on_update        = cs_finding_hook_update;
+    g->block_owl_control = 1;
     save_event_register(g, SAVE_EV_CS_HOOK_FOUND);
 }
 
@@ -21,16 +21,16 @@ void cs_finding_hook_update(g_s *g, cs_s *cs)
 
     switch (cs->phase) {
     case 0:
-        if (cs_wait_and_pause_for_hero_idle(g)) {
+        if (cs_wait_and_pause_for_owl_idle(g)) {
             obj_s *ocomp = obj_get_comp(g);
             if (ocomp) {
                 cs->p_comp = puppet_companion_put(g, ocomp);
             }
 
             cs->phase++;
-            cs->tick   = 0;
-            cs->p_hero = puppet_hero_put(g, obj_get_hero(g));
-            puppet_set_anim(cs->p_hero, PUPPET_HERO_ANIMID_IDLE, -1);
+            cs->tick  = 0;
+            cs->p_owl = puppet_owl_put(g, obj_get_owl(g));
+            puppet_set_anim(cs->p_owl, PUPPET_OWL_ANIMID_IDLE, -1);
         }
         break;
     case 1:
@@ -38,10 +38,13 @@ void cs_finding_hook_update(g_s *g, cs_s *cs)
             if (cs->p_comp) {
                 puppet_companion_replace_and_del(g, obj_get_comp(g), cs->p_comp);
             }
-            puppet_hero_replace_and_del(g, obj_get_hero(g), cs->p_hero);
+            puppet_owl_replace_and_del(g, obj_get_owl(g), cs->p_owl);
+
+#if 0
             hero_add_upgrade(g, HERO_UPGRADE_HOOK);
+#endif
             cs_reset(g);
-            g->block_hero_control = 0;
+            g->block_owl_control = 0;
         }
         break;
     }

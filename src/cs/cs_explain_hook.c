@@ -15,12 +15,12 @@ void cs_explain_hook_cb_comp(g_s *g, obj_s *o, void *ctx);
 
 void cs_explain_hook_enter(g_s *g)
 {
-    cs_s              *cs = &g->cuts;
+    cs_s              *cs = &g->cs;
     cs_explain_hook_s *dm = (cs_explain_hook_s *)cs->mem;
     cs_reset(g);
-    cs->on_update         = cs_explain_hook_update;
-    cs->on_trigger        = cs_explain_hook_on_trigger;
-    g->block_hero_control = 1;
+    cs->on_update        = cs_explain_hook_update;
+    cs->on_trigger       = cs_explain_hook_on_trigger;
+    g->block_owl_control = 1;
 }
 
 void cs_explain_hook_update(g_s *g, cs_s *cs)
@@ -30,18 +30,18 @@ void cs_explain_hook_update(g_s *g, cs_s *cs)
     switch (cs->phase) {
     default: break;
     case 0: {
-        if (!cs_wait_and_pause_for_hero_idle(g)) break;
+        if (!cs_wait_and_pause_for_owl_idle(g)) break;
 
         cs->phase++;
         cs->tick = 0;
 
-        obj_s *ohero    = obj_get_hero(g);
+        obj_s *owl      = obj_get_owl(g);
         obj_s *ocomp    = obj_get_tagged(g, OBJ_TAG_COMPANION);
-        dm->puppet_hero = puppet_hero_put(g, ohero);
-        puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
+        dm->puppet_hero = puppet_owl_put(g, owl);
+        puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
         dm->puppet_comp = puppet_companion_put(g, ocomp);
-        v2_i32 hpos     = obj_pos_center(ohero);
-        hpos.x += ohero->facing * 40;
+        v2_i32 hpos     = obj_pos_center(owl);
+        hpos.x += owl->facing * 40;
         hpos.y -= 15;
 
         i32 cfacing = hpos.x < dm->puppet_comp->pos.x ? -1 : +1;
@@ -58,10 +58,10 @@ void cs_explain_hook_update(g_s *g, cs_s *cs)
     }
     case 10: {
         // leave
-        g->block_hero_control = 0;
-        obj_s *ohero          = obj_get_hero(g);
-        obj_s *ocomp          = obj_get_tagged(g, OBJ_TAG_COMPANION);
-        puppet_hero_replace_and_del(g, ohero, dm->puppet_hero);
+        g->block_owl_control = 0;
+        obj_s *owl           = obj_get_owl(g);
+        obj_s *ocomp         = obj_get_tagged(g, OBJ_TAG_COMPANION);
+        puppet_owl_replace_and_del(g, owl, dm->puppet_hero);
         puppet_companion_replace_and_del(g, ocomp, dm->puppet_comp);
         cs_reset(g);
         break;

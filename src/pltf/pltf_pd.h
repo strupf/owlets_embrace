@@ -42,6 +42,7 @@ void   pltf_pd_update_rows(i32 from_incl, i32 to_incl);
 f32    pltf_pd_crank_deg();
 f32    pltf_pd_crank();
 bool32 pltf_pd_crank_docked();
+bool32 pltf_pd_flip_y();
 u32    pltf_pd_btn();
 void  *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
                             void (*func)(void *ctx, i32 opt), void *ctx);

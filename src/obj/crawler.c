@@ -36,7 +36,7 @@ void crawler_load(g_s *g, map_obj_s *mo)
     o->flags         = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ACTOR |
-               OBJ_FLAG_HERO_JUMPSTOMPABLE |
+               OBJ_FLAG_OWL_JUMPSTOMPABLE |
                OBJ_FLAG_ENEMY;
 
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;

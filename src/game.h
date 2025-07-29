@@ -16,11 +16,11 @@
 #include "game_trigger.h"
 #include "gamedef.h"
 #include "grapplinghook.h"
-#include "hero.h"
 #include "map_loader.h"
 #include "minimap.h"
 #include "obj.h"
 #include "obj/puppet.h"
+#include "owl.h"
 #include "particle.h"
 #include "particle_defs.h"
 #include "render.h"
@@ -29,7 +29,6 @@
 #include "settings.h"
 #include "steering.h"
 #include "tile_map.h"
-#include "ui.h"
 #include "vfx_area.h"
 #include "wiggle.h"
 
@@ -154,7 +153,6 @@ struct g_s {
     i32             tick_playtime;
     u32             map_hash;
     //
-    inp_state_s     hero_control_feed;
     i16             n_map_rooms;
     i16             n_fg;
     u8              n_map_doors;
@@ -165,10 +163,10 @@ struct g_s {
     bool8           dark;
     bool8           previewmode;
     bool8           block_update;
-    bool8           block_hero_control;
+    bool8           block_owl_control;
     bool8           speedrun;
     bool8           render_map_doors;
-    u8              hero_hitID;
+    u8              owl_hitID;
     map_room_s      map_rooms[GAME_N_ROOMS];
     map_room_s     *map_room_cur;
     map_door_s      map_doors[16];
@@ -179,8 +177,9 @@ struct g_s {
     grapplinghook_s ghook;
     coins_s         coins;
     minimap_s       minimap;
+    owl_s           owl;
     cam_s           cam;
-    cs_s            cuts;
+    cs_s            cs;
     u32             events_frame; // flags
     u32             hurt_lp_tick;
     u8              music_ID;
@@ -225,7 +224,6 @@ struct g_s {
     deco_verlet_s   deco_verlet[NUM_DECO_VERLET];
     i32             n_fluid_areas;
     fluid_area_s    fluid_areas[16];
-    hero_s          hero;
     particle_sys_s  particle_sys;
     i32             n_save_points;
     v2_i32          save_points[8];
@@ -259,7 +257,7 @@ obj_s *obj_find_ID(g_s *g, i32 objID, obj_s *o);
 void   game_on_solid_appear_ext(g_s *g, obj_s *s);
 void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
-i32    game_hero_hitID_next(g_s *g);
+i32    game_owl_hitID_next(g_s *g);
 void   game_cue_area_music(g_s *g);
 bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
                      f32 *vol, f32 *pan);

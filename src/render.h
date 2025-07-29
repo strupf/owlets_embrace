@@ -5,14 +5,6 @@
 #ifndef RENDER_H
 #define RENDER_H
 
-enum {
-    SCENE_MOUNTAINS,
-    SCENE_CAVE,
-    SCENE_DEEP_FOREST,
-    SCENE_FOREST,
-    SCENE_MAGMA,
-};
-
 #include "gamedef.h"
 
 void   foreground_draw(g_s *g, v2_i32 cam_al, v2_i32 cam);
@@ -21,7 +13,6 @@ void   render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam);
 void   render_ui(g_s *g);
 void   render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff);
 void   render_fluids(g_s *g, v2_i32 camoff, tile_map_bounds_s bounds);
-void   render_map_doors(g_s *g, v2_i32 camoff);
 v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8);
 
 // gets the tile index of a terrain block

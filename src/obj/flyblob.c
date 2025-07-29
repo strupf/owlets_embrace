@@ -66,7 +66,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
     v2_i32 pctr  = obj_pos_center(o);
     v2_i32 phero = {0};
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (ohero) {
         phero = obj_pos_center(ohero);
     }
@@ -164,7 +164,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
             break;
         }
 
-        g->cam.chero.force_lower_ceiling = min_i32(o->timer << 2, 60);
+        g->cam.cowl.force_lower_ceiling = min_i32(o->timer << 2, 60);
 
         if (o->bumpflags & OBJ_BUMP_Y) {
             o->v_q12.y = 0;
@@ -175,9 +175,9 @@ void flyblob_on_update(g_s *g, obj_s *o)
         o->bumpflags = 0;
 
         v2_i32 frope = {0};
-        i32    f     = grapplinghook_f_at_obj_proj_v(&g->ghook, o, (v2_i32){0}, &frope);
+        i32    force = grapplinghook_f_at_obj_proj_v(&g->ghook, o, (v2_i32){0}, &frope);
 
-        if (100 <= f) {
+        if (100 <= force) {
             if (frope.x < -2000) {
                 o->v_q12.x -= 64;
             }
@@ -203,7 +203,7 @@ void flyblob_on_hook(g_s *g, obj_s *o, bool32 hooked)
         o->state = FLYBLOB_STATE_PROPELLER_POP;
         o->flags &= ~(OBJ_FLAG_HURT_ON_TOUCH |
                       OBJ_FLAG_HOOKABLE);
-        o->flags |= OBJ_FLAG_HERO_JUMPSTOMPABLE;
+        o->flags |= OBJ_FLAG_OWL_JUMPSTOMPABLE;
         break;
     case 1:
     default:

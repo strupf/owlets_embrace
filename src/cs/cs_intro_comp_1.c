@@ -8,7 +8,7 @@ void cs_intro_comp_1_update(g_s *g, cs_s *cs);
 
 void cs_intro_comp_1_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
     cs->on_update = cs_intro_comp_1_update;
     cs->p_comp    = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);

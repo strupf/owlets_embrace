@@ -134,14 +134,12 @@ err32 tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t)
     return ASSETS_ERR_ALLOC;
 }
 
-err32 tex_from_wad_ID_ext(void *f, i32 ID, const void *name,
-                          allocator_s a)
+err32 tex_from_wad_ID_ext(void *f, i32 ID, const void *name, allocator_s a)
 {
     return tex_from_wad(f, 0, name, a, asset_texptr(ID));
 }
 
-err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, tex_s *o_t)
+err32 tex_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, tex_s *o_t)
 {
     if (!o_t) return ASSETS_ERR_MISC;
 
@@ -163,8 +161,7 @@ err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
     return ASSETS_ERR_ALLOC;
 }
 
-err32 snd_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, snd_s *o_s)
+err32 snd_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, snd_s *o_s)
 {
     if (!o_s) return ASSETS_ERR_MISC;
 
@@ -197,8 +194,7 @@ typedef struct {
     u16 n;     // number of frames
 } ani_header_s;
 
-err32 ani_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, ani_s *o_a)
+err32 ani_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, ani_s *o_a)
 {
     if (!o_a) return ASSETS_ERR_MISC;
 

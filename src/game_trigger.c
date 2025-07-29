@@ -39,8 +39,8 @@ void game_on_trigger(g_s *g, i32 trigger)
         break;
     }
 
-    if (g->cuts.on_trigger) {
-        g->cuts.on_trigger(g, &g->cuts, trigger);
+    if (g->cs.on_trigger) {
+        g->cs.on_trigger(g, &g->cs, trigger);
     }
 
     for (obj_each(g, o)) {

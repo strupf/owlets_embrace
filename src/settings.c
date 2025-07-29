@@ -21,7 +21,9 @@ settings_s SETTINGS;
 
 err32 settings_load(settings_s *s)
 {
-#if 1 // just load and override default settings for dev purposes
+#if 1
+    // TODO
+    // just load and override default settings for dev purposes
     settings_default(s);
     return 0;
 #endif
@@ -80,12 +82,10 @@ err32 settings_save(settings_s *s)
 void settings_default(settings_s *s)
 {
     mclr(s, sizeof(settings_s));
-    s->mode              = SETTINGS_MODE_NORMAL;
-    s->shake_smooth      = SETTINGS_SHAKE_SMOOTH_MAX / 2;
-    s->shake_sensitivity = SETTINGS_SHAKE_SENS_MAX / 2;
-    s->vol_mus           = SETTINGS_VOL_MAX;
-    s->vol_sfx           = SETTINGS_VOL_MAX;
-    s->swap_ticks        = (SETTINGS_SWAP_TICKS_MIN + SETTINGS_SWAP_TICKS_MAX) / 2;
+    s->mode       = SETTINGS_MODE_NORMAL;
+    s->vol_mus    = SETTINGS_VOL_MAX;
+    s->vol_sfx    = SETTINGS_VOL_MAX;
+    s->swap_ticks = SETTINGS_SWAP_TICKS_NORMAL;
 }
 
 #define SETTINGS_TICKS_LERP    10

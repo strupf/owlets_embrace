@@ -16,7 +16,7 @@ void grass_put(g_s *g, i32 tx, i32 ty)
 
 void grass_animate(g_s *g)
 {
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
     for (u32 n = 0; n < g->n_grass; n++) {
         grass_s *gr = &g->grass[n];
         rec_i32  r  = {gr->pos.x, gr->pos.y, 16, 16};
@@ -69,8 +69,8 @@ void deco_verlet_obj_collision(g_s *g, obj_s *o, i32 r)
         deco_verlet_s *d = &g->deco_verlet[n];
 
         v2_i32 p = v2_i32_shl(d->pos, 6);
-        for (u32 n = 1; n < d->n_pt; n++) {
-            deco_verlet_pt_s *pt = &d->pt[n];
+        for (u32 i = 1; i < d->n_pt; i++) {
+            deco_verlet_pt_s *pt = &d->pt[i];
             v2_i32            pp = v2_i32_add(p, v2_i32_from_i16(pt->p));
             v2_i32            dt = v2_i32_sub(pp, po);
             i32               ls = v2_i32_lensq(dt);
@@ -90,7 +90,7 @@ void deco_verlet_animate(g_s *g)
         deco_verlet_animate_single(g, d);
     }
 
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (ohero) {
         deco_verlet_obj_collision(g, ohero, 500);
     }

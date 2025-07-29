@@ -24,6 +24,15 @@ void   cs_finding_hook_enter(g_s *g);
 void   cs_aquire_heartpiece_enter(g_s *g, bool32 is_stamina);
 void   cs_mole_1_enter(g_s *g);
 
+typedef struct {
+    v2_i32 pt[24];
+    b32    circ;
+    i32    n_pt;
+    bool32 controllable;
+} cs_camera_pan_config_s;
+
+void cs_camera_pan_enter(g_s *g, cs_camera_pan_config_s *pan_config);
+
 enum {
     CS_ID_NONE,
     CS_ID_COMP_FIND,
@@ -47,12 +56,14 @@ struct cs_s {
     u8     counter1;
     u8     counter2;
     u8     counter3;
+    void  *heap;
     obj_s *p_comp;
-    obj_s *p_hero;
+    obj_s *p_owl;
     obj_s *p_o[4];
 
     void (*on_trigger)(g_s *g, cs_s *cs, i32 trigger);
     void (*on_update)(g_s *g, cs_s *cs);
+    void (*on_update_inp)(g_s *g, cs_s *cs, inp_s inp);
     void (*on_draw)(g_s *g, cs_s *cs, v2_i32 cam);
     void (*on_draw_bh_terrain)(g_s *g, cs_s *cs, v2_i32 cam);
     void (*on_draw_background)(g_s *g, cs_s *cs, v2_i32 cam);
@@ -61,6 +72,6 @@ struct cs_s {
 };
 
 void cs_reset(g_s *g);
-b32  cs_wait_and_pause_for_hero_idle(g_s *g);
+b32  cs_wait_and_pause_for_owl_idle(g_s *g);
 
 #endif

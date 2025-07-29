@@ -346,8 +346,7 @@ void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_o
     aud_push_cmd(cmd);
 }
 
-void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2,
-                   i32 t_fade_out, i32 t_fade_in, i32 v_q8)
+void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8)
 {
     aud_cmd_s           cmd = {0};
     aud_cmd_mus_play_s *c   = &cmd.c.mus_play;

@@ -5,6 +5,7 @@
 #ifndef APP_H
 #define APP_H
 
+#include "app_api.h"
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/spm.h"
@@ -37,40 +38,28 @@ typedef struct app_s {
     g_s          game;
     title_s      title;
     savefile_s   save;
+    settings_m_s sm;
     marena_s     ma;
-    byte         mem[MMEGABYTE(8)];
     i32          state;
     i32          opt;
     i32          flags;
-    settings_m_s sm;
+    b32          crank_requested;
+    i32          crank_ui_tick;
+    byte         mem[MMEGABYTE(8)];
 } app_s;
 
 extern app_s APP;
 
-i32   app_init();
-void  app_tick();
-void  app_draw();
-void  app_close();
-void  app_resume();
-void  app_pause();
-void  app_audio(i16 *lbuf, i16 *rbuf, i32 len);
-void  app_mirror(b32 enable);
-//
-// allocate persistent memory
-void *app_alloc(usize s);
-void *app_alloc_aligned(usize s, usize alignment);
-void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment);
-#define app_alloct(T)     app_alloc_aligned(sizeof(T), ALIGNOF(T))
-#define app_alloctn(T, N) app_alloc_aligned((N) * sizeof(T), ALIGNOF(T))
+i32  app_init();
+void app_tick();
+void app_draw();
+void app_close();
+void app_resume();
+void app_pause();
+void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
+void app_mirror(b32 enable);
 
 void app_set_mode(i32 mode); // settings mode
-
-static inline allocator_s app_allocator()
-{
-    allocator_s a = {app_alloc_aligned_ctx, &APP.ma};
-    return a;
-}
-
 void app_menu_callback_pattern(void *ctx, i32 opt);
 void app_menu_callback_timing(void *ctx, i32 opt);
 void app_menu_callback_map(void *ctx, i32 opt);

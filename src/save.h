@@ -43,7 +43,7 @@ typedef struct {
 
 typedef struct {
     u32           tick;
-    u8            name[LEN_HERO_NAME];
+    u8            name[OWL_LEN_NAME];
     u32           map_hash;
     v2_i16        hero_pos;
     u32           upgrades;

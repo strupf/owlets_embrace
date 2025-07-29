@@ -22,14 +22,14 @@ void cs_bossplant_intro_cb_comp(g_s *g, obj_s *o, void *ctx);
 
 void cs_bossplant_intro_enter(g_s *g)
 {
-    cs_s                 *cs = &g->cuts;
+    cs_s                 *cs = &g->cs;
     cs_bossplant_intro_s *dm = (cs_bossplant_intro_s *)cs->mem;
     cs_reset(g);
-    cs->on_update         = cs_bossplant_intro_update;
-    cs->on_draw           = cs_bossplant_intro_draw;
-    dm->bp                = &g->boss.plant;
-    cs->on_trigger        = cs_bossplant_intro_on_trigger;
-    g->block_hero_control = 1;
+    cs->on_update        = cs_bossplant_intro_update;
+    cs->on_draw          = cs_bossplant_intro_draw;
+    dm->bp               = &g->boss.plant;
+    cs->on_trigger       = cs_bossplant_intro_on_trigger;
+    g->block_owl_control = 1;
     if (save_event_exists(g, 222)) {
         dm->seen = 1;
     } else {
@@ -47,7 +47,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
 
     switch (cs->phase) {
     case 0: {
-        if (!cs_wait_and_pause_for_hero_idle(g)) break;
+        if (!cs_wait_and_pause_for_owl_idle(g)) break;
 
         mus_play_extv(0, 0, 0, 2000, 0, 0);
         cs->phase++;
@@ -56,18 +56,20 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
             game_darken_bg(g, +128);
         }
 
-        obj_s *ohero    = obj_get_hero(g);
+        obj_s *owl      = obj_get_owl(g);
         obj_s *ocomp    = obj_get_tagged(g, OBJ_TAG_COMPANION);
-        dm->puppet_hero = puppet_hero_put(g, ohero);
-        puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
+        dm->puppet_hero = puppet_owl_put(g, owl);
+        puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
         dm->puppet_comp = puppet_companion_put(g, ocomp);
 
-        if (g->hero.mode == HERO_MODE_COMBAT) {
+#if 0
+        if (g->owl.mode == HERO_MODE_COMBAT) {
             v2_i32 hp = obj_pos_center(ohero);
             hp.y -= 16;
             hp.x -= ohero->facing * 8;
             dm->puppet_comp->pos = hp;
         }
+#endif
 
         v2_i32 hpos = {dm->bp->x - 115, dm->bp->y + 74};
 
@@ -87,7 +89,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
                 boss_plant_eye_show(g, o_eye);
                 boss_plant_eye_show(g, o_eyefl);
                 boss_plant_eye_show(g, o_eyefr);
-                puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_SHOOK, 0);
+                puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_SHOOK, 0);
                 puppet_move_ext(dm->puppet_hero, (v2_i32){-20, 0}, 80, 0, 1, 0, 0);
                 puppet_move_ext(dm->puppet_comp, (v2_i32){dm->bp->x - 120, dm->bp->y + 100}, 10, 0, 0, 0, 0);
             }
@@ -131,7 +133,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
                 boss_plant_eye_show(g, o_eye);
                 boss_plant_eye_show(g, o_eyefl);
                 boss_plant_eye_show(g, o_eyefr);
-                puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_SHOOK, 0);
+                puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_SHOOK, 0);
                 puppet_move_ext(dm->puppet_hero, (v2_i32){-20, 0}, 80, 0, 1, 0, 0);
                 puppet_move_ext(dm->puppet_comp, (v2_i32){dm->bp->x - 120, dm->bp->y + 100}, 10, 0, 0, 0, 0);
                 break;
@@ -170,12 +172,12 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
                 dm->puppet_comp = 0;
                 snd_play(SNDID_HURT, 1.f, 1.f);
                 o_eyefl->state = BOSS_PLANT_EYE_GRABBED_COMP;
-                puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_QUICKDUCK, 0);
+                puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_QUICKDUCK, 0);
             }
         }
         if (90 < cs->tick) {
 
-            puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_AVENGE, 0);
+            puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_AVENGE, 0);
             v2_i32 pl = v2_i32_lerp(dm->eyepos_1, (v2_i32){dm->bp->x, dm->bp->y},
                                     cs->tick - 90, 40);
             boss_plant_eye_move_to_centerpx(g, o_eyefl, pl.x, pl.y);
@@ -203,7 +205,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
             cs->tick = 0;
             snd_play(SNDID_BPLANT_HIDE, 1.0f, rngr_f32(0.9f, 1.1f));
 
-            puppet_set_anim(dm->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
+            puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
             dm->bp->plant_frame = 0;
             boss_plant_eye_hide(g, o_eye);
             boss_plant_barrier_poof(g);
@@ -216,6 +218,8 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
 #else
         if (10 <= cs->tick) {
 #endif
+
+#if 0
             // leave
             g->block_hero_control = 0;
             g->hero.upgrades &= ~HERO_UPGRADE_COMPANION;
@@ -224,9 +228,10 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
             dm->bp->tick       = 0;
             dm->bp->phase_tick = 0;
             dm->bp->draw_vines = 1;
+#endif
 
-            obj_s *ohero = obj_get_hero(g);
-            puppet_hero_replace_and_del(g, ohero, dm->puppet_hero);
+            obj_s *owl = obj_get_owl(g);
+            puppet_owl_replace_and_del(g, owl, dm->puppet_hero);
             cs_reset(g);
         }
         break;

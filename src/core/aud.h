@@ -155,12 +155,9 @@ void  aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
 void  aud_cmd_queue_commit();
 void  aud_stop_all_snd_instances();
 void  mus_play(const void *fname);
-void  mus_play_extv(const void *fname, u32 s1, u32 s2,
-                    i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void  mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2,
-                    i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void  mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2,
-                   i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void  mus_play_extv(const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void  mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void  mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
 void  mus_set_loop(i32 channelID, u32 s1, u32 s2);
 void  mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade);
 void  mus_set_vol(u16 v_q8, i32 t_fade);

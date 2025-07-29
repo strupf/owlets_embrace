@@ -10,9 +10,6 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy);
 
 void obj_move_actor(g_s *g, obj_s *o, i32 dx, i32 dy)
 {
-    if (o->ID == OBJID_HERO && dx) {
-        // pltf_log("walk: %i\n", abs_i32(dx));
-    }
     for (i32 m = abs_i32(dx), s = 0 < dx ? +1 : -1; m; m--) {
         b32 was_grounded = obj_grounded(g, o);
         if (!obj_step_actor(g, o, s, 0)) break;
@@ -137,32 +134,32 @@ b32 obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy)
             if (overlap_rec(rb, rplat)) {
                 if ((i->flags & OBJ_FLAG_PLATFORM))
                     coll_platform |= 1;
-                coll_platform |= (o->ID == OBJID_HERO) &&
-                                 (i->flags & OBJ_FLAG_HERO_PLATFORM);
+                coll_platform |= (o->ID == OBJID_OWL) &&
+                                 (i->flags & OBJ_FLAG_OWL_PLATFORM);
             }
         }
     }
 
-    if (o->ID == OBJID_HERO && 0 < sy) {
+    if (o->ID == OBJID_OWL && 0 < sy) {
         // check hero jumping on objects
-        rec_i32 rstomp = {ro.x - HERO_W_STOMP_ADD_SYMM,
+        rec_i32 rstomp = {ro.x - OWL_W_STOMP_ADD_SYMM,
                           ro.y + ro.h - 1,
-                          ro.w + HERO_W_STOMP_ADD_SYMM * 2,
+                          ro.w + OWL_W_STOMP_ADD_SYMM * 2,
                           1};
 
         for (obj_each(g, i)) {
-            if (i == o || !(i->flags & OBJ_FLAG_HERO_JUMPSTOMPABLE))
+            if (i == o || !(i->flags & OBJ_FLAG_OWL_JUMPSTOMPABLE))
                 continue;
             rec_i32 rplat = {i->pos.x, i->pos.y, i->w, 1};
-            if (overlap_rec(rstomp, rplat)) {
-                if (hero_stomping(o) && (i->flags & OBJ_FLAG_HERO_STOMPABLE)) {
-                    coll_platform = 1;
-                    hero_register_jumpstomped(o, i, 1);
-                }
-                if ((i->flags & OBJ_FLAG_HERO_JUMPABLE)) {
-                    coll_platform = 1;
-                    hero_register_jumpstomped(o, i, 0);
-                }
+            if (!overlap_rec(rstomp, rplat)) continue;
+
+            if (g->owl.air_stomp && (i->flags & OBJ_FLAG_OWL_STOMPABLE)) {
+                coll_platform = 1;
+                owl_jumpstomped_register(o, i, 1);
+            }
+            if ((i->flags & OBJ_FLAG_OWL_JUMPABLE)) {
+                coll_platform = 1;
+                owl_jumpstomped_register(o, i, 0);
             }
         }
     }
@@ -179,9 +176,12 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy)
     assert((abs_i32(sx) == 1 && sy == 0) || (abs_i32(sy) == 1 && sx == 0));
 
     if (o->flags & OBJ_FLAG_PLATFORM_ANY) {
-        u64 flagp = (o->flags & OBJ_FLAG_PLATFORM_ANY);
+        u32 flagp = (o->flags & OBJ_FLAG_PLATFORM_ANY);
+        static_assert(sizeof(flagp) == sizeof(o->flags), "flag size");
+
         o->flags &= ~OBJ_FLAG_PLATFORM_ANY;
         rec_i32 rplat = {o->pos.x, o->pos.y, o->w, 1};
+
         for (obj_each(g, i)) {
             if (!(i->flags & OBJ_FLAG_ACTOR)) continue;
             if (!(i->moverflags & OBJ_MOVER_TERRAIN_COLLISIONS)) continue;
@@ -189,7 +189,7 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy)
             if (!overlap_rec(rplat, obj_rec_bottom(i))) continue;
 
             // check if stands on platform
-            if ((((flagp & OBJ_FLAG_HERO_PLATFORM) && i->ID == OBJID_HERO) ||
+            if ((((flagp & OBJ_FLAG_OWL_PLATFORM) && i->ID == OBJID_OWL) ||
                  ((flagp & OBJ_FLAG_PLATFORM)))) {
                 obj_step_actor(g, i, sx, +0);
                 obj_step_actor(g, i, +0, sy);
@@ -199,22 +199,22 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy)
     }
 
     // check if hero is now jumping on this entity
-    obj_s *ohero = obj_get_hero(g);
-    if ((o->flags & OBJ_FLAG_HERO_JUMPSTOMPABLE) && ohero && sy < 0) {
+    obj_s *ohero = obj_get_owl(g);
+    if ((o->flags & OBJ_FLAG_OWL_JUMPSTOMPABLE) && ohero && sy < 0) {
         rec_i32 rplat  = {o->pos.x, o->pos.y, o->w, 1};
-        rec_i32 rstomp = {ohero->pos.x - HERO_W_STOMP_ADD_SYMM,
+        rec_i32 rstomp = {ohero->pos.x - OWL_W_STOMP_ADD_SYMM,
                           ohero->pos.y + ohero->h,
-                          ohero->w + HERO_W_STOMP_ADD_SYMM * 2,
+                          ohero->w + OWL_W_STOMP_ADD_SYMM * 2,
                           1};
 
         if (overlap_rec(rstomp, rplat)) {
             obj_step_actor(g, ohero, +0, -1);
 
-            if ((o->flags & OBJ_FLAG_HERO_STOMPABLE) && hero_stomping(ohero)) {
-                hero_register_jumpstomped(ohero, o, 1);
+            if ((o->flags & OBJ_FLAG_OWL_STOMPABLE) && g->owl.air_stomp) {
+                owl_jumpstomped_register(ohero, o, 1);
             }
-            if ((o->flags & OBJ_FLAG_HERO_JUMPABLE)) {
-                hero_register_jumpstomped(ohero, o, 0);
+            if ((o->flags & OBJ_FLAG_OWL_JUMPABLE)) {
+                owl_jumpstomped_register(ohero, o, 0);
             }
         }
     }

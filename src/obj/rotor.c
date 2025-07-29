@@ -86,7 +86,7 @@ void rotor_on_update(g_s *g, obj_s *o)
     switch (o->state) {
     case ROTOR_IDLE: {
         if (o->timer < ROTOR_IDLE_TICKS_MIN) break;
-        obj_s *ohero       = obj_get_hero(g);
+        obj_s *ohero       = obj_get_owl(g);
         i32    notice_hero = 0;
 
         if (ohero) {
@@ -174,7 +174,7 @@ void rotor_on_animate(g_s *g, obj_s *o)
     spr->offs.x = (o->w - 64) / 2;
     spr->offs.y = -(40 - o->h);
 
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
     if (ohero) {
         v2_i32 po = obj_pos_center(o);
         v2_i32 ph = obj_pos_center(ohero);

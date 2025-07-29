@@ -57,7 +57,7 @@ void coin_on_animate(g_s *g, obj_s *o)
 
 void coin_on_update(g_s *g, obj_s *o)
 {
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
     v2_i32 phero = {0};
     if (ohero) {
         phero = obj_pos_center(ohero);
@@ -98,39 +98,26 @@ void coin_on_update(g_s *g, obj_s *o)
                 o->state      = COIN_ST_HOMING;
                 o->moverflags = 0;
             }
-            break;
-        }
-
-        // hero attract coins
-        if (ohero && v2_i32_distancesq(phero, p) <= COIN_HOMING_DISTSQ) {
+        } else if (ohero && v2_i32_distancesq(phero, p) <= COIN_HOMING_DISTSQ) { // hero attract coins
             o->state    = COIN_ST_PREHOMING;
             o->timer    = 0;
             o->blinking = 0;
-            break;
-        }
-
-        if (--o->timer <= 0) {
+        } else if (--o->timer <= 0) {
             obj_delete(g, o);
-            break;
-        }
-
-        if (o->timer < 120) {
+        } else if (o->timer < 120) {
             o->blinking = 1;
         }
         break;
     }
     case COIN_ST_HOMING: {
-        obj_s *ohero = obj_get_hero(g);
         if (ohero) {
             v2_i32 vs = steer_seek(p, o->v_q12, phero, Q_VOBJ(4.7));
             o->v_q12.x += vs.x >> 1;
             o->v_q12.y += vs.y >> 1;
-        } else {
-            // consider it collected
+        } else { // consider it collected
             coins_change(g, +1);
             obj_delete(g, o);
         }
-
         break;
     }
     }

@@ -143,8 +143,8 @@ void boss_plant_eye_on_update(g_s *g, obj_s *o)
     v2_i32            panchor       = {bp->x, bp->y + BPLANT_EYE_ANCHOR_Y};
     i32               pulling_force = 0;
     i32               dseg          = boss_plant_eye_dist_seg(o);
-    obj_s            *ohero         = obj_get_hero(g);
-    v2_i32            hcenter       = obj_pos_center(ohero);
+    obj_s            *owl           = obj_get_owl(g);
+    v2_i32            hcenter       = obj_pos_center(owl);
     v2_i32            pcenter       = obj_pos_center(o);
     o->timer++;
 
@@ -180,8 +180,8 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
     i32               dseg           = boss_plant_eye_dist_seg(o);
     bool32            back_to_anchor = 1;
     bool32            truncate_len   = 0;
-    obj_s            *ohero          = obj_get_hero(g);
-    v2_i32            hcenter        = obj_pos_center(ohero);
+    obj_s            *owl            = obj_get_owl(g);
+    v2_i32            owlcenter      = obj_pos_center(owl);
     v2_i32            pcenter        = obj_pos_center(o);
 
     e->active_tear = 0;
@@ -198,7 +198,7 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
 
     switch (o->state) {
     default: {
-        o->facing = hcenter.x < pcenter.x ? -1 : +1;
+        o->facing = owlcenter.x < pcenter.x ? -1 : +1;
         break;
     }
     case BOSS_PLANT_EYE_GRABBED_COMP:
@@ -316,8 +316,8 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
 
     if (e->tear_off_tick_needed <= e->tear_off_tick) {
         grapplinghook_destroy(g, &g->ghook);
-        ohero->v_q12.x = 0;
-        ohero->v_q12.y >>= 1;
+        owl->v_q12.x = 0;
+        owl->v_q12.y >>= 1;
 
         e->tear_off_tick      = 0;
         e->n_segs             = 0;
@@ -416,7 +416,7 @@ void boss_plant_eye_on_update_ripped(g_s *g, obj_s *o)
         o->flags |=
             OBJ_FLAG_HURT_ON_TOUCH |
             OBJ_FLAG_ENEMY |
-            OBJ_FLAG_HERO_JUMPSTOMPABLE;
+            OBJ_FLAG_OWL_JUMPSTOMPABLE;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
         o->v_q12.x = -o->v_q12.x;
@@ -481,8 +481,6 @@ void boss_plant_eye_on_animate(g_s *g, obj_s *o)
             o->facing = +1;
         }
     }
-
-    obj_s *ohero = obj_get_hero(g);
 }
 
 void boss_plant_eye_draw(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)

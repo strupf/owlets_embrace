@@ -21,8 +21,7 @@ static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, 
 
 static v2_i32 fg_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 {
-    v2_i32 p = {((cam.x * x_q8) >> 8) & ~ax,
-                ((cam.y * y_q8) >> 8) & ~ay};
+    v2_i32 p = {((cam.x * x_q8) >> 8) & ~ax, ((cam.y * y_q8) >> 8) & ~ay};
     return p;
 }
 
@@ -54,13 +53,12 @@ void draw_gameplay(g_s *g)
 {
     i32     i_obj                = 0;
     cam_s  *cam                  = &g->cam;
-    obj_s  *ohero                = obj_get_hero(g);
-    hero_s *hero                 = &g->hero;
+    obj_s  *ohero                = obj_get_owl(g);
+    owl_s  *owl                  = &g->owl;
     v2_i32  cam_top_left         = cam_pos_px_top_left(g, cam);
     v2_i32  cam_mid              = {cam_top_left.x + CAM_WH, cam_top_left.y + CAM_HH};
     rec_i32 camrec_raw           = {cam_top_left.x, cam_top_left.y, CAM_W, CAM_H};
-    rec_i32 camrec               = {cam_top_left.x & ~1, cam_top_left.y & ~1,
-                                    CAM_W, CAM_H};
+    rec_i32 camrec               = {cam_top_left.x & ~1, cam_top_left.y & ~1, CAM_W, CAM_H};
     v2_i32  camoffset_raw        = {-cam_top_left.x, -cam_top_left.y};
     v2_i32  camoff               = {-camrec.x, -camrec.y};
     g->cam_prev                  = camoff;
@@ -71,18 +69,18 @@ void draw_gameplay(g_s *g)
     if (ohero) {
         // slightly adjust player sprite position
         // in certain situations to align player sprite to camera
-        v2_i32 ppos_hero          = v2_i32_add(ohero->pos, camoff);
-        hero->render_align_offs.x = 0;
-        hero->render_align_offs.y = 0;
-        if (cam->chero.can_align_x && (ppos_hero.x - 1) == cam->chero.hero_off.x) {
+        v2_i32 ppos_hero         = v2_i32_add(ohero->pos, camoff);
+        owl->render_align_offs.x = 0;
+        owl->render_align_offs.y = 0;
+        if (cam->cowl.can_align_x && (ppos_hero.x - 1) == cam->cowl.owl_off.x) {
             ppos_hero.x--;
-            hero->render_align_offs.x = -1;
+            owl->render_align_offs.x = -1;
         }
-        if (cam->chero.can_align_y && (ppos_hero.y - 1) == cam->chero.hero_off.y) {
+        if (cam->cowl.can_align_y && (ppos_hero.y - 1) == cam->cowl.owl_off.y) {
             ppos_hero.y--;
-            hero->render_align_offs.y = -1;
+            owl->render_align_offs.y = -1;
         }
-        cam->chero.hero_off = ppos_hero;
+        cam->cowl.owl_off = ppos_hero;
     }
 
     if (g->darken_bg_q12 == 4096) {
@@ -128,17 +126,12 @@ void draw_gameplay(g_s *g)
         }
     }
 
-    if (g->cuts.on_draw_background) {
-        g->cuts.on_draw_background(g, &g->cuts, camoff);
+    if (g->cs.on_draw_background) {
+        g->cs.on_draw_background(g, &g->cs, camoff);
     }
 
     render_fluids(g, camoff, tilebounds);
     grapplinghook_draw(g, &g->ghook, camoff);
-    if (ohero) {
-        if (g->hero.hook_aim_mode) {
-            hero_hook_preview_throw(g, ohero, camoff);
-        }
-    }
     grass_draw(g, camrec, camoff);
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_FLUID_AREA);
@@ -168,9 +161,6 @@ void draw_gameplay(g_s *g)
     foreground_draw(g, camoffset_raw, camoff);
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_UI_LEVEL);
-    // texrec_s trfg = asset_texrec(TEXID_BG_PARALLAX, 512, 0, 512, 512);
-    // gfx_spr(ctx, trfg, (v2_i32){0}, 0, 0);
-
     if (g->dark) {
         spm_push();
 
@@ -219,15 +209,13 @@ void draw_gameplay(g_s *g)
     }
 
     cam->prev_gfx_offs = camoff;
-    if (hero_present_and_alive(g, &ohero)) {
-        render_hero_ui(g, ohero, camoff);
-    }
     boss_draw_post(g, camoff);
-    if (g->cuts.on_draw) {
-        g->cuts.on_draw(g, &g->cuts, camoff);
+    if (g->cs.on_draw) {
+        g->cs.on_draw(g, &g->cs, camoff);
     }
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, I32_MAX);
+    render_hero_ui(g, ohero, camoff);
 }
 
 static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit)
@@ -301,8 +289,8 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
         if (o->blinking && ((g->tick_animation >> 1) & 1)) continue;
 
         v2_i32 ppos = v2_i32_add(o->pos, cam);
-        if (o->ID == OBJID_HERO) {
-            hero_s *h = (hero_s *)o->heap;
+        if (o->ID == OBJID_OWL) {
+            owl_s *h = (owl_s *)o->heap;
             ppos.x += h->render_align_offs.x;
             ppos.y += h->render_align_offs.y;
         }
@@ -688,10 +676,6 @@ void render_tile_terrain_block(gfx_ctx_s ctx, v2_i32 pos, i32 tx, i32 ty, i32 ti
     }
 }
 
-void render_map_doors(g_s *g, v2_i32 camoff)
-{
-}
-
 // cam is the top left corner but the center of the
 // view area is needed
 v2_i32 parallax_offs(v2_i32 cam, v2_i32 pos, i32 x_q8, i32 y_q8)
@@ -739,7 +723,7 @@ void render_map_transition_in(g_s *g, v2_i32 cam, i32 t, i32 t2)
 {
     tex_s     display = asset_tex(0);
     tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
-    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_OWL);
     gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
     ctxfill.pat       = gfx_pattern_interpolate(t2 - t, t2);
 
@@ -764,7 +748,7 @@ void render_map_transition_out(g_s *g, v2_i32 cam, i32 t, i32 t2)
 {
     tex_s     display = asset_tex(0);
     tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
-    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_OWL);
     gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
     ctxfill.pat       = gfx_pattern_interpolate(t, t2);
 

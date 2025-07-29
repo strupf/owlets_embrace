@@ -85,8 +85,7 @@ void qoa_mus_next_frame(qoa_mus_s *q)
     pltf_file_r(q->f, &h, sizeof(qoa_frameheader_s));
     q->ds[0].lms = h.lms[0];
     q->ds[1].lms = h.lms[1];
-    i32 n        = min_u32(qoa_num_slices(q->num_samples) - q->cur_slice,
-                           QOA_FRAME_SLICES);
+    i32 n        = min_u32(qoa_num_slices(q->num_samples) - q->cur_slice, QOA_FRAME_SLICES);
     i32 stereo   = q->seek >> 31;
     pltf_file_r(q->f, q->slices, (sizeof(u64) * n) << stereo);
 }
@@ -155,19 +154,19 @@ void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q16)
         switch (mode) {
         case QOA_MUS_MODE_MO_ST:
             // decode mono music into stereo output
-            for (u32 k = 0; k < n; k++) {
+            for (u32 k = 0; k < n; k++, bl++, br++) {
                 q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
-                *bl++       = i16_adds((i32)*bl, q->sample_l);
-                *br++       = i16_adds((i32)*br, q->sample_l);
+                *bl         = i16_adds((i32)*bl, q->sample_l);
+                *br         = i16_adds((i32)*br, q->sample_l);
             }
             break;
         case QOA_MUS_MODE_ST_ST:
             // decode stereo music into stereo output
-            for (u32 k = 0; k < n; k++) {
+            for (u32 k = 0; k < n; k++, bl++, br++) {
                 q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
                 q->sample_r = mul_q16(v_q16, qoa_decode_sample(&q->ds[1]));
-                *br++       = i16_adds((i32)*br, q->sample_r);
-                *bl++       = i16_adds((i32)*bl, q->sample_l);
+                *br         = i16_adds((i32)*br, q->sample_r);
+                *bl         = i16_adds((i32)*bl, q->sample_l);
             }
             break;
         }
@@ -200,9 +199,7 @@ void qoa_mus_seek(qoa_mus_s *q, u32 pos)
     q->cur_slice = pfr * QOA_FRAME_SLICES;
 
     // seek to frame header
-    pltf_file_seek_cur(q->f, (((sizeof(u64) * QOA_FRAME_SLICES) << stereo) +
-                              sizeof(qoa_frameheader_s)) *
-                                 pfr);
+    pltf_file_seek_cur(q->f, (((sizeof(u64) * QOA_FRAME_SLICES) << stereo) + sizeof(qoa_frameheader_s)) * pfr);
     qoa_mus_next_frame(q);
     qoa_mus_next_slice(q);
 

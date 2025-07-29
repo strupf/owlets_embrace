@@ -126,7 +126,7 @@ void windarea_on_update(g_s *g, obj_s *o)
         pt->vx_q4 = 100;
     }
 
-    obj_s *oh = obj_get_hero(g);
+    obj_s *oh = obj_get_owl(g);
     if (!oh || !overlap_rec_pnt(obj_aabb(o), obj_pos_center(oh))) return;
 
     switch (o->subID) {
@@ -156,9 +156,9 @@ void windarea_on_update_upwards(g_s *g, obj_s *o, obj_s *oh)
         oh->v_q12.y = max_i32(oh->v_q12.y, -Q_VOBJ(6.0));
     }
 
-    hero_s *h  = (hero_s *)oh->heap;
-    h->gliding = min_i32(h->gliding + 2, 16);
-    hero_stamina_modify(oh, 32);
+    owl_s *h       = (owl_s *)oh->heap;
+    h->air_gliding = min_i32(h->air_gliding + 2, 16);
+    // hero_stamina_modify(oh, 32);
 }
 
 void windarea_on_update_downwards(g_s *g, obj_s *o, obj_s *oh)
@@ -168,9 +168,9 @@ void windarea_on_update_downwards(g_s *g, obj_s *o, obj_s *oh)
         oh->v_q12.y = min_i32(oh->v_q12.y, Q_VOBJ(6.0));
     }
 
-    hero_s *h  = (hero_s *)oh->heap;
-    h->gliding = min_i32(h->gliding + 2, 16);
-    hero_stamina_modify(oh, 32);
+    owl_s *h       = (owl_s *)oh->heap;
+    h->air_gliding = min_i32(h->air_gliding + 2, 16);
+    // hero_stamina_modify(oh, 32);
 }
 
 void windarea_on_update_sideways(g_s *g, obj_s *o, obj_s *oh)
@@ -182,9 +182,9 @@ void windarea_on_update_sideways(g_s *g, obj_s *o, obj_s *oh)
     if (grounded) {
         obj_move_by_q12(g, oh, xdir * Q_VOBJ((w->str)), 0);
     } else {
-        hero_s *h  = (hero_s *)oh->heap;
-        h->gliding = min_i32(h->gliding + 2, 16);
-        hero_stamina_modify(oh, 32);
+        owl_s *h       = (owl_s *)oh->heap;
+        h->air_gliding = min_i32(h->air_gliding + 2, 16);
+        // hero_stamina_modify(oh, 32);
         if (-Q_VOBJ(6.0) < oh->v_q12.y) {
             oh->v_q12.y = max_i32(oh->v_q12.y - Q_VOBJ(0.1), -Q_VOBJ(6.0));
         }

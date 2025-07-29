@@ -63,7 +63,7 @@ void hooklever_on_update(g_s *g, obj_s *o)
     if (!(hl->dir_x | hl->dir_y)) return;
 
     obj_s *ohook = obj_get_tagged(g, OBJ_TAG_HOOK);
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
     if (ohero && ohook) {
         rec_i32 rhook = obj_aabb(ohook);
         rhook.x--;

@@ -234,7 +234,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
         }
     }
 
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
 
     // all map pins
     for (i32 n = 0; n < m->n_pins; n++) {
@@ -473,7 +473,7 @@ i32 minimap_screen_visited(g_s *g, i32 tx, i32 ty)
 v2_i32 minimap_hero_pos(g_s *g)
 {
     v2_i32 p     = {0};
-    obj_s *ohero = obj_get_hero(g);
+    obj_s *ohero = obj_get_owl(g);
 
     if (ohero) {
         v2_i32 ph = v2_i32_shr(obj_pos_center(ohero), 4);

@@ -126,10 +126,9 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
         return;
     lineseg_i32 lu = {p.p, p.u};
     lineseg_i32 lv = {p.p, p.v};
-    if (!overlap_tri_lineseg_excl(t1, lu) &&
-        !overlap_tri_lineseg_excl(t1, lv) &&
-        !overlap_tri_lineseg_excl(t2, lu) &&
-        !overlap_tri_lineseg_excl(t2, lv)) return;
+    if (!overlap_tri_lineseg_excl(t1, lu) && !overlap_tri_lineseg_excl(t1, lv) &&
+        !overlap_tri_lineseg_excl(t2, lu) && !overlap_tri_lineseg_excl(t2, lv))
+        return;
 
     if (ropepts_find(pts, p.p) >= 0) return;
     i32 k = rope_points_collinearity(pts, p.p);
@@ -386,8 +385,7 @@ void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
 
     // early out if the solid doesn't at least overlap
     // the rope's aabb
-    rec_i32 ropebounds = {r->pmin.x, r->pmin.y,
-                          r->pmax.x - r->pmin.x, r->pmax.y - r->pmin.y};
+    rec_i32 ropebounds = {r->pmin.x, r->pmin.y, r->pmax.x - r->pmin.x, r->pmax.y - r->pmin.y};
     if (!overlap_rec(rec, ropebounds)) return;
     r->dirty = 1;
 
@@ -396,8 +394,7 @@ void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
     rope_move_vertex(g, r, dt, points[1]);
 }
 
-bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
-                      v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
+bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v, v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
 {
     if (!v2_i32_eq(curr, p)) return 0;
     v2_i32 c_to_u = v2_i32_sub(u, curr);
@@ -410,8 +407,7 @@ bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v,
             (z <= 0 && s1 <= 0 && s2 >= 0 && t1 <= 0 && t2 >= 0));
 }
 
-void tighten_ropesegment(g_s *g, rope_s *r,
-                         ropenode_s *rp, ropenode_s *rc, ropenode_s *rn)
+void tighten_ropesegment(g_s *g, rope_s *r, ropenode_s *rp, ropenode_s *rc, ropenode_s *rn)
 {
     assert(rp->next == rc && rn->prev == rc &&
            rc->next == rn && rc->prev == rp);
@@ -450,8 +446,8 @@ void tighten_ropesegment(g_s *g, rope_s *r,
             v2_i32 pos = {x << 4, y << 4};
             if (TILE_IS_BLOCK(t)) {
                 v2_i32  p[4];
-                rec_i32 r = {pos.x, pos.y, 16, 16};
-                points_from_rec(r, p);
+                rec_i32 re = {pos.x, pos.y, 16, 16};
+                points_from_rec(re, p);
                 if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
                     rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
                     rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
@@ -675,9 +671,7 @@ void rope_verletsim(g_s *g, rope_s *r)
         if (!(0 <= prev_vp.i && next_vp.i < ROPE_VERLET_N)) continue;
 
         // lerp position of particle towards straight line between corners
-        v2_i32 ptarget = v2_i32_lerp(prev_vp.p, next_vp.p,
-                                     n - prev_vp.i,
-                                     next_vp.i - prev_vp.i);
+        v2_i32 ptarget = v2_i32_lerp(prev_vp.p, next_vp.p, n - prev_vp.i, next_vp.i - prev_vp.i);
         r->ropept[n].p = v2_i32_lerp(r->ropept[n].p, ptarget, 1, 8);
     }
 }

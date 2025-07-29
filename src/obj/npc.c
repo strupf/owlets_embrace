@@ -143,7 +143,7 @@ void npc_on_animate(g_s *g, obj_s *o)
 void npc_on_interact(g_s *g, obj_s *o)
 {
     npc_s *npc   = (npc_s *)o->mem;
-    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (ohero) {
         o->facing = ohero->pos.x < o->pos.x ? -1 : +1;
     }

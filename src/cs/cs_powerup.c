@@ -53,15 +53,15 @@ void cs_arrival_hero_cb(g_s *g, obj_s *o, void *ctx)
 
     switch (cs->counter1) {
     case 1:
-        puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_IDLE, 0);
+        puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
         break;
     }
 }
 
 void cs_powerup_enter(g_s *g)
 {
-    g->block_hero_control = 1;
-    cs_s *cs              = &g->cuts;
+    g->block_owl_control = 1;
+    cs_s *cs             = &g->cs;
     cs_reset(g);
     cs_powerup_s *pu       = (cs_powerup_s *)cs->mem;
     cs->on_update          = cs_powerup_update;
@@ -91,7 +91,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
 
     switch (cs->phase) {
     case 0: {
-        if (cs_wait_and_pause_for_hero_idle(g)) { // wait until player movement stopped
+        if (cs_wait_and_pause_for_owl_idle(g)) { // wait until player movement stopped
 
             // move cam to a fixed position over time
             v2_i32 camc = obj_pos_bottom_center(pu->o);
@@ -101,20 +101,23 @@ void cs_powerup_update(g_s *g, cs_s *cs)
             g->cam.trg_fade_spd = 50;
 
             // create hero puppet, freeze and hide the actual object
-            obj_s *ohero    = obj_get_tagged(g, OBJ_TAG_HERO);
+            obj_s *ohero    = obj_get_tagged(g, OBJ_TAG_OWL);
             v2_i32 hctrp    = obj_pos_center(ohero);
-            pu->puppet_hero = puppet_hero_put(g, ohero);
+            pu->puppet_hero = puppet_owl_put(g, ohero);
             i32 hfacing     = camc.x < hctrp.x ? -1 : +1;
-            puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_IDLE, hfacing);
+            puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_IDLE, hfacing);
 
             // if present: create companion puppet
             if (ocomp) {
                 pu->puppet_comp = puppet_companion_put(g, ocomp);
+
+#if 0
                 if (g->hero.mode == HERO_MODE_COMBAT) {
                     hctrp.y -= 8;
                     hctrp.x -= hfacing * 8;
                     pu->puppet_comp->pos = hctrp;
                 }
+#endif
 
                 if (!pu->first_time_seen) {
                     // move companion puppet to position
@@ -219,7 +222,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
             snd_play(SNDID_UPGRADE, 1.f, 1.f);
             v2_i32 comppos = {opos.x - 100, opos.y + 60};
             v2_i32 heropos = {0, -30};
-            puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_UPGR_RISE, 0);
+            puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_UPGR_RISE, 0);
             puppet_move_ext(pu->puppet_hero, heropos, 100, 0, 1, 0, 0);
             if (ocomp) {
                 puppet_move_ext(pu->puppet_comp, comppos, 30, ease_in_out_quad, 0, 0, 0);
@@ -227,7 +230,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
             break;
         }
         case 100: {
-            puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_UPGR_INTENSE, 0);
+            puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_UPGR_INTENSE, 0);
             break;
         }
         case 220: {
@@ -247,7 +250,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
         if (CS_POWERUP_TICKS_P15 == cs->tick) {
             cs->phase++;
             cs->tick = 0;
-            puppet_set_anim(pu->puppet_hero, PUPPET_HERO_ANIMID_UPGR_CALM, 0);
+            puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_UPGR_CALM, 0);
             hero_upgrade_disable_orb(pu->o);
         }
         break;
@@ -319,20 +322,23 @@ void cs_powerup_update(g_s *g, cs_s *cs)
 
 void cs_powerup_leave(g_s *g)
 {
-    cs_s         *cs    = &g->cuts;
+    cs_s         *cs    = &g->cs;
     cs_powerup_s *pu    = (cs_powerup_s *)cs->mem;
-    obj_s        *ohero = obj_get_hero(g);
+    obj_s        *ohero = obj_get_owl(g);
     obj_s        *ocomp = obj_get_tagged(g, OBJ_TAG_COMPANION);
 
-    puppet_hero_replace_and_del(g, ohero, pu->puppet_hero);
+    puppet_owl_replace_and_del(g, ohero, pu->puppet_hero);
     if (ocomp) {
         puppet_companion_replace_and_del(g, ocomp, pu->puppet_comp);
     }
+
+#if 0
     if (hero_has_upgrade(g, HERO_UPGRADE_HOOK)) {
         g->hero.mode = HERO_MODE_NORMAL;
     }
-    g->block_hero_control = 0;
-    g->cam.has_trg        = 0;
+#endif
+    g->block_owl_control = 0;
+    g->cam.has_trg       = 0;
     cs_reset(g);
 }
 

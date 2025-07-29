@@ -31,9 +31,9 @@ void battleroom_on_update(g_s *g)
     switch (b->state) {
     case BATTLEROOM_NONE: break;
     case BATTLEROOM_IDLE: {
-        obj_s *ohero = 0;
-        if (!hero_present_and_alive(g, &ohero)) break;
-        if (!overlap_rec(obj_aabb(ohero), b->r)) break;
+        obj_s *owl = 0;
+        if (!(owl = owl_if_present_and_alive(g))) break;
+        if (!overlap_rec(obj_aabb(owl), b->r)) break;
 
         game_on_trigger(g, TRIGGER_BATTLEROOM_ENTER);
         b->state = BATTLEROOM_STARTING;

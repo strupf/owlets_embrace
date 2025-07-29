@@ -64,7 +64,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
 void budplant_on_update(g_s *g, obj_s *o)
 {
     budplant_s *bp    = (budplant_s *)o->mem;
-    obj_s      *ohero = obj_get_hero(g);
+    obj_s      *ohero = obj_get_owl(g);
     o->timer++;
 
     switch (o->state) {

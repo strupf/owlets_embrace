@@ -9,15 +9,12 @@
 
 void grapplinghook_do_hook(g_s *g, grapplinghook_s *h)
 {
-    i32    clen_q4   = rope_len_q4(g, &h->rope);
-    obj_s *ohero     = obj_from_obj_handle(h->o1);
-    i32    herostate = hero_get_actual_state(g, ohero);
-    if (herostate == HERO_ST_AIR) {
-#if HERO_USE_HOOK_TEST
-        clen_q4 = (clen_q4 * 252) >> 8;
-#else
+    i32    clen_q4 = rope_len_q4(g, &h->rope);
+    obj_s *ohero   = obj_from_obj_handle(h->o1);
+    i32    st      = owl_state_check(g, ohero);
+
+    if (st == OWL_ST_AIR) {
         clen_q4 = (clen_q4 * 248) >> 8;
-#endif
     }
     h->rope.len_max_q4 = clamp_i32(clen_q4,
                                    HERO_ROPE_LEN_MIN,
@@ -88,7 +85,7 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
     if (h->state == GRAPPLINGHOOK_INACTICE) {
         if (h->destroy_tick_q8) {
             h->destroy_tick_q8 = max_i32(h->destroy_tick_q8 - 48, 0);
-            h->rope.head->p    = obj_pos_center(obj_get_hero(g));
+            h->rope.head->p    = obj_pos_center(obj_get_owl(g));
             rope_verletsim(g, &h->rope);
         }
         return;
@@ -206,7 +203,7 @@ void grapplinghook_animate(g_s *g, grapplinghook_s *h)
         v2_i32 rndt            = v2_i32_sub(h->rn->p, rn->p);
         v2_f32 v               = v2_f32_from_i32(rndt);
         h->anghist[h->n_ang++] = v;
-        h->n_ang %= HEROHOOK_N_HIST;
+        h->n_ang %= 4;
     }
 }
 
@@ -257,7 +254,7 @@ void grapplinghook_draw(g_s *g, grapplinghook_s *h, v2_i32 cam)
 
     if (h->state && h->state != GRAPPLINGHOOK_HOOKED_OBJ) {
         v2_f32 vhook = {0};
-        for (i32 i = 0; i < HEROHOOK_N_HIST; i++) {
+        for (i32 i = 0; i < 4; i++) {
             vhook = v2f_add(vhook, gh->anghist[i]);
         }
 
@@ -433,7 +430,7 @@ i32 grapplinghook_pulling_force_hero(g_s *g)
     i32 rlm = r->len_max_q4;
     if (rl <= rlm) return 0;
 
-    obj_s      *o         = obj_get_hero(g);
+    obj_s      *o         = obj_get_owl(g);
     ropenode_s *rn1       = o->ropenode;
     ropenode_s *rn2       = ropenode_neighbour(r, rn1);
     v2_i32      v12       = v2_i32_sub(rn2->p, rn1->p);
@@ -441,7 +438,7 @@ i32 grapplinghook_pulling_force_hero(g_s *g)
     v2_i32      v_tang    = {v12.y, -v12.x};
     v2_i32      v_proj    = project_pnt_dir(v_hero, v_tang);
     i32         rad       = v2_i32_len(v12);
-    i32         f_grav    = (-HERO_GRAVITY * v12.y) / rad; // component of gravity
+    i32         f_grav    = (-OWL_GRAVITY * v12.y) / rad; // component of gravity
     i32         f_centrip = v2_i32_lensq(v_proj) / (rad << 8);
     i32         f_stretch = (2 * (rl - rlm));
     return max_i32(f_grav + f_centrip + f_stretch, 0);
@@ -618,6 +615,7 @@ bool32 pnt_along_array(v2_i32 *pt, i32 n_pt, i32 dst, v2_i32 *p_out)
 
 void hero_hook_preview_throw(g_s *g, obj_s *ohero, v2_i32 cam)
 {
+#if 0
     i32    str = hero_aim_throw_strength(ohero);
     i32    ang = g->hero.hook_aim;
     v2_i32 p   = v2_i32_shl(obj_pos_center(ohero), 8);
@@ -651,4 +649,5 @@ void hero_hook_preview_throw(g_s *g, obj_s *ohero, v2_i32 cam)
             d += HOOK_PREVIEW_DST;
         }
     }
+#endif
 }

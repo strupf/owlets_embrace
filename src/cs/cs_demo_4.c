@@ -17,13 +17,13 @@ void cs_demo_4_cb_comp(g_s *g, obj_s *o, void *ctx);
 
 void cs_demo_4_enter(g_s *g)
 {
-    cs_s        *cs = &g->cuts;
+    cs_s        *cs = &g->cs;
     cs_demo_4_s *dm = (cs_demo_4_s *)cs->mem;
     cs_reset(g);
-    cs->on_update         = cs_demo_4_update;
-    cs->on_trigger        = cs_demo_4_on_trigger;
-    g->block_hero_control = 1;
-    dm->puppet_comp       = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
+    cs->on_update        = cs_demo_4_update;
+    cs->on_trigger       = cs_demo_4_on_trigger;
+    g->block_owl_control = 1;
+    dm->puppet_comp      = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
 
     save_event_register(g, SAVE_EV_COMPANION_FOUND);
 }

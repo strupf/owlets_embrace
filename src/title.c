@@ -87,11 +87,11 @@ void title_start_game(app_s *app, i32 slot)
 
 void title_gameplay_start(app_s *app)
 {
-    g_s *g                = &app->game;
-    g->block_hero_control = 0;
-    g->render_map_doors   = 1;
-    g->previewmode        = 0;
-    app->state            = APP_ST_GAME;
+    g_s *g               = &app->game;
+    g->block_owl_control = 0;
+    g->render_map_doors  = 1;
+    g->previewmode       = 0;
+    app->state           = APP_ST_GAME;
 }
 
 bool32 title_preload_available(title_s *t)
@@ -115,11 +115,11 @@ void title_try_preload(app_s *app, title_s *t)
     } else if (t->preload_slot == t->selected) {
         t->preload_fade_dir = 1;
     } else if (t->preload_fade_q7 == 0) {
-        savefile_s *s         = &app->save;
-        g_s        *g         = &app->game;
-        g->block_hero_control = 1;
-        g->save_slot          = t->selected;
-        err32 err             = savefile_r(t->selected, s);
+        savefile_s *s        = &app->save;
+        g_s        *g        = &app->game;
+        g->block_owl_control = 1;
+        g->save_slot         = t->selected;
+        err32 err            = savefile_r(t->selected, s);
         if (err) {
             t->preload_slot     = -1;
             t->preload_fade_dir = 0;
@@ -649,10 +649,8 @@ void title_render(title_s *t)
         gfx_ctx_s ctxgrad    = ctx;
 
         if (TITLE_START_TICKS - TITLE_START_FADE_TICKS <= t->start_tick) {
-            i32 ti = t->start_tick -
-                     (TITLE_START_TICKS - TITLE_START_FADE_TICKS);
-            ctxgrad.pat = gfx_pattern_interpolate(TITLE_START_FADE_TICKS - ti,
-                                                  TITLE_START_FADE_TICKS);
+            i32 tk      = t->start_tick - (TITLE_START_TICKS - TITLE_START_FADE_TICKS);
+            ctxgrad.pat = gfx_pattern_interpolate(TITLE_START_FADE_TICKS - tk, TITLE_START_FADE_TICKS);
         }
         for (i32 n = 0; n < 8; n++) {
             v2_i32 posgrad = {xoffs, n * 32};
@@ -768,11 +766,11 @@ void title_draw_version()
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
     pnum.x += 4;
     // minor
-    if (10 <= GAME_V_MIN) {
-        tnum.x = 8 * (GAME_V_MIN / 10);
-        gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 7;
-    }
+#if 10 <= GAME_V_MIN || 1
+    tnum.x = 8 * (GAME_V_MIN / 10);
+    gfx_spr_tile_32x32(ctx, tnum, pnum);
+    pnum.x += 7;
+#endif
     tnum.x = 8 * (GAME_V_MIN % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
@@ -782,16 +780,16 @@ void title_draw_version()
     pnum.x += 4;
 
     // patch
-    if (100 <= GAME_V_PAT) {
-        tnum.x = 8 * (GAME_V_PAT / 100);
-        gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 7;
-    }
-    if (10 <= GAME_V_PAT) {
-        tnum.x = 8 * ((GAME_V_PAT / 10) % 10);
-        gfx_spr_tile_32x32(ctx, tnum, pnum);
-        pnum.x += 7;
-    }
+#if 100 <= GAME_V_PAT || 1
+    tnum.x = 8 * (GAME_V_PAT / 100);
+    gfx_spr_tile_32x32(ctx, tnum, pnum);
+    pnum.x += 7;
+#endif
+#if 10 <= GAME_V_PAT || 1
+    tnum.x = 8 * ((GAME_V_PAT / 10) % 10);
+    gfx_spr_tile_32x32(ctx, tnum, pnum);
+    pnum.x += 7;
+#endif
     tnum.x = 8 * (GAME_V_PAT % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;

@@ -10,8 +10,8 @@
 
 enum {
     OBJID_NULL,
-    OBJID_HERO,
-    OBJID_HERO_COMPANION,
+    OBJID_OWL,
+    OBJID_COMPANION,
     OBJID_HOOK,
     OBJID_DOOR,
     OBJID_BIGCRAB,
@@ -89,7 +89,7 @@ enum {
 };
 
 enum {
-    OBJ_TAG_HERO,
+    OBJ_TAG_OWL,
     OBJ_TAG_HOOK,
     OBJ_TAG_COMPANION,
     OBJ_TAG_BOSS,
@@ -191,7 +191,6 @@ void      mushroom_load(g_s *g, map_obj_s *mo);
 void      mushroom_on_jump_on(g_s *g, obj_s *o);
 void      tutorialtext_load(g_s *g, map_obj_s *mo);
 void      lookahead_load(g_s *g, map_obj_s *mo);
-void      lookahead_start(g_s *g, obj_s *o);
 void      heart_or_stamina_piece_load(g_s *g, map_obj_s *mo, bool32 is_stamina);
 void      heartpiece_on_collect(g_s *g, obj_s *o);
 void      bigcrab_load(g_s *g, map_obj_s *mo);

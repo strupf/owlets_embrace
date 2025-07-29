@@ -8,23 +8,23 @@
 #include "gamedef.h"
 
 enum {
-    PUPPET_HERO_ANIMID_NONE,
+    PUPPET_OWL_ANIMID_NONE,
     //
-    PUPPET_HERO_ANIMID_IDLE,
-    PUPPET_HERO_ANIMID_WALK_SLOW,
-    PUPPET_HERO_ANIMID_WALK,
-    PUPPET_HERO_ANIMID_SPRINT,
-    PUPPET_HERO_ANIMID_UPGR_RISE,
-    PUPPET_HERO_ANIMID_UPGR_INTENSE,
-    PUPPET_HERO_ANIMID_UPGR_CALM,
-    PUPPET_HERO_ANIMID_SHOOK,
-    PUPPET_HERO_ANIMID_AVENGE,
-    PUPPET_HERO_ANIMID_QUICKDUCK,
-    PUPPET_HERO_ANIMID_HOLD_ARM,
-    PUPPET_HERO_ANIMID_PRESENT_ABOVE,      // receive item frame
-    PUPPET_HERO_ANIMID_PRESENT_ABOVE_COMP, // receive item frame
-    PUPPET_HERO_ANIMID_OFF_BALANCE,
-    PUPPET_HERO_ANIMID_OFF_BALANCE_COMP,
+    PUPPET_OWL_ANIMID_IDLE,
+    PUPPET_OWL_ANIMID_WALK_SLOW,
+    PUPPET_OWL_ANIMID_WALK,
+    PUPPET_OWL_ANIMID_SPRINT,
+    PUPPET_OWL_ANIMID_UPGR_RISE,
+    PUPPET_OWL_ANIMID_UPGR_INTENSE,
+    PUPPET_OWL_ANIMID_UPGR_CALM,
+    PUPPET_OWL_ANIMID_SHOOK,
+    PUPPET_OWL_ANIMID_AVENGE,
+    PUPPET_OWL_ANIMID_QUICKDUCK,
+    PUPPET_OWL_ANIMID_HOLD_ARM,
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE,      // receive item frame
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP, // receive item frame
+    PUPPET_OWL_ANIMID_OFF_BALANCE,
+    PUPPET_OWL_ANIMID_OFF_BALANCE_COMP,
 };
 
 enum {
@@ -72,8 +72,8 @@ void puppet_move_ext(obj_s *o, v2_i32 p, i32 t, ease_i32 movefunc, bool32 relati
                      void (*arrived_cb)(g_s *g, obj_s *o, void *ctx),
                      void *ctx);
 
-obj_s *puppet_hero_put(g_s *g, obj_s *ohero);
-void   puppet_hero_replace_and_del(g_s *g, obj_s *ohero, obj_s *o);
+obj_s *puppet_owl_put(g_s *g, obj_s *ohero);
+void   puppet_owl_replace_and_del(g_s *g, obj_s *ohero, obj_s *o);
 obj_s *puppet_companion_put(g_s *g, obj_s *ocomp);
 void   puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *o);
 obj_s *puppet_mole_create(g_s *g, v2_i32 pfeet);

@@ -20,7 +20,7 @@ void cs_resetsave_draw(g_s *g, cs_s *cs, v2_i32 cam);
 
 void cs_resetsave_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
     cs->on_update   = cs_resetsave_update;
     cs->on_draw     = cs_resetsave_draw;

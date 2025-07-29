@@ -68,29 +68,29 @@ bool32 obj_blocked_by_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
         rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
         if (overlap_rec(r, rplat)) {
             is_plat |= it->flags & OBJ_FLAG_PLATFORM;
-            is_plat |= (o->ID == OBJID_HERO) &&
-                       (it->flags & OBJ_FLAG_HERO_PLATFORM);
+            is_plat |= (o->ID == OBJID_OWL) &&
+                       (it->flags & OBJ_FLAG_OWL_PLATFORM);
         }
     }
 
-    if (o->ID == OBJID_HERO) {
+    if (o->ID == OBJID_OWL) {
         rec_i32 rstomp = r;
-        rstomp.x -= HERO_W_STOMP_ADD_SYMM;
-        rstomp.w += HERO_W_STOMP_ADD_SYMM * 2;
+        rstomp.x -= OWL_W_STOMP_ADD_SYMM;
+        rstomp.w += OWL_W_STOMP_ADD_SYMM * 2;
 
         for (obj_each(g, it)) {
             if (it == o) continue;
 
             rec_i32 rplat = {it->pos.x, it->pos.y, it->w, 1};
-            if (overlap_rec(rstomp, rplat)) {
-                if (hero_stomping(o) && (it->flags & OBJ_FLAG_HERO_STOMPABLE)) {
-                    is_plat |= 1;
-                    hero_register_jumpstomped(o, it, 1);
-                }
-                if ((it->flags & OBJ_FLAG_HERO_JUMPABLE)) {
-                    is_plat |= 1;
-                    hero_register_jumpstomped(o, it, 0);
-                }
+            if (!overlap_rec(rstomp, rplat)) continue;
+
+            if (g->owl.air_stomp && (it->flags & OBJ_FLAG_OWL_STOMPABLE)) {
+                is_plat |= 1;
+                owl_jumpstomped_register(o, it, 1);
+            }
+            if ((it->flags & OBJ_FLAG_OWL_JUMPABLE)) {
+                is_plat |= 1;
+                owl_jumpstomped_register(o, it, 0);
             }
         }
     }

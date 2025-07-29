@@ -119,7 +119,7 @@ void hero_upgrade_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 void hero_upgrade_collect(g_s *g, obj_s *o)
 {
     hero_powup_s *p = (hero_powup_s *)o->mem;
-    hero_add_upgrade(g, (u32)1 << o->substate);
+    // hero_add_upgrade(g, (u32)1 << o->substate);
     save_event_register(g, p->saveID);
     game_update_savefile(g);
 }

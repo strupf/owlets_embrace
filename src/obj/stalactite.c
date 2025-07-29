@@ -72,7 +72,7 @@ void stalactite_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case STALACTITE_IDLE: {
-        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+        obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
         if (ohero && overlap_rec(s->checkr, obj_aabb(ohero))) {
             o->state = STALACTITE_SHAKING;
             o->timer = 0;

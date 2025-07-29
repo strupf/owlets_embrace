@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "hero.h"
+#include "owl.h"
 
 enum {
     COMPANION_ST_IDLE,
@@ -20,7 +20,6 @@ typedef struct companion_s {
     u8           attack_tick;
     u8           hitID;
     u8           may_rest;
-    i32          crank_buildup_smooth;
     v2_i32       tile_avoid;
     bool32       carries_item;
     obj_handle_s o_item;
@@ -29,7 +28,7 @@ typedef struct companion_s {
 void     companion_on_update(g_s *g, obj_s *o);
 void     companion_on_animate(g_s *g, obj_s *o);
 void     companion_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void     companion_follow_hero(g_s *g, obj_s *o, obj_s *ohero);
+void     companion_follow_owl(g_s *g, obj_s *o, obj_s *owl);
 obj_s   *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max);
 hitbox_s companion_spear_hitbox(obj_s *o);
 void     companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos);
@@ -38,7 +37,7 @@ obj_s *companion_create(g_s *g)
 {
     obj_s       *o = obj_create(g);
     companion_s *c = (companion_s *)o->mem;
-    o->ID          = OBJID_HERO_COMPANION;
+    o->ID          = OBJID_COMPANION;
     obj_tag(g, o, OBJ_TAG_COMPANION);
     o->on_update  = companion_on_update;
     o->on_animate = companion_on_animate;
@@ -74,22 +73,22 @@ obj_s *companion_find_gather_item(g_s *g, obj_s *o)
 
 void companion_on_update(g_s *g, obj_s *o)
 {
-    companion_s *c     = (companion_s *)o->mem;
-    obj_s       *ohero = obj_get_hero(g);
+    companion_s *c   = (companion_s *)o->mem;
+    obj_s       *owl = obj_get_owl(g);
 
     o->timer++;
-    v2_i32 p1       = obj_pos_center(o);
-    v2_i32 p2       = {0};
-    u32    dst_hero = 0;
+    v2_i32 p1      = obj_pos_center(o);
+    v2_i32 p2      = {0};
+    u32    dst_owl = 0;
     c->tile_avoid.x >>= 1;
     c->tile_avoid.y >>= 1;
 
-    if (ohero) {
-        hero_s *h = (hero_s *)ohero->heap;
-        p2        = obj_pos_center(ohero);
-        dst_hero  = v2_i32_distancesq(p1, p2);
+    if (owl) {
+        owl_s *h = (owl_s *)owl->heap;
+        p2       = obj_pos_center(owl);
+        dst_owl  = v2_i32_distancesq(p1, p2);
 
-        if (h->mode == HERO_MODE_COMBAT) {
+        if (h->stance == OWL_STANCE_ATTACK) {
             o->state = COMPANION_ST_IDLE;
         }
     }
@@ -103,8 +102,8 @@ void companion_on_update(g_s *g, obj_s *o)
             o->timer  = 0;
             break;
         }
-        if (ohero) {
-            companion_follow_hero(g, o, ohero);
+        if (owl) {
+            companion_follow_owl(g, o, owl);
             if (p1.x + 8 < p2.x) {
                 o->facing = +1;
             } else if (p1.x - 8 > p2.x) {
@@ -115,8 +114,8 @@ void companion_on_update(g_s *g, obj_s *o)
     }
     case COMPANION_ST_GATHER_ITEM: {
         if (c->carries_item) {
-            if (ohero) {
-                i32 dst = v2_i32_distance_appr(p1, obj_pos_center(ohero));
+            if (owl) {
+                i32 dst = v2_i32_distance_appr(p1, obj_pos_center(owl));
                 if (dst < 20) {
                     coins_change(g, 1);
                     snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
@@ -124,7 +123,7 @@ void companion_on_update(g_s *g, obj_s *o)
                     o->state        = COMPANION_ST_IDLE;
                     o->timer        = 0;
                 } else {
-                    companion_follow_hero(g, o, ohero);
+                    companion_follow_owl(g, o, owl);
                 }
             }
         } else {
@@ -162,13 +161,6 @@ void companion_on_animate(g_s *g, obj_s *o)
 {
     companion_s *c = (companion_s *)o->mem;
     o->animation++;
-
-    obj_s *ohero = obj_get_hero(g);
-    if (ohero) {
-        hero_s *h = (hero_s *)ohero->heap;
-        c->crank_buildup_smooth += h->crank_swap_buildup;
-    }
-    c->crank_buildup_smooth >>= 1;
 }
 
 void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
@@ -178,21 +170,21 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     v2_i32 pc = obj_pos_center(o);
     v2_i32 p  = pc;
 
-    obj_s *ohero = obj_get_hero(g);
-    if (ohero) {
-        hero_s *h = (hero_s *)ohero->heap;
-        if (h->mode == HERO_MODE_COMBAT) {
+    obj_s *owl = obj_get_owl(g);
+    if (owl) {
+        owl_s *h = (owl_s *)owl->heap;
+
+        if (h->stance == OWL_STANCE_ATTACK) {
             return;
         }
 
-        v2_i32 hc = obj_pos_center(ohero);
-        hc.x -= ohero->facing * 12;
+        // move to hero
+        v2_i32 hc = obj_pos_center(owl);
+        hc.x -= owl->facing * 12;
         hc.y -= 4;
 
-        if (h->mode == HERO_MODE_NORMAL &&
-            HERO_B_HOLD_SWAP_THRESHOLD < h->b_hold_tick) {
-            p = v2_i32_lerp(pc, hc, h->b_hold_tick - HERO_B_HOLD_SWAP_THRESHOLD,
-                            SETTINGS.swap_ticks - HERO_B_HOLD_SWAP_THRESHOLD);
+        if (h->stance == OWL_STANCE_GRAPPLE && 8 < h->stance_swap_tick) {
+            p = v2_i32_lerp(pc, hc, h->stance_swap_tick - 8, owl_swap_ticks() - 8);
         }
     }
 
@@ -227,11 +219,11 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         fr_x = ani_frame(ANIID_COMPANION_FLY, o->animation);
     }
 
-    if (ohero) {
-        hero_s *h = (hero_s *)ohero->heap;
-        if (h->b_hold_tick && h->b_hold_tick < 12) {
+    if (owl) {
+        owl_s *h = (owl_s *)owl->heap;
+        if (h->stance_swap_tick && h->stance_swap_tick < 12) {
             fr_y = 9;
-            fr_x = lerp_i32(1, 5, h->b_hold_tick, 12);
+            fr_x = lerp_i32(1, 5, h->stance_swap_tick, 12);
         }
     }
     tr.x = fr_x * tr.w;
@@ -257,17 +249,16 @@ void companion_on_enter_mode(g_s *g, obj_s *o, i32 mode)
     companion_s *c = (companion_s *)o->mem;
 
     switch (mode) {
-    case HERO_MODE_NORMAL: {
+    case OWL_STANCE_GRAPPLE: {
 
         break;
     }
-    case HERO_MODE_COMBAT: {
+    case OWL_STANCE_ATTACK: {
         if (c->carries_item) {
             coins_change(g, 1);
             snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
             c->carries_item = 0;
         }
-
         break;
     }
     }
@@ -327,7 +318,7 @@ void companion_gather_item(g_s *g, obj_s *o)
 {
 }
 
-void companion_follow_hero(g_s *g, obj_s *o, obj_s *ohero)
+void companion_follow_owl(g_s *g, obj_s *o, obj_s *ohero)
 {
     companion_s *c  = (companion_s *)o->mem;
     v2_i32       p1 = obj_pos_center(o);
@@ -356,12 +347,12 @@ BREAKLOOP:;
     companion_seek_pos(g, o, p2);
 }
 
-obj_s *companion_spawn(g_s *g, obj_s *ohero)
+obj_s *companion_spawn(g_s *g, obj_s *owl)
 {
     obj_s *o  = companion_create(g);
-    o->pos.x  = ohero->pos.x + 0;
-    o->pos.y  = ohero->pos.y - 30;
-    o->facing = ohero->facing;
+    o->pos.x  = owl->pos.x + 0;
+    o->pos.y  = owl->pos.y - 30;
+    o->facing = owl->facing;
     return o;
 }
 

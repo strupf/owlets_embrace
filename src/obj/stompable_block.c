@@ -106,8 +106,6 @@ void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     case STOMPABLEBLOCK_BREAKING: {
         // falling particles using integration: x = att/2 + vt
         tex_s     tterrain = asset_tex(TEXID_TILESET_TERRAIN);
-        i32       nx       = o->w >> 4;
-        i32       ny       = o->h >> 4;
         i32       t        = o->timer - 1;
         u32       s        = 213;
         i32       py_acc   = 30 * t * t;
@@ -157,10 +155,12 @@ void stompable_block_on_update(g_s *g, obj_s *o)
         }
 
         obj_s *ohero = 0;
+#if 0
         if (!hero_present_and_alive(g, &ohero)) {
             b->standingon = 0;
             break;
         }
+#endif
 
         bool32 standingon = obj_standing_on(ohero, o, 0, 0);
 

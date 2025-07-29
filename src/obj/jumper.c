@@ -73,7 +73,7 @@ void jumper_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case JUMPER_ST_IDLE: {
-        obj_s *ohero = obj_get_hero(g);
+        obj_s *ohero = obj_get_owl(g);
         if (ohero) {
             v2_i32 phero = obj_pos_center(ohero);
             v2_i32 pc    = obj_pos_center(o);

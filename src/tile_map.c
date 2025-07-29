@@ -208,6 +208,7 @@ i32 map_climbable_pt(g_s *g, i32 x, i32 y)
     i32    tx = clamp_i32(x >> 4, 0, g->tiles_x - 1);
     i32    ty = clamp_i32(y >> 4, 0, g->tiles_y - 1);
     tile_s t  = g->tiles[tx + ty * g->tiles_x];
+
     if (tile_solid_pt(t.shape, x & 15, y & 15)) {
         switch (t.type) {
         case TILE_TYPE_DARK_OBSIDIAN:
@@ -389,10 +390,7 @@ static i32 autotile_marching(tile_s *tiles, i32 w, i32 h, i32 x, i32 y)
     return march;
 }
 
-static bool32 autotile_dual_border(tile_s *tiles,
-                                   i32 w, i32 h,
-                                   i32 x, i32 y,
-                                   i32 sx, i32 sy,
+static bool32 autotile_dual_border(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, i32 sx, i32 sy,
                                    i32 type, i32 march, u32 seed_visuals)
 {
     // tile types without dual tiles

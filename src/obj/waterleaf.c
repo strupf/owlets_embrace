@@ -49,7 +49,7 @@ void waterleaf_on_update(g_s *g, obj_s *o)
 {
     waterleaf_s *w = (waterleaf_s *)o->mem;
     if (o->state == WATERLEAF_IDLE) {
-        obj_s *ohero = obj_get_hero(g);
+        obj_s *ohero = obj_get_owl(g);
         if (obj_standing_on(ohero, o, 0, 0)) {
             o->state++;
         }

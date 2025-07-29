@@ -153,7 +153,7 @@ void driller_on_update(g_s *g, obj_s *o)
 
     switch (o->state) {
     case DRILLER_LURK: {
-        obj_s *ohero = obj_get_hero(g);
+        obj_s *ohero = obj_get_owl(g);
         if (!ohero) break;
 
         rec_i32 rscan = obj_aabb(ospawn);
@@ -185,8 +185,8 @@ void driller_on_update(g_s *g, obj_s *o)
 
         if (!overlap_rec(obj_aabb(ohero), rscan)) break;
 
-        i32 n_spawns_possible = 0;
-        u8  spawns_possible[8];
+        i32 n_spawns_possible  = 0;
+        u8  spawns_possible[8] = {0};
 
         for (i32 n = 0; n < d->n_spawns; n++) {
             if (n == d->spawn_from) continue;

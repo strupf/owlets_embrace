@@ -39,7 +39,7 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs);
 
 void cs_maptransition_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
     cs->on_update = cs_maptransition_update;
     cs->on_draw   = cs_maptransition_draw;
@@ -48,8 +48,8 @@ void cs_maptransition_enter(g_s *g)
 void cs_maptransition_init(g_s *g, cs_s *cs, u32 map_hash, i32 type, v2_i32 hero_feet)
 {
     maptransition_s *mt    = (maptransition_s *)cs->mem;
-    hero_s          *h     = (hero_s *)&g->hero;
-    obj_s           *ohero = obj_get_tagged(g, OBJ_TAG_HERO);
+    owl_s           *h     = (owl_s *)&g->owl;
+    obj_s           *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     mt->map_hash           = map_hash;
     mt->dir                = 0;
     mt->type               = type;
@@ -69,10 +69,10 @@ void cs_maptransition_init(g_s *g, cs_s *cs, u32 map_hash, i32 type, v2_i32 hero
 
 bool32 cs_maptransition_try_slide_enter(g_s *g)
 {
-    obj_s *o = obj_get_tagged(g, OBJ_TAG_HERO);
+    obj_s *o = obj_get_tagged(g, OBJ_TAG_OWL);
     if (!o || o->health == 0) return 0;
 
-    hero_s *h = (hero_s *)o->heap;
+    owl_s *h = (owl_s *)o->heap;
 
     i32 touchedbounds = 0;
     if (o->pos.x <= 0)
@@ -118,12 +118,12 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         aabb.x = (mneighbor->w << 4) - aabb.w - 8;
         break;
     case DIRECTION_N:
-        aabb.y       = (mneighbor->h << 4) - aabb.h - 8;
-        hvel.y       = min_i32(hvel.y, -Q_VOBJ(5.0));
+        aabb.y        = (mneighbor->h << 4) - aabb.h - 8;
+        hvel.y        = min_i32(hvel.y, -Q_VOBJ(5.0));
         // if A pressed before transition and released the vy will be reduced,
         // resulting in the player not making the screen transition
         // -> clear jumpticks
-        h->jumpticks = 0;
+        h->jump_ticks = 0;
         break;
     case DIRECTION_S:
         aabb.y = 2;
@@ -131,7 +131,7 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         break;
     }
 
-    cs_s            *cs = &g->cuts;
+    cs_s            *cs = &g->cs;
     maptransition_s *mt = (maptransition_s *)cs->mem;
     cs_maptransition_enter(g);
 
@@ -147,10 +147,10 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
 
 void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
 {
-    obj_s *o = obj_get_hero(g);
+    obj_s *o = obj_get_owl(g);
     assert(o);
 
-    cs_s            *cs = &g->cuts;
+    cs_s            *cs = &g->cs;
     maptransition_s *mt = (maptransition_s *)cs->mem;
     cs_maptransition_enter(g);
     cs_maptransition_init(g, cs, map_hash,
@@ -158,7 +158,6 @@ void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
     g->block_update  = 1;
     mt->hero_v_q12.x = 0;
     mt->hero_v_q12.y = 0;
-    hero_s *h        = (hero_s *)o->heap;
 }
 
 void cs_maptransition_update(g_s *g, cs_s *cs)
@@ -217,7 +216,7 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
 {
     f32              t1    = pltf_seconds();
     maptransition_s *mt    = (maptransition_s *)cs->mem;
-    obj_s           *ohero = obj_get_hero(g);
+    obj_s           *ohero = obj_get_owl(g);
 
     if (ohero) {
         ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
@@ -226,7 +225,7 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
             ohero->v_q12 = mt->hero_v_q12;
         }
     }
-    hero_s *h = (hero_s *)ohero->heap;
+    owl_s *h = (owl_s *)ohero->heap;
 
     game_load_map(g, mt->map_hash);
 

@@ -61,6 +61,7 @@ enum {
     TEXID_WIND,
     TEXID_FEATHERUPGR,
     TEXID_SAVEPOINT,
+    TEXID_LOOKAHEAD,
     TEXID_CRUMBLE,
     TEXID_NPC,
     TEXID_TOGGLE,
@@ -81,6 +82,7 @@ enum {
     TEXID_STALACTITE,
     TEXID_STAMINARESTORE,
     TEXID_BOSSPLANT,
+    TEXID_USECRANK,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -160,8 +162,7 @@ enum {
 };
 
 enum {
-    ANIID_HERO_ATTACK,
-    ANIID_HERO_ATTACK_AIR,
+    ANIID_OWL_ATTACK,
     ANIID_COMPANION_FLY,
     ANIID_COMPANION_ATTACK,
     ANIID_COMPANION_BUMP,
@@ -176,6 +177,7 @@ enum {
     ANIID_FBLOB_ATTACK,
     ANIID_MOLE_DIG_OUT,
     ANIID_MOLE_DIG_IN,
+    ANIID_LOOKAHEAD,
     //
     NUM_ANIID
 };
@@ -214,17 +216,12 @@ i32      snd_play_ext(i32 ID, f32 vol, f32 pitch, bool32 loop);
 //
 err32    snd_from_wad_ID(i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ID(i32 ID, const void *name, allocator_s a);
-err32    tex_from_wad_ID_ext(void *f, i32 ID, const void *name,
-                             allocator_s a);
+err32    tex_from_wad_ID_ext(void *f, i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t);
-
-err32 tex_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, tex_s *o_t);
-err32 snd_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, snd_s *o_s);
-err32 ani_from_wad(void *f, wad_el_s *wf, const void *name,
-                   allocator_s a, ani_s *o_a);
-i32   ani_frame(i32 ID, i32 ticks);
-i32   ani_len(i32 ID);
+err32    tex_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, tex_s *o_t);
+err32    snd_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, snd_s *o_s);
+err32    ani_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, ani_s *o_a);
+i32      ani_frame(i32 ID, i32 ticks);
+i32      ani_len(i32 ID);
 
 #endif

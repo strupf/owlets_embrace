@@ -9,11 +9,11 @@ void cs_mole_1_on_trigger(g_s *g, cs_s *cs, i32 trigger);
 
 void cs_mole_1_enter(g_s *g)
 {
-    cs_s *cs = &g->cuts;
+    cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update         = cs_mole_1_update;
-    cs->on_trigger        = cs_mole_1_on_trigger;
-    g->block_hero_control = 1;
+    cs->on_update        = cs_mole_1_update;
+    cs->on_trigger       = cs_mole_1_on_trigger;
+    g->block_owl_control = 1;
 }
 
 void cs_mole_1_update(g_s *g, cs_s *cs)
@@ -21,13 +21,13 @@ void cs_mole_1_update(g_s *g, cs_s *cs)
     switch (cs->phase) {
     default: break;
     case 0: {
-        if (!cs_wait_and_pause_for_hero_idle(g)) break;
+        if (!cs_wait_and_pause_for_owl_idle(g)) break;
 
         cs->phase++;
         cs->tick = 0;
 
-        obj_s *ohero = obj_get_hero(g);
-        cs->p_hero   = puppet_hero_put(g, ohero);
+        obj_s *ohero = obj_get_owl(g);
+        cs->p_owl    = puppet_owl_put(g, ohero);
 
         for (obj_each(g, o)) {
             if (!(o->ID == OBJID_MISC && o->state == 50)) continue;

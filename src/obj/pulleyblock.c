@@ -126,7 +126,7 @@ void pulleyblock_on_update(g_s *g, obj_s *o)
     pulleyblock_s *s = (pulleyblock_s *)o->mem;
 
     i32    f                = 0;
-    obj_s *ohero            = obj_get_hero(g);
+    obj_s *ohero            = obj_get_owl(g);
     bool32 hero_standing_on = 0;
 
     if (ohero && (overlap_rec(obj_aabb(o), obj_rec_bottom(ohero)) || ohero->linked_solid.o == o)) {

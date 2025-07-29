@@ -19,7 +19,7 @@
 static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b);
 static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
 static v2_i32 cam_constrain_to_rec(v2_i32 p_center, rec_i32 r);
-void          cam_update_hero(g_s *g, cam_hero_s *c, obj_s *o);
+void          cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o);
 
 void cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y)
 {
@@ -43,7 +43,7 @@ v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
     return pos;
 }
 
-v2_i32 cam_pos_px_center_hero(cam_hero_s *ch)
+v2_i32 cam_pos_px_center_hero(cam_owl_s *ch)
 {
     v2_i32 p = ch->pos;
     p.x += ch->offs_x;
@@ -57,21 +57,18 @@ v2_i32 cam_pos_px_center_hero(cam_hero_s *ch)
 
 v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
 {
-    v2_i32 phero = cam_pos_px_center_hero(&c->chero);
+    v2_i32 phero = cam_pos_px_center_hero(&c->cowl);
     v2_i32 pos   = phero;
 
     if (c->trg_fade_q12) {
-        pos.x = ease_in_out_sine(pos.x, c->trg.x,
-                                 c->trg_fade_q12, CAM_TRG_FADE_MAX);
-        pos.y = ease_in_out_sine(pos.y, c->trg.y,
-                                 c->trg_fade_q12, CAM_TRG_FADE_MAX);
+        pos.x = ease_in_out_sine(pos.x, c->trg.x, c->trg_fade_q12, CAM_TRG_FADE_MAX);
+        pos.y = ease_in_out_sine(pos.y, c->trg.y, c->trg_fade_q12, CAM_TRG_FADE_MAX);
     }
 
     pos = cam_constrain_to_room(g, pos);
     if (c->clamp_rec_fade_q8) {
         v2_i32 p_clamped = cam_constrain_to_rec(pos, c->clamp_rec);
-        pos              = v2_i32_ease(pos, p_clamped,
-                                       c->clamp_rec_fade_q8, 256, ease_in_out_quad);
+        pos              = v2_i32_ease(pos, p_clamped, c->clamp_rec_fade_q8, 256, ease_in_out_quad);
     }
     pos.x += c->attr_q12.x >> 12;
     pos.y += c->attr_q12.y >> 12;
@@ -96,10 +93,10 @@ void cam_init_level(g_s *g, cam_s *c)
 
 void cam_update(g_s *g, cam_s *c)
 {
-    obj_s *hero = obj_get_hero(g);
+    obj_s *owl = obj_get_owl(g);
 
-    if (hero) {
-        cam_update_hero(g, &c->chero, hero);
+    if (owl) {
+        cam_update_owl(g, &c->cowl, owl);
     }
 
     if (c->has_clamp_rec) {
@@ -123,11 +120,9 @@ void cam_update(g_s *g, cam_s *c)
     }
 
     if (c->has_trg) {
-        c->trg_fade_q12 =
-            min_i32(c->trg_fade_q12 + c->trg_fade_spd, CAM_TRG_FADE_MAX);
+        c->trg_fade_q12 = min_i32(c->trg_fade_q12 + c->trg_fade_spd, CAM_TRG_FADE_MAX);
     } else {
-        c->trg_fade_q12 =
-            max_i32(c->trg_fade_q12 - c->trg_fade_spd, 0);
+        c->trg_fade_q12 = max_i32(c->trg_fade_q12 - c->trg_fade_spd, 0);
     }
 
     v2_i32 pc0     = cam_pos_px_center(g, c);
@@ -166,18 +161,18 @@ void cam_update(g_s *g, cam_s *c)
     }
 }
 
-void cam_update_hero(g_s *g, cam_hero_s *c, obj_s *o)
+void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
 {
     v2_i32 ppos         = c->pos;
     v2_i32 padd         = {0};
     i32    look_up_down = 0;
 
-    hero_s *h           = (hero_s *)o->heap;
+    owl_s *h            = (owl_s *)o->heap;
     c->can_align_x      = 0;
     c->can_align_y      = 0;
-    v2_i32 herop        = obj_pos_bottom_center(o);
+    v2_i32 owlp         = obj_pos_bottom_center(o);
     bool32 herogrounded = obj_grounded(g, o);
-    i32    hero_bot     = herop.y;
+    i32    hero_bot     = owlp.y;
 
     if (c->touched_top_tick && c->touched_top_tick < 80) {
         if (c->touched_top_tick < 64) {
@@ -194,10 +189,9 @@ void cam_update_hero(g_s *g, cam_hero_s *c, obj_s *o)
         i32 cam_y_bot       = c->pos.y + CAM_OFFS_BOT; // align bottom with platform
         i32 diffy           = hero_bot - cam_y_bot;
         i32 y_add           = (diffy * 20) >> 8;
-        ;
         c->pos.y += y_add;
 
-        if (h->crouched) {
+        if (h->crouch) {
             look_up_down = +1;
         } else if (inp_btn(INP_DU) && !inp_x()) {
             look_up_down = -1;
@@ -218,10 +212,20 @@ void cam_update_hero(g_s *g, cam_hero_s *c, obj_s *o)
         c->can_align_y      = 1;
     }
 
-    c->pos.x = herop.x;
+    if (h->climb_camx_smooth) {
+        c->pos.x += sgn_i32(owlp.x - c->pos.x);
+    } else {
+        c->pos.x = owlp.x;
+    }
 
-    c->offs_x += o->facing * 2 + sgn_i32(o->v_q12.x);
-    c->offs_x              = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
+    if (h->climb) {
+        // center camera on climbing
+        c->offs_x = shr_balanced_i32(c->offs_x * 244, 8);
+    } else {
+        c->offs_x += o->facing * 2 + sgn_i32(o->v_q12.x);
+        c->offs_x = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
+    }
+
     c->can_align_x         = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
     c->force_lower_ceiling = 0;
     c->force_higher_floor  = 0;
@@ -257,8 +261,7 @@ static v2_i32 cam_constrain_to_rec(v2_i32 p_center, rec_i32 r)
 
 v2_i32 cam_offset_max(g_s *g, cam_s *c)
 {
-    v2_i32 o = {g->pixel_x - CAM_W,
-                g->pixel_y - CAM_H};
+    v2_i32 o = {g->pixel_x - CAM_W, g->pixel_y - CAM_H};
     return o;
 }
 
