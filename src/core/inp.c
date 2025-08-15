@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "inp.h"
+#include "core/inp.h"
 #include "settings.h"
 #include "util/mathfunc.h"
 
@@ -13,10 +13,6 @@ static struct {
     f32         acc_y;
     f32         acc_z;
 } INP;
-
-void inp_init()
-{
-}
 
 void inp_update()
 {

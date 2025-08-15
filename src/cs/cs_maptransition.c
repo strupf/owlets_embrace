@@ -17,9 +17,9 @@ enum {
 };
 
 typedef struct maptransition_s {
-    v2_i32 hero_feet;
-    v2_i32 hero_v_q12;
-    u32    map_hash;
+    v2_i32 owl_feet;
+    v2_i32 owl_v_q12;
+    u8     map_name[32];
     u8     fade_phase;
     u8     type;
     u8     dir;
@@ -29,9 +29,10 @@ typedef struct maptransition_s {
 
 static_assert(sizeof(maptransition_s) <= CS_MEM_BYTES, "Size");
 
-#define MAPTRANSITION_TICKS_F_OUT   15
-#define MAPTRANSITION_TICKS_F_BLACK 15
-#define MAPTRANSITION_TICKS_F_IN    25
+#define MAPTRANSITION_TICKS_F_OUT             15
+#define MAPTRANSITION_TICKS_F_BLACK           15
+#define MAPTRANSITION_TICKS_F_IN              25
+#define MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD 8 // make it easier to move up
 
 void cs_maptransition_update(g_s *g, cs_s *cs);
 void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam);
@@ -45,23 +46,23 @@ void cs_maptransition_enter(g_s *g)
     cs->on_draw   = cs_maptransition_draw;
 }
 
-void cs_maptransition_init(g_s *g, cs_s *cs, u32 map_hash, i32 type, v2_i32 hero_feet)
+void cs_maptransition_init(g_s *g, cs_s *cs, u8 *map_name, i32 type, v2_i32 hero_feet)
 {
-    maptransition_s *mt    = (maptransition_s *)cs->mem;
-    owl_s           *h     = (owl_s *)&g->owl;
-    obj_s           *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
-    mt->map_hash           = map_hash;
-    mt->dir                = 0;
-    mt->type               = type;
-    mt->hero_feet          = hero_feet;
-    mt->fade_tick          = 0;
-    mt->fade_phase         = 1;
-    h->safe_pos.x          = hero_feet.x;
-    h->safe_pos.y          = hero_feet.y;
-    h->safe_v.x            = sgn_i32(ohero->v_q12.x) * Q_VOBJ(2.0);
-    h->safe_v.y            = 0;
-    h->safe_facing         = ohero->facing;
-    if (ohero->v_q12.y < 0) {
+    maptransition_s *mt  = (maptransition_s *)cs->mem;
+    obj_s           *owl = obj_get_tagged(g, OBJ_TAG_OWL);
+    owl_s           *h   = (owl_s *)owl->heap;
+    mcpy(mt->map_name, map_name, sizeof(mt->map_name));
+    mt->dir        = 0;
+    mt->type       = type;
+    mt->owl_feet   = hero_feet;
+    mt->fade_tick  = 0;
+    mt->fade_phase = 1;
+    h->safe_pos.x  = hero_feet.x;
+    h->safe_pos.y  = hero_feet.y;
+    h->safe_v.x    = sgn_i32(owl->v_q12.x) * Q_VOBJ(2.0);
+    h->safe_v.y    = 0;
+    h->safe_facing = owl->facing;
+    if (owl->v_q12.y < 0) {
         h->safe_v.y = -Q_VOBJ(4.0);
     }
     grapplinghook_destroy(g, &g->ghook);
@@ -69,24 +70,30 @@ void cs_maptransition_init(g_s *g, cs_s *cs, u32 map_hash, i32 type, v2_i32 hero
 
 bool32 cs_maptransition_try_slide_enter(g_s *g)
 {
-    obj_s *o = obj_get_tagged(g, OBJ_TAG_OWL);
-    if (!o || o->health == 0) return 0;
+    obj_s *o = 0;
+    if (!(o = owl_if_present_and_alive(g))) return 0;
 
-    owl_s *h = (owl_s *)o->heap;
+    owl_s  *h                 = (owl_s *)o->heap;
+    rec_i32 aabb              = obj_aabb(o);
+    rec_i32 r_check_neighbour = aabb;
 
     i32 touchedbounds = 0;
-    if (o->pos.x <= 0)
+    if (o->pos.y < MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD) {
+        touchedbounds       = DIRECTION_N;
+        r_check_neighbour.y = 0;
+    }
+    if (o->pos.x <= 0) {
         touchedbounds = DIRECTION_W;
-    if (g->pixel_x <= o->pos.x + o->w)
+    }
+    if (g->pixel_x <= o->pos.x + o->w) {
         touchedbounds = DIRECTION_E;
-    if (o->pos.y <= 0)
-        touchedbounds = DIRECTION_N;
-    if (g->pixel_y <= o->pos.y + o->h)
+    }
+    if (g->pixel_y <= o->pos.y + o->h) {
         touchedbounds = DIRECTION_S;
+    }
 
     if (!touchedbounds) return 0;
 
-    rec_i32     aabb      = obj_aabb(o);
     map_room_s *mneighbor = 0;
     map_room_s *mcur      = g->map_room_cur;
 
@@ -94,9 +101,8 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         map_room_s *mn = &g->map_rooms[n];
         if (mn == mcur) continue;
 
-        rec_i32 rn = {(mn->x - mcur->x) << 4, (mn->y - mcur->y) << 4,
-                      mn->w << 4, mn->h << 4};
-        if (overlap_rec_touch(aabb, rn)) {
+        rec_i32 rn = {(mn->x - mcur->x) << 4, (mn->y - mcur->y) << 4, mn->w << 4, mn->h << 4};
+        if (overlap_rec_touch(r_check_neighbour, rn)) {
             mneighbor = mn;
             break;
         }
@@ -119,14 +125,11 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
         break;
     case DIRECTION_N:
         aabb.y        = (mneighbor->h << 4) - aabb.h - 8;
-        hvel.y        = min_i32(hvel.y, -Q_VOBJ(5.0));
-        // if A pressed before transition and released the vy will be reduced,
-        // resulting in the player not making the screen transition
-        // -> clear jumpticks
+        hvel.y        = min_i32(hvel.y, -Q_VOBJ(5.5));
         h->jump_ticks = 0;
         break;
     case DIRECTION_S:
-        aabb.y = 2;
+        aabb.y = MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD;
         hvel.y = Q_VOBJ(1.0);
         break;
     }
@@ -136,16 +139,15 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
     cs_maptransition_enter(g);
 
     v2_i32 feet = {aabb.x + aabb.w / 2, aabb.y + aabb.h};
-    cs_maptransition_init(g, cs, mneighbor->hash,
-                          MAPTRANSITION_TYPE_SLIDE, feet);
+    cs_maptransition_init(g, cs, mneighbor->map_name, MAPTRANSITION_TYPE_SLIDE, feet);
     g->block_update = 1;
     mt->dir         = touchedbounds;
-    mt->hero_v_q12  = hvel;
+    mt->owl_v_q12   = hvel;
     o->bumpflags    = 0;
     return 1;
 }
 
-void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
+void cs_maptransition_teleport(g_s *g, u8 *map_name, v2_i32 pos)
 {
     obj_s *o = obj_get_owl(g);
     assert(o);
@@ -153,11 +155,10 @@ void cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos)
     cs_s            *cs = &g->cs;
     maptransition_s *mt = (maptransition_s *)cs->mem;
     cs_maptransition_enter(g);
-    cs_maptransition_init(g, cs, map_hash,
-                          MAPTRANSITION_TYPE_TELEPORT, pos);
-    g->block_update  = 1;
-    mt->hero_v_q12.x = 0;
-    mt->hero_v_q12.y = 0;
+    cs_maptransition_init(g, cs, map_name, MAPTRANSITION_TYPE_TELEPORT, pos);
+    g->block_update = 1;
+    mt->owl_v_q12.x = 0;
+    mt->owl_v_q12.y = 0;
 }
 
 void cs_maptransition_update(g_s *g, cs_s *cs)
@@ -214,23 +215,22 @@ void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam)
 
 void cs_maptransition_load_map(g_s *g, cs_s *cs)
 {
-    f32              t1    = pltf_seconds();
-    maptransition_s *mt    = (maptransition_s *)cs->mem;
-    obj_s           *ohero = obj_get_owl(g);
+    f32              t1  = pltf_seconds();
+    maptransition_s *mt  = (maptransition_s *)cs->mem;
+    obj_s           *owl = obj_get_owl(g);
 
-    if (ohero) {
-        ohero->pos.x = mt->hero_feet.x - ohero->w / 2;
-        ohero->pos.y = mt->hero_feet.y - ohero->h;
+    if (owl) {
+        owl->pos.x = mt->owl_feet.x - owl->w / 2;
+        owl->pos.y = mt->owl_feet.y - owl->h;
         if (mt->dir) {
-            ohero->v_q12 = mt->hero_v_q12;
+            owl->v_q12 = mt->owl_v_q12;
         }
     }
-    owl_s *h = (owl_s *)ohero->heap;
+    owl_s *h = (owl_s *)owl->heap;
+    game_load_map(g, mt->map_name);
 
-    game_load_map(g, mt->map_hash);
-
-    if (ohero) {
-        v2_i32  hpos = obj_pos_center(ohero);
+    if (owl) {
+        v2_i32  hpos = obj_pos_center(owl);
         v2_i32 *sp   = 0;
         u32     dc   = U32_MAX;
         for (i32 n = 0; n < g->n_save_points; n++) {
@@ -247,7 +247,7 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
     }
 
     if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
-        companion_spawn(g, ohero);
+        companion_spawn(g, owl);
     }
 
     cam_init_level(g, &g->cam);
@@ -255,7 +255,8 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
     objs_animate(g);
     aud_allow_playing_new_snd(1);
 
-    i32 ticks_loaded = (i32)((pltf_seconds() - t1) * 50.f + 0.5f);
+    f32 seconds_loaded = pltf_seconds() - t1;
+    i32 ticks_loaded   = (i32)(seconds_loaded * 50.f + 0.5f); // 50 = 1/0.020
     if (g->speedrun) {
         // don't adjust black phase time to not discriminate different
         // playdate CPU revisions. Also keep it short

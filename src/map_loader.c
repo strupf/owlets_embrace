@@ -102,9 +102,11 @@ void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h, u32 *s
 void loader_load_bgauto(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 
-void game_load_map(g_s *g, u32 map_hash)
+void game_load_map(g_s *g, u8 *map_name)
 {
     // READ FILE ===============================================================
+    u8       *map_name_mod = map_loader_room_mod(g, map_name);
+    u32       map_hash     = wad_hash(map_name_mod);
     void     *f;
     wad_el_s *wad_el;
     if (!wad_open(map_hash, &f, &wad_el)) {
@@ -123,11 +125,11 @@ void game_load_map(g_s *g, u32 map_hash)
     u32 seed_visuals = map_hash;
     g->bg_offx       = rngsr_i32(&seed_visuals, 0, I16_MAX);
     g->bg_offy       = rngsr_i32(&seed_visuals, 0, I16_MAX);
-    g->map_hash      = map_hash;
-    g->tiles_x       = w;
-    g->tiles_y       = h;
-    g->pixel_x       = w << 4;
-    g->pixel_y       = h << 4;
+    str_cpy(g->map_name, map_name_mod);
+    g->tiles_x = w;
+    g->tiles_y = h;
+    g->pixel_x = w << 4;
+    g->pixel_y = h << 4;
     assert((w * h) <= NUM_TILES);
 
     for (obj_each(g, o)) {
@@ -165,11 +167,13 @@ void game_load_map(g_s *g, u32 map_hash)
     g->darken_bg_add    = 0;
     g->n_save_points    = 0;
     g->n_fg             = 0;
+    g->tick_animation   = 0;
+    g->n_ropes          = 0;
     marena_reset(&g->memarena, 0);
 
     for (i32 n = 0; n < g->n_map_rooms; n++) {
         map_room_s *mn = &g->map_rooms[n];
-        if (mn->hash == map_hash) {
+        if (wad_hash(mn->map_name) == map_hash) {
             g->map_room_cur = mn;
             break;
         }
@@ -494,6 +498,13 @@ void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
     if (!prop || prop->type != MAP_PROP_ARRAY) return 0;
     *num = prop->u.n;
     return (prop + 1);
+}
+
+map_obj_ref_s *map_obj_ref(map_obj_s *mo, const char *name)
+{
+    map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
+    if (!prop || prop->type != MAP_PROP_OBJ) return 0;
+    return (map_obj_ref_s *)(prop + 1);
 }
 
 map_obj_s *map_obj_find(g_s *g, const char *name)

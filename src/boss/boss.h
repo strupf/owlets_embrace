@@ -5,20 +5,17 @@
 #ifndef BOSS_H
 #define BOSS_H
 
-#include "boss_golem.h"
-#include "boss_plant.h"
+#include "boss/boss_plant.h"
 #include "gamedef.h"
 
 enum {
     BOSS_ID_NONE,
-    BOSS_ID_GOLEM,
     BOSS_ID_PLANT,
 };
 
 typedef struct {
     i32 type;
     union {
-        boss_golem_s golem;
         boss_plant_s plant;
     };
 } boss_s;

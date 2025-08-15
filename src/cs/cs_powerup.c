@@ -5,6 +5,7 @@
 // cutscene where the player aquires an upgrade
 
 #include "game.h"
+#include "obj/puppet.h"
 
 typedef struct {
     obj_s *o;
@@ -49,7 +50,7 @@ void cs_arrival_hero_cb(g_s *g, obj_s *o, void *ctx)
 {
     cs_s         *cs     = (cs_s *)ctx;
     cs_powerup_s *pu     = (cs_powerup_s *)cs->mem;
-    v2_i32        orbpos = hero_upgrade_orb_pos(pu->o);
+    v2_i32        orbpos = upgradetree_orb_pos(pu->o);
 
     switch (cs->counter1) {
     case 1:
@@ -68,8 +69,8 @@ void cs_powerup_enter(g_s *g)
     cs->on_draw            = cs_powerup_draw;
     cs->on_draw_background = cs_powerup_draw_bg;
     cs->on_trigger         = cs_powerup_on_trigger;
-    obj_s *oupgr           = obj_find_ID(g, OBJID_HERO_UPGRADE, 0);
-    hero_upgrade_collect(g, oupgr);
+    obj_s *oupgr           = obj_find_ID(g, OBJID_UPGRADETREE, 0);
+    upgradetree_collect(g, oupgr);
     pu->o               = oupgr;
     pu->first_time_seen = save_event_exists(g, SAVE_EV_CS_POWERUP_FIRST_TIME);
 
@@ -83,7 +84,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
 {
     obj_s        *ocomp = obj_get_tagged(g, OBJ_TAG_COMPANION);
     cs_powerup_s *pu    = (cs_powerup_s *)cs->mem;
-    v2_i32        opos  = hero_upgrade_orb_pos(pu->o);
+    v2_i32        opos  = upgradetree_orb_pos(pu->o);
     v2_i32        hpos  = {0};
     if (pu->puppet_hero) {
         hpos = pu->puppet_hero->pos;
@@ -165,7 +166,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
         // slowly move orb and companion upwards
         v2_i32 orbtarget = {opos.x, opos.y - 50};
         v2_i32 comppos   = {orbtarget.x - 40, orbtarget.y - 10};
-        hero_upgrade_move_orb_to(pu->o, orbtarget, 150);
+        upgradetree_move_orb_to(pu->o, orbtarget, 150);
         if (ocomp && !pu->first_time_seen) {
             puppet_move(pu->puppet_comp, comppos, 150);
             puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, 0);
@@ -175,7 +176,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
     case 10: {
         switch (cs->tick) {
         case 30:
-            hero_upgrade_put_orb_infront(pu->o);
+            upgradetree_put_orb_infront(pu->o);
             break;
         case 130:
             mus_play_extv(0, 0, 0, 2000, 0, 0);
@@ -235,7 +236,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
         }
         case 220: {
             v2_i32 hpos_mid = {hpos.x, hpos.y - 20};
-            hero_upgrade_move_orb_to(pu->o, hpos_mid, 60);
+            upgradetree_move_orb_to(pu->o, hpos_mid, 60);
             break;
         }
         case 240: {
@@ -251,7 +252,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
             cs->phase++;
             cs->tick = 0;
             puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_UPGR_CALM, 0);
-            hero_upgrade_disable_orb(pu->o);
+            upgradetree_disable_orb(pu->o);
         }
         break;
     }
@@ -304,7 +305,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
         if (CS_POWERUP_TICKS_P200 == cs->tick) {
             cs_powerup_leave(g);
 
-            obj_s *op = obj_find_ID(g, OBJID_HERO_UPGRADE, 0);
+            obj_s *op = obj_find_ID(g, OBJID_UPGRADETREE, 0);
             switch (op->substate) {
             case 0: { // grappling hook
                 cs_explain_hook_enter(g);
@@ -333,7 +334,7 @@ void cs_powerup_leave(g_s *g)
     }
 
 #if 0
-    if (hero_has_upgrade(g, HERO_UPGRADE_HOOK)) {
+    if (hero_has_upgrade(g, upgradetree_HOOK)) {
         g->hero.mode = HERO_MODE_NORMAL;
     }
 #endif
@@ -345,7 +346,7 @@ void cs_powerup_leave(g_s *g)
 void cs_powerup_draw_bg(g_s *g, cs_s *cs, v2_i32 cam)
 {
     cs_powerup_s *pu         = (cs_powerup_s *)cs->mem;
-    v2_i32        orbpos     = v2_i32_add(hero_upgrade_orb_pos(pu->o), cam);
+    v2_i32        orbpos     = v2_i32_add(upgradetree_orb_pos(pu->o), cam);
     gfx_ctx_s     ctx        = gfx_ctx_display();
     rec_i32       r          = {0, 0, 400, 240};
     gfx_ctx_s     ctxt       = ctx;
@@ -354,7 +355,7 @@ void cs_powerup_draw_bg(g_s *g, cs_s *cs, v2_i32 cam)
 #define CS_POWERUP_N_CIR 8
 
     gfx_ctx_s ctxc     = ctx;
-    i32       d_shine1 = 270 + ((10 * sin_q15(g->tick_animation << 9)) / 32769);
+    i32       d_shine1 = 270 + ((10 * sin_q15(g->tick_gameplay << 9)) / 32769);
     i32       d_shine2 = (d_shine1 * 150) >> 8;
     i32       d_shine3 = (d_shine1 * 270) >> 8;
     i32       d_shine  = 0;
@@ -406,11 +407,11 @@ void cs_powerup_draw_bg(g_s *g, cs_s *cs, v2_i32 cam)
 void cs_powerup_draw(g_s *g, cs_s *cs, v2_i32 cam)
 {
     cs_powerup_s *pu   = (cs_powerup_s *)cs->mem;
-    v2_i32        opos = v2_i32_add(hero_upgrade_orb_pos(pu->o), cam);
+    v2_i32        opos = v2_i32_add(upgradetree_orb_pos(pu->o), cam);
     gfx_ctx_s     ctx  = gfx_ctx_display();
 
     i32 d_shine          = 0;
-    i32 d_shine_1        = 350 + ((14 * sin_q15(g->tick_animation << 9)) / 32769);
+    i32 d_shine_1        = 350 + ((14 * sin_q15(g->tick_gameplay << 9)) / 32769);
     i32 d_shine_2        = d_shine_1 / 2;
     i32 white_overlay_q6 = 0;
     i32 text_q6          = 0;
@@ -484,7 +485,7 @@ void cs_powerup_draw(g_s *g, cs_s *cs, v2_i32 cam)
         fnt_s fnt1       = asset_fnt(FNTID_LARGE);
         fnt_s fnt2       = asset_fnt(FNTID_LARGE);
 
-        obj_s *op = obj_find_ID(g, OBJID_HERO_UPGRADE, 0);
+        obj_s *op = obj_find_ID(g, OBJID_UPGRADETREE, 0);
 
         switch (op->substate) {
         case 0: { // grappling hook

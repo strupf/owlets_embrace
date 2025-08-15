@@ -5,7 +5,7 @@
 #include "game.h"
 #include "render.h"
 
-i32  pushblock_on_pushpull(g_s *g, obj_s *o, i32 dir);
+void pushblock_on_pushpull(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 void pushblock_on_update(g_s *g, obj_s *o);
 void pushblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
@@ -19,8 +19,8 @@ void pushblock_load(g_s *g, map_obj_s *mo)
     o->on_update       = pushblock_on_update;
     o->on_draw         = pushblock_on_draw;
     o->on_pushpull     = pushblock_on_pushpull;
-    o->flags           = OBJ_FLAG_SOLID | OBJ_FLAG_GRAB;
-    o->render_priority = RENDER_PRIO_HERO + 1;
+    o->flags           = OBJ_FLAG_PUSHABLE_SOLID | OBJ_FLAG_GRAB;
+    o->render_priority = RENDER_PRIO_OWL + 1;
 
     o->pos.x      = mo->x;
     o->pos.y      = mo->y;
@@ -50,21 +50,13 @@ void pushblock_on_update(g_s *g, obj_s *o)
 
 void pushblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
-    v2_i32 pos = v2_i32_add(o->pos, cam);
-    pos.x &= ~1;
-    pos.y &= ~1;
-    render_tile_terrain_block(gfx_ctx_display(), pos, o->w / 16, o->h / 16, TILE_TYPE_BRIGHT_STONE);
+    v2_i32 p = o->pos;
+    p        = v2_i32_add(p, cam);
+    p.x &= ~1;
+    p.y &= ~1;
+    render_tile_terrain_block(gfx_ctx_display(), p, o->w / 16, o->h / 16, TILE_TYPE_BRIGHT_STONE);
 }
 
-i32 pushblock_on_pushpull(g_s *g, obj_s *o, i32 dir)
+void pushblock_on_pushpull(g_s *g, obj_s *o, i32 dt_x, i32 dt_y)
 {
-    if (!map_blocked(g, obj_rec_bottom(o))) {
-        return 0;
-    } else {
-        // push speed
-        if (gameplay_time(g) % o->substate) return 0;
-
-        obj_move(g, o, dir, 0);
-        return 1;
-    }
 }

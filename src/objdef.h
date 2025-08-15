@@ -19,7 +19,7 @@ enum {
     OBJID_CRUMBLEBLOCK,
     OBJID_SHORTCUTBLOCK,
     OBJID_SWITCH,
-    OBJID_DUMMYSOLID,
+    OBJID_TENDRILCONNECTION,
     OBJID_MUSHROOMBLOCK,
     OBJID_DRILLER,
     OBJID_DRILLERSPAWN,
@@ -29,10 +29,9 @@ enum {
     OBJID_HOOKYEETER,
     OBJID_CLOCKPULSE,
     OBJID_MISC,
-    OBJID_WATERCOL,
     OBJID_MOVINGBLOCK,
     OBJID_CRAWLER,
-    OBJID_HERO_UPGRADE,
+    OBJID_UPGRADETREE,
     OBJID_GEMPILE,
     OBJID_NPC,
     OBJID_TELEPORT,
@@ -74,9 +73,9 @@ enum {
     OBJID_HEALTHDROP,
     OBJID_CRACKBLOCK,
     OBJID_MUSHROOM,
+    OBJID_LEVERPUSHPULL,
     OBJID_EXIT_BLOCKER,
-    OBJID_BOSS_GOLEM,
-    OBJID_BOSS_GOLEM_PLATFORM,
+    OBJID_DRILLJUMPER,
     //
     OBJID_PUPPET_HERO,
     OBJID_PUPPET_COMPANION,
@@ -112,12 +111,13 @@ void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
 void      mushroomblock_load(g_s *g, map_obj_s *mo);
 void      crawler_load(g_s *g, map_obj_s *mo);
-void      hero_upgrade_load(g_s *g, map_obj_s *mo);
-void      hero_upgrade_put_orb_infront(obj_s *o);
-void      hero_upgrade_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
-v2_i32    hero_upgrade_orb_pos(obj_s *o);
-void      hero_upgrade_disable_orb(obj_s *o);
-void      hero_upgrade_collect(g_s *g, obj_s *o);
+void      upgradetree_load(g_s *g, map_obj_s *mo);
+void      upgradetree_put_orb_infront(obj_s *o);
+void      upgradetree_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
+v2_i32    upgradetree_orb_pos(obj_s *o);
+void      upgradetree_disable_orb(obj_s *o);
+void      upgradetree_collect(g_s *g, obj_s *o);
+void      drilljumper_load(g_s *g, map_obj_s *mo);
 void      npc_load(g_s *g, map_obj_s *mo);
 void      npc_on_update(g_s *g, obj_s *o);
 void      npc_on_animate(g_s *g, obj_s *o);
@@ -198,4 +198,8 @@ void      drillerspawn_load(g_s *g, map_obj_s *mo);
 void      drillers_setup(g_s *g);
 void      movingblock_load(g_s *g, map_obj_s *mo);
 void      shortcutblock_load(g_s *g, map_obj_s *mo);
+obj_s    *tendrilconnection_create(g_s *g);
+void      tendrilconnection_setup(g_s *g, obj_s *o, v2_i32 p_start, v2_i32 p_end, i32 l_max);
+void      tendrilconnection_constrain_ends(obj_s *o, v2_i32 p_start, v2_i32 p_end);
+void      leverpushpull_load(g_s *g, map_obj_s *mo);
 #endif

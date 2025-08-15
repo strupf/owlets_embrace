@@ -5,8 +5,8 @@
 #ifndef AUD_H
 #define AUD_H
 
+#include "core/qoa.h"
 #include "pltf/pltf.h"
-#include "qoa.h"
 
 #define NUM_SNDCHANNEL    12
 #define NUM_AUD_CMD_QUEUE 32
@@ -31,6 +31,8 @@ typedef struct snd_s {
 } snd_s;
 
 enum {
+    AUD_CMD_NULL,
+    //
     AUD_CMD_SND_PLAY,
     AUD_CMD_SND_MOD,
     AUD_CMD_MUS_PLAY,
@@ -38,8 +40,14 @@ enum {
     AUD_CMD_MUS_VOL,
     AUD_CMD_MUS_LOOP,
     AUD_CMD_STOP_ALL_SND,
+    AUD_CMD_VOL_SETTING,
     AUD_CMD_LOWPASS,
 };
+
+typedef struct {
+    u16 vol_mus_q8;
+    u16 vol_snd_q8;
+} aud_cmd_vol_setting_s;
 
 typedef struct {
     snd_s snd;
@@ -86,12 +94,13 @@ typedef struct {
     ALIGNAS(32)
     u32 type;
     union {
-        aud_cmd_snd_play_s snd_play;
-        aud_cmd_snd_mod_s  snd_mod;
-        aud_cmd_mus_play_s mus_play;
-        aud_cmd_mus_vol_s  mus_vol;
-        aud_cmd_mus_loop_s mus_loop;
-        aud_cmd_lowpass_s  lowpass;
+        aud_cmd_snd_play_s    snd_play;
+        aud_cmd_snd_mod_s     snd_mod;
+        aud_cmd_mus_play_s    mus_play;
+        aud_cmd_mus_vol_s     mus_vol;
+        aud_cmd_mus_loop_s    mus_loop;
+        aud_cmd_lowpass_s     lowpass;
+        aud_cmd_vol_setting_s vol;
     } c;
 } aud_cmd_s;
 
@@ -108,9 +117,8 @@ typedef struct sndchannel_s {
 } sndchannel_s;
 
 enum {
-    MUSCHANNEL_FADE_NONE,
-    MUSCHANNEL_FADE_OUT,
-    MUSCHANNEL_FADE_IN
+    MUSCHANNEL_FADE_OUT = 1,
+    MUSCHANNEL_FADE_IN  = 2
 };
 
 typedef struct muschannel_s {
@@ -131,39 +139,40 @@ typedef struct muschannel_s {
 } muschannel_s;
 
 typedef struct aud_s {
-    b16          snd_playing_disabled;
-    i16          v_mus_q8;
-    i16          v_sfx_q8;
+    u32          time; // time in samples, 27 h = U32_MAX / (44100 * 60 * 60)
+    u32          snd_iID;
     u32          i_cmd_w_tmp; // write index, copied to i_cmd_w on commit
     u32          i_cmd_w;     // visible to audio thread/context
     u32          i_cmd_r;
-    i16          lowpass;
-    i16          lowpass_dst;
-    i32          lowpass_l;
-    i32          lowpass_r;
-    i32          snd_iID;
+    i16          v_mus_q8;
+    i16          v_sfx_q8;
+    b16          snd_playing_disabled;
+    u16          lowpass;
+    u16          lowpass_dst;
+    i16          lowpass_l;
+    i16          lowpass_r;
     muschannel_s muschannel[NUM_MUSCHANNEL];
     sndchannel_s sndchannel[NUM_SNDCHANNEL];
     aud_cmd_s    cmds[NUM_AUD_CMD_QUEUE];
 } aud_s;
 
-err32 aud_init();
-void  aud_destroy();
-void  aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len);
-void  aud_allow_playing_new_snd(bool32 enabled);
-void  aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
-void  aud_cmd_queue_commit();
-void  aud_stop_all_snd_instances();
-void  mus_play(const void *fname);
-void  mus_play_extv(const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void  mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void  mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void  mus_set_loop(i32 channelID, u32 s1, u32 s2);
-void  mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade);
-void  mus_set_vol(u16 v_q8, i32 t_fade);
-i32   snd_instance_play(snd_s s, f32 vol, f32 pitch);
-i32   snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat);
-void  snd_instance_stop(i32 iID);
-void  snd_instance_stop_fade(i32 iID, i32 ms, i32 vmod_q8);
+void aud_destroy();
+void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len);
+void aud_allow_playing_new_snd(bool32 enabled);
+void aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
+void aud_cmd_queue_commit();
+void aud_stop_all_snd_instances();
+void aud_vol_set(i32 vol_mus, i32 vol_snd, i32 vol_max);
+void mus_play(const void *fname);
+void mus_play_extv(const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
+void mus_set_loop(i32 channelID, u32 s1, u32 s2);
+void mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade);
+void mus_set_vol(u16 v_q8, i32 t_fade);
+u32  snd_instance_play(snd_s s, f32 vol, f32 pitch);
+u32  snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat);
+void snd_instance_stop(i32 iID);
+void snd_instance_stop_fade(i32 iID, i32 ms, i32 vmod_q8);
 
 #endif

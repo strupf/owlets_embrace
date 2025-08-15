@@ -45,7 +45,7 @@ void switch_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
     o->ID              = OBJID_SWITCH;
-    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->render_priority = RENDER_PRIO_OWL - 1;
     o->flags =
         OBJ_FLAG_INTERACTABLE |
         OBJ_FLAG_OWL_JUMPABLE |

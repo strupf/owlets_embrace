@@ -23,7 +23,7 @@ void mushroomblock_load(g_s *g, map_obj_s *mo)
     obj_s           *o  = obj_create(g);
     mushroomblock_s *ot = (mushroomblock_s *)o->mem;
     o->ID               = OBJID_MUSHROOMBLOCK;
-    o->render_priority  = RENDER_PRIO_HERO + 1;
+    o->render_priority  = RENDER_PRIO_OWL + 1;
     o->state            = 0;
     o->pos.x            = mo->x;
     o->pos.y            = mo->y;
@@ -80,7 +80,7 @@ static void mushroomblock_set_state(g_s *g, obj_s *o, i32 state)
         o->flags |= OBJ_FLAG_CLIMBABLE;
         o->flags |= OBJ_FLAG_HOOKABLE;
         game_on_solid_appear_ext(g, o);
-        o->render_priority = RENDER_PRIO_HERO + 1;
+        o->render_priority = RENDER_PRIO_OWL + 1;
         break;
     }
     g->objrender_dirty = 1;

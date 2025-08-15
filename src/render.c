@@ -9,6 +9,7 @@
 void draw_gameplay(g_s *g);
 void draw_light_circle(gfx_ctx_s ctx, v2_i32 p, i32 radius, i32 strength);
 i32  objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio);
+void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit);
 
 static inline i32 cmp_obj_render_priority(obj_s **a, obj_s **b)
 {
@@ -16,8 +17,6 @@ static inline i32 cmp_obj_render_priority(obj_s **a, obj_s **b)
 }
 
 SORT_ARRAY_DEF(obj_s *, obj_render, cmp_obj_render_priority)
-
-static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit);
 
 static v2_i32 fg_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 {
@@ -51,11 +50,15 @@ void game_draw(g_s *g)
 
 void draw_gameplay(g_s *g)
 {
-    i32     i_obj                = 0;
-    cam_s  *cam                  = &g->cam;
-    obj_s  *ohero                = obj_get_owl(g);
-    owl_s  *owl                  = &g->owl;
-    v2_i32  cam_top_left         = cam_pos_px_top_left(g, cam);
+    i32    i_obj        = 0;
+    cam_s *cam          = &g->cam;
+    obj_s *ohero        = obj_get_owl(g);
+    owl_s *owl          = &g->owl;
+    v2_i32 cam_top_left = cam_pos_px_top_left(g, cam);
+
+    // cam_top_left.x -= owl->render_align_offs.x;
+    // cam_top_left.y -= owl->render_align_offs.y;
+
     v2_i32  cam_mid              = {cam_top_left.x + CAM_WH, cam_top_left.y + CAM_HH};
     rec_i32 camrec_raw           = {cam_top_left.x, cam_top_left.y, CAM_W, CAM_H};
     rec_i32 camrec               = {cam_top_left.x & ~1, cam_top_left.y & ~1, CAM_W, CAM_H};
@@ -65,23 +68,6 @@ void draw_gameplay(g_s *g)
     tex_s             texdisplay = asset_tex(0);
     gfx_ctx_s         ctx        = gfx_ctx_default(texdisplay);
     tile_map_bounds_s tilebounds = tile_map_bounds_rec(g, camrec);
-
-    if (ohero) {
-        // slightly adjust player sprite position
-        // in certain situations to align player sprite to camera
-        v2_i32 ppos_hero         = v2_i32_add(ohero->pos, camoff);
-        owl->render_align_offs.x = 0;
-        owl->render_align_offs.y = 0;
-        if (cam->cowl.can_align_x && (ppos_hero.x - 1) == cam->cowl.owl_off.x) {
-            ppos_hero.x--;
-            owl->render_align_offs.x = -1;
-        }
-        if (cam->cowl.can_align_y && (ppos_hero.y - 1) == cam->cowl.owl_off.y) {
-            ppos_hero.y--;
-            owl->render_align_offs.y = -1;
-        }
-        cam->cowl.owl_off = ppos_hero;
-    }
 
     if (g->darken_bg_q12 == 4096) {
         tex_clr(ctx.dst, GFX_COL_BLACK);
@@ -132,6 +118,15 @@ void draw_gameplay(g_s *g)
 
     render_fluids(g, camoff, tilebounds);
     grapplinghook_draw(g, &g->ghook, camoff);
+
+    if (owl->aim_ticks) {
+        v2_i32 vaim  = owl_hook_aim_vec_from_crank_angle(inp_crank_q16(), 100);
+        v2_i32 phero = obj_pos_center(ohero);
+        phero        = v2_i32_add(phero, camoff);
+        vaim         = v2_i32_add(phero, vaim);
+        gfx_lin_thick(ctx, phero, vaim, PRIM_MODE_WHITE, 5);
+    }
+
     grass_draw(g, camrec, camoff);
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_FLUID_AREA);
@@ -218,7 +213,7 @@ void draw_gameplay(g_s *g)
     render_hero_ui(g, ohero, camoff);
 }
 
-static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit)
+void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, bool32 pit)
 {
     gfx_ctx_s ctxdoor = ctx;
     rec_i32   rfil    = {(r.x << 4) + cam.x,
@@ -281,18 +276,22 @@ static void game_draw_door_or_pit(gfx_ctx_s ctx, g_s *g, rec_i32 r, v2_i32 cam, 
 
 i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
 {
-    i32 i = ifrom;
+    owl_s *h = &g->owl;
+    i32    i = ifrom;
+
     for (; i < g->n_objrender; i++) {
         obj_s *o = g->obj_render[i];
         if (prio <= o->render_priority) break;
         if (o->flags & OBJ_FLAG_DONT_SHOW) continue;
-        if (o->blinking && ((g->tick_animation >> 1) & 1)) continue;
+        if (o->blinking && ((g->tick_gameplay >> 1) & 1)) continue;
 
         v2_i32 ppos = v2_i32_add(o->pos, cam);
         if (o->ID == OBJID_OWL) {
-            owl_s *h = (owl_s *)o->heap;
-            ppos.x += h->render_align_offs.x;
-            ppos.y += h->render_align_offs.y;
+            if (g->cam.cowl.can_align_x)
+                ppos.x &= ~1;
+            if (g->cam.cowl.can_align_y) {
+                ppos.y &= ~1;
+            }
         }
 
         if (o->enemy.hurt_tick) {
@@ -305,8 +304,15 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
             if (!sprite.trec.t.px) continue;
 
             v2_i32 sprpos = v2_i32_add(ppos, v2_i32_from_i16(sprite.offs));
-            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip,
-                    o->enemy.flash_tick ? SPR_MODE_WHITE : 0);
+            gfx_spr(ctx, sprite.trec, sprpos, sprite.flip, o->enemy.flash_tick ? SPR_MODE_WHITE : 0);
+
+            if (o->ID == OBJID_OWL && h->stamina_empty_tick) {
+                gfx_ctx_s ctx2 = ctx;
+                i32       num  = (256 * (32768 + sin_q15(h->stamina_empty_tick * 6000))) >> 16;
+                num            = (160 * ((num * num))) >> 16;
+                ctx2.pat       = gfx_pattern_interpolate(num, 256);
+                gfx_spr(ctx2, sprite.trec, sprpos, sprite.flip, SPR_MODE_BLACK);
+            }
         }
         if (o->on_draw) {
             o->on_draw(g, o, cam);
@@ -395,7 +401,7 @@ void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam)
     texrec_s  trglare = {tglare, 0, 0, 32, 16};
     tex_s     tset    = asset_tex(TEXID_TILESET_TERRAIN);
     gfx_ctx_s ctx     = gfx_ctx_display();
-    i32       tick    = g->tick_animation;
+    i32       tick    = g->tick_gameplay;
 
     for (i32 n = 0; n < n_tile_spr; n++) {
         tile_spr_s sp   = tile_spr[n];

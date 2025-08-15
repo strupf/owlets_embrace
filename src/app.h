@@ -17,8 +17,6 @@
 #include "util/timing.h"
 #include "wad.h"
 
-#define APP_STRUCT_ALIGNMENT 32
-
 enum {
     APP_ST_TITLE,
     APP_ST_GAME
@@ -30,7 +28,7 @@ enum {
 };
 
 typedef struct app_s {
-    ALIGNAS(APP_STRUCT_ALIGNMENT)
+    ALIGNAS(32)
     wad_s        wad;
     assets_s     assets;
     spm_s        spm;
@@ -43,8 +41,8 @@ typedef struct app_s {
     i32          state;
     i32          opt;
     i32          flags;
-    b32          crank_requested;
-    i32          crank_ui_tick;
+    b16          crank_requested;
+    u16          crank_ui_tick;
     byte         mem[MMEGABYTE(8)];
 } app_s;
 
@@ -60,7 +58,6 @@ void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void app_mirror(b32 enable);
 
 void app_set_mode(i32 mode); // settings mode
-void app_menu_callback_pattern(void *ctx, i32 opt);
 void app_menu_callback_timing(void *ctx, i32 opt);
 void app_menu_callback_map(void *ctx, i32 opt);
 void app_menu_callback_resetsave(void *ctx, i32 opt);

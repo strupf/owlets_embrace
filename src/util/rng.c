@@ -2,8 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "rng.h"
-#include "mathfunc.h"
+#include "util/rng.h"
+#include "util/mathfunc.h"
 
 static u32 g_rng_seed = 314159265;
 

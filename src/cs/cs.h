@@ -6,16 +6,17 @@
 #define CS_H
 
 #include "gamedef.h"
+#include "obj/puppet.h"
 
+void   cs_intro_enter(g_s *g);
 void   cs_powerup_enter(g_s *g);
 void   cs_intro_comp_1_enter(g_s *g);
 void   cs_demo_1_enter(g_s *g);
 void   cs_demo_2_enter(g_s *g);
-void   cs_demo_3_enter(g_s *g);
 void   cs_resetsave_enter(g_s *g);
 void   cs_gameover_enter(g_s *g);
 bool32 cs_maptransition_try_slide_enter(g_s *g);
-void   cs_maptransition_teleport(g_s *g, u32 map_hash, v2_i32 pos);
+void   cs_maptransition_teleport(g_s *g, u8 *map_name, v2_i32 pos);
 void   cs_explain_hook_enter(g_s *g);
 void   cs_bossplant_intro_enter(g_s *g);
 void   cs_bossplant_outro_enter(g_s *g);
@@ -23,6 +24,9 @@ void   cs_finding_comp_enter(g_s *g);
 void   cs_finding_hook_enter(g_s *g);
 void   cs_aquire_heartpiece_enter(g_s *g, bool32 is_stamina);
 void   cs_mole_1_enter(g_s *g);
+void   cs_on_save_enter(g_s *g);
+void   cs_on_load_enter(g_s *g);
+void   cs_on_load_title_wakeup(g_s *g);
 
 typedef struct {
     v2_i32 pt[24];
@@ -52,10 +56,10 @@ struct cs_s {
     i32    tick;
     u16    ID;
     u16    phase;
-    u8     counter0;
-    u8     counter1;
-    u8     counter2;
-    u8     counter3;
+    u16    counter0;
+    u16    counter1;
+    u16    counter2;
+    u16    counter3;
     void  *heap;
     obj_s *p_comp;
     obj_s *p_owl;

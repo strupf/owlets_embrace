@@ -18,9 +18,12 @@ enum {
     WAD_ERR_EXISTS  = 1 << 4,
 };
 
-typedef struct {
-    i32 n_entries;
+typedef struct wad_header_s {
+    ALIGNAS(16)
+    u32 timestamp; // seconds since 00:00 2000
     u32 version;
+    u32 n_entries;
+    u8  unused[4];
 } wad_header_s;
 
 typedef struct {
@@ -52,31 +55,17 @@ typedef struct {
     wad_el_s        entries[WAD_NUM_ENTRIES];
 } wad_s;
 
-// initializes a file to be used as a wad
-// returns wad error code
-err32 wad_init_file(const void *filename);
-
-// finds a wad entry
-// if passed efrom: returns an entry only if found in the same file
-wad_el_s *wad_el_find(u32 h, wad_el_s *efrom);
-
-// opens a file if entry is found
-// returns file handle seeked to the element or null
-void *wad_open(u32 h, void **o_f, wad_el_s **o_e);
-
-// opens a file if entry is found
-// returns file handle or null
-void *wad_open_str(const void *name, void **o_f, wad_el_s **o_e);
-
+err32     wad_init_file(const void *filename);                        // initializes a file to be used as a wad, returns wad error code
+wad_el_s *wad_el_find(u32 h, wad_el_s *efrom);                        // finds a wad entry; if passed efrom: returns an entry only if found in the same file
+void     *wad_open(u32 h, void **o_f, wad_el_s **o_e);                // opens a file if entry is found, returns file handle seeked to the element or null
+void     *wad_open_str(const void *name, void **o_f, wad_el_s **o_e); // opens a file if entry is found, returns file handle or null
 wad_el_s *wad_seek(void *f, wad_el_s *efrom, u32 hash);
 wad_el_s *wad_seek_str(void *f, wad_el_s *efrom, const void *name);
-
-void *wad_r_spm(void *f, wad_el_s *efrom, u32 hash);
-void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name);
-void *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name);
-void *wad_r_str(void *f, wad_el_s *efrom, const void *name, void *dst);
-void *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst);
-
-u32 wad_hash(const void *str);
+void     *wad_r_spm(void *f, wad_el_s *efrom, u32 hash);
+void     *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name);
+void     *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name);
+void     *wad_r_str(void *f, wad_el_s *efrom, const void *name, void *dst);
+void     *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst);
+u32       wad_hash(const void *str);
 
 #endif

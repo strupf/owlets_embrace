@@ -16,6 +16,133 @@
 #define Q12_FRAC(D, N)   QX_FRAC(12, D, N)
 #define Q16_FRAC(D, N)   QX_FRAC(16, D, N)
 
+typedef i32 (*ease_i32)(i32 a, i32 b, i32 num, i32 den);
+
+typedef struct {
+    i32 num;
+    i32 den;
+} ratio_i32;
+
+typedef struct {
+    i64 num;
+    i64 den;
+} ratio_i64;
+
+typedef ratio_i32 ratio_s;
+
+typedef struct {
+    ALIGNAS(16)
+    i32 x, y, w, h;
+} rec_i32;
+
+typedef struct {
+    ALIGNAS(2)
+    i8 x;
+    i8 y;
+} v2_i8;
+
+typedef struct {
+    ALIGNAS(4)
+    i16 x; // word alignment for ARM intrinsics
+    i16 y;
+} v2_i16;
+
+typedef struct {
+    i32 x;
+    i32 y;
+} v2_i32;
+
+typedef struct {
+    f32 x;
+    f32 y;
+} v2_f32;
+
+typedef struct {
+    v2_i32 p[3];
+} tri_i32;
+
+typedef struct {
+    v2_i16 p[3];
+} tri_i16;
+
+typedef struct {
+    v2_i32 p;
+    i32    r;
+} cir_i32;
+
+typedef struct { // A-----B    segment
+    ALIGNAS(16)
+    v2_i32 a;
+    v2_i32 b;
+} lineseg_i32;
+
+typedef struct { // A-----B--- ray
+    ALIGNAS(16)
+    v2_i32 a; //
+    v2_i32 b; // inf
+} lineray_i32;
+
+typedef struct { // ---A-----B--- line
+    ALIGNAS(16)
+    v2_i32 a; // inf
+    v2_i32 b; // inf
+} line_i32;
+
+typedef struct { // A-----B    segment
+    v2_i16 a;
+    v2_i16 b;
+} lineseg_i16;
+
+typedef struct { // A-----B--- ray
+    v2_i16 a;    //
+    v2_i16 b;    // inf
+} lineray_i16;
+
+typedef struct { // ---A-----B--- line
+    v2_i16 a;    // inf
+    v2_i16 b;    // inf
+} line_i16;
+
+typedef struct {
+    f32 m[9];
+} m33_f32;
+
+typedef struct {
+    i32 n;
+    i32 c;
+    u8 *s;
+} str_s;
+
+static inline v2_i32 v2_i32_from_v2_i8(v2_i8 v)
+{
+    v2_i32 r = {v.x, v.y};
+    return r;
+}
+
+static inline v2_i32 v2_i32_from_i16(v2_i16 a)
+{
+    v2_i32 r = {a.x, a.y};
+    return r;
+}
+
+static inline v2_i16 v2_i16_from_i32(v2_i32 a)
+{
+    v2_i16 r = {(i16)a.x, (i16)a.y};
+    return r;
+}
+
+static inline v2_f32 v2_f32_from_i32(v2_i32 a)
+{
+    v2_f32 r = {(f32)a.x, (f32)a.y};
+    return r;
+}
+
+static inline v2_i32 v2_i32_from_f32(v2_f32 a)
+{
+    v2_i32 r = {(i32)(a.x + .5f), (i32)(a.y + .5f)};
+    return r;
+}
+
 static inline i32 clamp_i32(i32 x, i32 lo, i32 hi)
 {
     if (x < lo) return lo;
@@ -88,6 +215,11 @@ static inline f32 max_f32(f32 a, f32 b)
 }
 
 static inline i32 abs_i32(i32 a)
+{
+    return (a < 0 ? -a : a);
+}
+
+static inline i64 abs_i64(i64 a)
 {
     return (a < 0 ? -a : a);
 }
@@ -316,12 +448,16 @@ static inline i32 divr_i32(i32 n, i32 d)
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
 {
-    return (a + i32_mul(i32_sub(b, a), num) / den);
+    i32 d = abs_i32(den);
+    i32 z = i32_mul(i32_sub(b, a), abs_i32(num));
+    return (a + (z + (0 < z ? (d >> 1) : -(d >> 1))) / d);
 }
 
 static inline i64 lerp_i64(i64 a, i64 b, i64 num, i64 den)
 {
-    return (a + (((b - a) * num) / (i64)den));
+    i64 d = abs_i64(den);
+    i64 z = (b - a) * abs_i64(num);
+    return (a + (z + (0 < z ? (d >> 1) : -(d >> 1))) / d);
 }
 
 static inline f32 lerp_f32(f32 a, f32 b, f32 r)
@@ -542,7 +678,7 @@ static f32 atan2_f(f32 y, f32 x)
     // 0.7853982f = 1/4 pi
     // 2.3561945f = 3/4 pi
     f32 a;
-    f32 ya = abs_f32(y) + 0.00000001f; // prevent div 0
+    f32 ya = abs_f32(y) + 0.0000001f; // prevent div 0
     if (0 <= x) {
         a = 0.7853982f - 0.7853982f * ((x - ya) / (x + ya));
     } else {
@@ -553,35 +689,25 @@ static f32 atan2_f(f32 y, f32 x)
 }
 
 // returns angle [-PI; +PI] = [-131072; +131072]
+// https://dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization/
+// what is this magic?
 static i32 atan2_i32(i32 y, i32 x)
 {
 #define ATAN2_1_4_PI 32768 // PI/4
-#if 0
-    f32 r_debug = atan2f((f32)y, (f32)x);
-#endif
+#define ATAN2_1_2_PI 65536 // PI/2
 
-    if (x == 0) {
-        if (y > 0) return +ATAN2_1_4_PI;
-        if (y < 0) return -ATAN2_1_4_PI;
-        return 0; // "undefined"
-    }
-    if (y == 0) {
-        return (0 < x ? 0 : 2 * ATAN2_1_4_PI);
-    }
-
-    i32 a;
+    i64 a;
     i32 ya = abs_i32(y);
-    if (0 < x) {
-        // 0<x, 0<ya -> no div 0 case possible
-        a = (1 * ATAN2_1_4_PI) -
-            (i32)(((i64)ATAN2_1_4_PI * (i64)(x - ya)) / (i64)(x + ya));
-    } else {
-        // x<0, 0<ya -> no div 0 case possible
-        a = (3 * ATAN2_1_4_PI) -
-            (i32)(((i64)ATAN2_1_4_PI * (i64)(x + ya)) / (i64)(ya - x));
-    }
 
-    return (0 < y ? +a : -a);
+    if (0 <= x) {
+        i32 d = max_i32(ya + x, 1);
+        a     = (i64)(1 * ATAN2_1_4_PI) - (ATAN2_1_4_PI * (i64)(x - ya)) / (i64)d;
+    } else {
+        i32 d = max_i32(ya - x, 1);
+        a     = (i64)(3 * ATAN2_1_4_PI) - (ATAN2_1_4_PI * (i64)(x + ya)) / (i64)d;
+    }
+    assert(I32_MIN <= a && a <= I32_MAX);
+    return (0 <= y ? +a : -a);
 }
 
 static i32 atan2_index(f32 y, f32 x, i32 range, i32 adder)
@@ -757,6 +883,11 @@ static inline u32 v2_i32_distancesq(v2_i32 a, v2_i32 b)
     return v2_i32_lensq(v2_i32_sub(a, b));
 }
 
+static inline i64 v2_i32_distancesql(v2_i32 a, v2_i32 b)
+{
+    return v2_i32_lensql(v2_i32_sub(a, b));
+}
+
 static inline i32 v2_i32_distance_appr(v2_i32 a, v2_i32 b)
 {
     return v2_i32_len_appr(v2_i32_sub(a, b));
@@ -765,6 +896,18 @@ static inline i32 v2_i32_distance_appr(v2_i32 a, v2_i32 b)
 static inline i32 v2_i32_distance(v2_i32 a, v2_i32 b)
 {
     return sqrt_u32(v2_i32_distancesq(a, b));
+}
+
+static inline i32 v2_i32_distancel(v2_i32 a, v2_i32 b)
+{
+    return sqrt_u64(v2_i32_distancesql(a, b));
+}
+
+static inline i32 v2_i32_distance_sh_red(v2_i32 a, v2_i32 b, i32 sh)
+{
+    v2_i32 x = v2_i32_shr(a, sh);
+    v2_i32 y = v2_i32_shr(b, sh);
+    return ((v2_i32_distance(x, y) << sh));
 }
 
 static inline v2_i32 v2_i32_setlenl(v2_i32 a, u32 l, u32 new_l)
@@ -835,7 +978,7 @@ static v2_i32 v2_i32_ease(v2_i32 a, v2_i32 b, i32 num, i32 den, ease_i32 f)
     return v;
 }
 
-static v2_i32 v2_i32_lerp_i64(v2_i32 a, v2_i32 b, i64 num, i64 den)
+static v2_i32 v2_i32_lerpl(v2_i32 a, v2_i32 b, i64 num, i64 den)
 {
     v2_i32 v = {(i32)lerp_i64(a.x, b.x, num, den),
                 (i32)lerp_i64(a.y, b.y, num, den)};
@@ -1278,7 +1421,7 @@ static ratio_s project_pnt_line_ratio(v2_i32 p, v2_i32 a, v2_i32 b)
 static v2_i32 project_pnt_line(v2_i32 p, v2_i32 a, v2_i32 b)
 {
     ratio_s r = project_pnt_line_ratio(p, a, b);
-    v2_i32  t = v2_i32_lerp_i64(a, b, r.num, r.den);
+    v2_i32  t = v2_i32_lerpl(a, b, r.num, r.den);
     return t;
 }
 
@@ -1624,7 +1767,7 @@ static v2_i32 v2_i32_spline(v2_i32 *p, i32 n_p, i32 n, u16 k_q16, b32 circ)
     return v2_i32_spline_internal(p, n_p, n, k_q16, circ, 1);
 }
 
-i32 v2_i32_spline_seg_len(v2_i32 *p, i32 n_p, i32 node_from, b32 circ)
+static i32 v2_i32_spline_seg_len(v2_i32 *p, i32 n_p, i32 node_from, b32 circ)
 {
     i32    l     = 0;
     v2_i32 p_old = v2_i32_spline_internal(p, n_p, node_from, 0, circ, 0);
@@ -1637,7 +1780,7 @@ i32 v2_i32_spline_seg_len(v2_i32 *p, i32 n_p, i32 node_from, b32 circ)
     return (l >> 1);
 }
 
-i32 v2_i32_spline_len(v2_i32 *p, i32 n_p, b32 circ)
+static i32 v2_i32_spline_len(v2_i32 *p, i32 n_p, b32 circ)
 {
     i32 l = 0;
     for (i32 n = 0; n < n_p; n++) {
@@ -1646,45 +1789,8 @@ i32 v2_i32_spline_len(v2_i32 *p, i32 n_p, b32 circ)
     return l;
 }
 
-#if 0
-sPoint2D GetSplinePoint(float t, bool bLooped = false)
-	{
-		int p0, p1, p2, p3;
-		if (!bLooped)
-		{
-			p1 = (int)t + 1;
-			p2 = p1 + 1;
-			p3 = p2 + 1;
-			p0 = p1 - 1;
-		}
-		else
-		{
-			p1 = (int)t;
-			p2 = (p1 + 1) % points.size();
-			p3 = (p2 + 1) % points.size();
-			p0 = p1 >= 1 ? p1 - 1 : points.size() - 1;
-		}
-
-		t = t - (int)t;
-
-		float tt = t * t;
-		float ttt = tt * t;
-
-		float q1 = -ttt + 2.0f*tt - t;
-		float q2 = 3.0f*ttt - 5.0f*tt + 2.0f;
-		float q3 = -3.0f*ttt + 4.0f*tt + t;
-		float q4 = ttt - tt;
-
-		float tx = 0.5f * (points[p0].x * q1 + points[p1].x * q2 + points[p2].x * q3 + points[p3].x * q4);
-		float ty = 0.5f * (points[p0].y * q1 + points[p1].y * q2 + points[p2].y * q3 + points[p3].y * q4);
-
-		return{ tx, ty };
-	}
-#endif
-
 // 0x1021 polynomial
-static u16
-crc16_next(u16 c, u8 v)
+static u16 crc16_next(u16 c, u8 v)
 {
     u16 r = (u16)v;
     r ^= (c >> 8);

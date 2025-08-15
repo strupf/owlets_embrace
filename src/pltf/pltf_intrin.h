@@ -5,7 +5,7 @@
 #ifndef PLTF_INTRIN_H
 #define PLTF_INTRIN_H
 
-#include "pltf_types.h"
+#include "pltf/pltf_types.h"
 
 #define i16x2_dot i16x2_smuad
 #define i16x2_crs i16x2_smusdx

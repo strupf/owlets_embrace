@@ -110,18 +110,23 @@ void savepoint_on_interact(g_s *g, obj_s *o)
 
     v2_i32 hfeet = {o->pos.x + o->w / 2, o->pos.y + o->h};
     game_save_savefile(g, hfeet);
+    cs_on_save_enter(g);
+    pltf_log("SAVE\n");
 }
 
 void savepoint_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
-    savepoint_s *s       = (savepoint_s *)o->mem;
-    gfx_ctx_s    ctx     = gfx_ctx_display();
-    tex_s        tex     = asset_tex(TEXID_SAVEPOINT);
-    texrec_s     tr      = {tex, 0, 0, 16, 16};
-    texrec_s     tr_tree = {tex, 0, 32, 64, 96};
-    v2_i32       p_bf    = {o->pos.x + 36, o->pos.y + 8};
-    v2_i32       p0      = v2_i32_add(p_bf, cam);
-    v2_i32       p_tree  = v2_i32_add(o->pos, cam);
+    savepoint_s *s   = (savepoint_s *)o->mem;
+    gfx_ctx_s    ctx = gfx_ctx_display();
+    gfx_rec_fill(ctx,
+                 translate_rec(obj_aabb(o), cam.x, cam.y), PRIM_MODE_BLACK);
+    return;
+    tex_s    tex     = asset_tex(TEXID_SAVEPOINT);
+    texrec_s tr      = {tex, 0, 0, 16, 16};
+    texrec_s tr_tree = {tex, 0, 32, 64, 96};
+    v2_i32   p_bf    = {o->pos.x + 36, o->pos.y + 8};
+    v2_i32   p0      = v2_i32_add(p_bf, cam);
+    v2_i32   p_tree  = v2_i32_add(o->pos, cam);
     p_tree.y -= 32;
     gfx_spr(ctx, tr_tree, p_tree, 0, 0);
 

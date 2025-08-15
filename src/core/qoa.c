@@ -4,7 +4,7 @@
 
 // https://qoaformat.org/
 
-#include "qoa.h"
+#include "core/qoa.h"
 #include "pltf/pltf.h"
 #include "pltf/pltf_intrin.h"
 #include "util/mathfunc.h"

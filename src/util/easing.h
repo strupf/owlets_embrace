@@ -5,7 +5,7 @@
 #ifndef EASING_H
 #define EASING_H
 
-#include "mathfunc.h"
+#include "util/mathfunc.h"
 
 // https://easings.net/
 

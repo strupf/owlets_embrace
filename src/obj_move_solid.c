@@ -24,7 +24,8 @@ void obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy)
     rec_i32 r1 = {o->pos.x, o->pos.y, o->w, o->h};
     rec_i32 r2 = {o->pos.x + sx, o->pos.y + sy, o->w, o->h};
 
-    grapplinghook_s *gh            = &g->ghook;
+#if 0
+        grapplinghook_s *gh            = &g->ghook;
     bool32           gh_was_pushed = 0;
 
     if (gh->state) {
@@ -41,18 +42,56 @@ void obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy)
                 gh->p.x += sx;
                 gh->p.y += sy;
                 // pltf_log("m1 %i | %i\n", sy, g->save.tick);
-                ropenode_move(g, &gh->rope, gh->rn, sx, sy);
+                wirenode_move(g, &gh->wire, gh->rn, sx, sy);
                 grapplinghook_rope_intact(g, gh);
             }
         }
 
         if (gh->state) {
-            rope_moved_by_aabb(g, &gh->rope, r1, sx, sy);
+            wire_moved_by_aabb(g, &gh->wire, r1, sx, sy);
         }
     }
+#endif
+
+#if 1
+    for (i32 n = 0; n < g->n_ropes; n++) {
+        wire_s *r = g->ropes[n];
+        wire_moved_by_aabb(g, r, r1, sx, sy);
+    }
+#else
+    for (i32 n = 0; n < g->n_ropes; n++) {
+        rope_handle_s *rh = &g->ropes[n];
+        wire_s        *r  = rh->r;
+
+        if (rh->rn_head && overlap_rec_pnt(r2, rh->rn_head->p)) {
+            wirenode_s *rn      = rh->rn_head;
+            b32         blocked = map_blocked_pt(g, rn->p.x + sx, rn->p.y + sy);
+
+            if (blocked) {
+                rh->on_blocked(rh->ctx, r);
+            } else {
+                wirenode_move(g, r, rn, sx, sy);
+            }
+        }
+        if (rh->rn_tail && overlap_rec_pnt(r2, rh->rn_tail->p)) {
+            wirenode_s *rn      = rh->rn_tail;
+            b32         blocked = map_blocked_pt(g, rn->p.x + sx, rn->p.y + sy);
+
+            if (blocked) {
+                rh->on_blocked(rh->ctx, r);
+            } else {
+                wirenode_move(g, r, rn, sx, sy);
+            }
+        }
+
+        wire_moved_by_aabb(g, r, r1, sx, sy);
+    }
+#endif
+
     o->pos.x += sx;
     o->pos.y += sy;
 
+#if 0
     if (gh && gh->state && !gh_was_pushed && o == obj_from_obj_handle(gh->o2)) {
         if (map_blocked_pt(g, gh->p.x, gh->p.y) ||
             map_blocked_pt(g, gh->p.x + sx, gh->p.y + sy)) {
@@ -61,10 +100,11 @@ void obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy)
             gh->p.x += sx;
             gh->p.y += sy;
             // pltf_log("m2 %i | %i\n", sy, g->save.tick);
-            ropenode_move(g, &gh->rope, gh->rn, sx, sy);
+            wirenode_move(g, &gh->wire, gh->rn, sx, sy);
             grapplinghook_rope_intact(g, gh);
         }
     }
+#endif
 
     o->flags &= ~OBJ_FLAG_SOLID;
     for (obj_each(g, i)) {
@@ -77,6 +117,9 @@ void obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy)
             if (linked | pushed | riding) {
                 obj_step_actor(g, i, sx, +0);
                 obj_step_actor(g, i, +0, sy);
+            }
+            if (pushed && i->on_pushed_by_solid) {
+                i->on_pushed_by_solid(g, i, o, sx, sy);
             }
         }
     }

@@ -20,7 +20,7 @@ void fallingblock_load(g_s *g, map_obj_s *mo)
     o->pos.y           = mo->y;
     o->w               = mo->w;
     o->h               = mo->h;
-    o->render_priority = RENDER_PRIO_HERO + 1;
+    o->render_priority = RENDER_PRIO_OWL + 1;
     o->on_update       = fallingblock_on_update;
     o->on_draw         = fallingblock_on_draw;
 }

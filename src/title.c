@@ -78,6 +78,7 @@ void title_start_game(app_s *app, i32 slot)
     g_s *g                = &app->game;
     app->title.state      = TITLE_ST_TO_GAME;
     app->title.start_tick = 0;
+    g->render_map_doors   = 1;
     game_cue_area_music(g);
 #if PLTF_PD
     // pltf_pd_menu_add("savepoint", app_menu_callback_resetsave, 0);
@@ -89,9 +90,10 @@ void title_gameplay_start(app_s *app)
 {
     g_s *g               = &app->game;
     g->block_owl_control = 0;
-    g->render_map_doors  = 1;
+    g->health_ui_show    = 1;
     g->previewmode       = 0;
     app->state           = APP_ST_GAME;
+    cs_on_load_title_wakeup(g);
 }
 
 bool32 title_preload_available(title_s *t)
@@ -733,13 +735,13 @@ void title_draw_companion(title_s *t)
     i32 x   = t->pos_comp_q8.x >> 8;
     i32 y   = t->pos_comp_q8.y >> 8;
 
-    texrec_s tr = asset_texrec(TEXID_COMPANION, frx * 96, fry * 64, 96, 64);
+    texrec_s tr = asset_texrec(TEXID_COMPANION, frx * 64, fry * 64, 64, 64);
 
     if (t->comp_bump) {
         tr.y = 64 * 6;
-        tr.x = 96 * ani_frame(ANIID_COMPANION_BUMP, t->comp_bump);
+        tr.x = 64 * ani_frame(ANIID_COMPANION_BUMP, t->comp_bump);
     }
-    v2_i32 pos = {x - 48 + 6, y - 32};
+    v2_i32 pos = {x - 32 + 6, y - 32};
 
     if (t->start_tick) {
         pos.x -= t->start_tick * 16;
@@ -766,7 +768,7 @@ void title_draw_version()
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
     pnum.x += 4;
     // minor
-#if 10 <= GAME_V_MIN || 1
+#if 10 <= GAME_V_MIN
     tnum.x = 8 * (GAME_V_MIN / 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
@@ -780,12 +782,12 @@ void title_draw_version()
     pnum.x += 4;
 
     // patch
-#if 100 <= GAME_V_PAT || 1
+#if 100 <= GAME_V_PAT
     tnum.x = 8 * (GAME_V_PAT / 100);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-#if 10 <= GAME_V_PAT || 1
+#if 10 <= GAME_V_PAT
     tnum.x = 8 * ((GAME_V_PAT / 10) % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;

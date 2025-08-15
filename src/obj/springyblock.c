@@ -9,7 +9,7 @@ typedef struct {
 } springyblock_s;
 
 void springyblock_on_update(g_s *g, obj_s *o);
-void springyblock_on_hook(g_s *g, obj_s *o, bool32 hooked);
+void springyblock_on_hook(g_s *g, obj_s *o, i32 hooked);
 void springyblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
 void springyblock_load(g_s *g, map_obj_s *mo)
@@ -39,27 +39,27 @@ void springyblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
 void springyblock_on_update(g_s *g, obj_s *o)
 {
-    springyblock_s *s = (springyblock_s *)o->mem;
-
+    springyblock_s  *s  = (springyblock_s *)o->mem;
     grapplinghook_s *gh = &g->ghook;
-    rec_i32          rh = {gh->p.x, gh->p.y, 1, 1};
+    //  rec_i32          rh = {gh->p.x, gh->p.y, 1, 1};
 
-    i32 force = 0;
-
+    i32 force        = 0;
+    o->ropeobj.m_q12 = Q_12(4.0);
     if (gh->state == GRAPPLINGHOOK_HOOKED_SOLID && o->substate) {
         force = -grapplinghook_f_at_obj_proj(&g->ghook, o, (v2_i32){0, 1});
     }
 
-#define SPRINGYBLOCK_ACC_Y 10
+    force = (force << 12) / o->ropeobj.m_q12;
+#define SPRINGYBLOCK_ACC_Y 50
 
-    o->v_q12.y -= 10 * s->moved;
+    o->v_q12.y -= SPRINGYBLOCK_ACC_Y * s->moved;
     obj_vy_q8_mul(o, Q_8(0.97));
-    o->v_q12.y += force >> 1;
-    o->v_q12.y = clamp_sym_i32(o->v_q12.y, Q_VOBJ(4.0));
+    o->v_q12.y += (force * 256) >> 8;
+    o->v_q12.y = clamp_sym_i32(o->v_q12.y, Q_VOBJ(6.0));
 
     o->subpos_q12.y += o->v_q12.y;
-    i32 tm = o->subpos_q12.y >> 12;
-    o->subpos_q12.y &= 0xFFF;
+    i32 tm = (o->subpos_q12.y >> 12) & ~1;
+    o->subpos_q12.y &= 0x1FFF;
 
     tm = clamp_i32(s->moved + tm, 0, 64) - s->moved;
 
@@ -74,12 +74,11 @@ void springyblock_on_update(g_s *g, obj_s *o)
         o->v_q12.y      = 0;
         o->subpos_q12.y = 0;
     }
-
-    // o->ropeobj.v_q8.y = o->v_q12.y >> 4;
-    //  o->ropeobj.a_q8.x = s->moved ? -SPRINGYBLOCK_ACC_Y * s->moved : 0;
+    o->ropeobj.v_q12.y = o->v_q12.y;
+    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC_Y * s->moved : 0;
 }
 
-void springyblock_on_hook(g_s *g, obj_s *o, bool32 hooked)
+void springyblock_on_hook(g_s *g, obj_s *o, i32 hooked)
 {
     o->substate = hooked;
 }

@@ -2,11 +2,12 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#if PLTF_SDL
 #ifndef PLTF_SDL_H
 #define PLTF_SDL_H
 
-#include "SDL2/SDL.h"
-#include "pltf_types.h"
+#include "pltf/SDL2/SDL.h"
+#include "pltf/pltf_types.h"
 #include <stdio.h>
 
 #define pltf_log_always printf
@@ -30,4 +31,5 @@ void   pltf_sdl_txt_inp_clr_cb();
 #define pltf_mem_alloc malloc
 #define pltf_mem_free  free
 
+#endif
 #endif

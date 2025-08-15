@@ -51,26 +51,19 @@ static game_version_s game_version_decode(u32 v)
     return r;
 }
 
-#define HERO_USE_HOOK_TEST 0
-
-#define GAME_TICKS_PER_SECOND PLTF_UPS
-#define TICKS_FROM_MS(MS)     (((MS) * GAME_TICKS_PER_SECOND + 500) / 1000)
-#define NUM_TILES             65536
-
-typedef struct g_s   g_s;
-typedef struct obj_s obj_s;
-
-// handle to an object
-// object pointer is valid (still exists) if:
-//   o != NULL && GID == o->GID
-typedef struct obj_handle_s {
-    ALIGNAS(8)
-    obj_s *o;
-    u32    generation;
-} obj_handle_s;
-
-#define LEN_AREA_FILENAME   64
-#define FADETICKS_AREALABEL 150
+enum {
+    SAVE_EV_UNLOCKED_MAP          = 2,
+    SAVE_EV_COMPANION_FOUND       = 3,
+    SAVE_EV_CS_POWERUP_FIRST_TIME = 5,
+    SAVE_EV_CS_INTRO_COMP_1       = 6, // companion hushing through the tutorial area #1
+    SAVE_EV_CS_HOOK_FOUND         = 7,
+    SAVE_EV_CRACKBLOCK_INTRO_1    = 8,
+    SAVE_EV_BOSS_GOLEM            = 200,
+    SAVE_EV_BOSS_PLANT            = 201,
+    SAVE_EV_BOSS_PLANT_INTRO_SEEN = 202,
+    //
+    NUM_SAVE_EV
+};
 
 enum {
     MUSIC_ID_NONE,
@@ -88,6 +81,31 @@ enum {
     AREA_ID_CAVE,
     AREA_ID_SNOW_PEAKS,
 };
+
+#define MAP_WAD_NAME_LEN 16
+#define OWL_LEN_NAME     20
+
+typedef struct g_s   g_s;
+typedef struct obj_s obj_s;
+
+// handle to an object
+// object pointer is valid (still exists) if:
+//   o != NULL && GID == o->GID
+typedef struct obj_handle_s {
+    ALIGNAS(8)
+    obj_s *o;
+    u32    generation;
+} obj_handle_s;
+
+// conditionally load a different room variant
+static u8 *map_loader_room_mod(g_s *g, u8 *map_name)
+{
+    if (0) {
+    } else if (str_eq_nc(map_name, "L_55")) {
+        // return (u8 *)"L_56";
+    }
+    return map_name;
+}
 
 enum {
     DIRECTION_NONE,

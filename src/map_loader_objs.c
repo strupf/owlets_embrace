@@ -4,120 +4,138 @@
 
 #include "game.h"
 
+void map_obj_load_misc(g_s *g, map_obj_s *mo);
+
 void map_obj_parse(g_s *g, map_obj_s *o)
 {
     if (0) {
-    } else if (str_eq_nc(o->name, "MISC")) {
+    } else if (str_eq_nc(o->name, "misc")) {
         map_obj_load_misc(g, o);
-    } else if (str_eq_nc(o->name, "Gempile")) {
+    } else if (str_eq_nc(o->name, "gempile")) {
         gempile_load(g, o);
-    } else if (str_eq_nc(o->name, "Coin")) {
-        coin_load(g, o);
-    } else if (str_eq_nc(o->name, "Heartpiece")) {
+    } else if (str_eq_nc(o->name, "heartpiece")) {
         heart_or_stamina_piece_load(g, o, 0);
-    } else if (str_eq_nc(o->name, "Staminapiece")) {
+    } else if (str_eq_nc(o->name, "staminapiece")) {
         heart_or_stamina_piece_load(g, o, 1);
-    } else if (str_contains(o->name, "Drillerspawn")) {
+    } else if (str_contains(o->name, "drillerspawn")) {
         drillerspawn_load(g, o);
-    } else if (str_contains(o->name, "Shortcutblock")) {
+    } else if (str_contains(o->name, "shortcutblock")) {
         shortcutblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Solidlever")) {
+    } else if (str_eq_nc(o->name, "solidlever")) {
         solidlever_load(g, o);
-    } else if (str_eq_nc(o->name, "Rotor")) {
+    } else if (str_eq_nc(o->name, "rotor")) {
         rotor_load(g, o);
     } else if (str_eq_nc(o->name, "Savepoint")) {
         savepoint_load(g, o);
-    } else if (str_eq_nc(o->name, "Mushroom")) {
+    } else if (str_eq_nc(o->name, "lever_pushpull_hor")) {
+        leverpushpull_load(g, o);
+    } else if (str_eq_nc(o->name, "mushroom")) {
         mushroom_load(g, o);
-    } else if (str_eq_nc(o->name, "Door")) {
+    } else if (str_eq_nc(o->name, "door")) {
         door_load(g, o);
-    } else if (str_eq_nc(o->name, "Jumper")) {
+    } else if (str_eq_nc(o->name, "jumper")) {
         jumper_load(g, o);
-    } else if (str_eq_nc(o->name, "Tutorialtext")) {
+    } else if (str_eq_nc(o->name, "tutorialtext")) {
         tutorialtext_load(g, o);
-    } else if (str_eq_nc(o->name, "Crackblock")) {
+    } else if (str_eq_nc(o->name, "crackblock")) {
         crackblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Trampoline")) {
+    } else if (str_eq_nc(o->name, "trampoline")) {
         trampoline_load(g, o);
-    } else if (str_eq_nc(o->name, "Lookahead")) {
+    } else if (str_eq_nc(o->name, "lookahead")) {
         lookahead_load(g, o);
-    } else if (str_eq_nc(o->name, "Windarea_U") ||
-               str_eq_nc(o->name, "Windarea_D") ||
-               str_eq_nc(o->name, "Windarea_L") ||
-               str_eq_nc(o->name, "Windarea_R")) {
+    } else if (str_eq_nc(o->name, "windarea_u") ||
+               str_eq_nc(o->name, "windarea_d") ||
+               str_eq_nc(o->name, "windarea_l") ||
+               str_eq_nc(o->name, "windarea_r")) {
         windarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Pulleyblock_Parent")) {
+    } else if (str_eq_nc(o->name, "pulleyblock_parent")) {
         pulleyblock_load_parent(g, o);
-    } else if (str_eq_nc(o->name, "Pulleyblock_Child")) {
+    } else if (str_eq_nc(o->name, "pulleyblock_child")) {
         pulleyblock_load_child(g, o);
-    } else if (str_eq_nc(o->name, "Springyblock")) {
+    } else if (str_eq_nc(o->name, "springyblock")) {
         springyblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Waterleaf")) {
+    } else if (str_eq_nc(o->name, "waterleaf")) {
         waterleaf_load(g, o);
-    } else if (str_eq_nc(o->name, "Chest")) {
+    } else if (str_eq_nc(o->name, "chest")) {
         chest_load(g, o);
-    } else if (str_eq_nc(o->name, "Fallingblock")) {
+    } else if (str_eq_nc(o->name, "fallingblock")) {
         fallingblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Fallingstone")) {
+    } else if (str_eq_nc(o->name, "fallingstone")) {
         fallingstonespawn_load(g, o);
-    } else if (str_eq_nc(o->name, "Light")) {
+    } else if (str_eq_nc(o->name, "light")) {
         light_load(g, o);
-    } else if (str_eq_nc(o->name, "Ditherarea")) {
+    } else if (str_eq_nc(o->name, "ditherarea")) {
         ditherarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Stompfloor")) {
+    } else if (str_eq_nc(o->name, "stompfloor")) {
         stompable_block_load(g, o);
-    } else if (str_eq_nc(o->name, "Staminarestorer")) {
+    } else if (str_eq_nc(o->name, "staminarestorer")) {
         staminarestorer_load(g, o);
-    } else if (str_eq_nc(o->name, "Flyblob")) {
+    } else if (str_eq_nc(o->name, "flyblob")) {
         flyblob_load(g, o);
-    } else if (str_eq_nc(o->name, "Switch")) {
+    } else if (str_eq_nc(o->name, "switch")) {
         switch_load(g, o);
-    } else if (str_eq_nc(o->name, "Budplant")) {
+    } else if (str_eq_nc(o->name, "budplant")) {
         budplant_load(g, o);
-    } else if (str_eq_nc(o->name, "Steamplatform")) {
+    } else if (str_eq_nc(o->name, "steamplatform")) {
         steam_platform_load(g, o);
-    } else if (str_eq_nc(o->name, "Hero_Powerup")) {
-        hero_upgrade_load(g, o);
-    } else if (str_eq_nc(o->name, "NPC")) {
+    } else if (str_eq_nc(o->name, "upgradetree")) {
+        upgradetree_load(g, o);
+    } else if (str_eq_nc(o->name, "npc")) {
         npc_load(g, o);
-    } else if (str_eq_nc(o->name, "Crawler")) {
+    } else if (str_eq_nc(o->name, "crawler")) {
         crawler_load(g, o);
-    } else if (str_eq_nc(o->name, "Pushblock")) {
+    } else if (str_eq_nc(o->name, "pushblock")) {
         pushblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Toggleblock")) {
+    } else if (str_eq_nc(o->name, "toggleblock")) {
         mushroomblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Crumbleblock")) {
+    } else if (str_eq_nc(o->name, "crumbleblock")) {
         crumbleblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Teleport")) {
+    } else if (str_eq_nc(o->name, "teleport")) {
         teleport_load(g, o);
-    } else if (str_eq_nc(o->name, "Stalactite")) {
+    } else if (str_eq_nc(o->name, "stalactite")) {
         stalactite_load(g, o);
-    } else if (str_eq_nc(o->name, "Flyer")) {
+    } else if (str_eq_nc(o->name, "flyer")) {
         flyer_load(g, o);
-    } else if (str_eq_nc(o->name, "Movingblock")) {
+    } else if (str_eq_nc(o->name, "movingblock")) {
         movingblock_load(g, o);
-    } else if (str_eq_nc(o->name, "Clockpulse")) {
+    } else if (str_eq_nc(o->name, "clockpulse")) {
         clockpulse_load(g, o);
-    } else if (str_eq_nc(o->name, "Triggerarea")) {
+    } else if (str_eq_nc(o->name, "triggerarea")) {
         triggerarea_load(g, o);
-    } else if (str_eq_nc(o->name, "Hooklever")) {
+    } else if (str_eq_nc(o->name, "hooklever")) {
         hooklever_load(g, o);
-    } else if (str_eq_nc(o->name, "Cam_Attractor")) {
+    } else if (str_eq_nc(o->name, "cam_attractor")) {
         camattractor_load(g, o);
-    } else if (str_eq_nc(o->name, "Battleroom")) {
+    } else if (str_eq_nc(o->name, "battleroom")) {
         battleroom_load(g, o);
-    } else if (str_eq_nc(o->name, "Cam")) {
+    } else if (str_eq_nc(o->name, "cam")) {
         cam_s *cam    = &g->cam;
-        cam->locked_x = map_obj_bool(o, "Locked_X");
-        cam->locked_y = map_obj_bool(o, "Locked_Y");
-    } else if (str_eq_nc(o->name, "Fluid")) {
+        cam->locked_x = map_obj_bool(o, "locked_x");
+        cam->locked_y = map_obj_bool(o, "locked_y");
+    } else if (str_eq_nc(o->name, "fluid")) {
         rec_i32 rfluid = {o->x, o->y, o->w, o->h};
-        i32     type   = map_obj_bool(o, "Lava") ? FLUID_AREA_LAVA
+        i32     type   = map_obj_bool(o, "lava") ? FLUID_AREA_LAVA
                                                  : FLUID_AREA_WATER;
-        fluid_area_create(g, rfluid, type, map_obj_bool(o, "Surface"));
-    } else if (str_eq_nc(o->name, "Demosave")) {
+        fluid_area_create(g, rfluid, type, map_obj_bool(o, "surface"));
+    } else if (str_eq_nc(o->name, "demosave")) {
         v2_i32 ds                          = {o->x + o->w / 2, o->y + o->h};
         g->save_points[g->n_save_points++] = ds;
+    } else if (str_eq_nc(o->name, "saveroom_hero") ||
+               str_eq_nc(o->name, "saveroom_comp")) {
+        obj_s *oo           = obj_create(g);
+        oo->render_priority = RENDER_PRIO_OWL + 1;
+        oo->n_sprites       = 1;
+        obj_place_to_map_obj(oo, o, 0, +1);
+        obj_sprite_s *spr = &oo->sprites[0];
+        if (str_eq_nc(o->name, "saveroom_hero")) {
+            spr->trec   = asset_texrec(TEXID_SAVEROOM, 0, 0, 64, 32);
+            spr->offs.x = -32;
+            spr->offs.y = -32;
+        } else {
+            spr->trec   = asset_texrec(TEXID_SAVEROOM, 64, 0, 64, 32);
+            spr->offs.x = -32;
+            spr->offs.y = -32;
+        }
     }
 }
 

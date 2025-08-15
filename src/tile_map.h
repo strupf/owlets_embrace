@@ -72,6 +72,7 @@ extern const i32     g_tile_tris[NUM_TILE_SHAPES * 12];
 extern const tri_i16 g_tiletris[NUM_TILE_SHAPES];
 
 typedef struct {
+    ALIGNAS(16)
     i32 x1, y1, x2, y2;
 } tile_map_bounds_s;
 

@@ -33,7 +33,7 @@ typedef struct {
 
 void flyblob_on_update(g_s *g, obj_s *o);
 void flyblob_on_animate(g_s *g, obj_s *o);
-void flyblob_on_hook(g_s *g, obj_s *o, bool32 hooked);
+void flyblob_on_hook(g_s *g, obj_s *o, i32 hooked);
 
 void flyblob_load(g_s *g, map_obj_s *mo)
 {
@@ -195,7 +195,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
     obj_move_by_v_q12(g, o);
 }
 
-void flyblob_on_hook(g_s *g, obj_s *o, bool32 hooked)
+void flyblob_on_hook(g_s *g, obj_s *o, i32 hooked)
 {
     switch (hooked) {
     case 0:

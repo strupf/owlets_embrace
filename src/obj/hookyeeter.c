@@ -28,7 +28,7 @@ void hookyeeter_on_update(g_s *g, obj_s *o)
         if (o->timer == 10) {
             hookyeeter_on_unhook(g, o);
         } else {
-            gh->rope.len_max_q4 = (gh->rope.len_max_q4 * 236) >> 8;
+            gh->len_max_q4 = (gh->len_max_q4 * 236) >> 8;
         }
     }
 }

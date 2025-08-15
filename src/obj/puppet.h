@@ -2,8 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef CS_OBJ_H
-#define CS_OBJ_H
+#ifndef PUPPET_H
+#define PUPPET_H
 
 #include "gamedef.h"
 
@@ -21,10 +21,15 @@ enum {
     PUPPET_OWL_ANIMID_AVENGE,
     PUPPET_OWL_ANIMID_QUICKDUCK,
     PUPPET_OWL_ANIMID_HOLD_ARM,
-    PUPPET_OWL_ANIMID_PRESENT_ABOVE,      // receive item frame
-    PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP, // receive item frame
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE,              // receive item frame
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP,         // receive item frame
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE_TO_IDLE,      // receive item frame
+    PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP_TO_IDLE, // receive item frame
     PUPPET_OWL_ANIMID_OFF_BALANCE,
     PUPPET_OWL_ANIMID_OFF_BALANCE_COMP,
+    PUPPET_OWL_ANIMID_FALL_ASLEEP,
+    PUPPET_OWL_ANIMID_SLEEP,
+    PUPPET_OWL_ANIMID_SLEEP_WAKEUP,
 };
 
 enum {
@@ -38,6 +43,8 @@ enum {
     PUPPET_COMPANION_ANIMID_BUMP_ONCE,
     PUPPET_COMPANION_ANIMID_NOD_ONCE,
     PUPPET_COMPANION_ANIMID_TUMBLE,
+    PUPPET_COMPANION_ANIMID_SLEEP,
+    PUPPET_COMPANION_ANIMID_WAKEUP,
 };
 
 enum {
@@ -60,6 +67,7 @@ typedef struct puppet_s {
 } puppet_s;
 
 obj_s *puppet_create(g_s *g, i32 objID_puppet);
+void   puppet_on_animate(g_s *g, obj_s *o);
 
 // if animID not 0: change animation
 // if facing not 0: change facing
@@ -75,7 +83,7 @@ void puppet_move_ext(obj_s *o, v2_i32 p, i32 t, ease_i32 movefunc, bool32 relati
 obj_s *puppet_owl_put(g_s *g, obj_s *ohero);
 void   puppet_owl_replace_and_del(g_s *g, obj_s *ohero, obj_s *o);
 obj_s *puppet_companion_put(g_s *g, obj_s *ocomp);
-void   puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *o);
+void   puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *opuppet);
 obj_s *puppet_mole_create(g_s *g, v2_i32 pfeet);
 
 #endif

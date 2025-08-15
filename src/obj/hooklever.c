@@ -10,6 +10,7 @@ enum {
 };
 
 typedef struct {
+    i32 trigger;
     i32 saveID;
     i32 ticks_reset;
     i32 moved;
@@ -44,7 +45,7 @@ void hooklever_pull(g_s *g, obj_s *o)
     case HOOKLEVER_SWITCH: {
         if (hl->moved == hl->moved_max) {
             o->state = 1;
-            game_on_trigger(g, o->trigger);
+            game_on_trigger(g, hl->trigger);
             save_event_register(g, hl->saveID);
         }
         break;
@@ -102,17 +103,16 @@ void hooklever_on_update(g_s *g, obj_s *o)
 
 void hooklever_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-    o->ID    = OBJID_HOOKLEVER;
-    o->flags = OBJ_FLAG_SOLID;
-
+    obj_s       *o  = obj_create(g);
+    hooklever_s *hl = (hooklever_s *)o->mem;
+    o->ID           = OBJID_HOOKLEVER;
+    o->flags        = OBJ_FLAG_SOLID;
     o->pos.x        = mo->x;
     o->pos.y        = mo->y;
     o->w            = 32;
     o->h            = 32;
-    hooklever_s *hl = (hooklever_s *)o->mem;
     hl->moved_max   = map_obj_i32(mo, "Distance_Moved");
-    o->trigger      = map_obj_i32(mo, "trigger");
+    hl->trigger     = map_obj_i32(mo, "trigger");
     i32 ticks_reset = map_obj_i32(mo, "Ticks_Reset");
     if (ticks_reset) {
         o->subID        = HOOKLEVER_SPRING;

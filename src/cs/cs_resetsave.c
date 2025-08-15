@@ -46,6 +46,7 @@ void cs_resetsave_update(g_s *g, cs_s *cs)
             aud_stop_all_snd_instances();
             game_update_savefile(g);
             game_load_savefile(g);
+            cs_on_load_title_wakeup(g);
             g->block_update = 0;
         }
         break;

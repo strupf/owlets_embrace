@@ -6,6 +6,7 @@
 #define INP_H
 
 #include "pltf/pltf.h"
+#include "util/mathfunc.h"
 
 enum {
     INP_DPAD_DIR_NONE,
@@ -59,7 +60,6 @@ typedef struct {
     u8  n; // current segment
 } inp_crank_click_s;
 
-void   inp_init();
 void   inp_update();
 void   inp_on_resume();
 i32    inp_x();    // [-1,+1]

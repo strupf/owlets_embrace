@@ -19,42 +19,39 @@ err32 app_load_assets();
 i32 app_init()
 {
     (sizeof(app_s) / 1024);
+    g_s        *g = &APP.game;
+    savefile_s *s = &APP.save;
+    g->savefile   = s;
+    marena_init(&APP.ma, APP.mem, sizeof(APP.mem));
 
     err32 err_wad_core = wad_init_file("oe.wad");
     if (err_wad_core != 0) {
         return (err_wad_core | ASSETS_ERR_WAD_INIT);
     }
 
-    pltf_audio_set_volume(1.f);
     err32 err_settings = settings_load(&SETTINGS); // try to use settings file
-    aud_init();
-    assets_init();
-    inp_init();
-    marena_init(&APP.ma, APP.mem, sizeof(APP.mem));
-
-    err32 err_assets = app_load_assets();
+    err32 err_assets   = app_load_assets();
+    aud_vol_set(SETTINGS.vol_mus, SETTINGS.vol_sfx, SETTINGS_VOL_MAX);
     app_set_mode(SETTINGS.mode);
-    g_s        *g = &APP.game;
-    savefile_s *s = &APP.save;
-    spm_init();
     game_init(g);
-    g->savefile = s;
+
+    usize spm_size = 0;
+    void *spm_buf  = app_alloc_aligned_rem(32, &spm_size);
+    spm_init(spm_buf, spm_size);
 
 #if TIMING_ENABLED
     TIMING.show = TIMING_SHOW_DEFAULT;
 #endif
 #if PLTF_PD
-    const char *options[3] = {"Tap", "Hold", "Alt"};
-    pltf_pd_menu_add_opt("Hook Type", options, 2, app_menu_callback_pattern, 0);
+
     // pltf_pd_menu_add_check("Align 4", 0, app_menu_callback_pattern, 0);
 #if TIMING_ENABLED
     pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
 #endif
 #endif
 #if 1
-
     typedef struct {
-        u32 hash;
+        u8  map_name[MAP_WAD_NAME_LEN];
         i32 x;
         i32 y;
     } owl_spawn_s;
@@ -74,27 +71,19 @@ i32 app_init()
     {
         str_cpy(s->name, "Demo");
         savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
-        s->map_hash   = hs.hash;
+        mcpy(s->map_name, hs.map_name, sizeof(s->map_name));
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
-#if 0
-        s->upgrades =
-            HERO_UPGRADE_SWIM |
-            HERO_UPGRADE_STOMP |
-            HERO_UPGRADE_POWERSTOMP |
-            HERO_UPGRADE_FLY |
-            HERO_UPGRADE_HOOK |
-            HERO_UPGRADE_CLIMB |
-            HERO_UPGRADE_COMPANION |
-            0;
-#endif
+        s->upgrades   = OWL_UPGRADE_COMPANION |
+                      OWL_UPGRADE_FLY |
+                      OWL_UPGRADE_HOOK;
         s->stamina    = 5;
         s->health_max = 6;
     }
     savefile_w(0, s);
+#endif
 
     title_init(&APP.title);
-#endif
     usize mrem = marena_rem(&APP.ma);
     pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
              (i32)((100 * mrem) / APP.ma.bufsize),
@@ -200,6 +189,7 @@ void app_draw()
     timing_end_frame();
 #endif
 #if PLTF_DEV_ENV && 0
+    // test out dither alignment
     if (pltf_sdl_key(SDL_SCANCODE_SPACE)) {
         gfx_ctx_s cc = ctx;
         gfx_rec_fill(cc, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK_WHITE);
@@ -292,6 +282,12 @@ void *app_alloc_aligned_ctx(void *ctx, usize s, usize alignment)
     return app_alloc_aligned(s, alignment);
 }
 
+void *app_alloc_aligned_rem(usize alignment, usize *rem)
+{
+    marena_align(&APP.ma, alignment);
+    return marena_alloc_rem(&APP.ma, rem);
+}
+
 allocator_s app_allocator()
 {
     allocator_s a = {app_alloc_aligned_ctx, &APP.ma};
@@ -343,9 +339,4 @@ void app_menu_callback_map(void *ctx, i32 opt)
     if (!APP.game.minimap.state) {
         minimap_open_via_menu(&APP.game);
     }
-}
-
-void app_menu_callback_pattern(void *ctx, i32 opt)
-{
-    APP.opt = opt;
 }

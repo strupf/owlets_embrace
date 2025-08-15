@@ -62,7 +62,7 @@ void drillerspawn_load(g_s *g, map_obj_s *mo)
     if (map_obj_bool(mo, "spawn")) {
         o->action = 1;
     }
-    o->render_priority = RENDER_PRIO_HERO + 1;
+    o->render_priority = RENDER_PRIO_OWL + 1;
     o->n_sprites       = 1;
     obj_sprite_s *spr  = &o->sprites[0];
     spr->trec          = asset_texrec(TEXID_DRILLER, 0, 0, 48, 48);

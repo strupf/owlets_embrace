@@ -332,7 +332,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
     }
 
     // hero position marker
-    if (ohero && (menu || ((g->tick_animation >> 4) & 3))) {
+    if (ohero && (menu || ((g->tick_gameplay >> 4) & 3))) {
         texrec_s tricon  = asset_texrec(TEXID_BUTTONS, 288, 32, 32, 48);
         v2_i32   poshero = v2_i32_shr(obj_pos_center(ohero), 4);
         poshero.x += ox + g->map_room_cur->x - 16;
@@ -343,7 +343,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
     if (!menu) { // if fullscreen map draw cursor
         texrec_s tricon = asset_texrec(TEXID_BUTTONS, 448, 2 * 64, 64, 64);
         v2_i32   pos    = {200 - 32, 120 - 32};
-        tricon.y += ((g->tick_animation >> 4) & 1) * 64;
+        tricon.y += ((g->tick_gameplay >> 4) & 1) * 64;
 
         if (m->state == MINIMAP_ST_DELETE_PIN) {
             tricon.y        = 64 * 7;

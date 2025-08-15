@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "pltf.h"
+#include "pltf/pltf.h"
 
 #define PLTF_SHOW_FPS 0 // show FPS, UPS, logic time and draw time
 
@@ -177,16 +177,6 @@ void pltf_blit_text(char *str, i32 tile_x, i32 tile_y)
     }
 }
 
-void *pltf_file_open(const char *path, i32 pltf_file_mode)
-{
-    switch (pltf_file_mode) {
-    case PLTF_FILE_MODE_R: return pltf_file_open_r(path);
-    case PLTF_FILE_MODE_W: return pltf_file_open_w(path);
-    case PLTF_FILE_MODE_A: return pltf_file_open_a(path);
-    }
-    return 0;
-}
-
 b32 pltf_file_w_checked(void *f, const void *buf, usize bsize)
 {
     return (pltf_file_w(f, buf, bsize) == (i32)bsize);
@@ -249,42 +239,6 @@ void pltf_mem_free_aligned(void *p)
     void *p_og = (byte *)p - *((byte *)p - 1);
     pltf_mem_free(p_og);
 }
-
-#if PLTF_ENGINE_ONLY
-i32 app_init()
-{
-    return 0;
-}
-
-void app_tick()
-{
-}
-
-void app_draw()
-{
-}
-
-void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
-{
-}
-
-void app_close()
-{
-}
-
-void app_pause()
-{
-}
-
-void app_resume()
-{
-}
-
-void app_mirror(b32 enable)
-{
-}
-
-#endif
 
 const u32 pltf_font[512] = {
     0x6C7E7E00U, 0x00103810U, 0x0FFF00FFU, 0x997F3F3CU, 0x66180280U, 0x18003E7FU, 0x00001818U, 0x00000000U,

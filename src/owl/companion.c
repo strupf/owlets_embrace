@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "owl.h"
+#include "owl/owl.h"
 
 enum {
     COMPANION_ST_IDLE,
@@ -189,9 +189,9 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 
     p = v2_i32_add(p, cam);
-    p.x -= 96 / 2;
-    p.y -= 64 / 2;
-    texrec_s tr = asset_texrec(TEXID_COMPANION, 0, 0, 96, 64);
+    p.x -= 64 >> 1;
+    p.y -= 64 >> 1;
+    texrec_s tr = asset_texrec(TEXID_COMPANION, 0, 0, 64, 64);
 
     i32 fl = 0;
     if (0 < o->facing) {

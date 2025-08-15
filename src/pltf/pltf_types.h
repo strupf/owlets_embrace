@@ -5,7 +5,7 @@
 #ifndef PLTF_TYPES_H
 #define PLTF_TYPES_H
 
-#include "pltf_config.h"
+#include "pltf/pltf_config.h"
 
 #if PLTF_EDIT_PD
 #undef PLTF_SDL
@@ -38,12 +38,6 @@
 #include <string.h>
 
 #if PLTF_PD_HW
-#define PREFETCH __builtin_prefetch
-#else
-#define PREFETCH(X)
-#endif
-
-#if PLTF_PD_HW
 void (*PD_system_error)(const char *format, ...);
 #if 1
 #undef assert
@@ -58,7 +52,7 @@ void (*PD_system_error)(const char *format, ...);
     }
 #endif
 #elif PLTF_SDL && 1 // use SDL assert instead of std?
-#include "SDL2/SDL_assert.h"
+#include "pltf/SDL2/SDL_assert.h"
 #undef assert
 #define assert SDL_assert
 #endif
@@ -150,64 +144,8 @@ static inline usize align_usize(usize s, usize alignment)
     return (s + alignment - 1) & ~(alignment - 1);
 }
 
-// linux style circular, double linked list with a dummy node as a header
-typedef struct lnode_s lnode_s;
-struct lnode_s {
-    lnode_s *next;
-    lnode_s *prev;
-};
-
-#define LNODE_GET(PTR, T, MEMBER) (T *)((uptr)(PTR) - offsetof(T, MEMBER))
-#define LNODE_FOR_EACH(PHEAD, IT) \
-    for (lnode_s *IT = (PHEAD)->next; IT != (PHEAD); IT = IT->next)
-
-static inline void lnode_head_init(lnode_s *n)
-{
-    n->next = n;
-    n->prev = n;
-}
-
-#define lnode_add lnode_add_after
-
-static bool32 lnode_empty(lnode_s *n)
-{
-    return (n->next == n);
-}
-
-// adds a node after n
-static inline void lnode_add_after(lnode_s *n, lnode_s *n_to_add)
-{
-    n->next->prev  = n_to_add;
-    n_to_add->next = n->next;
-    n_to_add->prev = n;
-    n->next        = n_to_add;
-}
-
-// adds a node before n
-static inline void lnode_add_before(lnode_s *n, lnode_s *n_to_add)
-{
-    n->prev->next  = n_to_add;
-    n_to_add->prev = n->prev;
-    n_to_add->next = n;
-    n->prev        = n_to_add;
-}
-
-static inline void lnode_del(lnode_s *n)
-{
-    n->next->prev = n->prev;
-    n->prev->next = n->next;
-}
-
-typedef i32 (*ease_i32)(i32 a, i32 b, i32 num, i32 den);
-
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
-typedef struct {
-    ALIGNAS(8)
-    void *(*allocf)(void *ctx, usize s);
-    void *ctx;
-} alloc_s;
-
 typedef struct {
     ALIGNAS(8)
     void *(*allocfunc)(void *ctx, usize s, usize alignment);
@@ -227,11 +165,6 @@ typedef struct {
 #define GLUE2(A, B)           A##B
 #define GLUE(A, B)            GLUE2(A, B)
 #define ARRLEN(A)             (i32)(sizeof(A) / sizeof(A[0]))
-#define MAX(A, B)             ((A) >= (B) ? (A) : (B))
-#define MIN(A, B)             ((A) <= (B) ? (A) : (B))
-#define ABS(A)                ((A) >= 0 ? (A) : -(A))
-#define SGN(A)                ((0 < (A)) - (0 > (A)))
-#define CLAMP(X, LO, HI)      ((X) > (HI) ? (HI) : ((X) < (LO) ? (LO) : (X)))
 #define SWAP(T, a, b)         { T tmp_ = a; a = b; b = tmp_; }
 #define MKILOBYTE(X) ((X) * 1024)
 #define MMEGABYTE(X) ((X) * 1024 * 1024)
@@ -252,128 +185,6 @@ typedef struct {
         pltf_log(FILE_AND_LINE);      \
         assert(0);                    \
     } while (0);
-
-typedef struct {
-    i32 num;
-    i32 den;
-} ratio_i32;
-
-typedef struct {
-    i64 num;
-    i64 den;
-} ratio_i64;
-
-typedef ratio_i32 ratio_s;
-
-typedef struct {
-    ALIGNAS(16)
-    i32 x, y, w, h;
-} rec_i32;
-
-typedef struct {
-    ALIGNAS(2)
-    i8 x;
-    i8 y;
-} v2_i8;
-
-typedef struct {
-    ALIGNAS(4)
-    i16 x; // word alignment for ARM intrinsics
-    i16 y;
-} v2_i16;
-
-typedef struct {
-    i32 x;
-    i32 y;
-} v2_i32;
-
-typedef struct {
-    f32 x;
-    f32 y;
-} v2_f32;
-
-typedef struct {
-    v2_i32 p[3];
-} tri_i32;
-
-typedef struct {
-    v2_i16 p[3];
-} tri_i16;
-
-typedef struct {
-    v2_i32 p;
-    i32    r;
-} cir_i32;
-
-typedef struct { // A-----B    segment
-    v2_i32 a;
-    v2_i32 b;
-} lineseg_i32;
-
-typedef struct { // A-----B--- ray
-    v2_i32 a;    //
-    v2_i32 b;    // inf
-} lineray_i32;
-
-typedef struct { // ---A-----B--- line
-    v2_i32 a;    // inf
-    v2_i32 b;    // inf
-} line_i32;
-
-typedef struct { // A-----B    segment
-    v2_i16 a;
-    v2_i16 b;
-} lineseg_i16;
-
-typedef struct { // A-----B--- ray
-    v2_i16 a;    //
-    v2_i16 b;    // inf
-} lineray_i16;
-
-typedef struct { // ---A-----B--- line
-    v2_i16 a;    // inf
-    v2_i16 b;    // inf
-} line_i16;
-
-typedef struct {
-    f32 m[9];
-} m33_f32;
-
-typedef struct {
-    i32 n;
-    i32 c;
-    u8 *s;
-} str_s;
-
-static inline v2_i32 v2_i32_from_v2_i8(v2_i8 v)
-{
-    v2_i32 r = {v.x, v.y};
-    return r;
-}
-
-static inline v2_i32 v2_i32_from_i16(v2_i16 a)
-{
-    v2_i32 r = {a.x, a.y};
-    return r;
-}
-
-static inline v2_i16 v2_i16_from_i32(v2_i32 a)
-{
-    v2_i16 r = {(i16)a.x, (i16)a.y};
-    return r;
-}
-
-static inline v2_f32 v2_f32_from_i32(v2_i32 a)
-{
-    v2_f32 r = {(f32)a.x, (f32)a.y};
-    return r;
-}
-
-static inline v2_i32 v2_i32_from_f32(v2_f32 a)
-{
-    v2_i32 r = {(i32)(a.x + .5f), (i32)(a.y + .5f)};
-    return r;
-}
 
 // =============================================================================
 // B8(00001111) -> 0x0F

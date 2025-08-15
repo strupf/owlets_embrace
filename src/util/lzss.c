@@ -2,10 +2,10 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "lzss.h"
-#include "bitrw.h"
-#include "mathfunc.h"
+#include "util/lzss.h"
 #include "pltf/pltf.h"
+#include "util/bitrw.h"
+#include "util/mathfunc.h"
 
 typedef struct {
     u32 nbytes;

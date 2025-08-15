@@ -6,6 +6,7 @@
 #define GFX_H
 
 #include "pltf/pltf.h"
+#include "util/mathfunc.h"
 
 enum {
     TEX_FMT_OPAQUE, // only color pixels

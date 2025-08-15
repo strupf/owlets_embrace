@@ -3,14 +3,15 @@
 // =============================================================================
 
 #include "game.h"
-#include "owl.h"
+#include "owl/owl.h"
 
 void owl_on_animate(g_s *g, obj_s *o)
 {
     owl_s *h  = (owl_s *)o->heap;
     i32    st = owl_state_check(g, o);
+    // h->stamina_empty_tick++;
 
-    // animate stamina ui
+    //  animate stamina ui
     if (h->stamina_added_delay_ticks) {
         h->stamina_added_delay_ticks--;
     } else {
@@ -37,7 +38,7 @@ void owl_on_animate(g_s *g, obj_s *o)
     spr->offs.x       = (o->w >> 1) - 32;
     spr->offs.y       = (o->h) - 64 + 1;
 
-    rope_s *r  = o->rope;
+    wire_s *r  = o->wire;
     i32     fx = 0;
     i32     fy = 0;
     i32     fw = 64;
@@ -53,7 +54,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             consider_stance = 0;
             spr->offs.x -= 16;
             fw = 96;
-            fy = 46 + h->attack_flipflop;
+            fy = 47 + h->attack_flipflop;
             fx = ani_frame(ANIID_OWL_ATTACK, h->attack_tick);
 
             if (h->stance_swap_tick) {
@@ -65,7 +66,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             consider_stance = 0;
             spr->offs.x -= 16;
             fw = 96;
-            fy = 47 - h->attack_flipflop;
+            fy = 47 + 1 - h->attack_flipflop;
             if (0) {
             } else if (h->stance_swap_tick < owl_swap_ticks() - 4) {
                 fx = 2;
@@ -77,18 +78,26 @@ void owl_on_animate(g_s *g, obj_s *o)
         }
     }
 
+    if (OWL_HURT_TICKS_SPRITE <= h->hurt_ticks) {
+        st = -1;
+        fx = 0;
+        fy = 10;
+    }
+
     switch (st) {
     case -1: break;
     case OWL_ST_AIR: {
-        ropenode_s *rn = o->ropenode;
+        wirenode_s *rn = o->wirenode;
         if (r) {
-            v2_i32 rdt = v2_i32_sub(rn->p, o->ropenode->p);
-            if (rdt.y < -100 && 254 <= rope_stretch_q8(g, r)) {
+            v2_i32 rdt     = v2_i32_sub(rn->p, o->wirenode->p);
+            i32    ropelen = (i32)wire_len_qx(g, r, 4);
+            if (rdt.y < -100 && (i32)g->ghook.len_max_q4 <= ropelen) {
                 // actively swinging
-                f32 ang = atan2_f((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
+                i32 ang = atan2_i32((f32)rdt.y, -(f32)o->facing * (f32)rdt.x);
 
                 fy = 12;
-                fx = -(i32)((ang * 4.f)) - 3;
+                // TODO: fix frames
+                fx = 3 + -(i32)((ang * 4) >> 18);
                 fx = 3 + clamp_i32(fx, 0, 6);
                 spr->offs.y += 12;
 
@@ -123,13 +132,14 @@ void owl_on_animate(g_s *g, obj_s *o)
             fx = (h->jump_ground_ticks == 0);
             spr->offs.y -= o->pos.y - h->jump_from_y;
         } else {
-            i32 vanim = o->v_q12.y + pow2_i32(h->air_gliding) * 10;
-            fy        = 7;
+            i32 fx_vel = 0;
+            i32 vanim  = o->v_q12.y + pow2_i32(h->air_gliding) * 10;
+            fy         = 7;
             spr->offs.y += 16;
             if (0) {
-            } else if (+Q_VOBJ(0.3) <= vanim) {
+            } else if (+Q_VOBJ(0.6) <= vanim) {
                 fx = 6;
-            } else if (-Q_VOBJ(0.3) <= vanim) {
+            } else if (+Q_VOBJ(0.1) <= vanim) {
                 fx = 5;
             } else if (-Q_VOBJ(1.0) <= vanim) {
                 fx = 4;
@@ -140,29 +150,74 @@ void owl_on_animate(g_s *g, obj_s *o)
             }
 
             if (h->stance_swap_tick) {
-                fx += 7;
+                fy += 1;
+            } else if (h->jump_anim_ticks) {
+                if (h->jump_index == OWL_JUMP_WALL) {
+                    if (h->jump_anim_ticks < 3) {
+                        // anticipation, depends on "normal" jump frame
+                        fx = 13;
+                        fy = 9;
+                    }
+                } else {
+                    if (h->jump_anim_ticks < 2) {
+                        // anticipation, depends on "normal" jump frame
+                        fx = max_i32(fx, 4);
+                        spr->offs.y += 2;
+                    } else if (h->jump_anim_ticks < 3) {
+                        // flap frame 1
+                        fx = 10;
+                        spr->offs.y += 2;
+                    } else if (h->jump_anim_ticks + 2 < OWL_AIR_JUMP_FLAP_TICKS) {
+                        // flap frame 2
+                        fx = 11;
+                    } else if (OWL_AIR_JUMP_FLAP_TICKS == h->jump_anim_ticks + 2) {
+                        // back to "normal" jump frame (smoothing)
+                        fx = (fx <= 4 ? 2 : 3);
+                    } else if (OWL_AIR_JUMP_FLAP_TICKS == h->jump_anim_ticks + 1) {
+                        // back to "normal" jump frame (smoothing)
+                        fx = (fx <= 4 ? min_i32(fx, 3) : 5);
+                    }
+                }
             }
         }
 
         break;
     }
     case OWL_ST_GROUND: {
-        if (h->ground_pushing) {
-            h->ground_pushing_anim++;
+        if (h->ground_pull_wire) {
+            fy = 12;
+            fx = 10 + ((h->ground_pull_wire_anim >> 3) & 1);
+            if (h->ground_pull_wire && h->ground_pull_wire_prev) {
+                h->ground_pull_wire_anim++;
+            }
+        } else if (h->ground_push_pull) {
+            h->ground_anim++;
             fy = 15;
-            fx = 4 + ((h->ground_pushing_anim >> 3) & 3);
+
+            if (h->ground_push_tick == 0) {
+                fx = 9 + ((h->ground_anim >> 5) & 1);
+            } else {
+                i32 f     = abs_i32(h->ground_push_tick) < OWL_PUSH_TICKS_MIN ? 0
+                                                                              : ((h->ground_anim >> 3) & 3);
+                i32 s_gpt = sgn_i32(h->ground_push_tick);
+                if (s_gpt == +o->facing) {
+                    fx = 4 + f;
+                } else if (s_gpt == -o->facing) {
+                    fx = 0 + f;
+                }
+            }
         } else if (h->ground_stomp_landing_ticks) {
             fy = 4;
             fx = 5 + lerp_i32(0, 2, h->ground_stomp_landing_ticks, OWL_STOMP_LANDING_TICKS);
-        } else if (h->crouch) {
+        } else if (h->ground_crouch) {
             // duck down/crawl
             fy = 11;
-            if (h->crouch < OWL_CROUCH_MAX_TICKS) {
-                fx = lerp_i32(0, 2, h->crouch, OWL_CROUCH_MAX_TICKS - 1);
-            } else if (h->crouch_crawl) {
-                fx = 5 + modu_i32(shr_balanced_i32(h->crouch_crawl_anim, 14), 6);
+            if (h->ground_crouch < OWL_CROUCH_MAX_TICKS) {
+                fx = lerp_i32(0, 2, h->ground_crouch, OWL_CROUCH_MAX_TICKS - 1);
+            } else if (h->ground_crouch_crawl) {
+                fx = 5 + modu_i32(shr_balanced_i32(h->ground_anim, 14), 6);
             } else {
-                fx = 2 + (shr_balanced_i32(h->crouch_crawl_anim, 4) % 3);
+                fx = 2 + (shr_balanced_i32(h->ground_anim, 4) % 3);
             }
         } else if (h->stance_swap_tick) {
             fy         = 14;
@@ -181,12 +236,12 @@ void owl_on_animate(g_s *g, obj_s *o)
             fx = 6 + f_swap;
         } else if (inp_btn(INP_DU) && !inp_x()) {
             // looking up
-            fx = 13;
-            fy = 2;
-        } else if (h->crouch_standup_ticks) {
+            fx = 12;
+            fy = 0;
+        } else if (h->ground_crouch_standup_ticks) {
             // standing up
             fy = 11;
-            fx = lerp_i32(0, 2, h->crouch_standup_ticks, OWL_CROUCH_STANDUP_TICKS);
+            fx = lerp_i32(0, 2, h->ground_crouch_standup_ticks, OWL_CROUCH_STANDUP_TICKS);
         } else if (h->ground_skid_ticks) {
             // cancel sprint
             fy = 1;
@@ -196,19 +251,13 @@ void owl_on_animate(g_s *g, obj_s *o)
             fy = 7;
             fx = 7 + (h->ground_impact_ticks == 0 || 3 < h->ground_impact_ticks);
         } else if (o->v_q12.x) {
-            // walking/sprinting
-            if (h->sprint) {
-                fy = 1;
-                fx = modu_i32(shr_balanced_i32(h->ground_walking, 15), 8);
-            } else {
-                fy = 0;
-                fx = modu_i32(shr_balanced_i32(h->ground_walking, 15), 8);
-            }
+            fy = h->sprint ? 1 : 0; // walking/sprinting
+            fx = modu_i32(shr_balanced_i32(h->ground_anim, 11), 8);
         } else {
             // idle
             fy = 2;
-            h->ground_idle_ticks++;
-            fx = (h->ground_idle_ticks >> 3) & 7;
+            h->ground_anim++;
+            fx = (h->ground_anim >> 3) & 7;
         }
         break;
     }
@@ -218,7 +267,7 @@ void owl_on_animate(g_s *g, obj_s *o)
 
         if (h->swim_sideways) {
             i32 swim = owl_swim_frameID(h->swim_anim);
-            fy       = 8; // swim
+            fy       = 3; // swim
             fx       = swim;
 
             // sfx
@@ -247,19 +296,46 @@ void owl_on_animate(g_s *g, obj_s *o)
         break;
     }
     case OWL_ST_CLIMB: {
-        spr->offs.y += 16;
-
-        // smoothing of the player position on snapping to a ladder
-        if (h->climb_camx_smooth <= 2) { // two ticks, starts on 1
-            i32 cx = o->pos.x + (OWL_W >> 1);
-            spr->offs.x -= (cx - h->climb_from_x) / 2;
-            h->climb_from_x = (cx + h->climb_from_x) / 2; // average closer
-        }
+        spr->offs.y += 20;
 
         switch (h->climb) {
         case OWL_CLIMB_LADDER: {
+            // smoothing of the player position on snapping to a ladder
+            if (h->climb_tick <= 2) { // two ticks, starts on 1
+                i32 cx = o->pos.x + (OWL_W >> 1);
+                spr->offs.x -= (cx - h->climb_from_x) / 2;
+                h->climb_from_x = (cx + h->climb_from_x) / 2; // average closer
+            }
+
             fy = 13;
             fx = shr_balanced_i32(h->climb_anim, 2) & 7;
+            break;
+        }
+        case OWL_CLIMB_WALL: {
+            fy = 9;
+            if (h->climb_slide_down) {
+                fx = (h->climb_slide_down < 4 ? 5 : 6);
+            } else if (h->climb_tick < 7) {
+                switch (h->climb_tick) {
+                case 0:
+                case 1:
+                case 2:
+                case 5:
+                case 6: fx = 7; break;
+                case 3:
+                case 4: fx = 6; break;
+                }
+            } else {
+                fx = modu_i32(h->climb_anim / 6, 6);
+            }
+            break;
+        }
+        case OWL_CLIMB_WALLJUMP: {
+            if (h->wallj_ticks) {
+                // spr->offs.y += 12;
+                fy = 9;
+                fx = 12 + lerp_i32(0, 2, h->wallj_ticks, OWL_WALLJUMP_INIT_TICKS - 1);
+            }
             break;
         }
         }
@@ -268,7 +344,7 @@ void owl_on_animate(g_s *g, obj_s *o)
     }
 
     if (consider_stance) {
-        fy += 24;
+        fy += 25;
     }
 
     spr->trec.t = asset_tex(TEXID_HERO);

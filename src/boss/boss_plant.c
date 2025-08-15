@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "boss_plant.h"
+#include "boss/boss_plant.h"
 #include "app.h"
 #include "game.h"
 
@@ -246,7 +246,7 @@ void boss_plant_update(g_s *g)
     boss_plant_s *b           = &g->boss.plant;
     v2_i32        panchor     = {b->x, b->y};
     obj_s        *owl         = obj_get_owl(g);
-    v2_i32        powl       = obj_pos_center(owl);
+    v2_i32        powl        = obj_pos_center(owl);
     obj_s        *o_eye       = obj_from_obj_handle(b->eye);
     obj_s        *o_eyefl     = obj_from_obj_handle(b->eye_fake[0]);
     obj_s        *o_eyefr     = obj_from_obj_handle(b->eye_fake[1]);
@@ -486,7 +486,7 @@ void boss_plant_draw(g_s *g, v2_i32 cam)
 
     gfx_ctx_s ctxt = gfx_ctx_default(ttmp);
     i32       fr1  = 0;
-    i32       fr2  = frame_from_ticks_pingpong(g->tick_animation >> 3, 4);
+    i32       fr2  = frame_from_ticks_pingpong(g->tick_gameplay >> 3, 4);
 
     v2_i32 fr_plant = {0, 0};
     v2_i32 fr_core  = {0, 0};

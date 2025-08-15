@@ -22,10 +22,10 @@ err32 wad_init_file(const void *filename)
     if (pltf_file_r_checked(f, &wh, sizeof(wad_header_s))) {
         wad_file_info_s *i = &w->files[w->n_files++];
         str_cpy(i->filename, filename);
-        i->n_to = w->n_entries + wh.n_entries - 1;
+        i->n_to = w->n_entries + (i32)wh.n_entries - 1;
 
         // don't rely on SPM being initialized here, streamed loading -> stack
-        i32           n_left = wh.n_entries;
+        i32           n_left = (i32)wh.n_entries;
         wad_el_file_s f_entries[128];
 
         while (n_left) {
@@ -166,10 +166,10 @@ void *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst)
 u32 wad_hash(const void *str)
 {
     if (!str) return 0;
-    const u8 *s = (const u8 *)str;
-    u32       h = 0;
-    for (i32 n = 0; s[n] != '\0'; n++) {
-        h = h * 101 + (u32)s[n];
+
+    u32 h = 0;
+    for (const u8 *s = (const u8 *)str; *s; s++) {
+        h = h * 101 + (u32)*s;
     }
     return h;
 }

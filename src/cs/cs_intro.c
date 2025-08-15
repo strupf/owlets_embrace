@@ -2,18 +2,19 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#ifndef WINDTUNNEL_H
-#define WINDTUNNEL_H
+#include "game.h"
 
-#include "gamedef.h"
+void cs_intro_update(g_s *g, cs_s *cs);
 
-typedef struct {
-    u8 *v;
-} windtunnel_s;
-
-void windtunnel_init(g_s *g, windtunnel_s *wt)
+void cs_intro_enter(g_s *g)
 {
-    wt->v = game_alloc(g, sizeof(u8) * g->tiles_x * g->tiles_y, 4);
+    cs_s *cs = &g->cs;
+    cs_reset(g);
+    cs->on_update = cs_intro_update;
 }
 
-#endif
+void cs_intro_update(g_s *g, cs_s *cs)
+{
+    cs->tick++;
+    cs_reset(g);
+}

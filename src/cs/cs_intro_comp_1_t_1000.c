@@ -19,13 +19,11 @@ void cs_intro_comp_1_enter(g_s *g)
 
 void cs_intro_comp_1_update(g_s *g, cs_s *cs)
 {
-    cs->tick++;
-
     if (0) {
-    } else if (cs->tick < 120) {
+    } else if (cs->tick < 60) {
         cs->p_comp->pos.x += 2;
-    } else if (cs->tick < 180) {
-    } else if (cs->tick < 400) {
+    } else if (cs->tick < 90) {
+    } else if (cs->tick < 200) {
         cs->counter0 = min_i32(cs->counter0 + 1, 6);
         puppet_set_anim(cs->p_comp, 0, +1);
         cs->p_comp->pos.x += cs->counter0;

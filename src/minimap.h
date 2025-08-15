@@ -8,8 +8,8 @@
 #include "gamedef.h"
 
 #define MAP_NUM_PINS      64
-#define MINIMAP_SCREENS_X 192
-#define MINIMAP_SCREENS_Y 288
+#define MINIMAP_SCREENS_X 512
+#define MINIMAP_SCREENS_Y 256
 #define MINIMAP_N_SCREENS (MINIMAP_SCREENS_X * MINIMAP_SCREENS_Y)
 
 enum {

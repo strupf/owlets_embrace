@@ -12,18 +12,21 @@
 #define CAM_H            PLTF_DISPLAY_H
 #define CAM_WH           (PLTF_DISPLAY_W >> 1)
 #define CAM_HH           (PLTF_DISPLAY_H >> 1)
+#define CAM_X_PAN_V_Q2   (3 << 3)
 
 typedef struct cam_owl_s {
     ALIGNAS(32)
     v2_i32 pos; // in pixels
-    v2_i32 owl_off;
+    b16    was_grounded;
+    i16    was_ground_y;
     i16    lookdownup_tick;
     i16    lookdownup_q8;
-    i16    offs_x;
+    i8     x_pan_v;             // left/right pan movement
+    i8     offs_x;              // offset from owl position
     u8     force_lower_ceiling; // push camera up earlier; resets every frame
     u8     force_higher_floor;  // push camera down earlier; resets every frame
-    b8     can_align_x;
-    b8     can_align_y;
+    b8     can_align_x;         // align owl to multiple of 2px?
+    b8     can_align_y;         // align owl to multiple of 2px?
     u8     touched_top_tick;
 } cam_owl_s;
 
@@ -46,7 +49,6 @@ typedef struct cam_s {
     b8        locked_x;
     b8        locked_y;
     b8        has_trg;
-    i8        align;
     u8        trg_fade_spd; // speed to fade (per tick)
 } cam_s;
 
@@ -59,5 +61,6 @@ rec_i32 cam_rec_px(g_s *g, cam_s *c);
 void    cam_init_level(g_s *g, cam_s *c);
 void    cam_update(g_s *g, cam_s *c);
 v2_i32  cam_offset_max(g_s *g, cam_s *c);
+void    cam_owl_do_x_shift(cam_s *c, i32 sx);
 
 #endif

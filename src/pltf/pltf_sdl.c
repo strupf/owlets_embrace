@@ -2,8 +2,10 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "pltf_sdl.h"
-#include "pltf.h"
+#if PLTF_SDL
+
+#include "pltf/pltf_sdl.h"
+#include "pltf/pltf.h"
 
 #define PLTF_SDL_SCALE_LAUNCH   1
 #define PLTF_SDL_RECORD_1080P   (0 && !PLTF_SDL_WEB)
@@ -45,7 +47,6 @@ typedef_struct (pltf_sdl_s) {
     SDL_PixelFormat  *pformat;
     b32               is_mono;
     b32               inv;
-    f32               vol;
     void (*char_add)(char c, void *ctx);
     void (*char_del)(void *ctx);
     void (*close_inp)(void *ctx);
@@ -140,8 +141,7 @@ int main(int argc, char **argv)
         g_SDL.r_src.h   = PLTF_DISPLAY_H;
         g_SDL.r_dst.w   = PLTF_DISPLAY_W;
         g_SDL.r_dst.h   = PLTF_DISPLAY_H;
-        g_SDL.is_mono   = 1;
-        g_SDL.vol       = 0.5f;
+        g_SDL.is_mono   = 0;
         g_SDL.time_prev = (u64)SDL_GetPerformanceCounter();
         pltf_sdl_resize();
 
@@ -354,8 +354,8 @@ void pltf_internal_set_fps(f32 fps)
 // len is buffer length in bytes (datatype size * channels * length)
 void pltf_sdl_audio(void *u, u8 *stream, int len)
 {
-    ALIGNAS(4) static i16 lbuf[0x400];
-    ALIGNAS(4) static i16 rbuf[0x400];
+    ALIGNAS(32) static i16 lbuf[0x400];
+    ALIGNAS(32) static i16 rbuf[0x400];
 
     mclr(lbuf, sizeof(lbuf));
     mclr(rbuf, sizeof(rbuf));
@@ -364,14 +364,11 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
 
     i16 *s = (i16 *)stream;
     i16 *l = lbuf;
-    i16 *r = rbuf;
+    i16 *r = g_SDL.is_mono ? lbuf : rbuf;
 
-    g_SDL.is_mono = 0;
     for (i32 n = 0; n < samples; n++) {
-        i32 vl = (i32)((f32)*l++ * g_SDL.vol);
-        i32 vr = g_SDL.is_mono ? vl : (i32)((f32)*r++ * g_SDL.vol);
-        *s++   = vl;
-        *s++   = vr;
+        *s++ = *l++;
+        *s++ = *r++;
     }
 }
 
@@ -392,18 +389,6 @@ void pltf_sdl_txt_inp_clr_cb()
 }
 
 // BACKEND =====================================================================
-
-void pltf_audio_set_volume(f32 vol)
-{
-    pltf_sdl_audio_lock();
-    g_SDL.vol = vol;
-    pltf_sdl_audio_unlock();
-}
-
-f32 pltf_audio_get_volume()
-{
-    return g_SDL.vol;
-}
 
 f32 pltf_seconds()
 {
@@ -538,3 +523,4 @@ void pltf_sdl_input_flush()
     mcpy(g_SDL.keyp, g_SDL.keyc, sizeof(g_SDL.keyc));
     mclr(g_SDL.keyc, sizeof(g_SDL.keyc));
 }
+#endif

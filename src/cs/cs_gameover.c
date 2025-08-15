@@ -79,6 +79,7 @@ void cs_gameover_update(g_s *g, cs_s *cs)
             g->music_ID = 0;
             aud_stop_all_snd_instances();
             game_load_savefile(g);
+            cs_on_load_title_wakeup(g);
         }
         break;
     }

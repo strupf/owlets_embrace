@@ -24,8 +24,6 @@ void cs_demo_2_enter(g_s *g)
     cs->on_trigger       = cs_demo_2_on_trigger;
     g->block_owl_control = 1;
     dm->puppet_comp      = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
-
-    save_event_register(g, SAVE_EV_INTRO_PLAYED);
 }
 
 void cs_demo_2_update(g_s *g, cs_s *cs)

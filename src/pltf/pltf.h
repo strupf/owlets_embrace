@@ -5,16 +5,15 @@
 #ifndef PLTF_H
 #define PLTF_H
 
-#include "pltf_intrin.h"
-#include "pltf_types.h"
+#include "pltf/pltf_intrin.h"
+#include "pltf/pltf_types.h"
 
 #if PLTF_PD
-#include "pltf_pd.h"
+#include "pltf/pltf_pd.h"
 #else
-#include "pltf_sdl.h"
+#include "pltf/pltf_sdl.h"
 #endif
 
-#define PLTF_ENGINE_ONLY       0  // only compile and run the barebones engine?
 #define PLTF_UPS               50 // ticks per second
 #define PLTF_DISPLAY_W         400
 #define PLTF_DISPLAY_H         240
@@ -34,23 +33,9 @@
 #endif
 
 enum {
-    PLTF_FILE_MODE_R,
-    PLTF_FILE_MODE_W,
-    PLTF_FILE_MODE_A
-};
-
-enum {
     PLTF_FPS_MODE_UNCAPPED,
     PLTF_FPS_MODE_40
 };
-
-#if PLTF_PD
-#define pltf_audio_set_volume(V)
-#define pltf_audio_get_volume() 1.f
-#else
-void pltf_audio_set_volume(f32 vol);
-f32  pltf_audio_get_volume();
-#endif
 
 i32    app_init();
 void   app_tick();
@@ -73,7 +58,6 @@ void   pltf_accelerometer_set(bool32 enabled);
 void   pltf_accelerometer(f32 *x, f32 *y, f32 *z);
 bool32 pltf_reduce_flashing();
 void   pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t);
-void  *pltf_file_open(const char *path, i32 pltf_file_mode);
 void  *pltf_file_open_r(const char *path);
 void  *pltf_file_open_w(const char *path);
 void  *pltf_file_open_a(const char *path);

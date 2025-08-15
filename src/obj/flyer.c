@@ -10,10 +10,6 @@ enum {
 };
 
 typedef struct {
-    v2_i32 p_q8;
-} tendril_seg_s;
-
-typedef struct {
     i8     n_path;
     i8     n_from;
     i8     n_to;
@@ -25,8 +21,6 @@ typedef struct {
     i32    pos_q4;
     i32    v_q4;
     v2_i32 path[8];
-
-    tendril_seg_s ts[12];
 } flyer_s;
 
 static_assert(sizeof(flyer_s) <= OBJ_MEM_BYTES, "flyer");
@@ -36,65 +30,7 @@ void flyer_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void flyer_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
-
-    i32            num = 12;
-    flyer_s       *f   = (flyer_s *)o->mem;
-    tendril_seg_s *s0  = &f->ts[0];
-    s0->p_q8.x         = (f->path[0].x + 128) << 8;
-    s0->p_q8.y         = f->path[0].y << 8;
-    tendril_seg_s *s1  = &f->ts[num - 1];
-    s1->p_q8.x         = (o->pos.x + 16) << 8;
-    s1->p_q8.y         = (o->pos.y + 16) << 8;
-    i32 l              = 16 << 8;
-
-    gfx_ctx_s ctxp = ctx;
-    ctxp.pat       = gfx_pattern_bayer_4x4(14);
-
-    for (i32 k = 1; k < num - 1; k++) {
-        tendril_seg_s *sa = &f->ts[k];
-        sa->p_q8.y += 512;
-    }
-
-    for (i32 k = num - 1; 1 <= k; k--) {
-        tendril_seg_s *sa = &f->ts[k - 1];
-        tendril_seg_s *sb = &f->ts[k];
-
-        v2_i32 p0  = sa->p_q8;
-        v2_i32 p1  = sb->p_q8;
-        v2_i32 dt  = v2_i32_sub(p1, p0);
-        i32    len = v2_i32_len_appr(dt);
-        // if (len <= l) continue;
-
-        i32    new_l = l + ((len - l) >> 1);
-        v2_i32 vadd  = v2_i32_setlenl(dt, len, new_l);
-
-        if (1 < k) {
-            sa->p_q8 = v2_i32_sub(p1, vadd);
-        }
-        if (k < num - 1) {
-            sb->p_q8 = v2_i32_add(p0, vadd);
-        }
-    }
-
-    for (i32 k = 1; k < num; k++) {
-        tendril_seg_s *sa = &f->ts[k - 1];
-        tendril_seg_s *sb = &f->ts[k];
-
-        v2_i32 pa  = v2_i32_add(v2_i32_shr(sa->p_q8, 8), cam);
-        v2_i32 pb  = v2_i32_add(v2_i32_shr(sb->p_q8, 8), cam);
-        v2_i32 pdt = v2_i32_sub(pa, pb);
-
-        i32 ptid     = lerp_i32(32, 65, k - 1, num);
-        ptid         = (ptid + 1) & ~1;
-        ctxp.pat     = gfx_pattern_bayer_8x8(ptid);
-        ctxp.pat     = gfx_pattern_shift(ctxp.pat, 0, -cam.x);
-        texrec_s trr = asset_texrec(TEXID_ROOTS, 0, 0, 64, 64);
-        trr.y        = atan2_index_pow2((f32)pdt.y, (f32)pdt.x, 64, 0) * 64;
-        trr.x        = clamp_i32(lerp_i32(0, 4, k, num), 0, 3) * 64;
-        v2_i32 pmid  = v2_i32_lerp(pa, pb, 1, 2);
-        v2_i32 ps    = {pmid.x - 32, pmid.y - 32};
-        gfx_spr(ctxp, trr, ps, 0, SPR_MODE_BLACK_ONLY_WHITE_PT_OPAQUE);
-    }
+    flyer_s  *f   = (flyer_s *)o->mem;
 
     v2_i32 posp = v2_i32_add(o->pos, cam);
     render_tile_terrain_block(ctx, posp, 2, 2, TILE_TYPE_BRIGHT_STONE);
@@ -166,9 +102,9 @@ void flyer_on_update(g_s *g, obj_s *o)
     v2_i32 p  = v2_i32_lerp(p_src, p_dst, f->pos_q4, f->dist_q4_cache);
     v2_i32 dt = v2_i32_sub(p, o->pos);
     obj_move(g, o, dt.x, dt.y);
-    o->ropeobj.v_q8.x = dt.x << 8;
-    o->ropeobj.v_q8.y = dt.y << 8;
-    o->ropeobj.m_q8   = 256;
+    o->ropeobj.v_q12.x = dt.x << 12;
+    o->ropeobj.v_q12.y = dt.y << 12;
+    o->ropeobj.m_q12   = Q_12(1.0);
     if (0 < dt.x) spr->flip = SPR_FLIP_X;
     if (0 > dt.x) spr->flip = 0;
 }
@@ -206,7 +142,7 @@ void flyer_load(g_s *g, map_obj_s *mo)
     o->n_sprites       = 1;
     f->pathdir         = 1;
     f->n_to            = 1;
-    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->render_priority = RENDER_PRIO_OWL - 1;
 
     i32     num  = 0;
     // pltf_log("eq %i\n", str_eq_nc("Path", "Path"));

@@ -10,18 +10,18 @@ obj_s *puppet_companion_put(g_s *g, obj_s *ocomp)
     o->pos.x           = ocomp->pos.x + ocomp->w / 2;
     o->pos.y           = ocomp->pos.y + ocomp->h / 2;
     o->facing          = ocomp->facing;
-    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->render_priority = RENDER_PRIO_OWL - 1;
     ocomp->flags |= OBJ_FLAG_DONT_SHOW_UPDATE;
     return o;
 }
 
-void puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *o)
+void puppet_companion_replace_and_del(g_s *g, obj_s *ocomp, obj_s *opuppet)
 {
-    ocomp->pos.x  = o->pos.x - ocomp->w / 2;
-    ocomp->pos.y  = o->pos.y - ocomp->h / 2;
-    ocomp->facing = o->facing;
+    ocomp->pos.x  = opuppet->pos.x - ocomp->w / 2;
+    ocomp->pos.y  = opuppet->pos.y - ocomp->h / 2;
+    ocomp->facing = opuppet->facing;
     ocomp->flags &= ~OBJ_FLAG_DONT_SHOW_UPDATE;
-    obj_delete(g, o);
+    obj_delete(g, opuppet);
 }
 
 void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
@@ -36,13 +36,13 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
         spr->flip = 0;
     }
 
-    i32 fw = 96;
+    i32 fw = 64;
     i32 fh = 64;
     i32 fx = 0;
     i32 fy = 0;
 
-    spr->offs.x = -96 / 2;
-    spr->offs.y = -64 / 2 - 2;
+    spr->offs.x = -(64 >> 1);
+    spr->offs.y = -(64 >> 1) - 2;
 
     switch (animID) {
     default: break;
@@ -95,6 +95,22 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
         i32 l  = ani_len(ANIID_COMPANION_HUH);
         i32 co = cos_q15(((anim_t % l) << 18) / l) - 32768;
         spr->offs.y += (co * 4) >> 16;
+        break;
+    }
+    case PUPPET_COMPANION_ANIMID_SLEEP: {
+        fy = 1;
+        fx = 3 + ((anim_t >> 5) & 1);
+        break;
+    }
+    case PUPPET_COMPANION_ANIMID_WAKEUP: {
+        fy = 1;
+        if (anim_t < 5) {
+            fx = 2;
+        } else if (anim_t < 10) {
+            fx = 1;
+        } else {
+            fx = 0;
+        }
         break;
     }
     }

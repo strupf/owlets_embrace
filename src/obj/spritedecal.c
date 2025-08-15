@@ -89,7 +89,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
     case OBJANIMID_ENEMY_EXPLODE:
         texID              = TEXID_PARTICLES;
         spr->flip          = gfx_spr_flip_rng(1, 1);
-        o->render_priority = RENDER_PRIO_HERO - 1;
+        o->render_priority = RENDER_PRIO_OWL - 1;
         sd->n_frames       = 14;
         sd->x              = 0;
         sd->y              = 320;
@@ -100,7 +100,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
     case OBJANIMID_EXPLODE_GRENADE:
         texID              = TEXID_EXPLO1;
         spr->flip          = gfx_spr_flip_rng(1, 1);
-        o->render_priority = RENDER_PRIO_HERO - 1;
+        o->render_priority = RENDER_PRIO_OWL - 1;
         sd->dir            = 1;
         sd->n_frames       = 13;
         sd->x              = 0;
@@ -122,7 +122,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
             p.x -= 35;
         }
         p.y -= 22;
-        o->render_priority = RENDER_PRIO_HERO + 1;
+        o->render_priority = RENDER_PRIO_OWL + 1;
 
         sd->x = 0;
         if (objanimID == OBJANIMID_STOMP_R_STRONG ||
@@ -143,7 +143,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
     case OBJANIM_BOULDER_POOF:
         texID              = TEXID_PARTICLES;
         spr->flip          = gfx_spr_flip_rng(1, 1);
-        o->render_priority = RENDER_PRIO_HERO - 1;
+        o->render_priority = RENDER_PRIO_OWL - 1;
         sd->n_frames       = 9 - 1;
         sd->x              = 1 * 64;
         sd->y              = 192;
@@ -155,7 +155,7 @@ obj_s *objanim_create(g_s *g, v2_i32 p, i32 objanimID)
     case OBJANIMID_HERO_HIT_L:
         texID              = TEXID_PARTICLES;
         spr->flip          = objanimID == OBJANIMID_HERO_HIT_L ? 0 : SPR_FLIP_X;
-        o->render_priority = RENDER_PRIO_HERO - 1;
+        o->render_priority = RENDER_PRIO_OWL - 1;
         sd->n_frames       = 8;
         sd->x              = 0 * 64;
         sd->y              = 1024;

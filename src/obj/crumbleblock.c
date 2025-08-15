@@ -24,7 +24,7 @@ void crumbleblock_load(g_s *g, map_obj_s *mo)
     o->ID              = OBJID_CRUMBLEBLOCK;
     o->on_update       = crumbleblock_on_update;
     o->on_draw         = crumbleblock_on_draw;
-    o->render_priority = RENDER_PRIO_HERO + 1;
+    o->render_priority = RENDER_PRIO_OWL + 1;
     o->state           = CRUMBLE_STATE_IDLE;
     o->substate        = TILE_BLOCK;
     o->pos.x           = mo->x;

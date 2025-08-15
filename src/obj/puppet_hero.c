@@ -10,7 +10,7 @@ obj_s *puppet_owl_put(g_s *g, obj_s *ohero)
     o->pos.x           = ohero->pos.x + ohero->w / 2;
     o->pos.y           = ohero->pos.y + ohero->h;
     o->facing          = ohero->facing;
-    o->render_priority = RENDER_PRIO_HERO;
+    o->render_priority = RENDER_PRIO_OWL;
     ohero->flags |= OBJ_FLAG_DONT_SHOW_UPDATE;
     return o;
 }
@@ -95,14 +95,20 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         fx = 6 + min_i32((anim_t >> 2), 5);
         break;
     }
-    case PUPPET_OWL_ANIMID_PRESENT_ABOVE: {
-        fx = 11 + min_i32(anim_t >> 1, 2);
-        fy = 8;
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE:
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP: {
+        fx = 13 + min_i32(anim_t >> 1, 2);
+        fy = animID == PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP ? 25 : 0;
         break;
     }
-    case PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP: {
-        fx = 11 + min_i32(anim_t >> 1, 2);
-        fy = 32;
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE_TO_IDLE:
+    case PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP_TO_IDLE: {
+        i32 t = anim_t >> 1;
+        fx    = 15 - min_i32(t, 2);
+        fy    = animID == PUPPET_OWL_ANIMID_PRESENT_ABOVE_COMP_TO_IDLE ? 25 : 0;
+        if (3 <= t) {
+            puppet_set_anim(o, PUPPET_OWL_ANIMID_IDLE, 0);
+        }
         break;
     }
     case PUPPET_OWL_ANIMID_OFF_BALANCE: {
@@ -115,6 +121,25 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
         i32 t = frame_from_ticks_pingpong(anim_t >> 1, 6);
         fx    = 8 + t;
         fy    = 28;
+        break;
+    }
+    case PUPPET_OWL_ANIMID_FALL_ASLEEP: {
+        fy = 18;
+        fx = ani_frame(ANIID_FALLASLEEP, anim_t);
+        break;
+    }
+    case PUPPET_OWL_ANIMID_SLEEP: {
+        fy = 18;
+        fx = 11 + ((anim_t >> 5) & 1);
+        break;
+    }
+    case PUPPET_OWL_ANIMID_SLEEP_WAKEUP: {
+        i32 f = 0;
+        if (anim_t <= ani_len(ANIID_WAKEUP)) {
+            f = ani_frame(ANIID_WAKEUP, anim_t);
+        }
+        fy = 18 + (f >> 4);
+        fx = (f & 15);
         break;
     }
     }

@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "boss_plant.h"
+#include "boss/boss_plant.h"
 #include "game.h"
 
 #define BPLANT_EYE_ANCHOR_Y     48
@@ -37,7 +37,7 @@ void boss_plant_eye_show(g_s *g, obj_s *o);
 void boss_plant_eye_show_nohook(g_s *g, obj_s *o);
 void boss_plant_eye_on_update(g_s *g, obj_s *o);
 void boss_plant_eye_on_animate(g_s *g, obj_s *o);
-void boss_plant_eye_on_hook(g_s *g, obj_s *o, b32 hooked);
+void boss_plant_eye_on_hook(g_s *g, obj_s *o, i32 hooked);
 void boss_plant_eye_on_update(g_s *g, obj_s *o);
 void boss_plant_eye_draw(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx);
 i32  boss_plant_eye_slash_y(obj_s *o);
@@ -221,8 +221,8 @@ void boss_plant_eye_on_update_attached(g_s *g, obj_s *o)
             e->pos_src = attack_pos;
             o->state++;
             o->timer = 0;
-            if (bp->time_of_slash_sfx != g->tick_animation) {
-                bp->time_of_slash_sfx = g->tick_animation;
+            if (bp->time_of_slash_sfx != g->tick_gameplay) {
+                bp->time_of_slash_sfx = g->tick_gameplay;
                 snd_play(SNDID_BPLANT_SWOOSH, 1.2f, 1.f);
             }
         }
@@ -657,16 +657,16 @@ void boss_plant_eye_draw_ripped(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)
     gfx_spr(ctx, trarrow, pcenter, 0, 0);
 }
 
-void boss_plant_eye_on_hook(g_s *g, obj_s *o, b32 hooked)
+void boss_plant_eye_on_hook(g_s *g, obj_s *o, i32 hooked)
 {
     boss_plant_eye_s *e = (boss_plant_eye_s *)o->mem;
-    rope_s           *r = &g->ghook.rope;
+    wire_s           *r = &g->ghook.wire;
     if (o->state == BOSS_PLANT_EYE_RIPPED) return;
     if (hooked) {
         boss_plant_hideshow_other_eye(g, o, 0);
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->state      = BOSS_PLANT_EYE_HOOKED;
-        r->len_max_q4 = (r->len_max_q4 * 200) >> 8;
+        o->state            = BOSS_PLANT_EYE_HOOKED;
+        g->ghook.len_max_q4 = (g->ghook.len_max_q4 * 200) >> 8;
     } else {
         boss_plant_hideshow_other_eye(g, o, 1);
         o->state = BOSS_PLANT_EYE_SHOWN;

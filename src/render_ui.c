@@ -42,15 +42,18 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
     v2_i32    posh   = v2_i32_add(obj_pos_center(ohero), camoff);
     //  hero_interaction_s hi     = hero_get_interaction(g, ohero);
 
-    i32      hp      = ohero->health;
-    i32      hp_max  = ohero->health_max;
-    texrec_s trheart = asset_texrec(TEXID_BUTTONS, 0, 0, 32, 28);
+    i32      hp            = ohero->health;
+    i32      hp_max        = ohero->health_max;
+    i32      hp_containers = hp_max >> 1;
+    texrec_s trheart       = asset_texrec(TEXID_BUTTONS, 0, 0, 32, 28);
+    i32      t_fade_1      = g->health_ui_fade;
+    i32      t_fade_2      = min_i32(g->health_ui_fade + 20, HEALTH_UI_TICKS);
 
-    for (i32 n = 0; n < hp_max; n += 2) {
+    for (i32 n = 0; n < hp_containers; n++) {
         i32 fr_x      = 0;
         i32 fr_y      = 0;
-        i32 hp_n_full = 2 + n;
-        i32 hp_n_half = 1 + n;
+        i32 hp_n_full = 2 + (n * 2);
+        i32 hp_n_half = 1 + (n * 2);
 
         if (hp < hp_n_half) {
             // lower full heart
@@ -59,13 +62,13 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
         } else if (hp < hp_n_full) {
             // half
             fr_y = 1;
-            fr_x = 3 + ((g->tick_animation >> (hp == 1 ? 4 : 5)) & 1);
+            fr_x = 3 + ((g->tick_gameplay >> (hp == 1 ? 4 : 5)) & 1);
         } else {
             fr_y = 0;
             if (hp == hp_n_full) {
                 // full
                 // current highest active heart
-                i32 t = (g->tick_animation >> (hp == 2 && 4 <= hp_max ? 4 : 5)) & 3;
+                i32 t = (g->tick_gameplay >> (hp == 2 && 4 <= hp_max ? 4 : 5)) & 3;
                 switch (t) {
                 case 0: fr_x = 0; break;
                 case 1: fr_x = 1; break;
@@ -78,13 +81,15 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
             }
         }
 
-        v2_i32 heartp = {0 + (n >> 1) * 22, 0};
+        v2_i32 heartp = {0 + (n) * 22, 0}; // todo
         trheart.x     = (7 + fr_x) << 5;
         trheart.y     = (11 + fr_y) << 5;
+        i32 t_fade    = lerp_i32(t_fade_1, t_fade_2, (hp_containers - n - 1), hp_containers - 1);
+        heartp.y      = ease_out_quad(-70, heartp.y, t_fade, HEALTH_UI_TICKS);
         gfx_spr_tile_32x32(ctx, trheart, heartp);
     }
 
-    render_stamina_ui(g, ohero, camoff);
+    // render_stamina_ui(g, ohero, camoff);
     coins_draw(g);
 }
 
@@ -103,8 +108,7 @@ void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)
     i32 fty         = h->stamina_added;
 
     v2_i32 p = v2_i32_add(obj_pos_center(o), camoff);
-    p.y += h->render_align_offs.y - 42;
-    p.x += h->render_align_offs.x;
+    p.y += -42;
 
     i32 wi_inner  = ease_out_quad(-2, 12 + h->stamina_upgrades * 4,
                                   h->stamina_ui_fade_ticks, OWL_STAMINA_TICKS_UI_FADE);

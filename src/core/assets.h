@@ -5,8 +5,8 @@
 #ifndef ASSETS_H
 #define ASSETS_H
 
-#include "aud.h"
-#include "gfx.h"
+#include "core/aud.h"
+#include "core/gfx.h"
 #include "util/lzss.h"
 #include "util/marena.h"
 
@@ -83,6 +83,7 @@ enum {
     TEXID_STAMINARESTORE,
     TEXID_BOSSPLANT,
     TEXID_USECRANK,
+    TEXID_SAVEROOM,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -178,6 +179,8 @@ enum {
     ANIID_MOLE_DIG_OUT,
     ANIID_MOLE_DIG_IN,
     ANIID_LOOKAHEAD,
+    ANIID_FALLASLEEP,
+    ANIID_WAKEUP,
     //
     NUM_ANIID
 };
@@ -202,7 +205,6 @@ typedef struct {
     ALIGNAS(8) snd_s snd[NUM_SNDID];
 } assets_s;
 
-i32      assets_init();
 tex_s   *asset_texptr(i32 ID);
 tex_s    asset_tex(i32 ID);
 snd_s    asset_snd(i32 ID);

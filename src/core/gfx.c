@@ -2,9 +2,9 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "gfx.h"
+#include "core/gfx.h"
+#include "core/spm.h"
 #include "pltf/pltf.h"
-#include "spm.h"
 #include "util/json.h"
 #include "util/mathfunc.h"
 #include "util/sorting.h"
@@ -14,7 +14,7 @@
 #define SPRBLIT_SRC_MASK 0
 #define SPRBLIT_DST_MASK 0
 #define SPRBLIT_FLIPPEDX 0
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -24,7 +24,7 @@
 #define SPRBLIT_SRC_MASK 1
 #define SPRBLIT_DST_MASK 1
 #define SPRBLIT_FLIPPEDX 0
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -34,7 +34,7 @@
 #define SPRBLIT_SRC_MASK 1
 #define SPRBLIT_DST_MASK 0
 #define SPRBLIT_FLIPPEDX 0
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -44,7 +44,7 @@
 #define SPRBLIT_SRC_MASK 1
 #define SPRBLIT_DST_MASK 1
 #define SPRBLIT_FLIPPEDX 1
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -54,7 +54,7 @@
 #define SPRBLIT_SRC_MASK 1
 #define SPRBLIT_DST_MASK 0
 #define SPRBLIT_FLIPPEDX 1
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -65,7 +65,7 @@
 #define SPRBLIT_DST_MASK      0
 #define SPRBLIT_FLIPPEDX      0
 #define SPRBLIT_FUNCTION_COPY 1
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
@@ -77,14 +77,14 @@
 #define SPRBLIT_DST_MASK      0
 #define SPRBLIT_FLIPPEDX      1
 #define SPRBLIT_FUNCTION_COPY 1
-#include "gfx_spr_func.h"
+#include "core/gfx_spr_func.h"
 #undef SPRBLIT_FUNCNAME
 #undef SPRBLIT_SRC_MASK
 #undef SPRBLIT_DST_MASK
 #undef SPRBLIT_FLIPPEDX
 #undef SPRBLIT_FUNCTION_COPY
 
-static const u32 g_bayer_8x8[65 * 8];
+extern const u32 g_bayer_8x8[65 * 8];
 
 tex_s tex_framebuffer()
 {
@@ -173,26 +173,26 @@ static void tex_mk_unsafe(tex_s tex, i32 x, i32 y, i32 col)
 
 i32 tex_px_at(tex_s tex, i32 x, i32 y)
 {
-    if (!(0 <= x && x < tex.w && 0 <= y && y < tex.h)) return 0;
+    if (!((u32)x < (u32)tex.w && (u32)y < (u32)tex.h)) return 0;
     return tex_px_at_unsafe(tex, x, y);
 }
 
 i32 tex_mk_at(tex_s tex, i32 x, i32 y)
 {
-    if (!(0 <= x && x < tex.w && 0 <= y && y < tex.h)) return 1;
+    if (!((u32)x < (u32)tex.w && (u32)y < (u32)tex.h)) return 1;
     return tex_mk_at_unsafe(tex, x, y);
 }
 
 void tex_px(tex_s tex, i32 x, i32 y, i32 col)
 {
-    if (0 <= x && x < tex.w && 0 <= y && y < tex.h) {
+    if ((u32)x < (u32)tex.w && (u32)y < (u32)tex.h) {
         tex_px_unsafe(tex, x, y, col);
     }
 }
 
 void tex_mk(tex_s tex, i32 x, i32 y, i32 col)
 {
-    if (0 <= x && x < tex.w && 0 <= y && y < tex.h) {
+    if ((u32)x < (u32)tex.w && (u32)y < (u32)tex.h) {
         tex_mk_unsafe(tex, x, y, col);
     }
 }
@@ -1173,18 +1173,22 @@ typedef struct {
 void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
 {
     // initialize spans
-    gfx_span_s spans[512];
-    i32        r    = d >> 1;
-    i32        ymin = max_i32(min_i32(a.y, b.y) - r - 1, ctx.clip_y1);
-    i32        ymax = min_i32(max_i32(a.y, b.y) + r + 1, ctx.clip_y2);
-    i32        ydif = ymax - ymin;
+    ALIGNAS(32) gfx_span_s spans[512];
 
+    i32 r    = d >> 1;
+    i32 ymin = max_i32(min_i32(a.y, b.y) - r - 1, ctx.clip_y1);
+    i32 ymax = min_i32(max_i32(a.y, b.y) + r + 1, ctx.clip_y2);
+    i32 ydif = ymax - ymin;
+    if (ydif < 0) return;
+
+    assert(ydif <= ARRLEN(spans));
     for (i32 n = 0; n <= ydif; n++) {
         gfx_span_s *s = &spans[n];
         s->x1         = U16_MAX;
         s->x2         = 0;
     }
 
+    // combine bresenham and thick circle algorithm to generate spans?
     i32 m  = (d & 1 ? +1 : 0);
     i32 dx = +abs_i32(b.x - a.x);
     i32 dy = -abs_i32(b.y - a.y);
@@ -1203,38 +1207,38 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
         i32 y = 0;
 
         while (y <= x) {
-            i32 ay  = yi + y + m;
-            i32 cy  = yi + x + m;
-            i32 by  = yi - y;
-            i32 ky  = yi - x;
-            i32 ax0 = xi - x;
-            i32 cx0 = xi - y;
-            i32 ax1 = xi + x + m;
-            i32 cx1 = xi + y + m;
+            u32 a_y = (u32)(yi + y + m);
+            u32 c_y = (u32)(yi + x + m);
+            u32 b_y = (u32)(yi - y);
+            u32 d_y = (u32)(yi - x);
+            i32 ax0 = max_i32(xi - x, ctx.clip_x1);
+            i32 cx0 = max_i32(xi - y, ctx.clip_x1);
+            i32 ax1 = min_i32(xi + x + m, ctx.clip_x2);
+            i32 cx1 = min_i32(xi + y + m, ctx.clip_x2);
 
-            if (0 <= ay && ay <= ydif) {
-                gfx_span_s *s = &spans[ay];
-                s->x1         = clamp_i32(s->x1, ctx.clip_x1, ax0);
-                s->x2         = clamp_i32(s->x2, ax1, ctx.clip_x2);
+            if (a_y <= (u32)ydif) {
+                gfx_span_s *s = &spans[a_y];
+                s->x1         = min_i32(s->x1, ax0);
+                s->x2         = max_i32(s->x2, ax1);
             }
-            if (0 <= by && by <= ydif) {
-                gfx_span_s *s = &spans[by];
-                s->x1         = clamp_i32(s->x1, ctx.clip_x1, ax0);
-                s->x2         = clamp_i32(s->x2, ax1, ctx.clip_x2);
+            if (b_y <= (u32)ydif) {
+                gfx_span_s *s = &spans[b_y];
+                s->x1         = min_i32(s->x1, ax0);
+                s->x2         = max_i32(s->x2, ax1);
             }
-            if (0 <= cy && cy <= ydif) {
-                gfx_span_s *s = &spans[cy];
-                s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
-                s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
+            if (c_y <= (u32)ydif) {
+                gfx_span_s *s = &spans[c_y];
+                s->x1         = min_i32(s->x1, cx0);
+                s->x2         = max_i32(s->x2, cx1);
             }
-            if (0 <= ky && ky <= ydif) {
-                gfx_span_s *s = &spans[ky];
-                s->x1         = clamp_i32(s->x1, ctx.clip_x1, cx0);
-                s->x2         = clamp_i32(s->x2, cx1, ctx.clip_x2);
+            if (d_y <= (u32)ydif) {
+                gfx_span_s *s = &spans[d_y];
+                s->x1         = min_i32(s->x1, cx0);
+                s->x2         = max_i32(s->x2, cx1);
             }
-            e += y << 1;
+
+            e += (y << 2) + 2;
             y++;
-            e += y << 1;
 
             if (0 <= e) {
                 x--;
@@ -1250,13 +1254,14 @@ void gfx_lin_thick(gfx_ctx_s ctx, v2_i32 a, v2_i32 b, i32 mode, i32 d)
     // blit spans
     for (i32 n = 0; n <= ydif; n++) {
         gfx_span_s *s = &spans[n];
+        if (s->x1 > s->x2) continue;
 
-        if (ctx.clip_x1 <= s->x1 && s->x2 <= ctx.clip_x2 && s->x1 <= s->x2) {
-            assert(ctx.clip_x1 <= s->x1);
-            assert(s->x2 <= ctx.clip_x2);
-            assert(s->x1 <= s->x2);
-            prim_blit_span(span_blit_gen(ctx, n + ymin, s->x1, s->x2, mode));
-        }
+        i32 y = n + ymin;
+        assert(ctx.clip_y1 <= y);
+        assert(y <= ctx.clip_y2);
+        assert(ctx.clip_x1 <= s->x1);
+        assert(s->x2 <= ctx.clip_x2);
+        prim_blit_span(span_blit_gen(ctx, y, s->x1, s->x2, mode));
     }
 }
 
@@ -1435,8 +1440,7 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q1
             if (r1 <= r && r <= r2) {
                 i32 u = v2_i32_crs(a, s);
                 i32 v = v2_i32_crs(b, s);
-                i     = (0 <= w && (0 <= u && v <= 0)) ||
-                    (0 >= w && (0 <= u || v <= 0));
+                i     = (0 <= w && (0 <= u && v <= 0)) || (0 >= w && (0 <= u || v <= 0));
             }
 
             if (i && !was_inside) {
@@ -1453,7 +1457,7 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q1
 }
 
 ALIGNAS(32)
-static const u32 g_bayer_8x8[65 * 8] = {
+const u32 g_bayer_8x8[65 * 8] = {
     0x00000000, 0x00000000, 0x00000000, 0x00000000,
     0x00000000, 0x00000000, 0x00000000, 0x00000000,
     0x80808080, 0x00000000, 0x00000000, 0x00000000,

@@ -14,7 +14,7 @@ enum {
 
 void mushroom_on_update(g_s *g, obj_s *o);
 void mushroom_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void mushroom_on_hook(g_s *g, obj_s *o, bool32 hooked);
+void mushroom_on_hook(g_s *g, obj_s *o, i32 hooked);
 
 void mushroom_load(g_s *g, map_obj_s *mo)
 {
@@ -104,7 +104,7 @@ void mushroom_on_jump_on(g_s *g, obj_s *o)
     o->timer = 0;
 }
 
-void mushroom_on_hook(g_s *g, obj_s *o, bool32 hooked)
+void mushroom_on_hook(g_s *g, obj_s *o, i32 hooked)
 {
     if (hooked) {
         o->state = MUSHROOM_HOOKED;

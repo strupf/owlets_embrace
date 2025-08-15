@@ -6,6 +6,7 @@
 #define RENDER_H
 
 #include "gamedef.h"
+#include "tile_map.h"
 
 void   foreground_draw(g_s *g, v2_i32 cam_al, v2_i32 cam);
 void   render_tilemap(g_s *g, i32 layer, tile_map_bounds_s bounds, v2_i32 cam);

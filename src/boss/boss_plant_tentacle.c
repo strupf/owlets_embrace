@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "boss_plant.h"
+#include "boss/boss_plant.h"
 #include "game.h"
 
 // TENTACLE LOGIC

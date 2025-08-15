@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "owl.h"
+#include "owl/owl.h"
 
 void owl_air(g_s *g, obj_s *o, inp_s inp)
 {
@@ -20,57 +20,61 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
         h->jump_ground_ticks = 0;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
-        o->v_q12.x      = 0;
-        o->subpos_q12.x = 0;
+        h->air_walljump_ticks = 0;
+        o->v_q12.x            = 0;
+        o->subpos_q12.x       = 0;
     }
     o->bumpflags = 0;
 
     // gravity
     if (!h->air_stomp) {
-        // if (h->walljump_tick) break;
         // low gravity at peak of jump curve
         // lerp from normal gravity to lowest gravity and back again
-#define LOW_GRAV_Q8 +Q_8(0.63)
-#define LOW_GRAV_LO -Q_VOBJ(0.80) // v q8 when low gravity starts
-#define LOW_GRAV_HI +Q_VOBJ(0.35) // v q8 when low gravity ends
-#define LOW_GRAV_PK +0            // v q8 with lowest gravity
 
-        i32 grav_k_q8 = 256;
-        if (LOW_GRAV_LO < o->v_q12.y && o->v_q12.y <= LOW_GRAV_PK) {
-            i32 k1    = o->v_q12.y - LOW_GRAV_LO;
-            i32 k2    = LOW_GRAV_PK - LOW_GRAV_LO;
-            grav_k_q8 = lerp_i32(256, LOW_GRAV_Q8, k1, k2);
+        i32 grav = OWL_GRAVITY;
+        if (OWL_GRAVITY_V_BEG < o->v_q12.y && o->v_q12.y <= OWL_GRAVITY_V_PEAK) {
+            i32 k1 = o->v_q12.y - OWL_GRAVITY_V_BEG;
+            i32 k2 = OWL_GRAVITY_V_PEAK - OWL_GRAVITY_V_BEG;
+            grav   = lerp_i32(OWL_GRAVITY, OWL_GRAVITY_LOW, k1, k2);
         }
-        if (LOW_GRAV_PK <= o->v_q12.y && o->v_q12.y < LOW_GRAV_HI) {
-            i32 k1    = o->v_q12.y - LOW_GRAV_PK;
-            i32 k2    = LOW_GRAV_HI - LOW_GRAV_PK;
-            grav_k_q8 = lerp_i32(LOW_GRAV_Q8, 256, k1, k2);
+        if (OWL_GRAVITY_V_PEAK <= o->v_q12.y && o->v_q12.y < OWL_GRAVITY_V_END) {
+            i32 k1 = o->v_q12.y - OWL_GRAVITY_V_PEAK;
+            i32 k2 = OWL_GRAVITY_V_END - OWL_GRAVITY_V_PEAK;
+            grav   = lerp_i32(OWL_GRAVITY_LOW, OWL_GRAVITY, k1, k2);
         }
-        // grav_k_q8 = 256;
-        o->v_q12.y += (OWL_GRAVITY * grav_k_q8) >> 8;
+        o->v_q12.y += grav;
     }
 
     if (h->jump_edgeticks) {
         h->jump_edgeticks--;
+    }
+    if (h->jump_anim_ticks) {
+        h->jump_anim_ticks++;
+        if (OWL_AIR_JUMP_FLAP_TICKS <= h->jump_anim_ticks) {
+            h->jump_anim_ticks = 0;
+        }
+    }
+    if (h->air_walljump_ticks) {
+        h->air_walljump_ticks--;
     }
 
     bool32 do_x_movement = 1;
     i32    x_movement_q8 = 256; // only relevant for rope
 
     v2_i32 v_q12_post_rope = o->v_q12;
-    if (o->rope) {
+    if (o->wire) {
         // lerps between rope and normal inair movement around len max
 #define ROPE_L1 -256
 #define ROPE_L2 -16
         // positive if longer than max len
         // negative if slack
-        i32 rope_l_dt = (i32)rope_len_q4(g, o->rope) - (i32)o->rope->len_max_q4;
+        i32 rope_l_dt = (i32)wire_len_qx(g, o->wire, 4) - (i32)g->ghook.len_max_q4;
         rope_l_dt     = clamp_i32(rope_l_dt, ROPE_L1, ROPE_L2);
         x_movement_q8 = lerp_i32(256, 0, rope_l_dt - ROPE_L1, ROPE_L2 - ROPE_L1);
         do_x_movement = 1;
 
-        v2_i32 rn_curr  = o->ropenode->p;
-        v2_i32 rn_next  = ropenode_neighbour(o->rope, o->ropenode)->p;
+        v2_i32 rn_curr  = o->wirenode->p;
+        v2_i32 rn_next  = wirenode_neighbour_of_end_node(o->wire, o->wirenode)->p;
         v2_i32 dtrope   = v2_i32_sub(rn_next, rn_curr);
         i32    dtrope_s = sgn_i32(dtrope.x);
         i32    dtrope_a = abs_i32(dtrope.x);
@@ -88,32 +92,43 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
         }
     } else {
         bool32 jumped = 0;
-        if (inps_btn_jp(inp, INP_A) && 0 < dp_y) {
+        if (inps_btn_jp(inp, INP_A) && 0 < dp_y && !h->aim_ticks) {
             do_x_movement = 0;
             o->v_q12.x    = 0;
             o->v_q12.y    = 0;
             owl_cancel_air(g, o);
             h->air_stomp = 1;
-        } else if (inps_btn_jp(inp, INP_A)) {
-            bool32 jump_ground = h->jump_edgeticks;
+        } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks) {
+            bool32 jump_ground = 0;
 
-            for (i32 y = 1; y < 6; y++) {
-                rec_i32 rr = {o->pos.x, o->pos.y + o->h - 1 + y, o->w, y};
-                v2_i32  pp = {0, y};
-                if (!map_blocked(g, rr) && obj_grounded_at_offs(g, o, pp)) {
-                    obj_move(g, o, 0, y);
-                    jump_ground = 1;
-                    break;
+            if (h->jump_edgeticks) {
+                jump_ground = 1;
+            } else {
+                for (i32 y = 1; y < 6; y++) {
+                    rec_i32 rr = {o->pos.x, o->pos.y + o->h - 1 + y, o->w, y};
+                    v2_i32  pp = {0, y};
+                    if (!map_blocked(g, rr) && obj_grounded_at_offs(g, o, pp)) {
+                        obj_move(g, o, 0, y);
+                        jump_ground = 1;
+                        break;
+                    }
                 }
             }
 
-            if (jump_ground) {
-                do_x_movement = 0;
+            if (jump_ground) { // jump off ground?
                 owl_on_touch_ground(g, o);
                 owl_cancel_air(g, o);
                 owl_jump_ground(g, o);
-                jumped = 1;
-            } else if (h->stamina) {
+                jumped        = 1;
+                do_x_movement = 0;
+            } else if (dp_x && owl_jump_wall(g, o, dp_x)) { // jump off wall?
+                jumped        = 1;
+                do_x_movement = 0;
+#if OWL_USE_ALT_AIR_JUMPS
+            } else {
+#else
+            } else if (h->stamina) { // can jump in air?
+#endif
                 owl_jump_air(g, o);
                 owl_stamina_modify(o, -OWL_STAMINA_AIR_JUMP_INIT);
                 jumped = 1;
@@ -133,18 +148,21 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
             }
         } else if (0 < h->jump_ticks) { // dynamic jump height
             if (inps_btn(inp, INP_A)) {
-                owl_jumpvar_s jv = g_owl_jumpvar[h->jump_index];
-                i32           t0 = (pow_i32(jv.ticks, 4) >> 8);
-                i32           ti = (pow_i32(h->jump_ticks, 4) >> 8) - t0;
-                i32           ch = jv.v0 - ((jv.v1 - jv.v0) * ti) / t0;
+                i32 t0 = (pow_i32(h->jump_ticks_max, 4) >> 8);
+                i32 ti = (pow_i32(h->jump_ticks, 4) >> 8) - t0;
+                i32 j0 = h->jump_vy0;
+                i32 j1 = h->jump_vy1;
+                i32 ch = j0 - ((j1 - j0) * ti) / t0;
                 o->v_q12.y -= ch;
                 h->jump_ticks--;
-                if (h->jump_index == OWL_JUMP_FLY) {
+#if !OWL_USE_ALT_AIR_JUMPS
+                if (h->jump_index == OWL_JUMP_AIR_0) {
                     owl_stamina_modify(o, -OWL_STAMINA_AIR_JUMP_HOLD);
                     if (!h->stamina) {
                         h->jump_ticks = 0;
                     }
                 }
+#endif
             } else { // cut jump short
                 snd_instance_stop_fade(h->jump_snd_iID, 200, 256);
                 obj_vy_q8_mul(o, Q_8(0.5));
@@ -160,13 +178,22 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
         i32 va = abs_i32(v_q12_post_x.x);
         i32 ax = 0;
 
+        if (dp_x != vs) {
+            v_q12_post_x.x = shr_balanced_i32(v_q12_post_x.x * 240, 8);
+        }
+
         if (vs == 0) {
-            ax = Q_VOBJ(0.78);
+            ax = Q_VOBJ(0.80);
         } else if (dp_x == +vs && va < OWL_VX_WALK) { // press same dir as velocity
-            ax = lerp_i32(Q_VOBJ(0.78), Q_VOBJ(0.08), va, OWL_VX_WALK);
+            ax = lerp_i32(Q_VOBJ(0.80), Q_VOBJ(0.08), va, OWL_VX_WALK);
             ax = min_i32(ax, OWL_VX_WALK - va);
         } else if (dp_x == -vs) {
-            ax = min_i32(Q_VOBJ(0.39), va);
+            ax = min_i32(Q_VOBJ(0.27), va);
+        }
+
+        if (h->air_walljump_ticks && o->facing == -dp_x) {
+            i32 i0 = OWL_WALLJUMP_TICKS_BLOCK - h->air_walljump_ticks;
+            // ax     = lerp_i32(0, ax, pow2_i32(i0), POW2(OWL_WALLJUMP_TICKS_BLOCK));
         }
 
 #if 0
@@ -176,23 +203,20 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
             ax     = lerp_i32(0, ax, pow2_i32(i0), pow2_i32(i1));
         }
 #endif
-
-        if (dp_x != vs) {
-            obj_vx_q8_mul(o, Q_8(0.95));
-        }
         v_q12_post_x.x += ax * dp_x;
     }
-
+#if 1
     o->v_q12.x = shr_balanced_i32(
         v_q12_post_x.x * x_movement_q8 + v_q12_post_rope.x * (256 - x_movement_q8),
         8);
+#endif
     o->v_q12.y = shr_balanced_i32(
         o->v_q12.y * x_movement_q8 + v_q12_post_rope.y * (256 - x_movement_q8),
         8);
 
     if (o->v_q12.y >= Q_VOBJ(7.0)) {
         o->animation++;
-        g->cam.cowl.force_higher_floor = min_i32(o->animation >> 1, 24);
+        g->cam.cowl.force_higher_floor = min_i32(o->animation, 24);
     } else {
         o->animation = 0;
     }
@@ -205,15 +229,48 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
 void owl_jump_air(g_s *g, obj_s *o)
 {
     owl_s        *h   = (owl_s *)o->heap;
-    owl_jumpvar_s jv  = g_owl_jumpvar[OWL_JUMP_FLY];
-    h->jump_index     = OWL_JUMP_FLY;
-    h->jump_ticks     = (u8)jv.ticks;
+    owl_jumpvar_s jv  = g_owl_jumpvar[OWL_JUMP_AIR_0];
+    h->jump_index     = OWL_JUMP_AIR_0;
     h->jump_edgeticks = 0;
+#if OWL_USE_ALT_AIR_JUMPS
+#if 1
+    h->n_air_jumps_max = 2;
+    if (h->n_air_jumps + 1 == h->n_air_jumps_max) {
+        h->jump_index = OWL_JUMP_AIR_1;
+    } else if (h->n_air_jumps >= h->n_air_jumps_max) {
+        h->jump_index = OWL_JUMP_AIR_2;
+    } else {
+        h->jump_index = OWL_JUMP_AIR_0;
+    }
+    jv = g_owl_jumpvar[h->jump_index];
 
-    if (o->v_q12.y <= -jv.vy) {
+    i32 vy             = jv.vy;
+    h->jump_ticks_max  = jv.ticks;
+    h->jump_ticks      = h->jump_ticks_max;
+    h->jump_vy0        = jv.v0;
+    h->jump_vy1        = jv.v1;
+    h->jump_anim_ticks = 1;
+#else
+    i32 vy            = max_i32(jv.vy - Q_VOBJ(0.25) * h->n_air_jumps, 0);
+    h->jump_ticks_max = max_i32(jv.ticks - 5 * h->n_air_jumps, 0);
+    h->jump_ticks     = h->jump_ticks_max;
+    h->jump_vy0       = jv.v0;
+    h->jump_vy1       = jv.v1;
+#endif
+
+#else
+    i32 vy            = jv.vy;
+    h->jump_ticks_max = jv.ticks;
+    h->jump_ticks     = h->jump_ticks_max;
+    h->jump_vy0       = jv.v0;
+    h->jump_vy1       = jv.v1;
+#endif
+
+    h->n_air_jumps++;
+    if (o->v_q12.y <= -vy) {
         o->v_q12.y -= Q_VOBJ(0.5);
     } else {
-        o->v_q12.y = -jv.vy;
+        o->v_q12.y = -vy;
     }
 
     snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));

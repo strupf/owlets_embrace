@@ -2,8 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "json.h"
-#include "str.h"
+#include "util/json.h"
+#include "util/str.h"
 
 bool32 txt_load_buf(const char *filename, char *buf, usize bufsize)
 {

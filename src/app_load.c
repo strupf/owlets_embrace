@@ -18,6 +18,8 @@ static void app_load_ani_internal(app_load_s *l, i32 ID, const void *name);
 
 err32 app_load_assets()
 {
+    asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
+
     g_s      *g = &APP.game;
     void     *f = 0;
     wad_el_s *e = 0;
@@ -26,6 +28,7 @@ err32 app_load_assets()
     app_load_s l = {0, f, 0, app_allocator()};
 
     // TEX ---------------------------------------------------------------------
+
     l.e = wad_seek_str(f, e, "WAD_TEX");
     if (!l.e) {
         l.err |= ASSETS_ERR_WAD_EL;
@@ -69,6 +72,7 @@ err32 app_load_assets()
     app_load_tex_internal(&l, TEXID_MOLE, "T_MOLE");
     app_load_tex_internal(&l, TEXID_LOOKAHEAD, "T_LOOKAHEAD");
     app_load_tex_internal(&l, TEXID_USECRANK, "T_USECRANK");
+    app_load_tex_internal(&l, TEXID_SAVEROOM, "T_SAVEROOM");
     APP.assets.tex[TEXID_PAUSE_TEX] =
         tex_create(400, 240, 0, app_allocator(), 0);
 
@@ -159,6 +163,8 @@ LOAD_ANI:;
     app_load_ani_internal(&l, ANIID_MOLE_DIG_OUT, "A_MOLE_DIG_OUT");
     app_load_ani_internal(&l, ANIID_MOLE_DIG_IN, "A_MOLE_DIG_IN");
     app_load_ani_internal(&l, ANIID_LOOKAHEAD, "A_LOOKAHEAD");
+    app_load_ani_internal(&l, ANIID_FALLASLEEP, "A_FALLASLEEP");
+    app_load_ani_internal(&l, ANIID_WAKEUP, "A_WAKEUP");
 
 LOAD_DONE:;
     if (!pltf_file_close(l.f)) {

@@ -12,11 +12,9 @@ void game_init(g_s *g)
 {
     g->savefile      = &APP.save;
     g->obj_head_free = &g->obj_raw[0];
-    for (i32 n = 0; n < NUM_OBJ; n++) {
-        obj_s *o = &g->obj_raw[n];
-        if (n < NUM_OBJ - 1) {
-            o->next = &g->obj_raw[n + 1];
-        }
+    for (i32 n = 1; n < NUM_OBJ; n++) {
+        obj_s *o = &g->obj_raw[n - 1];
+        o->next  = &g->obj_raw[n];
     }
 
     marena_init(&g->memarena, g->mem, sizeof(g->mem));
@@ -28,25 +26,37 @@ void game_init(g_s *g)
     assert(n_rooms <= GAME_N_ROOMS);
     g->n_map_rooms = 0;
 
+    i32 x1 = I32_MAX;
+    i32 y1 = I32_MAX;
+    i32 x2 = I32_MIN;
+    i32 y2 = I32_MIN;
     for (i32 k = 0; k < n_rooms; k++) {
         map_room_wad_s mrw = {0};
         pltf_file_r(f, &mrw, sizeof(map_room_wad_s));
 
         map_room_s mr = {0};
-        mr.hash       = mrw.hash;
-        mr.x          = mrw.x + 2050; // tiles, (32768 / 16) aligned to multiple of 25 (tiles per display width)
-        mr.y          = mrw.y + 2055; // tiles, (32768 / 16) aligned to multiple of 15 (tiles per display height);
-        mr.w          = mrw.w;
-        mr.h          = mrw.h;
-        mr.t          = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
+        mcpy(mr.map_name, mrw.map_name, sizeof(mr.map_name));
+        mr.x = mrw.x;
+        mr.y = mrw.y;
+        mr.w = mrw.w;
+        mr.h = mrw.h;
+        mr.t = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
         pltf_file_r(f, mr.t.px, sizeof(u32) * mr.t.wword * mr.t.h);
         g->map_rooms[g->n_map_rooms++] = mr;
+        x1                             = min_i32(x1, mr.x / 25);
+        y1                             = min_i32(y1, mr.y / 15);
+        x2                             = max_i32(x2, (mr.x + mr.w) / 25);
+        y2                             = max_i32(y2, (mr.y + mr.h) / 15);
     }
     pltf_file_close(f);
+    assert(0 <= x1 && 0 <= y1 && x2 < MINIMAP_SCREENS_X && y2 < MINIMAP_SCREENS_Y);
+    pltf_log("%i | %i | %i | %i\n", x1, y1, x2, y2);
 }
 
 void game_tick(g_s *g, inp_state_s inpstate)
 {
+    g->tick++;
+    g->tick_animation++;
     g->inp.p = g->inp.c;
     g->inp.c = inpstate;
 
@@ -100,9 +110,7 @@ void game_tick(g_s *g, inp_state_s inpstate)
         minimap_update(g);
     }
 
-    g->tick_animation++;
     if (tick_gp) {
-        g->tick++;
         game_tick_gameplay(g);
     }
 
@@ -111,6 +119,7 @@ void game_tick(g_s *g, inp_state_s inpstate)
 
 void game_tick_gameplay(g_s *g)
 {
+    g->tick_gameplay++;
     g->n_hitbox_tmp = 0;
     g->events_frame = 0;
 
@@ -217,17 +226,6 @@ void game_tick_gameplay(g_s *g)
     }
 
     objs_cull_to_delete(g);
-#if 0
-    if (hero_present_and_alive(g, &ohero)) {
-        inp_s heroinp = inp_cur();
-        hero_post_update(g, ohero, heroinp);
-        hero_state_check(g, ohero);
-
-        if (ohero->health == 0) {
-            cs_gameover_enter(g);
-        }
-    }
-#endif
     if ((owl = owl_if_present_and_alive(g))) {
         owl_on_update_post(g, owl, hinp);
     }
@@ -243,6 +241,12 @@ void game_anim(g_s *g)
     cam_update(g, &g->cam);
     g->cam_center    = cam_pos_px_center(g, &g->cam);
     g->darken_bg_q12 = clamp_i32(g->darken_bg_q12 + g->darken_bg_add, 0, 4096);
+
+    if (g->health_ui_show && g->health_ui_fade < HEALTH_UI_TICKS) {
+        g->health_ui_fade++;
+    } else if (!g->health_ui_show && g->health_ui_fade) {
+        g->health_ui_fade--;
+    }
 
     switch (g->area_anim_st) {
     case AREANAME_ST_INACTIVE: break;
@@ -381,20 +385,47 @@ void game_load_savefile(g_s *g)
         h->stamina_upgrades = s->stamina;
         h->stamina_max      = h->stamina_upgrades * OWL_STAMINA_PER_CONTAINER;
         h->stamina          = h->stamina_max;
+        mcpy(g->map_name, s->map_name, sizeof(s->map_name));
     }
 
-    game_load_map(g, s->map_hash);
-    o->pos.x = s->hero_pos.x - o->w / 2;
-    o->pos.y = s->hero_pos.y - o->h;
+    game_load_map(g, s->map_name);
 
+    obj_s *ocomp = 0;
     if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
-        companion_spawn(g, o);
+        ocomp = companion_create(g);
+    }
+
+    bool32 saveroom_pos_hero = 0;
+    bool32 saveroom_pos_comp = 0;
+    for (map_obj_each(g, i)) {
+        if (str_eq_nc(i->name, "saveroom_hero")) {
+            obj_place_to_map_obj(o, i, 0, +1);
+            saveroom_pos_hero = 1;
+        }
+        if (str_eq_nc(i->name, "saveroom_comp") && ocomp) {
+            obj_place_to_map_obj(ocomp, i, 0, +1);
+            ocomp->pos.y -= 4;
+            saveroom_pos_comp = 1;
+        }
+    }
+
+    if (!saveroom_pos_hero) {
+        o->pos.x = s->hero_pos.x - o->w / 2;
+        o->pos.y = s->hero_pos.y - o->h;
+    }
+    if (!saveroom_pos_comp && ocomp) {
+        ocomp->pos.x  = o->pos.x + 0;
+        ocomp->pos.y  = o->pos.y - 30;
+        ocomp->facing = o->facing;
     }
 
     cam_init_level(g, &g->cam);
     aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
     objs_animate(g);
     aud_allow_playing_new_snd(1);
+    if (saveroom_pos_hero) {
+        cs_on_load_enter(g);
+    }
     pltf_sync_timestep();
 }
 
@@ -407,13 +438,14 @@ void game_update_savefile(g_s *g)
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
         for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
-            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] | g->minimap.visited[(n << 1) + 1];
+            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] |
+                                g->minimap.visited[(n << 1) + 1];
         }
         s->tick       = g->tick;
         s->upgrades   = h->upgrades;
         s->n_map_pins = g->minimap.n_pins;
         s->coins      = coins_total(g);
-        s->health_max = 3;
+        s->health_max = h->health_max;
     }
     pltf_sync_timestep();
 }
@@ -424,7 +456,7 @@ bool32 game_save_savefile(g_s *g, v2_i32 pos)
     owl_s      *h = &g->owl;
     {
         game_update_savefile(g);
-        s->map_hash   = g->map_hash;
+        str_cpy(s->map_name, g->map_name);
         s->hero_pos.x = pos.x;
         s->hero_pos.y = pos.y;
     }
@@ -441,6 +473,7 @@ void game_on_solid_appear_ext(g_s *g, obj_s *s)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
     if (ohero) {
+        // TODO
         // hero_check_rope_intact(g, ohero);
     }
 

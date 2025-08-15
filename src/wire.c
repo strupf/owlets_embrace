@@ -2,58 +2,65 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "rope.h"
+#include "wire.h"
 #include "game.h"
 
+// corner struct: p = corner vertex, u and v are vectors to the connected neighbour corners
 typedef struct {
     v2_i32 p;
     v2_i32 u;
     v2_i32 v;
-} convex_vertex_s;
+} wire_convex_pt_s;
 
+// simple array struct
 typedef struct {
-    i32    n;
-    v2_i32 pt[64];
-} ropepts_s;
+    ALIGNAS(8)
+    i32     n;
+    v2_i32 *pt;
+} wire_pts_s;
 
-i32 ropepts_find(ropepts_s *pts, v2_i32 p)
-{
-    for (i32 i = 0; i < pts->n; i++) {
-        if (pts->pt[i].x == p.x && pts->pt[i].y == p.y)
-            return i;
-    }
-    return -1;
-}
+static i32         wire_pts_find(wire_pts_s *pts, v2_i32 p);
+static void        wire_pts_remove(wire_pts_s *pts, v2_i32 p);
+static wirenode_s *wirenode_insert(wire_s *r, wirenode_s *a, wirenode_s *b, v2_i32 p);
+static void        wirenode_delete(wire_s *r, wirenode_s *rn);
 
-void ropepts_remove(ropepts_s *pts, v2_i32 p)
+void wire_init(wire_s *r)
 {
-    i32 i = ropepts_find(pts, p);
-    if (0 <= i) {
-        pts->pt[i] = pts->pt[--pts->n];
-    }
-}
-
-void rope_init(rope_s *r)
-{
-    mclr(r, sizeof(rope_s));
-    for (i32 n = 2; n < NUM_ROPE_NODES - 1; n++) {
+    mclr(r, sizeof(wire_s));
+    for (i32 n = 2; n < NUM_WIRE_NODES - 1; n++) {
         r->nodesraw[n].next = &r->nodesraw[n + 1];
     }
     r->pool = &r->nodesraw[2];
 
-    ropenode_s *rh = &r->nodesraw[0];
-    ropenode_s *rt = &r->nodesraw[1];
+    wirenode_s *rh = &r->nodesraw[0];
+    wirenode_s *rt = &r->nodesraw[1];
     rh->next       = rt;
     rt->prev       = rh;
     r->head        = rh;
     r->tail        = rt;
 }
 
-ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
+void wire_init_as_copy(wire_s *r, wire_s *to_copy)
+{
+    wire_init(r);
+
+    r->head->p = to_copy->head->p;
+    r->tail->p = to_copy->tail->p;
+
+    for (wirenode_s *a = to_copy->head->next; a != to_copy->tail; a = a->next) {
+        wirenode_insert(r, r->tail->prev, r->tail, a->p);
+    }
+
+    r->pmax  = to_copy->pmax;
+    r->pmin  = to_copy->pmin;
+    r->dirty = to_copy->dirty;
+}
+
+static wirenode_s *wirenode_insert(wire_s *r, wirenode_s *a, wirenode_s *b, v2_i32 p)
 {
     assert((a->next == b && b->prev == a) ||
            (b->next == a && a->prev == b));
-    ropenode_s *rn = r->pool;
+    wirenode_s *rn = r->pool;
     if (!rn) {
         BAD_PATH
         return 0;
@@ -78,10 +85,10 @@ ropenode_s *ropenode_insert(rope_s *r, ropenode_s *a, ropenode_s *b, v2_i32 p)
     return rn;
 }
 
-void ropenode_delete(rope_s *r, ropenode_s *rn)
+static void wirenode_delete(wire_s *r, wirenode_s *rn)
 {
-    ropenode_s *prev = rn->prev;
-    ropenode_s *next = rn->next;
+    wirenode_s *prev = rn->prev;
+    wirenode_s *next = rn->next;
     assert(prev && next); // can only delete nodes in the middle
     if (!prev || !next) {
         BAD_PATH
@@ -96,16 +103,18 @@ void ropenode_delete(rope_s *r, ropenode_s *rn)
 
 // checks collinearity of a point and returns whether to add the point
 // and at which position
-static i32 rope_points_collinearity(ropepts_s *pts, v2_i32 c)
+static i32 wire_points_collinearity(wire_pts_s *pts, v2_i32 c)
 {
     for (i32 n = 0; n < pts->n - 1; n++) {
         v2_i32 a   = pts->pt[n];
         v2_i32 ac  = v2_i32_sub(c, a);
         u32    dac = v2_i32_lensq(ac);
+
         for (i32 i = n + 1; i < pts->n; i++) {
             v2_i32 b  = pts->pt[i];
             v2_i32 ab = v2_i32_sub(b, a);
             if (v2_i32_crs(ac, ab) != 0) continue;
+
             // at this point a, b, c are collinear which doesn't
             // work with our convex hull algorithm
             u32 dab = v2_i32_lensq(ab);
@@ -119,19 +128,20 @@ static i32 rope_points_collinearity(ropepts_s *pts, v2_i32 c)
     return pts->n;
 }
 
-static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
-                                 ropepts_s *pts)
+static void wire_try_add_point_in_tri(wire_convex_pt_s p, tri_i32 t1, tri_i32 t2, wire_pts_s *pts)
 {
     if (!overlap_tri_pnt_incl(t1, p.p) || !overlap_tri_pnt_incl(t2, p.p))
         return;
     lineseg_i32 lu = {p.p, p.u};
     lineseg_i32 lv = {p.p, p.v};
+
     if (!overlap_tri_lineseg_excl(t1, lu) && !overlap_tri_lineseg_excl(t1, lv) &&
         !overlap_tri_lineseg_excl(t2, lu) && !overlap_tri_lineseg_excl(t2, lv))
         return;
 
-    if (ropepts_find(pts, p.p) >= 0) return;
-    i32 k = rope_points_collinearity(pts, p.p);
+    if (wire_pts_find(pts, p.p) >= 0) return;
+
+    i32 k = wire_points_collinearity(pts, p.p);
     // add or overwrite
     if (k == pts->n) {
         pts->pt[pts->n++] = p.p;
@@ -140,7 +150,7 @@ static void try_add_point_in_tri(convex_vertex_s p, tri_i32 t1, tri_i32 t2,
     }
 }
 
-static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
+static void wire_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, wire_pts_s *pts)
 {
     assert(v2_i32_crs(v2_i32_sub(t1.p[2], t1.p[0]), v2_i32_sub(t1.p[1], t1.p[0])) != 0);
     assert(v2_i32_crs(v2_i32_sub(t2.p[2], t2.p[0]), v2_i32_sub(t2.p[1], t2.p[0])) != 0);
@@ -162,25 +172,25 @@ static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
                 v2_i32  p[4];
                 rec_i32 rblock = {pos.x, pos.y, 16, 16};
                 points_from_rec(rblock, p);
-                convex_vertex_s v0 = {p[0], p[1], p[2]};
-                convex_vertex_s v1 = {p[1], p[2], p[3]};
-                convex_vertex_s v2 = {p[2], p[3], p[0]};
-                convex_vertex_s v3 = {p[3], p[0], p[1]};
-                try_add_point_in_tri(v0, t1, t2, pts);
-                try_add_point_in_tri(v1, t1, t2, pts);
-                try_add_point_in_tri(v2, t1, t2, pts);
-                try_add_point_in_tri(v3, t1, t2, pts);
+                wire_convex_pt_s v0 = {p[0], p[1], p[2]};
+                wire_convex_pt_s v1 = {p[1], p[2], p[3]};
+                wire_convex_pt_s v2 = {p[2], p[3], p[0]};
+                wire_convex_pt_s v3 = {p[3], p[0], p[1]};
+                wire_try_add_point_in_tri(v0, t1, t2, pts);
+                wire_try_add_point_in_tri(v1, t1, t2, pts);
+                wire_try_add_point_in_tri(v2, t1, t2, pts);
+                wire_try_add_point_in_tri(v3, t1, t2, pts);
             }
             if (TILE_IS_SLOPE_45(t)) {
                 tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
                 v2_i32 *p  = tr.p;
 
-                convex_vertex_s v0 = {p[0], p[1], p[2]};
-                convex_vertex_s v1 = {p[1], p[2], p[0]};
-                convex_vertex_s v2 = {p[2], p[0], p[1]};
-                try_add_point_in_tri(v0, t1, t2, pts);
-                try_add_point_in_tri(v1, t1, t2, pts);
-                try_add_point_in_tri(v2, t1, t2, pts);
+                wire_convex_pt_s v0 = {p[0], p[1], p[2]};
+                wire_convex_pt_s v1 = {p[1], p[2], p[0]};
+                wire_convex_pt_s v2 = {p[2], p[0], p[1]};
+                wire_try_add_point_in_tri(v0, t1, t2, pts);
+                wire_try_add_point_in_tri(v1, t1, t2, pts);
+                wire_try_add_point_in_tri(v2, t1, t2, pts);
             }
         }
     }
@@ -190,20 +200,19 @@ static void rope_points_in_tris(g_s *g, tri_i32 t1, tri_i32 t2, ropepts_s *pts)
         v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
 
-        convex_vertex_s v0 = {p[0], p[1], p[2]};
-        convex_vertex_s v1 = {p[1], p[2], p[3]};
-        convex_vertex_s v2 = {p[2], p[3], p[0]};
-        convex_vertex_s v3 = {p[3], p[0], p[1]};
-        try_add_point_in_tri(v0, t1, t2, pts);
-        try_add_point_in_tri(v1, t1, t2, pts);
-        try_add_point_in_tri(v2, t1, t2, pts);
-        try_add_point_in_tri(v3, t1, t2, pts);
+        wire_convex_pt_s v0 = {p[0], p[1], p[2]};
+        wire_convex_pt_s v1 = {p[1], p[2], p[3]};
+        wire_convex_pt_s v2 = {p[2], p[3], p[0]};
+        wire_convex_pt_s v3 = {p[3], p[0], p[1]};
+        wire_try_add_point_in_tri(v0, t1, t2, pts);
+        wire_try_add_point_in_tri(v1, t1, t2, pts);
+        wire_try_add_point_in_tri(v2, t1, t2, pts);
+        wire_try_add_point_in_tri(v3, t1, t2, pts);
     }
 }
 
 // pts needs to contain pfrom and pto
-static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
-                                   i32 dir, ropepts_s *newnodes)
+static void wire_build_convex_hull(wire_pts_s *pts, v2_i32 pfrom, v2_i32 pto, i32 dir, wire_pts_s *newnodes)
 {
     i32 l = 0;
     i32 p = 0;
@@ -229,9 +238,7 @@ static void rope_build_convex_hull(ropepts_s *pts, v2_i32 pfrom, v2_i32 pto,
     } while (p != l);
 }
 
-void ropenode_on_moved(g_s *g, rope_s *r, ropenode_s *rn,
-                       v2_i32 p1, v2_i32 p2, ropenode_s *rn_anchor,
-                       tri_i32 subtri)
+static void wirenode_on_moved(g_s *g, wire_s *r, wirenode_s *rn, v2_i32 p1, v2_i32 p2, wirenode_s *rn_anchor, tri_i32 subtri)
 {
     assert((rn->next == rn_anchor && rn_anchor->prev == rn) ||
            (rn->prev == rn_anchor && rn_anchor->next == rn));
@@ -244,31 +251,31 @@ void ropenode_on_moved(g_s *g, rope_s *r, ropenode_s *rn,
     i32    dir = v2_i32_crs(v2_i32_sub(p1, p0), v2_i32_sub(p2, p0));
     if (dir == 0) return;
 
-    ropepts_s pts;
-    pts.n     = 2;
-    pts.pt[0] = p0;
-    pts.pt[1] = p2;
+    ALIGNAS(8) v2_i32 arr_pts[64];
+    arr_pts[0]     = p0;
+    arr_pts[1]     = p2;
+    wire_pts_s pts = {2, arr_pts};
 
     // add points inside the arc
     tri_i32 tri = {{p0, p1, p2}};
-    rope_points_in_tris(g, tri, subtri, &pts);
+    wire_points_in_tris(g, tri, subtri, &pts);
     if (pts.n != 2) {
         // at this point we have some obstacles
         // wrap the rope around them - build a convex hull
-        ropepts_s hull;
-        hull.n = 0;
-        rope_build_convex_hull(&pts, p0, p2, dir, &hull);
+        ALIGNAS(8) v2_i32 arr_hull[64];
+        wire_pts_s        hull = {0, arr_hull};
+        wire_build_convex_hull(&pts, p0, p2, dir, &hull);
 
         // point p_ropearc contains the "convex hull" when moving
         // from p1 around p0 to p2. Points in array are in the correct order
-        ropenode_s *rc = rn;
+        wirenode_s *rc = rn;
         for (i32 i = 0; i < hull.n; i++) {
-            rc = ropenode_insert(r, rn_anchor, rc, hull.pt[i]);
+            rc = wirenode_insert(r, rn_anchor, rc, hull.pt[i]);
         }
     }
 }
 
-void ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy)
+void wirenode_move(g_s *g, wire_s *r, wirenode_s *rn, i32 dx, i32 dy)
 {
     r->dirty     = 1;
     v2_i32 p_old = rn->p;
@@ -277,15 +284,15 @@ void ropenode_move(g_s *g, rope_s *r, ropenode_s *rn, i32 dx, i32 dy)
 
     if (rn->next) {
         tri_i32 tri = {{p_old, p_new, rn->next->p}};
-        ropenode_on_moved(g, r, rn, p_old, p_new, rn->next, tri);
+        wirenode_on_moved(g, r, rn, p_old, p_new, rn->next, tri);
     }
     if (rn->prev) {
         tri_i32 tri = {{p_old, p_new, rn->prev->p}};
-        ropenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
+        wirenode_on_moved(g, r, rn, p_old, p_new, rn->prev, tri);
     }
 }
 
-static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
+static void wire_move_vertex(g_s *g, wire_s *r, v2_i32 dt, v2_i32 point)
 {
     v2_i32      p_beg  = point;
     v2_i32      p_end  = v2_i32_add(p_beg, dt);
@@ -297,7 +304,7 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
     // solid vertex
     // here we SUPPOSE that neither head nor tail are directly
     // modified but instead pushed via an attached actor
-    for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
+    for (wirenode_s *r1 = r->head, *r2 = r->head->next; r2;
          r1 = r2, r2 = r2->next) {
         if (!overlap_lineseg_pnt_incl_excl(ls_mov, r1->p)) {
             continue;
@@ -307,16 +314,16 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
         r1->p        = p_end;
         if (r1->prev) {
             tri_i32 tri = {{r1->prev->p, rnold, p_end}};
-            ropenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
+            wirenode_on_moved(g, r, r1, rnold, p_end, r1->prev, tri);
         }
         if (r1->next) {
             tri_i32 tri = {{r1->next->p, rnold, p_end}};
-            ropenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
+            wirenode_on_moved(g, r, r1, rnold, p_end, r1->next, tri);
         }
     }
 
     // now check penetrating segments
-    for (ropenode_s *r1 = r->head, *r2 = r->head->next; r2;
+    for (wirenode_s *r1 = r->head, *r2 = r->head->next; r2;
          r1 = r2, r2 = r2->next) {
         lineseg_i32 ls = {r1->p, r2->p};
 
@@ -337,12 +344,12 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
             continue;
         }
 
-        ropenode_s *ri  = ropenode_insert(r, r1, r2, p_end);
+        wirenode_s *ri  = wirenode_insert(r, r1, r2, p_end);
         // only consider points which are on the
         // "side of penetration"
         tri_i32     tri = {{r1->p, r2->p, p_end}};
-        ropenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
-        ropenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
+        wirenode_on_moved(g, r, ri, p_beg, p_end, r1, tri);
+        wirenode_on_moved(g, r, ri, p_beg, p_end, r2, tri);
     }
 }
 
@@ -355,15 +362,16 @@ static void rope_move_vertex(g_s *g, rope_s *r, v2_i32 dt, v2_i32 point)
  *    \|     and ends up being inside the solid
  *     o______
  */
-void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
+void wire_moved_by_aabb(g_s *g, wire_s *r, rec_i32 aabb, i32 dx, i32 dy)
 {
-    v2_i32  points_[4];
-    rec_i32 rec = aabb;
+    ALIGNAS(32) v2_i32 points_[4];
+    rec_i32            rec = aabb;
     points_from_rec(aabb, points_);
 
     // only consider the points moving "forward" of the solid
-    v2_i32 points[2];
-    if (0 < dx) {
+    ALIGNAS(16) v2_i32 points[2];
+    if (0) {
+    } else if (0 < dx) {
         rec.w += dx;
         points[0] = points_[1];
         points[1] = points_[2];
@@ -390,13 +398,14 @@ void rope_moved_by_aabb(g_s *g, rope_s *r, rec_i32 aabb, i32 dx, i32 dy)
     r->dirty = 1;
 
     v2_i32 dt = {dx, dy};
-    rope_move_vertex(g, r, dt, points[0]);
-    rope_move_vertex(g, r, dt, points[1]);
+    wire_move_vertex(g, r, dt, points[0]);
+    wire_move_vertex(g, r, dt, points[1]);
 }
 
-bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v, v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
+static bool32 wire_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v, v2_i32 curr, v2_i32 c_to_p, v2_i32 c_to_n)
 {
     if (!v2_i32_eq(curr, p)) return 0;
+
     v2_i32 c_to_u = v2_i32_sub(u, curr);
     v2_i32 c_to_v = v2_i32_sub(v, curr);
     i32    s1     = v2_i32_crs(c_to_p, c_to_u);
@@ -407,7 +416,9 @@ bool32 rope_pt_convex(i32 z, v2_i32 p, v2_i32 u, v2_i32 v, v2_i32 curr, v2_i32 c
             (z <= 0 && s1 <= 0 && s2 >= 0 && t1 <= 0 && t2 >= 0));
 }
 
-void tighten_ropesegment(g_s *g, rope_s *r, ropenode_s *rp, ropenode_s *rc, ropenode_s *rn)
+// tries to optimize the path between rp and rn = short path, with rc being the node in question to be removed
+// --> check if rc can be deleted, and span/wrap the remaining wire around other corners
+static void wire_optimize_wiresegment(g_s *g, wire_s *r, wirenode_s *rp, wirenode_s *rc, wirenode_s *rn)
 {
     assert(rp->next == rc && rn->prev == rc &&
            rc->next == rn && rc->prev == rp);
@@ -417,7 +428,7 @@ void tighten_ropesegment(g_s *g, rope_s *r, ropenode_s *rp, ropenode_s *rc, rope
 
     // check if the three points are collinear
     if (v2_i32_crs(v2_i32_sub(pprev, pcurr), v2_i32_sub(pnext, pcurr)) == 0) {
-        ropenode_delete(r, rc);
+        wirenode_delete(r, rc);
         return;
     }
 
@@ -445,21 +456,23 @@ void tighten_ropesegment(g_s *g, rope_s *r, ropenode_s *rp, ropenode_s *rc, rope
 
             v2_i32 pos = {x << 4, y << 4};
             if (TILE_IS_BLOCK(t)) {
-                v2_i32  p[4];
-                rec_i32 re = {pos.x, pos.y, 16, 16};
+                ALIGNAS(32) v2_i32 p[4];
+                rec_i32            re = {pos.x, pos.y, 16, 16};
                 points_from_rec(re, p);
-                if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+
+                if (wire_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+                    wire_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+                    wire_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+                    wire_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
                     return;
             }
             if (TILE_IS_SLOPE_45(t)) {
-                tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
-                v2_i32 *p  = tr.p;
-                if (rope_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
-                    rope_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
+                ALIGNAS(32) tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
+                v2_i32             *p  = tr.p;
+
+                if (wire_pt_convex(z, p[0], p[1], p[2], pcurr, ctop, cton) ||
+                    wire_pt_convex(z, p[1], p[2], p[0], pcurr, ctop, cton) ||
+                    wire_pt_convex(z, p[2], p[0], p[1], pcurr, ctop, cton))
                     return;
             }
         }
@@ -467,47 +480,51 @@ void tighten_ropesegment(g_s *g, rope_s *r, ropenode_s *rp, ropenode_s *rc, rope
 
     for (obj_each(g, o)) {
         if (!(o->flags & OBJ_FLAG_SOLID)) continue;
-        v2_i32 p[4];
+
+        ALIGNAS(32) v2_i32 p[4];
         points_from_rec(obj_aabb(o), p);
-        if (rope_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
-            rope_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
-            rope_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
-            rope_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
+
+        if (wire_pt_convex(z, p[0], p[3], p[1], pcurr, ctop, cton) ||
+            wire_pt_convex(z, p[1], p[0], p[2], pcurr, ctop, cton) ||
+            wire_pt_convex(z, p[2], p[1], p[3], pcurr, ctop, cton) ||
+            wire_pt_convex(z, p[3], p[2], p[0], pcurr, ctop, cton))
             return;
     }
 
-    ropenode_delete(r, rc);
+    wirenode_delete(r, rc);
 
-    ropepts_s hull;
-    ropepts_s pts;
-    hull.n          = 0;
-    pts.n           = 0;
-    pts.pt[pts.n++] = pprev;
-    pts.pt[pts.n++] = pnext;
-    tri_i32 tri     = {{pprev, pcurr, pnext}};
-    rope_points_in_tris(g, tri, tri, &pts);
-    ropepts_remove(&pts, pcurr);                              // ignore vertex at p1
+    ALIGNAS(8) v2_i32 arr_pts[64];
+    ALIGNAS(8) v2_i32 arr_hull[64];
+    arr_pts[0]      = pprev;
+    arr_pts[1]      = pnext;
+    wire_pts_s hull = {0, arr_hull};
+    wire_pts_s pts  = {2, arr_pts};
+    tri_i32    tri  = {{pprev, pcurr, pnext}};
+    wire_points_in_tris(g, tri, tri, &pts);
+    wire_pts_remove(&pts, pcurr); // ignore vertex at p1
+
     if (pts.n != 2) {                                         // added another point
-        rope_build_convex_hull(&pts, pprev, pnext, z, &hull); // TODO: verify
+        wire_build_convex_hull(&pts, pprev, pnext, z, &hull); // TODO: verify
 
-        ropenode_s *tmp = rp;
-        for (int i = 0; i < hull.n; i++) {
-            tmp = ropenode_insert(r, tmp, rn, hull.pt[i]);
+        wirenode_s *tmp = rp;
+        for (i32 i = 0; i < hull.n; i++) {
+            tmp = wirenode_insert(r, tmp, rn, hull.pt[i]);
         }
     }
 }
 
-void rope_update(g_s *g, rope_s *r)
+void wire_optimize(g_s *g, wire_s *r)
 {
     assert(r->head);
     if (!r->dirty) return;
+
     r->dirty          = 0;
-    ropenode_s *rprev = r->head;
-    ropenode_s *rcurr = r->head->next;
-    ropenode_s *rnext = r->head->next->next;
+    wirenode_s *rprev = r->head;
+    wirenode_s *rcurr = r->head->next;
+    wirenode_s *rnext = r->head->next->next;
 
     while (rprev && rcurr && rnext) {
-        tighten_ropesegment(g, r, rprev, rcurr, rnext);
+        wire_optimize_wiresegment(g, r, rprev, rcurr, rnext);
         rcurr = rnext;
         rprev = rcurr->prev;
         rnext = rcurr->next;
@@ -516,48 +533,52 @@ void rope_update(g_s *g, rope_s *r)
     r->pmin = r->head->p;
     r->pmax = r->head->p;
 
-    for (ropenode_s *rn = r->head->next; rn; rn = rn->next) {
+    for (wirenode_s *rn = r->head->next; rn; rn = rn->next) {
         r->pmin = v2_min(r->pmin, rn->p);
         r->pmax = v2_max(r->pmax, rn->p);
     }
 }
 
-u32 rope_len_q4(g_s *g, rope_s *r)
+u32 wire_len_qx(g_s *g, wire_s *r, i32 q)
 {
-    rope_update(g, r);
-    u32 len = 0;
-    for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
-        v2_i32 dt = v2_i32_shl(v2_i32_sub(a->p, b->p), 4);
-        len += v2_i32_len(dt);
+    wire_optimize(g, r);
+    u32 l = 0;
+
+    for (wirenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
+        l += v2_i32_len_appr(v2_i32_shl(v2_i32_sub(a->p, b->p), q));
     }
-    return len;
+    return l;
 }
 
-bool32 rope_is_intact(g_s *g, rope_s *r)
+bool32 wire_is_intact(g_s *g, wire_s *r)
 {
-    for (ropenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
+    for (wirenode_s *a = r->head, *b = a->next; b; a = b, b = b->next) {
         lineseg_i32       ls     = {a->p, b->p};
-        tile_map_bounds_s bounds = tile_map_bounds_pts(g,
-                                                       v2_min(a->p, b->p),
-                                                       v2_max(a->p, b->p));
+        tile_map_bounds_s bounds = tile_map_bounds_pts(g, v2_min(a->p, b->p), v2_max(a->p, b->p));
 
         for (i32 y = bounds.y1; y <= bounds.y2; y++) {
             for (i32 x = bounds.x1; x <= bounds.x2; x++) {
-                i32 t = g->tiles[x + y * g->tiles_x].shape;
-                if (!(0 < t && t < NUM_TILE_SHAPES)) continue;
-
+                i32    t   = g->tiles[x + y * g->tiles_x].shape;
                 v2_i32 pos = {x << 4, y << 4};
-                if (TILE_IS_BLOCK(t)) {
+
+                switch (t) {
+                case TILE_BLOCK: {
                     rec_i32 rr = {pos.x, pos.y, 16, 16};
                     if (overlap_rec_lineseg_excl(rr, ls)) {
                         return 0;
                     }
+                    break;
                 }
-                if (TILE_IS_SLOPE_45(t)) {
+                case TILE_SLOPE_45_0:
+                case TILE_SLOPE_45_1:
+                case TILE_SLOPE_45_2:
+                case TILE_SLOPE_45_3: {
                     tri_i32 tr = translate_tri(((tri_i32 *)g_tile_tris)[t], pos);
                     if (overlap_tri_lineseg_excl(tr, ls)) {
                         return 0;
                     }
+                    break;
+                }
                 }
             }
         }
@@ -572,125 +593,25 @@ bool32 rope_is_intact(g_s *g, rope_s *r)
     return 1;
 }
 
-ropenode_s *ropenode_neighbour(rope_s *r, ropenode_s *rn)
+wirenode_s *wirenode_neighbour_of_end_node(wire_s *r, wirenode_s *rn)
 {
     assert(rn == r->head || rn == r->tail);
     return (rn->next ? rn->next : rn->prev);
 }
 
-typedef struct {
-    i32    i;
-    v2_i32 p;
-} verlet_pos_s;
-
-void rope_verletsim(g_s *g, rope_s *r)
+static i32 wire_pts_find(wire_pts_s *pts, v2_i32 p)
 {
-    // calculated current length in Q8
-    u32          ropelen_q8 = 1 + (rope_len_q4(g, r) << 4); // +1 to avoid div 0
-    i32          n_vpos     = 0;
-    verlet_pos_s vpos[64];
-    verlet_pos_s vp_beg = {0, v2_i32_shl(r->tail->p, 8)};
-    vpos[n_vpos++]      = vp_beg;
-
-    u32 dista = 0;
-    for (ropenode_s *r1 = r->tail, *r2 = r1->prev; r2; r1 = r2, r2 = r2->prev) {
-        dista += v2_i32_len(v2_i32_shl(v2_i32_sub(r1->p, r2->p), 4)) << 4;
-        i32 i = (dista * ROPE_VERLET_N) / ropelen_q8;
-        if (1 <= i && i < ROPE_VERLET_N - 1) {
-            verlet_pos_s vp = {i, v2_i32_shl(r2->p, 8)};
-            vpos[n_vpos++]  = vp;
-        }
+    for (i32 i = 0; i < pts->n; i++) {
+        if (v2_i32_eq(pts->pt[i], p))
+            return i;
     }
-
-    verlet_pos_s vp_end = {ROPE_VERLET_N - 1, v2_i32_shl(r->head->p, 8)};
-    vpos[n_vpos++]      = vp_end;
-
-    u32 ropelen_max_q8 = r->len_max_q4 << 4;
-    f32 len_ratio      = min_f32(1.f, (f32)ropelen_q8 / (f32)ropelen_max_q8);
-    i32 ll_q8          = (i32)((f32)ropelen_max_q8 * len_ratio) / ROPE_VERLET_N;
-
-    for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {
-        rope_pt_s *pt  = &r->ropept[n];
-        v2_i32     tmp = pt->p;
-        pt->p.x += (pt->p.x - pt->pp.x);
-        pt->p.y += (pt->p.y - pt->pp.y) + 60; // gravity
-        pt->pp = tmp;
-    }
-
-    for (i32 k = 0; k < 3; k++) {
-        for (i32 n = 1; n < ROPE_VERLET_N; n++) {
-            rope_pt_s *p1 = &r->ropept[n - 1];
-            rope_pt_s *p2 = &r->ropept[n];
-
-            v2_i32 dt = v2_i32_sub(p1->p, p2->p);
-            i32    dl = v2_i32_len_appr(dt);
-            i32    dd = dl - ll_q8;
-
-            if (dd <= 1) continue;
-            dt    = v2_i32_setlenl_small(dt, dl, dd >> 1);
-            p1->p = v2_i32_sub(p1->p, dt);
-            p2->p = v2_i32_add(p2->p, dt);
-        }
-
-        for (i32 n = n_vpos - 1; 0 <= n; n--) {
-            r->ropept[vpos[n].i].p = vpos[n].p;
-        }
-    }
-
-    if (len_ratio < 0.95f) return;
-
-    // straighten rope
-    for (i32 n = 1; n < ROPE_VERLET_N - 1; n++) {
-        bool32 contained = 0;
-
-        for (i32 i = 0; i < n_vpos; i++) {
-            if (vpos[i].i == n) {
-                contained = 1; // is fixed to corner already
-                break;
-            }
-        }
-        if (contained) continue;
-
-        // figure out previous and next corner of verlet particle
-        verlet_pos_s prev_vp = {0};
-        verlet_pos_s next_vp = {0};
-        prev_vp.i            = -1;
-        next_vp.i            = ROPE_VERLET_N;
-
-        for (i32 i = 0; i < n_vpos; i++) {
-            verlet_pos_s vp = vpos[i];
-
-            if (prev_vp.i < vp.i && vp.i < n) {
-                prev_vp = vpos[i];
-            }
-            if (vp.i < next_vp.i && n < vp.i) {
-                next_vp = vpos[i];
-            }
-        }
-
-        if (!(0 <= prev_vp.i && next_vp.i < ROPE_VERLET_N)) continue;
-
-        // lerp position of particle towards straight line between corners
-        v2_i32 ptarget = v2_i32_lerp(prev_vp.p, next_vp.p, n - prev_vp.i, next_vp.i - prev_vp.i);
-        r->ropept[n].p = v2_i32_lerp(r->ropept[n].p, ptarget, 1, 8);
-    }
+    return -1;
 }
 
-i32 rope_stretch_q8(g_s *g, rope_s *r)
+static void wire_pts_remove(wire_pts_s *pts, v2_i32 p)
 {
-    u32 len_q4 = rope_len_q4(g, r);
-    return ((len_q4 << 8) / r->len_max_q4);
-}
-
-obj_s *rope_obj_connected_to(obj_s *o)
-{
-    rope_s     *r  = o->rope;
-    ropenode_s *rn = o->ropenode;
-    if (r && rn) {
-        obj_s *o1 = obj_from_obj_handle(r->o_head);
-        obj_s *o2 = obj_from_obj_handle(r->o_tail);
-        if (o1 == o) return o2;
-        if (o2 == o) return o1;
+    i32 i = wire_pts_find(pts, p);
+    if (0 <= i) {
+        pts->pt[i] = pts->pt[--pts->n];
     }
-    return NULL;
 }

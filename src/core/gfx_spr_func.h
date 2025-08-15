@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "gfx.h"
+#include "core/gfx.h"
 #include "util/mathfunc.h"
 
 #if 0

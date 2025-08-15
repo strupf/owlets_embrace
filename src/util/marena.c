@@ -2,7 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "marena.h"
+#include "util/marena.h"
 
 void marena_init(marena_s *m, void *buf, usize bufs)
 {
@@ -11,11 +11,15 @@ void marena_init(marena_s *m, void *buf, usize bufs)
     marena_reset(m, 0);
 }
 
-void marena_align(marena_s *m, usize alignment)
+bool32 marena_align(marena_s *m, usize alignment)
 {
-    if (alignment) {
-        m->p = (byte *)align_ptr(m->p, alignment);
-    }
+    if (!alignment) return 1;
+
+    byte *p_aligned = (byte *)align_ptr(m->p, alignment);
+    if (m->buf + m->bufsize <= p_aligned) return 0;
+
+    m->p = p_aligned;
+    return 1;
 }
 
 void *marena_alloc(marena_s *m, usize s)
@@ -28,7 +32,7 @@ void *marena_alloc(marena_s *m, usize s)
 
 void *marena_alloc_aligned(marena_s *m, usize s, usize alignment)
 {
-    marena_align(m, alignment);
+    if (!marena_align(m, alignment)) return 0;
     return marena_alloc(m, s);
 }
 

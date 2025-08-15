@@ -68,16 +68,10 @@ void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
 {
     tex_s     tdisplay = asset_tex(0);
     gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
-    i32       alx      = APP.opt ? 3 : 1;
-    i32       aly      = APP.opt ? 3 : 1;
-    alx                = 3;
-    aly                = 3;
-    //  APP.opt            = pltf_sdl_key(SDL_SCANCODE_SPACE);
+    i32       alx      = 3;
+    i32       aly      = 3;
 
     cam_al.y = cam.y;
-    if (APP.opt) {
-        alx = 1;
-    }
 
     v2_i32 pos_mid  = {coord_parallax(cam_al.x + g->bg_offx, 192, alx),
                        coord_parallax(cam_al.y + g->bg_offy, 192, aly)};
@@ -107,10 +101,7 @@ void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
     case BACKGROUND_ID_CAVE: {
         texrec_s tr_far = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
         texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 512, 1024, 512);
-        if (APP.opt == 2) {
-            // tr_far.y += 1024;
-            tr_mid.y += 1024;
-        }
+
         tex_clr(tdisplay, GFX_COL_BLACK);
         gfx_spr_tileds_copy(ctx, tr_far, pos_far, 1, 1);
         gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);

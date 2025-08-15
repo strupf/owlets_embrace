@@ -2,21 +2,20 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#if PLTF_PD
 #ifndef PLTF_PD_H
 #define PLTF_PD_H
 
 #undef TARGET_EXTENSION
 #define TARGET_EXTENSION 1
 
-#include "PD/pd_api.h"
-#include "pltf_types.h"
+#include "pltf/PD/pd_api.h"
+#include "pltf/pltf_types.h"
 
 extern PlaydateAPI *PD;
 extern void (*PD_system_logToConsole)(const char *fmt, ...);
 extern void *(*PD_system_realloc)(void *ptr, size_t size);
-extern int (*PD_file_listfiles)(const char *path,
-                                void (*callback)(const char *filename, void *userdata),
-                                void *userdata, int showhidden);
+extern int (*PD_file_listfiles)(const char *path, void (*callback)(const char *filename, void *userdata), void *userdata, int showhidden);
 
 #define pltf_log_always PD_system_logToConsole
 
@@ -44,12 +43,9 @@ f32    pltf_pd_crank();
 bool32 pltf_pd_crank_docked();
 bool32 pltf_pd_flip_y();
 u32    pltf_pd_btn();
-void  *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
-                            void (*func)(void *ctx, i32 opt), void *ctx);
-void  *pltf_pd_menu_add(const char *title,
-                        void (*func)(void *ctx, i32 opt), void *ctx);
-void  *pltf_pd_menu_add_check(const char *title, i32                  v,
-                              void (*func)(void *ctx, i32 opt), void *ctx);
+void  *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt, void (*func)(void *ctx, i32 opt), void *ctx);
+void  *pltf_pd_menu_add(const char *title, void (*func)(void *ctx, i32 opt), void *ctx);
+void  *pltf_pd_menu_add_check(const char *title, i32 v, void (*func)(void *ctx, i32 opt), void *ctx);
 i32    pltf_pd_menu_opt_val(void *itemp);
 void   pltf_pd_menu_opt_val_set(void *itemp, i32 v);
 void   pltf_pd_menu_rem(void *itemp);
@@ -57,4 +53,5 @@ void   pltf_pd_menu_image_put(i32 offx);
 void   pltf_pd_menu_image_del();
 void   pltf_pd_menu_image_upd(u32 *p, i32 ww, i32 w, i32 h);
 
+#endif
 #endif

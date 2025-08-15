@@ -2,8 +2,10 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "pltf_pd.h"
-#include "pltf.h"
+#if PLTF_PD
+
+#include "pltf/pltf_pd.h"
+#include "pltf/pltf.h"
 
 PlaydateAPI *PD;
 
@@ -25,7 +27,7 @@ typedef struct {
 
 typedef struct {
     SoundSource   *soundsource;
-    PDButtons      b;
+    u32            b;
     bool32         reduce_flashing;
     bool32         acc_active;
     PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
@@ -152,9 +154,9 @@ u32 pltf_pd_btn()
 {
     PDButtons cur;
     PD_system_getButtonState(&cur, 0, 0);
-    PDButtons b = (PDButtons)((i32)g_PD.b | (i32)cur);
-    g_PD.b      = cur;
-    return (u32)b;
+    u32 b  = g_PD.b | (u32)cur;
+    g_PD.b = (u32)cur;
+    return b;
 }
 
 void pltf_internal_set_fps(f32 fps)
@@ -288,8 +290,7 @@ void pltf_pd_menu_cb(void *ctx)
     i->func(i->ctx, v);
 }
 
-void *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
-                           void (*func)(void *ctx, i32 opt), void *ctx)
+void *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt, void (*func)(void *ctx, i32 opt), void *ctx)
 {
     PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
     if (!i) return 0;
@@ -300,8 +301,7 @@ void *pltf_pd_menu_add_opt(const char *title, const char **opt, i32 n_opt,
     return i;
 }
 
-void *pltf_pd_menu_add(const char *title,
-                       void (*func)(void *ctx, i32 opt), void *ctx)
+void *pltf_pd_menu_add(const char *title, void (*func)(void *ctx, i32 opt), void *ctx)
 {
     PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
     if (!i) return 0;
@@ -311,8 +311,7 @@ void *pltf_pd_menu_add(const char *title,
     return i;
 }
 
-void *pltf_pd_menu_add_check(const char *title, i32                  v,
-                             void (*func)(void *ctx, i32 opt), void *ctx)
+void *pltf_pd_menu_add_check(const char *title, i32 v, void (*func)(void *ctx, i32 opt), void *ctx)
 {
     PD_menu_item_s *i = pltf_pd_try_menu_add(func, ctx);
     if (!i) return 0;
@@ -383,3 +382,4 @@ void pltf_pd_menu_image_upd(u32 *p, i32 ww, i32 w, i32 h)
         }
     }
 }
+#endif

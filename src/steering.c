@@ -4,10 +4,7 @@
 
 #include "game.h"
 
-v2_i32 steer_seek(v2_i32 p,
-                  v2_i32 v,
-                  v2_i32 p_trg,
-                  i32    vmax)
+v2_i32 steer_seek(v2_i32 p, v2_i32 v, v2_i32 p_trg, i32 vmax)
 {
     v2_i32 e = v2_i32_sub(p_trg, p);
     e        = v2_i32_setlen_fast(e, vmax);
@@ -15,20 +12,13 @@ v2_i32 steer_seek(v2_i32 p,
     return r;
 }
 
-v2_i32 steer_flee(v2_i32 p,
-                  v2_i32 v,
-                  v2_i32 p_trg,
-                  i32    vmax)
+v2_i32 steer_flee(v2_i32 p, v2_i32 v, v2_i32 p_trg, i32 vmax)
 {
     v2_i32 r = steer_seek(p, v, p_trg, vmax);
     return v2_i32_inv(r);
 }
 
-v2_i32 steer_arrival(v2_i32 p,
-                     v2_i32 v,
-                     v2_i32 p_trg,
-                     i32    vmax,
-                     i32    radius)
+v2_i32 steer_arrival(v2_i32 p, v2_i32 v, v2_i32 p_trg, i32 vmax, i32 radius)
 {
     v2_i32 e    = v2_i32_sub(p_trg, p);
     i32    l    = v2_i32_len_appr(e);
@@ -42,10 +32,7 @@ v2_i32 steer_arrival(v2_i32 p,
     return r;
 }
 
-v2_f32 steerf_seek(v2_f32 p,
-                   v2_f32 v,
-                   v2_f32 p_trg,
-                   f32    vmax)
+v2_f32 steerf_seek(v2_f32 p, v2_f32 v, v2_f32 p_trg, f32 vmax)
 {
     v2_f32 e = v2f_sub(p_trg, p);
     e        = v2f_setlen(e, vmax);
@@ -53,20 +40,13 @@ v2_f32 steerf_seek(v2_f32 p,
     return r;
 }
 
-v2_f32 steerf_flee(v2_f32 p,
-                   v2_f32 v,
-                   v2_f32 p_trg,
-                   f32    vmax)
+v2_f32 steerf_flee(v2_f32 p, v2_f32 v, v2_f32 p_trg, f32 vmax)
 {
     v2_f32 r = steerf_seek(p, v, p_trg, vmax);
     return v2f_inv(r);
 }
 
-v2_f32 steerf_arrival(v2_f32 p,
-                      v2_f32 v,
-                      v2_f32 p_trg,
-                      f32    vmax,
-                      f32    radius)
+v2_f32 steerf_arrival(v2_f32 p, v2_f32 v, v2_f32 p_trg, f32 vmax, f32 radius)
 {
     v2_f32 e    = v2f_sub(p_trg, p);
     f32    l    = v2f_len(e);

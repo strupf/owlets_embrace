@@ -10,7 +10,7 @@ obj_s *puppet_mole_create(g_s *g, v2_i32 pfeet)
     o->pos.x           = pfeet.x;
     o->pos.y           = pfeet.y;
     o->facing          = 1;
-    o->render_priority = RENDER_PRIO_HERO - 1;
+    o->render_priority = RENDER_PRIO_OWL - 1;
     return o;
 }
 

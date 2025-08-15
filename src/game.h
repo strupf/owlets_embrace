@@ -15,24 +15,25 @@
 #include "fluid_area.h"
 #include "game_trigger.h"
 #include "gamedef.h"
-#include "grapplinghook.h"
 #include "map_loader.h"
 #include "minimap.h"
 #include "obj.h"
 #include "obj/puppet.h"
-#include "owl.h"
+#include "owl/grapplinghook.h"
+#include "owl/owl.h"
 #include "particle.h"
 #include "particle_defs.h"
 #include "render.h"
-#include "rope.h"
 #include "save.h"
 #include "settings.h"
 #include "steering.h"
 #include "tile_map.h"
 #include "vfx_area.h"
 #include "wiggle.h"
+#include "wire.h"
 
 #define GAME_N_ROOMS 256
+#define NUM_TILES    65536
 
 enum {
     AREANAME_ST_INACTIVE,
@@ -46,6 +47,7 @@ enum {
 #define AREANAME_TICKS_IN    30
 #define AREANAME_TICKS_SHOW  255
 #define AREANAME_TICKS_OUT   30
+#define HEALTH_UI_TICKS      50
 
 enum {
     EVENT_HIT_ENEMY       = 1 << 0,
@@ -73,16 +75,16 @@ enum {
 enum {
     RENDER_PRIO_BACKGROUND            = 8,
     RENDER_PRIO_BEHIND_TERRAIN_LAYER  = 16,
-    RENDER_PRIO_HERO                  = 24,
+    RENDER_PRIO_OWL                   = 24,
     RENDER_PRIO_INFRONT_FLUID_AREA    = 32,
     RENDER_PRIO_INFRONT_TERRAIN_LAYER = 40,
     RENDER_PRIO_UI_LEVEL              = 240,
     //
-    RENDER_PRIO_DEFAULT_OBJ           = RENDER_PRIO_HERO - 1,
+    RENDER_PRIO_DEFAULT_OBJ           = RENDER_PRIO_OWL - 1,
 };
 
 typedef struct {
-    u32 hash;
+    u8  map_name[MAP_WAD_NAME_LEN];
     u8  flags;
     u8  unused[3];
     i16 x;
@@ -97,7 +99,7 @@ enum {
 
 typedef struct {
     tex_s t;
-    u32   hash;
+    u8    map_name[MAP_WAD_NAME_LEN];
     u8    flags;
     u8    unused[3];
     i16   x;
@@ -145,13 +147,24 @@ typedef struct {
     u8  k_q8; // parallax factor
 } foreground_el_s;
 
+typedef struct {
+    wire_s     *r;
+    wirenode_s *rn_head; // non-null if ropenode is "standalone"/not tied to an obj
+    wirenode_s *rn_tail; // non-null if ropenode is "standalone"/not tied to an obj
+    void       *ctx;
+    void (*on_blocked)(void *ctx, wire_s *r);
+    void (*on_pushed_ropenode)(void *ctx, wire_s *r, wirenode_s *rn, i32 sx, i32 sy);
+} rope_handle_s;
+
 struct g_s {
     savefile_s     *savefile;
-    inp_s           inp; // current input state
-    i32             tick;
-    i32             tick_animation;
-    i32             tick_playtime;
-    u32             map_hash;
+    inp_s           inp;            // current input state
+    i32             tick;           // total playtime of this save
+    i32             tick_animation; // incremented every frame, reset between rooms
+    i32             tick_gameplay;  // incremented every logical gameplay frame
+    //
+    u8              map_name[MAP_WAD_NAME_LEN]; // technical name of the room in editor
+    b8              map_is_mapped;              // appears on minimap
     //
     i16             n_map_rooms;
     i16             n_fg;
@@ -160,6 +173,8 @@ struct g_s {
     u8              save_slot;
     u8              freeze_tick;
     u8              substate;
+    u8              health_ui_fade;
+    bool8           health_ui_show;
     bool8           dark;
     bool8           previewmode;
     bool8           block_update;
@@ -181,7 +196,7 @@ struct g_s {
     cam_s           cam;
     cs_s            cs;
     u32             events_frame; // flags
-    u32             hurt_lp_tick;
+    u16             hurt_lp_tick;
     u8              music_ID;
     u8              area_ID;
     u8              background_ID;
@@ -189,7 +204,7 @@ struct g_s {
     u8              areaname[32];
     u8              area_anim_tick;
     u8              area_anim_st;
-    u32             enemies_killed;
+    i32             enemies_killed;
     i32             tiles_x;
     i32             tiles_y;
     i32             pixel_x;
@@ -199,7 +214,7 @@ struct g_s {
     u8              fluid_streams[NUM_TILES];
     i16             bg_offx;
     i16             bg_offy;
-    i32             n_hitbox_tmp;
+    i16             n_hitbox_tmp;
     hitbox_tmp_s    hitbox_tmp[16];
     obj_s          *obj_head_busy; // linked list
     obj_s          *obj_head_free; // linked list
@@ -224,10 +239,12 @@ struct g_s {
     deco_verlet_s   deco_verlet[NUM_DECO_VERLET];
     i32             n_fluid_areas;
     fluid_area_s    fluid_areas[16];
+    i32             n_ropes;
+    wire_s         *ropes[16];
     particle_sys_s  particle_sys;
     i32             n_save_points;
     v2_i32          save_points[8];
-    u32             save_events[NUM_SAVE_EV / 32];
+    u32             save_events[(NUM_SAVE_EV + 31) / 32];
     marena_s        memarena;
     byte            mem[MKILOBYTE(2048)];
 };
@@ -259,8 +276,7 @@ void   game_unlock_map(g_s *g); // play cool cutscene and stuff later, too
 void   hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r);
 i32    game_owl_hitID_next(g_s *g);
 void   game_cue_area_music(g_s *g);
-bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
-                     f32 *vol, f32 *pan);
+bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r, f32 *vol, f32 *pan);
 
 // positive: fade bg to black
 // negative: fade black to bg

@@ -31,6 +31,13 @@ void cs_aquire_heartpiece_update(g_s *g, cs_s *cs)
         break;
     case 1:
         if (100 <= cs->tick) {
+            cs->phase++;
+            cs->tick = 0;
+            puppet_set_anim(cs->p_owl, PUPPET_OWL_ANIMID_PRESENT_ABOVE_TO_IDLE, 0);
+        }
+        break;
+    case 2:
+        if (20 <= cs->tick) {
             puppet_owl_replace_and_del(g, obj_get_owl(g), cs->p_owl);
             cs_reset(g);
             g->block_owl_control = 0;

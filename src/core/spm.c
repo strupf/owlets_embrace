@@ -2,14 +2,15 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "spm.h"
+#include "core/spm.h"
 #include "app.h"
 
-void spm_init()
+void spm_init(void *buf, usize bsize)
 {
-    marena_init(&APP.spm.m, APP.spm.mem, sizeof(APP.spm.mem));
+    marena_init(&APP.spm.m, buf, bsize);
+    pltf_log("SPM init with: %u kb\n", (u32)bsize / 1024);
 #if PLTF_DEV_ENV
-    APP.spm.lowestleft = sizeof(APP.spm.mem);
+    APP.spm.lowestleft = bsize;
 #endif
 }
 

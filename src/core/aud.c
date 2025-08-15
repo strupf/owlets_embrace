@@ -2,31 +2,17 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "aud.h"
+#include "core/aud.h"
 #include "app.h"
+#include "core/qoa.h"
 #include "gamedef.h"
-#include "qoa.h"
 #include "util/mathfunc.h"
 
 static void       aud_cmd_execute(aud_cmd_s cmd_u);
 static void       aud_push_cmd(aud_cmd_s c);
 static inline u32 aud_cmd_next_index(u32 i);
 static void       muschannel_stop(muschannel_s *mc);
-
-// no callback yet - can't be interruped
-err32 aud_init()
-{
-    aud_s *aud    = &APP.aud;
-    aud->v_mus_q8 = ((i32)SETTINGS.vol_mus << 7) / SETTINGS_VOL_MAX;
-    aud->v_sfx_q8 = ((i32)SETTINGS.vol_sfx << 8) / SETTINGS_VOL_MAX;
-#if 1
-    aud->v_mus_q8 = 0;
-#endif
-#if 0
-    aud->v_sfx_q8 = 0;
-#endif
-    return 0;
-}
+static inline i32 aud_vol_q8_from_ratio(i32 num, i32 den);
 
 // removed from callback - can't be interruped anymore
 void aud_destroy()
@@ -38,6 +24,7 @@ void aud_destroy()
 
 void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len)
 {
+    a->time += len;
     // assumption: provided buffers are 0 filled
 
     // flush audio commands
@@ -162,6 +149,12 @@ static void aud_cmd_execute(aud_cmd_s cmd_u)
 {
     switch (cmd_u.type) {
     default: break;
+    case AUD_CMD_VOL_SETTING: {
+        aud_cmd_vol_setting_s *c = &cmd_u.c.vol;
+        APP.aud.v_mus_q8         = c->vol_mus_q8;
+        APP.aud.v_sfx_q8         = c->vol_snd_q8;
+        break;
+    }
     case AUD_CMD_SND_MOD: {
         aud_cmd_snd_mod_s *c = &cmd_u.c.snd_mod;
 
@@ -390,6 +383,21 @@ void mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade)
     aud_push_cmd(cmd);
 }
 
+static inline i32 aud_vol_q8_from_ratio(i32 num, i32 den)
+{
+    return (pow2_i32(clamp_i32(num, 0, den)) << 8) / (den * den);
+}
+
+void aud_vol_set(i32 vol_mus, i32 vol_snd, i32 vol_max)
+{
+    aud_cmd_s              cmd = {0};
+    aud_cmd_vol_setting_s *c   = &cmd.c.vol;
+    cmd.type                   = AUD_CMD_VOL_SETTING;
+    c->vol_mus_q8              = aud_vol_q8_from_ratio(vol_mus, vol_max);
+    c->vol_snd_q8              = aud_vol_q8_from_ratio(vol_snd, vol_max);
+    aud_push_cmd(cmd);
+}
+
 void mus_play(const void *fname)
 {
     mus_play_extv(fname, 0, 0, 0, 0, 256);
@@ -400,12 +408,12 @@ static void muschannel_stop(muschannel_s *mc)
     qoa_mus_end(&mc->qoa_str);
 }
 
-i32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
+u32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
 {
     return snd_instance_play_ext(s, vol, pitch, 0);
 }
 
-i32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
+u32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
 {
     aud_s *a = &APP.aud;
 
@@ -416,7 +424,7 @@ i32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
     i32 pitch_q8 = (i32)(pitch * 256.5f);
     if (vol_q8 <= 4) return 0; // might as well not play it
 
-    a->snd_iID = (a->snd_iID < I32_MAX ? a->snd_iID + 1 : 1);
+    a->snd_iID = max_u32(a->snd_iID + 1, 1);
 
     aud_cmd_s           cmd = {0};
     aud_cmd_snd_play_s *c   = &cmd.c.snd_play;

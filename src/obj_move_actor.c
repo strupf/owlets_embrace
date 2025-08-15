@@ -4,7 +4,6 @@
 
 #include "game.h"
 
-b32  obj_step_actor(g_s *g, obj_s *o, i32 sx, i32 sy);
 b32  obj_actor_blocked(g_s *g, obj_s *o, rec_i32 r, i32 sx, i32 sy);
 void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy);
 
@@ -221,7 +220,7 @@ void obj_step_actor_commit(g_s *g, obj_s *o, i32 sx, i32 sy)
 
     o->pos.x += sx;
     o->pos.y += sy;
-    if (o->ropenode) {
-        ropenode_move(g, o->rope, o->ropenode, sx, sy);
+    if (o->wirenode) {
+        wirenode_move(g, o->wire, o->wirenode, sx, sy);
     }
 }

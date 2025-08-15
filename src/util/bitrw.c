@@ -2,8 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "bitrw.h"
-#include "mathfunc.h"
+#include "util/bitrw.h"
+#include "util/mathfunc.h"
 
 // read up to 32 bits from the buffer
 u32 bitrw_r_stream(bitrw_s *br, i32                                   nbits,

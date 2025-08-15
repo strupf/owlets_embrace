@@ -7,8 +7,9 @@
 
 #include "gamedef.h"
 #include "objdef.h"
+#include "owl/grapplinghook.h"
 #include "particle.h"
-#include "rope.h"
+#include "wire.h"
 
 #define NUM_OBJ       256
 #define OBJ_MEM_BYTES 512
@@ -34,13 +35,11 @@
 #define OBJ_FLAG_SOLID          ((u32)1 << 31)
 #define OBJ_FLAG_PUSHABLE_SOLID (((u32)1 << 17) | OBJ_FLAG_SOLID)
 
-#define OBJ_FLAG_DONT_SHOW_UPDATE (OBJ_FLAG_DONT_UPDATE | OBJ_FLAG_DONT_SHOW)
-#define OBJ_FLAG_GRABBABLE_SOLID  (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
-#define OBJ_FLAG_PLATFORM_ANY     (OBJ_FLAG_PLATFORM | OBJ_FLAG_OWL_PLATFORM)
-
-#define OBJ_FLAG_OWL_JUMPSTOMPABLE (OBJ_FLAG_OWL_STOMPABLE | \
-                                    OBJ_FLAG_OWL_JUMPABLE)
-#define OBJ_FLAG_CLAMP_TO_ROOM (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
+#define OBJ_FLAG_DONT_SHOW_UPDATE  (OBJ_FLAG_DONT_UPDATE | OBJ_FLAG_DONT_SHOW)
+#define OBJ_FLAG_GRABBABLE_SOLID   (OBJ_FLAG_SOLID | OBJ_FLAG_GRAB)
+#define OBJ_FLAG_PLATFORM_ANY      (OBJ_FLAG_PLATFORM | OBJ_FLAG_OWL_PLATFORM)
+#define OBJ_FLAG_OWL_JUMPSTOMPABLE (OBJ_FLAG_OWL_STOMPABLE | OBJ_FLAG_OWL_JUMPABLE)
+#define OBJ_FLAG_CLAMP_TO_ROOM     (OBJ_FLAG_CLAMP_ROOM_X | OBJ_FLAG_CLAMP_ROOM_Y)
 
 enum {
     OBJ_BUMP_X_NEG     = 1 << 0,
@@ -89,12 +88,13 @@ typedef struct {
 } obj_sprite_s;
 
 typedef void (*obj_action_f)(g_s *g, obj_s *o);
-typedef void (*obj_hooked_f)(g_s *g, obj_s *o, b32 hooked);
+typedef void (*obj_value_f)(g_s *g, obj_s *o, i32 v);
 typedef void (*obj_enemy_hurt_f)(g_s *g, obj_s *o, i32 dmg);
 typedef void (*obj_draw_f)(g_s *g, obj_s *o, v2_i32 cam);
-typedef void (*obj_trigger_f)(g_s *g, obj_s *o, i32 trigger);
-typedef i32 (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dir);
+typedef void (*obj_pushpull_f)(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
+typedef bool32 (*obj_pushpull_blocked_f)(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 typedef void (*obj_impulse_f)(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
+typedef void (*obj_pushed_by_solid_f)(g_s *g, obj_s *o, obj_s *osolid, i32 sx, i32 sy);
 
 typedef struct enemy_s {
     obj_action_f on_hurt; // void f(g_s *g, obj_s *o);
@@ -113,38 +113,38 @@ typedef struct enemy_s {
 #define OBJ_MAGIC U32_C(0xABABABAB)
 struct obj_s {
     ALIGNAS(32)
-    obj_s         *next; // linked list
-    obj_s         *prev;
-    u32            flags;
-    u16            ID;         // type of object
-    u16            subID;      // subtype of object
-    u32            generation; // how often this object was instantiated
-    u32            editorID;
-    //
-    obj_action_f   on_update;         // void f(g_s *g, obj_s *o);
-    obj_action_f   on_animate;        // void f(g_s *g, obj_s *o);
-    obj_draw_f     on_draw;           // void f(g_s *g, obj_s *o, v2_i32 cam);
-    obj_trigger_f  on_trigger;        // void f(g_s *g, obj_s *o, i32 trigger);
-    obj_action_f   on_grab;           // void f(g_s *g, obj_s *o);
-    obj_action_f   on_ungrab;         // void f(g_s *g, obj_s *o);
-    obj_pushpull_f on_pushpull;       // i32 f(g_s *g, obj_s *o, i32 d);
-    obj_action_f   on_squish;         // void f(g_s *g, obj_s *o);
-    obj_action_f   on_touchhurt_hero; // void f(g_s *g, obj_s *o);
-    obj_action_f   on_interact;       // void f(g_s *g, obj_s *o);
-    obj_hooked_f   on_hook;           // void f(g_s *g, obj_s *o, bool32 hooked);
-    obj_impulse_f  on_impulse;        // void f(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
-    //
-    ALIGNAS(16)
+    obj_s *next; // linked list
+    obj_s *prev;
+    u32    flags;
+    u16    ID;         // type of object
+    u16    subID;      // subtype of object
+    u32    generation; // how often this object was instantiated
+    u32    editorID;
+
+    obj_action_f           on_update;           // void f(g_s *g, obj_s *o);
+    obj_action_f           on_animate;          // void f(g_s *g, obj_s *o);
+    obj_draw_f             on_draw;             // void f(g_s *g, obj_s *o, v2_i32 cam);
+    obj_value_f            on_trigger;          // void f(g_s *g, obj_s *o, i32 trigger);
+    obj_pushpull_f         on_pushpull;         // void f(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
+    obj_pushpull_blocked_f on_pushpull_blocked; // bool32 f(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
+    obj_action_f           on_squish;           // void f(g_s *g, obj_s *o);
+    obj_action_f           on_touchhurt_hero;   // void f(g_s *g, obj_s *o);
+    obj_action_f           on_interact;         // void f(g_s *g, obj_s *o);
+    obj_value_f            on_hook;             // void f(g_s *g, obj_s *o, bool32 state);
+    obj_value_f            on_grab;             // void f(g_s *g, obj_s *o, bool32 state);
+    obj_impulse_f          on_impulse;          // void f(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
+    obj_pushed_by_solid_f  on_pushed_by_solid;  // void f(g_s *g, obj_s *o, obj_s *osolid, i32 sx, i32 sy);
+
+    ALIGNAS(32)
     v2_i32           pos; // position in pixels
     i16              w;
     i16              h;
-    v2_i32           subpos_q12; // subpixel used for movement
+    v2_i32           subpos_q12; // subpixel used for movement; more like an accumulator
     v2_i32           v_q12;
     v2_i32           v_prev_q12;
     // some generic behaviour fields
     u16              bumpflags; // has to be cleared manually
     u16              moverflags;
-    i32              trigger;
     i16              state;
     i16              substate;
     i16              action;
@@ -156,24 +156,24 @@ struct obj_s {
     u8               render_priority;
     u8               health;
     u8               health_max;
-    b8               interactable_hovered;
     u8               light_radius;
     u8               light_strength;
     b8               blinking;
+    u8               pushable_weight;
     u8               n_sprites;
     u8               n_ignored_solids;
     ropeobj_param_s  ropeobj;
     v2_i8            offs_interact_ui; // offset of interaction UI
     v2_i8            offs_interact;    // offset of interaction anchor (logic) from center
     enemy_s          enemy;
-    ropenode_s      *ropenode;
-    rope_s          *rope;
+    wirenode_s      *wirenode;
+    wire_s          *wire;
     obj_handle_s     linked_solid;
     particle_emit_s *emitter;
     obj_sprite_s     sprites[4];
     obj_handle_s     ignored_solids[4];
     void            *heap;
-    ALIGNAS(8)
+    ALIGNAS(32)
     byte mem[OBJ_MEM_BYTES];
     u32  magic;
 };
@@ -206,13 +206,13 @@ void         obj_move(g_s *g, obj_s *o, i32 dx, i32 dy);
 bool32       obj_step_is_clamped(g_s *g, obj_s *o, i32 sx, i32 sy);
 void         obj_move_by_v_q12(g_s *g, obj_s *o);
 void         obj_step_solid(g_s *g, obj_s *o, i32 sx, i32 sy);
+b32          obj_step_actor(g_s *g, obj_s *o, i32 sx, i32 sy);
 bool32       obj_try_wiggle(g_s *g, obj_s *o);
 bool32       obj_grounded(g_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
 bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(g_s *g, obj_s *o);
 void         obj_move_by_q12(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
-void         obj_move_by_v_q12(g_s *g, obj_s *o);
 void         obj_v_q8_mul(obj_s *o, i32 mx_q8, i32 my_q8);
 void         obj_vx_q8_mul(obj_s *o, i32 mx_q8);
 void         obj_vy_q8_mul(obj_s *o, i32 my_q8);
@@ -227,6 +227,8 @@ enemy_s      enemy_default();
 void         enemy_hurt(g_s *g, obj_s *o, i32 dmg);
 i32          obj_distsq(obj_s *a, obj_s *b);    // between centers
 i32          obj_dist_appr(obj_s *a, obj_s *b); // between centers
+v2_i32       obj_solid_align_pos_for_render(g_s *g, v2_i32 p);
+bool32       obj_pushpull_blocked_default(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 
 // whether one object is standing on top of another
 // offx/y added to position of o_plat

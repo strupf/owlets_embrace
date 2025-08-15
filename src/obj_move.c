@@ -4,7 +4,7 @@
 
 #include "game.h"
 #include "obj.h"
-#include "rope.h"
+#include "wire.h"
 
 bool32 obj_on_platform(g_s *g, obj_s *o, i32 x, i32 y, i32 w)
 {

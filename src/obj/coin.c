@@ -33,7 +33,7 @@ obj_s *coin_create(g_s *g)
     o->n_sprites       = 1;
     obj_sprite_s *spr  = &o->sprites[0];
     spr->flip          = gfx_spr_flip_rng(1, 0);
-    o->render_priority = RENDER_PRIO_HERO + 1;
+    o->render_priority = RENDER_PRIO_OWL + 1;
     return o;
 }
 

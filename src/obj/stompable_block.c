@@ -13,6 +13,7 @@ enum {
 typedef struct {
     i32    saveID;
     bool32 standingon;
+    i32    trigger_on_destroy;
 } stompable_block_s;
 
 #define DITHERAREA_TICKS      50
@@ -76,15 +77,16 @@ void stompable_block_load(g_s *g, map_obj_s *mo)
     o->ID    = OBJID_STOMPABLE_BLOCK;
     o->flags = OBJ_FLAG_SOLID |
                OBJ_FLAG_CLIMBABLE;
-    o->on_draw           = stompable_block_on_draw;
-    o->on_update         = stompable_block_on_update;
-    o->render_priority   = RENDER_PRIO_INFRONT_TERRAIN_LAYER - 1;
-    stompable_block_s *b = (stompable_block_s *)o->mem;
-    b->saveID            = saveID;
-    o->w                 = mo->w;
-    o->h                 = mo->h;
-    o->pos.x             = mo->x;
-    o->pos.y             = mo->y;
+    o->on_draw            = stompable_block_on_draw;
+    o->on_update          = stompable_block_on_update;
+    o->render_priority    = RENDER_PRIO_INFRONT_TERRAIN_LAYER - 1;
+    stompable_block_s *b  = (stompable_block_s *)o->mem;
+    b->trigger_on_destroy = map_obj_i32(mo, "triggers");
+    b->saveID             = saveID;
+    o->w                  = mo->w;
+    o->h                  = mo->h;
+    o->pos.x              = mo->x;
+    o->pos.y              = mo->y;
 }
 
 void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)
@@ -118,17 +120,14 @@ void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam)
 
         for (i32 ty = 0; ty < ny; ty++) {
             for (i32 tx = 0; tx < nx; tx++) {
-                i32 k = tileindex_terrain_block(nx, ny,
-                                                tile_type,
-                                                tx, ty);
+                i32 k = tileindex_terrain_block(nx, ny, tile_type, tx, ty);
 
                 // subdivide each tile in 4 subtile particles
                 for (i32 i = 0; i < 4; i++) {
                     i32 u = i & 1;
                     i32 v = i >> 1;
 
-                    texrec_s trec = {tterrain, (u << 4), (v << 4) + (k << 5),
-                                     16, 16};
+                    texrec_s trec = {tterrain, (u << 4), (v << 4) + (k << 5), 16, 16};
                     v2_i32   v_q8 = {rngsr_i32(&s, -100, +100),
                                      rngsr_i32(&s, -150, +150) - 350};
                     v2_i32   p_q8 = {v_q8.x * t,
@@ -155,12 +154,10 @@ void stompable_block_on_update(g_s *g, obj_s *o)
         }
 
         obj_s *ohero = 0;
-#if 0
-        if (!hero_present_and_alive(g, &ohero)) {
+        if (!(ohero = owl_if_present_and_alive(g))) {
             b->standingon = 0;
             break;
         }
-#endif
 
         bool32 standingon = obj_standing_on(ohero, o, 0, 0);
 
@@ -203,4 +200,6 @@ void stompable_block_break(g_s *g, obj_s *o)
             i->timer = DITHERAREA_TICKS;
         }
     }
+
+    game_on_trigger(g, b->trigger_on_destroy);
 }

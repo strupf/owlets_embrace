@@ -3,7 +3,7 @@
 // =============================================================================
 
 #include "game.h"
-#include "owl.h"
+#include "owl/owl.h"
 
 void owl_water(g_s *g, obj_s *o, inp_s inp)
 {
@@ -91,8 +91,17 @@ void owl_water(g_s *g, obj_s *o, inp_s inp)
         }
 
         if (dp_x != sgn_i32(o->v_q12.x)) {
-            o->v_q12.x /= 2;
+            o->v_q12.x = shr_balanced_i32((i32)o->v_q12.x, 1);
+        } else if (OWL_VX_SWIM < abs_i32(o->v_q12.x)) {
+            i32 vx_dampened = shr_balanced_i32((i32)o->v_q12.x * 246, 8);
+            if (+OWL_VX_SWIM < o->v_q12.x) {
+                o->v_q12.x = max_i32(vx_dampened, +OWL_VX_SWIM);
+            }
+            if (-OWL_VX_SWIM > o->v_q12.x) {
+                o->v_q12.x = min_i32(vx_dampened, -OWL_VX_SWIM);
+            }
         }
+
         if (dp_x) {
             i32 i0 = (dp_x == sgn_i32(o->v_q12.x) ? abs_i32(o->v_q12.x) : 0);
             i32 ax = (max_i32(OWL_VX_SWIM - i0, 0) * 32) >> 8;

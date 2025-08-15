@@ -14,13 +14,13 @@ typedef struct marena_s {
     usize bufsize;
 } marena_s;
 
-void  marena_init(marena_s *m, void *buf, usize bufs);
-void  marena_align(marena_s *m, usize alignment);
-void *marena_alloc(marena_s *m, usize s);
-void *marena_alloc_aligned(marena_s *m, usize s, usize alignment);
-void *marena_p(marena_s *m);
-void  marena_reset(marena_s *m, void *p);
-void *marena_alloc_rem(marena_s *m, usize *s);
-usize marena_rem(marena_s *m);
+void   marena_init(marena_s *m, void *buf, usize bufs);
+bool32 marena_align(marena_s *m, usize alignment);
+void  *marena_alloc(marena_s *m, usize s);
+void  *marena_alloc_aligned(marena_s *m, usize s, usize alignment);
+void  *marena_p(marena_s *m);
+void   marena_reset(marena_s *m, void *p);
+void  *marena_alloc_rem(marena_s *m, usize *s);
+usize  marena_rem(marena_s *m);
 
 #endif

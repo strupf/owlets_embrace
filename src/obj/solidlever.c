@@ -18,7 +18,7 @@ typedef struct {
 } solidlever_s;
 
 bool32 solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy);
-i32    solidlever_on_pushpull(g_s *g, obj_s *o, i32 dir);
+void   solidlever_on_pushpull(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 void   solidlever_on_grab(g_s *g, obj_s *o);
 void   solidlever_on_ungrab(g_s *g, obj_s *o);
 void   solidlever_on_update(g_s *g, obj_s *o);
@@ -30,7 +30,7 @@ void solidlever_load(g_s *g, map_obj_s *mo)
     solidlever_s *s = (solidlever_s *)o->mem;
     o->ID           = OBJID_SOLIDLEVER;
     o->on_update    = solidlever_on_update;
-    o->on_grab      = solidlever_on_grab;
+    // o->on_grab      = solidlever_on_grab;
     o->on_pushpull  = solidlever_on_pushpull;
     o->on_draw      = solidlever_on_draw;
     o->w            = 32;
@@ -96,12 +96,8 @@ bool32 solidlever_on_move(g_s *g, obj_s *o, i32 dx, i32 dy)
     return tomove;
 }
 
-i32 solidlever_on_pushpull(g_s *g, obj_s *o, i32 dir)
+void solidlever_on_pushpull(g_s *g, obj_s *o, i32 dt_x, i32 dt_y)
 {
-    if (solidlever_on_move(g, o, dir, 0)) {
-        return dir;
-    }
-    return 0;
 }
 
 void solidlever_on_grab(g_s *g, obj_s *o)

@@ -2,19 +2,13 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
-#include "assets.h"
+#include "core/assets.h"
 #include "app.h"
 #include "gamedef.h"
 #include "util/lzss.h"
 #include "wad.h"
 
 i32 assets_gen_texID();
-
-i32 assets_init()
-{
-    asset_tex_putID(TEXID_DISPLAY, tex_framebuffer());
-    return 0;
-}
 
 tex_s *asset_texptr(i32 ID)
 {

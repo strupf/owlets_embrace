@@ -151,7 +151,7 @@ void tile_map_set_collision(g_s *g, rec_i32 r, i32 shape, i32 type)
         for (i32 x = 0; x < nx; x++) {
             i32 u = x + tx;
             i32 v = y + ty;
-            if (0 <= u && u < g->tiles_x && 0 <= v && v < g->tiles_y) {
+            if ((u32)u < (u32)g->tiles_x && (u32)v < (u32)g->tiles_y) {
                 tile_s *t = &g->tiles[u + v * g->tiles_x];
                 t->shape  = shape;
                 t->type   = type;
@@ -172,9 +172,7 @@ bool32 map_blocked_excl_offs(g_s *g, rec_i32 r, obj_s *o, i32 dx, i32 dy)
     if (tile_map_solid(g, ri)) return 1;
 
     for (obj_each(g, i)) {
-        if (i != o &&
-            (i->flags & OBJ_FLAG_SOLID) &&
-            overlap_rec(r, obj_aabb(i)) &&
+        if (i != o && (i->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(i)) &&
             !obj_ignores_solid(o, i, 0)) {
             return 1;
         }
@@ -293,7 +291,7 @@ static bool32 autotile_is_inner_gradient(tile_s *tiles, i32 w, i32 h, i32 x, i32
             i32 u = x + xx;
             i32 v = y + yy;
 
-            if (0 <= u && u < w && 0 <= v && v < h) {
+            if ((u32)u < (u32)w && (u32)v < (u32)h) {
                 tile_s *tj      = &tiles[u + v * w];
                 i32     tjshape = tile_get_shape(tj);
                 i32     tjtype  = tile_get_type(tj);
@@ -342,7 +340,7 @@ static bool32 autotile_terrain_is(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, i32
 {
     i32 u = x + sx;
     i32 v = y + sy;
-    if (!(0 <= u && u < w && 0 <= v && v < h)) return 1;
+    if (!((u32)u < (u32)w && (u32)v < (u32)h)) return 1;
 
     tile_s *a = &tiles[x + y * w];
     tile_s *b = &tiles[u + v * w];
@@ -374,7 +372,7 @@ static bool32 autotile_terrain_is(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, i32
 
 static i32 autotile_marching(tile_s *tiles, i32 w, i32 h, i32 x, i32 y)
 {
-    if (!(0 <= x && x < w && 0 <= y && y < h)) return 0xFF;
+    if (!((u32)x < (u32)w && (u32)y < (u32)h)) return 0xFF;
     tile_s *tile = &tiles[x + y * w];
     if (tile_get_type(tile) < 3) return 0;
 
@@ -401,7 +399,7 @@ static bool32 autotile_dual_border(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, i3
 
     i32 u = x + sx;
     i32 v = y + sy;
-    if (!(0 <= u && u < w && 0 <= v && v < h)) return 0;
+    if (!((u32)u < (u32)w && (u32)v < (u32)h)) return 0;
     tile_s *t = &tiles[u + v * w];
     if (tile_get_type(t) == 6) return 0;
 
@@ -553,7 +551,7 @@ static bool32 autotilebg_is(u8 *tiles, i32 w, i32 h, i32 x, i32 y, i32 sx, i32 s
 {
     i32 u = x + sx;
     i32 v = y + sy;
-    if (!(0 <= u && u < w && 0 <= v && v < h)) return 1;
+    if (!((u32)u < (u32)w && (u32)v < (u32)h)) return 1;
     return (0 < tiles[u + v * w]);
 }
 

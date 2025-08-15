@@ -33,8 +33,9 @@ void cs_finding_comp_update(g_s *g, cs_s *cs)
         if (50 <= cs->tick) {
             obj_s *op = companion_create(g);
             puppet_companion_replace_and_del(g, op, cs->p_comp);
-            puppet_owl_replace_and_del(g, obj_get_owl(g), cs->p_owl);
-            // TODO: add upgrade
+            obj_s *owl = obj_get_owl(g);
+            puppet_owl_replace_and_del(g, owl, cs->p_owl);
+            owl_upgrade_add(owl, OWL_UPGRADE_COMPANION);
             cs_reset(g);
             g->block_owl_control = 0;
         }

@@ -4,7 +4,7 @@
 
 #include "obj.h"
 #include "game.h"
-#include "rope.h"
+#include "wire.h"
 
 obj_handle_s obj_handle_from_obj(obj_s *o)
 {
@@ -49,9 +49,10 @@ obj_s *obj_create(g_s *g)
     if (g->obj_head_busy) {
         g->obj_head_busy->prev = o;
     }
-    g->obj_head_busy   = o;
-    o->render_priority = RENDER_PRIO_DEFAULT_OBJ;
-    o->on_squish       = obj_delete;
+    g->obj_head_busy       = o;
+    o->render_priority     = RENDER_PRIO_DEFAULT_OBJ;
+    o->on_squish           = obj_delete;
+    o->on_pushpull_blocked = obj_pushpull_blocked_default;
 #if PLTF_DEBUG
     o->magic = OBJ_MAGIC;
 #if 0
@@ -402,4 +403,30 @@ bool32 obj_standing_on(obj_s *o_standing_on, obj_s *o_plat, i32 offx, i32 offy)
     rec_i32 rb = obj_rec_bottom(o_standing_on);
     rec_i32 rt = {o_plat->pos.x + offx, o_plat->pos.y + offy, o_plat->w, 1};
     return overlap_rec(rb, rt);
+}
+
+v2_i32 obj_solid_align_pos_for_render(g_s *g, v2_i32 p)
+{
+    v2_i32 r = p;
+    // v2_i32 r = {(p.x) & ~1, p.y & ~1};
+    if (g->cam.cowl.can_align_x) {
+        //  r.x--;
+    }
+    r.x &= ~1;
+    r.y &= ~1;
+    return r;
+}
+
+bool32 obj_pushpull_blocked_default(g_s *g, obj_s *o, i32 dt_x, i32 dt_y)
+{
+    rec_i32 r = obj_aabb(o);
+    r.w += abs_i32(dt_x);
+    r.h += abs_i32(dt_y);
+    if (dt_x < 0) {
+        r.x += dt_x;
+    }
+    if (dt_y < 0) {
+        r.y += dt_y;
+    }
+    return map_blocked_excl(g, r, o);
 }
