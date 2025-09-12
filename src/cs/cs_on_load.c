@@ -6,17 +6,17 @@
 
 #include "game.h"
 
-void cs_on_load_update(g_s *g, cs_s *cs);
+void cs_on_load_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_on_load_title_wakeup(g_s *g);
 
 void cs_on_load_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update        = cs_on_load_update;
-    g->block_owl_control = 1;
-    obj_s *owl           = obj_get_owl(g);
-    cs->p_owl            = puppet_owl_put(g, owl);
+    cs->on_update = cs_on_load_update;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+    obj_s *owl = obj_get_owl(g);
+    cs->p_owl  = puppet_owl_put(g, owl);
     puppet_set_anim(cs->p_owl, PUPPET_OWL_ANIMID_SLEEP, 0);
 
     obj_s *comp = obj_get_comp(g);
@@ -41,11 +41,11 @@ void cs_on_load_title_wakeup(g_s *g)
     cs->tick  = 0;
 }
 
-void cs_on_load_update(g_s *g, cs_s *cs)
+void cs_on_load_update(g_s *g, cs_s *cs, inp_s inp)
 {
     // any button just pressed
-    bool32 btn_any  = inp_btn(INP_A) || inp_btn(INP_B) || inp_x() || inp_y();
-    bool32 btn_anyp = inp_btnp(INP_A) || inp_btnp(INP_B) || inp_xp() || inp_yp();
+    bool32 btn_any  = inps_btn(inp, INP_A) || inps_btn(inp, INP_B) || inps_x(inp) || inps_y(inp);
+    bool32 btn_anyp = inps_btnp(inp, INP_A) || inps_btnp(inp, INP_B) || inps_xp(inp) || inps_yp(inp);
 
     switch (cs->phase) {
     case 0: break; // blocked until trigger
@@ -97,8 +97,8 @@ void cs_on_load_update(g_s *g, cs_s *cs)
     case 4: {
         if (cs->tick < 1) break;
 
-        g->block_owl_control = 0;
-        obj_s *owl           = obj_get_owl(g);
+        g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
+        obj_s *owl = obj_get_owl(g);
         puppet_owl_replace_and_del(g, owl, cs->p_owl);
         cs_reset(g);
         break;

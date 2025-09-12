@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-void cs_template_update(g_s *g, cs_s *cs);
+void cs_template_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_template_on_trigger(g_s *g, cs_s *cs, i32 trigger);
 void cs_template_cb_comp(g_s *g, obj_s *o, void *ctx);
 
@@ -12,13 +12,13 @@ void cs_template_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update        = cs_template_update;
-    cs->on_trigger       = cs_template_on_trigger;
-    g->block_owl_control = 1;
-    cs->p_comp           = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
+    cs->on_update  = cs_template_update;
+    cs->on_trigger = cs_template_on_trigger;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+    cs->p_comp = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
 }
 
-void cs_template_update(g_s *g, cs_s *cs)
+void cs_template_update(g_s *g, cs_s *cs, inp_s inp)
 {
     switch (cs->phase) {
     default: break;

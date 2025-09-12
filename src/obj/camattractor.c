@@ -26,6 +26,7 @@ void camattractor_load(g_s *g, map_obj_s *mo)
 
     obj_s          *o = obj_create(g);
     camattractor_s *c = (camattractor_s *)o->mem;
+    o->UUID           = mo->UUID;
     o->ID             = OBJID_CAMATTRACTOR;
     o->pos.x          = mo->x + (mo->w >> 1);
     o->pos.y          = mo->y + (mo->h >> 1);

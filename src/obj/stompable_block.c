@@ -16,54 +16,7 @@ typedef struct {
     i32    trigger_on_destroy;
 } stompable_block_s;
 
-#define DITHERAREA_TICKS      50
 #define STOMPABLE_TICKS_BREAK 80
-
-void ditherarea_on_update(g_s *g, obj_s *o);
-void ditherarea_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-
-void ditherarea_load(g_s *g, map_obj_s *mo)
-{
-    i32 saveID = map_obj_i32(mo, "saveID_readonly");
-    if (save_event_exists(g, saveID)) return;
-
-    obj_s *o           = obj_create(g);
-    o->ID              = OBJID_DITHERAREA;
-    o->render_priority = RENDER_PRIO_INFRONT_TERRAIN_LAYER - 2;
-    o->on_update       = ditherarea_on_update;
-    o->on_draw         = ditherarea_on_draw;
-    o->pos.x           = mo->x;
-    o->pos.y           = mo->y;
-    o->w               = mo->w;
-    o->h               = mo->h;
-    o->state           = saveID;
-}
-
-void ditherarea_on_update(g_s *g, obj_s *o)
-{
-    if (o->timer) {
-        o->timer--;
-        if (o->timer == 0) {
-            obj_delete(g, o);
-        }
-    }
-}
-
-void ditherarea_on_draw(g_s *g, obj_s *o, v2_i32 cam)
-{
-    gfx_ctx_s ctx = gfx_ctx_display();
-    rec_i32   rf  = translate_rec(obj_aabb(o), cam.x, cam.y);
-    if (o->timer) {
-        ctx.pat = gfx_pattern_interpolate(o->timer, DITHERAREA_TICKS + 4);
-    } else {
-        ctx.pat = gfx_pattern_4x4(B4(1111),
-                                  B4(1111),
-                                  B4(1111),
-                                  B4(0111));
-    }
-
-    gfx_rec_fill(ctx, rf, GFX_COL_BLACK);
-}
 
 void stompable_block_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void stompable_block_on_update(g_s *g, obj_s *o);
@@ -75,6 +28,7 @@ void stompable_block_load(g_s *g, map_obj_s *mo)
 
     obj_s *o = obj_create(g);
     o->ID    = OBJID_STOMPABLE_BLOCK;
+    o->UUID  = mo->UUID;
     o->flags = OBJ_FLAG_SOLID |
                OBJ_FLAG_CLIMBABLE;
     o->on_draw            = stompable_block_on_draw;
@@ -193,13 +147,6 @@ void stompable_block_break(g_s *g, obj_s *o)
     o->state = STOMPABLEBLOCK_BREAKING;
     o->timer = 0;
     o->flags &= ~OBJ_FLAG_SOLID;
-
-    for (obj_each(g, i)) {
-        if (i->ID != OBJID_DITHERAREA) continue;
-        if (i->state == b->saveID) {
-            i->timer = DITHERAREA_TICKS;
-        }
-    }
 
     game_on_trigger(g, b->trigger_on_destroy);
 }

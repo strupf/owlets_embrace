@@ -12,24 +12,15 @@
 void map_obj_load_misc(g_s *g, map_obj_s *mo);
 void map_obj_parse(g_s *g, map_obj_s *o);
 
-typedef struct {
-    u16 x;
-    u16 y;
+typedef struct map_header_s {
+    u32 hash;
+    i32 x;
+    i32 y;
     u16 w;
     u16 h;
-} map_entry_s;
-
-typedef struct map_header_s {
-    u32         hash;
-    i32         x;
-    i32         y;
-    u16         w;
-    u16         h;
-    u16         n_fg;
-    u8          n_obj;
-    u8          n_prop;
-    u8          n_entries;
-    map_entry_s entries[16];
+    u16 n_fg;
+    u8  n_obj;
+    u8  n_prop;
 } map_header_s;
 
 typedef struct {
@@ -54,9 +45,11 @@ enum {
 };
 
 typedef struct {
-    u16 bytes;
-    u16 type;
-    u8  name[24];
+    ALIGNAS(4)
+    u16 hash;
+    u8  size_words;
+    u8  type;
+    // u8  name[24];
     union {
         i32 n; // array: num elements
         i32 i;
@@ -105,8 +98,11 @@ void loader_load_bg(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h);
 void game_load_map(g_s *g, u8 *map_name)
 {
     // READ FILE ===============================================================
-    u8       *map_name_mod = map_loader_room_mod(g, map_name);
-    u32       map_hash     = wad_hash(map_name_mod);
+    u8 *map_name_mod = map_loader_room_mod(g, map_name);
+    str_cpy(g->map_name, map_name);
+    str_cpy(g->map_name_mod, map_name_mod);
+
+    u32       map_hash = hash_str(map_name_mod);
     void     *f;
     wad_el_s *wad_el;
     if (!wad_open(map_hash, &f, &wad_el)) {
@@ -125,15 +121,16 @@ void game_load_map(g_s *g, u8 *map_name)
     u32 seed_visuals = map_hash;
     g->bg_offx       = rngsr_i32(&seed_visuals, 0, I16_MAX);
     g->bg_offy       = rngsr_i32(&seed_visuals, 0, I16_MAX);
-    str_cpy(g->map_name, map_name_mod);
-    g->tiles_x = w;
-    g->tiles_y = h;
-    g->pixel_x = w << 4;
-    g->pixel_y = h << 4;
+    g->tiles_x       = w;
+    g->tiles_y       = h;
+    g->pixel_x       = w << 4;
+    g->pixel_y       = h << 4;
     assert((w * h) <= NUM_TILES);
 
     for (obj_each(g, o)) {
-        if (o->ID != OBJID_OWL) {
+        if (o->ID == OBJID_OWL) {
+            mclr_field(o->hitboxIDs);
+        } else {
             obj_delete(g, o);
         }
     }
@@ -151,7 +148,6 @@ void game_load_map(g_s *g, u8 *map_name)
     mclr_field(g->particle_sys);
     mclr_field(g->ghook);
     mclr_field(g->battleroom);
-
     g->coins.n += g->coins.n_change;
     g->coins.n_change   = 0;
     g->n_grass          = 0;
@@ -161,23 +157,16 @@ void game_load_map(g_s *g, u8 *map_name)
     g->cam.has_trg      = 0;
     g->cam.trg_fade_q12 = 0;
     g->n_fluid_areas    = 0;
-    g->n_map_doors      = 0;
-    g->n_map_pits       = 0;
     g->darken_bg_q12    = 0;
     g->darken_bg_add    = 0;
     g->n_save_points    = 0;
     g->n_fg             = 0;
     g->tick_animation   = 0;
     g->n_ropes          = 0;
+    g->hitbox_UID       = 0;
+    g->map_room_cur     = map_room_find(g, 0, map_name);
+    g->map_room_cur_mod = map_room_find(g, 0, map_name_mod);
     marena_reset(&g->memarena, 0);
-
-    for (i32 n = 0; n < g->n_map_rooms; n++) {
-        map_room_s *mn = &g->map_rooms[n];
-        if (wad_hash(mn->map_name) == map_hash) {
-            g->map_room_cur = mn;
-            break;
-        }
-    }
     assert(g->map_room_cur);
 
     // PROPERTIES ==============================================================
@@ -185,15 +174,6 @@ void game_load_map(g_s *g, u8 *map_name)
     i32 vfx_ID        = map_prop_i32(mapp, "VFX_ID");
     i32 music_ID      = map_prop_i32(mapp, "MUSIC_ID");
     i32 background_ID = map_prop_i32(mapp, "BACKGROUND_ID");
-
-    for (i32 n = 0; n < hd->n_entries; n++) {
-        map_door_s  *md = &g->map_doors[g->n_map_doors++];
-        map_entry_s *me = &hd->entries[n];
-        md->x           = me->x;
-        md->y           = me->y;
-        md->w           = me->w;
-        md->h           = me->h;
-    }
 
     switch (vfx_ID) {
     default: break;
@@ -219,11 +199,11 @@ void game_load_map(g_s *g, u8 *map_name)
     g->background_ID  = background_ID;
     g->vfx_ID         = vfx_ID;
 
-    if (!g->previewmode && !same_music) {
+    if (!(g->flags & GAME_FLAG_TITLE_PREVIEW) && !same_music) {
         game_cue_area_music(g);
     }
 
-    if (!g->previewmode) {
+    if (!(g->flags & GAME_FLAG_TITLE_PREVIEW)) {
         g->area_anim_st   = 1;
         g->area_anim_tick = 0;
     }
@@ -255,12 +235,12 @@ void game_load_map(g_s *g, u8 *map_name)
     }
 
     wad_el_s *e_objs = wad_seek_str(f, wad_el, "OBJS");
-    g->map_objs      = game_alloc(g, e_objs->size, 4);
+    g->map_objs      = game_per_room_alloc(g, e_objs->size, 4);
     g->map_objs_end  = (byte *)g->map_objs + e_objs->size;
     pltf_file_r(f, g->map_objs, e_objs->size);
 
     if (0) {
-    } else if (hd->hash == wad_hash("L_BOSSPLANT")) {
+    } else if (hd->hash == hash_str("L_BOSSPLANT")) {
         map_obj_s *mo = map_obj_find(g, "Bossplant");
         boss_init(g, BOSS_ID_PLANT, mo);
     }
@@ -331,37 +311,6 @@ void loader_load_terrain(g_s *g, void *f, wad_el_s *wad_el, i32 w, i32 h, u32 *s
     u16 *tmem = (u16 *)wad_rd_spm_str(f, wad_el, "TERRAIN");
     loader_do_terrain(g, tmem, w, h, seed_visuals);
     autotile_terrain(g->tiles, w, h, 0, 0);
-
-    // fill in bottomless pits
-    // pit = no solid tiles at the bottom but no valid door
-    i32 pit_started = 0, px1 = -1, pxw = -1;
-    for (i32 x = 0; x < w; x++) {
-        i32 ttshape = map_terrain_shape(tmem[x + (h - 1) * w]);
-        b32 issolid = (TILE_BLOCK <= ttshape && ttshape <= TILE_SLOPE_45_3);
-
-        for (i32 n = 0; n < g->n_map_doors; n++) {
-            map_door_s *md = &g->map_doors[n];
-            if (md->y == (h - 1) && md->x <= x && x < (md->x + md->w)) {
-                issolid |= 1;
-                break;
-            }
-        }
-
-        if (pit_started) {
-            if (issolid || x == (w - 1)) {
-                pit_started   = 0;
-                map_pit_s *mp = &g->map_pits[g->n_map_pits++];
-                mp->x         = px1;
-                mp->w         = pxw;
-            } else {
-                pxw++;
-            }
-        } else if (!issolid) {
-            pit_started = 1;
-            px1         = x;
-            pxw         = 1;
-        }
-    }
     spm_pop();
 }
 
@@ -396,15 +345,17 @@ static map_prop_s *map_prop_get(map_properties_s p, const char *name)
 {
     if (!p.p) return 0;
 
+    u32   h   = hash_str16(name);
     byte *ptr = (byte *)p.p;
+
     for (i32 n = 0; n < p.n; n++) {
         map_prop_s *prop = (map_prop_s *)ptr;
-        if (str_eq_nc(prop->name, name)) {
+
+        if (prop->hash == h) {
             return prop;
         }
-        ptr += prop->bytes;
+        ptr += (i32)prop->size_words << 2;
     }
-    // pltf_log("No property: %s\n", name);
     return 0;
 }
 
@@ -500,17 +451,11 @@ void *map_obj_arr(map_obj_s *mo, const char *name, i32 *num)
     return (prop + 1);
 }
 
-map_obj_ref_s *map_obj_ref(map_obj_s *mo, const char *name)
-{
-    map_prop_s *prop = map_prop_get(map_obj_properties(mo), name);
-    if (!prop || prop->type != MAP_PROP_OBJ) return 0;
-    return (map_obj_ref_s *)(prop + 1);
-}
-
 map_obj_s *map_obj_find(g_s *g, const char *name)
 {
+    u32 h = hash_str(name);
     for (map_obj_each(g, o)) {
-        if (str_eq_nc(o->name, name)) {
+        if (o->hash == h) {
             return o;
         }
     }

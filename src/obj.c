@@ -6,20 +6,20 @@
 #include "game.h"
 #include "wire.h"
 
-obj_handle_s obj_handle_from_obj(obj_s *o)
+obj_handle_s handle_from_obj(obj_s *o)
 {
     obj_handle_s h = {o, o ? o->generation : 0};
     return h;
 }
 
-obj_s *obj_from_obj_handle(obj_handle_s h)
+obj_s *obj_from_handle(obj_handle_s h)
 {
     return (obj_handle_valid(h) ? h.o : 0);
 }
 
-bool32 obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out)
+bool32 obj_try_from_handle(obj_handle_s h, obj_s **o_out)
 {
-    obj_s *o = obj_from_obj_handle(h);
+    obj_s *o = obj_from_handle(h);
     if (o_out) *o_out = o;
     return (o != 0);
 }
@@ -83,7 +83,7 @@ void obj_delete(g_s *g, obj_s *o)
 
 void obj_handle_delete(g_s *g, obj_handle_s h)
 {
-    obj_delete(g, obj_from_obj_handle(h));
+    obj_delete(g, obj_from_handle(h));
 }
 
 bool32 obj_tag(g_s *g, obj_s *o, i32 tag)
@@ -324,6 +324,12 @@ bool32 obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs)
     return (blocked_excl(g, r, o) || obj_on_platform(g, o, r.x, r.y, r.w));
 }
 
+bool32 obj_grounded_at_offs_xy(g_s *g, obj_s *o, i32 ox, i32 oy)
+{
+    v2_i32 offs = {ox, oy};
+    return obj_grounded_at_offs(g, o, offs);
+}
+
 bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
 {
     if (!obj_grounded(g, o)) return 0;
@@ -376,7 +382,7 @@ bool32 obj_ignores_solid(obj_s *oactor, obj_s *osolid, i32 *index)
     if (!oactor) return 0;
 
     for (i32 n = 0; n < oactor->n_ignored_solids; n++) {
-        if (obj_from_obj_handle(oactor->ignored_solids[n]) == osolid) {
+        if (obj_from_handle(oactor->ignored_solids[n]) == osolid) {
             if (index) {
                 *index = n;
             }
@@ -429,4 +435,41 @@ bool32 obj_pushpull_blocked_default(g_s *g, obj_s *o, i32 dt_x, i32 dt_y)
         r.y += dt_y;
     }
     return map_blocked_excl(g, r, o);
+}
+
+bool32 obj_try_move_grounded_sideways_without_falling(g_s *g, obj_s *o, i32 sx, bool32 slopes)
+{
+    rec_i32 r = obj_rec_x_leading(o, sx);
+    if (!map_blocked(g, r)) {
+        if (obj_grounded_at_offs_xy(g, o, sx, 0)) {
+            obj_move(g, o, sx, 0);
+            return 1;
+        }
+
+        if (slopes && obj_grounded_at_offs_xy(g, o, sx, +1)) {
+            obj_move(g, o, sx, 0);
+            obj_move(g, o, 0, +1);
+            return 1;
+        }
+        return 0;
+    }
+
+    if (slopes && !map_blocked(g, obj_rec_top(o))) {
+        r.y--;
+        if (!map_blocked(g, r)) {
+            obj_move(g, o, 0, -1);
+            obj_move(g, o, sx, 0);
+            return 1;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+void enemy_on_update_die(g_s *g, obj_s *o)
+{
+    o->timer++;
+    if (4 <= o->timer) {
+        obj_delete(g, o);
+    }
 }

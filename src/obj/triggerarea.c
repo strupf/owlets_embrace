@@ -41,13 +41,14 @@ void triggerarea_load(g_s *g, map_obj_s *mo)
 
     i32 saveID = map_obj_i32(mo, "saveID");
 
-    rec_i32        r         = {mo->x, mo->y, mo->w, mo->h};
-    obj_s         *o         = triggerarea_spawn(g, r,
-                                                 map_obj_i32(mo, "trigger_enter"),
-                                                 map_obj_i32(mo, "trigger_leave"),
-                                                 map_obj_bool(mo, "once"));
-    triggerarea_s *t         = (triggerarea_s *)&o->mem;
-    i32            ontrigger = map_obj_i32(mo, "activate_on_trigger");
+    rec_i32        r = {mo->x, mo->y, mo->w, mo->h};
+    obj_s         *o = triggerarea_spawn(g, r,
+                                         map_obj_i32(mo, "trigger_enter"),
+                                         map_obj_i32(mo, "trigger_leave"),
+                                         map_obj_bool(mo, "once"));
+    triggerarea_s *t = (triggerarea_s *)&o->mem;
+    o->UUID          = mo->UUID;
+    i32 ontrigger    = map_obj_i32(mo, "activate_on_trigger");
     if (ontrigger) {
         t->trigger_activate = ontrigger;
         o->on_trigger       = triggerarea_on_trigger;
@@ -57,11 +58,11 @@ void triggerarea_load(g_s *g, map_obj_s *mo)
 
 void triggerarea_on_update(g_s *g, obj_s *o)
 {
-    triggerarea_s *t     = (triggerarea_s *)&o->mem;
-    obj_s         *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
-    if (!ohero) return;
+    triggerarea_s *t   = (triggerarea_s *)&o->mem;
+    obj_s         *owl = obj_get_tagged(g, OBJ_TAG_OWL);
+    if (!(owl = owl_if_present_and_alive(g))) return;
 
-    bool32 occupied   = overlap_rec(obj_aabb(ohero), obj_aabb(o));
+    bool32 occupied   = overlap_rec(obj_aabb(owl), obj_aabb(o));
     i32    to_trigger = 0;
     if (occupied && !t->occupied && t->trigger_enter) {
         to_trigger = t->trigger_enter;

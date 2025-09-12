@@ -2,6 +2,8 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+// some experimental unfinished playground
+
 #include "game.h"
 
 typedef struct {
@@ -9,6 +11,8 @@ typedef struct {
 } springyblock_s;
 
 void springyblock_on_update(g_s *g, obj_s *o);
+void springyblock_on_update2(g_s *g, obj_s *o);
+void springyblock_on_update3(g_s *g, obj_s *o);
 void springyblock_on_hook(g_s *g, obj_s *o, i32 hooked);
 void springyblock_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 
@@ -21,11 +25,83 @@ void springyblock_load(g_s *g, map_obj_s *mo)
     o->pos.y          = mo->y;
     o->w              = mo->w;
     o->h              = mo->h;
-    o->on_update      = springyblock_on_update;
+    o->on_update      = springyblock_on_update2;
     o->on_hook        = springyblock_on_hook;
     o->on_draw        = springyblock_on_draw;
     o->flags          = OBJ_FLAG_SOLID | OBJ_FLAG_HOOKABLE;
-    // o->ropeobj.m_q8   = 256;
+    o->ropeobj.m_q12  = Q_12(1.0);
+}
+
+void springyblock_on_update3(g_s *g, obj_s *o)
+{
+    o->timer++;
+    if (o->timer < 10) return;
+
+    springyblock_s  *s  = (springyblock_s *)o->mem;
+    grapplinghook_s *gh = &g->ghook;
+#define SPRINGYBLOCK_ACC2_Y Q_VOBJ(0.1)
+    o->v_q12.y -= SPRINGYBLOCK_ACC2_Y * s->moved;
+
+    o->subpos_q12.y += o->v_q12.y;
+    i32 tm = (o->subpos_q12.y >> 12) & ~1;
+    o->subpos_q12.y &= 0x1FFF;
+
+    tm = clamp_i32(s->moved + tm, 0, 64) - s->moved;
+
+    s->moved += tm;
+    obj_move(g, o, 0, tm);
+    obj_move(g, owl_if_present_and_alive(g), 0, tm);
+
+    if (o->v_q12.y < 0 && s->moved == 0) {
+        o->v_q12.y      = 0;
+        o->subpos_q12.y = 0;
+        o->on_update    = springyblock_on_update2;
+    }
+    o->ropeobj.v_q12.y = o->v_q12.y;
+    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC2_Y * s->moved : 0;
+}
+
+void springyblock_on_update2(g_s *g, obj_s *o)
+{
+    springyblock_s  *s  = (springyblock_s *)o->mem;
+    grapplinghook_s *gh = &g->ghook;
+    //  rec_i32          rh = {gh->p.x, gh->p.y, 1, 1};
+
+    i32 force = 0;
+    if (gh->state == GRAPPLINGHOOK_HOOKED_SOLID && o->substate) {
+        force = -grapplinghook_f_at_obj_proj(&g->ghook, o, (v2_i32){0, 1});
+    }
+
+    force = (force << 12) / o->ropeobj.m_q12;
+#define SPRINGYBLOCK_ACC_Y2 40
+
+    o->v_q12.y -= SPRINGYBLOCK_ACC_Y2 * s->moved;
+    obj_vy_q8_mul(o, Q_8(0.97));
+    o->v_q12.y += (force * 256) >> 8;
+    o->v_q12.y = clamp_sym_i32(o->v_q12.y, Q_VOBJ(6.0));
+
+    o->subpos_q12.y += o->v_q12.y;
+    i32 tm = (o->subpos_q12.y >> 12) & ~1;
+    o->subpos_q12.y &= 0x1FFF;
+
+    tm = clamp_i32(s->moved + tm, 0, 64) - s->moved;
+
+    s->moved += tm;
+    obj_move(g, o, 0, tm);
+    obj_move(g, owl_if_present_and_alive(g), 0, tm);
+
+    if (o->v_q12.y < 0 && s->moved == 0) {
+        o->v_q12.y      = 0;
+        o->subpos_q12.y = 0;
+    }
+    if (o->v_q12.y > 0 && s->moved == 64) {
+        o->v_q12.y      = 0;
+        o->subpos_q12.y = 0;
+        o->on_update    = springyblock_on_update3;
+        o->timer        = 0;
+    }
+    o->ropeobj.v_q12.y = o->v_q12.y;
+    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC_Y2 * s->moved : 0;
 }
 
 void springyblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
@@ -44,7 +120,7 @@ void springyblock_on_update(g_s *g, obj_s *o)
     //  rec_i32          rh = {gh->p.x, gh->p.y, 1, 1};
 
     i32 force        = 0;
-    o->ropeobj.m_q12 = Q_12(4.0);
+    o->ropeobj.m_q12 = Q_12(0.5);
     if (gh->state == GRAPPLINGHOOK_HOOKED_SOLID && o->substate) {
         force = -grapplinghook_f_at_obj_proj(&g->ghook, o, (v2_i32){0, 1});
     }
@@ -61,7 +137,7 @@ void springyblock_on_update(g_s *g, obj_s *o)
     i32 tm = (o->subpos_q12.y >> 12) & ~1;
     o->subpos_q12.y &= 0x1FFF;
 
-    tm = clamp_i32(s->moved + tm, 0, 64) - s->moved;
+    tm = clamp_i32(s->moved + tm, 0, 128) - s->moved;
 
     s->moved += tm;
     obj_move(g, o, 0, tm);
@@ -70,7 +146,7 @@ void springyblock_on_update(g_s *g, obj_s *o)
         o->v_q12.y      = 0;
         o->subpos_q12.y = 0;
     }
-    if (o->v_q12.y > 0 && s->moved == 64) {
+    if (o->v_q12.y > 0 && s->moved == 128) {
         o->v_q12.y      = 0;
         o->subpos_q12.y = 0;
     }

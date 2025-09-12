@@ -25,6 +25,7 @@ typedef struct {
 void stalactite_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o_spawn          = obj_create(g);
+    o_spawn->UUID           = mo->UUID;
     o_spawn->ID             = OBJID_STALACTITE_SPAWN;
     o_spawn->w              = STALACTITE_W;
     o_spawn->h              = STALACTITE_H;

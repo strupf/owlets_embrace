@@ -44,6 +44,7 @@ void movingblock_load(g_s *g, map_obj_s *mo)
     sizeof(movingblock_s);
     obj_s         *o     = obj_create(g);
     movingblock_s *m     = (movingblock_s *)o->mem;
+    o->UUID              = mo->UUID;
     o->ID                = OBJID_MOVINGBLOCK;
     o->w                 = mo->w;
     o->h                 = mo->h;
@@ -68,6 +69,7 @@ void movingblock_load(g_s *g, map_obj_s *mo)
     } else if ((pt = map_obj_arr(mo, "path", &n_pt)) && n_pt) {
         ptype = PATHMOVER_PATH_PINGPONG;
     }
+    assert(n_pt);
 
     i32  num_stop_at    = 0;
     i32 *stop_at        = map_obj_arr(mo, "stop_at_ticks", &num_stop_at);
@@ -106,7 +108,7 @@ void movingblock_load(g_s *g, map_obj_s *mo)
 
     obj_s *o_tendril = tendrilconnection_create(g);
     tendrilconnection_setup(g, o_tendril, m->anchor_root, obj_pos_center(o), tendril_l_max);
-    m->tendril = obj_handle_from_obj(o_tendril);
+    m->tendril = handle_from_obj(o_tendril);
 
     m->path_vmax_q4     = map_obj_i32(mo, "v_q8");
     m->trigger_on       = map_obj_i32(mo, "trigger_on");
@@ -170,7 +172,7 @@ void movingblock_on_update(g_s *g, obj_s *o)
 
     obj_move(g, o, dt.x, dt.y);
 
-    obj_s *o_tendril = obj_from_obj_handle(m->tendril);
+    obj_s *o_tendril = obj_from_handle(m->tendril);
     if (o_tendril) {
         tendrilconnection_constrain_ends(o_tendril, m->anchor_root, obj_pos_center(o));
     }

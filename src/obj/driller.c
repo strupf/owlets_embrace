@@ -51,6 +51,7 @@ void drillers_setup(g_s *g)
 void drillerspawn_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o    = obj_create(g);
+    o->UUID     = mo->UUID;
     o->ID       = OBJID_DRILLERSPAWN;
     o->enemy    = enemy_default();
     o->w        = 32;
@@ -70,19 +71,19 @@ void drillerspawn_load(g_s *g, map_obj_s *mo)
     spr->offs.y        = -8;
 
     if (0) {
-    } else if (str_contains(mo->name, "_U")) {
+    } else if (mo->hash == hash_str("drillerspawn_u")) {
         o->subID = DIR_Y_NEG;
         spr->offs.y -= 8;
         spr->trec.x = 1 * 48;
-    } else if (str_contains(mo->name, "_D")) {
+    } else if (mo->hash == hash_str("drillerspawn_d")) {
         o->subID = DIR_Y_POS;
         spr->offs.y += 8;
         spr->trec.x = 3 * 48;
-    } else if (str_contains(mo->name, "_L")) {
+    } else if (mo->hash == hash_str("drillerspawn_l")) {
         o->subID = DIR_X_NEG;
         spr->offs.x -= 8;
         spr->trec.x = 0 * 48;
-    } else if (str_contains(mo->name, "_R")) {
+    } else if (mo->hash == hash_str("drillerspawn_r")) {
         o->subID = DIR_X_POS;
         spr->offs.x += 8;
         spr->trec.x = 2 * 48;

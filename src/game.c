@@ -33,7 +33,6 @@ void game_init(g_s *g)
     for (i32 k = 0; k < n_rooms; k++) {
         map_room_wad_s mrw = {0};
         pltf_file_r(f, &mrw, sizeof(map_room_wad_s));
-
         map_room_s mr = {0};
         mcpy(mr.map_name, mrw.map_name, sizeof(mr.map_name));
         mr.x = mrw.x;
@@ -43,10 +42,11 @@ void game_init(g_s *g)
         mr.t = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
         pltf_file_r(f, mr.t.px, sizeof(u32) * mr.t.wword * mr.t.h);
         g->map_rooms[g->n_map_rooms++] = mr;
-        x1                             = min_i32(x1, mr.x / 25);
-        y1                             = min_i32(y1, mr.y / 15);
-        x2                             = max_i32(x2, (mr.x + mr.w) / 25);
-        y2                             = max_i32(y2, (mr.y + mr.h) / 15);
+
+        x1 = min_i32(x1, mr.x / 25);
+        y1 = min_i32(y1, mr.y / 15);
+        x2 = max_i32(x2, (mr.x + mr.w) / 25);
+        y2 = max_i32(y2, (mr.y + mr.h) / 15);
     }
     pltf_file_close(f);
     assert(0 <= x1 && 0 <= y1 && x2 < MINIMAP_SCREENS_X && y2 < MINIMAP_SCREENS_Y);
@@ -55,6 +55,10 @@ void game_init(g_s *g)
 
 void game_tick(g_s *g, inp_state_s inpstate)
 {
+    static bool32 once = 0;
+    if (!once) {
+        once = 1;
+    }
     g->tick++;
     g->tick_animation++;
     g->inp.p = g->inp.c;
@@ -80,58 +84,67 @@ void game_tick(g_s *g, inp_state_s inpstate)
         }
     }
 
-    bool32 tick_gp = 1;
+    bool32 do_tick = 1;
+    bool32 do_anim = 1;
     if (0 < g->freeze_tick) {
         g->freeze_tick--;
-        tick_gp = 0;
+        do_tick = 0;
+        do_anim = 0;
     }
 
-    if (g->dialog.state) {
-        dialog_update(g);
+    if (g->dia.state) {
+        dia_update(g, inp_cur());
     }
 
     cs_s *cs = &g->cs;
-    if (cs->on_update || cs->on_update_inp) {
+    if (cs->on_update) {
         cs->tick++;
         if (cs->on_update) {
-            cs->on_update(g, cs);
-        }
-        if (cs->on_update_inp) {
-            cs->on_update_inp(g, cs, g->inp);
+            cs->on_update(g, cs, inp_cur());
         }
     }
 
-    if (g->block_update) {
-        tick_gp = 0;
+    if (g->flags & GAME_FLAG_BLOCK_UPDATE) {
+        do_tick = 0;
     }
 
     if (g->minimap.state) {
-        tick_gp = 0;
+        do_tick = 0;
         minimap_update(g);
     }
 
-    if (tick_gp) {
+    if (do_tick) {
         game_tick_gameplay(g);
     }
 
-    game_anim(g);
+    if (do_anim) {
+        game_anim(g);
+    }
 }
 
 void game_tick_gameplay(g_s *g)
 {
     g->tick_gameplay++;
-    g->n_hitbox_tmp = 0;
     g->events_frame = 0;
+    g->n_hitboxes   = 0;
 
     boss_update(g);
     battleroom_on_update(g);
+
+#if 0
+    if (pltf_sdl_jkey(SDL_SCANCODE_SPACE)) {
+        owl_kill(g, obj_get_owl(g));
+    }
+#endif
 
     obj_s *owl  = obj_get_owl(g);
     inp_s  hinp = {0};
     if (owl && !(owl->flags & OBJ_FLAG_DONT_UPDATE)) {
         owl_s *h = (owl_s *)&g->owl;
 
-        bool32 control_hero = !g->block_owl_control && !h->squish;
+        bool32 control_hero = owl->health &&
+                              !(g->flags & GAME_FLAG_BLOCK_PLAYER_INPUT) &&
+                              !h->squish;
         if (control_hero) {
             hinp = g->inp;
         }
@@ -217,7 +230,7 @@ void game_tick_gameplay(g_s *g)
         // still ignore "ignored solids"? = still solid and overlapped
         rec_i32 r = obj_aabb(o);
         for (i32 n = o->n_ignored_solids - 1; 0 <= n; n--) {
-            obj_s *i = obj_from_obj_handle(o->ignored_solids[n]);
+            obj_s *i = obj_from_handle(o->ignored_solids[n]);
 
             if (i && (i->flags & OBJ_FLAG_SOLID) && overlap_rec(r, obj_aabb(i)))
                 continue;
@@ -330,7 +343,7 @@ i32 gameplay_time(g_s *g)
     return g->tick;
 }
 
-void *game_alloc(g_s *g, usize s, usize alignment)
+void *game_per_room_alloc(g_s *g, usize s, usize alignment)
 {
     void *mem = marena_alloc_aligned(&g->memarena, s, alignment);
     mclr(mem, s);
@@ -339,10 +352,10 @@ void *game_alloc(g_s *g, usize s, usize alignment)
 
 void *game_alloc_aligned_f(void *ctx, usize s, usize alignment)
 {
-    return game_alloc((g_s *)ctx, s, alignment);
+    return game_per_room_alloc((g_s *)ctx, s, alignment);
 }
 
-allocator_s game_allocator(g_s *g)
+allocator_s game_per_room_allocator(g_s *g)
 {
     allocator_s a = {game_alloc_aligned_f, g};
     return a;
@@ -386,6 +399,7 @@ void game_load_savefile(g_s *g)
         h->stamina_max      = h->stamina_upgrades * OWL_STAMINA_PER_CONTAINER;
         h->stamina          = h->stamina_max;
         mcpy(g->map_name, s->map_name, sizeof(s->map_name));
+        mcpy(g->enemy_killed, s->enemy_killed, sizeof(s->enemy_killed));
     }
 
     game_load_map(g, s->map_name);
@@ -398,11 +412,11 @@ void game_load_savefile(g_s *g)
     bool32 saveroom_pos_hero = 0;
     bool32 saveroom_pos_comp = 0;
     for (map_obj_each(g, i)) {
-        if (str_eq_nc(i->name, "saveroom_hero")) {
+        if (i->hash == hash_str("saveroom_hero")) {
             obj_place_to_map_obj(o, i, 0, +1);
             saveroom_pos_hero = 1;
         }
-        if (str_eq_nc(i->name, "saveroom_comp") && ocomp) {
+        if (i->hash == hash_str("saveroom_comp") && ocomp) {
             obj_place_to_map_obj(ocomp, i, 0, +1);
             ocomp->pos.y -= 4;
             saveroom_pos_comp = 1;
@@ -437,6 +451,7 @@ void game_update_savefile(g_s *g)
         mcpy(s->save, g->save_events, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
+        mcpy(s->enemy_killed, g->enemy_killed, sizeof(s->enemy_killed));
         for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
             s->map_visited[n] = g->minimap.visited[(n << 1) + 0] |
                                 g->minimap.visited[(n << 1) + 1];
@@ -462,7 +477,7 @@ bool32 game_save_savefile(g_s *g, v2_i32 pos)
     }
 
     err32 res = 0;
-    if (!g->speedrun) {
+    if (!(g->flags & GAME_FLAG_SPEEDRUN)) {
         res = savefile_w(g->save_slot, s);
     }
     pltf_sync_timestep();
@@ -489,7 +504,7 @@ void game_on_solid_appear_ext(g_s *g, obj_s *s)
                 assert(o->n_ignored_solids < ARRLEN(o->ignored_solids));
 
                 o->ignored_solids[o->n_ignored_solids++] =
-                    obj_handle_from_obj(s);
+                    handle_from_obj(s);
             }
         }
     }
@@ -504,14 +519,14 @@ void game_on_solid_appear(g_s *g)
     game_on_solid_appear_ext(g, 0);
 }
 
-bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box);
+bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_legacy_s box);
 
-bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
+bool32 hero_attackboxes(g_s *g, hitbox_legacy_s *boxes, i32 nb)
 {
     bool32 res = 0;
 
     for (i32 n = 0; n < nb; n++) {
-        hitbox_s hb = boxes[n];
+        hitbox_legacy_s hb = boxes[n];
         pltf_debugr(hb.r.x, hb.r.y, hb.r.w, hb.r.h, 0, 0, 0xFF, 10);
     }
 
@@ -520,7 +535,7 @@ bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
 
         i32 strongest = -1;
         for (i32 n = 0; n < nb; n++) {
-            hitbox_s hb = boxes[n];
+            hitbox_legacy_s hb = boxes[n];
             if (!overlap_rec(aabb, hb.r)) continue;
 
             if (strongest < 0 || boxes[strongest].damage < hb.damage) {
@@ -535,12 +550,12 @@ bool32 hero_attackboxes(g_s *g, hitbox_s *boxes, i32 nb)
     return res;
 }
 
-bool32 hero_attackbox(g_s *g, hitbox_s box)
+bool32 hero_attackbox(g_s *g, hitbox_legacy_s box)
 {
     return hero_attackboxes(g, &box, 1);
 }
 
-bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
+bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_legacy_s box)
 {
     switch (o->ID) {
     default: break;
@@ -568,10 +583,19 @@ bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
         }
         break;
     }
-    case OBJID_FLYBLOB: {
-        if (o->substate != box.hitID) {
-            flyblob_on_hit(g, o, box);
-            return 1;
+    case OBJID_CRAB: {
+        o->health--;
+        crab_on_hurt(g, o);
+        if (!o->health) {
+            animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
+        }
+        break;
+    }
+    case OBJID_FROG: {
+        o->health--;
+        frog_on_hurt(g, o);
+        if (!o->health) {
+            animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
         }
         break;
     }
@@ -595,16 +619,6 @@ bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_s box)
         return 1;
     }
     return 0;
-}
-
-void hitbox_tmp_cir(g_s *g, i32 x, i32 y, i32 r)
-{
-    hitbox_tmp_s h                   = {0};
-    h.type                           = HITBOX_TMP_CIR;
-    h.x                              = x;
-    h.y                              = y;
-    h.cir_r                          = r;
-    g->hitbox_tmp[g->n_hitbox_tmp++] = h;
 }
 
 void game_unlock_map(g_s *g)
@@ -683,4 +697,26 @@ bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
         *vol  = vol_max * (f32)l / (f32)r;
     }
     return 1;
+}
+
+u8 *map_loader_room_mod(g_s *g, u8 *map_name)
+{
+    if (0) {
+    } else if (str_eq_nc(map_name, "L_41")) {
+        return (u8 *)"L_41_Alt";
+    }
+    return map_name;
+}
+
+map_room_s *map_room_find(g_s *g, b8 transformed, const void *name)
+{
+    const void *n = (const void *)(transformed ? map_loader_room_mod(g, (u8 *)name) : name);
+
+    for (i32 i = 0; i < g->n_map_rooms; i++) {
+        map_room_s *mr = &g->map_rooms[i];
+        if (str_eq_nc(mr->map_name, n)) {
+            return mr;
+        }
+    }
+    return 0;
 }

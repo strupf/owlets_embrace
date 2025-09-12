@@ -34,6 +34,7 @@ void minimap_open_internal(g_s *g, i32 state)
     m->pin_deny_tick = 0;
     m->pin_ui_fade   = 0;
     m->state         = state;
+    mset(m->visited, 0xFF, sizeof(m->visited));
 }
 
 void minimap_open(g_s *g)
@@ -168,18 +169,18 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
     gfx_ctx_s  ctxr         = ctx;
     gfx_ctx_s  ctx_obscured = ctx;
     ctxr.pat                = gfx_pattern_50();
-    ctx_obscured.pat        = gfx_pattern_shift(gfx_pattern_bayer_4x4(15),
-                                                ox & 3, oy & 3);
+    ctx_obscured.pat        = gfx_pattern_shift(gfx_pattern_bayer_4x4(15), ox & 3, oy & 3);
     tex_clr(ctx.dst, GFX_COL_BLACK);
 
     // map images
 
     // images and hding rects
     for (i32 n = 0; n < g->n_map_rooms; n++) {
-        map_room_s *mr  = &g->map_rooms[n];
-        v2_i32      pos = {mr->x + ox, mr->y + oy};
+        map_room_s *mr     = &g->map_rooms[n];
+        map_room_s *mr_alt = map_room_find(g, 1, mr->map_name);
+        v2_i32      pos    = {mr->x + ox, mr->y + oy};
 
-        gfx_spr(ctx, texrec_from_tex(mr->t), pos, 0, 0);
+        gfx_spr(ctx, texrec_from_tex(mr_alt->t), pos, 0, 0);
 
         for (i32 ny = 0; ny < mr->h; ny += 15) {
             for (i32 nx = 0; nx < mr->w; nx += 25) {
@@ -205,13 +206,11 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
             i32 sxl = mr->x + 0;
             i32 sxr = mr->x + mr->w - 1;
 
-            if (minimap_screen_visited(g, sxl, sy) ||
-                minimap_screen_visited(g, sxl - 1, sy)) {
+            if (minimap_screen_visited(g, sxl, sy) || minimap_screen_visited(g, sxl - 1, sy)) {
                 rec_i32 rr = {pos.x, pos.y + ny, 1, 15};
                 gfx_rec_fill(ctxr, rr, PRIM_MODE_BLACK_WHITE);
             }
-            if (minimap_screen_visited(g, sxr, sy) ||
-                minimap_screen_visited(g, sxr + 1, sy)) {
+            if (minimap_screen_visited(g, sxr, sy) || minimap_screen_visited(g, sxr + 1, sy)) {
                 rec_i32 rr = {pos.x + mr->w, pos.y + ny, 1, 15};
                 gfx_rec_fill(ctxr, rr, PRIM_MODE_BLACK_WHITE);
             }
@@ -221,13 +220,11 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
             i32 syu = mr->y + 0;
             i32 syd = mr->y + mr->h - 1;
 
-            if (minimap_screen_visited(g, sx, syu) ||
-                minimap_screen_visited(g, sx, syu - 1)) {
+            if (minimap_screen_visited(g, sx, syu) || minimap_screen_visited(g, sx, syu - 1)) {
                 rec_i32 r = {pos.x + nx, pos.y, 25, 1};
                 gfx_rec_fill(ctxr, r, PRIM_MODE_BLACK_WHITE);
             }
-            if (minimap_screen_visited(g, sx, syd) ||
-                minimap_screen_visited(g, sx, syd + 1)) {
+            if (minimap_screen_visited(g, sx, syd) || minimap_screen_visited(g, sx, syd + 1)) {
                 rec_i32 r = {pos.x + nx, pos.y + mr->h, 25, 1};
                 gfx_rec_fill(ctxr, r, PRIM_MODE_BLACK_WHITE);
             }
@@ -450,7 +447,7 @@ void minimap_try_visit_screen(g_s *g)
             assert(0 <= sx && sx < MINIMAP_SCREENS_X);
             i32 k = (sx + sy * MINIMAP_SCREENS_X);
             m->visited[((k >> 5) << 1) + 0] |= (u32)1 << (k & 31);
-#if GAME_DEMO
+#if 1
             m->visited[((k >> 5) << 1) + 1] |= (u32)1 << (k & 31);
 #endif
         }

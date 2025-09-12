@@ -34,10 +34,10 @@ void cs_camera_pan_enter(g_s *g, cs_camera_pan_config_s *pan_config)
     cs_s            *cs = &g->cs;
     cs_camera_pan_s *cp = (cs_camera_pan_s *)cs->mem;
 
-    cs->on_update_inp = cs_camera_pan_update;
-    cp->n_pt          = pan_config->n_pt;
-    cp->controllable  = pan_config->controllable;
-    cp->circ          = pan_config->circ;
+    cs->on_update    = cs_camera_pan_update;
+    cp->n_pt         = pan_config->n_pt;
+    cp->controllable = pan_config->controllable;
+    cp->circ         = pan_config->circ;
     for (i32 n = 0; n < pan_config->n_pt; n++) {
         cp->pt[n] = pan_config->pt[n];
     }
@@ -49,7 +49,7 @@ void cs_camera_pan_update(g_s *g, cs_s *cs, inp_s inp)
 
     switch (cs->phase) {
     case CS_CAMERA_PAN_PHASE_STARTING: {
-        g->block_update = 1;
+        g->flags |= GAME_FLAG_BLOCK_UPDATE;
         cs->phase++;
         cs->tick = 0;
 
@@ -173,7 +173,7 @@ static void cs_camera_pan_stop(g_s *g, cs_s *cs)
     app_crank_requested(0);
     g->cam.has_trg      = 0;
     g->cam.trg_fade_spd = 128;
-    g->block_update     = 0;
+    g->flags &= ~GAME_FLAG_BLOCK_UPDATE;
 
     if (cs->p_comp) {
         obj_s *ocomp    = obj_get_comp(g);

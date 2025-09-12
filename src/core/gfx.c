@@ -1364,49 +1364,90 @@ void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
     }
 }
 
-// counter clockwise filled from a1 to a2
-void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 a1_q18, i32 a2_q18, i32 mode)
+static void gfx_fill_circle_segment_span(gfx_ctx_s ctx, i32 y, i32 x1, i32 x2, v2_i32 p, v2_i32 a, v2_i32 b, i32 w, i32 mode)
 {
-    i32 y1 = max_i32(ctx.clip_y1, p.y - r);
-    i32 y2 = min_i32(ctx.clip_y2, p.y + r);
-    i32 x1 = max_i32(ctx.clip_x1, p.x - r);
-    i32 x2 = min_i32(ctx.clip_x2, p.x + r);
-    u32 r2 = (u32)(r * r);
+    b32 inside = 0;
+    i32 xi     = 0;
+
+    for (i32 x = x1; x <= x2; x++) {
+        v2_i32 s = {x - p.x, y - p.y};
+        i32    u = v2_i32_crs(a, s);
+        i32    v = v2_i32_crs(b, s);
+
+        if ((0 <= w && (0 <= u && v <= 0)) ||
+            (0 >= w && (0 <= u || v <= 0))) {
+            if (!inside) {
+                inside = 1;
+                xi     = x;
+            }
+        } else {
+            if (inside) {
+                inside = 0;
+                gfx_rec_strip(ctx, xi, y, x - xi, mode);
+            }
+        }
+    }
+
+    // if still inside draw remaining widest strip up to x2
+    if (inside) {
+        gfx_rec_strip(ctx, xi, y, x2 - xi, mode);
+    }
+}
+
+// counter clockwise filled from a1 to a2
+void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 a1_q18, i32 a2_q18, i32 mode)
+{
+    if (d <= 2) return;
+
+    i32     r  = d >> 1;
+    rec_i32 rb = {p.x - r - 1, p.y - r - 1, d + 1, d + 1};
+    rec_i32 rt = {ctx.clip_x1, ctx.clip_y1, ctx.clip_x2 - ctx.clip_x1, ctx.clip_y2 - ctx.clip_y1};
+    if (!overlap_rec(rb, rt)) return;
+
+    i32 e = -d + (d == 3 ? +1 : -1);
+    i32 x = r; // radius
+    i32 y = 0;
+    i32 m = (d & 1 ? +1 : 0);
 
     // >> 2 -> avoid overflow during multiplication
     v2_i32 a = {sin_q16(a1_q18) >> 4, cos_q16(a1_q18) >> 4};
     v2_i32 b = {sin_q16(a2_q18) >> 4, cos_q16(a2_q18) >> 4};
     i32    w = v2_i32_crs(a, b);
 
-    // blit rectangle strips once the x iterator first entered and then
-    // leaves the circle segment
-    for (i32 y = y1; y <= y2; y++) {
-        b32 inside = 0;
-        i32 xi     = 0;
+    while (y <= x) {
+        i32 ax0 = max_i32(p.x - x, ctx.clip_x1);
+        i32 cx0 = max_i32(p.x - y, ctx.clip_x1);
+        i32 ax1 = min_i32(p.x + x + m, ctx.clip_x2);
+        i32 cx1 = min_i32(p.x + y + m, ctx.clip_x2);
 
-        for (i32 x = x1; x <= x2; x++) {
-            v2_i32 s = {x - p.x, y - p.y};
-            i32    u = v2_i32_crs(a, s);
-            i32    v = v2_i32_crs(b, s);
-
-            if (v2_i32_lensq(s) <= r2 &&
-                ((0 <= w && (0 <= u && v <= 0)) ||
-                 (0 >= w && (0 <= u || v <= 0)))) {
-                if (!inside) {
-                    inside = 1;
-                    xi     = x;
-                }
-            } else {
-                if (inside) {
-                    inside = 0;
-                    gfx_rec_strip(ctx, xi, y, x - xi, mode);
-                }
+        if (cx0 <= cx1) {
+            i32 cy = p.y + x + m;
+            i32 dy = p.y - x;
+            if (ctx.clip_y1 <= cy && cy <= ctx.clip_y2) {
+                gfx_fill_circle_segment_span(ctx, cy, cx0, cx1, p, a, b, w, mode);
+            }
+            if (ctx.clip_y1 <= dy && dy <= ctx.clip_y2) {
+                gfx_fill_circle_segment_span(ctx, dy, cx0, cx1, p, a, b, w, mode);
+            }
+        }
+        if (ax0 <= ax1) {
+            i32 ay = p.y + y + m;
+            i32 by = p.y - y;
+            if (ctx.clip_y1 <= ay && ay <= ctx.clip_y2) {
+                gfx_fill_circle_segment_span(ctx, ay, ax0, ax1, p, a, b, w, mode);
+            }
+            if (ctx.clip_y1 <= by && by <= ctx.clip_y2 && ay != by) {
+                gfx_fill_circle_segment_span(ctx, by, ax0, ax1, p, a, b, w, mode);
             }
         }
 
-        // if still inside draw remaining widest strip up to x2
-        if (inside) {
-            gfx_rec_strip(ctx, xi, y, x2 - xi, mode);
+        e += y << 1;
+        y++;
+        e += y << 1;
+
+        if (0 <= e) {
+            x--;
+            e -= x << 2;
         }
     }
 }

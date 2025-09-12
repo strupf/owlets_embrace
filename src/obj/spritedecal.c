@@ -31,7 +31,7 @@ void spritedecal_on_update(g_s *g, obj_s *o)
     obj_move_by_v_q12(g, o);
 
     obj_sprite_s *spr    = &o->sprites[0];
-    obj_s        *parent = obj_from_obj_handle(sd->parent);
+    obj_s        *parent = obj_from_handle(sd->parent);
     if (parent) {
         o->pos = parent->pos;
     }
@@ -57,7 +57,7 @@ obj_s *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 po
     obj_sprite_s *spr  = &o->sprites[0];
     spr->flip          = flip;
     if (oparent) {
-        sd->parent = obj_handle_from_obj(oparent);
+        sd->parent = handle_from_obj(oparent);
         spr->offs  = v2_i16_from_i32(pos);
     } else {
         o->pos = pos;

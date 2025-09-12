@@ -32,6 +32,7 @@ void crackblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o    = obj_create(g);
     crackblock_s *b    = (crackblock_s *)o->mem;
+    o->UUID            = mo->UUID;
     o->ID              = OBJID_CRACKBLOCK;
     o->pos.x           = mo->x;
     o->pos.y           = mo->y;
@@ -47,7 +48,7 @@ void crackblock_load(g_s *g, map_obj_s *mo)
     b->on_trigger         = map_obj_i32(mo, "crack_on_trigger");
     b->trigger_on_destroy = map_obj_i32(mo, "triggers");
     b->tile_type          = map_terrain_enum_to_type(map_obj_i32(mo, "terrainID"));
-    b->tiles              = game_alloctn(g, tile_s, (nx + 2) * (ny + 2));
+    b->tiles              = game_per_room_alloctn(g, tile_s, (nx + 2) * (ny + 2));
 
     // autotiling this stone
     for (i32 y = 0; y < ny; y++) {

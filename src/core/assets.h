@@ -47,7 +47,7 @@ enum {
     TEXID_MUSHROOM,
     TEXID_DRILLER,
     TEXID_SOLIDLEVER,
-    TEXID_WATERCOL,
+    TEXID_VINES,
     TEXID_EXPLO1,
     TEXID_UPGRADE,
     TEXID_PARTICLES,
@@ -68,14 +68,13 @@ enum {
     TEXID_ROTOR,
     TEXID_FLYER,
     TEXID_WINDGUSH,
-    TEXID_COLLISION_TILES,
     TEXID_FLYING_BUG,
     TEXID_BUDPLANT,
     TEXID_FLYBLOB,
-    TEXID_EXPLOSIONS,
     TEXID_FLUIDS,
     TEXID_JUMPER,
     TEXID_FOREGROUND,
+    TEXID_FROG,
     TEXID_CHEST,
     TEXID_HEARTDROP,
     TEXID_TRAMPOLINE,
@@ -84,6 +83,10 @@ enum {
     TEXID_BOSSPLANT,
     TEXID_USECRANK,
     TEXID_SAVEROOM,
+    TEXID_CRAB,
+    TEXID_EXPLOSIONS,
+    TEXID_ANIM_MISC,
+    TEXID_BOMBPLANT,
     //
     NUM_TEXID_EXPLICIT,
     //
@@ -164,6 +167,7 @@ enum {
 
 enum {
     ANIID_OWL_ATTACK,
+    ANIID_OWL_ATTACK_UP,
     ANIID_COMPANION_FLY,
     ANIID_COMPANION_ATTACK,
     ANIID_COMPANION_BUMP,
@@ -176,11 +180,25 @@ enum {
     ANIID_BPLANT_HOP,
     ANIID_PREPARE_SWAP,
     ANIID_FBLOB_ATTACK,
+    ANIID_FBLOB_LAND_GROUND,
+    ANIID_FBLOB_POP,
+    ANIID_FBLOB_REGROW,
+    ANIID_FBLOB_GROUND_IDLE,
     ANIID_MOLE_DIG_OUT,
     ANIID_MOLE_DIG_IN,
     ANIID_LOOKAHEAD,
     ANIID_FALLASLEEP,
     ANIID_WAKEUP,
+    ANIID_FROG_WALK,
+    ANIID_FROG_PREPARE,
+    ANIID_CRAB_ATTACK,
+    ANIID_EXPLOSION_1,
+    ANIID_EXPLOSION_2,
+    ANIID_EXPLOSION_3,
+    ANIID_EXPLOSION_4,
+    ANIID_EXPLOSION_5,
+    ANIID_ENEMY_SPAWN_1,
+    ANIID_STOMP_PARTICLE,
     //
     NUM_ANIID
 };
@@ -223,7 +241,8 @@ err32    tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t);
 err32    tex_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, tex_s *o_t);
 err32    snd_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, snd_s *o_s);
 err32    ani_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, ani_s *o_a);
-i32      ani_frame(i32 ID, i32 ticks);
+i32      ani_frame_loop(i32 ID, i32 ticks); // loops through the animation
+i32      ani_frame(i32 ID, i32 ticks);      // once; returns -1 if completed
 i32      ani_len(i32 ID);
 
 #endif

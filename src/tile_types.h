@@ -7,26 +7,31 @@
 
 #include "gamedef.h"
 
+#define TILE_TYPE_ID_BY_XY(X, Y) ((X) + (Y) * 4)
+
 enum {
-    TILE_TYPE_NONE                     = 0,
-    TILE_TYPE_INVISIBLE_NON_CONNECTING = 1,
-    TILE_TYPE_INVISIBLE_CONNECTING     = 2,
+    TILE_TYPE_NONE                     = TILE_TYPE_ID_BY_XY(0, 0),
+    TILE_TYPE_INVISIBLE_NON_CONNECTING = TILE_TYPE_ID_BY_XY(1, 0),
+    TILE_TYPE_INVISIBLE_CONNECTING     = TILE_TYPE_ID_BY_XY(2, 0),
+    TILE_TYPE_UNUSED                   = TILE_TYPE_ID_BY_XY(3, 0),
     //
-    TILE_TYPE_DARK_LEAVES              = 3,
-    TILE_TYPE_DARK_STONE               = 4,
-    TILE_TYPE_DARK_STONE_PEBBLE        = 5,
-    TILE_TYPE_DARK_OBSIDIAN            = 6,
-    TILE_TYPE_MUSHROOMS                = 10,
-    //
-    TILE_TYPE_BRIGHT_STONE             = 11,
-    TILE_TYPE_BRIGHT_SNOW              = 12,
-    TILE_TYPE_BRIGHT_BREAKING          = 13,
-    TILE_TYPE_BRIGHT_STOMP             = 15,
-    TILE_TYPE_BRIGHT_STOMP_2           = 16,
-    TILE_TYPE_BRIGHT_STOMP_HOR         = 17,
-    //
-    TILE_TYPE_THORNS                   = 19,
-    TILE_TYPE_CRUMBLE                  = 22,
+    TILE_TYPE_DARK_LEAVES              = TILE_TYPE_ID_BY_XY(0, 1),
+    TILE_TYPE_DARK_STONE               = TILE_TYPE_ID_BY_XY(1, 1),
+    TILE_TYPE_DARK_STONE_PEBBLE        = TILE_TYPE_ID_BY_XY(2, 1),
+    TILE_TYPE_DARK_OBSIDIAN            = TILE_TYPE_ID_BY_XY(0, 4),
+    TILE_TYPE_BRIGHT_STONE             = TILE_TYPE_ID_BY_XY(0, 2),
+    TILE_TYPE_BRIGHT_SNOW              = TILE_TYPE_ID_BY_XY(1, 2),
+    TILE_TYPE_BRIGHT_MOUNTAIN          = TILE_TYPE_ID_BY_XY(2, 2),
+    TILE_TYPE_THORNS                   = TILE_TYPE_ID_BY_XY(0, 5),
+    TILE_TYPE_SPIKES                   = TILE_TYPE_ID_BY_XY(2, 5),
+    TILE_TYPE_BRIGHT_STOMP             = TILE_TYPE_ID_BY_XY(0, 7),
+    TILE_TYPE_BRIGHT_STOMP_2           = TILE_TYPE_ID_BY_XY(1, 7),
+    TILE_TYPE_BRIGHT_STOMP_HOR         = TILE_TYPE_ID_BY_XY(3, 7),
+    TILE_TYPE_MUSHROOMS                = TILE_TYPE_ID_BY_XY(0, 8),
+    TILE_TYPE_MUSHROOMS_HALF           = TILE_TYPE_ID_BY_XY(1, 8),
+    TILE_TYPE_MUSHROOMS_GONE           = TILE_TYPE_ID_BY_XY(2, 8),
+    TILE_TYPE_BRIGHT_BREAKING          = TILE_TYPE_ID_BY_XY(3, 8),
+    TILE_TYPE_CRUMBLE                  = TILE_TYPE_ID_BY_XY(3, 8),
     //
     NUM_TILE_TYPES                     = 24
 };

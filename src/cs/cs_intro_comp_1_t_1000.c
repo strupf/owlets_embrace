@@ -4,7 +4,7 @@
 
 #include "game.h"
 
-void cs_intro_comp_1_update(g_s *g, cs_s *cs);
+void cs_intro_comp_1_update(g_s *g, cs_s *cs, inp_s inp);
 
 void cs_intro_comp_1_enter(g_s *g)
 {
@@ -17,7 +17,7 @@ void cs_intro_comp_1_enter(g_s *g)
     save_event_register(g, SAVE_EV_CS_INTRO_COMP_1);
 }
 
-void cs_intro_comp_1_update(g_s *g, cs_s *cs)
+void cs_intro_comp_1_update(g_s *g, cs_s *cs, inp_s inp)
 {
     if (0) {
     } else if (cs->tick < 60) {

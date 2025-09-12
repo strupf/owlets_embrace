@@ -88,7 +88,7 @@ void healthdrop_on_animate(g_s *g, obj_s *o)
     o->animation++;
 
     obj_sprite_s *spr = &o->sprites[0];
-    i32           fr  = ani_frame(ANIID_HEALTHDROP, o->animation);
+    i32           fr  = ani_frame_loop(ANIID_HEALTHDROP, o->animation);
     spr->offs.x       = (o->w - 32) / 2;
     spr->offs.y       = (o->h - 32) / 2;
 

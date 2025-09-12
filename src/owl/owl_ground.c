@@ -14,9 +14,22 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
     i32    l_dt_q4 = grapplinghook_stretched_dt_len_abs(g, &g->ghook);
     v2_i32 v_wire  = owl_rope_v_to_connected_node(g, o);
 
+    if (h->dead_ground_ticks && h->dead_ground_ticks < 255) {
+        h->dead_ground_ticks++;
+    }
+
     o->v_q12.y += OWL_GRAVITY;
     if (o->bumpflags & OBJ_BUMP_Y) {
-        o->v_q12.y      = 0;
+        if (o->health || h->dead_bounce_counter) {
+            o->v_q12.y = 0;
+            if (!o->health && !h->dead_ground_ticks) {
+                h->dead_ground_ticks = 1;
+            }
+        } else {
+            h->dead_bounce_counter = 1;
+            o->v_q12.y             = -Q_VOBJ(2.5);
+        }
+
         o->subpos_q12.y = 0;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
@@ -35,7 +48,7 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         h->ground_push_pull = 0;
     }
 
-    bool32  may_push_pull = !h->ground_crouch && o->h == OWL_H;
+    bool32  may_push_pull = !h->ground_crouch && o->h == OWL_H && !o->wire && !h->carry;
     rec_i32 pushr         = {o->pos.x + (0 < grabdir ? o->w : -1), o->pos.y, 1, 12};
     obj_s  *pushable      = 0;
     i32     n_pushable    = 0;
@@ -83,6 +96,9 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
             rowlpushed.x -= 2;
         }
 
+        bool32 is_pulling = h->ground_push_pull == OWL_GROUND_PULL && dp_x == -o->facing;
+        bool32 is_pushing = h->ground_push_pull == OWL_GROUND_PUSH && dp_x == +o->facing;
+
         pushable->flags &= ~OBJ_FLAG_SOLID;
         bool32 can_push = (OWL_PUSH_TICKS_MIN + pushable->pushable_weight) <= abs_i32(h->ground_push_tick) &&
                           !pushable->on_pushpull_blocked(g, pushable, dt_pushpull, 0) &&
@@ -90,10 +106,19 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
                           obj_grounded_at_offs(g, o, (v2_i32){dt_pushpull, 0});
         pushable->flags |= OBJ_FLAG_SOLID;
 
+        if (pushable->ID == OBJID_BOMBPLANT && is_pulling) {
+            bombplant_on_pickup(g, pushable);
+            owl_cancel_push_pull(g, o);
+            obj_s *o_bomb = bomb_create(g);
+            bomb_set_carried(o_bomb);
+            h->carried = handle_from_obj(o_bomb);
+            h->carry   = 1;
+        }
+
         if (can_push) {
             h->ground_push_tick = clamp_sym_i32(h->ground_push_tick, OWL_PUSH_TICKS_MIN);
 
-            if (h->ground_push_pull == OWL_GROUND_PULL && dp_x == -o->facing) { // pull, move owlet first
+            if (is_pulling) { // pull, move owlet first
                 obj_move(g, o, dt_pushpull, 0);
                 obj_move(g, pushable, dt_pushpull, 0);
             } else { // push, move solid first
@@ -128,9 +153,20 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         h->ground_sprint_doubletap_ticks = 0;
         h->ground_impact_ticks           = 0;
         owl_ground_crawl(g, o, inp);
-    } else if (inps_btn_jp(inp, INP_A)) {
+    } else if (inps_btn_jp(inp, INP_A) && !h->attack_tick) {
         owl_jump_ground(g, o);
-    } else if (0 < dp_y && !h->stance_swap_tick && !h->aim_ticks) {
+    }
+#if OWL_ONEWAY_PLAT_DOWN_JUST_DOWN
+    else if (inps_btn_jp(inp, INP_DD) && !map_blocked_excl_offs(g, obj_rec_bottom(o), o, 0, 1)) {
+        o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
+        obj_move(g, o, 0, +1);
+        o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
+        o->bumpflags = 0;
+        owl_cancel_ground(g, o);
+        h->jump_edgeticks = 0;
+    }
+#endif
+    else if (0 < dp_y && !h->stance_swap_tick && !h->aim_ticks) {
         o->pos.y += OWL_H - OWL_H_CROUCH;
         o->h = OWL_H_CROUCH;
         owl_cancel_hook_aim(g, o);
@@ -141,15 +177,19 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         h->ground_sprint_doubletap_ticks = 0;
         h->sprint                        = 0;
     } else if (inps_btn_jp(inp, INP_DU) && obj_handle_valid(h->interactable)) {
-        obj_s *oi       = obj_from_obj_handle(h->interactable);
+        obj_s *oi       = obj_from_handle(h->interactable);
         o->v_q12.x      = 0;
         o->subpos_q12.x = 0;
         h->sprint       = 0;
 
         assert(oi->on_interact);
         oi->on_interact(g, oi);
+    } else if (h->attack_tick) {
+        obj_vx_q8_mul(o, 250);
+    } else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
+
     } else {
-        bool32 can_sprint          = !o->wire && !h->attack_tick;
+        bool32 can_sprint          = !o->wire && !h->attack_tick && !h->carry;
         bool32 can_start_sprinting = 0;
 
         if (!h->sprint &&
@@ -226,6 +266,9 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
             }
         }
     }
+    if (h->carry) {
+        o->v_q12.x = clamp_sym_i32(o->v_q12.x, OWL_VX_CARRY);
+    }
 
     if (!h->ground_crouch && o->v_q12.x) {
         h->ground_anim += shr_balanced_i32(o->v_q12.x, 4);
@@ -248,12 +291,16 @@ void owl_ground_crawl(g_s *g, obj_s *o, inp_s inp)
 
     if (dp_y <= 0 && owl_try_force_normal_height(g, o)) {
         h->ground_crouch_standup_ticks = OWL_CROUCH_STANDUP_TICKS;
-    } else if (0 < dp_y && inps_btn_jp(inp, INP_A)) {
+    }
+#if !OWL_ONEWAY_PLAT_DOWN_JUST_DOWN
+    else if (0 < dp_y && inps_btn_jp(inp, INP_A)) {
         o->moverflags &= ~OBJ_MOVER_ONE_WAY_PLAT;
         obj_move(g, o, 0, 1);
         o->moverflags |= OBJ_MOVER_ONE_WAY_PLAT;
         h->jump_edgeticks = 0;
-    } else if (0 < h->ground_crouch && h->ground_crouch < OWL_CROUCH_MAX_TICKS) {
+    }
+#endif
+    else if (0 < h->ground_crouch && h->ground_crouch < OWL_CROUCH_MAX_TICKS) {
         h->ground_crouch++;
         o->v_q12.x = 0;
     } else {
@@ -272,9 +319,13 @@ void owl_ground_crawl(g_s *g, obj_s *o, inp_s inp)
 
 void owl_jump_ground(g_s *g, obj_s *o)
 {
-    owl_s *h         = (owl_s *)o->heap;
-    h->jump_index    = OWL_JUMP_GROUND;
-    owl_jumpvar_s jv = g_owl_jumpvar[OWL_JUMP_GROUND];
+    owl_s *h      = (owl_s *)o->heap;
+    h->jump_index = OWL_JUMP_GROUND;
+    if (obj_handle_valid(h->carried)) {
+        h->jump_index = OWL_JUMP_CARRY;
+    }
+
+    owl_jumpvar_s jv = g_owl_jumpvar[h->jump_index];
 
     i32 vy            = jv.vy;
     h->jump_ticks_max = jv.ticks;
@@ -282,18 +333,12 @@ void owl_jump_ground(g_s *g, obj_s *o)
     h->jump_vy0       = jv.v0;
     h->jump_vy1       = jv.v1;
 
-    if (o->v_q12.y <= -vy) {
-        o->v_q12.y -= Q_VOBJ(0.5);
-    } else {
-        o->v_q12.y = -vy;
-    }
-
+    o->v_q12.y                     = -vy;
     h->jump_from_y                 = o->pos.y;
     h->jump_ground_ticks           = 2; // glue owl to ground for 2 more frames visually
     h->ground_crouch               = 0;
     h->ground_crouch_crawl         = 0;
     h->ground_crouch_standup_ticks = 0;
-
     owl_cancel_ground(g, o);
     snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
     v2_i32 prtp = obj_pos_bottom_center(o);

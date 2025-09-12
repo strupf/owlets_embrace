@@ -6,16 +6,16 @@
 
 // waking up after file select
 
-void cs_on_save_update(g_s *g, cs_s *cs);
+void cs_on_save_update(g_s *g, cs_s *cs, inp_s inp);
 
 void cs_on_save_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update        = cs_on_save_update;
-    g->block_owl_control = 1;
-    obj_s *owl           = obj_get_owl(g);
-    cs->p_owl            = puppet_owl_put(g, owl);
+    cs->on_update = cs_on_save_update;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+    obj_s *owl = obj_get_owl(g);
+    cs->p_owl  = puppet_owl_put(g, owl);
     puppet_set_anim(cs->p_owl, PUPPET_OWL_ANIMID_IDLE, 0);
 
     obj_s *comp = obj_get_comp(g);
@@ -25,14 +25,14 @@ void cs_on_save_enter(g_s *g)
     }
 }
 
-void cs_on_save_update(g_s *g, cs_s *cs)
+void cs_on_save_update(g_s *g, cs_s *cs, inp_s inp)
 {
     switch (cs->phase) {
     case 0: {
         if (cs->tick < 10) break;
 
-        g->block_owl_control = 0;
-        obj_s *owl           = obj_get_owl(g);
+        g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
+        obj_s *owl = obj_get_owl(g);
         puppet_owl_replace_and_del(g, owl, cs->p_owl);
         if (cs->p_comp) {
             obj_s *comp = obj_get_comp(g);

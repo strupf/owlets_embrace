@@ -7,6 +7,7 @@
 
 #include "gamedef.h"
 #include "minimap.h"
+#include "objdef.h"
 
 b32 save_event_register(g_s *g, i32 ID);
 b32 save_event_exists(g_s *g, i32 ID);
@@ -39,6 +40,7 @@ typedef struct {
     u8            health;
     u8            health_max;
     u8            n_map_pins;
+    u16           enemy_killed[NUM_ENEMYID];
     u32           save[(NUM_SAVE_EV + 31) / 32];
     minimap_pin_s pins[MAP_NUM_PINS];
     u32           map_visited[MINIMAP_N_SCREENS >> 5]; // 1 instead of 2 bits

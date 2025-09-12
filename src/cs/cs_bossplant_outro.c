@@ -15,7 +15,7 @@ typedef struct {
 #define CS_BOSSPLANT_OUTRO_TICKS_3 50
 #define CS_BOSSPLANT_OUTRO_TICKS_7 100
 
-void cs_bossplant_outro_update(g_s *g, cs_s *cs);
+void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_bossplant_outro_on_trigger(g_s *g, cs_s *cs, i32 trigger);
 void cs_bossplant_outro_draw(g_s *g, cs_s *cs, v2_i32 cam);
 void cs_bossplant_outro_draw_gp(g_s *g, cs_s *cs, v2_i32 cam);
@@ -31,17 +31,17 @@ void cs_bossplant_outro_enter(g_s *g)
     cs->on_draw_bh_terrain = cs_bossplant_outro_draw_gp;
     dm->bp                 = &g->boss.plant;
     cs->on_trigger         = cs_bossplant_outro_on_trigger;
-    g->block_update        = 1;
-    dm->bp->phase          = BOSS_PLANT_OUTRO0;
-    dm->bp->phase_tick     = 0;
+    g->flags |= GAME_FLAG_BLOCK_UPDATE;
+    dm->bp->phase      = BOSS_PLANT_OUTRO0;
+    dm->bp->phase_tick = 0;
 }
 
-void cs_bossplant_outro_update(g_s *g, cs_s *cs)
+void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs_bossplant_outro_s *dm      = (cs_bossplant_outro_s *)cs->mem;
-    obj_s                *o_eye   = obj_from_obj_handle(dm->bp->eye);
-    obj_s                *o_eyefl = obj_from_obj_handle(dm->bp->eye_fake[0]);
-    obj_s                *o_eyefr = obj_from_obj_handle(dm->bp->eye_fake[1]);
+    obj_s                *o_eye   = obj_from_handle(dm->bp->eye);
+    obj_s                *o_eyefl = obj_from_handle(dm->bp->eye_fake[0]);
+    obj_s                *o_eyefr = obj_from_handle(dm->bp->eye_fake[1]);
 
     switch (cs->phase) {
     case 0: {
@@ -92,9 +92,9 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
     case 3: {
         if (CS_BOSSPLANT_OUTRO_TICKS_3 <= cs->tick) {
             cs->phase++;
-            cs->tick             = 0;
-            g->block_update      = 0;
-            g->block_owl_control = 1;
+            cs->tick = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_UPDATE;
+            g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
             boss_plant_barrier_poof(g);
             dm->bp->draw_vines = 0;
         }
@@ -142,8 +142,8 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
         }
         if (150 <= cs->tick) {
             cs->phase++;
-            cs->tick        = 0;
-            g->block_update = 1;
+            cs->tick = 0;
+            g->flags |= GAME_FLAG_BLOCK_UPDATE;
         }
         break;
     }
@@ -162,7 +162,7 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs)
 #if 0
                 b->phase                 = BOSS_PLANT_DEAD;
             b->phase_tick            = 0;
-            obj_s *o_attract         = obj_from_obj_handle(b->o_cam_attract);
+            obj_s *o_attract         = obj_from_handle(b->o_cam_attract);
             o_attract->cam_attract_r = BPLANT_CAM_ATTRACT_R;
 
             obj_delete(g, o_eye);

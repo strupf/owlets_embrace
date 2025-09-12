@@ -93,7 +93,7 @@ err32 snd_from_wad_ID(i32 ID, const void *name, allocator_s a)
 {
     void     *f;
     wad_el_s *el;
-    if (wad_open(wad_hash(name), &f, &el)) {
+    if (wad_open(hash_str(name), &f, &el)) {
         snd_s *s = &APP.assets.snd[ID];
         err32  e = snd_from_wad(f, el, name, a, s);
         pltf_file_close(f);
@@ -150,6 +150,7 @@ err32 tex_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, tex_s
     if (err_t == 0) {
         usize size     = sizeof(u32) * o_t->wword * o_t->h;
         usize size_dec = lzss_decode_file(f, o_t->px);
+        pltf_log("load tex: %s | %i KB\n", (char *)name, (i32)size / 1024);
         return (size == size_dec ? 0 : ASSETS_ERR_WAD_READ);
     }
     return ASSETS_ERR_ALLOC;
@@ -215,7 +216,7 @@ err32 ani_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, ani_s
     return 0;
 }
 
-i32 ani_frame(i32 ID, i32 ticks)
+i32 ani_frame_loop(i32 ID, i32 ticks)
 {
     ani_s a = asset_ani(ID);
     i32   t = ticks % a.ticks;
@@ -223,11 +224,18 @@ i32 ani_frame(i32 ID, i32 ticks)
     for (i32 n = 0, t_acc = 0; n < a.n; n++) {
         ani_frame_s f = a.f[n];
         t_acc += f.t;
+
         if (t < t_acc) {
             return f.i;
         }
     }
     return ((i32)a.n - 1);
+}
+
+i32 ani_frame(i32 ID, i32 ticks)
+{
+    ani_s a = asset_ani(ID);
+    return (a.ticks <= ticks ? -1 : ani_frame_loop(ID, ticks));
 }
 
 i32 ani_len(i32 ID)

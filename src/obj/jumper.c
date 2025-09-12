@@ -5,8 +5,9 @@
 #include "game.h"
 
 enum {
-    JUMPER_ST_HURT = -1,
     JUMPER_ST_IDLE,
+    JUMPER_ST_HURT,
+    JUMPER_ST_DIE,
     JUMPER_ST_ANTICIPATE,
     JUMPER_ST_JUMPING,
     JUMPER_ST_LANDED,
@@ -22,6 +23,7 @@ void jumper_on_hurt(g_s *g, obj_s *o);
 void jumper_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
+    o->UUID       = mo->UUID;
     o->ID         = OBJID_JUMPER;
     o->on_update  = jumper_on_update;
     o->on_animate = jumper_on_animate;
@@ -29,7 +31,10 @@ void jumper_load(g_s *g, map_obj_s *mo)
     o->h          = 18;
     o->pos.x      = mo->x;
     o->pos.y      = mo->y + mo->h - o->h;
-    o->facing     = 1;
+    o->facing     = +1;
+    if (map_obj_bool(mo, "face_left")) {
+        o->facing = -1;
+    }
 
     o->flags = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
@@ -40,16 +45,12 @@ void jumper_load(g_s *g, map_obj_s *mo)
                0;
     o->moverflags = OBJ_MOVER_ONE_WAY_PLAT |
                     OBJ_MOVER_TERRAIN_COLLISIONS;
-    o->health_max         = 2;
-    o->health             = o->health_max;
-    o->enemy              = enemy_default();
-    o->enemy.on_hurt      = jumper_on_hurt;
-    o->enemy.hurt_on_jump = 1;
+    o->health_max = 2;
+    o->health     = o->health_max;
 }
 
 void jumper_on_update(g_s *g, obj_s *o)
 {
-    o->timer++;
     o->animation++;
 
     if (o->bumpflags & OBJ_BUMP_X) {
@@ -72,7 +73,20 @@ void jumper_on_update(g_s *g, obj_s *o)
     }
 
     switch (o->state) {
+    case JUMPER_ST_HURT: {
+        o->timer++;
+        if (ENEMY_HIT_FREEZE_TICKS <= o->timer) {
+            o->timer = 0;
+            if (grounded) {
+                o->state = JUMPER_ST_IDLE;
+            } else {
+                o->state = JUMPER_ST_JUMPING;
+            }
+        }
+        break;
+    }
     case JUMPER_ST_IDLE: {
+        o->timer++;
         obj_s *ohero = obj_get_owl(g);
         if (ohero) {
             v2_i32 phero = obj_pos_center(ohero);
@@ -87,6 +101,7 @@ void jumper_on_update(g_s *g, obj_s *o)
         break;
     }
     case JUMPER_ST_ANTICIPATE: {
+        o->timer++;
         if (JUMPER_TICKS_ANTICIPATE <= o->timer) {
             o->state     = JUMPER_ST_JUMPING;
             o->timer     = 0;
@@ -98,6 +113,7 @@ void jumper_on_update(g_s *g, obj_s *o)
         break;
     }
     case JUMPER_ST_JUMPING: {
+        o->timer++;
         if (grounded) {
             snd_play(SNDID_STOMP_LAND, 1.1f, 1.f);
             o->state     = JUMPER_ST_LANDED;
@@ -114,6 +130,7 @@ void jumper_on_update(g_s *g, obj_s *o)
         break;
     }
     case JUMPER_ST_LANDED: {
+        o->timer++;
         if (JUMPER_TICKS_LAND <= o->timer) {
             o->timer     = 0;
             o->state     = JUMPER_ST_IDLE;
@@ -128,9 +145,20 @@ void jumper_on_update(g_s *g, obj_s *o)
 
 void jumper_on_hurt(g_s *g, obj_s *o)
 {
+    if (o->state == JUMPER_ST_DIE) return;
+
     o->v_q12.x = 0;
     o->v_q12.y = 0;
-    o->timer   = 0;
+    if (o->health) {
+        o->state = JUMPER_ST_HURT;
+    } else {
+        o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
+        o->state     = JUMPER_ST_DIE;
+        o->on_update = enemy_on_update_die;
+        g->enemies_killed++;
+        g->enemy_killed[ENEMYID_JUMPER]++;
+    }
+    o->timer = 0;
 }
 
 void jumper_on_animate(g_s *g, obj_s *o)
@@ -143,12 +171,14 @@ void jumper_on_animate(g_s *g, obj_s *o)
 
     i32 fr_x = 0;
     i32 fr_y = 0;
-    i32 st   = o->enemy.hurt_tick ? JUMPER_ST_HURT : o->state;
 
-    switch (st) {
+    switch (o->state) {
+    case JUMPER_ST_DIE:
     case JUMPER_ST_HURT: {
         fr_y = 0;
-        fr_x = 5;
+        fr_x = (o->timer < ENEMY_HIT_FLASH_TICKS ? 4 : 5);
+        spr->offs.x += rngr_sym_i32(ENEMY_HIT_FREEZE_SHAKE_AMOUNT);
+        spr->offs.y += rngr_sym_i32(ENEMY_HIT_FREEZE_SHAKE_AMOUNT);
         break;
     }
     case JUMPER_ST_IDLE: {

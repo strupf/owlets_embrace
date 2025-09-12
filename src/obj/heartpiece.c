@@ -12,6 +12,7 @@ void heart_or_stamina_piece_load(g_s *g, map_obj_s *mo, bool32 is_stamina)
     if (save_event_exists(g, saveID)) return;
 
     obj_s *o = obj_create(g);
+    o->UUID  = mo->UUID;
     o->ID    = OBJID_HEARTPIECE;
     o->subID = is_stamina != 0;
     o->w     = 32;

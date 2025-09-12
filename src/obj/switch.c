@@ -44,6 +44,7 @@ void switch_on_interact(g_s *g, obj_s *o)
 void switch_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
+    o->UUID            = mo->UUID;
     o->ID              = OBJID_SWITCH;
     o->render_priority = RENDER_PRIO_OWL - 1;
     o->flags =

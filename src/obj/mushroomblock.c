@@ -22,6 +22,7 @@ void mushroomblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s           *o  = obj_create(g);
     mushroomblock_s *ot = (mushroomblock_s *)o->mem;
+    o->UUID             = mo->UUID;
     o->ID               = OBJID_MUSHROOMBLOCK;
     o->render_priority  = RENDER_PRIO_OWL + 1;
     o->state            = 0;
@@ -54,9 +55,9 @@ void mushroomblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     i32 tiletype = TILE_TYPE_MUSHROOMS;
 
     if (o->animation < MUSHROOMBLOCK_TICKS_APPEAR) {
-        tiletype -= 1;
+        tiletype = TILE_TYPE_MUSHROOMS_HALF;
     } else if (o->state == 0) {
-        tiletype -= 2;
+        tiletype = TILE_TYPE_MUSHROOMS_GONE;
     }
     render_tile_terrain_block(ctx, pos, nx, ny, tiletype);
 }

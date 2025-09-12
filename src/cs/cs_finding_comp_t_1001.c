@@ -4,20 +4,20 @@
 
 #include "game.h"
 
-void cs_finding_comp_update(g_s *g, cs_s *cs);
+void cs_finding_comp_update(g_s *g, cs_s *cs, inp_s inp);
 
 void cs_finding_comp_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update        = cs_finding_comp_update;
-    cs->p_comp           = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
-    g->block_owl_control = 1;
+    cs->on_update = cs_finding_comp_update;
+    cs->p_comp    = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
     puppet_set_anim(cs->p_comp, PUPPET_COMPANION_ANIMID_FLY, -1);
     save_event_register(g, SAVE_EV_COMPANION_FOUND);
 }
 
-void cs_finding_comp_update(g_s *g, cs_s *cs)
+void cs_finding_comp_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs->tick++;
     switch (cs->phase) {
@@ -37,7 +37,7 @@ void cs_finding_comp_update(g_s *g, cs_s *cs)
             puppet_owl_replace_and_del(g, owl, cs->p_owl);
             owl_upgrade_add(owl, OWL_UPGRADE_COMPANION);
             cs_reset(g);
-            g->block_owl_control = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
         }
         break;
     }

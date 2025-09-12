@@ -125,7 +125,7 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
     }
     case PUPPET_OWL_ANIMID_FALL_ASLEEP: {
         fy = 18;
-        fx = ani_frame(ANIID_FALLASLEEP, anim_t);
+        fx = ani_frame_loop(ANIID_FALLASLEEP, anim_t);
         break;
     }
     case PUPPET_OWL_ANIMID_SLEEP: {
@@ -136,7 +136,7 @@ void puppet_hero_on_animate(obj_s *o, i32 animID, i32 anim_t)
     case PUPPET_OWL_ANIMID_SLEEP_WAKEUP: {
         i32 f = 0;
         if (anim_t <= ani_len(ANIID_WAKEUP)) {
-            f = ani_frame(ANIID_WAKEUP, anim_t);
+            f = ani_frame_loop(ANIID_WAKEUP, anim_t);
         }
         fy = 18 + (f >> 4);
         fx = (f & 15);

@@ -52,12 +52,34 @@ static game_version_s game_version_decode(u32 v)
 }
 
 enum {
+    TRIGGER_NULL                  = 0,
+    //
+    TRIGGER_CS_INTRO_COMP_1       = 1000,
+    TRIGGER_CS_FINDING_COMP       = 1001,
+    TRIGGER_CS_FINDING_HOOK       = 1002,
+    //
+    TRIGGER_TITLE_PREVIEW_TO_GAME = 2000,
+    TRIGGER_BATTLEROOM_ENTER      = 2010,
+    TRIGGER_BATTLEROOM_LEAVE      = 2011,
+    TRIGGER_BOSS_PLANT            = 2200,
+    //
+    TRIGGER_DIA_FRAME_NEW         = 2500,
+    TRIGGER_DIA_FRAME_END         = 2501,
+    TRIGGER_DIA_END               = 2502,
+    TRIGGER_DIA_CHOICE_1          = 2503,
+    TRIGGER_DIA_CHOICE_2          = 2504,
+    TRIGGER_DIA_CHOICE_3          = 2505,
+    TRIGGER_DIA_CHOICE_4          = 2506,
+};
+
+enum {
     SAVE_EV_UNLOCKED_MAP          = 2,
     SAVE_EV_COMPANION_FOUND       = 3,
     SAVE_EV_CS_POWERUP_FIRST_TIME = 5,
     SAVE_EV_CS_INTRO_COMP_1       = 6, // companion hushing through the tutorial area #1
     SAVE_EV_CS_HOOK_FOUND         = 7,
     SAVE_EV_CRACKBLOCK_INTRO_1    = 8,
+    SAVE_EV_PUSHBLOCK_INTRO_1     = 9,
     SAVE_EV_BOSS_GOLEM            = 200,
     SAVE_EV_BOSS_PLANT            = 201,
     SAVE_EV_BOSS_PLANT_INTRO_SEEN = 202,
@@ -80,6 +102,7 @@ enum {
     AREA_ID_DEEP_FOREST,
     AREA_ID_CAVE,
     AREA_ID_SNOW_PEAKS,
+    AREA_ID_MOUNTAIN,
 };
 
 #define MAP_WAD_NAME_LEN 16
@@ -97,30 +120,8 @@ typedef struct obj_handle_s {
     u32    generation;
 } obj_handle_s;
 
-// conditionally load a different room variant
-static u8 *map_loader_room_mod(g_s *g, u8 *map_name)
-{
-    if (0) {
-    } else if (str_eq_nc(map_name, "L_55")) {
-        // return (u8 *)"L_56";
-    }
-    return map_name;
-}
-
 enum {
-    DIRECTION_NONE,
-    DIRECTION_N,
-    DIRECTION_NE,
-    DIRECTION_E,
-    DIRECTION_SE,
-    DIRECTION_S,
-    DIRECTION_SW,
-    DIRECTION_W,
-    DIRECTION_NW,
-};
-
-enum {
-    DIR_NONE  = 1 << 0,
+    DIR_NONE  = 0,
     DIR_X_POS = 1 << 1,
     DIR_X_NEG = 1 << 2,
     DIR_Y_POS = 1 << 3,
@@ -144,14 +145,14 @@ enum {
 static i32 dir_nswe_index(i32 i)
 {
     switch (i) {
-    case 0: return DIR_N;
-    case 1: return DIR_NE;
-    case 2: return DIR_E;
-    case 3: return DIR_SE;
-    case 4: return DIR_S;
-    case 5: return DIR_SW;
-    case 6: return DIR_W;
-    case 7: return DIR_NW;
+    case 1: return DIR_N;
+    case 2: return DIR_NE;
+    case 3: return DIR_E;
+    case 4: return DIR_SE;
+    case 5: return DIR_S;
+    case 6: return DIR_SW;
+    case 7: return DIR_W;
+    case 8: return DIR_NW;
     }
     return 0;
 }
@@ -169,6 +170,14 @@ static i32 dir_nswe_nearest(i32 dir, bool32 cw)
     case DIR_SE: return (cw ? DIR_S : DIR_E);
     }
     return 0;
+}
+
+static i32 dir_nswe_90_deg(i32 dir, bool32 cw)
+{
+    i32 d = dir;
+    d     = dir_nswe_nearest(d, cw);
+    d     = dir_nswe_nearest(d, cw);
+    return d;
 }
 
 static i32 dir_nswe_opposite(i32 dir)
@@ -199,12 +208,6 @@ static v2_i32 dir_v2(i32 dir)
     return v;
 }
 
-static i32 direction_nearest(i32 dir, bool32 cw)
-{
-    if (dir == DIRECTION_NONE) return 0;
-    return ((dir + (cw ? 0 : 6)) & 7) + 1;
-}
-
 static i32 ticks_from_seconds(f32 s)
 {
     return (i32)(s * (f32)PLTF_UPS + .5f);
@@ -225,23 +228,6 @@ static i32 ms_from_ticks(i32 ticks)
     return (ticks * 1000) / PLTF_UPS;
 }
 
-static v2_i32 direction_v2(i32 dir)
-{
-    v2_i32 v = {0};
-    switch (dir) {
-    case DIRECTION_N: v.y = -1; break;
-    case DIRECTION_S: v.y = +1; break;
-    case DIRECTION_E: v.x = +1; break;
-    case DIRECTION_W: v.x = -1; break;
-    case DIRECTION_NE: v.y = -1, v.x = +1; break;
-    case DIRECTION_SE: v.y = +1, v.x = +1; break;
-    case DIRECTION_NW: v.y = -1, v.x = -1; break;
-    case DIRECTION_SW: v.y = +1, v.x = -1; break;
-    default: break;
-    }
-    return v;
-}
-
 static i32 find_ptr_in_array(void *arr, void *p, i32 len)
 {
     void **a = (void **)arr;
@@ -255,14 +241,14 @@ enum {
     HITBOX_FLAG_POWERSTOMP = 1 << 0,
 };
 
-typedef struct hitbox_s {
+typedef struct hitbox_legacy_s {
     ALIGNAS(32)
     rec_i32 r;
     v2_i16  force_q8;
     u8      damage;
     u8      flags;
     u8      hitID;
-} hitbox_s;
+} hitbox_legacy_s;
 
 typedef struct time_real_s {
     ALIGNAS(8)

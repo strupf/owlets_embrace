@@ -94,7 +94,7 @@ void *wad_open(u32 h, void **o_f, wad_el_s **o_e)
 
 void *wad_open_str(const void *name, void **o_f, wad_el_s **o_e)
 {
-    u32 h = wad_hash(name);
+    u32 h = hash_str(name);
     return wad_open(h, o_f, o_e);
 }
 
@@ -111,7 +111,7 @@ wad_el_s *wad_seek(void *f, wad_el_s *efrom, u32 hash)
 
 wad_el_s *wad_seek_str(void *f, wad_el_s *efrom, const void *name)
 {
-    return wad_seek(f, efrom, wad_hash(name));
+    return wad_seek(f, efrom, hash_str(name));
 }
 
 void *wad_r_spm(void *f, wad_el_s *efrom, u32 hash)
@@ -127,7 +127,7 @@ void *wad_r_spm(void *f, wad_el_s *efrom, u32 hash)
 
 void *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name)
 {
-    return wad_r_spm(f, efrom, wad_hash(name));
+    return wad_r_spm(f, efrom, hash_str(name));
 }
 
 void *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name)
@@ -161,15 +161,4 @@ void *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst)
 
     usize dec = lzss_decode_file(f, dst);
     return dst;
-}
-
-u32 wad_hash(const void *str)
-{
-    if (!str) return 0;
-
-    u32 h = 0;
-    for (const u8 *s = (const u8 *)str; *s; s++) {
-        h = h * 101 + (u32)*s;
-    }
-    return h;
 }

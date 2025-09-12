@@ -27,6 +27,7 @@ void savepoint_load(g_s *g, map_obj_s *mo)
 {
     obj_s       *o = obj_create(g);
     savepoint_s *s = (savepoint_s *)o->mem;
+    o->UUID        = mo->UUID;
     o->ID          = OBJID_SAVEPOINT;
     o->pos.x       = mo->x;
     o->pos.y       = mo->y;

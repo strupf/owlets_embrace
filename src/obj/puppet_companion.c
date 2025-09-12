@@ -48,7 +48,7 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
     default: break;
     case PUPPET_COMPANION_ANIMID_FLY: {
         fy = 0;
-        fx = ani_frame(ANIID_COMPANION_FLY, anim_t);
+        fx = ani_frame_loop(ANIID_COMPANION_FLY, anim_t);
         break;
     }
     case PUPPET_COMPANION_ANIMID_SIT: {
@@ -63,7 +63,7 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
     }
     case PUPPET_COMPANION_ANIMID_BUMP_ONCE: {
         fy    = 6;
-        fx    = ani_frame(ANIID_COMPANION_BUMP, anim_t);
+        fx    = ani_frame_loop(ANIID_COMPANION_BUMP, anim_t);
         i32 l = ani_len(ANIID_COMPANION_BUMP);
         if (l <= anim_t) {
             ocs->anim_t = 0;
@@ -74,7 +74,7 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
     case PUPPET_COMPANION_ANIMID_NOD_ONCE:
     case PUPPET_COMPANION_ANIMID_NOD: {
         fy    = 0;
-        fx    = ani_frame(ANIID_COMPANION_FLY, anim_t);
+        fx    = ani_frame_loop(ANIID_COMPANION_FLY, anim_t);
         i32 l = ani_len(ANIID_COMPANION_FLY);
         i32 k = anim_t % (4 * l);
         if (k < 2 * l) { // confirming nod animation, synced to animation
@@ -91,7 +91,7 @@ void puppet_companion_on_animate(obj_s *o, i32 animID, i32 anim_t)
     }
     case PUPPET_COMPANION_ANIMID_HUH: {
         fy     = 7;
-        fx     = ani_frame(ANIID_COMPANION_HUH, anim_t);
+        fx     = ani_frame_loop(ANIID_COMPANION_HUH, anim_t);
         i32 l  = ani_len(ANIID_COMPANION_HUH);
         i32 co = cos_q15(((anim_t % l) << 18) / l) - 32768;
         spr->offs.y += (co * 4) >> 16;

@@ -13,6 +13,7 @@ void   fallingstone_burst(g_s *g, obj_s *o);
 void fallingstonespawn_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o          = obj_create(g);
+    o->UUID           = mo->UUID;
     o->ID             = OBJID_FALLINGSTONE_SPAWN;
     o->pos.x          = mo->x;
     o->pos.y          = mo->y;

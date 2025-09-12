@@ -265,8 +265,10 @@ static bool32 at_types_blending(i32 a, i32 b)
         b == TILE_TYPE_DARK_OBSIDIAN) return 0;
     if (b == TILE_TYPE_INVISIBLE_CONNECTING ||
         a == TILE_TYPE_THORNS ||
+        a == TILE_TYPE_SPIKES ||
         a == TILE_TYPE_DARK_OBSIDIAN) return 1;
-    if (b == TILE_TYPE_THORNS) return 0;
+    if (b == TILE_TYPE_THORNS ||
+        b == TILE_TYPE_SPIKES) return 0;
 
     if (a == 25) return 0;
     if (tile_type_color(a) == tile_type_color(b)) return 1;
@@ -278,11 +280,16 @@ static void autotile_do_at(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, u32 *seed_
 
 static bool32 autotile_is_inner_gradient(tile_s *tiles, i32 w, i32 h, i32 x, i32 y)
 {
-    tile_s *t      = &tiles[x + y * w];
-    i32     titype = tile_get_type(t);
-    if (titype != TILE_TYPE_BRIGHT_STONE) return 0;
-    i32 tishape = tile_get_shape(t);
-    if (tishape != TILE_BLOCK) return 0;
+    tile_s *t = &tiles[x + y * w];
+    if (tile_get_shape(t) != TILE_BLOCK) return 0;
+
+    i32 titype = tile_get_type(t);
+    switch (titype) {
+    default: return 0;
+    case TILE_TYPE_BRIGHT_SNOW:
+    case TILE_TYPE_BRIGHT_MOUNTAIN:
+    case TILE_TYPE_BRIGHT_STONE: break;
+    }
 
     for (i32 yy = -1; yy <= +1; yy++) {
         for (i32 xx = -1; xx <= +1; xx++) {
@@ -291,11 +298,13 @@ static bool32 autotile_is_inner_gradient(tile_s *tiles, i32 w, i32 h, i32 x, i32
             i32 u = x + xx;
             i32 v = y + yy;
 
+            // cast to unsigned
+            // if negative: wraps around and is much bigger than w
+            // therefore checked for out of bounds
             if ((u32)u < (u32)w && (u32)v < (u32)h) {
-                tile_s *tj      = &tiles[u + v * w];
-                i32     tjshape = tile_get_shape(tj);
-                i32     tjtype  = tile_get_type(tj);
-                if (tjtype != titype || tjshape != TILE_BLOCK) {
+                tile_s *tj = &tiles[u + v * w];
+
+                if (tile_get_type(tj) != titype || tile_get_shape(tj) != TILE_BLOCK) {
                     return 0;
                 }
             }
@@ -421,10 +430,10 @@ static void autotile_do_at(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, u32 *seed_
     rtile->ty = 0;
 
     i32    m      = autotile_marching(tiles, w, h, x, y);
-    v2_i32 tcoord = {0, ((i32)rtile->type - 2) << 3};
+    v2_i32 tcoord = {0, ((i32)rtile->type) << 3};
     v2_i8  coords = g_autotile_coords[m];
     if (rtile->type & TILE_TYPE_FLAG_INNER_GRADIENT) {
-        tcoord.y = ((i32)24 - 2) << 3;
+        tcoord.y = TILE_TYPE_ID_BY_XY(0, 6) << 3;
     }
 
     switch (rtile->shape) {
@@ -436,6 +445,7 @@ static void autotile_do_at(tile_s *tiles, i32 w, i32 h, i32 x, i32 y, u32 *seed_
         case TILE_TYPE_DARK_LEAVES:
         case TILE_TYPE_BRIGHT_STONE:
         case TILE_TYPE_BRIGHT_SNOW:
+        case TILE_TYPE_BRIGHT_MOUNTAIN:
         case TILE_TYPE_THORNS: n_vari = 3; break;
         default: break;
         }

@@ -7,13 +7,47 @@
 
 #include "pltf/pltf.h"
 
-static inline u32 hash_str(const char *s)
+static inline i32 char_to_upper(i32 c)
 {
-    u32 h = 0;
-    for (i32 n = 0; s[n] != '\0'; n++) {
-        h = h * 101 + (u32)s[n];
+    return ((i32)'a' <= c && c <= (i32)'z' ? c - (i32)'a' + (i32)'A' : c);
+}
+
+static inline i32 char_to_lower(i32 c)
+{
+    return ((i32)'A' <= c && c <= (i32)'Z' ? c - (i32)'A' + (i32)'a' : c);
+}
+
+static inline u32 hash_str_func(u32 h, u32 next)
+{
+    return (h * 101 + next);
+}
+
+static u32 hash_str(const void *str)
+{
+    if (!str) return 0;
+
+    u32       h = 0;
+    const u8 *s = (const u8 *)str;
+    while (1) {
+        u32 c = char_to_lower(*s++);
+        if (c == 0) break;
+        h = hash_str_func(h, c);
     }
     return h;
+}
+
+static inline u32 hash_str16(const void *str)
+{
+    // h * 101 + next
+    // -> use low bits, otherwise hash would be 0 for short strings
+    return (hash_str(str) & 0xFFFF);
+}
+
+static inline u32 hash_str8(const void *str)
+{
+    // h * 101 + next
+    // -> use low bits, otherwise hash would be 0 for short strings
+    return (hash_str(str) & 0xFF);
 }
 
 #define FILEPATH_GEN(NAME, PATHNAME, FILENAME) \
@@ -21,23 +55,40 @@ static inline u32 hash_str(const char *s)
     str_cpy(NAME, PATHNAME);                   \
     str_append(NAME, FILENAME)
 
-static inline i32 char_upper(i32 c)
-{
-    return ((i32)'a' <= c && c <= (i32)'z' ? c - (i32)'a' + (i32)'A' : c);
-}
-
-static inline i32 char_lower(i32 c)
-{
-    return ((i32)'A' <= c && c <= (i32)'Z' ? c - (i32)'A' + (i32)'a' : c);
-}
-
-static bool32 char_is_any(i32 c, const char *chars)
+static bool32 char_is_any(i32 c, const void *chars)
 {
     if (!chars) return 0;
-    for (const char *a = chars; *a != '\0'; a++) {
+    for (const u8 *a = (const u8 *)chars; *a != '\0'; a++) {
         if (c == (i32)*a) return 1;
     }
     return 0;
+}
+
+static bool32 char_is_ws(i32 c)
+{
+    switch (c) {
+    case ' ':
+    case '\t':
+    case '\n':
+    case '\v':
+    case '\f':
+    case '\r': return 1;
+    }
+    return 0;
+}
+
+static void *str_skip_ws(const void *p)
+{
+    u8 *c = (u8 *)p;
+    while (char_is_ws(*c)) {
+        c++;
+    }
+    return c;
+}
+
+static bool32 char_is_digit(i32 c)
+{
+    return ('0' <= c && c <= '9');
 }
 
 static inline i32 str_cmp(const void *a, const void *b)
@@ -64,8 +115,8 @@ static inline bool32 str_eq_nc(const void *a, const void *b)
     const u8 *x = (const u8 *)a;
     const u8 *y = (const u8 *)b;
     while (1) {
-        if (char_upper(*x) != char_upper(*y)) return 0;
-        if (*x == '\0') return 1;
+        if (*y == '\0') return 1;
+        if (char_to_upper(*x) != char_to_upper(*y)) return 0;
         x++;
         y++;
     }
@@ -131,22 +182,6 @@ static void str_cpys(void *dst, usize dstsize, const void *src)
         n++;
     }
     *d = '\0';
-}
-
-// assets/tex/file.png -> file.png
-static void str_extract_filename(const char *src, char *buf, u32 bufsize)
-{
-    const char *s = src;
-    while (*s != '\0' && *s != '.')
-        s++;
-    while (src < s) {
-        s--;
-        if (*s == '/') {
-            s++;
-            break;
-        }
-    }
-    str_cpys(buf, bufsize, s);
 }
 
 // appends string b -> overwrites null-char and places a new null-char
@@ -215,23 +250,34 @@ static i32 num_from_hex(i32 c)
     case 'F':
     case 'f': return 15;
     }
-    return 0;
+    return -1;
+}
+
+static u32 num_from_hex_str(void *str)
+{
+    u32 n = 0;
+    u8 *c = (u8 *)str;
+    while (1) {
+        i32 k = num_from_hex(*c);
+        if (k < 0) break;
+
+        n = (n << 4) | (u32)k;
+        c++;
+    }
+    return n;
 }
 
 static i32 hex_from_num(i32 c)
 {
-    static const char *g_hex = "0123456789ABCDEF";
-    return (0x0 <= c && c <= 0xF ? g_hex[c] : 0);
+    ALIGNAS(32) static const char *g_hex = "0123456789ABCDEF";
+    return (0 <= c && c <= 15 ? g_hex[c] : 0);
 }
 
 static f32 f32_from_str(const void *str)
 {
-    const u8 *c = (const u8 *)str;
-    while (isspace((int)*c))
-        c++;
-
-    f32 res  = 0.f;
-    f32 fact = 1.f;
+    const u8 *c    = (const u8 *)str_skip_ws(str);
+    f32       res  = 0.f;
+    f32       fact = 1.f;
     if (*c == '-') {
         fact = -1.f;
         c++;
@@ -240,7 +286,7 @@ static f32 f32_from_str(const void *str)
     for (i32 pt = 0;; c++) {
         if (*c == '.') {
             pt = 1;
-        } else if (isdigit((int)*c)) {
+        } else if (char_is_digit((i32)*c)) {
             if (pt) fact *= .1f;
             res = res * 10.f + (f32)num_from_hex(*c);
         } else {
@@ -252,11 +298,9 @@ static f32 f32_from_str(const void *str)
 
 static i32 i32_from_str(const void *str)
 {
-    const u8 *c = (const u8 *)str;
-    while (isspace((int)*c))
-        c++;
-    i32 res = 0;
-    i32 s   = +1;
+    const u8 *c   = (const u8 *)str_skip_ws(str);
+    i32       res = 0;
+    i32       s   = +1;
     if (*c == '-') {
         s = -1;
         c++;
@@ -271,10 +315,8 @@ static i32 i32_from_str(const void *str)
 
 static u32 u32_from_str(const void *str)
 {
-    const u8 *c = (const u8 *)str;
-    while (isspace((int)*c))
-        c++;
-    u32 res = 0;
+    const u8 *c   = (const u8 *)str_skip_ws(str);
+    u32       res = 0;
     while ('0' <= *c && *c <= '9') {
         res *= 10;
         res += *c - '0';
@@ -310,32 +352,89 @@ static i32 str_from_u32(u32 v, void *dst, u32 dstsize)
 }
 
 // string float to fixed point integer parsing
-static int QX_gen(const char *str, int q)
+static i32 QX_gen(const void *str, i32 q)
 {
-    int         neg = 0;
-    const char *c   = str;
+    const u8 *c = (const u8 *)str_skip_ws(str);
+    if (*c == '\0') return 0;
+
+    i32 neg = 0;
     if (*c == '-') {
         neg = 1;
         c++;
     }
 
-    int n = 0;
+    i32 n = 0;
     while (*c != '.' && *c != '\0') {
         n = n * 10 + ((*c++ - '0') << q);
     }
 
     if (*c == '.') {
         c++;
-        uint f   = 0;
-        uint div = 1;
+        u32 f   = 0;
+        u32 div = 1;
         while (*c != '\0') {
             f = f * 10 + ((*c++ - '0') << q);
             div *= 10;
         }
-        n += (int)(f / div);
+        n += (i32)(f / div);
     }
 
     return (neg ? -n : +n);
+}
+
+typedef struct {
+    ALIGNAS(16)
+    u32 v[4];
+} uuid128_s;
+
+// expects correct string formatting
+static uuid128_s uuid128_from_str(const void *str)
+{
+    i32       n_hexdig = 0;
+    uuid128_s g        = {0};
+
+    for (const u8 *s = (const u8 *)str; *s && n_hexdig < 32; s++) {
+        i32 i = num_from_hex(*s);
+        if (0 <= i) {
+            i32 at  = n_hexdig >> 3;
+            g.v[at] = ((u32)g.v[at] << 4) | i;
+            n_hexdig++;
+        }
+    }
+    return g;
+}
+
+// expects correct string formatting
+// reduce 128 to 32 bits and hope for the best
+static u32 uuid32_from_uuid128_str(const void *str)
+{
+    i32 n_hexdig = 0;
+    u32 r        = 0;
+    u32 v        = 0;
+
+    for (const u8 *s = (const u8 *)str; *s; s++) {
+        i32 i = num_from_hex(*s);
+        if (i < 0) continue;
+
+        v = (v << 4) | i;
+        n_hexdig++;
+        if ((n_hexdig & 7) == 0) {
+            r ^= v;
+            v = 0;
+
+            if (n_hexdig == 32) {
+                break;
+            }
+        }
+    }
+    return r;
+}
+
+// just xor together and hope for the best
+static u32 u32_from_uuid128(uuid128_s u)
+{
+    u32 v = u.v[0] ^ u.v[1] ^ u.v[2] ^ u.v[3];
+    return v;
 }
 
 #endif

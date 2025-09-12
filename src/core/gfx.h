@@ -198,7 +198,7 @@ void gfx_tri(gfx_ctx_s ctx, tri_i32 t, i32 mode);
 void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode);
 void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2);
 void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
-void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 a1, i32 a2, i32 mode);
+void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 a1_q18, i32 a2_q18, i32 mode);
 void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q17, i32 a2_q17, i32 mode);
 //
 void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode);

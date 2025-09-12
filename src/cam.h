@@ -7,20 +7,21 @@
 
 #include "gamedef.h"
 
-#define CAM_TRG_FADE_MAX 4096
-#define CAM_W            PLTF_DISPLAY_W
-#define CAM_H            PLTF_DISPLAY_H
-#define CAM_WH           (PLTF_DISPLAY_W >> 1)
-#define CAM_HH           (PLTF_DISPLAY_H >> 1)
-#define CAM_X_PAN_V_Q2   (3 << 3)
+#define CAM_TRG_FADE_MAX    4096
+#define CAM_W               PLTF_DISPLAY_W
+#define CAM_H               PLTF_DISPLAY_H
+#define CAM_WH              (PLTF_DISPLAY_W >> 1)
+#define CAM_HH              (PLTF_DISPLAY_H >> 1)
+#define CAM_CLAMP_REC_TICKS 50
 
+// data for the camera around the owl's behaviour
 typedef struct cam_owl_s {
     ALIGNAS(32)
     v2_i32 pos; // in pixels
-    b16    was_grounded;
-    i16    was_ground_y;
     i16    lookdownup_tick;
     i16    lookdownup_q8;
+    i16    was_ground_y;
+    b8     was_grounded;
     i8     x_pan_v;             // left/right pan movement
     i8     offs_x;              // offset from owl position
     u8     force_lower_ceiling; // push camera up earlier; resets every frame
@@ -28,17 +29,17 @@ typedef struct cam_owl_s {
     b8     can_align_x;         // align owl to multiple of 2px?
     b8     can_align_y;         // align owl to multiple of 2px?
     u8     touched_top_tick;
+    b8     center_req; // should center; reset every frame
 } cam_owl_s;
 
 typedef struct cam_s {
-    v2_i32    prev_gfx_offs;
     cam_owl_s cowl;
     v2_i32    shake;
     v2_i32    trg;
     v2_i32    attr_q12;
     rec_i32   clamp_rec;
-    b32       has_clamp_rec;
-    i32       clamp_rec_fade_q8;
+    bool16    clamp_rec_exists;
+    u16       clamp_rec_ticks;
     u16       shake_ticks;
     u16       shake_ticks_max;
     u16       shake_str_x;
@@ -52,6 +53,9 @@ typedef struct cam_s {
     u8        trg_fade_spd; // speed to fade (per tick)
 } cam_s;
 
+void cam_clamp_rec_set(g_s *g, rec_i32 r);
+void cam_clamp_rec_unset(g_s *g);
+
 // either lock to position or to obj if non-null
 void    cam_screenshake(cam_s *c, i32 ticks, i32 str);
 void    cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y);
@@ -60,7 +64,5 @@ v2_i32  cam_pos_px_center(g_s *g, cam_s *c);
 rec_i32 cam_rec_px(g_s *g, cam_s *c);
 void    cam_init_level(g_s *g, cam_s *c);
 void    cam_update(g_s *g, cam_s *c);
-v2_i32  cam_offset_max(g_s *g, cam_s *c);
-void    cam_owl_do_x_shift(cam_s *c, i32 sx);
 
 #endif

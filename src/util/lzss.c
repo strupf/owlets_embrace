@@ -2,19 +2,27 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+// compression, especially used for textures and level data
+//
+// contains a bitflag byte prior to multiple encodings
+// bit in byte set: copy that byte as is from source to destination
+// otherwise: run length encoded, look back n_offset bytes in destination buffer
+// and copy n_run bytes from destination offset to destination
+//
+// uses 16 bit to encode offset and runlength for decoding simplicity
+
 #include "util/lzss.h"
 #include "pltf/pltf.h"
 #include "util/bitrw.h"
 #include "util/mathfunc.h"
 
 typedef struct {
-    u32 nbytes;
-    u32 size;
-    u32 nbits;
+    u32 nbytes; // bytes of compressed data
+    u32 size;   // size of uncompressed data
 } lzss_header_s;
 
 #define LZSS_NBITS_OFF     8
-#define LZSS_NBITS_RUN     8
+#define LZSS_NBITS_RUN     (16 - LZSS_NBITS_OFF)
 #define LZSS_LIT_THRESHOLD 3
 #define LZSS_MAX_OFF       (1 << LZSS_NBITS_OFF)
 #define LZSS_MAX_RUN       (LZSS_LIT_THRESHOLD - 1 + (1 << LZSS_NBITS_RUN))
@@ -26,38 +34,44 @@ usize lzss_decoded_size(const void *src)
     return head->size;
 }
 
-usize lzss_decode(const void *src, void *dst)
+usize lzss_decode_ext(const void *src, void *dst, i32 bits_run)
 {
-    const lzss_header_s *head   = (const lzss_header_s *)src;
-    const u8            *s      = (const u8 *)(head + 1);
-    const u8            *s_end  = s + head->nbytes;
-    byte                *d      = (byte *)dst;
-    u32                  nblock = 0;
-    u32                  flags  = 0;
+    const lzss_header_s *head     = (const lzss_header_s *)src;
+    const u8            *s        = (const u8 *)(head + 1);
+    const u8            *s_end    = s + head->nbytes;
+    byte                *d        = (byte *)dst;
+    u32                  nblock   = 0; // block of flags to encode byte literals vs stream
+    u32                  flags    = 0; // flag whether the next token is a single byte literal
+    u32                  mask_run = ((u32)1 << bits_run) - 1;
 
     while (s < s_end) {
         if (nblock == 0) {
             flags = *s++;
         }
 
-        if (flags & (1 << nblock)) {
+        if (flags & (1 << nblock)) { // flag set: byte literal
             *d++ = *s++;
-        } else {
+        } else { // flat not set: copy run of bytes from an offset
             u32 v = 0;
             v |= *s++ << 8;
             v |= *s++;
-            u32 off = 1 + (v >> LZSS_NBITS_RUN);
-            u32 run = LZSS_LIT_THRESHOLD + (v & ((1 << LZSS_NBITS_RUN) - 1));
-
+            u32   off   = 1 + (v >> bits_run);
+            u32   run   = LZSS_LIT_THRESHOLD + (v & mask_run);
             byte *d_cpy = d - off;
+
             for (u32 j = 0; j < run; j++) {
                 *d++ = *d_cpy++;
             }
         }
-        nblock = (nblock + 1) & 7;
+        nblock = (nblock + 1) & 7; // increment bit index for flags
     }
-    assert((usize)(d - (byte *)dst) == head->size);
+    assert((usize)(d - (byte *)dst) == head->size); // does the decoded size match the size in the header?
     return head->size;
+}
+
+usize lzss_decode(const void *src, void *dst)
+{
+    return lzss_decode_ext(src, dst, LZSS_NBITS_RUN);
 }
 
 usize lzss_encode(const void *src, usize srcl, void *dst)
@@ -67,8 +81,8 @@ usize lzss_encode(const void *src, usize srcl, void *dst)
     u8            *d_beg  = (u8 *)(head + 1);
     u8            *d      = d_beg;
     u32            n      = 0; // index of source byte
-    u32            nblock = 0;
-    u8            *flags  = 0;
+    u32            nblock = 0; // block of flags to encode byte literals vs stream
+    u8            *flags  = 0; // flag whether the next token is a single byte literal
 
     while (n < srcl) {
         u32 best_k = 0;
@@ -78,9 +92,9 @@ usize lzss_encode(const void *src, usize srcl, void *dst)
         u32 k_search = 0 < n - LZSS_MAX_OFF ? n - LZSS_MAX_OFF : 0;
         for (u32 k = k_search; k < n; k++) {
             if (s[n] != s[k]) continue;
+
             u32 l = 1;
-            while (l < LZSS_MAX_RUN &&
-                   (usize)(n + l) < srcl && s[k + l] == s[n + l]) {
+            while (l < LZSS_MAX_RUN && (usize)(n + l) < srcl && s[k + l] == s[n + l]) {
                 l++;
             }
 
@@ -99,10 +113,9 @@ usize lzss_encode(const void *src, usize srcl, void *dst)
             *flags |= (1 << nblock);
             *d++ = s[n++];
         } else { // run
-            u32 v = ((n - best_k - 1) << LZSS_NBITS_RUN) |
-                    (best_l - LZSS_LIT_THRESHOLD);
-            *d++ = v >> 8;
-            *d++ = v & 0xFF;
+            u32 v = ((n - best_k - 1) << LZSS_NBITS_RUN) | (best_l - LZSS_LIT_THRESHOLD);
+            *d++  = v >> 8;
+            *d++  = v & 0xFF;
             n += best_l;
         }
         nblock = (nblock + 1) & 7;

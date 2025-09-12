@@ -65,9 +65,8 @@ void title_init(title_s *t)
 {
     g_s *g = &APP.game;
     title_load_previews(t);
-    t->preload_slot     = -1;
-    g->render_map_doors = 0;
-    g->previewmode      = 1;
+    t->preload_slot = -1;
+    g->flags |= GAME_FLAG_TITLE_PREVIEW;
 #if !TITLE_SKIP_TO_GAME
     mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
 #endif
@@ -78,7 +77,6 @@ void title_start_game(app_s *app, i32 slot)
     g_s *g                = &app->game;
     app->title.state      = TITLE_ST_TO_GAME;
     app->title.start_tick = 0;
-    g->render_map_doors   = 1;
     game_cue_area_music(g);
 #if PLTF_PD
     // pltf_pd_menu_add("savepoint", app_menu_callback_resetsave, 0);
@@ -88,11 +86,11 @@ void title_start_game(app_s *app, i32 slot)
 
 void title_gameplay_start(app_s *app)
 {
-    g_s *g               = &app->game;
-    g->block_owl_control = 0;
-    g->health_ui_show    = 1;
-    g->previewmode       = 0;
-    app->state           = APP_ST_GAME;
+    g_s *g = &app->game;
+    g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
+    g->health_ui_show = 1;
+    g->flags &= ~GAME_FLAG_TITLE_PREVIEW;
+    app->state = APP_ST_GAME;
     cs_on_load_title_wakeup(g);
 }
 
@@ -117,11 +115,11 @@ void title_try_preload(app_s *app, title_s *t)
     } else if (t->preload_slot == t->selected) {
         t->preload_fade_dir = 1;
     } else if (t->preload_fade_q7 == 0) {
-        savefile_s *s        = &app->save;
-        g_s        *g        = &app->game;
-        g->block_owl_control = 1;
-        g->save_slot         = t->selected;
-        err32 err            = savefile_r(t->selected, s);
+        savefile_s *s = &app->save;
+        g_s        *g = &app->game;
+        g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+        g->save_slot = t->selected;
+        err32 err    = savefile_r(t->selected, s);
         if (err) {
             t->preload_slot     = -1;
             t->preload_fade_dir = 0;
@@ -607,7 +605,7 @@ void title_render(title_s *t)
                                    "Settings", 2, 1);
             fnt_draw_outline_style(ctx, font, (v2_i32){200, 212},
                                    "Credits", 2, 1);
-            i32      fr_cursor  = ani_frame(ANIID_CURSOR, t->tick);
+            i32      fr_cursor  = ani_frame_loop(ANIID_CURSOR, t->tick);
             texrec_s tr_cursor  = asset_texrec(TEXID_COVER, 352 + fr_cursor * 32, 384, 32, 32);
             v2_i32   pt_cursor1 = {160 - 16, 168 + 10 + 22 * t->option - 16};
             v2_i32   pt_cursor2 = {240 - 16, 168 + 10 + 22 * t->option - 16};
@@ -730,7 +728,7 @@ void title_draw_companion(title_s *t)
 {
     gfx_ctx_s ctx = gfx_ctx_display();
 
-    i32 frx = ani_frame(ANIID_COMPANION_FLY, t->tick);
+    i32 frx = ani_frame_loop(ANIID_COMPANION_FLY, t->tick);
     i32 fry = 0;
     i32 x   = t->pos_comp_q8.x >> 8;
     i32 y   = t->pos_comp_q8.y >> 8;
@@ -739,7 +737,7 @@ void title_draw_companion(title_s *t)
 
     if (t->comp_bump) {
         tr.y = 64 * 6;
-        tr.x = 64 * ani_frame(ANIID_COMPANION_BUMP, t->comp_bump);
+        tr.x = 64 * ani_frame_loop(ANIID_COMPANION_BUMP, t->comp_bump);
     }
     v2_i32 pos = {x - 32 + 6, y - 32};
 

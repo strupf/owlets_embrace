@@ -10,7 +10,7 @@
 #define CAM_ATTRACT_Y_POS 50 // max pixels down
 #define CAM_ATTRACT_X     50 // max pixels left and right
 #define CAM_FACE_OFFS_X   80
-#define CAM_HERO_Y_BOT    166                   // lower = camera positioned lower
+#define CAM_HERO_Y_BOT    168                   // lower = camera positioned lower
 #define CAM_HERO_Y_TOP    (CAM_HERO_Y_BOT - 72) // tune for jump height
 #define CAM_OFFS_TOP      (-120 + CAM_HERO_Y_TOP)
 #define CAM_OFFS_BOT      (-120 + CAM_HERO_Y_BOT)
@@ -77,9 +77,9 @@ v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
     }
 
     pos = cam_constrain_to_room(g, pos);
-    if (c->clamp_rec_fade_q8) {
+    if (c->clamp_rec_ticks) {
         v2_i32 p_clamped = cam_constrain_to_rec(pos, c->clamp_rec);
-        pos              = v2_i32_ease(pos, p_clamped, c->clamp_rec_fade_q8, 256, ease_in_out_quad);
+        pos              = v2_i32_ease(pos, p_clamped, c->clamp_rec_ticks, CAM_CLAMP_REC_TICKS, ease_in_out_quad);
     }
     pos.x += c->attr_q12.x >> 12;
     pos.y += c->attr_q12.y >> 12;
@@ -110,10 +110,12 @@ void cam_update(g_s *g, cam_s *c)
         cam_update_owl(g, &c->cowl, owl);
     }
 
-    if (c->has_clamp_rec) {
-        c->clamp_rec_fade_q8 = min_i32(c->clamp_rec_fade_q8 + 4, 256);
-    } else {
-        c->clamp_rec_fade_q8 = max_i32(c->clamp_rec_fade_q8 - 4, 0);
+    if (c->clamp_rec_exists) {
+        if (c->clamp_rec_ticks < CAM_CLAMP_REC_TICKS) {
+            c->clamp_rec_ticks++;
+        }
+    } else if (c->clamp_rec_ticks) {
+        c->clamp_rec_ticks--;
     }
 
     if (c->shake_ticks) {
@@ -176,6 +178,7 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
 {
     i32    look_up_down = 0;
     owl_s *h            = (owl_s *)o->heap;
+
     c->can_align_x      = 0;
     c->can_align_y      = 0;
     v2_i32 owlp         = obj_pos_bottom_center(o);
@@ -197,7 +200,7 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
         }
     }
 
-    if ((herogrounded)) {
+    if (herogrounded) {
         // move camera upwards if hero landed on new platform
         // "new base height"
         // align bottom with platform
@@ -251,42 +254,33 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
     }
 
     // new x axis code
-    if (h->climb == OWL_CLIMB_LADDER && h->climb_tick) {
-        if (0) {
-        } else if (c->offs_x < 0) {
-            c->offs_x = min_i32(c->offs_x + 2, 0);
-        } else if (c->offs_x > 0) {
-            c->offs_x = max_i32(c->offs_x - 2, 0);
-        }
-        c->x_pan_v = 0;
+    c->pos.x = owlp.x;
+
+    if (c->center_req) {
+        c->x_pan_v -= sgn_i32(c->x_pan_v);
+        c->offs_x = (c->offs_x * 245) >> 8;
     } else {
-        // normal camera movement on x
-        i32 offs_x_cur = c->pos.x - owlp.x + c->offs_x; // offset considering the new owl position and the old camera position
-        c->pos.x       = owlp.x;
-
-        if (0) {
-        } else if (offs_x_cur < -CAM_FACE_OFFS_X) {
-            c->offs_x  = max_i32(c->offs_x, -CAM_FACE_OFFS_X);
-            c->x_pan_v = +3;
-        } else if (offs_x_cur > +CAM_FACE_OFFS_X) {
-            c->offs_x  = min_i32(c->offs_x, +CAM_FACE_OFFS_X);
-            c->x_pan_v = -3;
+        i32 dt_trg = (o->facing * CAM_FACE_OFFS_X);
+        c->x_pan_v = clamp_sym_i32(c->x_pan_v + o->facing, 2);
+        if (abs_i32(c->offs_x - dt_trg) < 10) {
+            c->x_pan_v = clamp_sym_i32(c->x_pan_v, 1);
         }
+        c->offs_x += c->x_pan_v;
+        c->offs_x += sgn_i32(o->v_q12.x) * 1;
 
-        if (o->facing != sgn_i32(c->x_pan_v)) {
+        if (c->offs_x < -CAM_FACE_OFFS_X) {
+            c->offs_x  = -CAM_FACE_OFFS_X;
             c->x_pan_v = 0;
         }
-
-        if (c->x_pan_v) {
-            i32 v = abs_i32(sgn_i32(c->x_pan_v) * CAM_FACE_OFFS_X - c->offs_x);
-            c->offs_x += v < 10 ? sgn_i32(c->x_pan_v) : c->x_pan_v; // slow down before end of panning
-        } else {
-            c->offs_x = offs_x_cur;
+        if (c->offs_x > +CAM_FACE_OFFS_X) {
+            c->offs_x  = +CAM_FACE_OFFS_X;
+            c->x_pan_v = 0;
         }
     }
 
     c->offs_x      = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
     c->can_align_x = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
+    c->center_req  = 0;
 }
 
 static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center)
@@ -302,12 +296,6 @@ static v2_i32 cam_constrain_to_rec(v2_i32 p_center, rec_i32 r)
     return v;
 }
 
-v2_i32 cam_offset_max(g_s *g, cam_s *c)
-{
-    v2_i32 o = {g->pixel_x - CAM_W, g->pixel_y - CAM_H};
-    return o;
-}
-
 static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b)
 {
     f32 d = a * b / sqrt_f32(b * b * p.x * p.x + a * a * p.y * p.y);
@@ -319,7 +307,16 @@ static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b)
     }
 }
 
-void cam_owl_do_x_shift(cam_s *c, i32 sx)
+void cam_clamp_rec_set(g_s *g, rec_i32 r)
 {
-    c->cowl.x_pan_v = sgn_i32(sx) * 3;
+    cam_s *c            = &g->cam;
+    c->clamp_rec        = r;
+    c->clamp_rec_exists = 1;
+    c->clamp_rec_ticks  = 0;
+}
+
+void cam_clamp_rec_unset(g_s *g)
+{
+    cam_s *c            = &g->cam;
+    c->clamp_rec_exists = 0;
 }

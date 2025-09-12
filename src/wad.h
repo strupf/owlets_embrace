@@ -66,6 +66,4 @@ void     *wad_r_spm_str(void *f, wad_el_s *efrom, const void *name);
 void     *wad_rd_spm_str(void *f, wad_el_s *efrom, const void *name);
 void     *wad_r_str(void *f, wad_el_s *efrom, const void *name, void *dst);
 void     *wad_rd_str(void *f, wad_el_s *efrom, const void *name, void *dst);
-u32       wad_hash(const void *str);
-
 #endif

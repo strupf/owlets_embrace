@@ -68,7 +68,7 @@ void lookahead_on_animate(g_s *g, obj_s *o)
         spr->offs.x++;
     }
 
-    f         = ani_frame(ANIID_LOOKAHEAD, o->animation);
+    f         = ani_frame_loop(ANIID_LOOKAHEAD, o->animation);
     spr->trec = asset_texrec(TEXID_LOOKAHEAD, 0, f * 48, 64, 48);
 }
 

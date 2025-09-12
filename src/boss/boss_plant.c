@@ -83,7 +83,7 @@ bool32 boss_plant_any_tentacle_still_emerging(g_s *g)
 {
     boss_plant_s *b = &g->boss.plant;
     for (i32 n = 0; n < ARRLEN(b->tentacles); n++) {
-        obj_s *o = obj_from_obj_handle(b->tentacles[n]);
+        obj_s *o = obj_from_handle(b->tentacles[n]);
         if (o && o->state == 0) return 1;
     }
     return 0;
@@ -189,9 +189,9 @@ void boss_plant_load(g_s *g, map_obj_s *mo)
     o_attract->pos.y         = b->y + 16;
     o_attract->cam_attract_r = BPLANT_CAM_ATTRACT_R;
     o_attract->ID            = OBJID_CAMATTRACTOR;
-    b->o_cam_attract         = obj_handle_from_obj(o_attract);
+    b->o_cam_attract         = handle_from_obj(o_attract);
 
-    tex_from_wad_ID(TEXID_BOSSPLANT, "T_BOSSPLANT", game_allocator(g));
+    tex_from_wad_ID(TEXID_BOSSPLANT, "T_BOSSPLANT", game_per_room_allocator(g));
 
     if (save_event_exists(g, SAVE_EV_BOSS_PLANT)) {
         b->phase = BOSS_PLANT_DEAD;
@@ -203,12 +203,12 @@ void boss_plant_load(g_s *g, map_obj_s *mo)
 void boss_plant_wake_up(g_s *g)
 {
     boss_plant_s *b          = &g->boss.plant;
-    obj_s        *o_attract  = obj_from_obj_handle(b->o_cam_attract);
+    obj_s        *o_attract  = obj_from_handle(b->o_cam_attract);
     o_attract->cam_attract_r = 0;
     obj_s *o_eye             = boss_plant_eye_create(g, OBJID_BOSS_PLANT_EYE);
-    b->eye                   = obj_handle_from_obj(o_eye);
-    b->eye_fake[0]           = obj_handle_from_obj(boss_plant_eye_create(g, OBJID_BOSS_PLANT_EYE_FAKE_L));
-    b->eye_fake[1]           = obj_handle_from_obj(boss_plant_eye_create(g, OBJID_BOSS_PLANT_EYE_FAKE_R));
+    b->eye                   = handle_from_obj(o_eye);
+    b->eye_fake[0]           = handle_from_obj(boss_plant_eye_create(g, OBJID_BOSS_PLANT_EYE_FAKE_L));
+    b->eye_fake[1]           = handle_from_obj(boss_plant_eye_create(g, OBJID_BOSS_PLANT_EYE_FAKE_R));
 
     v2_i32 panchor = {b->x, b->y};
 
@@ -221,7 +221,7 @@ void boss_plant_wake_up(g_s *g)
             o->h              = 240;
             o->pos.y          = panchor.y;
             o->pos.x          = panchor.x + (n == 0 ? -200 : +200) - 8;
-            b->exitblocker[n] = obj_handle_from_obj(o);
+            b->exitblocker[n] = handle_from_obj(o);
         }
         if (1) {
             obj_s *o         = obj_create(g);
@@ -231,7 +231,7 @@ void boss_plant_wake_up(g_s *g)
             o->h             = 240;
             o->pos.y         = panchor.y;
             o->pos.x         = panchor.x + (n == 0 ? -200 : +200) - 16;
-            b->exithurter[n] = obj_handle_from_obj(o);
+            b->exithurter[n] = handle_from_obj(o);
         }
     }
     g->cam.trg.x        = b->x;
@@ -247,9 +247,9 @@ void boss_plant_update(g_s *g)
     v2_i32        panchor     = {b->x, b->y};
     obj_s        *owl         = obj_get_owl(g);
     v2_i32        powl        = obj_pos_center(owl);
-    obj_s        *o_eye       = obj_from_obj_handle(b->eye);
-    obj_s        *o_eyefl     = obj_from_obj_handle(b->eye_fake[0]);
-    obj_s        *o_eyefr     = obj_from_obj_handle(b->eye_fake[1]);
+    obj_s        *o_eye       = obj_from_handle(b->eye);
+    obj_s        *o_eyefl     = obj_from_handle(b->eye_fake[0]);
+    obj_s        *o_eyefr     = obj_from_handle(b->eye_fake[1]);
     i32           n_eyes_fake = (o_eyefl != 0) + (o_eyefr != 0);
     i32           n_eyes_fake_ripped =
         boss_plant_eye_is_teared(o_eyefl) +
@@ -459,7 +459,7 @@ void boss_plant_tentacle_try_emerge_ext(g_s *g, i32 tile_x, i32 t_emerge, i32 t_
         if (obj_handle_valid(b->tentacles[n])) continue;
 
         obj_s *ot       = boss_plant_tentacle_emerge(g, tile_x * 24, 240 - 16, t_emerge, t_active);
-        b->tentacles[n] = obj_handle_from_obj(ot);
+        b->tentacles[n] = handle_from_obj(ot);
 
         // snd_play_ext(SNDID_RUMBLE, 2.5f, 1.f, 0);
         if (!b->snd_rumble_iID) {
@@ -478,9 +478,9 @@ void boss_plant_draw(g_s *g, v2_i32 cam)
 {
     boss_plant_s *b       = &g->boss.plant;
     gfx_ctx_s     ctx     = gfx_ctx_display();
-    obj_s        *o_eye   = obj_from_obj_handle(b->eye);
-    obj_s        *o_eyefl = obj_from_obj_handle(b->eye_fake[0]);
-    obj_s        *o_eyefr = obj_from_obj_handle(b->eye_fake[1]);
+    obj_s        *o_eye   = obj_from_handle(b->eye);
+    obj_s        *o_eyefl = obj_from_handle(b->eye_fake[0]);
+    obj_s        *o_eyefr = obj_from_handle(b->eye_fake[1]);
     tex_s         ttmp    = asset_tex(TEXID_DISPLAY_TMP_MASK);
     tex_clr(ttmp, GFX_COL_CLEAR);
 
@@ -535,7 +535,7 @@ void boss_plant_draw(g_s *g, v2_i32 cam)
     }
 
     for (i32 n = 0; n < ARRLEN(b->tentacles); n++) {
-        obj_s *otentacle = obj_from_obj_handle(b->tentacles[n]);
+        obj_s *otentacle = obj_from_handle(b->tentacles[n]);
         if (!otentacle) continue;
 
         boss_plant_tentacle_on_draw(g, otentacle, cam, ctxt);
@@ -567,9 +567,9 @@ void boss_plant_draw(g_s *g, v2_i32 cam)
 void boss_plant_on_eye_tear_off(g_s *g, obj_s *o)
 {
     boss_plant_s *b           = &g->boss.plant;
-    obj_s        *o_eye       = obj_from_obj_handle(b->eye);
-    obj_s        *o_eyefl     = obj_from_obj_handle(b->eye_fake[0]);
-    obj_s        *o_eyefr     = obj_from_obj_handle(b->eye_fake[1]);
+    obj_s        *o_eye       = obj_from_handle(b->eye);
+    obj_s        *o_eyefl     = obj_from_handle(b->eye_fake[0]);
+    obj_s        *o_eyefr     = obj_from_handle(b->eye_fake[1]);
     b->just_teared_flash_tick = 1;
     b->n_ripped++;
 
@@ -619,8 +619,8 @@ void boss_plant_draw_post(g_s *g, v2_i32 cam)
 obj_s *boss_plant_other_eye(g_s *g, obj_s *o)
 {
     boss_plant_s *b       = &g->boss.plant;
-    obj_s        *o_eyefl = obj_from_obj_handle(b->eye_fake[0]);
-    obj_s        *o_eyefr = obj_from_obj_handle(b->eye_fake[1]);
+    obj_s        *o_eyefl = obj_from_handle(b->eye_fake[0]);
+    obj_s        *o_eyefr = obj_from_handle(b->eye_fake[1]);
     if (o == o_eyefl) return o_eyefr;
     if (o == o_eyefr) return o_eyefl;
     return 0;

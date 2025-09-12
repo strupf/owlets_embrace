@@ -12,7 +12,7 @@ bool32 grapplinghook_try_attach(g_s *g, grapplinghook_s *h, obj_s *o);
 bool32 grapplinghook_is_hooking_solid(grapplinghook_s *h, obj_s *osolid)
 {
     if (!osolid) return 0;
-    obj_s *o = obj_from_obj_handle(h->o2);
+    obj_s *o = obj_from_handle(h->o2);
     if (!o) return 0;
     rec_i32 r = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
     if (overlap_rec(r, obj_aabb(osolid))) {
@@ -23,7 +23,7 @@ bool32 grapplinghook_is_hooking_solid(grapplinghook_s *h, obj_s *osolid)
 
 bool32 grapplinghook_is_hooking_terrain(g_s *g, grapplinghook_s *h)
 {
-    obj_s *o = obj_from_obj_handle(h->o2);
+    obj_s *o = obj_from_handle(h->o2);
     if (!o) return 0;
     rec_i32 r = {o->pos.x - 1, o->pos.y - 1, o->w + 2, o->h + 2};
     if (tile_map_hookable(g, r)) {
@@ -35,7 +35,7 @@ bool32 grapplinghook_is_hooking_terrain(g_s *g, grapplinghook_s *h)
 void grapplinghook_on_attach(g_s *g, grapplinghook_s *h, obj_s *o)
 {
     i32    clen_q4 = wire_len_qx(g, &h->wire, 4);
-    obj_s *ohero   = obj_from_obj_handle(h->o1);
+    obj_s *ohero   = obj_from_handle(h->o1);
     i32    st      = owl_state_check(g, ohero);
 
     if (st == OWL_ST_AIR) {
@@ -91,8 +91,8 @@ void grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero, v2_i32 p, v2
 
     ohero->wire            = r;
     ohero->wirenode        = r->head;
-    h->o1                  = obj_handle_from_obj(ohero);
-    h->o2                  = obj_handle_from_obj(o);
+    h->o1                  = handle_from_obj(ohero);
+    h->o2                  = handle_from_obj(o);
     h->state               = GRAPPLINGHOOK_FLYING;
     r->head->p             = p;
     r->tail->p             = p;
@@ -130,11 +130,11 @@ void grapplinghook_destroy(g_s *g, grapplinghook_s *h)
 
     h->state           = 0;
     h->destroy_tick_q8 = 0;
-    obj_s *o1          = obj_from_obj_handle(h->o1);
+    obj_s *o1          = obj_from_handle(h->o1);
     if (o1) {
         grapplinghook_unhook_obj(g, o1);
     }
-    obj_s *o2 = obj_from_obj_handle(h->o2);
+    obj_s *o2 = obj_from_handle(h->o2);
     if (o2) {
         grapplinghook_unhook_obj(g, o2);
     }
@@ -153,8 +153,11 @@ bool32 grapplinghook_try_attach(g_s *g, grapplinghook_s *h, obj_s *o)
         if ((i->flags & OBJ_FLAG_SOLID) && grapplinghook_is_hooking_solid(h, i)) {
             grapplinghook_on_attach(g, h, o);
             h->state        = GRAPPLINGHOOK_HOOKED_SOLID;
-            h->solid        = obj_handle_from_obj(i);
+            h->solid        = handle_from_obj(i);
             o->linked_solid = h->solid;
+            if (i->on_hook) {
+                i->on_hook(g, i, 1);
+            }
             return 1;
         }
     }
@@ -177,7 +180,7 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
         h->destroy_tick_q8 = 0;
     }
 
-    obj_s *o = obj_from_obj_handle(h->o2);
+    obj_s *o = obj_from_handle(h->o2);
     if (!o) {
         grapplinghook_destroy(g, h);
         return;
@@ -227,7 +230,7 @@ void grapplinghook_update(g_s *g, grapplinghook_s *h)
         break;
     }
     case GRAPPLINGHOOK_HOOKED_SOLID: {
-        if (!grapplinghook_is_hooking_solid(h, obj_from_obj_handle(h->solid))) {
+        if (!grapplinghook_is_hooking_solid(h, obj_from_handle(h->solid))) {
             grapplinghook_destroy(g, h);
             break;
         }
@@ -407,17 +410,22 @@ void grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *gh)
     i32 f_dt = (lc - lm) << 2; // spring force
     gh->f_cache_dt += (f_dt * (16 - GH_Q4_SMOOTH)) >> 4;
 
-    obj_s *o1 = obj_from_obj_handle(gh->o1);
+    obj_s *o1 = obj_from_handle(gh->o1);
     if (o1) {
         gh->param1 = o1->ropeobj;
         i32 f_o1   = rope_pulling_force_of_ropeobj(r, o1->wirenode, o1, gh->param1);
         gh->f_cache_o1 += (f_o1 * (16 - GH_Q4_SMOOTH)) >> 4;
     }
 
-    obj_s *o2 = obj_from_obj_handle(gh->o2);
+    obj_s *o2 = obj_from_handle(gh->o2);
+    obj_s *os = 0;
+    // wirenode_s *wn2 = gh->wire.tail;
+    if (o2 && o2->ID == OBJID_HOOK && (os = obj_from_handle(o2->linked_solid))) {
+        o2 = os;
+    }
     if (o2) {
         gh->param2 = o2->ropeobj;
-        i32 f_o2   = rope_pulling_force_of_ropeobj(r, o2->wirenode, o2, gh->param2);
+        i32 f_o2   = rope_pulling_force_of_ropeobj(r, gh->wire.tail, o2, gh->param2);
         gh->f_cache_o2 += (f_o2 * (16 - GH_Q4_SMOOTH)) >> 4;
     } else if (gh->state == GRAPPLINGHOOK_HOOKED_TERRAIN) {
         gh->param2.m_q12 = ROPEOBJ_M_INF;
@@ -428,15 +436,15 @@ i32 grapplinghook_f_at_obj_proj_v(grapplinghook_s *gh, obj_s *o, v2_i32 dproj, v
 {
     // f = m * a
     // a = f / m
-    obj_s      *o1 = obj_from_obj_handle(gh->o1);
-    obj_s      *o2 = obj_from_obj_handle(gh->o2);
+    obj_s      *o1 = obj_from_handle(gh->o1);
+    obj_s      *o2 = obj_from_handle(gh->o2);
     wirenode_s *rn = 0;
     i32         f  = gh->f_cache_dt + gh->f_cache_o1 + gh->f_cache_o2;
-
     if (0) {
     } else if (o == o1) {
         rn = gh->wire.head;
-    } else if (o == o2) {
+    } else if (o == o2 ||
+               (o2 && o2->ID == OBJID_HOOK && obj_from_handle(o2->linked_solid))) {
         rn = gh->wire.tail;
     }
 

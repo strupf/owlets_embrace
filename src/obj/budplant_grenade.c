@@ -58,7 +58,6 @@ void bpgrenade_on_update(g_s *g, obj_s *o)
     case BPGRENADE_ST_DELAY_DMG: {
         if (6 <= o->timer) {
             v2_i32 pos = obj_pos_center(o);
-            hitbox_tmp_cir(g, pos.x, pos.y, 55);
             obj_delete(g, o);
         }
         break;

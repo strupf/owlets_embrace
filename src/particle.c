@@ -59,7 +59,7 @@ void particle_emitter_emit(g_s *g, particle_emit_s *e, i32 n)
         p->type      = e->type;
         p->drag      = e->drag;
 
-        obj_s *o = obj_from_obj_handle(e->o);
+        obj_s *o = obj_from_handle(e->o);
         if (o) {
             p->p.x += o->pos.x;
             p->p.y += o->pos.y;

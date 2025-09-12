@@ -1078,7 +1078,7 @@ static inline f32 v2f_len(v2_f32 a)
     return sqrt_f32(v2f_lensq(a));
 }
 
-static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
+static v2_f32 v2f_setlen(v2_f32 a, f32 len)
 {
     f32 l = v2f_len(a);
     if (l == 0.f) {
@@ -1089,7 +1089,7 @@ static inline v2_f32 v2f_setlen(v2_f32 a, f32 len)
     return r;
 }
 
-static inline v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 new_l)
+static v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 new_l)
 {
     if (l == 0.f) {
         return CINIT(v2_f32){new_l, 0.f};
@@ -1099,7 +1099,7 @@ static inline v2_f32 v2f_setlenl(v2_f32 a, f32 l, f32 new_l)
     return r;
 }
 
-static inline v2_f32 v2f_truncate(v2_f32 a, f32 len)
+static v2_f32 v2f_truncate(v2_f32 a, f32 len)
 {
     f32 l = v2f_len(a);
     if (l < len) {
@@ -1130,6 +1130,34 @@ static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
     return 1;
 }
 
+static bool32 overlap_rec_cir(rec_i32 rec, i32 cx, i32 cy, i32 cr)
+{
+    i32 px  = cx;
+    i32 py  = cy;
+    i32 rx1 = rec.x;
+    i32 ry1 = rec.y;
+    i32 rx2 = rec.x + rec.w;
+    i32 ry2 = rec.y + rec.h;
+
+    if (0) {
+    } else if (cx < rx1) {
+        px = rx1;
+    } else if (cx > rx2) {
+        px = rx2;
+    }
+
+    if (0) {
+    } else if (cy < ry1) {
+        py = ry1;
+    } else if (cy > ry2) {
+        py = ry2;
+    }
+
+    i32 dx = cx - px;
+    i32 dy = cy - py;
+    return ((dx * dx + dy * dy) <= (cr * cr));
+}
+
 // checks if r_inside is completely inside r_outside
 static bool32 overlap_rec_completely(rec_i32 r_outside, rec_i32 r_inside)
 {
@@ -1138,37 +1166,23 @@ static bool32 overlap_rec_completely(rec_i32 r_outside, rec_i32 r_inside)
             ri.w == r_inside.w && ri.h == r_inside.h);
 }
 
-static inline bool32 overlap_rec_pnt(rec_i32 a, v2_i32 p)
+static bool32 overlap_rec_pnt(rec_i32 a, v2_i32 p)
 {
     return (a.x <= p.x && p.x < a.x + a.w && a.y <= p.y && p.y < a.y + a.h);
 }
 
 // check for overlap - touching rectangles considered overlapped
-static inline bool32 overlap_rec_touch(rec_i32 a, rec_i32 b)
+static bool32 overlap_rec_touch(rec_i32 a, rec_i32 b)
 {
     return (b.x <= a.x + a.w && a.x <= b.x + b.w &&
             b.y <= a.y + a.h && a.y <= b.y + b.h);
 }
 
 // check for overlap - touching rectangles considered NOT overlapped
-static inline bool32 overlap_rec(rec_i32 a, rec_i32 b)
+static bool32 overlap_rec(rec_i32 a, rec_i32 b)
 {
     return (b.x < a.x + a.w && a.x < b.x + b.w &&
             b.y < a.y + a.h && a.y < b.y + b.h);
-}
-
-static inline bool32 overlap_rec_circ(rec_i32 rec, v2_i32 ctr, u32 r)
-{
-    i32    rx1 = rec.x, rx2 = rec.x + rec.w;
-    i32    ry1 = rec.y, ry2 = rec.y + rec.h;
-    v2_i32 tp = ctr;
-
-    if (ctr.x < rx1) tp.x = rx1;
-    else if (ctr.x > rx2) tp.x = rx2;
-    if (ctr.y < ry1) tp.y = ry1;
-    else if (ctr.y > ry2) tp.y = ry2;
-
-    return (v2_i32_distancesq(ctr, tp) < r * r);
 }
 
 static rec_i32 translate_rec(rec_i32 r, i32 x, i32 y)

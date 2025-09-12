@@ -6,16 +6,6 @@
 #include "app.h"
 #include "game.h"
 
-const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP] = {
-    {Q_VOBJ(3.13), 30, Q_VOBJ(0.39), Q_VOBJ(0.12)}, // out of water
-    {Q_VOBJ(4.45), 35, Q_VOBJ(0.25), Q_VOBJ(0.12)}, // ground
-    {Q_VOBJ(5.86), 40, Q_VOBJ(0.20), Q_VOBJ(0.08)}, // ground boosted
-    {Q_VOBJ(2.34), 50, Q_VOBJ(0.55), Q_VOBJ(0.08)}, // air 0
-    {Q_VOBJ(1.34), 40, Q_VOBJ(0.55), Q_VOBJ(0.08)}, // air 1
-    {Q_VOBJ(0.00), 10, Q_VOBJ(0.00), Q_VOBJ(0.00)}, // air 2
-    {Q_VOBJ(3.80), 30, Q_VOBJ(0.25), Q_VOBJ(0.05)}  // wall
-};
-
 obj_s *owl_create(g_s *g)
 {
     obj_s *o      = obj_create(g);
@@ -61,21 +51,28 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
     } else {
         o->blinking = 0;
     }
-
+    if (h->dead_anim_ticks) {
+        h->dead_anim_ticks++;
+    }
+    if (h->carry) {
+        h->carry++;
+    }
     if (h->ground_pull_wire_prev && !h->ground_pull_wire) {
         h->ground_pull_wire_anim = 0;
     }
     h->ground_pull_wire_prev = h->ground_pull_wire;
     h->ground_pull_wire      = 0;
 
-    bool32 facing_locked = h->ground_crouch_crawl ||
+    bool32 facing_locked = !o->health ||
+                           h->ground_crouch_crawl ||
                            h->ground_skid_ticks ||
                            h->climb ||
                            h->ground_push_pull ||
                            h->ground_stomp_landing_ticks ||
                            h->air_stomp ||
                            h->attack_tick ||
-                           h->air_walljump_ticks;
+                           h->air_walljump_ticks ||
+                           (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS);
 
     if (st == OWL_ST_AIR && r && (u32)g->ghook.len_max_q4 <= wire_len_qx(g, r, 4)) {
         facing_locked = 1;
@@ -85,14 +82,16 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
         o->facing = dp_x;
     }
 
-    bool32 try_snap_to_ladder = (st == OWL_ST_GROUND || st == OWL_ST_AIR) &&
-                                !o->wire;
+    bool32 try_snap_to_ladder = o->health &&
+                                (st == OWL_ST_GROUND || st == OWL_ST_AIR) &&
+                                !o->wire &&
+                                !obj_handle_valid(h->carried);
     if (try_snap_to_ladder && inps_btn_jp(inp, INP_DU) && owl_climb_try_snap_to_ladder(g, o)) {
         st = OWL_ST_NULL;
     }
 
     if (st == OWL_ST_AIR) {
-        if (dp_x && sgn_i32(o->v_q12.x) == dp_x && !o->wire && owl_climb_still_on_wall(g, o, dp_x, 0, 0)) {
+        if (!o->health && dp_x && sgn_i32(o->v_q12.x) == dp_x && !o->wire && owl_climb_still_on_wall(g, o, dp_x, 0, 0)) {
             owl_set_to_climb(g, o);
             o->facing = dp_x;
             h->climb  = OWL_CLIMB_WALL;
@@ -105,33 +104,75 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             assert(h->stance == OWL_STANCE_ATTACK);
             h->attack_tick++;
 
-            if (h->attack_tick <= 12) {
-                hitbox_s hb = owl_hitbox_attack(o);
-                if (hero_attackbox(g, hb)) {
-
-                    // o->v_q12.x = -o->facing * Q_VOBJ(2.0);
+            switch (h->attack_type) {
+            case OWL_ATTACK_SIDE: {
+                i32 f = ani_frame(ANIID_OWL_ATTACK, h->attack_tick);
+                if (f == 3 && ani_frame(ANIID_OWL_ATTACK, h->attack_tick - 1) == f - 1) {
+                    hitbox_s hb = {0};
+                    hb.UID      = hitbox_UID_gen(g);
+                    hb.ID       = HITBOXID_OWL_WING;
+                    hitbox_set_callback(&hb, owl_hitbox_cb, o);
+                    hb.rec_w    = 46;
+                    hb.rec_h    = 32;
+                    hb.pos_x    = o->pos.x + o->w / 2 - (o->facing < 0 ? hb.rec_w : 0);
+                    hb.pos_y    = o->pos.y - 6;
+                    hb.dx       = o->facing;
+                    b32 did_hit = hitbox_try_apply_to_enemies(g, &hb, 1);
+                    if (did_hit) {
+                        // g->freeze_tick = max_i32(2, g->freeze_tick);
+                        o->v_q12.x = -o->facing * Q_VOBJ(2.5);
+                    }
                 }
+                if (f < 0) {
+                    h->attack_tick       = 0;
+                    h->attack_last_frame = 0;
+                }
+                break;
             }
-            i32 ticks_total = ani_len(ANIID_OWL_ATTACK);
-            if (ticks_total <= h->attack_tick) {
-                h->attack_tick       = 0;
-                h->attack_last_frame = 0;
+            case OWL_ATTACK_UP: {
+                i32 f = ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick);
+                if (f == 4 && ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick - 1) == f - 1) {
+                    hitbox_s hb = {0};
+                    hb.UID      = hitbox_UID_gen(g);
+                    hb.ID       = HITBOXID_OWL_BEAK;
+                    hitbox_set_callback(&hb, owl_hitbox_cb, o);
+                    hb.rec_w    = 32;
+                    hb.rec_h    = 32;
+                    hb.pos_x    = o->pos.x + o->w / 2 - hb.rec_w / 2;
+                    hb.pos_y    = o->pos.y - 24;
+                    hb.dy       = -1;
+                    b32 did_hit = hitbox_try_apply_to_enemies(g, &hb, 1);
+                    if (did_hit) {
+                        // g->freeze_tick = max_i32(2, g->freeze_tick);
+                        // o->v_q12.x = -o->facing * Q_VOBJ(2.5);
+                    }
+                }
+                if (f < 0) {
+                    h->attack_tick       = 0;
+                    h->attack_last_frame = 0;
+                }
+                break;
+            }
             }
         }
     } else {
         owl_cancel_attack(g, o);
     }
 
-    bool32 can_attack = h->stance == OWL_STANCE_ATTACK &&
+    bool32 can_attack = o->health &&
+                        h->stance == OWL_STANCE_ATTACK &&
                         !h->ground_push_pull &&
                         (st == OWL_ST_GROUND || st == OWL_ST_AIR) &&
                         !h->ground_crouch &&
-                        owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
-    bool32 can_hook = h->stance == OWL_STANCE_GRAPPLE &&
+                        owl_upgrade_has(o, OWL_UPGRADE_COMPANION) &&
+                        !h->carry;
+    bool32 can_hook = o->health &&
+                      h->stance == OWL_STANCE_GRAPPLE &&
                       !h->ground_push_pull &&
                       (st == OWL_ST_GROUND || st == OWL_ST_AIR) &&
                       !h->ground_crouch &&
-                      owl_upgrade_has(o, OWL_UPGRADE_HOOK);
+                      owl_upgrade_has(o, OWL_UPGRADE_HOOK) &&
+                      !h->carry;
 
     if (h->aim_crank_t_falloff) {
         h->aim_crank_t_falloff--;
@@ -151,91 +192,126 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             if (32768 <= h->aim_crank_acc) {
                 owl_cancel_hook_aim(g, o); // reset all aim variables, although aiming is not "cancelled"
                 h->aim_ticks = 1;
+                owl_cancel_swap(g, o);
                 pltf_log("aim\n");
             }
         }
     }
 
     if (inps_btn(inp, INP_B)) {
-        switch (h->stance) {
-        case OWL_STANCE_ATTACK: {
-            if (inps_btn_jp(inp, INP_B) && can_attack) {
-                h->hitID           = game_owl_hitID_next(g);
-                h->attack_tick     = 1;
-                h->attack_flipflop = 1 - h->attack_flipflop;
-                h->jump_ticks      = 0;
-                o->v_q12.y >>= 1;
-
-                snd_play(SNDID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
-            }
-            if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
-                h->stance_swap_tick = 1;
-            }
-            break;
-        }
-        case OWL_STANCE_GRAPPLE: {
-            if (o->wire && (inps_btn_jp(inp, INP_B) || inps_btn_jp(inp, INP_A))) {
-                owl_ungrapple(g, o);
-            } else if (inps_btn_jp(inp, INP_B) && !h->aim_ticks && dp_any && can_hook) {
-                // 0 = upwards
-                // 32768 = downwards
-                i32 ang = 0;
-                i32 dx  = dp_x;
-                i32 dy  = dp_y;
-
-                if (dx && dy) { // diagonal up/down
-                    ang = -dx * (0 < dy ? 20000 : 8000);
-                } else if (dx == 0 && dy) { // up/down
-                    ang = 0 < dy ? 32768 : 0;
-                } else if (dx && dy == 0) { // sideways
-                    ang = -dx * 12000;
+        if (h->carry && inps_btn_jp(inp, INP_B)) {
+            owl_cancel_carry(g, o);
+        } else {
+            switch (st) {
+            case OWL_ST_CLIMB: {
+                bool32 can_swap = h->climb != OWL_CLIMB_WALLJUMP &&
+                                  owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
+                if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
+                    h->stance_swap_tick = 1;
+                    h->climb_anim       = 0;
                 }
-
-                v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(13.0));
-                g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
-                v2_i32 center          = obj_pos_center(o);
-
-                if (0 < o->v_q12.y) {
-                    o->v_q12.y >>= 1;
-                }
-                grapplinghook_create(g, &g->ghook, o, center, vlaunch);
-            } else if (inps_btn_jp(inp, INP_B) && h->aim_ticks) {
-                h->aim_ticks           = 0;
-                i32 ang                = inps_crank_q16(inp);
-                g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
-                v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(19.0));
-                v2_i32 center          = obj_pos_center(o);
-
-                if (0 < o->v_q12.y) {
-                    o->v_q12.y >>= 1;
-                }
-                grapplinghook_create(g, &g->ghook, o, center, vlaunch);
-            } else if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
-                h->stance_swap_tick = 1;
+                break;
             }
-            break;
-        }
+            case OWL_ST_WATER: {
+                bool32 can_swap = owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
+                if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
+                    h->stance_swap_tick = 1;
+                }
+                break;
+            }
+            default: {
+                switch (h->stance) {
+                case OWL_STANCE_ATTACK: {
+#if OWL_STOMP_ONLY_WITH_COMP_ON_B
+                    if (inps_btn_jp(inp, INP_B) && 0 < dp_y && st == OWL_ST_AIR && owl_attack_cancellable(o)) {
+                        o->v_q12.x = 0;
+                        o->v_q12.y = 0;
+                        owl_cancel_attack(g, o);
+                        owl_cancel_air(g, o);
+                        h->air_stomp = 1;
+#else
+                    if (0) {
+#endif
+                    } else if (inps_btn_jp(inp, INP_B) && can_attack && owl_attack_cancellable(o)) {
+                        h->hitID           = game_owl_hitID_next(g);
+                        h->attack_tick     = 1;
+                        h->attack_flipflop = 1 - h->attack_flipflop;
+
+                        if (dp_y < 0) {
+                            h->attack_type = OWL_ATTACK_UP;
+                            // o->v_q12.y     = Q_VOBJ(1.0);
+                            //  o->v_q12.y     = 0;
+                        } else {
+                            h->attack_type = OWL_ATTACK_SIDE;
+                            o->v_q12.y     = 0;
+                        }
+
+                        h->jump_ticks = 0;
+                        snd_play(SNDID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
+                    }
+                    if (h->attack_tick == 8 && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
+                        h->stance_swap_tick = 1;
+                    }
+                    break;
+                }
+                case OWL_STANCE_GRAPPLE: {
+                    if (o->wire && (inps_btn_jp(inp, INP_B) || inps_btn_jp(inp, INP_A))) {
+                        owl_ungrapple(g, o);
+                    } else if (inps_btn_jp(inp, INP_B) && !h->aim_ticks && dp_any && can_hook) {
+                        // 0 = upwards
+                        // 32768 = downwards
+                        i32 ang = 0;
+                        i32 dx  = dp_x;
+                        i32 dy  = dp_y;
+
+                        if (dx && dy) { // diagonal up/down
+                            ang = -dx * (0 < dy ? 20000 : 8000);
+                        } else if (dx == 0 && dy) { // up/down
+                            ang = 0 < dy ? 32768 : 0;
+                        } else if (dx && dy == 0) { // sideways
+                            ang = -dx * 12000;
+                        }
+
+                        v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(13.0));
+                        g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                        v2_i32 center          = obj_pos_center(o);
+
+                        if (0 < o->v_q12.y) {
+                            o->v_q12.y >>= 1;
+                        }
+                        grapplinghook_create(g, &g->ghook, o, center, vlaunch);
+                    } else if (inps_btn_jp(inp, INP_B) && h->aim_ticks) {
+                        h->aim_ticks           = 0;
+                        i32 ang                = inps_crank_q16(inp);
+                        g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                        v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(19.0));
+                        v2_i32 center          = obj_pos_center(o);
+
+                        if (0 < o->v_q12.y) {
+                            o->v_q12.y >>= 1;
+                        }
+                        grapplinghook_create(g, &g->ghook, o, center, vlaunch);
+                    } else if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
+                        h->stance_swap_tick = 1;
+                    }
+                    break;
+                }
+                }
+                break;
+            }
+            }
         }
 
         // swapping
-        if (st != OWL_ST_WATER && !h->aim_ticks) {
-            if (h->stance_swap_tick) {
-                h->stance_swap_tick++;
-                if (owl_swap_ticks() <= h->stance_swap_tick) {
-                    h->stance           = 1 - h->stance;
-                    h->stance_swap_tick = 0;
-                    h->attack_tick      = 0;
-                    obj_s *ocomp        = obj_get_tagged(g, OBJ_TAG_COMPANION);
-                    ocomp->pos.x        = o->pos.x + o->w / 2 - ocomp->w / 2 - o->facing * 16;
-                    ocomp->pos.y        = o->pos.y + o->h / 2 - ocomp->h / 2 - 8;
-                    companion_on_enter_mode(g, ocomp, h->stance);
-                }
+        if (h->stance_swap_tick) {
+            h->stance_swap_tick++;
+            if (owl_swap_ticks() <= h->stance_swap_tick) {
+                h->stance_swap_tick = 0;
+                owl_set_stance(g, o, 1 - h->stance);
             }
-        } else {
-            h->stance_swap_tick = 0;
         }
     } else if (!inps_btn(inp, INP_B)) {
-        h->stance_swap_tick = 0;
+        owl_cancel_swap(g, o);
 
         switch (h->stance) {
         case OWL_STANCE_ATTACK: {
@@ -243,7 +319,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             break;
         }
         case OWL_STANCE_GRAPPLE: {
-            if (inps_btn_jr(inp, INP_B) && o->wire && 2 <= g->ghook.attached_tick)
+            if (inps_btn_jr(inp, INP_B) && o->wire && 2 <= g->ghook.state)
                 owl_ungrapple(g, o);
             break;
         }
@@ -293,7 +369,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
 
         if (gh->state) {
             if (gh->state == GRAPPLINGHOOK_FLYING) {
-                obj_s *ohook        = obj_from_obj_handle(gh->o2);
+                obj_s *ohook        = obj_from_handle(gh->o2);
                 v2_i32 drope        = rope_v_to_neighbour(r, ohook->wirenode);
                 gh_f                = grapplinghook_f_at_obj_proj_v(gh, ohook, drope, &gh_v);
                 constrain_rope_hook = gh_f;
@@ -305,16 +381,35 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             }
         }
 
-        if (st == OWL_ST_GROUND && d_dt_q4 && d_dt_q4 < 256) {
+        if (st == OWL_ST_GROUND && d_dt_q4 < 256) {
             constrain_rope_owl = 0;
-            if (v_wire.x) {
+            if (d_dt_q4 && v_wire.x) {
                 h->ground_pull_wire = sgn_i32(v_wire.x);
                 o->facing           = sgn_i32(v_wire.x);
             }
         }
+#if 0
+        if (d_dt_q4) {
+            obj_s *ograbbed = obj_from_handle(g->ghook.o2.o->linked_solid);
+            if (ograbbed) {
+                i32 dt_pushpull = -sgn_i32(v_wire.x) * 2;
+
+                ograbbed->flags &= ~OBJ_FLAG_SOLID;
+                bool32 can_push = !ograbbed->on_pushpull_blocked(g, ograbbed, dt_pushpull, 0);
+                ograbbed->flags |= OBJ_FLAG_SOLID;
+
+                if (can_push) {
+                    obj_move(g, ograbbed, dt_pushpull, 0);
+                    if (ograbbed->on_pushpull) {
+                        ograbbed->on_pushpull(g, ograbbed, dt_pushpull, 0);
+                    }
+                }
+            }
+        }
+#endif
     }
     if (constrain_rope_hook) {
-        obj_s *ohook   = obj_from_obj_handle(gh->o2);
+        obj_s *ohook   = obj_from_handle(gh->o2);
         v2_i32 v_hero  = grapplinghook_v_damping(r, ohook->wirenode, ohook->subpos_q12, ohook->v_q12);
         ohook->v_q12.x = v_hero.x + gh_v.x;
         ohook->v_q12.y = v_hero.y + gh_v.y;
@@ -328,127 +423,61 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
     }
 }
 
-void owl_on_update_post(g_s *g, obj_s *o, inp_s inp)
-{
-    owl_s  *h    = (owl_s *)o->heap;
-    rec_i32 owlr = obj_aabb(o);
-    v2_i32  owlc = {o->pos.x + (OWL_W >> 1), o->pos.y + o->h - 12};
-
-    bool32 stomped_on_any = 0;
-    bool32 jumped_on_any  = h->n_jumpstomped;
-    for (i32 n = 0; n < h->n_jumpstomped; n++) {
-        obj_jumpstomped_s js = h->jumpstomped[n];
-        obj_s            *i  = obj_from_obj_handle(js.h);
-
-        stomped_on_any |= js.stomped;
-        if (!i) continue;
-    }
-
-    h->n_jumpstomped      = 0;
-    h->interactable       = obj_handle_from_obj(0);
-    u32    d_interactable = POW2(OWL_INTERACTABLE_DST);
-    i32    heal           = 0;
-    i32    dmg            = 0;
-    bool32 has_knockback  = 0;
-    v2_i32 knockback      = {0};
-
-    // damage from objects
-    for (obj_each(g, i)) {
-        if (i == o) continue;
-        rec_i32 ri = obj_aabb(i);
-
-        if (i->flags & OBJ_FLAG_HURT_ON_TOUCH) {
-            if (overlap_rec(owlr, ri)) {
-                dmg = max_i32(dmg, 1);
-            }
-        }
-    }
-
-    // damage from tiles
-    tile_map_bounds_s bd = tile_map_bounds_rec(g, owlr);
-    for (i32 y = bd.y1; y <= bd.y2; y++) {
-        for (i32 x = bd.x1; x <= bd.x2; x++) {
-            tile_s t = g->tiles[x + y * g->tiles_x];
-            if (t.type == TILE_TYPE_THORNS) {
-                dmg = max_i32(dmg, 1);
-            }
-        }
-    }
-
-    if (has_knockback) {
-        o->v_q12.x = knockback.x;
-        o->v_q12.y = knockback.y;
-    }
-
-    if (!h->hurt_ticks) {
-        i32 health_dt = heal - dmg;
-        o->health     = clamp_i32((i32)o->health + health_dt, 0, o->health_max);
-
-        if (dmg) {
-            snd_play(SNDID_HURT, 1.f, 1.f);
-
-            if (o->health) {
-                h->hurt_ticks = OWL_HURT_TICKS;
-            }
-        }
-    }
-
-    if (o->health == 0) {
-    } else {
-        cs_maptransition_try_slide_enter(g);
-    }
-
-    for (obj_each(g, i)) {
-        if (i == o) continue;
-        rec_i32 ri = obj_aabb(i);
-
-        if (i->flags & OBJ_FLAG_INTERACTABLE) {
-            v2_i32 ic = {i->pos.x + (i->w >> 1) + i->offs_interact.x,
-                         i->pos.y + (i->h >> 1) + i->offs_interact.y};
-            u32    d  = v2_i32_distancesq(owlc, ic);
-            if (d < d_interactable) {
-                d_interactable  = d;
-                h->interactable = obj_handle_from_obj(i);
-            }
-        }
-
-        switch (i->ID) {
-        case OBJID_COIN: {
-            if (v2_i32_distancesq(owlc, obj_pos_center(i)) < 50) {
-                coins_change(g, +1);
-                obj_delete(g, i);
-            }
-            break;
-        }
-        case OBJID_HEARTPIECE: {
-            if (overlap_rec(ri, owlr)) {
-                heartpiece_on_collect(g, i);
-            }
-            break;
-        }
-        }
-    }
-}
-
 obj_s *owl_if_present_and_alive(g_s *g)
 {
     obj_s *o = obj_get_owl(g);
     return (o && o->health ? o : 0);
 }
 
+void owl_stomp_land(g_s *g, obj_s *o)
+{
+    owl_s *h     = (owl_s *)o->heap;
+    h->air_stomp = 0;
+    v2_i32 p     = obj_pos_bottom_center(o);
+    p.y -= 24;
+    animobj_create(g, p, ANIMOBJ_STOMP);
+
+    b32 did_hit = 0;
+
+    for (obj_each(g, i)) {
+
+        switch (i->ID) {
+        case OBJID_STOMPABLE_BLOCK: {
+            if (obj_standing_on(o, i, 0, 0)) {
+                stompable_block_break(g, i);
+                did_hit = 1;
+            }
+            break;
+        }
+        }
+    }
+
+    if (did_hit) {
+        // g->freeze_tick = max_i32(2, g->freeze_tick);
+        o->v_q12.y = -Q_VOBJ(4.0);
+        cam_screenshake_xy(&g->cam, 14, 0, 5);
+    }
+}
+
 i32 owl_state_check(g_s *g, obj_s *o)
 {
     owl_s *h = (owl_s *)o->heap;
 
+    if (h->carry && !obj_handle_valid(h->carried)) {
+        owl_cancel_carry(g, o);
+    }
+
     // WATER?
     if (owl_in_water(g, o)) {
-        owl_stamina_modify(o, h->stamina_max);
+        // owl_stamina_modify(o, h->stamina_max);
         if (!h->swim) {
             h->swim = OWL_SWIM_SURFACE;
             owl_cancel_climb(g, o);
             owl_cancel_air(g, o);
             owl_cancel_ground(g, o);
             owl_cancel_hook_aim(g, o);
+            owl_cancel_carry(g, o);
+            owl_cancel_attack(g, o);
             owl_ungrapple(g, o);
         }
         return OWL_ST_WATER;
@@ -461,16 +490,16 @@ i32 owl_state_check(g_s *g, obj_s *o)
     // GROUNDED?
     if (obj_grounded(g, o) && 0 <= o->v_q12.y) {
         owl_on_touch_ground(g, o);
-
         if (!h->ground) {
             bool32 was_stomping = h->air_stomp;
             owl_cancel_climb(g, o);
             owl_cancel_air(g, o);
             if (was_stomping) {
+                owl_stomp_land(g, o);
                 h->ground_stomp_landing_ticks = OWL_STOMP_LANDING_TICKS;
+                cam_screenshake_xy(&g->cam, 14, 0, 5);
             } else {
                 h->ground_impact_ticks = 5;
-                pltf_log("%i\n", h->ground_impact_ticks);
             }
             h->ground = 1;
             if (OWL_VX_SPRINT <= abs_i32(o->v_q12.x)) {
@@ -541,6 +570,34 @@ void owl_cancel_air(g_s *g, obj_s *o)
     h->jump_anim_ticks    = 0;
 }
 
+void owl_cancel_knockback(g_s *g, obj_s *o)
+{
+    owl_s *h     = (owl_s *)o->heap;
+    h->knockback = 0;
+}
+
+void owl_cancel_carry(g_s *g, obj_s *o)
+{
+    owl_s *h       = (owl_s *)o->heap;
+    obj_s *o_carry = obj_from_handle(h->carried);
+    if (o_carry && o_carry->on_carried_removed) {
+        o_carry->on_carried_removed(g, o_carry);
+    }
+    h->carried    = handle_from_obj(0);
+    h->carry_anim = 0;
+    h->carry      = 0;
+}
+
+void owl_cancel_swap(g_s *g, obj_s *o)
+{
+    owl_s *h            = (owl_s *)o->heap;
+    obj_s *o_comp       = obj_get_comp(g);
+    v2_i32 p            = companion_pos_swap(o_comp, o);
+    o_comp->pos.x       = p.x - o_comp->w / 2;
+    o_comp->pos.y       = p.y - o_comp->h / 2;
+    h->stance_swap_tick = 0;
+}
+
 void owl_cancel_push_pull(g_s *g, obj_s *o)
 {
     owl_s *h = (owl_s *)o->heap;
@@ -561,7 +618,8 @@ void owl_cancel_ground(g_s *g, obj_s *o)
     h->ground_anim                   = 0;
     h->ground_sprint_doubletap_ticks = 0;
     h->ground_stomp_landing_ticks    = 0;
-    h->interactable                  = obj_handle_from_obj(0);
+    h->interactable                  = handle_from_obj(0);
+    h->dead_ground_ticks             = 0;
     if (o->h != OWL_H) {
         owl_try_force_normal_height(g, o);
     }
@@ -571,6 +629,21 @@ void owl_cancel_attack(g_s *g, obj_s *o)
 {
     owl_s *h       = (owl_s *)o->heap;
     h->attack_tick = 0;
+    h->attack_type = 0;
+}
+
+bool32 owl_attack_cancellable(obj_s *o)
+{
+    owl_s *h = (owl_s *)o->heap;
+    if (!h->attack_tick) return 1;
+
+    switch (h->attack_type) {
+    case OWL_ATTACK_SIDE:
+        return (6 <= ani_frame(ANIID_OWL_ATTACK, h->attack_tick));
+    case OWL_ATTACK_UP:
+        return (6 <= ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick));
+    }
+    return 1;
 }
 
 void owl_cancel_hook_aim(g_s *g, obj_s *o)
@@ -579,6 +652,19 @@ void owl_cancel_hook_aim(g_s *g, obj_s *o)
     h->aim_ticks           = 0;
     h->aim_crank_t_falloff = 0;
     h->aim_crank_acc       = 0;
+}
+
+void owl_on_controlled_by_other(g_s *g, obj_s *o)
+{
+    owl_s *h = (owl_s *)o->heap;
+    owl_cancel_air(g, o);
+    owl_cancel_hook_aim(g, o);
+    owl_cancel_attack(g, o);
+    owl_cancel_ground(g, o);
+    owl_cancel_swim(g, o);
+    owl_cancel_climb(g, o);
+    h->wallj_ticks = 0;
+    h->sprint      = 0;
 }
 
 void owl_ungrapple(g_s *g, obj_s *o)
@@ -639,9 +725,9 @@ bool32 owl_try_force_normal_height(g_s *g, obj_s *o)
 i32 owl_swap_ticks()
 {
     switch (SETTINGS.swap_ticks) {
-    case SETTINGS_SWAP_TICKS_SHORT: return 20;
-    case SETTINGS_SWAP_TICKS_NORMAL: return 30;
-    case SETTINGS_SWAP_TICKS_LONG: return 40;
+    case SETTINGS_SWAP_TICKS_SHORT: return 15;
+    case SETTINGS_SWAP_TICKS_NORMAL: return 25;
+    case SETTINGS_SWAP_TICKS_LONG: return 35;
     }
     return 0;
 }
@@ -664,13 +750,13 @@ i32 owl_jumpstomped_register(obj_s *ohero, obj_s *o, bool32 stomped)
 {
     owl_s *h = (owl_s *)ohero->heap;
     for (i32 n = 0; n < h->n_jumpstomped; n++) {
-        if (obj_from_obj_handle(h->jumpstomped[n].h) == o) {
+        if (obj_from_handle(h->jumpstomped[n].h) == o) {
             return 1;
         }
     }
     if (h->n_jumpstomped == ARRLEN(h->jumpstomped)) return 0;
 
-    obj_jumpstomped_s js = {obj_handle_from_obj(o), stomped};
+    obj_jumpstomped_s js = {handle_from_obj(o), stomped};
 
     h->jumpstomped[h->n_jumpstomped++] = js;
     return 2;
@@ -732,7 +818,7 @@ void owl_walljump_execute(g_s *g, obj_s *o)
     } else {
         o->v_q12.y = -vy;
     }
-    o->v_q12.x   = o->facing * Q_VOBJ(3.0);
+    o->v_q12.x   = o->facing * OWL_WALLJUMP_VX;
     o->bumpflags = 0;
 
     snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
@@ -749,28 +835,6 @@ void owl_walljump_execute(g_s *g, obj_s *o)
             i->on_impulse(g, i, -Q_VOBJ(2.0), Q_VOBJ(1.0));
         }
     }
-}
-
-hitbox_s owl_hitbox_attack(obj_s *o)
-{
-    owl_s   *h  = (owl_s *)o->heap;
-    hitbox_s hb = {0};
-    hb.hitID    = h->hitID;
-    hb.damage   = 1;
-    hb.r.w      = 38;
-    hb.r.h      = 32;
-    hb.r.x      = o->pos.x + o->w / 2;
-    hb.r.y      = o->pos.y - 6;
-    if (o->facing < 0) {
-        hb.r.x -= hb.r.w;
-    }
-
-#if PLTF_DEV_ENV && 0
-    i32 hbx = hb.r.x + APP.game.cam_prev.x;
-    i32 hby = hb.r.y + APP.game.cam_prev.y;
-    pltf_debugr(hbx, hby, hb.r.w, hb.r.h, 255, 0, 0, 1);
-#endif
-    return hb;
 }
 
 bool32 owl_upgrade_add(obj_s *o, u32 ID)
@@ -835,3 +899,92 @@ v2_i32 owl_rope_v_to_connected_node(g_s *g, obj_s *o)
     wirenode_s *w2 = wirenode_neighbour_of_end_node(o->wire, o->wirenode);
     return v2_i32_sub(w2->p, w1->p);
 }
+
+void owl_kill(g_s *g, obj_s *o)
+{
+    // if (!o->health) return;
+
+    owl_s *h  = (owl_s *)o->heap;
+    o->health = 0;
+    owl_cancel_air(g, o);
+    owl_cancel_swim(g, o);
+    owl_cancel_attack(g, o);
+    owl_cancel_push_pull(g, o);
+    owl_cancel_climb(g, o);
+    owl_cancel_ground(g, o);
+    h->aim_ticks           = 0;
+    h->aim_crank_t_falloff = 0;
+    h->aim_crank_acc       = 0;
+    h->air_stomp           = 0;
+    h->hurt_ticks          = 0;
+    h->wallj_from_x        = 0;
+    h->wallj_from_y        = 0;
+    h->wallj_ticks         = 0;
+    o->v_q12.y             = -Q_VOBJ(5.0);
+    // o->v_q12.x             = 0;
+    h->dead_anim_ticks     = 1;
+    o->subpos_q12.y        = 0;
+    h->dead_bounce_counter = 0;
+    o->bumpflags           = 0;
+    owl_set_stance(g, o, OWL_STANCE_GRAPPLE);
+    obj_s *ocomp = obj_get_comp(g);
+    if (ocomp) {
+        companion_on_owl_died(g, ocomp);
+    }
+    cs_gameover_enter(g);
+}
+
+void owl_set_stance(g_s *g, obj_s *o, i32 stance)
+{
+    owl_s *h = (owl_s *)o->heap;
+    if (h->stance == stance) return;
+
+    obj_s *ocomp = obj_get_comp(g);
+    if (ocomp && h->stance == OWL_STANCE_ATTACK) {
+        ocomp->pos.x = o->pos.x + o->w / 2 - ocomp->w / 2 - o->facing * 16;
+        ocomp->pos.y = o->pos.y + o->h / 2 - ocomp->h / 2 - 8;
+        companion_on_enter_mode(g, ocomp, stance);
+    }
+
+    h->stance      = stance;
+    h->attack_tick = 0;
+}
+
+void owl_special_state(g_s *g, obj_s *o, i32 special_state)
+{
+    owl_s *h = (owl_s *)o->heap;
+    owl_cancel_air(g, o);
+    owl_cancel_hook_aim(g, o);
+    owl_cancel_attack(g, o);
+    owl_cancel_ground(g, o);
+    owl_cancel_swim(g, o);
+    owl_cancel_climb(g, o);
+    owl_cancel_carry(g, o);
+    owl_ungrapple(g, o);
+    h->wallj_ticks         = 0;
+    h->sprint              = 0;
+    //
+    h->special_state       = special_state;
+    h->special_state_timer = 0;
+}
+
+void owl_special_state_unset(obj_s *o)
+{
+    owl_s *h         = (owl_s *)o->heap;
+    h->special_state = 0;
+}
+
+void owl_hitbox_cb(g_s *g, hitbox_s *hb, void *ctx)
+{
+}
+
+const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP] = {
+    {Q_VOBJ(3.13), 30, Q_VOBJ(0.39), Q_VOBJ(0.12)}, // out of water
+    {Q_VOBJ(4.45), 35, Q_VOBJ(0.25), Q_VOBJ(0.12)}, // ground
+    {Q_VOBJ(5.86), 40, Q_VOBJ(0.20), Q_VOBJ(0.08)}, // ground boosted
+    {Q_VOBJ(2.34), 50, Q_VOBJ(0.55), Q_VOBJ(0.08)}, // air 0
+    {Q_VOBJ(1.34), 40, Q_VOBJ(0.55), Q_VOBJ(0.08)}, // air 1
+    {Q_VOBJ(0.00), 10, Q_VOBJ(0.00), Q_VOBJ(0.00)}, // air 2
+    {Q_VOBJ(3.80), 30, Q_VOBJ(0.25), Q_VOBJ(0.05)}, // wall
+    {Q_VOBJ(3.00), 20, Q_VOBJ(0.25), Q_VOBJ(0.05)}  // carry
+};

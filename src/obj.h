@@ -70,7 +70,7 @@ static inline i32 obj_bump_y_flag(i32 y)
     return 0;
 }
 
-enum {
+enum obj_mover_e {
     OBJ_MOVER_GLUE_GROUND        = 1 << 0,
     OBJ_MOVER_ONE_WAY_PLAT       = 1 << 1,
     OBJ_MOVER_SLIDE_Y_POS        = 1 << 2,
@@ -86,6 +86,8 @@ typedef struct {
     v2_i16   offs;
     i16      flip;
 } obj_sprite_s;
+
+#define OBJ_NUM_HITBOXID 8
 
 typedef void (*obj_action_f)(g_s *g, obj_s *o);
 typedef void (*obj_value_f)(g_s *g, obj_s *o, i32 v);
@@ -119,7 +121,7 @@ struct obj_s {
     u16    ID;         // type of object
     u16    subID;      // subtype of object
     u32    generation; // how often this object was instantiated
-    u32    editorID;
+    u32    UUID;       // unique map editorID
 
     obj_action_f           on_update;           // void f(g_s *g, obj_s *o);
     obj_action_f           on_animate;          // void f(g_s *g, obj_s *o);
@@ -134,6 +136,7 @@ struct obj_s {
     obj_value_f            on_grab;             // void f(g_s *g, obj_s *o, bool32 state);
     obj_impulse_f          on_impulse;          // void f(g_s *g, obj_s *o, i32 x_q8, i32 y_q8);
     obj_pushed_by_solid_f  on_pushed_by_solid;  // void f(g_s *g, obj_s *o, obj_s *osolid, i32 sx, i32 sy);
+    obj_action_f           on_carried_removed;  // void f(g_s *g, obj_s *o);
 
     ALIGNAS(32)
     v2_i32           pos; // position in pixels
@@ -162,6 +165,8 @@ struct obj_s {
     u8               pushable_weight;
     u8               n_sprites;
     u8               n_ignored_solids;
+    u8               w_hurt; // size of hurtbox, if any
+    u8               h_hurt;
     ropeobj_param_s  ropeobj;
     v2_i8            offs_interact_ui; // offset of interaction UI
     v2_i8            offs_interact;    // offset of interaction anchor (logic) from center
@@ -172,6 +177,7 @@ struct obj_s {
     particle_emit_s *emitter;
     obj_sprite_s     sprites[4];
     obj_handle_s     ignored_solids[4];
+    u32              hitboxIDs[OBJ_NUM_HITBOXID];
     void            *heap;
     ALIGNAS(32)
     byte mem[OBJ_MEM_BYTES];
@@ -181,9 +187,9 @@ struct obj_s {
 #define obj_get_owl(G)  obj_get_tagged(G, OBJ_TAG_OWL)
 #define obj_get_comp(G) obj_get_tagged(G, OBJ_TAG_COMPANION)
 
-obj_handle_s obj_handle_from_obj(obj_s *o);
-obj_s       *obj_from_obj_handle(obj_handle_s h);
-bool32       obj_try_from_obj_handle(obj_handle_s h, obj_s **o_out);
+obj_handle_s handle_from_obj(obj_s *o);
+obj_s       *obj_from_handle(obj_handle_s h);
+bool32       obj_try_from_handle(obj_handle_s h, obj_s **o_out);
 bool32       obj_handle_valid(obj_handle_s h);
 obj_s       *obj_create(g_s *g);
 void         obj_delete(g_s *g, obj_s *o); // only flags for deletion -> deleted at end of frame
@@ -210,6 +216,8 @@ b32          obj_step_actor(g_s *g, obj_s *o, i32 sx, i32 sy);
 bool32       obj_try_wiggle(g_s *g, obj_s *o);
 bool32       obj_grounded(g_s *g, obj_s *o);
 bool32       obj_grounded_at_offs(g_s *g, obj_s *o, v2_i32 offs);
+bool32       obj_grounded_at_offs_xy(g_s *g, obj_s *o, i32 ox, i32 oy);
+bool32       obj_try_move_grounded_sideways_without_falling(g_s *g, obj_s *o, i32 sx, bool32 slopes);
 bool32       obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir); // not on ground returns false
 void         squish_delete(g_s *g, obj_s *o);
 void         obj_move_by_q12(g_s *g, obj_s *o, i32 dx_q8, i32 dy_q8);
@@ -229,6 +237,7 @@ i32          obj_distsq(obj_s *a, obj_s *b);    // between centers
 i32          obj_dist_appr(obj_s *a, obj_s *b); // between centers
 v2_i32       obj_solid_align_pos_for_render(g_s *g, v2_i32 p);
 bool32       obj_pushpull_blocked_default(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
+void         enemy_on_update_die(g_s *g, obj_s *o);
 
 // whether one object is standing on top of another
 // offx/y added to position of o_plat

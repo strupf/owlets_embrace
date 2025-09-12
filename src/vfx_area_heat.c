@@ -6,7 +6,7 @@
 
 void vfx_area_heat_setup(g_s *g)
 {
-    g->vfx_area_mem     = game_alloct(g, vfx_area_heat_s);
+    g->vfx_area_mem     = game_per_room_alloct(g, vfx_area_heat_s);
     vfx_area_heat_s *fx = (vfx_area_heat_s *)g->vfx_area_mem;
 }
 

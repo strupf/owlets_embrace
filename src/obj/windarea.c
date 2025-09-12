@@ -65,25 +65,25 @@ void windarea_load(g_s *g, map_obj_s *mo)
     o->render_priority = RENDER_PRIO_BEHIND_TERRAIN_LAYER;
 
     if (0) {
-    } else if (str_eq_nc(mo->name, "Windarea_U")) {
+    } else if (mo->hash == hash_str("windarea_u")) {
         o->subID     = WINDAREA_UP;
         w->pt_extend = o->h << 4;
         w->pt_width  = o->w << 4;
-    } else if (str_eq_nc(mo->name, "Windarea_D")) {
+    } else if (mo->hash == hash_str("windarea_d")) {
         o->subID     = WINDAREA_DO;
         w->pt_extend = o->h << 4;
         w->pt_width  = o->w << 4;
-    } else if (str_eq_nc(mo->name, "Windarea_L")) {
+    } else if (mo->hash == hash_str("windarea_l")) {
         o->subID     = WINDAREA_LE;
         w->pt_extend = o->w << 4;
         w->pt_width  = o->h << 4;
-    } else if (str_eq_nc(mo->name, "Windarea_R")) {
+    } else if (mo->hash == hash_str("windarea_r")) {
         o->subID     = WINDAREA_RI;
         w->pt_extend = o->w << 4;
         w->pt_width  = o->h << 4;
     }
     w->particles_per_tick_q4 = w->pt_width >> 7;
-    w->pt                    = game_alloctn(g, windarea_pt_s, WINDAREA_NUM_PT);
+    w->pt                    = game_per_room_alloctn(g, windarea_pt_s, WINDAREA_NUM_PT);
 }
 
 void windarea_on_update(g_s *g, obj_s *o)

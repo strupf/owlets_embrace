@@ -9,6 +9,7 @@
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/spm.h"
+#include "credits.h"
 #include "game.h"
 #include "pltf/pltf.h"
 #include "save.h"
@@ -37,13 +38,16 @@ typedef struct app_s {
     title_s      title;
     savefile_s   save;
     settings_m_s sm;
+    credits_s    credits;
     marena_s     ma;
     i32          state;
     i32          opt;
     i32          flags;
     b16          crank_requested;
     u16          crank_ui_tick;
-    byte         mem[MMEGABYTE(8)];
+
+    ALIGNAS(32)
+    byte mem[MMEGABYTE(10)];
 } app_s;
 
 extern app_s APP;

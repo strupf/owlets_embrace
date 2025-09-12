@@ -330,7 +330,7 @@ void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_o
     aud_cmd_mus_play_s *c   = &cmd.c.mus_play;
     cmd.type                = AUD_CMD_MUS_PLAY;
     c->channelID            = channelID;
-    c->hash                 = wad_hash(fname);
+    c->hash                 = hash_str(fname);
     c->vol_q8               = v_q8;
     c->loop_s1              = s1;
     c->loop_s2              = (s2 * 44100) / 1000;
@@ -347,7 +347,7 @@ void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_o
     cmd.type     = AUD_CMD_MUS_PLAY;
     c->channelID = 0;
     c->start_at  = start_at;
-    c->hash      = wad_hash(fname);
+    c->hash      = hash_str(fname);
     c->vol_q8    = v_q8;
     c->loop_s1   = s1;
     c->loop_s2   = (s2 * 44100) / 1000;

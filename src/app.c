@@ -18,7 +18,7 @@ err32 app_load_assets();
 
 i32 app_init()
 {
-    (sizeof(app_s) / 1024);
+    pltf_log("total size APP: %i KB\n", ((i32)sizeof(app_s) / 1024));
     g_s        *g = &APP.game;
     savefile_s *s = &APP.save;
     g->savefile   = s;
@@ -49,13 +49,16 @@ i32 app_init()
     pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
 #endif
 #endif
+
 #if 1
+    // DEBUG only ---------------------------
     typedef struct {
         u8  map_name[MAP_WAD_NAME_LEN];
         i32 x;
         i32 y;
     } owl_spawn_s;
 
+    // delete all files
     savefile_del(0);
     savefile_del(1);
     savefile_del(2);

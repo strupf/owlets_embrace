@@ -6,6 +6,7 @@
 #define OBJDEF_H
 
 #include "gamedef.h"
+#include "hitbox.h"
 #include "map_loader.h"
 
 enum {
@@ -27,6 +28,9 @@ enum {
     OBJID_LOOKAHEAD,
     OBJID_HEARTPIECE,
     OBJID_HOOKYEETER,
+    OBJID_VINEBLOCKADE,
+    OBJID_FROG,
+    OBJID_FROG_TONGUE,
     OBJID_CLOCKPULSE,
     OBJID_MISC,
     OBJID_MOVINGBLOCK,
@@ -57,7 +61,6 @@ enum {
     OBJID_CRABLER,
     OBJID_CAMATTRACTOR,
     OBJID_FLYBLOB,
-    OBJID_DITHERAREA,
     OBJID_STOMPABLE_BLOCK,
     OBJID_LIGHT,
     OBJID_FALLINGBLOCK,
@@ -71,11 +74,14 @@ enum {
     OBJID_BOULDER_SPAWN,
     OBJID_TIMER,
     OBJID_HEALTHDROP,
+    OBJID_CRAB,
     OBJID_CRACKBLOCK,
     OBJID_MUSHROOM,
     OBJID_LEVERPUSHPULL,
     OBJID_EXIT_BLOCKER,
     OBJID_DRILLJUMPER,
+    OBJID_BOMBPLANT,
+    OBJID_BOMB,
     //
     OBJID_PUPPET_HERO,
     OBJID_PUPPET_COMPANION,
@@ -96,6 +102,17 @@ enum {
     NUM_OBJ_TAGS
 };
 
+// enemy kills getting tracked
+enum {
+    ENEMYID_CRAB,
+    ENEMYID_FROG,
+    ENEMYID_JUMPER,
+    ENEMYID_FLYBLOB,
+    ENEMYID_CRAWLER,
+    //
+    NUM_ENEMYID
+};
+
 enum {
     PROJECTILE_ID_DEFAULT,
     PROJECTILE_ID_ENEMY,
@@ -103,6 +120,18 @@ enum {
     PROJECTILE_ID_STALACTITE_BREAK,
 };
 
+enum {
+    ANIMOBJ_EXPLOSION_1,
+    ANIMOBJ_EXPLOSION_2,
+    ANIMOBJ_EXPLOSION_3,
+    ANIMOBJ_EXPLOSION_4,
+    ANIMOBJ_EXPLOSION_5,
+    ANIMOBJ_ENEMY_SPAWN,
+    ANIMOBJ_STOMP,
+};
+
+obj_s    *animobj_create(g_s *g, v2_i32 p, i32 animobjID);
+void      bombplant_load(g_s *g, map_obj_s *mo);
 void      clockpulse_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_load(g_s *g, map_obj_s *mo);
 void      crumbleblock_on_hooked(g_s *g, obj_s *o);
@@ -111,6 +140,7 @@ void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
 void      mushroomblock_load(g_s *g, map_obj_s *mo);
 void      crawler_load(g_s *g, map_obj_s *mo);
+void      crawler_on_hurt(g_s *g, obj_s *o);
 void      upgradetree_load(g_s *g, map_obj_s *mo);
 void      upgradetree_put_orb_infront(obj_s *o);
 void      upgradetree_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
@@ -124,6 +154,8 @@ void      npc_on_animate(g_s *g, obj_s *o);
 void      npc_on_interact(g_s *g, obj_s *o);
 void      crackblock_load(g_s *g, map_obj_s *mo);
 void      teleport_load(g_s *g, map_obj_s *mo);
+void      crab_load(g_s *g, map_obj_s *mo);
+void      crab_on_hurt(g_s *g, obj_s *o);
 void      stalactite_load(g_s *g, map_obj_s *mo);
 void      stalactite_on_update(g_s *g, obj_s *o);
 void      stalactite_on_animate(g_s *g, obj_s *o);
@@ -134,6 +166,7 @@ void      triggerarea_load(g_s *g, map_obj_s *mo);
 void      hooklever_load(g_s *g, map_obj_s *mo);
 void      hooklever_on_update(g_s *g, obj_s *o);
 ratio_i32 hooklever_spring_ratio(obj_s *o);
+void      vineblockade_load(g_s *g, map_obj_s *mo);
 obj_s    *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
                              i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip);
 void      pushblock_load(g_s *g, map_obj_s *mo);
@@ -142,13 +175,12 @@ void      budplant_load(g_s *g, map_obj_s *mo);
 obj_s    *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void      projectile_on_collision(g_s *g, obj_s *o);
 void      flyblob_load(g_s *g, map_obj_s *mo);
-void      flyblob_on_hit(g_s *g, obj_s *o, hitbox_s hb);
+void      flyblob_on_hurt(g_s *g, obj_s *o, hitbox_s *hb);
 void      staminarestorer_load(g_s *g, map_obj_s *mo);
 bool32    staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero);
 void      staminarestorer_respawn_all(g_s *g, obj_s *o);
 void      camattractor_load(g_s *g, map_obj_s *mo);
 v2_i32    camattractor_closest_pt(obj_s *o, v2_i32 pt);
-void      ditherarea_load(g_s *g, map_obj_s *mo);
 void      stompable_block_load(g_s *g, map_obj_s *mo);
 void      stompable_block_break(g_s *g, obj_s *o);
 void      light_load(g_s *g, map_obj_s *mo);
@@ -175,10 +207,13 @@ void      hookyeeter_on_update(g_s *g, obj_s *o);
 void      hookyeeter_on_hook(g_s *g, obj_s *o);
 void      hookyeeter_on_unhook(g_s *g, obj_s *o);
 void      jumper_load(g_s *g, map_obj_s *mo);
+void      jumper_on_hurt(g_s *g, obj_s *o);
 void      solidlever_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
 void      companion_on_enter_mode(g_s *g, obj_s *o, i32 mode);
+void      companion_on_owl_died(g_s *g, obj_s *o);
+v2_i32    companion_pos_swap(obj_s *ocomp, obj_s *o_owl);
 void      fallingstonespawn_load(g_s *g, map_obj_s *mo);
 obj_s    *healthdrop_spawn(g_s *g, v2_i32 p);
 void      springyblock_load(g_s *g, map_obj_s *mo);
@@ -202,4 +237,12 @@ obj_s    *tendrilconnection_create(g_s *g);
 void      tendrilconnection_setup(g_s *g, obj_s *o, v2_i32 p_start, v2_i32 p_end, i32 l_max);
 void      tendrilconnection_constrain_ends(obj_s *o, v2_i32 p_start, v2_i32 p_end);
 void      leverpushpull_load(g_s *g, map_obj_s *mo);
+void      frog_on_load(g_s *g, map_obj_s *mo);
+void      frog_on_hurt(g_s *g, obj_s *o);
+void      bombplant_load(g_s *g, map_obj_s *mo);
+void      bombplant_on_pickup(g_s *g, obj_s *o);
+void      bombplant_on_hit(g_s *g, obj_s *o);
+obj_s    *bomb_create(g_s *g);
+void      bomb_set_carried(obj_s *o);
+void      bomb_set_idle(obj_s *o);
 #endif

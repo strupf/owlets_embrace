@@ -7,6 +7,7 @@
 
 enum {
     COMPANION_ST_IDLE,
+    COMPANION_ST_GAMEOVER,
     COMPANION_ST_GATHER_ITEM,
 };
 
@@ -25,13 +26,13 @@ typedef struct companion_s {
     obj_handle_s o_item;
 } companion_s;
 
-void     companion_on_update(g_s *g, obj_s *o);
-void     companion_on_animate(g_s *g, obj_s *o);
-void     companion_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void     companion_follow_owl(g_s *g, obj_s *o, obj_s *owl);
-obj_s   *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max);
-hitbox_s companion_spear_hitbox(obj_s *o);
-void     companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos);
+void            companion_on_update(g_s *g, obj_s *o);
+void            companion_on_animate(g_s *g, obj_s *o);
+void            companion_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void            companion_follow_owl(g_s *g, obj_s *o, obj_s *owl);
+obj_s          *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max);
+hitbox_legacy_s companion_spear_hitbox(obj_s *o);
+void            companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos);
 
 obj_s *companion_create(g_s *g)
 {
@@ -94,10 +95,24 @@ void companion_on_update(g_s *g, obj_s *o)
     }
 
     switch (o->state) {
+    case COMPANION_ST_GAMEOVER: {
+        if (o->timer < 25) {
+            break;
+        }
+        if (owl) {
+            companion_follow_owl(g, o, owl);
+            if (p1.x + 8 < p2.x) {
+                o->facing = +1;
+            } else if (p1.x - 8 > p2.x) {
+                o->facing = -1;
+            }
+        }
+        break;
+    }
     case COMPANION_ST_IDLE: {
         obj_s *o_item = companion_find_gather_item(g, o);
         if (o_item) {
-            c->o_item = obj_handle_from_obj(o_item);
+            c->o_item = handle_from_obj(o_item);
             o->state  = COMPANION_ST_GATHER_ITEM;
             o->timer  = 0;
             break;
@@ -127,7 +142,7 @@ void companion_on_update(g_s *g, obj_s *o)
                 }
             }
         } else {
-            obj_s *o_item = obj_from_obj_handle(c->o_item);
+            obj_s *o_item = obj_from_handle(c->o_item);
             if (o_item) {
                 i32 dst = v2_i32_distance_appr(p1, obj_pos_center(o_item));
                 if (dst < 20) {
@@ -177,15 +192,7 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         if (h->stance == OWL_STANCE_ATTACK) {
             return;
         }
-
-        // move to hero
-        v2_i32 hc = obj_pos_center(owl);
-        hc.x -= owl->facing * 12;
-        hc.y -= 4;
-
-        if (h->stance == OWL_STANCE_GRAPPLE && 8 < h->stance_swap_tick) {
-            p = v2_i32_lerp(pc, hc, h->stance_swap_tick - 8, owl_swap_ticks() - 8);
-        }
+        p = companion_pos_swap(o, owl);
     }
 
     p = v2_i32_add(p, cam);
@@ -212,18 +219,27 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     } else if (c->attack_tick) {
         // attack animation
         fr_y = 5;
-        fr_x = ani_frame(ANIID_COMPANION_ATTACK, c->attack_tick);
+        fr_x = ani_frame_loop(ANIID_COMPANION_ATTACK, c->attack_tick);
     } else {
         // fly animation
         fr_y = 0;
-        fr_x = ani_frame(ANIID_COMPANION_FLY, o->animation);
+        fr_x = ani_frame_loop(ANIID_COMPANION_FLY, o->animation);
+    }
+
+    if (o->state == COMPANION_ST_GAMEOVER) {
+        if (o->timer < 25) {
+            fr_y = 9;
+            fr_x = (o->timer < 20 ? 4 : 5);
+        } else {
+            fr_y = 2;
+        }
     }
 
     if (owl) {
         owl_s *h = (owl_s *)owl->heap;
         if (h->stance_swap_tick && h->stance_swap_tick < 12) {
             fr_y = 9;
-            fr_x = lerp_i32(1, 5, h->stance_swap_tick, 12);
+            fr_x = lerp_i32(0, 3, h->stance_swap_tick, 11);
         }
     }
     tr.x = fr_x * tr.w;
@@ -232,7 +248,7 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     gfx_ctx_s ctx = gfx_ctx_display();
 
     if (c->carries_item) {
-        i32    fry  = ani_frame(ANIID_GEMS, o->animation);
+        i32    fry  = ani_frame_loop(ANIID_GEMS, o->animation);
         i32    frx  = 0;
         v2_i32 pgem = v2_i32_add(pc, cam);
         pgem.y += 2;
@@ -242,6 +258,21 @@ void companion_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 
     gfx_spr(ctx, tr, p, fl, 0);
+}
+
+v2_i32 companion_pos_swap(obj_s *ocomp, obj_s *o_owl)
+{
+    owl_s *h  = (owl_s *)o_owl->heap;
+    v2_i32 pc = obj_pos_center(ocomp);
+
+    if (h->stance == OWL_STANCE_GRAPPLE && 8 < h->stance_swap_tick) {
+        // move to hero
+        v2_i32 hc = obj_pos_center(o_owl);
+        hc.x -= o_owl->facing * 12;
+        hc.y -= 4;
+        pc = v2_i32_lerp(pc, hc, h->stance_swap_tick - 8, owl_swap_ticks() - 8);
+    }
+    return pc;
 }
 
 void companion_on_enter_mode(g_s *g, obj_s *o, i32 mode)
@@ -356,16 +387,16 @@ obj_s *companion_spawn(g_s *g, obj_s *owl)
     return o;
 }
 
-hitbox_s companion_spear_hitbox(obj_s *o)
+hitbox_legacy_s companion_spear_hitbox(obj_s *o)
 {
-    companion_s *c  = (companion_s *)o->mem;
-    hitbox_s     hb = {0};
-    hb.r.w          = 64;
-    hb.r.h          = 24;
-    hb.r.x          = o->pos.x + (o->w - hb.r.w) / 2 + o->facing * 32;
-    hb.r.y          = o->pos.y + (o->h - hb.r.h) / 2 + 16;
-    hb.damage       = 1;
-    hb.hitID        = c->hitID;
+    companion_s    *c  = (companion_s *)o->mem;
+    hitbox_legacy_s hb = {0};
+    hb.r.w             = 64;
+    hb.r.h             = 24;
+    hb.r.x             = o->pos.x + (o->w - hb.r.w) / 2 + o->facing * 32;
+    hb.r.y             = o->pos.y + (o->h - hb.r.h) / 2 + 16;
+    hb.damage          = 1;
+    hb.hitID           = c->hitID;
     return hb;
 }
 
@@ -386,4 +417,12 @@ obj_s *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max)
         }
     }
     return target;
+}
+
+void companion_on_owl_died(g_s *g, obj_s *o)
+{
+    o->state = COMPANION_ST_GAMEOVER;
+    o->timer = 0;
+    o->v_q12.x >>= 1;
+    o->v_q12.y >>= 1;
 }

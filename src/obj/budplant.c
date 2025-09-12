@@ -37,9 +37,9 @@ void budplant_load(g_s *g, map_obj_s *mo)
 {
     obj_s      *o  = obj_create(g);
     budplant_s *bp = (budplant_s *)o->mem;
-
-    o->ID    = OBJID_BUDPLANT;
-    o->flags = OBJ_FLAG_ACTOR |
+    o->UUID        = mo->UUID;
+    o->ID          = OBJID_BUDPLANT;
+    o->flags       = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
                OBJ_FLAG_ENEMY;
     o->subID              = BUDPLANT_SUBID_STATIONARY;
@@ -105,7 +105,6 @@ void budplant_on_update(g_s *g, obj_s *o)
             f32 vol;
             snd_cam_param(g, 1.f, oanim, 300, &vol, 0);
             snd_play(SNDID_EXPLOPOOF, vol, rngr_f32(0.9f, 1.1f));
-            hitbox_tmp_cir(g, oanim.x, oanim.y, 64);
             objanim_create(g, oanim, OBJANIMID_EXPLODE_GRENADE);
         }
         if (BUDPLANT_TICKS_SHOOTING <= o->timer) {

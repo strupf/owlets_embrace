@@ -52,7 +52,7 @@ void npc_load(g_s *g, map_obj_s *mo)
     spr->offs.y       = o->h - spr->trec.h;
     char dialog[16];
     map_obj_strs(mo, "Dialogfile", dialog);
-    npc->dialog_hash     = wad_hash(dialog);
+    npc->dialog_hash     = hash_str(dialog);
     npc->movement        = map_obj_i32(mo, "Movement");
     o->sprites[0].trec.y = map_obj_i32(mo, "Model") * 48;
 }

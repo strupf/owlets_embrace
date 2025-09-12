@@ -9,7 +9,49 @@ void owl_on_animate(g_s *g, obj_s *o)
 {
     owl_s *h  = (owl_s *)o->heap;
     i32    st = owl_state_check(g, o);
-    // h->stamina_empty_tick++;
+
+#if 0
+
+    if (h->stamina_blink_tick) {
+        h->stamina_blink_tick++;
+        if (h->stamina_blink_tick_max < h->stamina_blink_tick) {
+            h->stamina_blink_tick = 0;
+        }
+    }
+
+    i32 stamina_percent = (100 * h->stamina + 50) / h->stamina_max;
+    if (stamina_percent <= 50) {
+        i32 smod = 0;
+
+        if (stamina_percent <= 20) {
+            smod                      = 8;
+            h->stamina_blink_tick_max = 8;
+        } else if (stamina_percent <= 30) {
+            smod                      = 16;
+            h->stamina_blink_tick_max = 12;
+        } else if (stamina_percent <= 40) {
+            smod                      = 24;
+            h->stamina_blink_tick_max = 16;
+        } else {
+            smod                      = 32;
+            h->stamina_blink_tick_max = 16;
+        }
+
+        if (smod <= h->stamina_empty_tick) {
+            h->stamina_blink_tick = 1;
+            h->stamina_empty_tick = 0;
+        }
+
+        h->stamina_empty_tick++;
+
+    } else {
+        h->stamina_empty_tick = 0;
+    }
+
+    if (h->stamina_blink_tick_max < h->stamina_blink_tick) {
+        h->stamina_blink_tick = 1;
+    }
+#endif
 
     //  animate stamina ui
     if (h->stamina_added_delay_ticks) {
@@ -20,10 +62,6 @@ void owl_on_animate(g_s *g, obj_s *o)
     if (h->stamina < h->stamina_max || h->stamina_added) {
         h->stamina_ui_show = 1;
     } else {
-        h->stamina_ui_show = 0;
-    }
-    if (st == OWL_ST_WATER) {
-        owl_stamina_modify(o, h->stamina_max);
         h->stamina_ui_show = 0;
     }
     if (h->stamina_ui_show && h->stamina_ui_fade_ticks < OWL_STAMINA_TICKS_UI_FADE) {
@@ -38,57 +76,115 @@ void owl_on_animate(g_s *g, obj_s *o)
     spr->offs.x       = (o->w >> 1) - 32;
     spr->offs.y       = (o->h) - 64 + 1;
 
-    wire_s *r  = o->wire;
-    i32     fx = 0;
-    i32     fy = 0;
-    i32     fw = 64;
-    i32     fh = 64;
-
+    wire_s *r               = o->wire;
+    i32     fx              = 0;
+    i32     fy              = 0;
+    i32     fw              = 64;
+    i32     fh              = 64;
     // adds 24 to y frame if in "attack" stance
     // manually unset to ignore the stance
-    bool32 consider_stance = h->stance;
+    bool32  consider_stance = h->stance && o->health;
 
-    if (h->stance == OWL_STANCE_ATTACK) {
+    if (h->special_state) {
+
+    } else if (o->health == 0) {
+        fy = 16;
+
+        switch (st) {
+        case OWL_ST_WATER: {
+            spr->offs.y += 16;
+            spr->offs.y += ((4 * sin_q15((i32)h->dead_anim_ticks << 10)) / 32769) & ~1;
+            fx = 11 + ((h->dead_anim_ticks >> 6) & 1);
+            break;
+        }
+        default:
+        case OWL_ST_AIR: {
+            spr->offs.y += 16;
+            fx = (h->dead_anim_ticks >> 1) & 7;
+            break;
+        }
+        case OWL_ST_GROUND: {
+            fx = (h->dead_ground_ticks < 30 ? 9 : 10);
+            break;
+        }
+        }
+
+        st = 0;
+    } else if (h->stance == OWL_STANCE_ATTACK && (st == OWL_ST_GROUND || st == OWL_ST_AIR)) {
         if (h->attack_tick) {
-            st              = OWL_ST_NULL;
-            consider_stance = 0;
-            spr->offs.x -= 16;
-            fw = 96;
-            fy = 47 + h->attack_flipflop;
-            fx = ani_frame(ANIID_OWL_ATTACK, h->attack_tick);
 
-            if (h->stance_swap_tick) {
-                fx                   = min_i32(fx, 5);
-                h->attack_last_frame = fx;
+            switch (h->attack_type) {
+            case OWL_ATTACK_SIDE: {
+                spr->offs.x -= 16;
+                fw = 96;
+                fy = 51 + h->attack_flipflop;
+                fx = ani_frame_loop(ANIID_OWL_ATTACK, h->attack_tick);
+                if (st == OWL_ST_GROUND) {
+                    fy += 2;
+                } else {
+                    spr->offs.y += 16;
+                }
+
+                if (h->stance_swap_tick) {
+                    fx                   = min_i32(fx, 6);
+                    h->attack_last_frame = fx;
+                }
+                break;
             }
-        } else if (h->stance_swap_tick) {
+            case OWL_ATTACK_UP: {
+                // spr->offs.x -= 16;
+                fw = 64;
+                fy = 24;
+                if (st == OWL_ST_GROUND) {
+                    fy = 25;
+                }
+                fx = ani_frame_loop(ANIID_OWL_ATTACK_UP, h->attack_tick);
+
+                if (h->stance_swap_tick) {
+                    fx                   = min_i32(fx, 6);
+                    h->attack_last_frame = fx;
+                }
+                break;
+            }
+            }
             st              = OWL_ST_NULL;
             consider_stance = 0;
+        } else if (h->stance_swap_tick) {
+
             spr->offs.x -= 16;
             fw = 96;
-            fy = 47 + 1 - h->attack_flipflop;
+            fy = 51 + 1 - h->attack_flipflop;
+            if (st == OWL_ST_GROUND) {
+                fy += 2;
+            } else {
+                spr->offs.y += 16;
+            }
+
             if (0) {
-            } else if (h->stance_swap_tick < owl_swap_ticks() - 4) {
+            } else if (h->stance_swap_tick < owl_swap_ticks() - 5) {
                 fx = 2;
-            } else if (h->stance_swap_tick < owl_swap_ticks() - 1) {
+            } else if (h->stance_swap_tick < owl_swap_ticks() - 3) {
                 fx = 1;
             } else {
                 fx = 0;
             }
+            st              = OWL_ST_NULL;
+            consider_stance = 0;
         }
-    }
-
-    if (OWL_HURT_TICKS_SPRITE <= h->hurt_ticks) {
+    } else if (OWL_HURT_TICKS_SPRITE <= h->hurt_ticks) {
         st = -1;
         fx = 0;
         fy = 10;
     }
 
     switch (st) {
-    case -1: break;
+    default: break;
     case OWL_ST_AIR: {
         wirenode_s *rn = o->wirenode;
-        if (r) {
+        if (obj_handle_valid(h->carried)) {
+            fy = 21;
+            fx = 2;
+        } else if (r) {
             v2_i32 rdt     = v2_i32_sub(rn->p, o->wirenode->p);
             i32    ropelen = (i32)wire_len_qx(g, r, 4);
             if (rdt.y < -100 && (i32)g->ghook.len_max_q4 <= ropelen) {
@@ -151,6 +247,9 @@ void owl_on_animate(g_s *g, obj_s *o)
 
             if (h->stance_swap_tick) {
                 fy += 1;
+                if (h->stance_swap_tick < 4 || (owl_swap_ticks() - 4) < h->stance_swap_tick) {
+                    fx += 5;
+                }
             } else if (h->jump_anim_ticks) {
                 if (h->jump_index == OWL_JUMP_WALL) {
                     if (h->jump_anim_ticks < 3) {
@@ -184,7 +283,34 @@ void owl_on_animate(g_s *g, obj_s *o)
         break;
     }
     case OWL_ST_GROUND: {
-        if (h->ground_pull_wire) {
+        if (h->carry) {
+            fy = 21;
+            if (h->carry < OWL_CARRY_PICKUP_TICKS) {
+            }
+
+            i32 f = 0;
+            if (o->v_q12.x) {
+                f = 2 + modu_i32(shr_balanced_i32(h->ground_anim, 11), 8);
+            } else {
+                h->ground_anim++;
+                f = (h->ground_anim >> 5) & 1;
+            }
+            fx = f;
+
+            obj_s *o_carried = obj_from_handle(h->carried);
+            v2_i32 pb        = obj_pos_bottom_center(o);
+
+            switch (o_carried->ID) {
+            case OBJID_BOMB: {
+                o_carried->pos.x = (pb.x - o_carried->w / 2) + o->facing * 6;
+                o_carried->pos.y = pb.y - 15 - o_carried->h / 2;
+                i8 xoff[10]      = {0, 0, 0, 2, 2, 0, 0, -2, -2, 0};
+                o_carried->pos.x += (i32)xoff[f] * o->facing;
+                break;
+            }
+            }
+
+        } else if (h->ground_pull_wire) {
             fy = 12;
             fx = 10 + ((h->ground_pull_wire_anim >> 3) & 1);
             if (h->ground_pull_wire && h->ground_pull_wire_prev) {
@@ -220,20 +346,18 @@ void owl_on_animate(g_s *g, obj_s *o)
                 fx = 2 + (shr_balanced_i32(h->ground_anim, 4) % 3);
             }
         } else if (h->stance_swap_tick) {
-            fy         = 14;
-            i32 f_swap = 0;
+            fy = 14;
+            fx = 6;
 
-            // TODO: smooth out swapping after attack swing
-            if (h->stance_swap_tick < 12) {
-                f_swap = lerp_i32(0, 5, h->stance_swap_tick, 12);
+            if (h->stance_swap_tick <= 8) {
+                fx += lerp_i32(0, 3, h->stance_swap_tick, 8);
             } else if (owl_swap_ticks() - 3 <= h->stance_swap_tick) {
-                f_swap = 3;
-            } else if (owl_swap_ticks() - 7 <= h->stance_swap_tick) {
-                f_swap = 4;
+                fx += 1;
+            } else if (owl_swap_ticks() - 6 <= h->stance_swap_tick) {
+                fx += 2;
             } else {
-                f_swap = 5;
+                fx += 3;
             }
-            fx = 6 + f_swap;
         } else if (inp_btn(INP_DU) && !inp_x()) {
             // looking up
             fx = 12;
@@ -265,7 +389,7 @@ void owl_on_animate(g_s *g, obj_s *o)
         spr->offs.y += 16;
         h->swim_anim++;
 
-        if (h->swim_sideways) {
+        if (h->swim_sideways && !h->stance_swap_tick) {
             i32 swim = owl_swim_frameID(h->swim_anim);
             fy       = 3; // swim
             fx       = swim;
@@ -292,6 +416,13 @@ void owl_on_animate(g_s *g, obj_s *o)
             if (((swim2 == 1 || swim2 == 4) && swim != swim2)) {
                 snd_play(SNDID_WATER_SWIM_2, 0.20f, rngr_f32(0.9f, 1.1f));
             }
+
+            if (h->stance_swap_tick) {
+                fy += 1;
+                if (h->stance_swap_tick < 4 || (owl_swap_ticks() - 4) < h->stance_swap_tick) {
+                    fx += 5;
+                }
+            }
         }
         break;
     }
@@ -300,6 +431,7 @@ void owl_on_animate(g_s *g, obj_s *o)
 
         switch (h->climb) {
         case OWL_CLIMB_LADDER: {
+
             // smoothing of the player position on snapping to a ladder
             if (h->climb_tick <= 2) { // two ticks, starts on 1
                 i32 cx = o->pos.x + (OWL_W >> 1);
@@ -308,10 +440,36 @@ void owl_on_animate(g_s *g, obj_s *o)
             }
 
             fy = 13;
+
+            if (h->stance_swap_tick) {
+                if (h->stance_swap_tick < 4 || (owl_swap_ticks() - 4) <= h->stance_swap_tick) {
+                    fx = 8;
+                } else {
+                    fx = 9;
+                }
+                break;
+            }
+
             fx = shr_balanced_i32(h->climb_anim, 2) & 7;
             break;
         }
         case OWL_CLIMB_WALL: {
+            if (h->stance_swap_tick) {
+                fy = 10;
+                if (h->stance_swap_tick < 2) {
+                    fx = 13;
+                } else if (h->stance_swap_tick < 4) {
+                    fx = 14;
+                } else if (h->stance_swap_tick < (owl_swap_ticks() - 4)) {
+                    fx = 15;
+                } else if (h->stance_swap_tick < (owl_swap_ticks() - 2)) {
+                    fx = 14;
+                } else {
+                    fx = 13;
+                }
+                break;
+            }
+
             fy = 9;
             if (h->climb_slide_down) {
                 fx = (h->climb_slide_down < 4 ? 5 : 6);
@@ -344,7 +502,7 @@ void owl_on_animate(g_s *g, obj_s *o)
     }
 
     if (consider_stance) {
-        fy += 25;
+        fy += 29;
     }
 
     spr->trec.t = asset_tex(TEXID_HERO);

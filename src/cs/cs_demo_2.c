@@ -11,7 +11,7 @@ typedef struct {
     obj_s *puppet_hero;
 } cs_demo_2_s;
 
-void cs_demo_2_update(g_s *g, cs_s *cs);
+void cs_demo_2_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_demo_2_on_trigger(g_s *g, cs_s *cs, i32 trigger);
 void cs_demo_2_cb_comp(g_s *g, obj_s *o, void *ctx);
 
@@ -20,13 +20,13 @@ void cs_demo_2_enter(g_s *g)
     cs_s        *cs = &g->cs;
     cs_demo_2_s *dm = (cs_demo_2_s *)cs->mem;
     cs_reset(g);
-    cs->on_update        = cs_demo_2_update;
-    cs->on_trigger       = cs_demo_2_on_trigger;
-    g->block_owl_control = 1;
-    dm->puppet_comp      = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
+    cs->on_update  = cs_demo_2_update;
+    cs->on_trigger = cs_demo_2_on_trigger;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+    dm->puppet_comp = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
 }
 
-void cs_demo_2_update(g_s *g, cs_s *cs)
+void cs_demo_2_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs_demo_2_s *dm = (cs_demo_2_s *)cs->mem;
 
@@ -40,7 +40,7 @@ void cs_demo_2_update(g_s *g, cs_s *cs)
 
         obj_s *owl      = obj_get_owl(g);
         dm->puppet_hero = puppet_owl_put(g, owl);
-        dialog_open_wad(g, "D_DEMO2_0");
+        dia_load_from_wad(g, "D_DEMO2_0");
         puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
         puppet_move_ext(dm->puppet_comp, (v2_i32){0, -30}, 40, 0, 1, 0, 0);
         break;
@@ -63,8 +63,8 @@ void cs_demo_2_cb_comp(g_s *g, obj_s *o, void *ctx)
     case 2:
         cs->phase++;
         cs->tick = 0;
-        dialog_open_wad(g, "D_DEMO2_1");
-        g->dialog.script_input = 1;
+        dia_load_from_wad(g, "D_DEMO2_1");
+        g->dia.script_input = 1;
         snd_play(SNDID_STOMP_LAND, 0.5f, 1.f);
         puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_BUMP_ONCE, +1);
         puppet_move_ext(dm->puppet_comp, (v2_i32){-30, 0}, 40, 0, 1, cs_demo_2_cb_comp, cs);
@@ -76,8 +76,8 @@ void cs_demo_2_cb_comp(g_s *g, obj_s *o, void *ctx)
         break;
     case 6: {
         // leave
-        g->block_owl_control = 0;
-        obj_s *owl           = obj_get_owl(g);
+        g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
+        obj_s *owl = obj_get_owl(g);
         puppet_owl_replace_and_del(g, owl, dm->puppet_hero);
         obj_delete(g, dm->puppet_comp);
         cs_reset(g);
@@ -92,7 +92,7 @@ void cs_demo_2_on_trigger(g_s *g, cs_s *cs, i32 trigger)
 
     switch (cs->phase) {
     case 1:
-        if (trigger == TRIGGER_DIALOG_END) {
+        if (trigger == TRIGGER_DIA_END) {
             cs->phase++;
             cs->tick = 0;
             for (obj_each_objID(g, i, OBJID_MISC)) {
@@ -105,7 +105,7 @@ void cs_demo_2_on_trigger(g_s *g, cs_s *cs, i32 trigger)
             break;
         }
     case 3:
-        if (trigger == TRIGGER_DIALOG_END) {
+        if (trigger == TRIGGER_DIA_END) {
             cs->phase++;
             cs->tick = 0;
         }

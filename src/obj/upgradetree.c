@@ -22,6 +22,7 @@ void upgradetree_load(g_s *g, map_obj_s *mo)
 {
     obj_s         *o = obj_create(g);
     upgradetree_s *p = (upgradetree_s *)o->mem;
+    o->UUID          = mo->UUID;
     o->ID            = OBJID_UPGRADETREE;
     o->w             = mo->w;
     o->h             = mo->h;
@@ -41,8 +42,8 @@ void upgradetree_load(g_s *g, map_obj_s *mo)
         p->orb.y       = porigin.y - 53;
     }
 
-    tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_allocator(g));
-    snd_from_wad_ID(SNDID_UPGRADE, "S_UPGRADE", game_allocator(g));
+    tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_per_room_allocator(g));
+    snd_from_wad_ID(SNDID_UPGRADE, "S_UPGRADE", game_per_room_allocator(g));
     p->saveID = saveID;
 }
 
@@ -111,7 +112,7 @@ void upgradetree_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 
     if (!o->state) {
-        i32      fr     = ani_frame(ANIID_UPGRADE, o->animation);
+        i32      fr     = ani_frame_loop(ANIID_UPGRADE, o->animation);
         texrec_s trupgr = asset_texrec(TEXID_UPGRADE, 256, fr * 64, 64, 64);
         v2_i32   pupgr  = v2_i32_add(p->orb, cam);
         pupgr.x -= 32;

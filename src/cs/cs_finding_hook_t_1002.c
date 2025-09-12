@@ -4,18 +4,18 @@
 
 #include "game.h"
 
-void cs_finding_hook_update(g_s *g, cs_s *cs);
+void cs_finding_hook_update(g_s *g, cs_s *cs, inp_s inp);
 
 void cs_finding_hook_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update        = cs_finding_hook_update;
-    g->block_owl_control = 1;
+    cs->on_update = cs_finding_hook_update;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
     save_event_register(g, SAVE_EV_CS_HOOK_FOUND);
 }
 
-void cs_finding_hook_update(g_s *g, cs_s *cs)
+void cs_finding_hook_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs->tick++;
 
@@ -42,7 +42,7 @@ void cs_finding_hook_update(g_s *g, cs_s *cs)
             puppet_owl_replace_and_del(g, owl, cs->p_owl);
             owl_upgrade_add(owl, OWL_UPGRADE_HOOK);
             cs_reset(g);
-            g->block_owl_control = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
         }
         break;
     }

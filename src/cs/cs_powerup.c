@@ -26,7 +26,7 @@ typedef struct {
 #define CS_POWERUP_TICKS_P200 20
 
 void cs_powerup_leave(g_s *g);
-void cs_powerup_update(g_s *g, cs_s *cs);
+void cs_powerup_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_powerup_draw(g_s *g, cs_s *cs, v2_i32 cam);
 void cs_powerup_draw_bg(g_s *g, cs_s *cs, v2_i32 cam);
 void cs_powerup_on_trigger(g_s *g, cs_s *cs, i32 trigger);
@@ -36,7 +36,7 @@ void cs_powerup_on_trigger(g_s *g, cs_s *cs, i32 trigger)
     cs_powerup_s *pu = (cs_powerup_s *)cs->mem;
     switch (cs->phase) {
     case 1: {
-        if (trigger == TRIGGER_DIALOG_END) {
+        if (trigger == TRIGGER_DIA_END) {
             puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, +1);
             cs->phase++;
             cs->tick = 0;
@@ -61,8 +61,8 @@ void cs_arrival_hero_cb(g_s *g, obj_s *o, void *ctx)
 
 void cs_powerup_enter(g_s *g)
 {
-    g->block_owl_control = 1;
-    cs_s *cs             = &g->cs;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
+    cs_s *cs = &g->cs;
     cs_reset(g);
     cs_powerup_s *pu       = (cs_powerup_s *)cs->mem;
     cs->on_update          = cs_powerup_update;
@@ -80,7 +80,7 @@ void cs_powerup_enter(g_s *g)
     }
 }
 
-void cs_powerup_update(g_s *g, cs_s *cs)
+void cs_powerup_update(g_s *g, cs_s *cs, inp_s inp)
 {
     obj_s        *ocomp = obj_get_tagged(g, OBJ_TAG_COMPANION);
     cs_powerup_s *pu    = (cs_powerup_s *)cs->mem;
@@ -139,8 +139,7 @@ void cs_powerup_update(g_s *g, cs_s *cs)
     }
     case 1: {
         if (40 == cs->tick) {
-            // dialog_open_wad(g, "D_UPGR_1");
-            g->dialog.pos = DIALOG_POS_TOP;
+            dia_load_from_wad(g, "D_UPGR_1");
             puppet_set_anim(pu->puppet_comp, PUPPET_COMPANION_ANIMID_HUH, +1);
         }
         if (150 == cs->tick) {
@@ -338,8 +337,8 @@ void cs_powerup_leave(g_s *g)
         g->hero.mode = HERO_MODE_NORMAL;
     }
 #endif
-    g->block_owl_control = 0;
-    g->cam.has_trg       = 0;
+    g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
+    g->cam.has_trg = 0;
     cs_reset(g);
 }
 

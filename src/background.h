@@ -17,6 +17,7 @@ enum {
     BACKGROUND_ID_SNOW      = 16,
     BACKGROUND_ID_WATERFALL = 20,
     BACKGROUND_ID_VERTICAL  = 24,
+    BACKGROUND_ID_MOUNTAIN  = 28,
 };
 
 // prerender background for performance mode

@@ -6,8 +6,9 @@
 
 typedef struct {
     i32     saveID;
-    tile_s *tiles_og;
     i32     trigger_destroy;
+    i32     terrainID;
+    tile_s *tiles_og;
 } shortcutblock_s;
 
 void shortcutblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
@@ -20,6 +21,7 @@ void shortcutblock_load(g_s *g, map_obj_s *mo)
 
     obj_s           *o = obj_create(g);
     shortcutblock_s *b = (shortcutblock_s *)o->mem;
+    o->UUID            = mo->UUID;
     o->ID              = OBJID_SHORTCUTBLOCK;
     o->w               = mo->w;
     o->h               = mo->h;
@@ -31,13 +33,16 @@ void shortcutblock_load(g_s *g, map_obj_s *mo)
     i32 nx             = o->w >> 4;
     i32 ny             = o->h >> 4;
     b->trigger_destroy = map_obj_i32(mo, "trigger_destroy");
-    b->tiles_og        = game_alloctn(g, tile_s, nx * ny);
+    b->terrainID       = map_obj_i32(mo, "terrainID");
+    b->saveID          = saveID;
+    b->tiles_og        = game_per_room_alloctn(g, tile_s, nx * ny);
+
     for (i32 y = 0; y < ny; y++) {
         mcpy(&b->tiles_og[y * nx],
              &g->tiles[px + (py + y) * g->tiles_x],
              sizeof(tile_s) * nx);
     }
-    b->saveID = saveID;
+
     shortcutblock_set(g, o, 1);
 }
 
@@ -62,19 +67,38 @@ void shortcutblock_set(g_s *g, obj_s *o, i32 state)
     i32              ny = o->h >> 4;
 
     switch (state) {
-    case 0:
+    case 0: {
+        // disappear: smokes and mirrors
+        i32 nx_expl = 1 + nx / 4;
+        i32 ny_expl = 1 + ny / 4;
+        i32 space_x = o->w / (1 + nx_expl);
+        i32 space_y = o->h / (1 + ny_expl);
+
+        for (i32 y = 0; y < ny_expl; y++) {
+            for (i32 x = 0; x < nx_expl; x++) {
+                v2_i32 p = {o->pos.x + (1 + x) * space_x + rngr_sym_i32(8),
+                            o->pos.y + (1 + y) * space_y + rngr_sym_i32(8)};
+                animobj_create(g, p, ANIMOBJ_EXPLOSION_5);
+            }
+        }
+
+        // set original tiles again
         for (i32 y = 0; y < ny; y++) {
-            mcpy(&g->tiles[px + (py + y) * g->tiles_x],
-                 &b->tiles_og[y * nx],
-                 sizeof(tile_s) * nx);
+            for (i32 x = 0; x < nx; x++) {
+                g->tiles[(px + x) + (py + y) * g->tiles_x] = b->tiles_og[x + y * nx];
+            }
         }
         break;
+    }
     case 1:
+        // overwrite map tiles with tiles of this block
         for (i32 y = 0; y < ny; y++) {
             for (i32 x = 0; x < nx; x++) {
                 tile_s *t = &g->tiles[(px + x) + (py + y) * g->tiles_x];
-                t->type   = TILE_TYPE_BRIGHT_STONE;
-                t->shape  = TILE_BLOCK;
+                if (t->shape != TILE_BLOCK) {
+                    t->type  = b->terrainID;
+                    t->shape = TILE_BLOCK;
+                }
             }
         }
         break;

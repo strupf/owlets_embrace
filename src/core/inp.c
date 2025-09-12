@@ -9,9 +9,9 @@
 static struct {
     inp_state_s curri;
     inp_state_s previ;
-    f32         acc_x;
-    f32         acc_y;
-    f32         acc_z;
+#if PLTF_SDL
+    SDL_GameController *gc;
+#endif
 } INP;
 
 void inp_update()
@@ -35,25 +35,24 @@ void inp_update()
     if (pltf_pd_crank_docked()) i->actions |= INP_CRANK_DOCK;
     i->crank_q16 = (i32)(pltf_pd_crank_deg() * 182.0444f) & 0xFFFFU;
 #else
+#if 1
     // makeshift controller support for now
-    static SDL_GameController *gc;
-    static i32                 once = 0;
+    static i32 once = 0;
     if (once == 0) {
-        once = 1;
-        gc   = SDL_GameControllerOpen(0);
+        once   = 1;
+        INP.gc = SDL_GameControllerOpen(0);
     }
 
-#if 0
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_UP) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) < 0) i->actions |= INP_DU;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTY) > 0) i->actions |= INP_DD;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) < 0) i->actions |= INP_DL;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
-        SDL_GameControllerGetAxis(gc, SDL_CONTROLLER_AXIS_LEFTX) > 0) i->actions |= INP_DR;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_A)) i->actions |= INP_B;
-    if (SDL_GameControllerGetButton(gc, SDL_CONTROLLER_BUTTON_B)) i->actions |= INP_A;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_DPAD_UP) ||
+        SDL_GameControllerGetAxis(INP.gc, SDL_CONTROLLER_AXIS_LEFTY) < -4096) i->actions |= INP_DU;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_DPAD_DOWN) ||
+        SDL_GameControllerGetAxis(INP.gc, SDL_CONTROLLER_AXIS_LEFTY) > +4096) i->actions |= INP_DD;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_DPAD_LEFT) ||
+        SDL_GameControllerGetAxis(INP.gc, SDL_CONTROLLER_AXIS_LEFTX) < -4096) i->actions |= INP_DL;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) ||
+        SDL_GameControllerGetAxis(INP.gc, SDL_CONTROLLER_AXIS_LEFTX) > +4096) i->actions |= INP_DR;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_A)) i->actions |= INP_B;
+    if (SDL_GameControllerGetButton(INP.gc, SDL_CONTROLLER_BUTTON_B)) i->actions |= INP_A;
 #endif
     if (pltf_sdl_key(SDL_SCANCODE_W)) i->actions |= INP_DU;
     if (pltf_sdl_key(SDL_SCANCODE_S)) i->actions |= INP_DD;

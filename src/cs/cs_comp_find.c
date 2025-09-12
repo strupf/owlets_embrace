@@ -9,7 +9,7 @@ enum {
     CS_COMP_FIND_ST_INTRO,
 };
 
-void cs_comp_find_update(g_s *g, cs_s *cs)
+void cs_comp_find_update(g_s *g, cs_s *cs, inp_s inp)
 {
 }
 

@@ -13,6 +13,9 @@ void owl_climb(g_s *g, obj_s *o, inp_s inp)
     if (h->climb_tick < 255) {
         h->climb_tick++;
     }
+    if (h->stance_swap_tick) {
+        return;
+    }
 
     switch (h->climb) {
     case OWL_CLIMB_LADDER: {
@@ -27,10 +30,8 @@ void owl_climb(g_s *g, obj_s *o, inp_s inp)
     case OWL_CLIMB_WALL: {
         if (inps_btn_jp(inp, INP_A)) {
             if (owl_jump_wall(g, o, -o->facing)) {
-
                 h->climb = OWL_CLIMB_WALLJUMP;
             }
-            // owl_cancel_climb(g, o);
         } else {
             owl_climb_wall(g, o, inp);
         }
@@ -59,7 +60,7 @@ void owl_climb_wall(g_s *g, obj_s *o, inp_s inp)
     i32    to_move   = 0;
     bool32 can_climb = 1;
 
-    if (can_climb) {
+    if (h->stamina) {
         if (dp_y) {
             if (h->climb_move_acc < 255)
                 h->climb_move_acc++;
@@ -67,8 +68,17 @@ void owl_climb_wall(g_s *g, obj_s *o, inp_s inp)
         } else {
             h->climb_move_acc = 0;
         }
-    } else if (0 < to_move && h->climb_slide_down < 255) {
-        h->climb_slide_down++;
+
+        if (to_move == 0) {
+            owl_stamina_modify(o, -OWL_STAMINA_DRAIN_CLIMB_STILL);
+        } else if (to_move < 0) {
+            owl_stamina_modify(o, -OWL_STAMINA_DRAIN_CLIMB_UP);
+        }
+    } else {
+        if (h->climb_slide_down < 255) {
+            h->climb_slide_down++;
+        }
+        to_move = min_i32(h->climb_slide_down >> 3, 4);
     }
 
     for (i32 n = abs_i32(to_move), sy = sgn_i32(to_move); n; n--) {

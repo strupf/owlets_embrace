@@ -20,8 +20,12 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
         h->jump_ground_ticks = 0;
     }
     if (o->bumpflags & OBJ_BUMP_X) {
+        if (o->health) {
+            o->v_q12.x = 0;
+        } else {
+            o->v_q12.x = shr_balanced_i32(-o->v_q12.x * 192, 8);
+        }
         h->air_walljump_ticks = 0;
-        o->v_q12.x            = 0;
         o->subpos_q12.x       = 0;
     }
     o->bumpflags = 0;
@@ -91,14 +95,27 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
             // v_q12_post_rope.x += dp_x * Q_VOBJ(0.05);
         }
     } else {
-        bool32 jumped = 0;
-        if (inps_btn_jp(inp, INP_A) && 0 < dp_y && !h->aim_ticks) {
+
+        bool32 jumped          = 0;
+        bool32 can_start_stomp = !h->air_stomp &&
+                                 !h->aim_ticks &&
+                                 !h->carry &&
+                                 !h->knockback;
+
+#if !OWL_STOMP_ONLY_WITH_COMP_ON_B
+        if (inps_btn_jp(inp, INP_A) && 0 < dp_y && can_start_stomp) {
             do_x_movement = 0;
             o->v_q12.x    = 0;
             o->v_q12.y    = 0;
             owl_cancel_air(g, o);
             h->air_stomp = 1;
+#else
+        if (0) {
+#endif
+        } else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
+            do_x_movement = 0;
         } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks) {
+            h->air_stomp       = 0;
             bool32 jump_ground = 0;
 
             if (h->jump_edgeticks) {
@@ -121,16 +138,16 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
                 owl_jump_ground(g, o);
                 jumped        = 1;
                 do_x_movement = 0;
-            } else if (dp_x && owl_jump_wall(g, o, dp_x)) { // jump off wall?
+            } else if (dp_x && owl_jump_wall(g, o, dp_x) && !h->carry) { // jump off wall?
                 jumped        = 1;
                 do_x_movement = 0;
 #if OWL_USE_ALT_AIR_JUMPS
             } else {
 #else
-            } else if (h->stamina) { // can jump in air?
+            } else if (h->stamina && !h->carry) { // can jump in air?
 #endif
                 owl_jump_air(g, o);
-                owl_stamina_modify(o, -OWL_STAMINA_AIR_JUMP_INIT);
+                owl_stamina_modify(o, -OWL_STAMINA_DRAIN_AIR_JUMP_INIT);
                 jumped = 1;
             }
         }
@@ -144,7 +161,7 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
             if (OWL_AIR_STOMP_MAX / 2 <= h->air_stomp) {
                 i32 t1     = h->air_stomp - OWL_AIR_STOMP_MAX / 2;
                 i32 t2     = OWL_AIR_STOMP_MAX - OWL_AIR_STOMP_MAX / 2;
-                o->v_q12.y = lerp_i32(0, Q_VOBJ(7.0), t1, t2);
+                o->v_q12.y = lerp_i32(0, Q_VOBJ(10.0), t1, t2);
             }
         } else if (0 < h->jump_ticks) { // dynamic jump height
             if (inps_btn(inp, INP_A)) {
@@ -157,7 +174,7 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
                 h->jump_ticks--;
 #if !OWL_USE_ALT_AIR_JUMPS
                 if (h->jump_index == OWL_JUMP_AIR_0) {
-                    owl_stamina_modify(o, -OWL_STAMINA_AIR_JUMP_HOLD);
+                    owl_stamina_modify(o, -OWL_STAMINA_DRAIN_AIR_JUMP_HOLD);
                     if (!h->stamina) {
                         h->jump_ticks = 0;
                     }
@@ -179,7 +196,8 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
         i32 ax = 0;
 
         if (dp_x != vs) {
-            v_q12_post_x.x = shr_balanced_i32(v_q12_post_x.x * 240, 8);
+            i32 x_damp_q8  = o->health ? 240 : 250;
+            v_q12_post_x.x = shr_balanced_i32(v_q12_post_x.x * x_damp_q8, 8);
         }
 
         if (vs == 0) {
@@ -205,14 +223,17 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
 #endif
         v_q12_post_x.x += ax * dp_x;
     }
-#if 1
+
     o->v_q12.x = shr_balanced_i32(
         v_q12_post_x.x * x_movement_q8 + v_q12_post_rope.x * (256 - x_movement_q8),
         8);
-#endif
     o->v_q12.y = shr_balanced_i32(
         o->v_q12.y * x_movement_q8 + v_q12_post_rope.y * (256 - x_movement_q8),
         8);
+
+    if (obj_handle_valid(h->carried)) {
+        o->v_q12.x = clamp_sym_i32(o->v_q12.x, OWL_VX_CARRY);
+    }
 
     if (o->v_q12.y >= Q_VOBJ(7.0)) {
         o->animation++;
@@ -220,7 +241,7 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
     } else {
         o->animation = 0;
     }
-    if (o->v_q12.y >= Q_VOBJ(8.0)) {
+    if (!h->air_stomp && o->v_q12.y >= Q_VOBJ(8.0)) {
         o->v_q12.y = Q_VOBJ(8.0);
     }
     obj_move_by_v_q12(g, o);

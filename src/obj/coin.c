@@ -48,7 +48,7 @@ void coin_on_animate(g_s *g, obj_s *o)
 {
     obj_sprite_s *spr = &o->sprites[0];
     o->animation++;
-    i32 fry     = ani_frame(ANIID_GEMS, o->animation);
+    i32 fry     = ani_frame_loop(ANIID_GEMS, o->animation);
     i32 frx     = o->subID;
     spr->offs.x = (o->w - 32) / 2;
     spr->offs.y = (o->h - 24) / 2;

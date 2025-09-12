@@ -14,20 +14,23 @@ void background_init_and_load_from_wad(g_s *g, i32 ID, void *f)
     switch (ID) {
     default: break;
     case BACKGROUND_ID_CAVE:
-        tex_from_wad(f, 0, "T_BG_CAVE", game_allocator(g), tbg);
+        tex_from_wad(f, 0, "T_BG_CAVE", game_per_room_allocator(g), tbg);
         break;
     case BACKGROUND_ID_FOREST_DARK:
     case BACKGROUND_ID_FOREST_BRIGHT:
-        tex_from_wad(f, 0, "T_BG_FOREST", game_allocator(g), tbg);
+        tex_from_wad(f, 0, "T_BG_FOREST", game_per_room_allocator(g), tbg);
         break;
     case BACKGROUND_ID_SNOW:
-        tex_from_wad(f, 0, "T_BG_SNOW", game_allocator(g), tbg);
+        tex_from_wad(f, 0, "T_BG_SNOW", game_per_room_allocator(g), tbg);
         break;
     case BACKGROUND_ID_WATERFALL:
-        tex_from_wad(f, 0, "T_BG_WATERFALL", game_allocator(g), tbg);
+        tex_from_wad(f, 0, "T_BG_WATERFALL", game_per_room_allocator(g), tbg);
         break;
     case BACKGROUND_ID_VERTICAL:
-        tex_from_wad(f, 0, "T_BG_VERTICAL", game_allocator(g), tbg);
+        tex_from_wad(f, 0, "T_BG_VERTICAL", game_per_room_allocator(g), tbg);
+        break;
+    case BACKGROUND_ID_MOUNTAIN:
+        tex_from_wad(f, 0, "T_BG_MOUNTAIN", game_per_room_allocator(g), tbg);
         break;
     }
     background_perf_prepare(g);
@@ -145,6 +148,13 @@ void background_draw(g_s *g, v2_i32 cam_al, v2_i32 cam)
         pos_mid.x -= 160;
         gfx_spr_tileds_copy(ctx, tr_far, pos_far, 0, 1);
         gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 0, 1);
+        break;
+    }
+    case BACKGROUND_ID_MOUNTAIN: {
+        tex_clr(tdisplay, GFX_COL_WHITE);
+        texrec_s tr_mid = asset_texrec(TEXID_BG_PARALLAX, 0, 0, 1024, 512);
+
+        gfx_spr_tileds_copy(ctx, tr_mid, pos_mid, 1, 1);
         break;
     }
     }

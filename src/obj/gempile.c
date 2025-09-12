@@ -2,9 +2,11 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+// TODO: crunchy satisfying sound effects
+
 #include "game.h"
 
-#define GEMPILE_N_HITS          3
+#define GEMPILE_N_HITS          5
 #define GEMPILE_GEMS_ON_HIT     2
 #define GEMPILE_GEMS_ON_DESTROY 6
 
@@ -16,6 +18,7 @@ void gempile_load(g_s *g, map_obj_s *mo)
     if (save_event_exists(g, saveID)) return;
 
     obj_s *o = obj_create(g);
+    o->UUID  = mo->UUID;
     o->ID    = OBJID_GEMPILE;
     o->w     = 40;
     o->h     = 24;
@@ -30,10 +33,13 @@ void gempile_load(g_s *g, map_obj_s *mo)
 
 void gempile_on_animate(g_s *g, obj_s *o)
 {
-    obj_sprite_s *spr = &o->sprites[0];
-    spr->trec         = asset_texrec(TEXID_GEMS, 0, 144, 64, 48);
-    spr->offs.x       = -((spr->trec.w - o->w) >> 1);
-    spr->offs.y       = -(spr->trec.h - o->h);
+    obj_sprite_s *spr   = &o->sprites[0];
+    i32           n_off = (GEMPILE_N_HITS - o->health) * 4; // make it smaller with each hit
+
+    spr->trec   = asset_texrec(TEXID_GEMS, 0, 144, 64, 48);
+    spr->offs.x = -((spr->trec.w - o->w) >> 1);
+    spr->offs.y = -(spr->trec.h - o->h) + n_off;
+    spr->trec.h -= n_off;
 
     if (o->animation) {
         o->animation--;
@@ -47,9 +53,9 @@ void gempile_on_hit(g_s *g, obj_s *o)
     o->health--;
 
     v2_i32 pc     = obj_pos_center(o);
-    i32    n_gems = o->health == 0 ? GEMPILE_GEMS_ON_DESTROY
-                                   : GEMPILE_GEMS_ON_HIT;
+    i32    n_gems = o->health == 0 ? GEMPILE_GEMS_ON_DESTROY : GEMPILE_GEMS_ON_HIT;
     o->animation  = 12;
+
     for (i32 n = 0; n < n_gems; n++) {
         obj_s *i = coin_create(g);
         if (!i) {

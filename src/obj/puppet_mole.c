@@ -47,14 +47,14 @@ void puppet_mole_on_animate(obj_s *o, i32 animID, i32 anim_t)
         break;
     }
     case PUPPET_MOLE_ANIMID_DIG_OUT: {
-        i32 f = ani_frame(ANIID_MOLE_DIG_OUT, anim_t);
+        i32 f = ani_frame_loop(ANIID_MOLE_DIG_OUT, anim_t);
         fx    = f & 7;
         fy    = 2 + (f >> 3);
         break;
     }
     default:
     case PUPPET_MOLE_ANIMID_DIG_IN: {
-        i32 f = ani_frame(ANIID_MOLE_DIG_IN, anim_t);
+        i32 f = ani_frame_loop(ANIID_MOLE_DIG_IN, anim_t);
         fx    = f & 7;
         fy    = 5 + (f >> 3);
         break;

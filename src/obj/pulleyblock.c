@@ -44,6 +44,7 @@ obj_s *pulleyblock_create(g_s *g, map_obj_s *mo)
 {
     obj_s         *o = obj_create(g);
     pulleyblock_s *s = (pulleyblock_s *)o->mem;
+    o->UUID          = mo->UUID;
     o->ID            = OBJID_PULLEYBLOCK;
     o->pos.x         = mo->x;
     o->pos.y         = mo->y;
@@ -60,7 +61,7 @@ obj_s *pulleyblock_create(g_s *g, map_obj_s *mo)
     i32 l_rope         = map_obj_i32(mo, "l_rope");
     s->y_rope          = o->pos.y - l_rope * 16;
     o->render_priority = RENDER_PRIO_DEFAULT_OBJ + 1;
-    o->editorID        = mo->ID;
+    o->UUID            = mo->UUID;
     return o;
 }
 

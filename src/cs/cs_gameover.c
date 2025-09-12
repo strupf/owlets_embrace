@@ -10,8 +10,7 @@ enum {
     CS_GAMEOVER_GAMEOVER,
     CS_GAMEOVER_GAMEOVER_INPUT,
     CS_GAMEOVER_GAMEOVER_FADE_OUT,
-    CS_GAMEOVER_BLACK,
-    CS_GAMEOVER_FADE
+    CS_GAMEOVER_BLACK
 };
 
 #define CS_GAMEOVER_TICKS_DYING             120
@@ -19,10 +18,10 @@ enum {
 #define CS_GAMEOVER_TICKS_GAMEOVER          70
 #define CS_GAMEOVER_TICKS_GAMEOVER_INPUT    10
 #define CS_GAMEOVER_TICKS_GAMEOVER_FADE_OUT 10
-#define CS_GAMEOVER_TICKS_BLACK             10
+#define CS_GAMEOVER_TICKS_BLACK             30
 #define CS_GAMEOVER_TICKS_FADE              25
 
-void cs_gameover_update(g_s *g, cs_s *cs);
+void cs_gameover_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_gameover_draw(g_s *g, cs_s *cs, v2_i32 cam);
 
 void cs_gameover_enter(g_s *g)
@@ -33,7 +32,7 @@ void cs_gameover_enter(g_s *g)
     cs->on_draw   = cs_gameover_draw;
 }
 
-void cs_gameover_update(g_s *g, cs_s *cs)
+void cs_gameover_update(g_s *g, cs_s *cs, inp_s inp)
 {
     switch (cs->phase) {
     case CS_GAMEOVER_DYING: {
@@ -80,11 +79,6 @@ void cs_gameover_update(g_s *g, cs_s *cs)
             aud_stop_all_snd_instances();
             game_load_savefile(g);
             cs_on_load_title_wakeup(g);
-        }
-        break;
-    }
-    case CS_GAMEOVER_FADE: {
-        if (CS_GAMEOVER_TICKS_FADE <= cs->tick) {
             cs_reset(g);
         }
         break;
@@ -138,13 +132,6 @@ void cs_gameover_draw(g_s *g, cs_s *cs, v2_i32 cam)
         break;
     }
     case CS_GAMEOVER_BLACK: {
-        gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
-        break;
-    }
-    case CS_GAMEOVER_FADE: {
-        ctx_r.pat = gfx_pattern_interpolate(
-            CS_GAMEOVER_TICKS_FADE - cs->tick,
-            CS_GAMEOVER_TICKS_FADE);
         gfx_rec_fill(ctx_r, rdisplay, PRIM_MODE_BLACK);
         break;
     }

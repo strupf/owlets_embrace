@@ -630,7 +630,7 @@ void boss_plant_eye_draw_ripped(g_s *g, obj_s *o, v2_i32 cam, gfx_ctx_s ctx)
         if (obj_grounded(g, o)) {
             trk.y = 64 * (3 + ((o->animation >> 2) & 1));
         } else {
-            i32 fr = ani_frame(ANIID_BPLANT_HOP, o->animation);
+            i32 fr = ani_frame_loop(ANIID_BPLANT_HOP, o->animation);
             trk.y  = 64 * (3 + fr);
         }
 

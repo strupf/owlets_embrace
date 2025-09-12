@@ -15,7 +15,7 @@ typedef struct {
 #define CS_BOSSPLANT_INTRO_FAST  0
 #define CS_BOSSPLANT_INTRO_SHORT 1
 
-void cs_bossplant_intro_update(g_s *g, cs_s *cs);
+void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_bossplant_intro_on_trigger(g_s *g, cs_s *cs, i32 trigger);
 void cs_bossplant_intro_draw(g_s *g, cs_s *cs, v2_i32 cam);
 void cs_bossplant_intro_cb_comp(g_s *g, obj_s *o, void *ctx);
@@ -25,11 +25,11 @@ void cs_bossplant_intro_enter(g_s *g)
     cs_s                 *cs = &g->cs;
     cs_bossplant_intro_s *dm = (cs_bossplant_intro_s *)cs->mem;
     cs_reset(g);
-    cs->on_update        = cs_bossplant_intro_update;
-    cs->on_draw          = cs_bossplant_intro_draw;
-    dm->bp               = &g->boss.plant;
-    cs->on_trigger       = cs_bossplant_intro_on_trigger;
-    g->block_owl_control = 1;
+    cs->on_update  = cs_bossplant_intro_update;
+    cs->on_draw    = cs_bossplant_intro_draw;
+    dm->bp         = &g->boss.plant;
+    cs->on_trigger = cs_bossplant_intro_on_trigger;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
     if (save_event_exists(g, 222)) {
         dm->seen = 1;
     } else {
@@ -38,12 +38,12 @@ void cs_bossplant_intro_enter(g_s *g)
     }
 }
 
-void cs_bossplant_intro_update(g_s *g, cs_s *cs)
+void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs_bossplant_intro_s *dm      = (cs_bossplant_intro_s *)cs->mem;
-    obj_s                *o_eye   = obj_from_obj_handle(dm->bp->eye);
-    obj_s                *o_eyefl = obj_from_obj_handle(dm->bp->eye_fake[0]);
-    obj_s                *o_eyefr = obj_from_obj_handle(dm->bp->eye_fake[1]);
+    obj_s                *o_eye   = obj_from_handle(dm->bp->eye);
+    obj_s                *o_eyefl = obj_from_handle(dm->bp->eye_fake[0]);
+    obj_s                *o_eyefr = obj_from_handle(dm->bp->eye_fake[1]);
 
     switch (cs->phase) {
     case 0: {
@@ -53,7 +53,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
         cs->phase++;
         cs->tick = 0;
         if (dm->seen) {
-            game_darken_bg(g, +128);
+            // game_darken_bg(g, +128);
         }
 
         obj_s *owl      = obj_get_owl(g);
@@ -100,7 +100,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs)
 
             switch (cs->tick) {
             case 1:
-                game_darken_bg(g, +24);
+                // game_darken_bg(g, +24);
                 break;
             case 110:
             case 410:
@@ -251,7 +251,7 @@ void cs_bossplant_intro_on_trigger(g_s *g, cs_s *cs, i32 trigger)
     switch (cs->phase) {
     default: break;
     case 2: {
-        if (trigger == TRIGGER_DIALOG_END) {
+        if (trigger == TRIGGER_DIA_END) {
             puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_FLY, 0);
             puppet_move_ext(dm->puppet_comp, (v2_i32){30, 0}, 40, 0, 1, 0, cs);
             cs->phase++;
@@ -277,7 +277,7 @@ void cs_bossplant_intro_cb_comp(g_s *g, obj_s *o, void *ctx)
             cs->phase++;
             cs->tick = 0;
             puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_HUH, 0);
-            dialog_open_wad_pos(g, "D_BPLANT_0", DIALOG_POS_BOT);
+            dia_load_from_wad(g, "D_BPLANT_0");
         }
         break;
     }

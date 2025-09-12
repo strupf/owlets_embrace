@@ -81,7 +81,8 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
             }
         }
 
-        v2_i32 heartp = {0 + (n) * 22, 0}; // todo
+        v2_i32 heartp = {0 + (n) * 22, 0};
+        // v2_i32 heartp = {200 - (22 * hp_containers) / 2 + (n) * 22, 216};
         trheart.x     = (7 + fr_x) << 5;
         trheart.y     = (11 + fr_y) << 5;
         i32 t_fade    = lerp_i32(t_fade_1, t_fade_2, (hp_containers - n - 1), hp_containers - 1);
@@ -89,8 +90,8 @@ void render_hero_ui(g_s *g, obj_s *ohero, v2_i32 camoff)
         gfx_spr_tile_32x32(ctx, trheart, heartp);
     }
 
-    // render_stamina_ui(g, ohero, camoff);
-    coins_draw(g);
+    render_stamina_ui(g, ohero, camoff);
+    // coins_draw(g);
 }
 
 void render_stamina_ui(g_s *g, obj_s *o, v2_i32 camoff)

@@ -4,20 +4,20 @@
 
 #include "game.h"
 
-void cs_aquire_heartpiece_update(g_s *g, cs_s *cs);
+void cs_aquire_heartpiece_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_aquire_heartpiece_draw(g_s *g, cs_s *cs, v2_i32 cam);
 
 void cs_aquire_heartpiece_enter(g_s *g, bool32 is_stamina)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->counter0         = is_stamina;
-    cs->on_update        = cs_aquire_heartpiece_update;
-    cs->on_draw          = cs_aquire_heartpiece_draw;
-    g->block_owl_control = 1;
+    cs->counter0  = is_stamina;
+    cs->on_update = cs_aquire_heartpiece_update;
+    cs->on_draw   = cs_aquire_heartpiece_draw;
+    g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
 }
 
-void cs_aquire_heartpiece_update(g_s *g, cs_s *cs)
+void cs_aquire_heartpiece_update(g_s *g, cs_s *cs, inp_s inp)
 {
     cs->tick++;
     switch (cs->phase) {
@@ -40,7 +40,7 @@ void cs_aquire_heartpiece_update(g_s *g, cs_s *cs)
         if (20 <= cs->tick) {
             puppet_owl_replace_and_del(g, obj_get_owl(g), cs->p_owl);
             cs_reset(g);
-            g->block_owl_control = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_PLAYER_INPUT;
         }
         break;
     }

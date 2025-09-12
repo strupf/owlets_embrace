@@ -34,7 +34,7 @@ static_assert(sizeof(maptransition_s) <= CS_MEM_BYTES, "Size");
 #define MAPTRANSITION_TICKS_F_IN              25
 #define MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD 8 // make it easier to move up
 
-void cs_maptransition_update(g_s *g, cs_s *cs);
+void cs_maptransition_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_maptransition_draw(g_s *g, cs_s *cs, v2_i32 cam);
 void cs_maptransition_load_map(g_s *g, cs_s *cs);
 
@@ -79,17 +79,17 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
 
     i32 touchedbounds = 0;
     if (o->pos.y < MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD) {
-        touchedbounds       = DIRECTION_N;
+        touchedbounds       = DIR_Y_NEG;
         r_check_neighbour.y = 0;
     }
     if (o->pos.x <= 0) {
-        touchedbounds = DIRECTION_W;
+        touchedbounds = DIR_X_NEG;
     }
     if (g->pixel_x <= o->pos.x + o->w) {
-        touchedbounds = DIRECTION_E;
+        touchedbounds = DIR_X_POS;
     }
     if (g->pixel_y <= o->pos.y + o->h) {
-        touchedbounds = DIRECTION_S;
+        touchedbounds = DIR_Y_POS;
     }
 
     if (!touchedbounds) return 0;
@@ -117,18 +117,18 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
     v2_i32 hvel = o->v_q12;
 
     switch (touchedbounds) {
-    case DIRECTION_E:
+    case DIR_X_POS:
         aabb.x = 8;
         break;
-    case DIRECTION_W:
+    case DIR_X_NEG:
         aabb.x = (mneighbor->w << 4) - aabb.w - 8;
         break;
-    case DIRECTION_N:
+    case DIR_Y_NEG:
         aabb.y        = (mneighbor->h << 4) - aabb.h - 8;
         hvel.y        = min_i32(hvel.y, -Q_VOBJ(5.5));
         h->jump_ticks = 0;
         break;
-    case DIRECTION_S:
+    case DIR_Y_POS:
         aabb.y = MAPTRANSITION_UPWARDS_PIXEL_THRESHOLD;
         hvel.y = Q_VOBJ(1.0);
         break;
@@ -140,10 +140,10 @@ bool32 cs_maptransition_try_slide_enter(g_s *g)
 
     v2_i32 feet = {aabb.x + aabb.w / 2, aabb.y + aabb.h};
     cs_maptransition_init(g, cs, mneighbor->map_name, MAPTRANSITION_TYPE_SLIDE, feet);
-    g->block_update = 1;
-    mt->dir         = touchedbounds;
-    mt->owl_v_q12   = hvel;
-    o->bumpflags    = 0;
+    g->flags |= GAME_FLAG_BLOCK_UPDATE;
+    mt->dir       = touchedbounds;
+    mt->owl_v_q12 = hvel;
+    o->bumpflags  = 0;
     return 1;
 }
 
@@ -156,12 +156,12 @@ void cs_maptransition_teleport(g_s *g, u8 *map_name, v2_i32 pos)
     maptransition_s *mt = (maptransition_s *)cs->mem;
     cs_maptransition_enter(g);
     cs_maptransition_init(g, cs, map_name, MAPTRANSITION_TYPE_TELEPORT, pos);
-    g->block_update = 1;
+    g->flags |= GAME_FLAG_BLOCK_UPDATE;
     mt->owl_v_q12.x = 0;
     mt->owl_v_q12.y = 0;
 }
 
-void cs_maptransition_update(g_s *g, cs_s *cs)
+void cs_maptransition_update(g_s *g, cs_s *cs, inp_s inp)
 {
     maptransition_s *mt = (maptransition_s *)cs->mem;
 
@@ -185,7 +185,7 @@ void cs_maptransition_update(g_s *g, cs_s *cs)
     }
     case MAPTRANSITION_FADE_IN: {
         if (MAPTRANSITION_TICKS_F_IN <= cs->tick) {
-            g->block_update = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_UPDATE;
             cs_reset(g);
         }
         break;
@@ -257,7 +257,7 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
 
     f32 seconds_loaded = pltf_seconds() - t1;
     i32 ticks_loaded   = (i32)(seconds_loaded * 50.f + 0.5f); // 50 = 1/0.020
-    if (g->speedrun) {
+    if (g->flags & GAME_FLAG_SPEEDRUN) {
         // don't adjust black phase time to not discriminate different
         // playdate CPU revisions. Also keep it short
         cs->tick = MAPTRANSITION_TICKS_F_BLACK - 1;

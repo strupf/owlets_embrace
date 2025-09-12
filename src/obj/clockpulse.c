@@ -17,13 +17,12 @@ void clockpulse_on_trigger(g_s *g, obj_s *o, i32 trigger);
 
 void clockpulse_load(g_s *g, map_obj_s *mo)
 {
-    obj_s        *o  = obj_create(g);
-    clockpulse_s *cp = (clockpulse_s *)o->mem;
-    o->ID            = OBJID_CLOCKPULSE;
-    o->on_trigger    = clockpulse_on_trigger;
-
-    i32 period_ms          = map_obj_i32(mo, "Period");
-    o->subtimer            = max_i32(ticks_from_ms(period_ms), 1);
+    obj_s        *o        = obj_create(g);
+    clockpulse_s *cp       = (clockpulse_s *)o->mem;
+    o->UUID                = mo->UUID;
+    o->ID                  = OBJID_CLOCKPULSE;
+    o->on_trigger          = clockpulse_on_trigger;
+    o->subtimer            = map_obj_i32(mo, "period");
     cp->triggers           = map_obj_i32(mo, "triggers");
     cp->trigger_enable     = map_obj_i32(mo, "trigger_enable");
     cp->trigger_disable    = map_obj_i32(mo, "trigger_disable");

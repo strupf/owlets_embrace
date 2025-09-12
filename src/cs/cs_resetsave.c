@@ -15,19 +15,19 @@ enum {
 #define CS_RESETSAVE_TICKS_BLACK    10
 #define CS_RESETSAVE_TICKS_FADE_IN  25
 
-void cs_resetsave_update(g_s *g, cs_s *cs);
+void cs_resetsave_update(g_s *g, cs_s *cs, inp_s inp);
 void cs_resetsave_draw(g_s *g, cs_s *cs, v2_i32 cam);
 
 void cs_resetsave_enter(g_s *g)
 {
     cs_s *cs = &g->cs;
     cs_reset(g);
-    cs->on_update   = cs_resetsave_update;
-    cs->on_draw     = cs_resetsave_draw;
-    g->block_update = 1;
+    cs->on_update = cs_resetsave_update;
+    cs->on_draw   = cs_resetsave_draw;
+    g->flags |= GAME_FLAG_BLOCK_UPDATE;
 }
 
-void cs_resetsave_update(g_s *g, cs_s *cs)
+void cs_resetsave_update(g_s *g, cs_s *cs, inp_s inp)
 {
     switch (cs->phase) {
     case CS_RESETSAVE_FADE_OUT: {
@@ -47,7 +47,7 @@ void cs_resetsave_update(g_s *g, cs_s *cs)
             game_update_savefile(g);
             game_load_savefile(g);
             cs_on_load_title_wakeup(g);
-            g->block_update = 0;
+            g->flags &= ~GAME_FLAG_BLOCK_UPDATE;
         }
         break;
     }
