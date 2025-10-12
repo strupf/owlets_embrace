@@ -15,13 +15,13 @@ void gempile_on_animate(g_s *g, obj_s *o);
 void gempile_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (save_event_exists(g, saveID)) return;
+    if (saveID_has(g, saveID)) return;
 
-    obj_s *o = obj_create(g);
-    o->UUID  = mo->UUID;
-    o->ID    = OBJID_GEMPILE;
-    o->w     = 40;
-    o->h     = 24;
+    obj_s *o     = obj_create(g);
+    o->editorUID = mo->UID;
+    o->ID        = OBJID_GEMPILE;
+    o->w         = 40;
+    o->h         = 24;
     obj_place_to_map_obj(o, mo, 0, +1);
     o->n_sprites  = 1;
     o->on_animate = gempile_on_animate;
@@ -49,7 +49,7 @@ void gempile_on_animate(g_s *g, obj_s *o)
 
 void gempile_on_hit(g_s *g, obj_s *o)
 {
-    save_event_register(g, o->state);
+    saveID_put(g, o->state);
     o->health--;
 
     v2_i32 pc     = obj_pos_center(o);

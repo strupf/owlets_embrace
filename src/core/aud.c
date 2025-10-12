@@ -8,291 +8,170 @@
 #include "gamedef.h"
 #include "util/mathfunc.h"
 
-static void       aud_cmd_execute(aud_cmd_s cmd_u);
-static void       aud_push_cmd(aud_cmd_s c);
-static inline u32 aud_cmd_next_index(u32 i);
-static void       muschannel_stop(muschannel_s *mc);
-static inline i32 aud_vol_q8_from_ratio(i32 num, i32 den);
+aud_s g_AUD;
 
-// removed from callback - can't be interruped anymore
-void aud_destroy()
+// add definitions for mono and stereo playback functions
+#define AUD_FUNC_STEREO 1
+AUDIO_CTX void mus_channel_stereo(aud_s *a, mus_channel_s *ch, i16 *lbuf, i16 *rbuf, i32 len);
+AUDIO_CTX void sfx_channel_stereo(aud_s *a, sfx_channel_s *ch, i16 *lbuf, i16 *rbuf, i32 len);
+#include "core/aud_func.h"
+#undef AUD_FUNC_STEREO
+
+#define AUD_FUNC_STEREO 0
+AUDIO_CTX void mus_channel_mono(aud_s *a, mus_channel_s *ch, i16 *lbuf, i32 len);
+AUDIO_CTX void sfx_channel_mono(aud_s *a, sfx_channel_s *ch, i16 *lbuf, i32 len);
+#include "core/aud_func.h"
+#undef AUD_FUNC_STEREO
+
+AUDIO_CTX void           mus_channel_reset(mus_channel_s *ch);
+AUDIO_CTX sfx_channel_s *sfx_channel_find(aud_s *a, i32 UID);
+AUDIO_CTX void           aud_cmd_exe(aud_s *a, aud_cmd_s *c);
+AUDIO_CTX void           mus_on_cue(mus_channel_s *ch, i32 musID, i32 v_q8, i32 millis_fade_out_cur);
+AUDIO_CTX void           mus_on_tick(mus_channel_s *ch, i32 len);
+
+AUDIO_CTX void aud_cmd_exe(aud_s *a, aud_cmd_s *c)
 {
-    for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
-        qoa_mus_end(&APP.aud.muschannel[n].qoa_str);
-    }
-}
-
-void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len)
-{
-    a->time += len;
-    // assumption: provided buffers are 0 filled
-
-    // flush audio commands
-    // catch up the read index to the write index in the
-    // circular command buffer
-    while (a->i_cmd_r != a->i_cmd_w) {
-        aud_cmd_s cmd_u = a->cmds[a->i_cmd_r];
-        a->i_cmd_r      = aud_cmd_next_index(a->i_cmd_r);
-        aud_cmd_execute(cmd_u);
-    }
-
-    for (i32 n = 0; n < NUM_MUSCHANNEL; n++) {
-        muschannel_s *c = &a->muschannel[n];
-        qoa_mus_s    *q = &c->qoa_str;
-
-        switch (c->fadestate) {
-        case MUSCHANNEL_FADE_OUT: {
-            c->t_fade += len;
-            if (c->t_fade_out <= c->t_fade) {
-                c->v_q8   = c->v_fade1;
-                c->t_fade = 0;
-                qoa_mus_end(q);
-                void     *f;
-                wad_el_s *wad_el;
-                if (c->hash_queued && wad_open(c->hash_queued, &f, &wad_el)) {
-                    c->fadestate   = MUSCHANNEL_FADE_IN;
-                    c->hash_stream = c->hash_queued;
-                    qoa_mus_start(q, f);
-                    qoa_mus_set_loop(q, c->loop_s1, c->loop_s2);
-                    if (c->start_at) {
-                        qoa_mus_seek(q, c->start_at);
-                    }
-                } else {
-                    c->fadestate = 0;
-                }
-
-                c->hash_queued = 0;
-            } else {
-                c->v_q8 = lerp_i32(c->v_fade0, c->v_fade1,
-                                   c->t_fade, c->t_fade_out);
-            }
-            break;
-        }
-        case MUSCHANNEL_FADE_IN: {
-            c->t_fade += len;
-
-            if (c->t_fade_in <= c->t_fade) {
-                c->v_q8      = c->v_fade2;
-                c->t_fade    = 0;
-                c->fadestate = 0;
-            } else {
-                c->v_q8 = lerp_i32(c->v_fade1, c->v_fade2,
-                                   c->t_fade, c->t_fade_in);
-            }
-            break;
-        }
-        }
-
-        qoa_mus(q, lbuf, rbuf, len, (i32)a->v_mus_q8 * (i32)c->v_q8);
-    }
-
-    for (i32 n = 0; n < NUM_SNDCHANNEL; n++) {
-        sndchannel_s *ch = &a->sndchannel[n];
-        if (!ch->snd_iID) continue;
-
-        qoa_sfx_s *q = &ch->qoa_dat;
-
-        if (ch->stop_ticks) {
-            i32  ll = min_i32(len, ch->stop_ticks - ch->stop_tick);
-            i16 *lb = lbuf;
-            i16 *rb = rbuf;
-
-            while (ll) {
-                // subdivide to prevent clicking on quick stopping
-                i32 dl = min_i32(ll, 16);
-
-                if (!qoa_sfx_play(q, lb, rb, dl, a->v_sfx_q8)) {
-                    ch->snd_iID = 0;
-                    break;
-                }
-
-                ll -= dl;
-                lb += dl;
-                rb += dl;
-                ch->stop_tick += dl;
-                q->v_q8 = lerp_i32(ch->stop_v_q8, 0,
-                                   ch->stop_tick, ch->stop_ticks);
-            }
-            if (ch->stop_ticks <= ch->stop_tick) {
-                qoa_sfx_end(q);
-                ch->snd_iID = 0;
-            }
-        } else {
-            if (!qoa_sfx_play(q, lbuf, rbuf, len, a->v_sfx_q8)) {
-                ch->snd_iID = 0;
-            }
-        }
-    }
-
-    // "fade" lowpass to target lowpass intensity to avoid clicking
-    if (a->lowpass < a->lowpass_dst) {
-        a->lowpass++;
-    } else if (a->lowpass > a->lowpass_dst) {
-        a->lowpass--;
-    }
-
-    if (a->lowpass) {
-        i16 *lb = lbuf;
-        i16 *rb = rbuf;
-        for (i32 n = 0; n < len; n++) {
-            a->lowpass_l += ((i32)*lb - (i32)a->lowpass_l) / a->lowpass;
-            *lb++ = (i16)a->lowpass_l;
-        }
-        for (i32 n = 0; n < len; n++) {
-            a->lowpass_r += ((i32)*rb - (i32)a->lowpass_r) / a->lowpass;
-            *rb++ = (i16)a->lowpass_r;
-        }
-    }
-}
-
-static void aud_cmd_execute(aud_cmd_s cmd_u)
-{
-    switch (cmd_u.type) {
-    default: break;
-    case AUD_CMD_VOL_SETTING: {
-        aud_cmd_vol_setting_s *c = &cmd_u.c.vol;
-        APP.aud.v_mus_q8         = c->vol_mus_q8;
-        APP.aud.v_sfx_q8         = c->vol_snd_q8;
+    switch (c->t) {
+    case AUD_CMD_STEREO_REQ: {
+        a->stereo_req = c->v16;
         break;
     }
-    case AUD_CMD_SND_MOD: {
-        aud_cmd_snd_mod_s *c = &cmd_u.c.snd_mod;
-
-        sndchannel_s *ch = 0;
-        for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *cht = &APP.aud.sndchannel[i];
-            if (cht->snd_iID == c->iID) {
-                ch = cht;
-                break;
-            }
-        }
-
+    case AUD_CMD_MUS_CUE: {
+        aud_cmd_mus_s *cc = &c->mus;
+        mus_channel_s *ch = &a->mus_channels[cc->channel_index];
+        mus_on_cue(ch, cc->musID, 256, cc->millis_fade);
+        break;
+    }
+    case AUD_CMD_MUS_ADJUST_VOL: {
+        aud_cmd_mus_s *cc = &c->mus;
+        mus_channel_s *ch = &a->mus_channels[cc->channel_index];
+        aud_vol_handler_init_millis(&ch->vol, cc->v_q8, cc->millis_fade);
+        break;
+    }
+    case AUD_CMD_SFX_PLAY: {
+        aud_cmd_sfx_s *cc = &c->sfx;
+        sfx_channel_s *ch = sfx_channel_find(a, 0);
         if (!ch) break;
-        qoa_sfx_s *q = &ch->qoa_dat;
 
-        ch->stop_v_q8  = (q->v_q8 * c->vmod_q8) >> 8;
-        ch->stop_ticks = c->stop_ticks;
-        ch->stop_tick  = 0;
+        ch->v_q8     = cc->v_q8;
+        ch->v_q8_dst = cc->v_q8;
+        ch->UID      = cc->UID;
+        qoa_data_start(&ch->q, cc->data, cc->pitch_q8, cc->v_q8, c->flags & AUD_CMD_FLAG_REPEAT);
         break;
     }
-    case AUD_CMD_SND_PLAY: {
-        aud_cmd_snd_play_s *c = &cmd_u.c.snd_play;
+    case AUD_CMD_SFX_POS: {
+        aud_cmd_sfx_pos_s *cc = &c->sfx_pos;
+        sfx_channel_s     *ch = sfx_channel_find(a, cc->UID);
+        if (!ch) break;
 
-        for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *ch = &APP.aud.sndchannel[i];
-            if (ch->snd_iID) continue;
-
-            qoa_sfx_s *q = &ch->qoa_dat;
-            qoa_sfx_start(q, c->snd.num_samples, c->snd.dat,
-                          c->pitch_q8, c->vol_q8, c->repeat);
-            ch->snd_iID    = c->iID;
-            ch->stop_tick  = 0;
-            ch->stop_ticks = 0;
-            break;
-        }
+        ch->px = cc->px;
+        ch->py = cc->py;
+        ch->r  = c->v16;
         break;
     }
-    case AUD_CMD_MUS_VOL: {
-        aud_cmd_mus_vol_s *c  = &cmd_u.c.mus_vol;
-        muschannel_s      *mc = &APP.aud.muschannel[c->channelID];
-        qoa_mus_s         *q  = &mc->qoa_str;
-        if (qoa_mus_active(q)) {
-            mc->fadestate = MUSCHANNEL_FADE_IN;
-            mc->t_fade    = 0;
-            mc->t_fade_in = c->ticks;
-            mc->v_fade2   = c->vol_q8;
-            mc->v_fade1   = mc->v_q8;
-        }
+    case AUD_CMD_SFX_STOP: {
+        aud_cmd_sfx_stop_s *cc = &c->sfx_stop;
+        sfx_channel_s      *ch = sfx_channel_find(a, cc->UID);
+        if (!ch) break;
+
+        ch->v_q8_dst = 0;
         break;
     }
-    case AUD_CMD_MUS_LOOP: {
-        aud_cmd_mus_loop_s *c  = &cmd_u.c.mus_loop;
-        muschannel_s       *mc = &APP.aud.muschannel[c->channelID];
-        qoa_mus_s          *q  = &mc->qoa_str;
-        if (qoa_mus_active(q)) {
-            q->loop_s1 = c->loop_s1;
-            q->loop_s2 = c->loop_s2;
-        }
-        break;
-    }
-    case AUD_CMD_MUS_PLAY: {
-        aud_cmd_mus_play_s *c  = &cmd_u.c.mus_play;
-        muschannel_s       *mc = &APP.aud.muschannel[c->channelID];
-        qoa_mus_s          *q  = &mc->qoa_str;
+    case AUD_CMD_SFX_STOP_ALL: {
+        aud_cmd_sfx_stop_s *cc = &c->sfx_stop;
 
-        if (!qoa_mus_active(q) && c->hash == 0) break;
-
-        mc->loop_s1     = c->loop_s1;
-        mc->loop_s2     = c->loop_s2;
-        mc->t_fade      = 0;
-        mc->hash_queued = c->hash;
-        mc->t_fade_in   = c->ticks_in;
-        mc->v_fade1     = 0;
-        mc->v_fade2     = c->vol_q8;
-        mc->fadestate   = MUSCHANNEL_FADE_OUT;
-        mc->start_at    = c->start_at;
-
-        if (qoa_mus_active(q)) {
-            mc->t_fade_out = c->ticks_out;
-            mc->v_fade0    = mc->v_q8;
-        } else {
-            mc->v_fade0    = 0;
-            mc->t_fade_out = 0;
-        }
-        break;
-    }
-    case AUD_CMD_STOP_ALL_SND: {
-        for (i32 i = 0; i < NUM_SNDCHANNEL; i++) {
-            sndchannel_s *ch = &APP.aud.sndchannel[i];
-            if (ch->snd_iID) {
-                ch->stop_ticks = 100;
-                ch->stop_tick  = 0;
-            }
+        for (i32 n = 0; n < NUM_SFX_CHANNELS; n++) {
+            sfx_channel_s *ch = &a->sfx_channels[n];
+            ch->v_q8_dst      = 0;
         }
         break;
     }
     case AUD_CMD_LOWPASS: {
-        aud_cmd_lowpass_s *c = &cmd_u.c.lowpass;
-        APP.aud.lowpass_dst  = 1 << c->v;
+        a->lowpass_dst = c->v16;
+        if (a->lowpass == 0) { // start lowpass from zero
+            a->lowpass_l = 0;
+            a->lowpass_r = 0;
+        }
+        break;
+    }
+    case AUD_CMD_VOL: {
+        aud_cmd_vol_s *cc = &c->vol;
+        a->v_q8_mus       = cc->v_q8_mus;
+        a->v_q8_sfx       = cc->v_q8_sfx;
+        break;
+    }
+    case AUD_CMD_SFX_POS_CAM: {
+        aud_cmd_sfx_pos_s *cc = &c->sfx_pos;
+        a->px_cam_dst         = cc->px;
+        a->py_cam_dst         = cc->py;
+        if (!c->v16) { // don't smooth this position
+            a->px_cam = cc->px;
+            a->py_cam = cc->py;
+        }
         break;
     }
     }
 }
 
-void aud_allow_playing_new_snd(bool32 enabled)
+AUDIO_CTX void aud_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
-    APP.aud.snd_playing_disabled = !enabled;
-}
+    aud_s *a = &g_AUD;
 
-// Called by gameplay thread/context
-static void aud_push_cmd(aud_cmd_s c)
-{
-    // temporary write index
-    // peek new position and see if the queue is full
-    u32 i = aud_cmd_next_index(APP.aud.i_cmd_w_tmp);
-#if PLTF_SDL
-    // lock and unlock thread mutex when using SDL
-    pltf_sdl_audio_lock();
-#endif
-    bool32 is_full = (i == APP.aud.i_cmd_r);
-#if PLTF_SDL
-    pltf_sdl_audio_unlock();
-#endif
+    // execute pending audio commands
+    while (a->cmd_i_r != a->cmd_i_w) {
+        aud_cmd_exe(a, &a->cmds[a->cmd_i_r]);
+        a->cmd_i_r = (a->cmd_i_r + 1) & (NUM_AUD_CMDS - 1);
+    }
 
-    if (is_full) { // temporary read index
-        // pltf_log("+++ Audio Queue Full!\n");
+    if (rbuf) {
+        a->stereo = a->stereo_req;
+    } else { // forced mono output
+        a->stereo = 0;
+    }
+
+    if (rbuf) {
+        for (i32 n = 0; n < NUM_MUS_CHANNELS; n++) {
+            mus_channel_s *ch = &a->mus_channels[n];
+            mus_channel_stereo(a, ch, lbuf, rbuf, len);
+        }
+        for (i32 n = 0; n < NUM_SFX_CHANNELS; n++) {
+            sfx_channel_s *ch = &a->sfx_channels[n];
+            sfx_channel_stereo(a, ch, lbuf, rbuf, len);
+        }
     } else {
-        APP.aud.cmds[APP.aud.i_cmd_w_tmp] = c;
-        APP.aud.i_cmd_w_tmp               = i;
+        for (i32 n = 0; n < NUM_MUS_CHANNELS; n++) {
+            mus_channel_s *ch = &a->mus_channels[n];
+            mus_channel_mono(a, ch, lbuf, len);
+        }
+        for (i32 n = 0; n < NUM_SFX_CHANNELS; n++) {
+            sfx_channel_s *ch = &a->sfx_channels[n];
+            sfx_channel_mono(a, ch, lbuf, len);
+        }
     }
 }
 
-static inline u32 aud_cmd_next_index(u32 i)
+aud_cmd_s aud_cmd_gen(i32 type)
 {
-    return ((i + 1) & (NUM_AUD_CMD_QUEUE - 1));
+    aud_s    *a = &g_AUD;
+    aud_cmd_s c = {0};
+    c.t         = type;
+    return c;
 }
 
-// Called by gameplay thread/context
+void aud_cmd_push(aud_cmd_s c)
+{
+    aud_s *a = &g_AUD;
+    i32    i = (a->cmd_i_w_tmp + 1) & (NUM_AUD_CMDS - 1);
+
+    if (i == a->cmd_i_r) { // full?
+        // pltf_log("audio queue full!\n");
+    } else {
+        assert(a->cmd_i_w_tmp < ARRLEN(a->cmds));
+        a->cmds[a->cmd_i_w_tmp] = c;
+        a->cmd_i_w_tmp          = i;
+    }
+}
+
 void aud_cmd_queue_commit()
 {
 #if PLTF_PD_HW
@@ -305,159 +184,207 @@ void aud_cmd_queue_commit()
 #if PLTF_SDL
     pltf_sdl_audio_lock();
 #endif
-    APP.aud.i_cmd_w = APP.aud.i_cmd_w_tmp;
+    aud_s *a   = &g_AUD;
+    a->cmd_i_w = a->cmd_i_w_tmp;
 #if PLTF_SDL
     pltf_sdl_audio_unlock();
 #endif
 }
 
-void aud_set_lowpass(i32 lp)
+void aud_set_pos_cam(i32 px, i32 py, i32 smooth)
 {
-    aud_cmd_s cmd   = {0};
-    cmd.type        = AUD_CMD_LOWPASS;
-    cmd.c.lowpass.v = lp;
-    aud_push_cmd(cmd);
+    aud_cmd_s          cmd = aud_cmd_gen(AUD_CMD_SFX_POS_CAM);
+    aud_cmd_sfx_pos_s *cc  = &cmd.sfx_pos;
+    cmd.v16                = smooth;
+    cc->px                 = px;
+    cc->py                 = py;
+    aud_cmd_push(cmd);
 }
 
-void mus_play_extv(const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8)
+void aud_set_stereo(i32 stereo)
 {
-    mus_play_ext(0, fname, s1, s2, t_fade_out, t_fade_in, v_q8);
+    aud_cmd_s cmd = aud_cmd_gen(AUD_CMD_STEREO_REQ);
+    cmd.v16       = stereo;
+    aud_cmd_push(cmd);
 }
 
-void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8)
+void aud_lowpass(i32 lp)
 {
-    aud_cmd_s           cmd = {0};
-    aud_cmd_mus_play_s *c   = &cmd.c.mus_play;
-    cmd.type                = AUD_CMD_MUS_PLAY;
-    c->channelID            = channelID;
-    c->hash                 = hash_str(fname);
-    c->vol_q8               = v_q8;
-    c->loop_s1              = s1;
-    c->loop_s2              = (s2 * 44100) / 1000;
-    c->ticks_in             = (t_fade_in * 44100) / 1000;
-    c->ticks_out            = (t_fade_out * 44100) / 1000;
-    aud_push_cmd(cmd);
+    aud_cmd_s cmd = aud_cmd_gen(AUD_CMD_LOWPASS);
+    cmd.v16       = lp;
+    aud_cmd_push(cmd);
 }
 
-void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8)
+void aud_set_vol(i32 v_q8_mus, i32 v_q8_sfx)
 {
-    aud_cmd_s           cmd = {0};
-    aud_cmd_mus_play_s *c   = &cmd.c.mus_play;
-    sizeof(aud_cmd_mus_play_s);
-    cmd.type     = AUD_CMD_MUS_PLAY;
-    c->channelID = 0;
-    c->start_at  = start_at;
-    c->hash      = hash_str(fname);
-    c->vol_q8    = v_q8;
-    c->loop_s1   = s1;
-    c->loop_s2   = (s2 * 44100) / 1000;
-    c->ticks_in  = (t_fade_in * 44100) / 1000;
-    c->ticks_out = (t_fade_out * 44100) / 1000;
-    aud_push_cmd(cmd);
+    aud_cmd_s      cmd = aud_cmd_gen(AUD_CMD_VOL);
+    aud_cmd_vol_s *cc  = &cmd.vol;
+    cc->v_q8_mus       = clamp_i32(v_q8_mus, 0, 256);
+    cc->v_q8_sfx       = clamp_i32(v_q8_sfx, 0, 256);
+    aud_cmd_push(cmd);
 }
 
-void mus_set_loop(i32 channelID, u32 s1, u32 s2)
+// returns distance based mono volume i.e. is audible
+i32 aud_calc_positional_vol(aud_s *a, i32 v_q8, i32 px, i32 py, i32 r, i32 zshift, i32 *l_q8, i32 *r_q8)
 {
-    aud_cmd_s           cmd = {0};
-    aud_cmd_mus_loop_s *c   = &cmd.c.mus_loop;
-    cmd.type                = AUD_CMD_MUS_LOOP;
-    c->channelID            = channelID;
-    c->loop_s1              = (s1 * 44100) / 1000;
-    c->loop_s2              = (s2 * 44100) / 1000;
-    aud_push_cmd(cmd);
+    assert(l_q8 && r_q8);
+    if (!r) { // not positional
+        *l_q8 = v_q8;
+        *r_q8 = v_q8;
+        return v_q8;
+    }
+
+    i32 d = r - distance_appr_i32(px, py, a->px_cam, a->py_cam);
+    if (d <= 0) { // outside hearing range
+        *l_q8 = 0;
+        *r_q8 = 0;
+        return 0;
+    }
+
+    // volume falloff: quad
+    i32 v_q8_distance = (i32)(((u32)d * (u32)d) / (((u32)r * (u32)r) >> 8)); // [0; 256] (d * d) / ((r * r) >> 8)
+    i32 v_q8_pos      = (v_q8 * v_q8_distance + 255) >> 8;                   // [0; 256]
+
+    if (a->stereo) {
+        // stereo output, distance based volume and left/right panning
+        // -128 | 0 | +128
+        // rshift X -> scaling factor, kinda representing distance of camera from gameplay
+        // have to fine tune because aggressive panning is unpleasant
+        i32 pan = clamp_i32((128 * (px - a->px_cam)) >> zshift, -128, +128); // [-128; +128]
+        i32 vl  = 128 + pan;                                                 // [0; 256]
+        i32 vr  = 128 - pan;                                                 // [0; 256]
+        *l_q8   = v_q8_pos - ((v_q8_pos * vl * vl + 65535) >> 16);           // [0; 256]
+        *r_q8   = v_q8_pos - ((v_q8_pos * vr * vr + 65535) >> 16);           // [0; 256]
+    } else {
+        *l_q8 = v_q8_pos; // [0; 256]
+        *r_q8 = v_q8_pos; // [0; 256]
+    }
+    return v_q8;
 }
 
-void mus_set_vol(u16 v_q8, i32 t_fade)
+void aud_vol_handler_init_dt(aud_vol_handler_s *f, i32 v_q8_dst, i32 l_sub)
 {
-    mus_set_vol_ext(0, v_q8, t_fade);
+    if (l_sub < 12) { // it doesn't make sense to have tiny fading steps
+        f->v_q8    = v_q8_dst;
+        f->len_sub = 0;
+        f->len_acc = 0;
+    } else {
+        f->len_sub = l_sub;
+        f->len_acc = l_sub;
+    }
+
+    f->v_q8_dst = v_q8_dst;
 }
 
-void mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade)
+void aud_vol_handler_init_millis(aud_vol_handler_s *f, i32 v_q8_dst, i32 millis_fade)
 {
-    aud_cmd_s          cmd = {0};
-    aud_cmd_mus_vol_s *c   = &cmd.c.mus_vol;
-    cmd.type               = AUD_CMD_MUS_VOL;
-    c->channelID           = channelID;
-    c->ticks               = t_fade;
-    c->vol_q8              = v_q8;
-    aud_push_cmd(cmd);
+    // steps in number of samples until changing volume by +-4:
+    // bigger volume steps result in less sub division of the audio playback loop
+    // s = (millis * 44100) / ((dt_vol * 1000) / 4) -> / 4 because of steps of 4
+
+    i32 d = v_q8_dst - (i32)f->v_q8;
+    if (d) {
+        i32 num = millis_fade * 441;
+        i32 den = (abs_i32(d) * 10) / 4;
+        aud_vol_handler_init_dt(f, v_q8_dst, num / den);
+    }
 }
 
-static inline i32 aud_vol_q8_from_ratio(i32 num, i32 den)
+i32 aud_vol_handler_update(aud_vol_handler_s *f, i32 len)
 {
-    return (pow2_i32(clamp_i32(num, 0, den)) << 8) / (den * den);
+    i32 d     = (i32)f->v_q8_dst - (i32)f->v_q8;
+    i32 l_sub = len;
+
+    if (d) {
+        l_sub = min_i32(len, f->len_acc);
+        assert(0 < l_sub);
+        f->len_acc -= l_sub;
+        if (f->len_acc == 0) {
+            f->v_q8 += clamp_sym_i32(sgn_i32(d) * 4, d);
+            f->len_acc = f->len_sub;
+        }
+    }
+    return l_sub;
 }
 
-void aud_vol_set(i32 vol_mus, i32 vol_snd, i32 vol_max)
-{
-    aud_cmd_s              cmd = {0};
-    aud_cmd_vol_setting_s *c   = &cmd.c.vol;
-    cmd.type                   = AUD_CMD_VOL_SETTING;
-    c->vol_mus_q8              = aud_vol_q8_from_ratio(vol_mus, vol_max);
-    c->vol_snd_q8              = aud_vol_q8_from_ratio(vol_snd, vol_max);
-    aud_push_cmd(cmd);
-}
+// hardcoded test for algorithmic music
+#if 0
+ switch (am->musID) {
+    case 0: return;
+    case MUSID_ENCOUNTER: {
+        am->c0 += len;
+        if (249900 <= am->c0) { // 5666 milliseconds blocks
+            am->c0                            = 0;
+            am->c1                            = 1 - am->c1;
+            static const char melodies[4][32] = {"M_ENCOUNTER_M1",
+                                                 "M_ENCOUNTER_M2",
+                                                 "M_ENCOUNTER_M3",
+                                                 "M_ENCOUNTER_M4"};
+            static const char rhythms[4][32]  = {"M_ENCOUNTER_RA",
+                                                 "M_ENCOUNTER_RB",
+                                                 "M_ENCOUNTER_RC",
+                                                 "M_ENCOUNTER_RD"};
+            static const char strings[2][32]  = {"M_ENCOUNTER_S0",
+                                                 "M_ENCOUNTER_S1"};
 
-void mus_play(const void *fname)
-{
-    mus_play_extv(fname, 0, 0, 0, 0, 256);
-}
+            qoa_stream_s *q0 = aud_mus_play_str(am, am->c1 * 3, melodies[rngr_i32(0, 3)]);
+            q0->repeat       = 0;
+            qoa_stream_s *q1 = aud_mus_play_str(am, am->c1 * 3 + 1, rhythms[rngr_i32(0, 3)]);
+            q1->repeat       = 0;
+            qoa_stream_s *q2 = aud_mus_play_str(am, am->c1 * 3 + 2, strings[rngr_i32(0, 1)]);
+            q2->repeat       = 0;
+        }
+        break;
+    }
+    default: break;
+    }
 
-static void muschannel_stop(muschannel_s *mc)
-{
-    qoa_mus_end(&mc->qoa_str);
-}
 
-u32 snd_instance_play(snd_s s, f32 vol, f32 pitch)
-{
-    return snd_instance_play_ext(s, vol, pitch, 0);
-}
 
-u32 snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat)
-{
-    aud_s *a = &APP.aud;
-
-    if (a->snd_playing_disabled) return 0;
-    if (!s.dat) return 0;
-
-    i32 vol_q8   = (i32)(vol * 256.5f);
-    i32 pitch_q8 = (i32)(pitch * 256.5f);
-    if (vol_q8 <= 4) return 0; // might as well not play it
-
-    a->snd_iID = max_u32(a->snd_iID + 1, 1);
-
-    aud_cmd_s           cmd = {0};
-    aud_cmd_snd_play_s *c   = &cmd.c.snd_play;
-    cmd.type                = AUD_CMD_SND_PLAY;
-    c->snd                  = s;
-    c->pitch_q8             = pitch_q8;
-    c->vol_q8               = vol_q8;
-    c->iID                  = a->snd_iID;
-    c->repeat               = repeat;
-    aud_push_cmd(cmd);
-    return a->snd_iID;
-}
-
-void snd_instance_stop(i32 iID)
-{
-    snd_instance_stop_fade(iID, 1, 256);
-}
-
-void snd_instance_stop_fade(i32 iID, i32 ms, i32 vmod_q8)
-{
-    if (iID == 0) return;
-    aud_cmd_s          cmd = {0};
-    aud_cmd_snd_mod_s *c   = &cmd.c.snd_mod;
-    cmd.type               = AUD_CMD_SND_MOD;
-    c->iID                 = iID;
-    c->stop_ticks          = (ms * 44100) / 1000;
-    c->vmod_q8             = vmod_q8;
-    aud_push_cmd(cmd);
-}
-
-void aud_stop_all_snd_instances()
-{
-    aud_cmd_s cmd = {0};
-    cmd.type      = AUD_CMD_STOP_ALL_SND;
-    aud_push_cmd(cmd);
-}
+  switch (am->musID) {
+        default: break;
+        case MUSID_INTRO: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_INTRO");
+            q->loop_sample_pos_beg = 325679;
+            break;
+        }
+        case MUSID_WATERFALL: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_WATERFALL");
+            q->loop_sample_pos_beg = 226822;
+            break;
+        }
+        case MUSID_CAVE: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_CAVE");
+            q->loop_sample_pos_beg = 498083;
+            break;
+        }
+        case MUSID_ANCIENT_TREE: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_ANCIENT_TREE");
+            q->loop_sample_pos_beg = 564480;
+            break;
+        }
+        case MUSID_SNOW: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_SNOW");
+            q->loop_sample_pos_beg = 368146;
+            break;
+        }
+        case MUSID_FOREST: {
+            qoa_stream_s *q        = aud_mus_play_str(am, 0, "M_FOREST");
+            q->loop_sample_pos_beg = 769768;
+            break;
+        }
+        case MUSID_TEST: {
+            qoa_stream_s *q0 = aud_mus_play_str(am, 0, "M_ENCOUNTER_M1");
+            break;
+        }
+        case MUSID_ENCOUNTER: {
+            qoa_stream_s *q0 = aud_mus_play_str(am, 0, "M_ENCOUNTER_M1");
+            q0->repeat       = 0;
+            qoa_stream_s *q1 = aud_mus_play_str(am, 1, "M_ENCOUNTER_RA");
+            q1->repeat       = 0;
+            qoa_stream_s *q2 = aud_mus_play_str(am, 2, "M_ENCOUNTER_S1");
+            q2->repeat       = 0;
+            break;
+        }
+        }
+#endif

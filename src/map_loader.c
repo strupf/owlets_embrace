@@ -99,6 +99,9 @@ void game_load_map(g_s *g, u8 *map_name)
 {
     // READ FILE ===============================================================
     u8 *map_name_mod = map_loader_room_mod(g, map_name);
+
+    DEBUG_LOG("MAP LOAD: %s\n", map_name_mod);
+    DEBUG_CODE(f32 t_load_start = pltf_seconds());
     str_cpy(g->map_name, map_name);
     str_cpy(g->map_name_mod, map_name_mod);
 
@@ -107,7 +110,7 @@ void game_load_map(g_s *g, u8 *map_name)
     wad_el_s *wad_el;
     if (!wad_open(map_hash, &f, &wad_el)) {
         pltf_log("Can't load map file! %u\n", map_hash);
-        BAD_PATH
+        BAD_PATH();
     }
 
     spm_push();
@@ -119,8 +122,6 @@ void game_load_map(g_s *g, u8 *map_name)
     const i32 h = hd->h;
 
     u32 seed_visuals = map_hash;
-    g->bg_offx       = rngsr_i32(&seed_visuals, 0, I16_MAX);
-    g->bg_offy       = rngsr_i32(&seed_visuals, 0, I16_MAX);
     g->tiles_x       = w;
     g->tiles_y       = h;
     g->pixel_x       = w << 4;
@@ -129,7 +130,7 @@ void game_load_map(g_s *g, u8 *map_name)
 
     for (obj_each(g, o)) {
         if (o->ID == OBJID_OWL) {
-            mclr_field(o->hitboxIDs);
+            mclr(o->hitboxUID_registered, sizeof(o->hitboxUID_registered));
         } else {
             obj_delete(g, o);
         }
@@ -148,6 +149,7 @@ void game_load_map(g_s *g, u8 *map_name)
     mclr_field(g->particle_sys);
     mclr_field(g->ghook);
     mclr_field(g->battleroom);
+    mclr_field(g->hitboxes);
     g->coins.n += g->coins.n_change;
     g->coins.n_change   = 0;
     g->n_grass          = 0;
@@ -157,13 +159,12 @@ void game_load_map(g_s *g, u8 *map_name)
     g->cam.has_trg      = 0;
     g->cam.trg_fade_q12 = 0;
     g->n_fluid_areas    = 0;
-    g->darken_bg_q12    = 0;
-    g->darken_bg_add    = 0;
     g->n_save_points    = 0;
     g->n_fg             = 0;
     g->tick_animation   = 0;
     g->n_ropes          = 0;
-    g->hitbox_UID       = 0;
+    g->hitboxUID        = 0;
+    g->n_hitboxes       = 0;
     g->map_room_cur     = map_room_find(g, 0, map_name);
     g->map_room_cur_mod = map_room_find(g, 0, map_name_mod);
     marena_reset(&g->memarena, 0);
@@ -182,7 +183,7 @@ void game_load_map(g_s *g, u8 *map_name)
         break;
     }
 
-    background_init_and_load_from_wad(g, background_ID, f);
+    background_set(g, background_ID);
 
     switch (area_ID) {
     case AREA_ID_DEEP_FOREST:
@@ -193,15 +194,16 @@ void game_load_map(g_s *g, u8 *map_name)
         break;
     }
 
-    bool32 same_music = music_ID == g->music_ID;
-    g->music_ID       = music_ID;
-    g->area_ID        = area_ID;
-    g->background_ID  = background_ID;
-    g->vfx_ID         = vfx_ID;
+    g->music_ID = music_ID;
+    g->area_ID  = area_ID;
+    g->vfx_ID   = vfx_ID;
 
-    if (!(g->flags & GAME_FLAG_TITLE_PREVIEW) && !same_music) {
+#if 0
+    if (!(g->flags & GAME_FLAG_TITLE_PREVIEW)) {
         game_cue_area_music(g);
+        pltf_log("cue");
     }
+#endif
 
     if (!(g->flags & GAME_FLAG_TITLE_PREVIEW)) {
         g->area_anim_st   = 1;
@@ -209,11 +211,17 @@ void game_load_map(g_s *g, u8 *map_name)
     }
 
     seed_visuals = 213;
+
+    DEBUG_LOG("MAP LOAD terrain\n");
     loader_load_terrain(g, f, wad_el, w, h, &seed_visuals);
+    DEBUG_LOG("MAP LOAD bgauto\n");
     loader_load_bgauto(g, f, wad_el, w, h);
+    DEBUG_LOG("MAP LOAD bg\n");
     loader_load_bg(g, f, wad_el, w, h);
+    DEBUG_LOG("MAP LOAD fluids\n");
     wad_rd_str(f, wad_el, "FLUIDS", g->fluid_streams);
 
+    DEBUG_LOG("MAP LOAD foreground el\n");
     map_fg_s *mfg = (map_fg_s *)wad_r_spm_str(f, wad_el, "FOREGROUND");
     for (i32 n = 0; n < hd->n_fg; n++, mfg++) {
         foreground_el_s *fg_el = &g->fg_el[g->n_fg++];
@@ -235,26 +243,28 @@ void game_load_map(g_s *g, u8 *map_name)
     }
 
     wad_el_s *e_objs = wad_seek_str(f, wad_el, "OBJS");
-    g->map_objs      = game_per_room_alloc(g, e_objs->size, 4);
+    g->map_objs      = game_alloc_room(g, e_objs->size, 4);
     g->map_objs_end  = (byte *)g->map_objs + e_objs->size;
     pltf_file_r(f, g->map_objs, e_objs->size);
 
-    if (0) {
-    } else if (hd->hash == hash_str("L_BOSSPLANT")) {
-        map_obj_s *mo = map_obj_find(g, "Bossplant");
-        boss_init(g, BOSS_ID_PLANT, mo);
-    }
-
+    DEBUG_LOG("MAP LOAD OBJs\n");
     for (map_obj_each(g, o)) {
         if (!map_obj_bool(o, "Battleroom")) {
             map_obj_parse(g, o);
         }
     }
 
+    if (0) {
+    } else if (hd->hash == hash_str("L_BOSS_1A")) {
+        boss_init(g, BOSS_ID_PLANT);
+    }
+
+    DEBUG_LOG("MAP LOAD setups\n");
     spm_pop();
     pulleyblocks_setup(g);
     drillers_setup(g);
     pltf_sync_timestep();
+    DEBUG_LOG("MAP LOAD done (%.2f s)\n", pltf_seconds() - t_load_start);
 }
 
 void loader_do_terrain(g_s *g, u16 *tmem, i32 w, i32 h, u32 *seed_visuals)

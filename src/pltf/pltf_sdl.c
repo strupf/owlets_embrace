@@ -45,7 +45,6 @@ typedef_struct (pltf_sdl_s) {
     SDL_AudioDeviceID audiodevID;
     SDL_AudioSpec     audiospec;
     SDL_PixelFormat  *pformat;
-    b32               is_mono;
     b32               inv;
     void (*char_add)(char c, void *ctx);
     void (*char_del)(void *ctx);
@@ -141,7 +140,6 @@ int main(int argc, char **argv)
         g_SDL.r_src.h   = PLTF_DISPLAY_H;
         g_SDL.r_dst.w   = PLTF_DISPLAY_W;
         g_SDL.r_dst.h   = PLTF_DISPLAY_H;
-        g_SDL.is_mono   = 0;
         g_SDL.time_prev = (u64)SDL_GetPerformanceCounter();
         pltf_sdl_resize();
 
@@ -358,14 +356,15 @@ void pltf_sdl_audio(void *u, u8 *stream, int len)
     ALIGNAS(32) static i16 lbuf[0x400];
     ALIGNAS(32) static i16 rbuf[0x400];
 
-    mclr(lbuf, sizeof(lbuf));
-    mclr(rbuf, sizeof(rbuf));
+    mclr(lbuf, sizeof(i16) * len);
+    mclr(rbuf, sizeof(i16) * len);
+
     i32 samples = len / (2 * sizeof(i16));
     pltf_internal_audio(lbuf, rbuf, samples);
 
     i16 *s = (i16 *)stream;
     i16 *l = lbuf;
-    i16 *r = g_SDL.is_mono ? lbuf : rbuf;
+    i16 *r = rbuf;
 
     for (i32 n = 0; n < samples; n++) {
         *s++ = *l++;

@@ -101,7 +101,7 @@ void crumbleblock_on_update(g_s *g, obj_s *o)
         o->timer--;
         if (0 < o->timer) break;
 
-        snd_play(SNDID_EXPLO1, 0.1f, rngr_f32(0.9f, 1.1f));
+        sfx_cuef(SFXID_EXPLO1, 0.1f, rngr_f32(0.9f, 1.1f));
         crumbleblock_break(g, o);
         cam_screenshake_xy(&g->cam, 16, 1, 1);
         break;
@@ -193,7 +193,7 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         tex_clr(tmp, GFX_COL_CLEAR);
 
         // render block to temporary texture
-        gfx_ctx_s ctxtmp = gfx_ctx_default(tmp);
+        gfx_ctx_s ctxtmp = gfx_ctx_from_tex(tmp);
         v2_i32    postmp = {8, 8};
         render_tile_terrain_block(ctxtmp, postmp, o->w >> 4, o->h >> 4,
                                   TILE_TYPE_BRIGHT_BREAKING);
@@ -222,7 +222,7 @@ void crumbleblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
         tex_clr(tmp, GFX_COL_CLEAR);
 
         // render block to temporary texture
-        gfx_ctx_s ctxtmp = gfx_ctx_default(tmp);
+        gfx_ctx_s ctxtmp = gfx_ctx_from_tex(tmp);
         v2_i32    postmp = {8, 8};
         render_tile_terrain_block(ctxtmp, postmp, o->w >> 4, o->h >> 4,
                                   TILE_TYPE_BRIGHT_BREAKING);

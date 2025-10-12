@@ -92,6 +92,5 @@ void bpgrenade_explode(g_s *g, obj_s *o)
         o->flags      = 0;
         o->on_animate = 0;
         v2_i32 pos    = obj_pos_center(o);
-        objanim_create(g, pos, OBJANIMID_EXPLODE_GRENADE);
     }
 }

@@ -19,7 +19,7 @@ void pushblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s       *o  = obj_create(g);
     pushblock_s *pb = (pushblock_s *)o->mem;
-    o->UUID         = mo->UUID;
+    o->editorUID    = mo->UID;
     o->ID           = OBJID_PUSHBLOCK;
 
     i32    saveID   = map_obj_i32(mo, "saveID");
@@ -28,7 +28,7 @@ void pushblock_load(g_s *g, map_obj_s *mo)
     pb->saveID_pt.x = p_save.x << 4;
     pb->saveID_pt.y = p_save.y << 4;
 
-    if (save_event_exists(g, saveID)) {
+    if (saveID_has(g, saveID)) {
         v2_i16 p = map_obj_pt(mo, "pos_if_saveID");
         o->pos.x = (i32)p.x << 4;
         o->pos.y = (i32)p.y << 4;
@@ -55,7 +55,7 @@ void pushblock_on_update(g_s *g, obj_s *o)
     pushblock_s *pb = (pushblock_s *)o->mem;
     rec_i32      r  = obj_aabb(o);
     if (overlap_rec_pnt(r, pb->saveID_pt)) {
-        save_event_register(g, pb->saveID);
+        saveID_put(g, pb->saveID);
     }
 
     if (map_blocked(g, obj_rec_bottom(o))) {

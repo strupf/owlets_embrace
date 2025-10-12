@@ -98,6 +98,11 @@ enum {
 // offx and offy only affect the visual tile randomizer
 void autotile_terrain_section(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy,
                               i32 rx, i32 ry, i32 rw, i32 rh);
+
+// offx and offy only affect the visual tile randomizer
+void autotile_terrain_section_game_xy(g_s *g, i32 tx1, i32 ty1, i32 tx2, i32 ty2);
+void autotile_terrain_section_game(g_s *g, i32 tx, i32 ty, i32 tw, i32 th);
+void autotile_terrain_section_xy(tile_s *tiles, i32 w, i32 h, i32 tx1, i32 ty1, i32 tx2, i32 ty2, i32 offx, i32 offy);
 // offx and offy only affect the visual tile randomizer
 void autotile_terrain(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy);
 

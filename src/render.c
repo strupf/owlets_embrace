@@ -26,7 +26,7 @@ static v2_i32 fg_parallax(v2_i32 cam, i32 x_q8, i32 y_q8, i32 ax, i32 ay)
 void game_draw(g_s *g)
 {
     tex_s     texdisplay = asset_tex(0);
-    gfx_ctx_s ctx        = gfx_ctx_default(texdisplay);
+    gfx_ctx_s ctx        = gfx_ctx_from_tex(texdisplay);
 
     bool32 draw_gp = 1;
     if (g->minimap.state &&
@@ -49,35 +49,23 @@ void game_draw(g_s *g)
 
 void draw_gameplay(g_s *g)
 {
-    i32    i_obj        = 0;
-    cam_s *cam          = &g->cam;
-    obj_s *ohero        = obj_get_owl(g);
-    owl_s *owl          = &g->owl;
-    v2_i32 cam_top_left = cam_pos_px_top_left(g, cam);
+    i32               i_obj             = 0;
+    cam_s            *cam               = &g->cam;
+    obj_s            *ohero             = obj_get_owl(g);
+    owl_s            *owl               = &g->owl;
+    v2_i32            cam_top_left      = cam_pos_px_top_left(cam);
+    v2_i32            cam_mid           = {cam_top_left.x + CAM_WH, cam_top_left.y + CAM_HH};
+    rec_i32           camrec_raw        = {cam_top_left.x, cam_top_left.y, CAM_W, CAM_H};
+    rec_i32           camrec            = {cam_top_left.x & ~1, cam_top_left.y & ~1, CAM_W, CAM_H};
+    v2_i32            camoffset_raw     = {-cam_top_left.x, -cam_top_left.y};
+    v2_i32            camoff            = {-camrec.x, -camrec.y};
+    tex_s             texdisplay        = asset_tex(0);
+    gfx_ctx_s         ctx               = gfx_ctx_from_tex(texdisplay);
+    tile_map_bounds_s tilebounds        = tile_map_bounds_rec(g, camrec);
+    tex_s             tex_outline_layer = asset_tex(TEXID_DISPLAY_WHITE_OUTLINED);
+    tex_clr(tex_outline_layer, GFX_COL_CLEAR);
 
-    // cam_top_left.x -= owl->render_align_offs.x;
-    // cam_top_left.y -= owl->render_align_offs.y;
-
-    v2_i32            cam_mid       = {cam_top_left.x + CAM_WH, cam_top_left.y + CAM_HH};
-    rec_i32           camrec_raw    = {cam_top_left.x, cam_top_left.y, CAM_W, CAM_H};
-    rec_i32           camrec        = {cam_top_left.x & ~1, cam_top_left.y & ~1, CAM_W, CAM_H};
-    v2_i32            camoffset_raw = {-cam_top_left.x, -cam_top_left.y};
-    v2_i32            camoff        = {-camrec.x, -camrec.y};
-    tex_s             texdisplay    = asset_tex(0);
-    gfx_ctx_s         ctx           = gfx_ctx_default(texdisplay);
-    tile_map_bounds_s tilebounds    = tile_map_bounds_rec(g, camrec);
-
-    if (g->darken_bg_q12 == 4096) {
-        tex_clr(ctx.dst, GFX_COL_BLACK);
-    } else {
-        background_draw(g, camoffset_raw, camoff);
-
-        if (g->darken_bg_q12) {
-            gfx_ctx_s ctxdarken = ctx;
-            ctxdarken.pat       = gfx_pattern_interpolate(g->darken_bg_q12, 4096);
-            gfx_rec_fill(ctxdarken, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK);
-        }
-    }
+    background_draw(g, camoffset_raw, camoff);
 
     switch (g->vfx_ID) {
     default: break;
@@ -126,6 +114,7 @@ void draw_gameplay(g_s *g)
 
     i_obj = objs_draw(ctx, g, camoff, i_obj, RENDER_PRIO_INFRONT_TERRAIN_LAYER);
     boss_draw(g, camoff);
+    tex_merge_to_opaque_outlined_white(texdisplay, tex_outline_layer);
     render_terrain(g, tilebounds, camoff);
 
     i32     parallaxox = ((cam_mid.x - (g->pixel_x >> 1)) * 410) >> 12;
@@ -145,7 +134,7 @@ void draw_gameplay(g_s *g)
 
         tex_s tlight = tex_create(PLTF_DISPLAY_W, PLTF_DISPLAY_H, 0, spm_allocator(), 0);
         tex_clr(tlight, GFX_COL_BLACK);
-        gfx_ctx_s lctx = gfx_ctx_default(tlight);
+        gfx_ctx_s lctx = gfx_ctx_from_tex(tlight);
 
         for (obj_each(g, it)) {
             if (!(it->flags & OBJ_FLAG_LIGHT)) continue;
@@ -217,9 +206,10 @@ i32 objs_draw(gfx_ctx_s ctx, g_s *g, v2_i32 cam, i32 ifrom, i32 prio)
 
         v2_i32 ppos = v2_i32_add(o->pos, cam);
         if (o->ID == OBJID_OWL) {
-            if (g->cam.cowl.can_align_x)
+            if (g->cam.cowl.do_align_x) {
                 ppos.x &= ~1;
-            if (g->cam.cowl.can_align_y) {
+            }
+            if (g->cam.cowl.do_align_y) {
                 ppos.y &= ~1;
             }
         }
@@ -309,8 +299,8 @@ SORT_ARRAY_DEF(tile_spr_s, z_tile_spr, cmp_tile_spr)
 
 void render_terrain(g_s *g, tile_map_bounds_s bounds, v2_i32 cam)
 {
-    tile_spr_s tile_spr[460]; // max 27 * 17 tiles in theory
-    i32        n_tile_spr = 0;
+    i32                    n_tile_spr = 0;
+    ALIGNAS(32) tile_spr_s tile_spr[460]; // max 27 * 17 tiles in theory
 
     for (i32 y = bounds.y1; y <= bounds.y2; y++) {
         for (i32 x = bounds.x1; x <= bounds.x2; x++) {
@@ -665,14 +655,14 @@ void render_map_transition_in(g_s *g, v2_i32 cam, i32 t, i32 t2)
     tex_s     display = asset_tex(0);
     tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
     obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_OWL);
-    gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
+    gfx_ctx_s ctxfill = gfx_ctx_from_tex(tmp);
     ctxfill.pat       = gfx_pattern_interpolate(t2 - t, t2);
 
     rec_i32 rfill = {0, 0, tmp.w, tmp.h};
     gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK_WHITE);
 
     if (ohero) {
-        gfx_ctx_s ctxc = gfx_ctx_default(tmp);
+        gfx_ctx_s ctxc = gfx_ctx_from_tex(tmp);
         v2_i32    cpos = v2_i32_add(obj_pos_center(ohero), cam);
         i32       cird = ease_out_quad(0, 200, min_i32(t, t2 / 2), t2 / 2);
         gfx_cir_fill(ctxc, cpos, cird, GFX_COL_WHITE);
@@ -690,7 +680,7 @@ void render_map_transition_out(g_s *g, v2_i32 cam, i32 t, i32 t2)
     tex_s     display = asset_tex(0);
     tex_s     tmp     = asset_tex(TEXID_DISPLAY_TMP);
     obj_s    *ohero   = obj_get_tagged(g, OBJ_TAG_OWL);
-    gfx_ctx_s ctxfill = gfx_ctx_default(tmp);
+    gfx_ctx_s ctxfill = gfx_ctx_from_tex(tmp);
     ctxfill.pat       = gfx_pattern_interpolate(t, t2);
 
     rec_i32 rfill = {0, 0, tmp.w, tmp.h};

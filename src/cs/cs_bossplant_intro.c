@@ -4,6 +4,7 @@
 
 #include "game.h"
 
+#if 0
 typedef struct {
     boss_plant_s *bp;
     obj_s        *puppet_comp;
@@ -30,10 +31,10 @@ void cs_bossplant_intro_enter(g_s *g)
     dm->bp         = &g->boss.plant;
     cs->on_trigger = cs_bossplant_intro_on_trigger;
     g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
-    if (save_event_exists(g, 222)) {
+    if (saveID_has(g, 222)) {
         dm->seen = 1;
     } else {
-        save_event_register(g, 222);
+        saveID_put(g, 222);
         game_update_savefile(g);
     }
 }
@@ -49,7 +50,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
     case 0: {
         if (!cs_wait_and_pause_for_owl_idle(g)) break;
 
-        mus_play_extv(0, 0, 0, 2000, 0, 0);
+        // mus_play_extv(0, 0, 0, 2000, 0, 0);
         cs->phase++;
         cs->tick = 0;
         if (dm->seen) {
@@ -80,12 +81,12 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
     case 3: {
         if (dm->seen) {
             if (cs->tick == 20) {
-                mus_play_extx("M_BOSS", 280271, 418236, 0, 10, 10, 256);
+                // mus_play_extx("M_BOSS", 280271, 418236, 0, 10, 10, 256);
 
                 cs->phase           = 11;
                 cs->tick            = 0;
                 dm->bp->plant_frame = 2;
-                snd_play(SNDID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
+                sfx_cuef(SFXID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
                 boss_plant_eye_show(g, o_eye);
                 boss_plant_eye_show(g, o_eyefl);
                 boss_plant_eye_show(g, o_eyefr);
@@ -95,7 +96,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
             }
         } else {
             if (cs->tick == 240) {
-                mus_play_extv("M_BOSS", 418236, 0, 0, 100, 256);
+                // mus_play_extv("M_BOSS", 418236, 0, 0, 100, 256);
             }
 
             switch (cs->tick) {
@@ -119,7 +120,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
             case 300:
             case 350:
             case 400:
-                snd_play(SNDID_STOMP_LAND, 0.75f, 1.f);
+                sfx_cuef(SFXID_STOMP_LAND, 0.75f, 1.f);
                 puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_BUMP_ONCE, 0);
                 break;
             case 550:
@@ -129,7 +130,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
                 cs->phase           = 11;
                 cs->tick            = 0;
                 dm->bp->plant_frame = 2;
-                snd_play(SNDID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
+                sfx_cuef(SFXID_BPLANT_SHOW, 1.5f, rngr_f32(0.9f, 1.1f));
                 boss_plant_eye_show(g, o_eye);
                 boss_plant_eye_show(g, o_eyefl);
                 boss_plant_eye_show(g, o_eyefr);
@@ -170,7 +171,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
                 dm->eyepos_1.y = pl.y;
                 obj_delete(g, dm->puppet_comp);
                 dm->puppet_comp = 0;
-                snd_play(SNDID_HURT, 1.f, 1.f);
+                sfx_cuef(SFXID_HURT, 1.f, 1.f);
                 o_eyefl->state = BOSS_PLANT_EYE_GRABBED_COMP;
                 puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_QUICKDUCK, 0);
             }
@@ -203,12 +204,11 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
 #endif
             cs->phase++;
             cs->tick = 0;
-            snd_play(SNDID_BPLANT_HIDE, 1.0f, rngr_f32(0.9f, 1.1f));
+            sfx_cuef(SFXID_BPLANT_HIDE, 1.0f, rngr_f32(0.9f, 1.1f));
 
             puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
             dm->bp->plant_frame = 0;
             boss_plant_eye_hide(g, o_eye);
-            boss_plant_barrier_poof(g);
         }
         break;
     }
@@ -283,3 +283,4 @@ void cs_bossplant_intro_cb_comp(g_s *g, obj_s *o, void *ctx)
     }
     }
 }
+#endif

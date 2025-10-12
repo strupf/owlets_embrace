@@ -38,16 +38,58 @@ typedef struct {
 void flyblob_on_update(g_s *g, obj_s *o);
 void flyblob_on_animate(g_s *g, obj_s *o);
 void flyblob_on_hook(g_s *g, obj_s *o, i32 hooked);
+void flyblob_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
+
+void flyblob_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
+{
+    flyblob_s *f = (flyblob_s *)o->mem;
+
+    o->health = max_i32((i32)o->health - 1, 0);
+
+    if (!o->health) {
+        o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
+        o->state              = FLYBLOB_ST_DIE;
+        o->on_update          = enemy_on_update_die;
+        o->on_hitbox          = 0;
+        o->hitbox_flags_group = 0;
+        o->v_q12.x            = 0;
+        o->v_q12.y            = 0;
+        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
+        g->enemies_killed++;
+        g->enemy_killed[ENEMYID_FLYBLOB]++;
+    } else if (f->has_propeller && o->health < o->health_max - 2) {
+        o->state   = FLYBLOB_ST_PROPELLER_POP;
+        o->v_q12.x = 0;
+        o->v_q12.y = 0;
+    } else {
+        o->state = FLYBLOB_ST_HURT;
+        if (f->has_propeller) {
+            // o->v_q12.x = Q_VOBJ(2.0) * hb->dx;
+            o->v_q12.y = 0;
+        } else {
+            o->v_q12.x = 0;
+            o->v_q12.y = 0;
+        }
+    }
+
+    // if (hb->dx) {
+    //  o->facing = -hb->dx;
+    // }
+    o->timer     = 0;
+    o->animation = 0;
+}
 
 void flyblob_load(g_s *g, map_obj_s *mo)
 {
-    obj_s     *o  = obj_create(g);
-    flyblob_s *f  = (flyblob_s *)o->mem;
-    o->UUID       = mo->UUID;
-    o->ID         = OBJID_FLYBLOB;
-    o->on_update  = flyblob_on_update;
-    o->on_animate = flyblob_on_animate;
-    o->on_hook    = flyblob_on_hook;
+    obj_s     *o          = obj_create(g);
+    flyblob_s *f          = (flyblob_s *)o->mem;
+    o->editorUID          = mo->UID;
+    o->ID                 = OBJID_FLYBLOB;
+    o->on_update          = flyblob_on_update;
+    o->on_animate         = flyblob_on_animate;
+    o->on_hook            = flyblob_on_hook;
+    o->on_hitbox          = flyblob_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY;
 
     o->w = 24;
     o->h = 24;
@@ -231,7 +273,7 @@ void flyblob_on_update(g_s *g, obj_s *o)
 
         o->timer++;
         if (ani_len(ANIID_FBLOB_REGROW) <= o->timer) {
-            o->state          = FLYBLOB_ST_FLY_IDLE;
+            o->state          = FLYBLOB_ST_FLY_AGGRESSIVE;
             o->timer          = 0;
             f->anim_frame     = 0;
             f->anim_propeller = 0;
@@ -258,12 +300,15 @@ void flyblob_on_update(g_s *g, obj_s *o)
 
         if (8 <= k) {
 #define FLYBLOB_W_HITBOX 30
-            hitbox_s *hb        = hitbox_new(g);
-            rec_i32   rattack_d = {
-                o->pos.x + o->w / 2 - (o->facing < 0 ? FLYBLOB_W_HITBOX : 0), o->pos.y, FLYBLOB_W_HITBOX, 20};
-            hitbox_set_rec(hb, rattack_d);
-            hb->ID = HITBOXID_FLYBLOB;
-            hb->dx = o->facing;
+#if 0
+            hitbox_s  hbb = hitbox_gen(g);
+            hitbox_s *hb  = &hbb;
+            hitbox_set_rec(hb, o->pos.x + o->w / 2 - (o->facing < 0 ? FLYBLOB_W_HITBOX : 0),
+                           o->pos.y, FLYBLOB_W_HITBOX, 20);
+            hb->ID                       = HITBOXID_FLYBLOB;
+            hb->dx                       = o->facing;
+            g->hitboxes[g->n_hitboxes++] = hbb;
+#endif
         }
         break;
     }
@@ -447,7 +492,7 @@ void flyblob_on_hurt(g_s *g, obj_s *o, hitbox_s *hb)
     } else {
         o->state = FLYBLOB_ST_HURT;
         if (f->has_propeller) {
-            o->v_q12.x = Q_VOBJ(2.0) * hb->dx;
+            // o->v_q12.x = Q_VOBJ(2.0) * hb->dx;
             o->v_q12.y = 0;
         } else {
             o->v_q12.x = 0;
@@ -455,10 +500,10 @@ void flyblob_on_hurt(g_s *g, obj_s *o, hitbox_s *hb)
         }
     }
 
-    if (hb->dx) {
-        o->facing = -hb->dx;
-    }
+    // if (hb->dx) {
+    //  o->facing = -hb->dx;
+    // }
     o->timer     = 0;
     o->animation = 0;
-    f->force_x   = hb->dx;
+    // f->force_x   = hb->dx;
 }

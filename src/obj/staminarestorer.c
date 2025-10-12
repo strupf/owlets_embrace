@@ -19,7 +19,7 @@ void staminarestorer_on_animate(g_s *g, obj_s *o);
 void staminarestorer_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
-    o->UUID       = mo->UUID;
+    o->editorUID  = mo->UID;
     o->ID         = OBJID_STAMINARESTORER;
     o->on_animate = staminarestorer_on_animate;
     o->w          = 8;

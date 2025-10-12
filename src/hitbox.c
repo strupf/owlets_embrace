@@ -6,82 +6,159 @@
 
 u32 hitbox_UID_gen(g_s *g)
 {
-    return ++g->hitbox_UID;
+    return ++g->hitboxUID;
 }
 
-hitbox_s *hitbox_new(g_s *g)
+hitbox_s *hitbox_gen(g_s *g, u32 UID, i32 ID, hitbox_cb_f cb, void *cb_arg)
 {
-    assert(g->n_hitboxes < HITBOX_NUM);
-    hitbox_s *h = &g->hitboxes[g->n_hitboxes++];
-    mclr(h, sizeof(hitbox_s));
-    h->UID = hitbox_UID_gen(g);
-    return h;
-}
-
-void hitbox_set_callback(hitbox_s *h, hitbox_on_hit_f f, void *ctx)
-{
-    h->cb  = f;
-    h->ctx = ctx;
-}
-
-void hitbox_set_rec(hitbox_s *h, rec_i32 r)
-{
-    h->pos_x = r.x;
-    h->pos_y = r.y;
-    h->rec_w = r.w;
-    h->rec_h = r.h;
-}
-
-bool32 hitbox_from_owl(hitbox_s *h)
-{
-    return (HITBOXID_OWL_0 <= h->ID && h->ID <= HITBOXID_OWL_1);
-}
-
-bool32 hitbox_from_enemy(hitbox_s *h)
-{
-    return (HITBOXID_ENEMY_0 <= h->ID && h->ID <= HITBOXID_ENEMY_1);
-}
-
-bool32 hitbox_hits_obj(hitbox_s *h, obj_s *o)
-{
-    rec_i32 r = obj_aabb(o);
-    if (h->cir_r) {
-        return overlap_rec_cir(r, h->pos_x, h->pos_y, h->cir_r);
-    } else {
-        rec_i32 rh = {h->pos_x, h->pos_y, h->rec_w, h->rec_h};
-        return overlap_rec(r, rh);
+    if (HITBOX_NUM <= g->n_hitboxes) {
+        BAD_PATH();
+        return 0;
     }
-    return 0;
+    hitbox_s *hb = &g->hitboxes[g->n_hitboxes++];
+    hb->UID      = UID ? UID : hitbox_UID_gen(g);
+    hb->ID       = ID;
+    hb->cb       = cb;
+    hb->cb_arg   = cb_arg;
+    return hb;
 }
 
-bool32 hitbox_try_apply_to_enemy(g_s *g, hitbox_s *hboxes, i32 n_hb, obj_s *i);
-
-bool32 hitbox_try_apply_to_enemies(g_s *g, hitbox_s *hb, i32 n_hb)
+// sets a user to not be able to hit itself even if in the same group
+void hitbox_set_user(hitbox_s *hb, obj_s *o)
 {
-    bool32 did_hit = 0;
+    hb->user = handle_from_obj(o);
+}
 
-    for (obj_each(g, i)) {
-        did_hit |= hitbox_try_apply_to_enemy(g, hb, n_hb, i);
+void hitbox_set_flags_group(hitbox_s *hb, i32 flags)
+{
+    hb->flags_group = flags;
+}
+
+void hitbox_type_parent(hitbox_s *hb)
+{
+    NOT_IMPLEMENTED("hitbox parents");
+    hb->type  = HITBOX_TYPE_PARENT;
+    hb->u.n_c = 0;
+}
+
+void hitbox_parent_add_child(hitbox_s *hb_parent, hitbox_s *hb_child)
+{
+    NOT_IMPLEMENTED("hitbox parents");
+    assert(hb_parent < hb_child);
+
+    hb_parent->u.n_c++;
+    hb_child->parent_offs = (u8)(hb_child - hb_parent);
+    hb_child->UID         = hb_parent->UID;
+#if PLTF_DEBUG
+    for (i32 n = 0; n < hb_parent->u.n_c; n++) {
+        hitbox_s *hb_child_debug = hb_parent + 1 + n;
+        assert(hb_parent = hb_child_debug - hb_child_debug->parent_offs);
     }
-    return did_hit;
+#endif
 }
 
-bool32 hitbox_try_apply_to_enemy(g_s *g, hitbox_s *hboxes, i32 n_hb, obj_s *i)
+void hitbox_type_recr(hitbox_s *hb, rec_i32 r)
 {
-    bool32 did_hit = 0;
+    hitbox_type_rec(hb, r.x, r.y, r.w, r.h);
+}
 
-    for (i32 n = 0; n < n_hb; n++) {
-        hitbox_s *hb = &hboxes[n];
-        if (!hitbox_hits_obj(hb, i)) continue;
+void hitbox_type_recxy(hitbox_s *hb, i32 x1, i32 y1, i32 x2, i32 y2)
+{
+    hb->type             = HITBOX_TYPE_REC;
+    hitbox_type_rec_s *r = &hb->u.rec;
+    r->x1                = min_i32(x1, x2);
+    r->y1                = min_i32(y1, y2);
+    r->x2                = max_i32(x1, x2);
+    r->y2                = max_i32(y1, y2);
+}
 
-        // check if this hitbox already hit
-        // otherwise remember this hitboxID by overwriting the smallest
-        // registered hitboxID (should be the oldest one)
-        b32 already_hit_by = 0;
-        i32 k_smallestID   = 0;
-        u32 h_smallestID   = U32_MAX;
+void hitbox_type_rec(hitbox_s *hb, i32 x, i32 y, i32 w, i32 h)
+{
+    hitbox_type_recxy(hb, x, y, x + w, y + h);
+}
+
+void hitbox_type_cir(hitbox_s *hb, i32 x, i32 y, i32 r)
+{
+    hb->type             = HITBOX_TYPE_CIR;
+    hitbox_type_cir_s *c = &hb->u.cir;
+    c->x                 = x;
+    c->y                 = y;
+    c->r                 = r;
+}
+
+void hitboxes_flush(g_s *g)
+{
+    for (obj_each(g, o)) {
+        if (!o->hitbox_flags_group) continue;
+
+        rec_i32      o_aabb       = obj_aabb(o);
+        hitbox_s    *hb_strongest = 0;
+        hitbox_res_s res          = {0};
+
+        for (i32 n = 0; n < g->n_hitboxes; n++) {
+            hitbox_s *hb = &g->hitboxes[n];
+            if (!(o->hitbox_flags_group & hb->flags_group)) continue;
+            if (obj_from_handle(hb->user) == o) continue; // dont hit yourself i.e. enemy should also damage other enemies but of course not itself
+
+            switch (hb->type) {
+            default:
+            case HITBOX_TYPE_NULL: goto HITBOX_NEXT; // does not hit
+            case HITBOX_TYPE_REC: {
+                hitbox_type_rec_s *hr = &hb->u.rec;
+                rec_i32            r  = {hr->x1, hr->y1, hr->x2 - hr->x1, hr->y2 - hr->y1};
+
+                if (!overlap_rec(o_aabb, r)) goto HITBOX_NEXT; // does not hit
+                break;
+            }
+            case HITBOX_TYPE_CIR: {
+                hitbox_type_cir_s *hc = &hb->u.cir;
+                if (1) goto HITBOX_NEXT; // does not hit
+                break;
+            }
+            }
+
+            // already hit by this UID earlier?
+            for (i32 i = 0; i < OBJ_NUM_HITBOXID; i++) {
+                if (hb->UID == o->hitboxUID_registered[i]) {
+                    goto HITBOX_NEXT; // does not hit
+                }
+            }
+
+            hb_strongest                                         = hb;
+            o->hitboxUID_registered[o->n_hitboxUID_registered++] = hb->UID; // remember this UID
+            o->n_hitboxUID_registered &= (OBJ_NUM_HITBOXID - 1);
+            if (o->hitbox_flags_group & HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK) {
+                hb->flags |= HITBOX_FLAG_HIT;
+            }
+        HITBOX_NEXT:;
+        }
+
+        if (hb_strongest && o->on_hitbox) {
+            o->on_hitbox(g, o, res);
+        }
+    }
+
+    // callbacks and clearing of hitbox queue
+    for (i32 n = 0; n < g->n_hitboxes; n++) {
+        hitbox_s *hb = &g->hitboxes[n];
+
+        // execute callback if:
+        // - has callback (duh)
+        // - did hit
+        // - either no specified user or only if user still valid
+        bool32 cb_exe = hb->cb != 0 &&
+                        (hb->type & HITBOX_FLAG_HIT) &&
+                        (!hb->user.o || obj_handle_valid(hb->user));
+
+        if (cb_exe) {
+            hb->cb(g, hb, hb->cb_arg);
+        }
+        mclr(hb, sizeof(hitbox_s));
+    }
+    g->n_hitboxes = 0;
+#if 0
         for (i32 k = 0; k < OBJ_NUM_HITBOXID; k++) {
-            u32 hID = i->hitboxIDs[k];
+            u32 hID = i->attackIDs[k];
             if (hID == hb->UID) {
                 already_hit_by = 1;
                 break;
@@ -92,60 +169,80 @@ bool32 hitbox_try_apply_to_enemy(g_s *g, hitbox_s *hboxes, i32 n_hb, obj_s *i)
             }
         }
 
-        if (already_hit_by) continue;
 
-        i->hitboxIDs[k_smallestID] = hb->UID;
+        if (already_hit_by) continue;
 
         switch (i->ID) {
         case 0: break;
         case OBJID_JUMPER: {
-            did_hit = 1;
-            i->health--;
-            jumper_on_hurt(g, i);
-            if (!i->health) {
-                animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+            if (i->health) {
+                did_hit = 1;
+                i->health--;
+                jumper_on_hurt(g, i);
+                if (!i->health) {
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
             }
             break;
         }
         case OBJID_CRAWLER: {
-            did_hit = 1;
-            i->health--;
-            crawler_on_hurt(g, i);
-            if (!i->health) {
-                animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+            if (i->health) {
+                did_hit = 1;
+                i->health--;
+                crawler_on_hurt(g, i);
+                if (!i->health) {
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
+            }
+            break;
+        }
+        case OBJID_DRILLER: {
+            if (i->health) {
+                driller_on_hurt(g, i);
+                if (i->state == 5) {
+                    did_hit = 1;
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
             }
             break;
         }
         case OBJID_CRAB: {
-            did_hit = 1;
-            i->health--;
-            crab_on_hurt(g, i);
-            if (!i->health) {
-                animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+            if (i->health) {
+                did_hit = 1;
+                crab_on_hitbox(g, i, hb);
+                if (!i->health) {
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
             }
             break;
         }
         case OBJID_FROG: {
-            did_hit = 1;
-            i->health--;
-            frog_on_hurt(g, i);
-            if (!i->health) {
-                animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+            if (i->health) {
+                did_hit = 1;
+                i->health--;
+                frog_on_hurt(g, i);
+                if (!i->health) {
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
             }
             break;
         }
         case OBJID_FLYBLOB: {
-            did_hit = 1;
-            i->health--;
-            flyblob_on_hurt(g, i, hb);
-            if (!i->health) {
-                animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+            if (i->health) {
+                did_hit = 1;
+                i->health--;
+                flyblob_on_hurt(g, i, hb);
+                if (!i->health) {
+                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
+                }
             }
             break;
         }
         case OBJID_GEMPILE: {
-            did_hit = 1;
-            gempile_on_hit(g, i);
+            if (i->health) {
+                did_hit = 1;
+                gempile_on_hit(g, i);
+            }
             break;
         }
         case OBJID_BOMBPLANT: {
@@ -154,10 +251,7 @@ bool32 hitbox_try_apply_to_enemy(g_s *g, hitbox_s *hboxes, i32 n_hb, obj_s *i)
             break;
         }
         }
-
-        if (did_hit && hb->cb) {
-            hb->cb(g, hb, hb->ctx);
-        }
     }
     return did_hit;
+#endif
 }

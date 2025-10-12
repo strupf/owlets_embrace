@@ -5,10 +5,14 @@
 #ifndef PLTF_CONFIG_H
 #define PLTF_CONFIG_H
 
-#ifndef PLTF_RELEASE
-#define PLTF_RELEASE 0
-#endif
+#define PLTF_USE_STEREO   0
+#define PLTF_SHOW_FPS     0 // show FPS, UPS, logic time and draw time
+#define PLTF_EDIT_PD      0 // edit PD code files? -> enable PLTF_PD_HW code paths
+#define PLTF_ENABLE_DEBUG 1
 
+#if !defined(PLTF_RELEASE) && !PLTF_ENABLE_DEBUG
+#define PLTF_RELEASE 1
+#endif
 #if PLTF_RELEASE
 #define PLTF_DEBUG      0
 #define PLTF_ENABLE_LOG 0
@@ -16,7 +20,5 @@
 #define PLTF_DEBUG      1
 #define PLTF_ENABLE_LOG 1
 #endif
-
-#define PLTF_EDIT_PD 0 // edit PD code files? -> enable PLTF_PD_HW code paths
 
 #endif

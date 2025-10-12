@@ -34,18 +34,13 @@ err32 settings_load(settings_s *s)
     err32             res = 0;
 
     if (pltf_file_r_checked(f, &h, sizeof(settings_header_s))) {
-        game_version_s v = game_version_decode(h.version);
-
-        if (v.vmaj == 0) {
-            res |= SETTINGS_ERR_VERSION;
-        } else {
-            if (pltf_file_r_checked(f, s, sizeof(settings_s))) {
-                if (h.checksum != crc16(s, sizeof(settings_s))) {
-                    res |= SETTINGS_ERR_CHECKSUM;
-                }
-            } else {
-                res |= SETTINGS_ERR_RW;
+        version_s v = version_decode(h.version);
+        if (pltf_file_r_checked(f, s, sizeof(settings_s))) {
+            if (h.checksum != crc16(s, sizeof(settings_s))) {
+                res |= SETTINGS_ERR_CHECKSUM;
             }
+        } else {
+            res |= SETTINGS_ERR_RW;
         }
     } else {
         res |= SETTINGS_ERR_RW;
@@ -65,7 +60,7 @@ err32 settings_save(settings_s *s)
 
     err32             res = 0;
     settings_header_s h   = {0};
-    h.version             = GAME_VERSION;
+    h.version             = VERSION;
     h.checksum            = crc16(s, sizeof(settings_s));
 
     if (!pltf_file_w_checked(f, &h, sizeof(settings_header_s)) ||

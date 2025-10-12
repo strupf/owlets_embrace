@@ -24,26 +24,29 @@ bool32 crab_may_slash(g_s *g, obj_s *o);
 
 void crab_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o = obj_create(g);
-    o->UUID  = mo->UUID;
-    o->ID    = OBJID_CRAB;
-    o->w     = 12;
-    o->h     = 24;
+    obj_s *o     = obj_create(g);
+    o->editorUID = mo->UID;
+    o->ID        = OBJID_CRAB;
+    o->w         = 12;
+    o->h         = 24;
     obj_place_to_map_obj(o, mo, 0, 1);
-    o->flags      = OBJ_FLAG_ACTOR | OBJ_FLAG_HURT_ON_TOUCH;
-    o->on_animate = crab_on_animate;
-    o->on_update  = crab_on_update;
-    o->facing     = map_obj_bool(mo, "face_left") ? -1 : +1;
-    o->n_sprites  = 1;
-    o->state      = CRAB_IDLE;
-    o->health_max = 3;
-    o->health     = o->health_max;
-    o->moverflags = OBJ_MOVER_TERRAIN_COLLISIONS |
+    o->flags              = OBJ_FLAG_ACTOR | OBJ_FLAG_HURT_ON_TOUCH;
+    o->on_animate         = crab_on_animate;
+    o->on_update          = crab_on_update;
+    o->on_hitbox          = crab_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY;
+    o->facing             = map_obj_bool(mo, "face_left") ? -1 : +1;
+    o->n_sprites          = 1;
+    o->state              = CRAB_IDLE;
+    o->health_max         = 3;
+    o->health             = o->health_max;
+    o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS |
                     OBJ_MOVER_ONE_WAY_PLAT;
 }
 
 void crab_on_update(g_s *g, obj_s *o)
 {
+    i32 bumpflags = o->bumpflags;
     if (o->bumpflags & OBJ_BUMP_X) {
     }
     if (o->bumpflags & OBJ_BUMP_Y) {
@@ -72,6 +75,7 @@ void crab_on_update(g_s *g, obj_s *o)
     switch (o->state) {
     case CRAB_IDLE: {
         o->timer++;
+        o->v_q12.x = 0;
         if (crab_may_slash(g, o)) {
         } else {
             if (50 <= o->timer) {
@@ -84,10 +88,15 @@ void crab_on_update(g_s *g, obj_s *o)
         break;
     }
     case CRAB_SHIELD: {
+        if (bumpflags & OBJ_BUMP_X) {
+            o->v_q12.x = 0;
+        }
         o->timer++;
+        obj_vx_q8_mul(o, 220);
         if (CRAB_TICKS_SHIELD <= o->timer) {
-            o->state = CRAB_IDLE;
-            o->timer = 0;
+            o->state   = CRAB_IDLE;
+            o->timer   = 0;
+            o->v_q12.x = 0;
         }
         break;
     }
@@ -96,6 +105,7 @@ void crab_on_update(g_s *g, obj_s *o)
         break;
     }
     case CRAB_WALK: {
+        o->v_q12.x = 0;
         if (crab_may_slash(g, o)) {
             break;
         }
@@ -121,13 +131,17 @@ void crab_on_update(g_s *g, obj_s *o)
             o->state = CRAB_IDLE;
             o->timer = 0;
         } else if (fc == 5 && ani_frame(ANIID_CRAB_ATTACK, o->timer - 1) == fc - 1) {
-            hitbox_s *hb = hitbox_new(g);
-            hb->rec_h    = 24;
-            hb->rec_w    = 48;
-            hb->pos_x    = o->pos.x + (o->w >> 1) - (o->facing < 0 ? hb->rec_w : 0);
-            hb->pos_y    = o->pos.y;
-            hb->ID       = HITBOXID_CRAB_SLASH;
-            hb->dx       = o->facing;
+#if 0
+            hitbox_s  hbb = hitbox_gen(g);
+            hitbox_s *hb  = &hbb;
+            i32       rw  = 48;
+            i32       rh  = 24;
+            hitbox_set_rec(hb, o->pos.x + (o->w >> 1) - (o->facing < 0 ? rw : 0),
+                           o->pos.y, rw, rh);
+            hb->ID                       = HITBOXID_CRAB_SLASH;
+            hb->dx                       = o->facing;
+            g->hitboxes[g->n_hitboxes++] = hbb;
+#endif
         }
 
         break;
@@ -156,7 +170,7 @@ void crab_on_animate(g_s *g, obj_s *o)
         break;
     }
     case CRAB_SHIELD: {
-        fx = 7;
+        fx = (o->timer < 4 ? 6 : 7);
         fy = 1;
         break;
     }
@@ -189,10 +203,9 @@ void crab_on_animate(g_s *g, obj_s *o)
     spr->trec = asset_texrec(TEXID_CRAB, fx * w, fy * h, w, h);
 }
 
-void crab_on_hurt(g_s *g, obj_s *o)
+void crab_do_hurt(g_s *g, obj_s *o, i32 dmg)
 {
-    if (o->state == CRAB_DIE) return;
-
+    o->health = max_i32(0, (i32)o->health - dmg);
     if (o->health) {
         o->state = CRAB_HURT;
     } else {
@@ -202,7 +215,49 @@ void crab_on_hurt(g_s *g, obj_s *o)
         g->enemies_killed++;
         g->enemy_killed[ENEMYID_CRAB]++;
     }
-    o->timer = 0;
+    o->v_q12.x = 0;
+    o->v_q12.y = 0;
+    o->timer   = 0;
+}
+
+void crab_do_shield(g_s *g, obj_s *o, i32 dx)
+{
+    o->state   = CRAB_SHIELD;
+    o->v_q12.x = Q_VOBJ(3.0) * dx;
+    o->timer   = 0;
+}
+
+void crab_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
+{
+}
+
+void crab_on_hitbox(g_s *g, obj_s *o, hitbox_s *hb)
+{
+#if 0
+    switch (o->state) {
+    case CRAB_DIE: break;
+    case CRAB_SHIELD: {
+        if (hb->dx == o->facing) {
+            crab_do_hurt(g, o, 1);
+        } else {
+            crab_do_shield(g, o, hb->dx);
+        }
+        break;
+    }
+    default: {
+        if (o->state == CRAB_ATTACK && 7 <= ani_frame(ANIID_CRAB_ATTACK, o->timer)) {
+            crab_do_shield(g, o, hb->dx);
+        } else {
+            crab_do_hurt(g, o, 1);
+        }
+
+        if (hb->dx) {
+            o->facing = -hb->dx;
+        }
+        break;
+    }
+    }
+#endif
 }
 
 bool32 crab_may_slash(g_s *g, obj_s *o)

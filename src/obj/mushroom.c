@@ -24,7 +24,7 @@ void mushroom_load(g_s *g, map_obj_s *mo)
 {
     obj_s      *o   = obj_create(g);
     mushroom_s *m   = (mushroom_s *)o->mem;
-    o->UUID         = mo->UUID;
+    o->editorUID    = mo->UID;
     o->ID           = OBJID_MUSHROOM;
     o->on_update    = mushroom_on_update;
     o->on_draw      = mushroom_on_draw;

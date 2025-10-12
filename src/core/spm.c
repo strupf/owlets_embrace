@@ -5,40 +5,43 @@
 #include "core/spm.h"
 #include "app.h"
 
+spm_s g_SPM;
+
 void spm_init(void *buf, usize bsize)
 {
-    marena_init(&APP.spm.m, buf, bsize);
+
+    marena_init(&g_SPM.m, buf, bsize);
     pltf_log("SPM init with: %u kb\n", (u32)bsize / 1024);
 #if PLTF_DEV_ENV
-    APP.spm.lowestleft = bsize;
+    g_SPM.lowestleft = bsize;
 #endif
 }
 
 void spm_push()
 {
-    APP.spm.stack[APP.spm.n_stack++] = marena_p(&APP.spm.m);
+    g_SPM.stack[g_SPM.n_stack++] = marena_p(&g_SPM.m);
 }
 
 void spm_pop()
 {
-    assert(0 < APP.spm.n_stack);
-    void *p = APP.spm.stack[--APP.spm.n_stack];
-    marena_reset(&APP.spm.m, p);
+    assert(0 < g_SPM.n_stack);
+    void *p = g_SPM.stack[--g_SPM.n_stack];
+    marena_reset(&g_SPM.m, p);
 }
 
 void spm_align(usize alignment)
 {
-    marena_align(&APP.spm.m, alignment);
+    marena_align(&g_SPM.m, alignment);
 }
 
 void *spm_alloc(usize s)
 {
-    void *mem = marena_alloc(&APP.spm.m, s);
+    void *mem = marena_alloc(&g_SPM.m, s);
 #if PLTF_DEV_ENV
-    usize rem = marena_rem(&APP.spm.m);
-    if (rem < APP.spm.lowestleft) {
+    usize rem = marena_rem(&g_SPM.m);
+    if (rem < g_SPM.lowestleft) {
         pltf_log("SPM: %u kb\n", (u32)rem / 1024);
-        APP.spm.lowestleft = rem;
+        g_SPM.lowestleft = rem;
     }
 #endif
     assert(mem);
@@ -56,12 +59,12 @@ void *spm_allocz(usize s)
 
 void *spm_alloc_aligned(usize s, usize alignment)
 {
-    void *mem = marena_alloc_aligned(&APP.spm.m, s, alignment);
+    void *mem = marena_alloc_aligned(&g_SPM.m, s, alignment);
 #if PLTF_DEV_ENV
-    usize rem = marena_rem(&APP.spm.m);
-    if (rem < APP.spm.lowestleft) {
+    usize rem = marena_rem(&g_SPM.m);
+    if (rem < g_SPM.lowestleft) {
         pltf_log("SPM: %u kb\n", (u32)rem / 1024);
-        APP.spm.lowestleft = rem;
+        g_SPM.lowestleft = rem;
     }
 #endif
     return mem;
@@ -78,14 +81,14 @@ void *spm_allocz_aligned(usize s, usize alignment)
 
 void *spm_alloc_rem(usize *s)
 {
-    return marena_alloc_rem(&APP.spm.m, s);
+    return marena_alloc_rem(&g_SPM.m, s);
 }
 
 void spm_reset(void *p)
 {
-    marena_reset(&APP.spm.m, p);
+    marena_reset(&g_SPM.m, p);
     if (!p) {
-        APP.spm.n_stack = 0;
+        g_SPM.n_stack = 0;
     }
 }
 

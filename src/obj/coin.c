@@ -129,7 +129,7 @@ void coin_try_collect(g_s *g, obj_s *o, v2_i32 heropos)
 {
     if (o->state == COIN_ST_HOMING && v2_i32_distancesq(heropos, obj_pos_center(o)) < POW2(50)) {
         coins_change(g, +1);
-        snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
+        sfx_cuef(SFXID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
         obj_delete(g, o);
     }
 }

@@ -102,19 +102,31 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
                                  !h->carry &&
                                  !h->knockback;
 
-#if !OWL_STOMP_ONLY_WITH_COMP_ON_B
+#if OWL_CONTROL_SWAP_A_DOWN
+        if (h->stance == OWL_STANCE_ATTACK && inps_btn_jp(inp, INP_B) && 0 < dp_y && can_start_stomp) {
+            do_x_movement = 0;
+            o->v_q12.x    = 0;
+            o->v_q12.y    = 0;
+            owl_cancel_air(g, o);
+            h->air_stomp = 1;
+        }
+#else
         if (inps_btn_jp(inp, INP_A) && 0 < dp_y && can_start_stomp) {
             do_x_movement = 0;
             o->v_q12.x    = 0;
             o->v_q12.y    = 0;
             owl_cancel_air(g, o);
             h->air_stomp = 1;
-#else
-        if (0) {
+        }
 #endif
-        } else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
+
+        else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
             do_x_movement = 0;
-        } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks) {
+        } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks
+#if OWL_CONTROL_SWAP_A_DOWN
+                   && !inps_btn(inp, INP_DD)
+#endif
+        ) {
             h->air_stomp       = 0;
             bool32 jump_ground = 0;
 
@@ -181,7 +193,7 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
                 }
 #endif
             } else { // cut jump short
-                snd_instance_stop_fade(h->jump_snd_iID, 200, 256);
+                // snd_instance_stop_fade(h->jump_snd_iID, 200, 256);
                 obj_vy_q8_mul(o, Q_8(0.5));
                 h->jump_ticks = 0;
                 // h->air_block_ticks >>= 1;
@@ -294,9 +306,9 @@ void owl_jump_air(g_s *g, obj_s *o)
         o->v_q12.y = -vy;
     }
 
-    snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
+    sfx_cuef(SFXID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
     v2_i32 prtp = obj_pos_bottom_center(o);
-    prtp.y -= 4;
-    particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
-    h->jump_snd_iID = snd_play(SNDID_WING, 1.4f, rngr_f32(0.9f, 1.1f));
+    prtp.y -= 0;
+    // particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
+    //  h->jump_snd_iID = snd_play(SFXID_WING, 1.4f, rngr_f32(0.9f, 1.1f));
 }

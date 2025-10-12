@@ -30,13 +30,13 @@ void vineblockade_load(g_s *g, map_obj_s *mo)
 {
     i32 s0 = map_obj_i32(mo, "only_if_saveID");
     i32 s1 = map_obj_i32(mo, "only_if_not_saveID");
-    if (s0 && !save_event_exists(g, s0)) return;
-    if (s1 && save_event_exists(g, s1)) return;
+    if (s0 && !saveID_has(g, s0)) return;
+    if (s1 && saveID_has(g, s1)) return;
 
     obj_s          *o = obj_create(g);
     vineblockade_s *v = (vineblockade_s *)o->mem;
 
-    o->UUID            = mo->UUID;
+    o->editorUID       = mo->UID;
     o->ID              = OBJID_VINEBLOCKADE;
     o->pos.x           = mo->x;
     o->pos.y           = mo->y;
@@ -50,8 +50,8 @@ void vineblockade_load(g_s *g, map_obj_s *mo)
         o->subID = VINEBLOCKADE_VER;
     }
 
-    v->trigger_to_delete = map_obj_i32(mo, "delete_on_trigger");
-    v->trigger_to_spawn  = map_obj_i32(mo, "spawn_on_trigger");
+    v->trigger_to_delete = map_obj_i32(mo, "del_on_trigger");
+    v->trigger_to_spawn  = map_obj_i32(mo, "add_on_trigger");
     o->on_trigger        = vineblockade_on_trigger;
     o->on_animate        = vineblockade_on_animate;
 
@@ -128,21 +128,28 @@ void vineblockade_on_trigger(g_s *g, obj_s *o, i32 trigger)
     vineblockade_s *v    = (vineblockade_s *)o->mem;
     bool32          poof = 0;
 
-    if (trigger == v->trigger_to_delete &&
-        (o->state == VINEBLOCKADE_ST_ACTIVE || o->state == VINEBLOCKADE_ST_APPEAR)) {
-        poof     = 1;
-        o->timer = 0;
-        o->state = VINEBLOCKADE_ST_DISAPPEAR;
-        o->flags &= ~(OBJ_FLAG_SOLID | OBJ_FLAG_HURT_ON_TOUCH);
+    switch (o->state) {
+    case VINEBLOCKADE_ST_ACTIVE:
+    case VINEBLOCKADE_ST_APPEAR: {
+        if (trigger == v->trigger_to_delete) {
+            poof     = 1;
+            o->timer = 0;
+            o->state = VINEBLOCKADE_ST_DISAPPEAR;
+            o->flags &= ~(OBJ_FLAG_SOLID | OBJ_FLAG_HURT_ON_TOUCH);
+        }
+        break;
     }
-
-    if (trigger == v->trigger_to_spawn &&
-        (o->state == VINEBLOCKADE_ST_INACTIVE || o->state == VINEBLOCKADE_ST_DISAPPEAR)) {
-        poof     = 1;
-        o->timer = 0;
-        o->state = VINEBLOCKADE_ST_APPEAR;
-        o->flags |= OBJ_FLAG_SOLID;
-        game_on_solid_appear(g);
+    case VINEBLOCKADE_ST_INACTIVE:
+    case VINEBLOCKADE_ST_DISAPPEAR: {
+        if (trigger == v->trigger_to_spawn) {
+            poof     = 1;
+            o->timer = 0;
+            o->state = VINEBLOCKADE_ST_APPEAR;
+            o->flags |= OBJ_FLAG_SOLID;
+            game_on_solid_appear(g);
+        }
+        break;
+    }
     }
 
     if (poof) {

@@ -5,7 +5,7 @@
 #ifndef BOSS_H
 #define BOSS_H
 
-#include "boss/boss_plant.h"
+#include "boss/boss_a.h"
 #include "gamedef.h"
 
 enum {
@@ -16,12 +16,15 @@ enum {
 typedef struct {
     i32 type;
     union {
-        boss_plant_s plant;
+        boss_a_s boss_a;
     };
+
+    void *heap;
 } boss_s;
 
-void boss_init(g_s *g, i32 type, map_obj_s *mo);
+void boss_init(g_s *g, i32 type);
 void boss_update(g_s *g);
+void boss_animate(g_s *g);
 void boss_draw(g_s *g, v2_i32 cam);
 void boss_draw_post(g_s *g, v2_i32 cam);
 

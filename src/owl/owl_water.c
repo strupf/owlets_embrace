@@ -140,5 +140,5 @@ void owl_jump_out_of_water(g_s *g, obj_s *o)
     owl_cancel_swim(g, o);
     owl_jump_ground(g, o);
     particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_WATER_SPLASH, owlc);
-    snd_play(SNDID_WATER_OUT_OF, 0.35f, 1.f);
+    sfx_cuef(SFXID_WATER_OUT_OF, 0.35f, 1.f);
 }

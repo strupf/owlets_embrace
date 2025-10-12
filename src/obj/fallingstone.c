@@ -13,7 +13,7 @@ void   fallingstone_burst(g_s *g, obj_s *o);
 void fallingstonespawn_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o          = obj_create(g);
-    o->UUID           = mo->UUID;
+    o->editorUID      = mo->UID;
     o->ID             = OBJID_FALLINGSTONE_SPAWN;
     o->pos.x          = mo->x;
     o->pos.y          = mo->y;
@@ -84,9 +84,8 @@ void fallingstone_on_update(g_s *g, obj_s *o)
     }
     case FALLINGSTONE_ST_FALLING: {
         if (o->bumpflags) {
-            f32 vol;
-            snd_cam_param(g, 0.25f, obj_pos_center(o), 300, &vol, 0);
-            snd_play(SNDID_EXPLO1, vol, rngr_f32(0.9f, 1.1f));
+            v2_i32 p = obj_pos_center(o);
+            sfx_cuef_pos(SFXID_EXPLO1, 1.0f, rngr_f32(0.9f, 1.1f), 0, p.x, p.y, 500);
             fallingstone_burst(g, o);
         } else {
             o->v_q12.y += Q_VOBJ(0.25);
@@ -120,6 +119,5 @@ void fallingstone_on_animate(g_s *g, obj_s *o)
 
 void fallingstone_burst(g_s *g, obj_s *o)
 {
-    objanim_create(g, obj_pos_center(o), OBJANIM_BOULDER_POOF);
     obj_delete(g, o);
 }

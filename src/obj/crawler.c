@@ -37,7 +37,7 @@ void crawler_load(g_s *g, map_obj_s *mo)
 {
     obj_s     *o = obj_create(g);
     crawler_s *c = (crawler_s *)o->mem;
-    o->UUID      = mo->UUID;
+    o->editorUID = mo->UID;
     o->ID        = OBJID_CRAWLER;
     o->flags     = OBJ_FLAG_KILL_OFFSCREEN |
                OBJ_FLAG_HURT_ON_TOUCH |

@@ -33,7 +33,7 @@ obj_s *obj_create(g_s *g)
 {
     obj_s *o = g->obj_head_free;
     if (!o) {
-        BAD_PATH
+        BAD_PATH();
         return 0;
     }
 
@@ -346,8 +346,8 @@ bool32 obj_would_fall_down_next(g_s *g, obj_s *o, i32 xdir)
 enemy_s enemy_default()
 {
     enemy_s e          = {0};
-    e.sndID_die        = SNDID_ENEMY_DIE;
-    e.sndID_hurt       = SNDID_ENEMY_HURT;
+    e.sndID_die        = SFXID_ENEMY_DIE;
+    e.sndID_hurt       = SFXID_ENEMY_HURT;
     e.hurt_tick_max    = 12;
     e.die_tick_max     = 5;
     e.coins_on_death   = 1;
@@ -415,7 +415,7 @@ v2_i32 obj_solid_align_pos_for_render(g_s *g, v2_i32 p)
 {
     v2_i32 r = p;
     // v2_i32 r = {(p.x) & ~1, p.y & ~1};
-    if (g->cam.cowl.can_align_x) {
+    if (g->cam.cowl.do_align_x) {
         //  r.x--;
     }
     r.x &= ~1;
@@ -472,4 +472,63 @@ void enemy_on_update_die(g_s *g, obj_s *o)
     if (4 <= o->timer) {
         obj_delete(g, o);
     }
+}
+
+obj_s *obj_find_ID_subID(g_s *g, i32 ID, i32 subID, obj_s *o_from)
+{
+    for (obj_s *o = o_from ? o_from->next : g->obj_head_busy; o; o = o->next) {
+        if (o->ID == ID && (!subID || subID == o->subID)) {
+            return o;
+        }
+    }
+    return 0;
+}
+
+void obj_list_init(obj_s **o_list_ptr)
+{
+    *o_list_ptr = 0;
+}
+
+void obj_list_add(obj_s **o_list_ptr, obj_s *o)
+{
+    o->next_tmp = *o_list_ptr;
+    *o_list_ptr = o;
+}
+
+bool32 obj_hit_by_cir(obj_s *o, i32 cx, i32 cy, i32 cr)
+{
+    return overlap_rec_cir(obj_aabb(o), cx, cy, cr);
+}
+
+bool32 obj_hit_by_rec(obj_s *o, i32 rx, i32 ry, i32 rw, i32 rh)
+{
+    rec_i32 r = {rx, ry, rw, rh};
+    return overlap_rec(obj_aabb(o), r);
+}
+
+// sample circles along ray and check if aabb overlaps any
+bool32 obj_hit_by_ray(obj_s *o, i32 p0x, i32 p0y, i32 p1x, i32 p1y, i32 cr)
+{
+    i32 l         = distance_appr_i32(p0x, p0y, p1x, p1y);
+    i32 n_samples = clamp_i32((l << 1) / cr, 2, 32);
+
+    i32 rx1_q2 = (o->pos.x) << 2;
+    i32 ry1_q2 = (o->pos.y) << 2;
+    i32 rx2_q2 = (o->pos.x + o->w) << 2;
+    i32 ry2_q2 = (o->pos.y + o->h) << 2;
+    i32 c0x_q2 = p0x << 2;
+    i32 c0y_q2 = p0y << 2;
+    i32 c1x_q2 = p1x << 2;
+    i32 c1y_q2 = p1y << 2;
+    i32 cr2_q2 = (cr * cr) << 2;
+
+    for (i32 n = 0; n < n_samples; n++) {
+        i32 cx_q2 = lerp_i32(c0x_q2, c1x_q2, n, n_samples - 1);
+        i32 cy_q2 = lerp_i32(c0y_q2, c1y_q2, n, n_samples - 1);
+
+        if (overlap_rec_cir_xyr2(rx1_q2, rx1_q2, rx1_q2, rx1_q2, cx_q2, cy_q2, cr2_q2)) {
+            return 1;
+        }
+    }
+    return 0;
 }

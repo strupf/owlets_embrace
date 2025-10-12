@@ -12,7 +12,7 @@ void cs_finding_hook_enter(g_s *g)
     cs_reset(g);
     cs->on_update = cs_finding_hook_update;
     g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
-    save_event_register(g, SAVE_EV_CS_HOOK_FOUND);
+    saveID_put(g, SAVEID_CS_HOOK_FOUND);
 }
 
 void cs_finding_hook_update(g_s *g, cs_s *cs, inp_s inp)

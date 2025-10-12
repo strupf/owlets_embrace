@@ -44,7 +44,7 @@ enum {
 
 typedef struct tile_s {
     ALIGNAS(4)
-    u16 ty;
+    u16 ty;    // set during autotiling
     u8  type;  // 6 bits for type
     u8  shape; // collision shape
 } tile_s;

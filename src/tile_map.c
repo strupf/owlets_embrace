@@ -340,6 +340,41 @@ void autotile_terrain_section(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy,
     }
 }
 
+void autotile_terrain_section_xy(tile_s *tiles, i32 w, i32 h, i32 tx1, i32 ty1, i32 tx2, i32 ty2, i32 offx, i32 offy)
+{
+    i32 x1 = max_i32(tx1 - 2, 0);
+    i32 y1 = max_i32(ty1 - 2, 0);
+    i32 x2 = min_i32(tx2 + 2, w - 1);
+    i32 y2 = min_i32(ty2 + 2, h - 1);
+
+    for (i32 y = y1; y <= y2; y++) {
+        for (i32 x = x1; x <= x2; x++) {
+            tile_s *t = &tiles[x + y * w];
+            if (autotile_is_inner_gradient(tiles, w, h, x, y)) {
+                t->type |= TILE_TYPE_FLAG_INNER_GRADIENT;
+            } else {
+                t->type &= ~TILE_TYPE_FLAG_INNER_GRADIENT;
+            }
+        }
+    }
+    for (i32 y = y1; y <= y2; y++) {
+        for (i32 x = x1; x <= x2; x++) {
+            u32 s = (u32)2903735 + (u32)((x + offx) ^ (y + offy)) * 1234807;
+            autotile_do_at(tiles, w, h, x, y, &s);
+        }
+    }
+}
+
+void autotile_terrain_section_game_xy(g_s *g, i32 tx1, i32 ty1, i32 tx2, i32 ty2)
+{
+    autotile_terrain_section_xy(g->tiles, g->tiles_x, g->tiles_y, tx1, ty1, tx2, ty2, 0, 0);
+}
+
+void autotile_terrain_section_game(g_s *g, i32 tx, i32 ty, i32 tw, i32 th)
+{
+    autotile_terrain_section_xy(g->tiles, g->tiles_x, g->tiles_y, tx, ty, tx + tw - 1, ty + th - 1, 0, 0);
+}
+
 void autotile_terrain(tile_s *tiles, i32 w, i32 h, i32 offx, i32 offy)
 {
     autotile_terrain_section(tiles, w, h, offx, offy, 0, 0, w, h);

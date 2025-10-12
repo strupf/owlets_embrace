@@ -32,24 +32,13 @@ typedef uint8x4_t  u8x4;
 #define i8x4_add     __sadd8
 #define i8x4_sub     __ssub8
 #define ssat         __ssat
-
-static inline u32 ror_u32(u32 x, i32 v)
-{
-    u32 r = 0;
-    __asm("ror %0, %1, %2" : "=r"(r) : "r"(x), "r"(v));
-    return r;
-}
+#define brev32       __rbit
+#define ror_u32      __ror
+#define smlawb       __smlawb
 
 static inline i32 i16_adds(i32 a, i32 b)
 {
     return (i16x2_adds(a, b) & 0xFFFF);
-}
-
-static inline u32 brev32(u32 v)
-{
-    u32 r = 0;
-    __asm("rbit %0, %1" : "=r"(r) : "r"(v));
-    return r;
 }
 
 static inline i32 smulwb(i32 a, i16x2 b)
@@ -60,14 +49,6 @@ static inline i32 smulwb(i32 a, i16x2 b)
 }
 
 #define smulwbs smulwb
-
-static inline i32 smlawb(i32 a, i16x2 b, i32 c)
-{
-    i32 r = 0;
-    __asm("smlawb %0, %1, %2, %3" : "=r"(r) : "r"(a), "r"(b), "r"(c));
-    return r;
-}
-
 #define smlawbs smlawb
 
 static inline i32 mul_q16(i32 a, i16 b)
@@ -76,6 +57,7 @@ static inline i32 mul_q16(i32 a, i16 b)
 }
 
 #else
+#include <intrin.h>
 typedef struct {
     ALIGNAS(4)
     i16 v[2];

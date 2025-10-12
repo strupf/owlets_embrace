@@ -120,8 +120,8 @@ void deco_verlet_animate_single(g_s *g, deco_verlet_s *d)
             i32 len = (i32)(sqrt_f32((f32)lensq) + .5f);
             i32 ll  = d->dist + ((len - d->dist) >> 1);
 
-            v2_i16 vdt = {divr_i32((dt.x * ll), len),
-                          divr_i32((dt.y * ll), len)};
+            v2_i16 vdt = {div_rounded_i32((dt.x * ll), len),
+                          div_rounded_i32((dt.y * ll), len)};
             v2_i16 p1  = pt1->p;
             v2_i16 p2  = pt2->p;
             pt1->p     = v2_i16_add(p2, vdt);

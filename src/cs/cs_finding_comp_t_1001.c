@@ -14,7 +14,7 @@ void cs_finding_comp_enter(g_s *g)
     cs->p_comp    = obj_find_ID(g, OBJID_PUPPET_COMPANION, 0);
     g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
     puppet_set_anim(cs->p_comp, PUPPET_COMPANION_ANIMID_FLY, -1);
-    save_event_register(g, SAVE_EV_COMPANION_FOUND);
+    saveID_put(g, SAVEID_COMPANION_FOUND);
 }
 
 void cs_finding_comp_update(g_s *g, cs_s *cs, inp_s inp)

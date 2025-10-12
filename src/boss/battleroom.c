@@ -13,13 +13,13 @@ i32 battleroom_try_spawn_enemies(g_s *g, battleroom_s *b, bool32 do_spawn);
 void battleroom_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID0 = map_obj_i32(mo, "saveID");
-    if (saveID0 && save_event_exists(g, saveID0))
+    if (saveID0 && saveID_has(g, saveID0))
         return;
     i32 saveID1 = map_obj_i32(mo, "only_if_not_saveID");
-    if (saveID1 && save_event_exists(g, saveID1))
+    if (saveID1 && saveID_has(g, saveID1))
         return;
     i32 saveID2 = map_obj_i32(mo, "only_if_saveID");
-    if (saveID2 && !save_event_exists(g, saveID2))
+    if (saveID2 && !saveID_has(g, saveID2))
         return;
 
     battleroom_s *br     = &g->battleroom;
@@ -70,7 +70,7 @@ void battleroom_on_update(g_s *g)
         }
 
         b->n_killed_prior = g->enemies_killed;
-        mus_play_extx("M_BOSS", 263271, 418236, 0, 100, 500, 256);
+        // mus_play_extx("M_BOSS", 263271, 418236, 0, 100, 500, 256);
         break;
     }
     case BATTLEROOM_STARTING: {
@@ -92,12 +92,13 @@ void battleroom_on_update(g_s *g)
             b->n_killed_prior = g->enemies_killed;
 
             while (1) {
+                b->phase++;
                 if (BATTLEROOM_MAX_WAVES <= b->phase) {
                     b->timer = 0;
                     b->state = BATTLEROOM_ENDING;
-                    mus_play_extv(0, 0, 0, 50, 0, 0);
-                    snd_play(SNDID_BOSSWIN, 1.f, 1.f);
-                    save_event_register(g, b->saveID);
+                    // mus_play_extv(0, 0, 0, 50, 0, 0);
+                    sfx_cuef(SFXID_BOSSWIN, 1.f, 1.f);
+                    saveID_put(g, b->saveID);
                     break;
                 }
                 if (battleroom_try_spawn_enemies(g, b, 0)) {
@@ -105,7 +106,6 @@ void battleroom_on_update(g_s *g)
                     b->timer = 0;
                     break;
                 }
-                b->phase++;
             }
         }
         break;
@@ -149,7 +149,7 @@ i32 battleroom_try_spawn_enemies(g_s *g, battleroom_s *b, bool32 do_spawn)
         i32 brID   = map_obj_i32(o, "battleroom");
         i32 brwave = map_obj_i32(o, "battleroom_wave");
 
-        if (brID == b->ID && brwave == b->phase) {
+        if (brID == b->ID && brwave == b->phase - 1) {
             n_enemies++;
 
             if (do_spawn) {

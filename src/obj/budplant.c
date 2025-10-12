@@ -37,7 +37,7 @@ void budplant_load(g_s *g, map_obj_s *mo)
 {
     obj_s      *o  = obj_create(g);
     budplant_s *bp = (budplant_s *)o->mem;
-    o->UUID        = mo->UUID;
+    o->editorUID   = mo->UID;
     o->ID          = OBJID_BUDPLANT;
     o->flags       = OBJ_FLAG_ACTOR |
                OBJ_FLAG_HURT_ON_TOUCH |
@@ -102,10 +102,8 @@ void budplant_on_update(g_s *g, obj_s *o)
             v2_i32 oanim = obj_pos_center(o);
             oanim.y -= 32;
 
-            f32 vol;
-            snd_cam_param(g, 1.f, oanim, 300, &vol, 0);
-            snd_play(SNDID_EXPLOPOOF, vol, rngr_f32(0.9f, 1.1f));
-            objanim_create(g, oanim, OBJANIMID_EXPLODE_GRENADE);
+            f32 vol = 0.f;
+            sfx_cuef(SFXID_EXPLOPOOF, vol, rngr_f32(0.9f, 1.1f));
         }
         if (BUDPLANT_TICKS_SHOOTING <= o->timer) {
             o->timer     = 0;

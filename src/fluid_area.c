@@ -29,7 +29,7 @@ fluid_area_s *fluid_area_create(g_s *g, rec_i32 r, i32 type, b32 surface)
 
     if (surface) {
         a->s.n   = r.w / (4 << (i32)(type == FLUID_AREA_LAVA)) + 3;
-        a->s.pts = game_per_room_alloctn(g, fluid_pt_s, a->s.n);
+        a->s.pts = game_alloc_roomtn(g, fluid_pt_s, a->s.n);
 
         switch (type) {
         case FLUID_AREA_WATER:

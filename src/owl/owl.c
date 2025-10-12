@@ -8,15 +8,16 @@
 
 obj_s *owl_create(g_s *g)
 {
-    obj_s *o      = obj_create(g);
-    owl_s *h      = (owl_s *)&g->owl;
-    o->ID         = OBJID_OWL;
-    o->heap       = h;
-    o->w          = OWL_W;
-    o->h          = OWL_H;
-    o->on_animate = owl_on_animate;
-    o->facing     = 1;
-    o->n_sprites  = 1;
+    obj_s *o              = obj_create(g);
+    owl_s *h              = (owl_s *)&g->owl;
+    o->ID                 = OBJID_OWL;
+    o->heap               = h;
+    o->w                  = OWL_W;
+    o->h                  = OWL_H;
+    o->on_animate         = owl_on_animate;
+    o->facing             = 1;
+    o->n_sprites          = 1;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_PLAYER;
     obj_tag(g, o, OBJ_TAG_OWL);
     o->render_priority = RENDER_PRIO_OWL;
     o->flags =
@@ -91,7 +92,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
     }
 
     if (st == OWL_ST_AIR) {
-        if (!o->health && dp_x && sgn_i32(o->v_q12.x) == dp_x && !o->wire && owl_climb_still_on_wall(g, o, dp_x, 0, 0)) {
+        if (o->health && dp_x && sgn_i32(o->v_q12.x) == dp_x && !o->wire && owl_climb_still_on_wall(g, o, dp_x, 0, 0)) {
             owl_set_to_climb(g, o);
             o->facing = dp_x;
             h->climb  = OWL_CLIMB_WALL;
@@ -108,20 +109,20 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             case OWL_ATTACK_SIDE: {
                 i32 f = ani_frame(ANIID_OWL_ATTACK, h->attack_tick);
                 if (f == 3 && ani_frame(ANIID_OWL_ATTACK, h->attack_tick - 1) == f - 1) {
-                    hitbox_s hb = {0};
-                    hb.UID      = hitbox_UID_gen(g);
-                    hb.ID       = HITBOXID_OWL_WING;
-                    hitbox_set_callback(&hb, owl_hitbox_cb, o);
-                    hb.rec_w    = 46;
-                    hb.rec_h    = 32;
-                    hb.pos_x    = o->pos.x + o->w / 2 - (o->facing < 0 ? hb.rec_w : 0);
-                    hb.pos_y    = o->pos.y - 6;
-                    hb.dx       = o->facing;
-                    b32 did_hit = hitbox_try_apply_to_enemies(g, &hb, 1);
-                    if (did_hit) {
-                        // g->freeze_tick = max_i32(2, g->freeze_tick);
-                        o->v_q12.x = -o->facing * Q_VOBJ(2.5);
-                    }
+                    rec_i32 aabb = obj_aabb(o);
+                    i32     whit = 40;
+                    i32     hhit = 20;
+                    i32     yhit = o->pos.y + o->h - hhit;
+                    i32     xhit = 0 < o->facing ? aabb.x + aabb.w : aabb.x - whit;
+
+                    u32 hitboxUID    = hitbox_UID_gen(g);
+                    h->hitboxUID     = hitboxUID; // remember this hitbox UID
+                    i32 flags_target = HITBOX_FLAG_GROUP_ENEMY |
+                                       HITBOX_FLAG_GROUP_ENVIRONMENT;
+                    hitbox_s *hb = hitbox_gen(g, h->hitboxUID, 0, owl_cb_hitbox, o);
+                    hitbox_set_flags_group(hb, flags_target);
+                    hitbox_set_user(hb, o);
+                    hitbox_type_rec(hb, xhit, yhit, whit, hhit);
                 }
                 if (f < 0) {
                     h->attack_tick       = 0;
@@ -132,20 +133,16 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             case OWL_ATTACK_UP: {
                 i32 f = ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick);
                 if (f == 4 && ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick - 1) == f - 1) {
-                    hitbox_s hb = {0};
-                    hb.UID      = hitbox_UID_gen(g);
-                    hb.ID       = HITBOXID_OWL_BEAK;
-                    hitbox_set_callback(&hb, owl_hitbox_cb, o);
-                    hb.rec_w    = 32;
-                    hb.rec_h    = 32;
-                    hb.pos_x    = o->pos.x + o->w / 2 - hb.rec_w / 2;
-                    hb.pos_y    = o->pos.y - 24;
-                    hb.dy       = -1;
-                    b32 did_hit = hitbox_try_apply_to_enemies(g, &hb, 1);
-                    if (did_hit) {
-                        // g->freeze_tick = max_i32(2, g->freeze_tick);
-                        // o->v_q12.x = -o->facing * Q_VOBJ(2.5);
-                    }
+                    rec_i32 aabb = obj_aabb(o);
+                    i32     whit = 40;
+                    i32     hhit = 20;
+                    i32     yhit = o->pos.y + o->h - hhit;
+                    i32     xhit = 0 < o->facing ? aabb.x + aabb.w : aabb.x - whit;
+
+                    hitbox_s *hb = hitbox_gen(g, h->hitboxUID, 0, owl_cb_hitbox, o);
+                    hitbox_set_flags_group(hb, HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_ENVIRONMENT);
+                    hitbox_set_user(hb, o);
+                    hitbox_type_rec(hb, xhit, yhit, whit, hhit);
                 }
                 if (f < 0) {
                     h->attack_tick       = 0;
@@ -206,17 +203,21 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             case OWL_ST_CLIMB: {
                 bool32 can_swap = h->climb != OWL_CLIMB_WALLJUMP &&
                                   owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
+#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
                 if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
                     h->stance_swap_tick = 1;
                     h->climb_anim       = 0;
                 }
+#endif
                 break;
             }
             case OWL_ST_WATER: {
                 bool32 can_swap = owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
+#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
                 if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
                     h->stance_swap_tick = 1;
                 }
+#endif
                 break;
             }
             default: {
@@ -233,7 +234,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                     if (0) {
 #endif
                     } else if (inps_btn_jp(inp, INP_B) && can_attack && owl_attack_cancellable(o)) {
-                        h->hitID           = game_owl_hitID_next(g);
+                        h->hitboxUID       = hitbox_UID_gen(g);
                         h->attack_tick     = 1;
                         h->attack_flipflop = 1 - h->attack_flipflop;
 
@@ -247,11 +248,13 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                         }
 
                         h->jump_ticks = 0;
-                        snd_play(SNDID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
+                        sfx_cuef(SFXID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
                     }
+#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
                     if (h->attack_tick == 8 && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
                         h->stance_swap_tick = 1;
                     }
+#endif
                     break;
                 }
                 case OWL_STANCE_GRAPPLE: {
@@ -273,7 +276,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                         }
 
                         v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(13.0));
-                        g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                        g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
                         v2_i32 center          = obj_pos_center(o);
 
                         if (0 < o->v_q12.y) {
@@ -283,7 +286,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                     } else if (inps_btn_jp(inp, INP_B) && h->aim_ticks) {
                         h->aim_ticks           = 0;
                         i32 ang                = inps_crank_q16(inp);
-                        g->ghook.throw_snd_iID = snd_play(SNDID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                        g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
                         v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(19.0));
                         v2_i32 center          = obj_pos_center(o);
 
@@ -291,9 +294,12 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                             o->v_q12.y >>= 1;
                         }
                         grapplinghook_create(g, &g->ghook, o, center, vlaunch);
-                    } else if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
+                    }
+#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
+                    else if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
                         h->stance_swap_tick = 1;
                     }
+#endif
                     break;
                 }
                 }
@@ -325,6 +331,12 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
         }
         }
     }
+#if OWL_CONTROL_SWAP_A_DOWN
+    if ((inps_btn(inp, INP_A) && inps_btn(inp, INP_DD)) &&
+        !(inps_btnp(inp, INP_A)) && !h->air_stomp) {
+        owl_set_stance(g, o, 1 - h->stance);
+    }
+#endif
 
     switch (st) {
     case OWL_ST_NULL: {
@@ -769,7 +781,7 @@ bool32 owl_jump_wall(g_s *g, obj_s *o, i32 dirx_jump)
     i32    sx_wall   = -sgn_i32(dirx_jump); // direction of the wall to jump off
     bool32 can_wallj = 0;
 
-    for (i32 x = 0; x < 8; x++) {
+    for (i32 x = 0; x < OWL_WALLJUMP_DIST_PX; x++) {
         i32 dx = sx_wall * x;
         if (owl_climb_still_on_wall(g, o, -dirx_jump, dx, 0)) {
             can_wallj = 1;
@@ -821,7 +833,7 @@ void owl_walljump_execute(g_s *g, obj_s *o)
     o->v_q12.x   = o->facing * OWL_WALLJUMP_VX;
     o->bumpflags = 0;
 
-    snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
+    sfx_cuef(SFXID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
     v2_i32 prtp = obj_pos_bottom_center(o);
     prtp.y -= 4;
     particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);
@@ -974,10 +986,6 @@ void owl_special_state_unset(obj_s *o)
     h->special_state = 0;
 }
 
-void owl_hitbox_cb(g_s *g, hitbox_s *hb, void *ctx)
-{
-}
-
 const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP] = {
     {Q_VOBJ(3.13), 30, Q_VOBJ(0.39), Q_VOBJ(0.12)}, // out of water
     {Q_VOBJ(4.45), 35, Q_VOBJ(0.25), Q_VOBJ(0.12)}, // ground
@@ -988,3 +996,8 @@ const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP] = {
     {Q_VOBJ(3.80), 30, Q_VOBJ(0.25), Q_VOBJ(0.05)}, // wall
     {Q_VOBJ(3.00), 20, Q_VOBJ(0.25), Q_VOBJ(0.05)}  // carry
 };
+
+void owl_cb_hitbox(g_s *g, hitbox_s *hb, void *arg)
+{
+    obj_s *o = (obj_s *)arg;
+}

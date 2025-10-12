@@ -19,7 +19,7 @@ void clockpulse_load(g_s *g, map_obj_s *mo)
 {
     obj_s        *o        = obj_create(g);
     clockpulse_s *cp       = (clockpulse_s *)o->mem;
-    o->UUID                = mo->UUID;
+    o->editorUID           = mo->UID;
     o->ID                  = OBJID_CLOCKPULSE;
     o->on_trigger          = clockpulse_on_trigger;
     o->subtimer            = map_obj_i32(mo, "period");

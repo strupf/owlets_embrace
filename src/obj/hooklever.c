@@ -46,7 +46,7 @@ void hooklever_pull(g_s *g, obj_s *o)
         if (hl->moved == hl->moved_max) {
             o->state = 1;
             game_on_trigger(g, hl->trigger);
-            save_event_register(g, hl->saveID);
+            saveID_put(g, hl->saveID);
         }
         break;
     }
@@ -127,7 +127,7 @@ void hooklever_load(g_s *g, map_obj_s *mo)
     hl->dir_x         = map_obj_i32(mo, "DX");
     hl->dir_y         = map_obj_i32(mo, "DY");
 
-    if (save_event_exists(g, hl->saveID)) { // saveid has
+    if (saveID_has(g, hl->saveID)) { // saveid has
         o->pos.x += hl->dir_x * hl->moved_max;
         o->pos.y += hl->dir_y * hl->moved_max;
         o->state = 1;

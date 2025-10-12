@@ -7,6 +7,8 @@
 
 #include "gamedef.h"
 
+// TODO
+
 typedef struct {
     i32 x;
 } credits_s;

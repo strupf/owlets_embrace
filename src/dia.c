@@ -38,7 +38,7 @@ void dia_load_from_wad(g_s *g, void *wadname)
     dia_s    *d      = &g->dia;
     void     *f      = wad_open_str(wadname, 0, &wad_el);
     if (!f) {
-        BAD_PATH;
+        BAD_PATH();
         return;
     }
 
@@ -183,7 +183,7 @@ void dia_update(g_s *g, inp_s inp)
 
         if (DIA_SPEAK_SND_N <= d->speak_counter) {
             d->speak_counter = 0;
-            // i32 sID          = SNDID_SPEAK1 + frame->speak_voice;
+            // i32 sID          = SFXID_SPEAK1 + frame->speak_voice;
             // snd_play(sID, 0.35f, rngr_f32(0.9f, 1.1f));
         }
         break;

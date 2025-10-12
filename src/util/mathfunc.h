@@ -179,6 +179,28 @@ static inline u32 min_u32(u32 a, u32 b)
     return (a < b ? a : b);
 }
 
+static inline void minmax_u32(u32 a, u32 b, u32 *out_min, u32 *out_max)
+{
+    if (a <= b) {
+        *out_min = a;
+        *out_max = b;
+    } else {
+        *out_min = b;
+        *out_max = a;
+    }
+}
+
+static inline void minmax_i32(i32 a, i32 b, i32 *out_min, i32 *out_max)
+{
+    if (a <= b) {
+        *out_min = a;
+        *out_max = b;
+    } else {
+        *out_min = b;
+        *out_max = a;
+    }
+}
+
 static inline i32 min3_i32(i32 a, i32 b, i32 c)
 {
     return min_i32(a, min_i32(b, c));
@@ -407,16 +429,25 @@ static inline bool32 is_pow2_u32(u32 v)
 // fast approximation of sqrt(x^2 + y^2)
 static i32 amax_bmin_i32(i32 x, i32 y)
 {
-    i32 xa = abs_i32(x);
-    i32 ya = abs_i32(y);
-    u32 lo = (u32)min_i32(xa, ya);
-    u32 hi = (u32)max_i32(xa, ya);
+    i32 lo, hi;
+    minmax_i32(abs_i32(x), abs_i32(y), &lo, &hi);
     // a0 = 1
     // b0 = 0
     // a1 = 29/32
     // b1 = 61/128
-    u32 z  = u32_add(u32_mul(hi, 29) >> 5, u32_mul(lo, 61) >> 7);
-    return (i32)max_u32(hi, z);
+    u32 z = u32_add(u32_mul((u32)hi, 29) >> 5, u32_mul((u32)lo, 61) >> 7);
+    assert(z <= I32_MAX);
+    return max_i32(hi, (i32)z);
+}
+
+static inline i32 len_appr_i32(i32 x, i32 y)
+{
+    return amax_bmin_i32(x, y);
+}
+
+static inline i32 distance_appr_i32(i32 ax, i32 ay, i32 bx, i32 by)
+{
+    return amax_bmin_i32(ax - bx, ay - by);
 }
 
 // https://en.wikipedia.org/wiki/Alpha_max_plus_beta_min_algorithm
@@ -440,10 +471,23 @@ static inline i32 q_convert_i32(i32 v, i32 qfrom, i32 qto)
 }
 
 // rounded division - stackoverflow.com/a/18067292
-static inline i32 divr_i32(i32 n, i32 d)
+static inline i32 div_rounded_i32(i32 n, i32 d)
 {
     i32 h = d / 2;
     return ((n ^ d) < 0 ? (n - h) / d : (n + h) / d);
+}
+
+static inline i32 div_away_from_zero_i32(i32 n, i32 d)
+{
+    i32 s   = sgn_i32(n) == sgn_i32(d) ? +1 : -1;
+    i32 num = abs_i32(n);
+    i32 den = abs_i32(d);
+    return (s * ((num + den - 1) / den));
+}
+
+static inline i32 div_towards_zero_i32(i32 n, i32 d)
+{
+    return (n / d);
 }
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
@@ -1130,32 +1174,21 @@ static bool32 intersect_rec(rec_i32 a, rec_i32 b, rec_i32 *r)
     return 1;
 }
 
-static bool32 overlap_rec_cir(rec_i32 rec, i32 cx, i32 cy, i32 cr)
+static bool32 overlap_rec_cir_xyr2(i32 rx1, i32 ry1, i32 rx2, i32 ry2, i32 cx, i32 cy, i32 cr2)
 {
-    i32 px  = cx;
-    i32 py  = cy;
-    i32 rx1 = rec.x;
-    i32 ry1 = rec.y;
-    i32 rx2 = rec.x + rec.w;
-    i32 ry2 = rec.y + rec.h;
+    i32 dx = cx - clamp_i32(cx, rx1, rx2);
+    i32 dy = cy - clamp_i32(cy, ry1, ry2);
+    return ((dx * dx + dy * dy) <= cr2);
+}
 
-    if (0) {
-    } else if (cx < rx1) {
-        px = rx1;
-    } else if (cx > rx2) {
-        px = rx2;
-    }
+static bool32 overlap_rec_cir_xy(i32 rx1, i32 ry1, i32 rx2, i32 ry2, i32 cx, i32 cy, i32 cr)
+{
+    return overlap_rec_cir_xyr2(rx1, ry1, rx2, ry2, cx, cy, cr * cr);
+}
 
-    if (0) {
-    } else if (cy < ry1) {
-        py = ry1;
-    } else if (cy > ry2) {
-        py = ry2;
-    }
-
-    i32 dx = cx - px;
-    i32 dy = cy - py;
-    return ((dx * dx + dy * dy) <= (cr * cr));
+static bool32 overlap_rec_cir(rec_i32 r, i32 cx, i32 cy, i32 cr)
+{
+    return overlap_rec_cir_xy(r.x, r.y, r.x + r.w, r.y + r.h, cx, cy, cr);
 }
 
 // checks if r_inside is completely inside r_outside
@@ -1255,6 +1288,23 @@ static void points_from_rec_i16(rec_i32 r, v2_i16 *pts)
     pts[2].y = r.y + r.h;
     pts[3].x = r.x;
     pts[3].y = r.y + r.h;
+}
+
+// ratio of the point x on the way from x1 to x2 so that:
+// X = X1 + [(X2 - X1) * num] / den
+static inline void ratio_along(i32 x1, i32 x2, i32 xs, i32 *num_out, i32 *den_out)
+{
+    assert(num_out && den_out);
+
+    *num_out = (xs - x1);
+    *den_out = (x2 - x1);
+}
+
+// returns interpolation data for the intersection of the line with y:
+// X = AX + [(BX - AX) * u] / den;
+static inline void intersect_line_y(v2_i32 a, v2_i32 b, i32 y_l, i32 *num_out, i32 *den_out)
+{
+    ratio_along(a.y, b.y, y_l, num_out, den_out);
 }
 
 static inline void intersect_line_uv_p(v2_i32 a, v2_i32 b, v2_i32 c, v2_i32 d,

@@ -8,6 +8,8 @@
 #include "pltf/pltf.h"
 #include "util/lzss.h"
 
+wad_s g_WAD;
+
 err32 wad_init_file(const void *filename)
 {
     if (!filename) return WAD_ERR_OPEN;
@@ -15,7 +17,7 @@ err32 wad_init_file(const void *filename)
     void *f = pltf_file_open_r((const char *)filename);
     if (!f) return WAD_ERR_OPEN;
 
-    wad_s       *w  = &APP.wad;
+    wad_s       *w  = &g_WAD;
     err32        r  = 0;
     wad_header_s wh = {0};
 
@@ -57,20 +59,28 @@ err32 wad_init_file(const void *filename)
     return r;
 }
 
-wad_el_s *wad_el_find(u32 h, wad_el_s *efrom)
+wad_el_s *wad_el_find_ext(u32 h, wad_el_s *efrom, wad_el_s *eto)
 {
     if (!h) return 0;
-    i32 n_beg = efrom ? (i32)(efrom - APP.wad.entries) : 0;
 
-    for (i32 n = n_beg; n < APP.wad.n_entries; n++) {
-        wad_el_s *e = &APP.wad.entries[n];
+    wad_s *w     = &g_WAD;
+    i32    n_beg = efrom ? (i32)(efrom - w->entries) : 0;
 
-        if (e->hash == h) {
-            // if passed efrom only return a result if found in the same file
-            return (!efrom || e->filename == efrom->filename ? e : 0);
-        }
+    for (i32 n = n_beg; n < w->n_entries; n++) {
+        wad_el_s *e = &w->entries[n];
+
+        if (e == eto) return 0;
+        if (e->hash != h) continue;
+
+        // if passed efrom only return a result if found in the same file
+        return (efrom && e->filename != efrom->filename ? 0 : e);
     }
     return 0;
+}
+
+wad_el_s *wad_el_find(u32 h, wad_el_s *efrom)
+{
+    return wad_el_find_ext(h, efrom, 0);
 }
 
 void *wad_open(u32 h, void **o_f, wad_el_s **o_e)

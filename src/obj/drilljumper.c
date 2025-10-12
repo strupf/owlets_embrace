@@ -11,7 +11,7 @@ void drilljumper_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 void drilljumper_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
-    o->UUID       = mo->UUID;
+    o->editorUID  = mo->UID;
     o->ID         = OBJID_DRILLJUMPER;
     o->w          = 16;
     o->h          = 16;

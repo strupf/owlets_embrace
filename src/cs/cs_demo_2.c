@@ -65,7 +65,7 @@ void cs_demo_2_cb_comp(g_s *g, obj_s *o, void *ctx)
         cs->tick = 0;
         dia_load_from_wad(g, "D_DEMO2_1");
         g->dia.script_input = 1;
-        snd_play(SNDID_STOMP_LAND, 0.5f, 1.f);
+        sfx_cuef(SFXID_STOMP_LAND, 0.5f, 1.f);
         puppet_set_anim(dm->puppet_comp, PUPPET_COMPANION_ANIMID_BUMP_ONCE, +1);
         puppet_move_ext(dm->puppet_comp, (v2_i32){-30, 0}, 40, 0, 1, cs_demo_2_cb_comp, cs);
         break;

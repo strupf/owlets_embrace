@@ -34,6 +34,7 @@ static i32 ease_in_out_sine(i32 a, i32 b, i32 num, i32 den)
     return a - (((ab * cos_q15(x)) >> 15) - ab) / 2;
 }
 
+// starts slow, gets faster
 static i32 ease_in_quad(i32 a, i32 b, i32 num, i32 den)
 {
     i64 i0 = (i64)num * num;
@@ -42,6 +43,7 @@ static i32 ease_in_quad(i32 a, i32 b, i32 num, i32 den)
     return a + (i32)((i0 * ab) / i1);
 }
 
+// starts fast, gets slower
 static i32 ease_out_quad(i32 a, i32 b, i32 num, i32 den)
 {
     i32 n  = den - num;

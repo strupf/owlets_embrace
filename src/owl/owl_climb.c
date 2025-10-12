@@ -146,8 +146,8 @@ bool32 owl_climb_still_on_wall(g_s *g, obj_s *o, i32 facing, i32 offx, i32 offy)
     rec_i32 r = {o->pos.x + offx, o->pos.y + offy, o->w, o->h};
     if (map_blocked(g, r)) return 0;
 
-    i32 y1 = o->pos.y + offy + 4;
-    i32 y2 = o->pos.y + offy + o->h - 4;
+    i32 y1 = o->pos.y + offy + 6;
+    i32 y2 = o->pos.y + offy + o->h - 6;
     i32 x  = o->pos.x + offx + (0 < facing ? o->w : -1);
 
     for (i32 y = y1; y <= y2; y++) {

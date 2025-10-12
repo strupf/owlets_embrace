@@ -43,6 +43,5 @@ void hookyeeter_on_unhook(g_s *g, obj_s *o)
 {
     o->state = HOOKYEETER_ST_IDLE;
     o->timer = 0;
-    HOOKYEETER_ST_IDLE;
     grapplinghook_destroy(g, &g->ghook);
 }

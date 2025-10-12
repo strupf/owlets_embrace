@@ -83,7 +83,7 @@ void windarea_load(g_s *g, map_obj_s *mo)
         w->pt_width  = o->h << 4;
     }
     w->particles_per_tick_q4 = w->pt_width >> 7;
-    w->pt                    = game_per_room_alloctn(g, windarea_pt_s, WINDAREA_NUM_PT);
+    w->pt                    = game_alloc_roomtn(g, windarea_pt_s, WINDAREA_NUM_PT);
 }
 
 void windarea_on_update(g_s *g, obj_s *o)

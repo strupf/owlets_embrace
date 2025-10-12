@@ -41,6 +41,7 @@ enum {
 typedef struct {
     ALIGNAS(32)
     u8  swap_a_b_buttons;
+    u8  stereo;
     u8  mode;
     u8  vol_mus;
     u8  vol_sfx;

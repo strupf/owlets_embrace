@@ -22,7 +22,7 @@ void upgradetree_load(g_s *g, map_obj_s *mo)
 {
     obj_s         *o = obj_create(g);
     upgradetree_s *p = (upgradetree_s *)o->mem;
-    o->UUID          = mo->UUID;
+    o->editorUID     = mo->UID;
     o->ID            = OBJID_UPGRADETREE;
     o->w             = mo->w;
     o->h             = mo->h;
@@ -33,7 +33,7 @@ void upgradetree_load(g_s *g, map_obj_s *mo)
     o->substate      = map_obj_i32(mo, "ID");
 
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (save_event_exists(g, saveID)) {
+    if (saveID_has(g, saveID)) {
         o->state = 1;
     } else {
         o->on_update   = upgradetree_on_update;
@@ -42,8 +42,8 @@ void upgradetree_load(g_s *g, map_obj_s *mo)
         p->orb.y       = porigin.y - 53;
     }
 
-    tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_per_room_allocator(g));
-    snd_from_wad_ID(SNDID_UPGRADE, "S_UPGRADE", game_per_room_allocator(g));
+    tex_from_wad_ID(TEXID_UPGRADE, "T_UPGRADE", game_allocator_room(g));
+    sfx_from_wad_ID(SFXID_UPGRADE, "S_UPGRADE", game_allocator_room(g));
     p->saveID = saveID;
 }
 
@@ -132,7 +132,7 @@ void upgradetree_collect(g_s *g, obj_s *o)
 
     upgradetree_s *p = (upgradetree_s *)o->mem;
     owl_upgrade_add(owl, (u32)1 << o->substate);
-    save_event_register(g, p->saveID);
+    saveID_put(g, p->saveID);
     game_update_savefile(g);
 }
 

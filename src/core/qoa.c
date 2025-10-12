@@ -9,6 +9,14 @@
 #include "pltf/pltf_intrin.h"
 #include "util/mathfunc.h"
 
+#define QOA_FUNC_STEREO 0
+#include "core/qoa_func.h"
+#undef QOA_FUNC_STEREO
+
+#define QOA_FUNC_STEREO 1
+#include "core/qoa_func.h"
+#undef QOA_FUNC_STEREO
+
 ALIGNAS(32)
 static const i16 qoa_deq[16][8] = {
     {1, -1, 3, -3, 5, -5, 7, -7},
@@ -29,12 +37,8 @@ static const i16 qoa_deq[16][8] = {
     {1536, -1536, 5120, -5120, 9216, -9216, 14336, -14336},
 };
 
-enum {
-    QOA_MUS_MODE_MO_ST,
-    QOA_MUS_MODE_ST_ST
-};
-
 typedef struct {
+    ALIGNAS(16)
     qoa_lms_s lms[2];
 } qoa_frameheader_s;
 
@@ -56,13 +60,12 @@ static inline i32 qoa_decode_sample(qoa_dec_s *d)
 {
     i32 dq = d->deqt[d->s >> 61];
     d->s <<= 3;
-    i32 pr = i16x2_dot(i16x2_ld(&d->lms.w[0]), i16x2_ld(&d->lms.h[0])) >> 13;
-#if 0 // needs clamp? -> see output of audio converter
-    i32 sp = ssat(pr + dq, 16);
-#else
-    i32 sp = pr + dq;
-#endif
     i32 dt = dq >> 4;
+    i32 pr = i16x2_dot(i16x2_ld(&d->lms.w[0]), i16x2_ld(&d->lms.h[0])) >> 13;
+    i32 sp = pr + dq;
+#if 0 // needs clamp? -> see output of audio converter if any source clips
+    sp = ssat(sp, 16);
+#endif
     d->lms.w[0] += d->lms.h[0] < 0 ? -dt : +dt;
     d->lms.w[1] += d->lms.h[1] < 0 ? -dt : +dt;
     d->lms.h[0] = d->lms.h[1];
@@ -70,301 +73,162 @@ static inline i32 qoa_decode_sample(qoa_dec_s *d)
     return sp;
 }
 
-void qoa_mus_next_slice(qoa_mus_s *q)
+// STREAM
+static void qoa_stream_next_slice(qoa_stream_s *q);
+static void qoa_stream_rewind(qoa_stream_s *q);
+
+static void qoa_stream_next_slice(qoa_stream_s *q)
 {
-    i32 stereo = q->seek >> 31;
-    for (i32 n = 0; n <= stereo; n++) {
-        i32 sl = ((q->cur_slice & QOA_FRAME_SLICES_MASK) << stereo) + n;
-        qoa_decode_init_slice(&q->ds[n], q->slices[sl]);
+    // initalize a new frame if needed
+    u8 cur_slice_in_frame = (u8)(q->pos / QOA_SLICE_LEN);
+    if (cur_slice_in_frame == 0) {
+        qoa_frameheader_s h = {0};
+        pltf_file_r(q->f, &h, sizeof(qoa_frameheader_s));
+        q->ds[0].lms = h.lms[0];
     }
+
+    // refill slice buffer from file if needed
+    u32 slice_index_in_buf = cur_slice_in_frame & QOA_FRAME_SLICES_BUF_MASK;
+    if (slice_index_in_buf == 0) {
+        pltf_file_r(q->f, q->slices, sizeof(u64) * QOA_STREAM_SLICES_BUFFERED);
+    }
+
+    // initialize new slice
+    u64 *p_slice = &q->slices[slice_index_in_buf];
+    qoa_decode_init_slice(&q->ds[0], *p_slice);
+    QOA_PREFETCH(p_slice + 1);
 }
 
-void qoa_mus_next_frame(qoa_mus_s *q)
+static void qoa_stream_rewind(qoa_stream_s *q)
 {
-    qoa_frameheader_s h = {0};
-    pltf_file_r(q->f, &h, sizeof(qoa_frameheader_s));
-    q->ds[0].lms = h.lms[0];
-    q->ds[1].lms = h.lms[1];
-    i32 n        = min_u32(qoa_num_slices(q->num_samples) - q->cur_slice, QOA_FRAME_SLICES);
-    i32 stereo   = q->seek >> 31;
-    pltf_file_r(q->f, q->slices, (sizeof(u64) * n) << stereo);
-}
-
-void qoa_mus_rewind(qoa_mus_s *q)
-{
-    i32 seek = q->seek & ~((u32)1 << 31);
-    pltf_file_seek_set(q->f, seek + sizeof(qoa_file_header_s));
-    q->cur_slice = 0;
-    q->pos       = 0;
-    q->spos      = 0;
+    pltf_file_seek_set(q->f, q->seek);
+    q->pos = 0;
     qoa_decode_init(&q->ds[0]);
-    qoa_decode_init(&q->ds[1]);
 }
 
-bool32 qoa_mus_start(qoa_mus_s *q, void *f)
+bool32 qoa_stream_start(qoa_stream_s *q, void *f, i32 pos_beg, i32 loop_pos_beg, i32 loop_pos_end, b32 repeat)
 {
-    if (!f) return 0;
+    if (!f || !q) return 0;
 
-    mclr(q, sizeof(qoa_mus_s));
+    mclr(q, sizeof(qoa_stream_s));
 
-    qoa_file_header_s h    = {0};
-    i32               seek = pltf_file_tell(f);
-    pltf_file_seek_set(f, seek);
+    qoa_file_header_s h = {0};
     pltf_file_r(f, &h, sizeof(qoa_file_header_s));
+    q->seek        = (u32)pltf_file_tell(f);
+    q->repeat      = repeat;
     q->f           = f;
-    q->seek        = seek | (h.num_channels == 2 ? (u32)1 << 31 : 0);
     q->num_samples = h.num_samples;
-    q->loop_s1     = 0;
-    q->loop_s2     = h.num_samples;
-    qoa_mus_rewind(q);
-    qoa_mus_next_frame(q);
-    qoa_mus_next_slice(q);
+    assert(h.num_channels == 1);
+    qoa_stream_set_loop(q, loop_pos_beg, loop_pos_end);
+    qoa_stream_seek(q, pos_beg);
     return 1;
 }
 
-void qoa_mus_set_loop(qoa_mus_s *q, u32 s1, u32 s2)
+void qoa_stream_set_loop(qoa_stream_s *q, i32 loop_pos_beg, i32 loop_pos_end)
 {
-    q->loop_s1 = s1;
-    q->loop_s2 = s2 ? min_u32(s2, q->num_samples) : q->num_samples;
+    q->loop_pos_beg = loop_pos_beg;
+    q->loop_pos_end = loop_pos_end ? loop_pos_end : q->num_samples;
 }
 
-void qoa_mus_end(qoa_mus_s *q)
+void qoa_stream_end(qoa_stream_s *q)
 {
     if (q->f) {
         pltf_file_close(q->f);
-    }
-    mclr(q, sizeof(qoa_mus_s));
-}
-
-void qoa_mus(qoa_mus_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q16)
-{
-    if (!q->f) return;
-
-    i16 *br   = rbuf;
-    i16 *bl   = lbuf;
-    i32  mode = q->seek >> 31; // stereo (1) or mono (0) file
-    u32  l    = (u32)len;
-
-    while (l) {
-        u32 n = min3_u32(QOA_SLICE_LEN - q->spos, q->loop_s2 - q->pos, l);
-        l -= n;
-        q->pos += n;
-        q->spos += n;
-
-        switch (mode) {
-        case QOA_MUS_MODE_MO_ST:
-            // decode mono music into stereo output
-            for (u32 k = 0; k < n; k++, bl++, br++) {
-                q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
-                *bl         = i16_adds((i32)*bl, q->sample_l);
-                *br         = i16_adds((i32)*br, q->sample_l);
-            }
-            break;
-        case QOA_MUS_MODE_ST_ST:
-            // decode stereo music into stereo output
-            for (u32 k = 0; k < n; k++, bl++, br++) {
-                q->sample_l = mul_q16(v_q16, qoa_decode_sample(&q->ds[0]));
-                q->sample_r = mul_q16(v_q16, qoa_decode_sample(&q->ds[1]));
-                *br         = i16_adds((i32)*br, q->sample_r);
-                *bl         = i16_adds((i32)*bl, q->sample_l);
-            }
-            break;
-        }
-
-        if (q->pos == q->loop_s2) { // loop back
-            qoa_mus_seek(q, q->loop_s1);
-        } else if (q->spos == QOA_SLICE_LEN) { // decode a new slice
-            q->cur_slice++;
-            q->spos = 0;
-
-            if ((q->cur_slice & QOA_FRAME_SLICES_MASK) == 0) {
-                qoa_mus_next_frame(q);
-            }
-            qoa_mus_next_slice(q);
-        }
+        q->f = 0;
     }
 }
 
-void qoa_mus_seek_ms(qoa_mus_s *q, u32 ms)
+void qoa_stream_seek(qoa_stream_s *q, i32 sample_pos)
 {
-    qoa_mus_seek(q, (ms * 44100) / 1000);
-}
+    qoa_stream_rewind(q);
 
-void qoa_mus_seek(qoa_mus_s *q, u32 pos)
-{
-    i32 pfr    = pos / QOA_FRAME_SAMPLES;
-    i32 stereo = q->seek >> 31;
-
-    qoa_mus_rewind(q);
-    q->cur_slice = pfr * QOA_FRAME_SLICES;
+    i32 pfr = max_i32(0, sample_pos) / QOA_FRAME_SAMPLES;
 
     // seek to frame header
-    pltf_file_seek_cur(q->f, (((sizeof(u64) * QOA_FRAME_SLICES) << stereo) + sizeof(qoa_frameheader_s)) * pfr);
-    qoa_mus_next_frame(q);
-    qoa_mus_next_slice(q);
+    pltf_file_seek_cur(q->f, (((sizeof(u64) * QOA_FRAME_SLICES)) + sizeof(qoa_frameheader_s)) * pfr);
+    qoa_stream_next_slice(q);
 
-    q->pos = pos;
-    u32 l  = pos - pfr * QOA_FRAME_SAMPLES;
+    if (0 < sample_pos) {
+        q->pos = pfr * QOA_FRAME_SAMPLES;
+        u32 l  = sample_pos - pfr * QOA_FRAME_SAMPLES;
 
-    while (QOA_SLICE_LEN <= l) {
-        l -= QOA_SLICE_LEN;
+        while (QOA_SLICE_LEN <= l) {
+            q->pos += QOA_SLICE_LEN;
+            l -= QOA_SLICE_LEN;
 
-        for (i32 c = 0; c <= stereo; c++) {
             for (i32 i = 0; i < QOA_SLICE_LEN; i++) {
-                qoa_decode_sample(&q->ds[c]);
+                qoa_decode_sample(&q->ds[0]);
             }
+            qoa_stream_next_slice(q);
         }
 
-        q->cur_slice++;
-        qoa_mus_next_slice(q);
-    }
-
-    q->spos = l;
-    for (i32 c = 0; c <= stereo; c++) {
+        q->pos += l;
         for (u32 i = 0; i < l; i++) {
-            qoa_decode_sample(&q->ds[c]);
+            qoa_decode_sample(&q->ds[0]);
         }
+    } else {
+        // delayed playback, but still have to initialize first slice
+        q->pos = sample_pos;
     }
 }
 
-bool32 qoa_mus_active(qoa_mus_s *q)
+bool32 qoa_stream_active(qoa_stream_s *q)
 {
     return (q->f != 0);
 }
 
-void qoa_sfx_rewind(qoa_sfx_s *q)
+void qoa_data_rewind(qoa_data_s *q)
 {
-    q->cur_slice   = 0;
-    q->spos        = 0;
     q->pos_pitched = 0;
     q->pos         = 0;
     qoa_decode_init(&q->ds);
     qoa_decode_init_slice(&q->ds, q->slices[0]);
 }
 
-bool32 qoa_sfx_start(qoa_sfx_s *q, u32 n_samples, void *dat, i32 p_q8, i32 v_q8, b32 repeat)
+bool32 qoa_data_start(qoa_data_s *q, void *data, i32 pitch_q8, i32 pan_q8, b32 repeat)
 {
-    if (!q || !n_samples || !dat || p_q8 <= 0) return 0;
-    assert(((uptr)dat & 7) == 0); // 8 byte alignment
-    q->slices      = (u64 *)dat;
-    q->num_slices  = qoa_num_slices(n_samples);
-    q->len         = n_samples;
-    q->len_pitched = (n_samples * p_q8) >> 8;
-    q->ipitch_q8   = 65536 / p_q8;
-    q->v_q8        = v_q8;
+    if (!q || !data || pitch_q8 <= 1) return 0;
+    assert(((uptr)data & 7) == 0); // 8 byte alignment
+
+    qoa_file_header_s *h = (qoa_file_header_s *)data;
+    q->slices            = (u64 *)((byte *)data + sizeof(qoa_file_header_s));
+    QOA_PREFETCH(q->slices);
+    q->pitch_q8    = pitch_q8;
+    q->len_pitched = (i32)(((u32)h->num_samples << 8) / (u32)pitch_q8);
     q->repeat      = repeat;
-    qoa_sfx_rewind(q);
-    assert((((q->len_pitched - 1) * q->ipitch_q8) >> 8) < n_samples);
+    qoa_data_rewind(q);
+    assert((((q->len_pitched - 1) * (i32)q->pitch_q8) >> 8) < (i32)h->num_samples);
     return 1;
 }
 
-void qoa_sfx_end(qoa_sfx_s *q)
+void qoa_data_end(qoa_data_s *q)
 {
     q->slices = 0;
 }
 
-b32 qoa_sfx_play(qoa_sfx_s *q, i16 *lbuf, i16 *rbuf, i32 len, i32 v_q8)
-{
-    i32 n_channels = 1 + (rbuf != 0);
-    i32 pan_q8_l   = (0 < q->pan_q8 ? 256 - q->pan_q8 : 256);
-    i32 pan_q8_r   = (0 > q->pan_q8 ? 256 + q->pan_q8 : 256);
-
-    if (n_channels == 1) {
-        // average the volume of l/r for mono
-        pan_q8_l = (pan_q8_l + pan_q8_r) >> 1;
-    }
-
-    i32  v_q16[2] = {((i32)q->v_q8 * pan_q8_l * v_q8) >> 8,
-                     ((i32)q->v_q8 * pan_q8_r * v_q8) >> 8};
-    i16 *b[2]     = {lbuf, rbuf};
-
 #if 0
-    i32             len_decoded = len;
-    bool32          sfx_ended   = 0;
-    ALIGNAS(32) i16 samples[512];
+void qoa_dat_seek(qoa_dat_s *q, i32 pos)
+{
+    qoa_dat_rewind(q);
 
-    // decode into temporary buffer first, then write into audio buffer
-    for (i32 n = 0; n < len; n++) {
-        u32 p = (q->pos_pitched++ * q->ipitch_q8) >> 8;
-        assert(p <= q->len);
+    while (q->pos < pos) {                      // seek and decode forward
+        i32 spos      = q->pos % QOA_SLICE_LEN; // position in slice
+        u32 n_samples = min_u32(QOA_SLICE_LEN - spos, pos - q->pos);
+        q->pos += n_samples;
 
-        while (q->pos < p) { // seek and decode forward
-            u32 n_samples = min_u32(QOA_SLICE_LEN - q->spos, p - q->pos);
-            q->pos += n_samples;
-            q->spos += n_samples;
-
-            for (u32 i = 0; i < n_samples; i++) {
-                q->sample = qoa_decode_sample(&q->ds);
-            }
-
-            if (q->spos == QOA_SLICE_LEN) { // decode a new slice
-                q->spos = 0;
-                q->cur_slice++;
-                qoa_decode_init_slice(&q->ds, q->slices[q->cur_slice]);
-            }
+        for (u32 i = 0; i < n_samples; i++) {
+            q->sample = qoa_decode_sample(&q->ds);
         }
 
-        samples[n] = q->sample;
-        if (q->pos_pitched == q->len_pitched) {
-            if (q->repeat) {
-                qoa_sfx_rewind(q);
-            } else {
-                qoa_sfx_end(q);
-                sfx_ended   = 1;
-                len_decoded = n + 1;
-                break;
-            }
+        if (spos + n_samples == QOA_SLICE_LEN) { // decode a new slice
+            qoa_decode_init_slice(&q->ds, q->slices[q->pos / QOA_SLICE_LEN]);
         }
     }
-
-    for (i32 n = 0; n < len_decoded; n++) {
-        for (i32 c = 0; c < n_channels; c++) {
-            *b[c] = i16_adds((i32)*b[c], mul_q16(v_q16[c], samples[n]));
-            (b[c])++;
-        }
-    }
-
-    return (sfx_ended ? 0 : 1);
-#else
-    for (i32 n = 0; n < len; n++) {
-        u32 p = (q->pos_pitched++ * q->ipitch_q8) >> 8;
-        assert(p <= q->len);
-
-        while (q->pos < p) { // seek and decode forward
-            u32 n_samples = min_u32(QOA_SLICE_LEN - q->spos, p - q->pos);
-            q->pos += n_samples;
-            q->spos += n_samples;
-
-            for (u32 i = 0; i < n_samples; i++) {
-                q->sample = qoa_decode_sample(&q->ds);
-            }
-
-            if (q->spos == QOA_SLICE_LEN) { // decode a new slice
-                q->spos = 0;
-                q->cur_slice++;
-                qoa_decode_init_slice(&q->ds, q->slices[q->cur_slice]);
-            }
-        }
-
-        for (i32 c = 0; c < n_channels; c++) {
-            *b[c] = i16_adds((i32)*b[c], mul_q16(v_q16[c], q->sample));
-            (b[c])++;
-        }
-
-        if (q->pos_pitched == q->len_pitched) {
-            if (q->repeat) {
-                qoa_sfx_rewind(q);
-            } else {
-                qoa_sfx_end(q);
-                return 0;
-            }
-        }
-    }
-    return 1;
-#endif
+    q->pos_pitched = min_i32((q->pos << 8) / q->pitch_q8, q->len_pitched - 1);
 }
+#endif
 
-bool32 qoa_sfx_active(qoa_sfx_s *q)
+bool32 qoa_data_active(qoa_data_s *q)
 {
     return (q->slices != 0);
 }

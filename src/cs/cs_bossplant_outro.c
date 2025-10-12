@@ -2,6 +2,7 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#if 0
 #include "game.h"
 
 typedef struct {
@@ -47,7 +48,7 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp)
     case 0: {
         // if (!cs_wait_and_pause_for_hero_idle(g)) break;
 
-        mus_play_extv(0, 0, 0, 1000, 0, 0);
+        // mus_play_extv(0, 0, 0, 1000, 0, 0);
         cs->phase++;
         cs->tick = 0;
 
@@ -95,7 +96,6 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp)
             cs->tick = 0;
             g->flags &= ~GAME_FLAG_BLOCK_UPDATE;
             g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
-            boss_plant_barrier_poof(g);
             dm->bp->draw_vines = 0;
         }
         break;
@@ -107,8 +107,7 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp)
             obj_s *owl      = obj_get_owl(g);
             dm->puppet_hero = puppet_owl_put(g, owl);
             puppet_set_anim(dm->puppet_hero, PUPPET_OWL_ANIMID_IDLE, 0);
-            game_darken_bg(g, -8);
-            mus_play_ext(0, "M_SHOWCASE", 0, 0, 0, 2000, 256);
+            // mus_play_ext(0, "M_SHOWCASE", 0, 0, 0, 2000, 256);
         }
         break;
     }
@@ -179,7 +178,7 @@ void cs_bossplant_outro_draw(g_s *g, cs_s *cs, v2_i32 cam)
 {
     cs_bossplant_outro_s *dm     = (cs_bossplant_outro_s *)cs->mem;
     gfx_ctx_s             ctx    = gfx_ctx_display();
-    texrec_s              treye  = asset_texrec(TEXID_BOSSPLANT, 8 * 64, 3 * 64, 64, 64);
+    texrec_s              treye  = asset_texrec(0, 8 * 64, 3 * 64, 64, 64);
     v2_i32                poseye = v2_i32_add(dm->bp->eye_teared, cam);
     poseye.x -= 32;
     poseye.y -= 32;
@@ -262,3 +261,4 @@ void cs_bossplant_outro_cb_comp(g_s *g, obj_s *o, void *ctx)
     default: break;
     }
 }
+#endif

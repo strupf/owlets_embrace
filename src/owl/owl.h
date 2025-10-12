@@ -11,10 +11,16 @@
 #include "obj.h"
 #include "wire.h"
 
-#define OWL_USE_ALT_AIR_JUMPS          0
-#define OWL_ONEWAY_PLAT_DOWN_JUST_DOWN 1 // 1: drop through platforms by simply pressing down, else down + A
-#define OWL_STOMP_ONLY_WITH_COMP_ON_B  0
+#if 1
+#define OWL_CONTROL_SWAP_B_HOLD_NEUTRAL 1
+#elif 1
+#define OWL_CONTROL_SWAP_A_DOWN 1
+#endif
 
+#define OWL_USE_ALT_AIR_JUMPS           0
+#define OWL_ONEWAY_PLAT_DOWN_JUST_DOWN  1 // 1: drop through platforms by simply pressing down, else down + A
+#define OWL_STOMP_ONLY_WITH_COMP_ON_B   0
+//
 #define OWL_W                           14
 #define OWL_H                           26
 #define OWL_H_CROUCH                    16
@@ -40,7 +46,8 @@
 #define OWL_JUMP_EDGE_TICKS             16
 #define OWL_INTERACTABLE_DST            48
 #define OWL_WALLJUMP_TICKS_BLOCK        20 // ticks to block player from moving right back to the wall
-#define OWL_WALLJUMP_INIT_TICKS         2
+#define OWL_WALLJUMP_INIT_TICKS         4
+#define OWL_WALLJUMP_DIST_PX            12
 #define OWL_WALLJUMP_VX                 Q_VOBJ(3.5)
 #define OWL_PUSH_TICKS_MIN              12
 #define OWL_HURT_TICKS                  50
@@ -202,9 +209,9 @@ typedef struct owl_s {
     i8                ground_push_tick; // [-96, +96], tick for pushing left (-) or right (+)
     u8                ground_push_pull; // OWL_GROUND_PUSH_NONE, OWL_GROUND_PUSH,  OWL_GROUND_PULL
     u8                ground;
-    u8                ground_skid_ticks;   // ticks cancel sprinting
-    u8                ground_impact_ticks; // ticks just landed
-    u8                ground_sprint_doubletap_ticks;
+    u8                ground_skid_ticks;             // ticks cancel sprinting
+    u8                ground_impact_ticks;           // ticks just landed
+    i8                ground_sprint_doubletap_ticks; // signed for direction of double tap
     u8                ground_stomp_landing_ticks;
     u8                ground_crouch_standup_ticks;
     b8                ground_crouch_crawl;   // crawling (facing locked)
@@ -212,6 +219,8 @@ typedef struct owl_s {
     i8                ground_pull_wire;      // sign
     i8                ground_pull_wire_prev; // sign
     //
+    u32               attackUID;
+    u32               hitboxUID;
     u8                attack_tick;
     u8                attack_type;
     u8                attack_flipflop;
@@ -310,5 +319,6 @@ void   owl_set_stance(g_s *g, obj_s *o, i32 stance);
 void   owl_special_state(g_s *g, obj_s *o, i32 special_state);
 void   owl_special_state_unset(obj_s *o);
 void   owl_stomp_land(g_s *g, obj_s *o);
-void   owl_hitbox_cb(g_s *g, hitbox_s *hb, void *ctx);
+void   owl_cb_hitbox(g_s *g, hitbox_s *hb, void *arg);
+
 #endif

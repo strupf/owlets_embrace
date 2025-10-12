@@ -31,7 +31,7 @@ void waterleaf_load(g_s *g, map_obj_s *mo)
 {
     obj_s       *o = obj_create(g);
     waterleaf_s *w = (waterleaf_s *)o->mem;
-    o->UUID        = mo->UUID;
+    o->editorUID   = mo->UID;
     o->ID          = OBJID_WATERLEAF;
     o->flags       = OBJ_FLAG_PLATFORM;
     o->moverflags  = OBJ_MOVER_TERRAIN_COLLISIONS;

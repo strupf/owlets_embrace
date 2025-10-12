@@ -101,9 +101,9 @@ void bomb_on_draw(g_s *g, obj_s *o, v2_i32 cam)
     }
 
     if (o->state == BOMB_ST_CARRIED) {
-        if (g->cam.cowl.can_align_x)
+        if (g->cam.cowl.do_align_x)
             p.x &= ~1;
-        if (g->cam.cowl.can_align_y) {
+        if (g->cam.cowl.do_align_y) {
             p.y &= ~1;
         }
     }

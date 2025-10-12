@@ -22,11 +22,11 @@ void camattractor_on_trigger(g_s *g, obj_s *o, i32 trigger);
 void camattractor_load(g_s *g, map_obj_s *mo)
 {
     i32 i = map_obj_i32(mo, "only_if_not_saveID");
-    if (i && save_event_exists(g, i)) return;
+    if (i && saveID_has(g, i)) return;
 
     obj_s          *o = obj_create(g);
     camattractor_s *c = (camattractor_s *)o->mem;
-    o->UUID           = mo->UUID;
+    o->editorUID      = mo->UID;
     o->ID             = OBJID_CAMATTRACTOR;
     o->pos.x          = mo->x + (mo->w >> 1);
     o->pos.y          = mo->y + (mo->h >> 1);

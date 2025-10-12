@@ -2,7 +2,15 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "save.h"
 #include "game.h"
+
+typedef struct {
+    ALIGNAS(8)
+    u32 version;
+    u16 checksum;
+    u8  unused[2];
+} save_header_s;
 
 err32 savefile_read_data(save_header_s h, void *f, void *buf, usize s);
 
@@ -15,9 +23,9 @@ void savefile_new(savefile_s *s, u8 *heroname)
 static inline const char *savefile_name(i32 slot)
 {
     switch (slot) {
-    case 0: return "save_0.bin";
-    case 1: return "save_1.bin";
-    case 2: return "save_2.bin";
+    case 0: return "oe_save0.sav";
+    case 1: return "oe_save1.sav";
+    case 2: return "oe_save2.sav";
     }
     return 0;
 }
@@ -38,7 +46,7 @@ err32 savefile_w(i32 slot, savefile_s *s)
 
     err32         res = 0;
     save_header_s h   = {0};
-    h.version         = GAME_VERSION;
+    h.version         = VERSION;
     h.checksum        = crc16(s, sizeof(savefile_s));
 
     if (!pltf_file_w_checked(f, &h, sizeof(save_header_s)) ||
@@ -60,7 +68,7 @@ err32 savefile_r(i32 slot, savefile_s *s)
     err32         res = 0;
     save_header_s h   = {0};
     if (pltf_file_r_checked(f, &h, sizeof(save_header_s))) {
-        game_version_s v = game_version_decode(h.version);
+        version_s v = version_decode(h.version);
 #if 1
         res |= savefile_read_data(h, f, s, sizeof(savefile_s));
 #else
@@ -96,27 +104,29 @@ err32 savefile_read_data(save_header_s h, void *f, void *buf, usize s)
     return 0;
 }
 
-void savefile_save_event_register(savefile_s *s, i32 ID)
+void savefile_saveID_put(savefile_s *s, i32 ID)
 {
-    if (0 < ID && ID < NUM_SAVE_EV) {
+    if (0 < ID && ID < NUM_SAVEIDS) {
         s->save[ID >> 5] |= (u32)1 << (ID & 31);
     }
 }
 
-b32 save_event_register(g_s *g, i32 ID)
+void saveID_put(g_s *g, i32 ID)
 {
-    if (0 < ID && ID < NUM_SAVE_EV && !save_event_exists(g, ID)) {
-        g->save_events[ID >> 5] |= (u32)1 << (ID & 31);
-        pltf_log("saveID %i\n", ID);
-        return 1;
+    if (0 < ID && ID < NUM_SAVEIDS) {
+        g->saveIDs[ID >> 5] |= (u32)1 << (ID & 31);
+        pltf_log("saveID put: %i\n", ID);
+    } else {
+        pltf_log("saveID put: %i not in valid range!\n", ID);
     }
-    return 0;
 }
 
-b32 save_event_exists(g_s *g, i32 ID)
+b32 saveID_has(g_s *g, i32 ID)
 {
-    if (0 < ID && ID < NUM_SAVE_EV) {
-        return (g->save_events[ID >> 5] & ((u32)1 << (ID & 31)));
+    if (0 < ID && ID < NUM_SAVEIDS) {
+        return (g->saveIDs[ID >> 5] & ((u32)1 << (ID & 31)));
+    } else {
+        pltf_log("saveID get: %i not in valid range!\n", ID);
     }
     return 0;
 }

@@ -31,16 +31,18 @@ void game_init(g_s *g)
     i32 x2 = I32_MIN;
     i32 y2 = I32_MIN;
     for (i32 k = 0; k < n_rooms; k++) {
+        map_room_s     mr  = {0};
         map_room_wad_s mrw = {0};
         pltf_file_r(f, &mrw, sizeof(map_room_wad_s));
-        map_room_s mr = {0};
         mcpy(mr.map_name, mrw.map_name, sizeof(mr.map_name));
-        mr.x = mrw.x;
-        mr.y = mrw.y;
-        mr.w = mrw.w;
-        mr.h = mrw.h;
-        mr.t = tex_create(mr.w, mr.h, 0, app_allocator(), 0);
-        pltf_file_r(f, mr.t.px, sizeof(u32) * mr.t.wword * mr.t.h);
+        mr.x     = mrw.x;
+        mr.y     = mrw.y;
+        mr.w     = mrw.w;
+        mr.h     = mrw.h;
+        mr.musID = mrw.musID;
+        mr.flags = mrw.flags;
+        mr.t     = tex_create(mrw.w, mrw.h, 0, app_allocator(), 0);
+        pltf_file_r(f, mr.t.px, tex_size_bytes(mr.t));
         g->map_rooms[g->n_map_rooms++] = mr;
 
         x1 = min_i32(x1, mr.x / 25);
@@ -69,18 +71,18 @@ void game_tick(g_s *g, inp_state_s inpstate)
 
         // works for now
         switch (g->hurt_lp_tick) {
-        case 80 - 3 * 0: aud_set_lowpass(1); break;
-        case 80 - 3 * 1: aud_set_lowpass(2); break;
-        case 80 - 3 * 2: aud_set_lowpass(3); break;
-        case 80 - 3 * 3: aud_set_lowpass(4); break;
-        case 80 - 3 * 4: aud_set_lowpass(5); break;
-        case 80 - 3 * 5: aud_set_lowpass(6); break;
-        case 0 + 6 * 5: aud_set_lowpass(5); break;
-        case 0 + 6 * 4: aud_set_lowpass(4); break;
-        case 0 + 6 * 3: aud_set_lowpass(3); break;
-        case 0 + 6 * 2: aud_set_lowpass(2); break;
-        case 0 + 6 * 1: aud_set_lowpass(1); break;
-        case 0 + 6 * 0: aud_set_lowpass(0); break;
+        case 80 - 3 * 0: aud_lowpass(1); break;
+        case 80 - 3 * 1: aud_lowpass(2); break;
+        case 80 - 3 * 2: aud_lowpass(3); break;
+        case 80 - 3 * 3: aud_lowpass(4); break;
+        case 80 - 3 * 4: aud_lowpass(5); break;
+        case 80 - 3 * 5: aud_lowpass(6); break;
+        case 0 + 6 * 5: aud_lowpass(5); break;
+        case 0 + 6 * 4: aud_lowpass(4); break;
+        case 0 + 6 * 3: aud_lowpass(3); break;
+        case 0 + 6 * 2: aud_lowpass(2); break;
+        case 0 + 6 * 1: aud_lowpass(1); break;
+        case 0 + 6 * 0: aud_lowpass(0); break;
         }
     }
 
@@ -172,19 +174,6 @@ void game_tick_gameplay(g_s *g)
                 enemy->hurt_tick++;
                 i32 htick = -enemy->hurt_tick;
 
-                if (enemy->explode_on_death) {
-                    switch (htick) {
-                    case 7 - 3: {
-                        snd_play(SNDID_ENEMY_EXPLO, 1.f, rngr_f32(0.9f, 1.1f));
-                        break;
-                    }
-                    case 4 - 3: {
-                        objanim_create(g, pos, OBJANIMID_ENEMY_EXPLODE);
-                        break;
-                    }
-                    }
-                }
-
                 if (htick == 0) {
                     if (enemy->coins_on_death) {
                         for (i32 n = 0; n < 5; n++) {
@@ -208,6 +197,7 @@ void game_tick_gameplay(g_s *g)
         }
     }
 
+    hitboxes_flush(g);
     grapplinghook_calc_f_internal(g, &g->ghook);
 
     rec_i32 roombounds = {0, 0, g->pixel_x, g->pixel_y};
@@ -252,8 +242,10 @@ void game_tick_gameplay(g_s *g)
 void game_anim(g_s *g)
 {
     cam_update(g, &g->cam);
-    g->cam_center    = cam_pos_px_center(g, &g->cam);
-    g->darken_bg_q12 = clamp_i32(g->darken_bg_q12 + g->darken_bg_add, 0, 4096);
+    g->cam_center = cam_pos_px_center(&g->cam);
+    aud_set_pos_cam(g->cam_center.x, g->cam_center.y, 1);
+    background_update(g);
+    boss_animate(g);
 
     if (g->health_ui_show && g->health_ui_fade < HEALTH_UI_TICKS) {
         g->health_ui_fade++;
@@ -343,7 +335,7 @@ i32 gameplay_time(g_s *g)
     return g->tick;
 }
 
-void *game_per_room_alloc(g_s *g, usize s, usize alignment)
+void *game_alloc_room(g_s *g, usize s, usize alignment)
 {
     void *mem = marena_alloc_aligned(&g->memarena, s, alignment);
     mclr(mem, s);
@@ -352,10 +344,10 @@ void *game_per_room_alloc(g_s *g, usize s, usize alignment)
 
 void *game_alloc_aligned_f(void *ctx, usize s, usize alignment)
 {
-    return game_per_room_alloc((g_s *)ctx, s, alignment);
+    return game_alloc_room((g_s *)ctx, s, alignment);
 }
 
-allocator_s game_per_room_allocator(g_s *g)
+allocator_s game_allocator_room(g_s *g)
 {
     allocator_s a = {game_alloc_aligned_f, g};
     return a;
@@ -381,7 +373,7 @@ void game_load_savefile(g_s *g)
     obj_s *o = owl_create(g);
     owl_s *h = (owl_s *)o->heap;
     {
-        mcpy(g->save_events, s->save, sizeof(g->save_events));
+        mcpy(g->saveIDs, s->save, sizeof(g->saveIDs));
         mcpy(h->name, s->name, sizeof(h->name));
         mcpy(g->minimap.pins, s->pins, sizeof(g->minimap.pins));
         for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
@@ -405,7 +397,7 @@ void game_load_savefile(g_s *g)
     game_load_map(g, s->map_name);
 
     obj_s *ocomp = 0;
-    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+    if (saveID_has(g, SAVEID_COMPANION_FOUND)) {
         ocomp = companion_create(g);
     }
 
@@ -433,10 +425,10 @@ void game_load_savefile(g_s *g)
         ocomp->facing = o->facing;
     }
 
-    cam_init_level(g, &g->cam);
-    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    cam_hard_set_positon(g, &g->cam);
+    sfx_block_new(1); // disable sounds (foot steps etc.)
     objs_animate(g);
-    aud_allow_playing_new_snd(1);
+    sfx_block_new(0);
     if (saveroom_pos_hero) {
         cs_on_load_enter(g);
     }
@@ -448,7 +440,7 @@ void game_update_savefile(g_s *g)
     savefile_s *s = g->savefile;
     owl_s      *h = &g->owl;
     {
-        mcpy(s->save, g->save_events, sizeof(s->save));
+        mcpy(s->save, g->saveIDs, sizeof(s->save));
         mcpy(s->name, h->name, sizeof(s->name));
         mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
         mcpy(s->enemy_killed, g->enemy_killed, sizeof(s->enemy_killed));
@@ -519,111 +511,9 @@ void game_on_solid_appear(g_s *g)
     game_on_solid_appear_ext(g, 0);
 }
 
-bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_legacy_s box);
-
-bool32 hero_attackboxes(g_s *g, hitbox_legacy_s *boxes, i32 nb)
-{
-    bool32 res = 0;
-
-    for (i32 n = 0; n < nb; n++) {
-        hitbox_legacy_s hb = boxes[n];
-        pltf_debugr(hb.r.x, hb.r.y, hb.r.w, hb.r.h, 0, 0, 0xFF, 10);
-    }
-
-    for (obj_each(g, o)) {
-        rec_i32 aabb = obj_aabb(o);
-
-        i32 strongest = -1;
-        for (i32 n = 0; n < nb; n++) {
-            hitbox_legacy_s hb = boxes[n];
-            if (!overlap_rec(aabb, hb.r)) continue;
-
-            if (strongest < 0 || boxes[strongest].damage < hb.damage) {
-                strongest = n;
-            }
-        }
-
-        if (0 <= strongest) {
-            res |= hero_attackbox_o(g, o, boxes[strongest]);
-        }
-    }
-    return res;
-}
-
-bool32 hero_attackbox(g_s *g, hitbox_legacy_s box)
-{
-    return hero_attackboxes(g, &box, 1);
-}
-
-bool32 hero_attackbox_o(g_s *g, obj_s *o, hitbox_legacy_s box)
-{
-    switch (o->ID) {
-    default: break;
-    case OBJID_SWITCH: {
-        switch_on_interact(g, o);
-        break;
-    }
-    case OBJID_CRUMBLEBLOCK: {
-        if (box.flags & HITBOX_FLAG_POWERSTOMP) {
-            crumbleblock_break(g, o);
-        }
-        break;
-    }
-    case OBJID_STOMPABLE_BLOCK: {
-        if (box.flags & HITBOX_FLAG_POWERSTOMP) {
-            stompable_block_break(g, o);
-        }
-        break;
-    }
-    case OBJID_GEMPILE: {
-        if (o->substate != box.hitID) {
-            gempile_on_hit(g, o);
-            o->substate = box.hitID;
-            return 1;
-        }
-        break;
-    }
-    case OBJID_CRAB: {
-        o->health--;
-        crab_on_hurt(g, o);
-        if (!o->health) {
-            animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
-        }
-        break;
-    }
-    case OBJID_FROG: {
-        o->health--;
-        frog_on_hurt(g, o);
-        if (!o->health) {
-            animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
-        }
-        break;
-    }
-    }
-
-    bool32 do_hit = (o->flags & OBJ_FLAG_ENEMY) &&
-                    0 < o->health &&
-                    (!box.hitID || box.hitID != o->enemy.hero_hitID);
-
-    if (do_hit) {
-        g->freeze_tick      = max_i32(g->freeze_tick, 3);
-        o->enemy.hero_hitID = box.hitID;
-        enemy_hurt(g, o, box.damage);
-        v2_i32 pbox = obj_pos_center(o);
-        pbox.y -= 8;
-        if (o->facing < 0) {
-            objanim_create(g, pbox, OBJANIMID_HERO_HIT_L);
-        } else {
-            objanim_create(g, pbox, OBJANIMID_HERO_HIT_R);
-        }
-        return 1;
-    }
-    return 0;
-}
-
 void game_unlock_map(g_s *g)
 {
-    save_event_register(g, SAVE_EV_UNLOCKED_MAP);
+    saveID_put(g, SAVEID_UNLOCKED_MAP);
 #ifdef PLTF_PD
     // pltf_pd_menu_add("Map", game_open_map, g);
 #endif
@@ -657,13 +547,11 @@ i32 game_owl_hitID_next(g_s *g)
     return (i32)g->owl_hitID;
 }
 
-void game_darken_bg(g_s *g, i32 speed)
-{
-    g->darken_bg_add = speed;
-}
-
 void game_cue_area_music(g_s *g)
 {
+    DEBUG_LOG("Cue area music...\n");
+    mus_cue(MUS_CHANNEL_MUSIC, g->music_ID, 500);
+#if 0
     switch (g->music_ID) {
     case MUSIC_ID_NONE:
         mus_play_extv(0, 0, 0, 1000, 0, 0);
@@ -687,24 +575,18 @@ void game_cue_area_music(g_s *g)
         mus_play_extv("M_INTRO", 325679, 0, 1000, 0, 256);
         break;
     }
-}
-
-bool32 snd_cam_param(g_s *g, f32 vol_max, v2_i32 pos, i32 r,
-                     f32 *vol, f32 *pan)
-{
-    if (vol) {
-        i32 l = max_i32(r - v2_i32_distance_appr(g->cam_center, pos), 0);
-        *vol  = vol_max * (f32)l / (f32)r;
-    }
-    return 1;
+#endif
+    DEBUG_LOG("Cue area music done\n");
 }
 
 u8 *map_loader_room_mod(g_s *g, u8 *map_name)
 {
+#if 0
     if (0) {
     } else if (str_eq_nc(map_name, "L_41")) {
         return (u8 *)"L_41_Alt";
     }
+#endif
     return map_name;
 }
 

@@ -45,11 +45,12 @@ void (*PD_system_error)(const char *format, ...);
 #else
 #undef assert
 #define assert(X)                                \
-    {                                            \
+    do {                                         \
         if (!(X)) {                              \
+            pltf_log("assertion hit: " #X "\n"); \
             PD_system_error("ASSERT: " #X "\n"); \
         }                                        \
-    }
+    } while (0)
 #endif
 #elif PLTF_SDL && 1 // use SDL assert instead of std?
 #include "pltf/SDL2/SDL_assert.h"
@@ -130,19 +131,12 @@ typedef i32            err32;
 #endif
 #endif
 
-#define ALIGNAS     alignas
-#define ALIGNOF     alignof
-#define ALIGNAST(T) ALIGNAS(ALIGNOF(T))
-
-static inline void *align_ptr(void *p, usize alignment)
-{
-    return (void *)(((uptr)p + alignment - 1) & ~(alignment - 1));
-}
-
-static inline usize align_usize(usize s, usize alignment)
-{
-    return (s + alignment - 1) & ~(alignment - 1);
-}
+#define OFFSETOF      offsetof
+#define ALIGNAS       alignas
+#define ALIGNAS       alignas
+#define ALIGNOF       alignof
+#define ALIGNAST(T)   ALIGNAS(ALIGNOF(T))
+#define ALIGNTO(X, A) (((X) + (A) - 1) & ~((A) - 1))
 
 // used for user defined allocations
 // alloc(ctx, size) -> ctx: pointer to some memory manager
@@ -165,26 +159,61 @@ typedef struct {
 #define GLUE2(A, B)           A##B
 #define GLUE(A, B)            GLUE2(A, B)
 #define ARRLEN(A)             (i32)(sizeof(A) / sizeof(A[0]))
-#define SWAP(T, a, b)         { T tmp_ = a; a = b; b = tmp_; }
+#define SWAP(T, a, b)         do { T tmp_swap_var = a; a = b; b = tmp_swap_var; } while(0)
 #define MKILOBYTE(X) ((X) * 1024)
 #define MMEGABYTE(X) ((X) * 1024 * 1024)
 #define FILE_AND_LINE__(A, B) A "|" #B
 #define FILE_AND_LINE_(A, B)  FILE_AND_LINE__(A, B)
 #define FILE_AND_LINE         FILE_AND_LINE_(__FILE__, __LINE__)
+#define IS_POW2(X) (((X) & ((X) - 1)) == 0)
+
+#if PLTF_DEBUG
+#define DEBUG_CODE(X) X
+#define DEBUG_ASSERT(X) assert(X)
+#else
+#define DEBUG_CODE(X)
+#define DEBUG_ASSERT(X) 
+#endif
 // clang-format on
 
-#define NOT_IMPLEMENTED                      \
-    do {                                     \
-        pltf_log("+++ NOT IMPLEMENTED +++"); \
-        pltf_log(FILE_AND_LINE);             \
-        assert(0);                           \
-    } while (0);
-#define BAD_PATH                      \
-    do {                              \
-        pltf_log("+++ BAD PATH +++"); \
-        pltf_log(FILE_AND_LINE);      \
-        assert(0);                    \
-    } while (0);
+#ifdef __GNUC__
+#define PREFETCH(ADDR)            __builtin_prefetch(ADDR)
+#define PTR_ALIGNED(P, ALIGNMENT) __builtin_assume_aligned(P, ALIGNMENT)
+#define LIKELY(X)                 __builtin_expect(!!(X), 1)
+#define UNLIKELY(X)               __builtin_expect(!!(X), 0)
+#else
+#define PREFETCH(ADDR) \
+    do {               \
+    } while (0)
+#define PTR_ALIGNED(P, ALIGNMENT) (P)
+#define LIKELY(X)                 (X)
+#define UNLIKELY(X)               (X)
+#endif
+
+#define NOT_IMPLEMENTED(X)                        \
+    do {                                          \
+        pltf_log("+++ NOT IMPLEMENTED: " X "\n"); \
+        pltf_log(FILE_AND_LINE);                  \
+        assert(0);                                \
+    } while (0)
+#define BAD_PATH()                \
+    do {                          \
+        pltf_log("+++ BAD PATH"); \
+        pltf_log(FILE_AND_LINE);  \
+        assert(0);                \
+    } while (0)
+
+static inline void *align_ptr(void *p, usize alignment)
+{
+    assert(IS_POW2(alignment));
+    return (void *)ALIGNTO((uptr)p, alignment);
+}
+
+static inline usize align_usize(usize s, usize alignment)
+{
+    assert(IS_POW2(alignment));
+    return ALIGNTO(s, alignment);
+}
 
 // =============================================================================
 // B8(00001111) -> 0x0F

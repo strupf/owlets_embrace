@@ -66,6 +66,12 @@ typedef int PDCallbackFunction(void* userdata); // return 0 when done
 typedef void PDMenuItemCallbackFunction(void* userdata);
 typedef int PDButtonCallbackFunction(PDButtons button, int down, uint32_t when, void* userdata);
 
+struct PDInfo
+{
+	uint32_t osversion;
+	PDLanguage language;
+};
+
 struct playdate_sys
 {
 	void* (*realloc)(void* ptr, size_t size); // ptr = NULL -> malloc, size = 0 -> free
@@ -136,6 +142,9 @@ struct playdate_sys
 	void (*restartGame)(const char* launchargs);
 	const char* (*getLaunchArgs)(const char** outpath);
 	bool (*sendMirrorData)(uint8_t command, void* data, int len);
+	
+	// 3.0
+	const struct PDInfo* (*getSystemInfo)(void);
 };
 
 #endif /* pdext_sys_h */

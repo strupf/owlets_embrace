@@ -35,11 +35,11 @@ bool32 bombplant_pushpull_blocked(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 void bombplant_load(g_s *g, map_obj_s *mo)
 {
     i32 sID = map_obj_i32(mo, "only_if_not_saveID");
-    if (sID && save_event_exists(g, sID)) return;
+    if (sID && saveID_has(g, sID)) return;
 
     obj_s       *o         = obj_create(g);
     bombplant_s *b         = (bombplant_s *)o->mem;
-    o->UUID                = mo->UUID;
+    o->editorUID           = mo->UID;
     o->ID                  = OBJID_BOMBPLANT;
     o->on_update           = bombplant_on_update;
     o->on_animate          = bombplant_on_animate;

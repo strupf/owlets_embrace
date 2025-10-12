@@ -68,7 +68,7 @@ void title_init(title_s *t)
     t->preload_slot = -1;
     g->flags |= GAME_FLAG_TITLE_PREVIEW;
 #if !TITLE_SKIP_TO_GAME
-    mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
+    // mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
 #endif
 }
 
@@ -214,7 +214,7 @@ void title_update(app_s *app, title_s *t)
 #if GAME_DEMO
             if (inp_btn_jp(INP_A)) {
                 t->title_fade_dir = +1; // fade
-                snd_play(SNDID_MENU3, 1.f, 1.f);
+                // snd_play(SFXID_MENU3, 1.f, 1.f);
             }
 #else
             if (t->title_subst) {
@@ -230,7 +230,7 @@ void title_update(app_s *app, title_s *t)
                         APP.sm.active = 1;
                         break;
                     }
-                    snd_play(SNDID_MENU3, 1.f, 1.f);
+                    // snd_play(SFXID_MENU3, 1.f, 1.f);
                 }
             } else {
                 if (inp_btn_jp(INP_A)) {
@@ -273,7 +273,7 @@ void title_update(app_s *app, title_s *t)
             }
         } else if (inp_btn_jp(INP_A)) {
             t->comp_bump = 1;
-            snd_play(SNDID_MENU3, 1.f, 1.f);
+            // snd_play(SFXID_MENU3, 1.f, 1.f);
 
             if (t->option < 3) {
                 t->selected = t->option;
@@ -307,7 +307,7 @@ void title_update(app_s *app, title_s *t)
             t->option   = clamp_i32((i32)t->option + dy, 0, 2);
             t->selected = t->option;
             if (dy) {
-                snd_play(SNDID_MENU1, 1.f, 1.f);
+                // snd_play(SFXID_MENU1, 1.f, 1.f);
             }
 #endif
 
@@ -335,7 +335,7 @@ void title_update(app_s *app, title_s *t)
     }
     case TITLE_ST_FILE_SELECTED: {
         if (inp_btn_jp(INP_A)) {
-            snd_play(SNDID_MENU3, 1.f, 1.f);
+            // snd_play(SFXID_MENU3, 1.f, 1.f);
 
             switch (t->option) {
             case TITLE_FP_0_START: {
@@ -401,7 +401,7 @@ void title_update(app_s *app, title_s *t)
     }
     case TITLE_ST_FILE_CPY: {
         if (inp_btn_jp(INP_A)) {
-            snd_play(SNDID_MENU3, 1.f, 1.f);
+            // snd_play(SFXID_MENU3, 1.f, 1.f);
             t->copy_to = t->option;
 
             savefile_s *s = &APP.save;
@@ -576,7 +576,7 @@ void title_draw_btn(title_s *t, i32 ID)
 void title_render(title_s *t)
 {
     tex_s     tdisplay = asset_tex(0);
-    gfx_ctx_s ctx      = gfx_ctx_default(tdisplay);
+    gfx_ctx_s ctx      = gfx_ctx_from_tex(tdisplay);
     gfx_ctx_s ctxcov   = ctx;
     fnt_s     font     = asset_fnt(FNTID_LARGE);
     rec_i32   rfull    = {0, 0, 400, 240};
@@ -585,7 +585,7 @@ void title_render(title_s *t)
 
     if (t->state == TITLE_ST_OVERVIEW) {
         texrec_s trcover = asset_texrec(TEXID_COVER, 0, 0, 400, 240);
-        gfx_spr(ctx, trcover, (v2_i32){0, 0}, 0, 0);
+        gfx_spr(ctx, trcover, (v2_i32){-4, 0}, 0, 0);
 
         i32 ti1 = (i32)t->tick - 0;
         if (0 <= ti1) {
@@ -753,12 +753,12 @@ void title_draw_version()
     gfx_ctx_s ctx  = gfx_ctx_display();
     texrec_s  tnum = asset_texrec(TEXID_BUTTONS, 0, 224, 8, 16);
 
-    i32 lv = 7 + 4 + 7 * (10 <= GAME_V_MIN ? 2 : 1) + 4 +
-             7 * (10 <= GAME_V_PAT ? 2 : 1);
+    i32 lv = 7 + 4 + 7 * (10 <= VERSION_MINOR ? 2 : 1) + 4 +
+             7 * (10 <= VERSION_PATCH ? 2 : 1);
     v2_i32 pnum = {397 - lv, 227};
 
     // major
-    tnum.x = 8 * (GAME_V_MAJ);
+    tnum.x = 8 * (VERSION_MAJOR);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
     // dot
@@ -766,12 +766,12 @@ void title_draw_version()
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
     pnum.x += 4;
     // minor
-#if 10 <= GAME_V_MIN
-    tnum.x = 8 * (GAME_V_MIN / 10);
+#if 10 <= VERSION_MINOR
+    tnum.x = 8 * (VERSION_MINOR / 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-    tnum.x = 8 * (GAME_V_MIN % 10);
+    tnum.x = 8 * (VERSION_MINOR % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
     // dot
@@ -780,17 +780,17 @@ void title_draw_version()
     pnum.x += 4;
 
     // patch
-#if 100 <= GAME_V_PAT
-    tnum.x = 8 * (GAME_V_PAT / 100);
+#if 100 <= VERSION_PATCH
+    tnum.x = 8 * (VERSION_PATCH / 100);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-#if 10 <= GAME_V_PAT
-    tnum.x = 8 * ((GAME_V_PAT / 10) % 10);
+#if 10 <= VERSION_PATCH
+    tnum.x = 8 * ((VERSION_PATCH / 10) % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-    tnum.x = 8 * (GAME_V_PAT % 10);
+    tnum.x = 8 * (VERSION_PATCH % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 }

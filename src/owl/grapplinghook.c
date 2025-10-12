@@ -41,8 +41,8 @@ void grapplinghook_on_attach(g_s *g, grapplinghook_s *h, obj_s *o)
     if (st == OWL_ST_AIR) {
         clen_q4 = (clen_q4 * 248) >> 8;
     }
-    h->len_max_q4 = clamp_i32(clen_q4, HERO_ROPE_LEN_MIN, HERO_ROPE_LEN_MAX);
-    snd_instance_stop_fade(h->throw_snd_iID, 25, 0);
+    h->len_max_q4    = clamp_i32(clen_q4, HERO_ROPE_LEN_MIN, HERO_ROPE_LEN_MAX);
+    // snd_instance_stop_fade(h->throw_snd_iID, 25, 0);
     h->attached_tick = 1;
     if (o) {
         o->on_pushed_by_solid = 0;
@@ -158,6 +158,23 @@ bool32 grapplinghook_try_attach(g_s *g, grapplinghook_s *h, obj_s *o)
             if (i->on_hook) {
                 i->on_hook(g, i, 1);
             }
+            return 1;
+        }
+        if ((i->flags & OBJ_FLAG_HOOKABLE_ACTOR) == OBJ_FLAG_HOOKABLE_ACTOR) {
+            if (!overlap_rec(obj_aabb(i), obj_aabb(o))) continue;
+            grapplinghook_on_attach(g, h, o);
+            pltf_log("attach!\n");
+            v2_i32 dt_move = v2_i32_sub(obj_pos_center(i), obj_pos_center(o));
+            wirenode_move(g, o->wire, o->wirenode, dt_move.x, dt_move.y);
+
+            h->state    = GRAPPLINGHOOK_HOOKED_OBJ;
+            h->o2       = handle_from_obj(i);
+            i->wire     = o->wire;
+            i->wirenode = o->wirenode;
+            if (i->on_hook) {
+                i->on_hook(g, i, 1);
+            }
+            obj_delete(g, o);
             return 1;
         }
     }

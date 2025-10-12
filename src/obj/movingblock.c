@@ -41,10 +41,9 @@ void movingblock_on_trigger(g_s *g, obj_s *o, i32 trigger);
 
 void movingblock_load(g_s *g, map_obj_s *mo)
 {
-    sizeof(movingblock_s);
     obj_s         *o     = obj_create(g);
     movingblock_s *m     = (movingblock_s *)o->mem;
-    o->UUID              = mo->UUID;
+    o->editorUID         = mo->UID;
     o->ID                = OBJID_MOVINGBLOCK;
     o->w                 = mo->w;
     o->h                 = mo->h;

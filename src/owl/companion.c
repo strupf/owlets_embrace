@@ -26,13 +26,12 @@ typedef struct companion_s {
     obj_handle_s o_item;
 } companion_s;
 
-void            companion_on_update(g_s *g, obj_s *o);
-void            companion_on_animate(g_s *g, obj_s *o);
-void            companion_on_draw(g_s *g, obj_s *o, v2_i32 cam);
-void            companion_follow_owl(g_s *g, obj_s *o, obj_s *owl);
-obj_s          *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max);
-hitbox_legacy_s companion_spear_hitbox(obj_s *o);
-void            companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos);
+void   companion_on_update(g_s *g, obj_s *o);
+void   companion_on_animate(g_s *g, obj_s *o);
+void   companion_on_draw(g_s *g, obj_s *o, v2_i32 cam);
+void   companion_follow_owl(g_s *g, obj_s *o, obj_s *owl);
+obj_s *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max);
+void   companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos);
 
 obj_s *companion_create(g_s *g)
 {
@@ -133,7 +132,7 @@ void companion_on_update(g_s *g, obj_s *o)
                 i32 dst = v2_i32_distance_appr(p1, obj_pos_center(owl));
                 if (dst < 20) {
                     coins_change(g, 1);
-                    snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
+                    sfx_cuef(SFXID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
                     c->carries_item = 0;
                     o->state        = COMPANION_ST_IDLE;
                     o->timer        = 0;
@@ -287,7 +286,7 @@ void companion_on_enter_mode(g_s *g, obj_s *o, i32 mode)
     case OWL_STANCE_ATTACK: {
         if (c->carries_item) {
             coins_change(g, 1);
-            snd_play(SNDID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
+            sfx_cuef(SFXID_COIN, 0.5f, rngr_f32(0.95f, 1.05f));
             c->carries_item = 0;
         }
         break;
@@ -385,19 +384,6 @@ obj_s *companion_spawn(g_s *g, obj_s *owl)
     o->pos.y  = owl->pos.y - 30;
     o->facing = owl->facing;
     return o;
-}
-
-hitbox_legacy_s companion_spear_hitbox(obj_s *o)
-{
-    companion_s    *c  = (companion_s *)o->mem;
-    hitbox_legacy_s hb = {0};
-    hb.r.w             = 64;
-    hb.r.h             = 24;
-    hb.r.x             = o->pos.x + (o->w - hb.r.w) / 2 + o->facing * 32;
-    hb.r.y             = o->pos.y + (o->h - hb.r.h) / 2 + 16;
-    hb.damage          = 1;
-    hb.hitID           = c->hitID;
-    return hb;
 }
 
 obj_s *companion_enemy_target(g_s *g, obj_s *o, u32 dsq_max)

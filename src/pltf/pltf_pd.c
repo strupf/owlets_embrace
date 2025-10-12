@@ -2,10 +2,12 @@
 // Copyright 2024, Lukas Wolski (the.strupf@proton.me). All rights reserved.
 // =============================================================================
 
+#include "pltf/pltf_types.h"
+
 #if PLTF_PD
 
-#include "pltf/pltf_pd.h"
 #include "pltf/pltf.h"
+#include "pltf/pltf_pd.h"
 
 PlaydateAPI *PD;
 
@@ -28,6 +30,9 @@ typedef struct {
 typedef struct {
     SoundSource   *soundsource;
     u32            b;
+    b32            stereo;
+    i32            headphone;
+    i32            mirror;
     bool32         reduce_flashing;
     bool32         acc_active;
     PD_menu_item_s menu_items[PD_NUM_MENU_ITEMS];
@@ -49,9 +54,14 @@ void (*PD_system_getAccelerometer)(f32 *outx, f32 *outy, f32 *outz);
 int (*PD_file_listfiles)(const char *path,
                          void (*callback)(const char *filename, void *userdata),
                          void *userdata, int showhidden);
+SoundSource *(*PD_sound_addSource)(AudioSourceFunction *callback, void *context, int stereo);
+int (*PD_sound_removeSource)(SoundSource *source);
+void (*PD_sound_setOutputsActive)(int headphone, int speaker);
 
-int pltf_pd_update(void *user);
-int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len);
+int  pltf_pd_update(void *user);
+int  pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len);
+void pltf_pd_headphone(int headphones, int mic);
+void pltf_pd_decide_audio_output();
 
 #ifdef _WINDLL
 __declspec(dllexport)
@@ -74,6 +84,9 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD_system_realloc           = PD->system->realloc;
         PD_file_listfiles           = PD->file->listfiles;
+        PD_sound_addSource          = PD->sound->addSource;
+        PD_sound_removeSource       = PD->sound->removeSource;
+        PD_sound_setOutputsActive   = PD->sound->setOutputsActive;
 
         g_PD.menubm          = PD->graphics->newBitmap(400, 240, kColorWhite);
         g_PD.reduce_flashing = PD->system->getReduceFlashing();
@@ -83,7 +96,10 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         i32 res = pltf_internal_init();
         if (res == 0) {
             PD->system->setUpdateCallback(pltf_pd_update, PD);
-            g_PD.soundsource = PD->sound->addSource(pltf_pd_audio, 0, 1);
+            int headphone = 0;
+            PD->sound->getHeadphoneState(&headphone, 0, pltf_pd_headphone);
+            g_PD.headphone = headphone;
+            pltf_pd_decide_audio_output();
         } else {
             PD->system->error("ERROR INIT: %i\n", res);
         }
@@ -101,9 +117,13 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         pltf_internal_resume();
         break;
     case kEventMirrorStarted:
+        g_PD.mirror = 1;
+        pltf_pd_decide_audio_output();
         pltf_internal_mirror(1);
         break;
     case kEventMirrorEnded:
+        g_PD.mirror = 0;
+        pltf_pd_decide_audio_output();
         pltf_internal_mirror(0);
         break;
     default: break;
@@ -121,8 +141,53 @@ int pltf_pd_update(void *user)
 
 int pltf_pd_audio(void *ctx, i16 *lbuf, i16 *rbuf, int len)
 {
+    assert(IS_POW2(len));
     pltf_internal_audio(lbuf, rbuf, len);
     return 1;
+}
+
+void pltf_pd_decide_audio_output()
+{
+    DEBUG_LOG("AUDIO output: decide...\n");
+    DEBUG_CODE(f32 t_load_start = pltf_seconds());
+    i32    mirror        = g_PD.mirror;
+    i32    headphones    = g_PD.headphone;
+    bool32 out_speaker   = 0;
+    bool32 out_headphone = 0;
+    bool32 out_stereo    = 0;
+
+    if (headphones) {
+        out_headphone = 1;
+        out_stereo    = 1;
+    }
+    if (mirror) {
+        out_speaker = 0;
+    }
+    if (!headphones && !mirror) {
+        out_speaker = 1;
+    }
+
+    if (!g_PD.soundsource || g_PD.stereo != out_stereo) {
+        bool32 removed = 1;
+        if (g_PD.soundsource) {
+            DEBUG_LOG("AUDIO output: remove source...\n");
+            removed = PD_sound_removeSource(g_PD.soundsource);
+            DEBUG_LOG("AUDIO output: removed? %i\n", removed);
+        }
+        g_PD.stereo = out_stereo;
+        DEBUG_LOG("AUDIO output: add source\n");
+        g_PD.soundsource = PD_sound_addSource(pltf_pd_audio, 0, g_PD.stereo);
+    }
+
+    PD_sound_setOutputsActive(out_headphone, out_speaker);
+    DEBUG_LOG("AUDIO output:\n  speaker: %i\n  headphones: %i\n  stereo: %i\n",
+              out_speaker, out_headphone, out_stereo);
+}
+
+void pltf_pd_headphone(int headphones, int mic)
+{
+    g_PD.headphone = headphones;
+    pltf_pd_decide_audio_output();
 }
 
 void pltf_pd_update_rows(i32 from_incl, i32 to_incl)
@@ -276,7 +341,6 @@ PD_menu_item_s *pltf_pd_try_menu_add(void (*func)(void *ctx, i32 opt), void *ctx
         if (i->type == PD_MENU_ITEM_NONE) {
             i->func = func;
             i->ctx  = ctx;
-            pltf_log("added\n");
             return i;
         }
     }

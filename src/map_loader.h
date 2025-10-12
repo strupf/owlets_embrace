@@ -10,7 +10,7 @@
 #include "util/lzss.h"
 
 typedef struct map_obj_s {
-    u32 UUID;
+    u32 UID;
     u32 hash;       // hash of object type; not unique
     u8  size_words; // total size in words
     u8  n_prop;     // number of properties
@@ -35,6 +35,9 @@ void      *map_obj_arr(map_obj_s *mo, const char *name, i32 *num);
 void       map_obj_parse(g_s *g, map_obj_s *o);
 void       game_load_map(g_s *g, u8 *map_name);
 map_obj_s *map_obj_find(g_s *g, const char *name);
+
+// checks properties "only_if_saveID" and "only_if_not_saveID"
+bool32 map_obj_check_spawn_saveIDs(g_s *g, map_obj_s *mo);
 
 // a_x/a_y: -1; 0; +1 -> alignment to map_obj (left, center, right)
 void obj_place_to_map_obj(obj_s *o, map_obj_s *mo, i32 a_x, i32 a_y);

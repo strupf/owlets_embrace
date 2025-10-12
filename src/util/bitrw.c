@@ -34,8 +34,7 @@ u32 bitrw_r_stream(bitrw_s *br, i32                                   nbits,
     return x;
 }
 
-i32 bitrw_r1_stream(bitrw_s *br,
-                    void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx)
+i32 bitrw_r1_stream(bitrw_s *br, void (*on_new_word)(bitrw_s *br, void *ctx), void *ctx)
 {
     i32 x = (*br->b >> br->pos) & 1; // shift + mask read bits
     br->pos++;

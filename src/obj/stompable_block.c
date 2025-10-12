@@ -24,12 +24,12 @@ void stompable_block_on_update(g_s *g, obj_s *o);
 void stompable_block_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
-    if (save_event_exists(g, saveID)) return;
+    if (saveID_has(g, saveID)) return;
 
-    obj_s *o = obj_create(g);
-    o->ID    = OBJID_STOMPABLE_BLOCK;
-    o->UUID  = mo->UUID;
-    o->flags = OBJ_FLAG_SOLID |
+    obj_s *o     = obj_create(g);
+    o->ID        = OBJID_STOMPABLE_BLOCK;
+    o->editorUID = mo->UID;
+    o->flags     = OBJ_FLAG_SOLID |
                OBJ_FLAG_CLIMBABLE;
     o->on_draw            = stompable_block_on_draw;
     o->on_update          = stompable_block_on_update;
@@ -143,7 +143,7 @@ void stompable_block_break(g_s *g, obj_s *o)
     if (o->state != STOMPABLEBLOCK_IDLE) return;
 
     stompable_block_s *b = (stompable_block_s *)o->mem;
-    save_event_register(g, b->saveID);
+    saveID_put(g, b->saveID);
     o->state = STOMPABLEBLOCK_BREAKING;
     o->timer = 0;
     o->flags &= ~OBJ_FLAG_SOLID;

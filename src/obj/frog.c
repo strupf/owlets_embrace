@@ -50,7 +50,7 @@ void frog_on_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     pltf_log("spawn");
-    o->UUID       = mo->UUID;
+    o->editorUID  = mo->UID;
     o->ID         = OBJID_FROG;
     o->on_update  = frog_on_update;
     o->on_animate = frog_on_animate;

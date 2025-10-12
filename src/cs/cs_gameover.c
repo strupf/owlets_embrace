@@ -74,9 +74,9 @@ void cs_gameover_update(g_s *g, cs_s *cs, inp_s inp)
         if (CS_GAMEOVER_TICKS_BLACK <= cs->tick) {
             cs->tick = 0;
             cs->phase++;
-            mus_play_ext(0, 0, 0, 0, 100, 0, 0);
+            // mus_play_ext(0, 0, 0, 0, 100, 0, 0);
             g->music_ID = 0;
-            aud_stop_all_snd_instances();
+            sfx_stop_all();
             game_load_savefile(g);
             cs_on_load_title_wakeup(g);
             cs_reset(g);

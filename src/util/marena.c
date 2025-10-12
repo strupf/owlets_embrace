@@ -14,6 +14,7 @@ void marena_init(marena_s *m, void *buf, usize bufs)
 bool32 marena_align(marena_s *m, usize alignment)
 {
     if (!alignment) return 1;
+    assert(IS_POW2(alignment));
 
     byte *p_aligned = (byte *)align_ptr(m->p, alignment);
     if (m->buf + m->bufsize <= p_aligned) return 0;

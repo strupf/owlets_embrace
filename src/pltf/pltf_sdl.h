@@ -17,6 +17,11 @@
 #else
 #define pltf_log(...)
 #endif
+#if PLTF_DEBUG
+#define DEBUG_LOG pltf_log
+#else
+#define DEBUG_LOG(...)
+#endif
 
 void   pltf_sdl_audio_lock();
 void   pltf_sdl_audio_unlock();

@@ -19,7 +19,7 @@ enum {
     ASSETS_ERR_WAD_EL    = 1 << 5,
     ASSETS_ERR_ALLOC     = 1 << 6,
     ASSETS_ERR_TEX       = 1 << 7,
-    ASSETS_ERR_SND       = 1 << 8,
+    ASSETS_ERR_SFX       = 1 << 8,
     ASSETS_ERR_FNT       = 1 << 9,
     ASSETS_ERR_ANI       = 1 << 10,
 };
@@ -28,6 +28,7 @@ enum {
     TEXID_DISPLAY,
     TEXID_DISPLAY_TMP,
     TEXID_DISPLAY_TMP_MASK,
+    TEXID_DISPLAY_WHITE_OUTLINED,
     TEXID_BUTTONS,
     TEXID_HERO,
     TEXID_COMPANION,
@@ -37,7 +38,6 @@ enum {
     TEXID_TILESET_DECO,
     TEXID_TILESET_FRONT,
     TEXID_BG_PARALLAX,
-    TEXID_BG_PARALLAX_PERF,
     TEXID_PAUSE_TEX,
     TEXID_COVER,
     TEXID_UI,
@@ -80,7 +80,7 @@ enum {
     TEXID_TRAMPOLINE,
     TEXID_STALACTITE,
     TEXID_STAMINARESTORE,
-    TEXID_BOSSPLANT,
+    TEXID_BOSS,
     TEXID_USECRANK,
     TEXID_SAVEROOM,
     TEXID_CRAB,
@@ -88,9 +88,7 @@ enum {
     TEXID_ANIM_MISC,
     TEXID_BOMBPLANT,
     //
-    NUM_TEXID_EXPLICIT,
-    //
-    NUM_TEXID = 96
+    NUM_TEXID
 };
 
 enum {
@@ -104,65 +102,65 @@ enum {
 };
 
 enum {
-    SNDID_DEFAULT,
-    SNDID_HOOK_ATTACH,
-    SNDID_KLONG,
-    SNDID_SPEAK0,
-    SNDID_SPEAK1,
-    SNDID_SPEAK2,
-    SNDID_SPEAK3,
-    SNDID_SPEAK4,
-    SNDID_SWITCH,
-    SNDID_SWOOSH,
-    SNDID_HIT_ENEMY,
-    SNDID_JUMP,
-    SNDID_COIN,
-    SNDID_ENEMY_HURT,
-    SNDID_CRUMBLE_BREAKING,
-    SNDID_CRUMBLE_BREAK,
-    SNDID_DOOR_KEY_SPAWNED,
-    SNDID_DOOR_UNLOCKED,
-    SNDID_UPGRADE,
-    SNDID_BOSSWIN,
-    SNDID_HOOK_THROW,
-    SNDID_FOOTSTEP_LEAVES,
-    SNDID_FOOTSTEP_GRASS,
-    SNDID_FOOTSTEP_MUD,
-    SNDID_FOOTSTEP_SAND,
-    SNDID_FOOTSTEP_DIRT,
-    SNDID_WING,
-    SNDID_WING_BIG,
-    SNDID_WATER_SPLASH_BIG,
-    SNDID_WATER_SPLASH_SMALL,
-    SNDID_WATER_SWIM_1,
-    SNDID_WATER_SWIM_2,
-    SNDID_WATER_OUT_OF,
-    SNDID_STOMP,
-    SNDID_SKID,
-    SNDID_EXPLO1,
-    SNDID_PROJECTILE_SPIT,
-    SNDID_PROJECTILE_WALL,
-    SNDID_SPEAR_ATTACK,
-    SNDID_STOMP_START,
-    SNDID_STOMP_LAND,
-    SNDID_ENEMY_EXPLO,
-    SNDID_LANDING,
-    SNDID_STOPSPRINT,
-    SNDID_BPLANT_SWOOSH,
-    SNDID_BPLANT_SHOW,
-    SNDID_BPLANT_HIDE,
-    SNDID_EXPLOPOOF,
-    SNDID_HURT,
-    SNDID_MENU1,
-    SNDID_MENU2,
-    SNDID_MENU3,
-    SNDID_PLANTPULSE,
-    SNDID_RUMBLE,
-    SNDID_JUMPON,
-    SNDID_ENEMY_DIE,
-    SNDID_WINGATTACK,
+    SFXID_DEFAULT,
+    SFXID_HOOK_ATTACH,
+    SFXID_KLONG,
+    SFXID_SPEAK0,
+    SFXID_SPEAK1,
+    SFXID_SPEAK2,
+    SFXID_SPEAK3,
+    SFXID_SPEAK4,
+    SFXID_SWITCH,
+    SFXID_SWOOSH,
+    SFXID_HIT_ENEMY,
+    SFXID_JUMP,
+    SFXID_COIN,
+    SFXID_ENEMY_HURT,
+    SFXID_CRUMBLE_BREAKING,
+    SFXID_CRUMBLE_BREAK,
+    SFXID_DOOR_KEY_SPAWNED,
+    SFXID_DOOR_UNLOCKED,
+    SFXID_UPGRADE,
+    SFXID_BOSSWIN,
+    SFXID_HOOK_THROW,
+    SFXID_FOOTSTEP_LEAVES,
+    SFXID_FOOTSTEP_GRASS,
+    SFXID_FOOTSTEP_MUD,
+    SFXID_FOOTSTEP_SAND,
+    SFXID_FOOTSTEP_DIRT,
+    SFXID_WING,
+    SFXID_WING_BIG,
+    SFXID_WATER_SPLASH_BIG,
+    SFXID_WATER_SPLASH_SMALL,
+    SFXID_WATER_SWIM_1,
+    SFXID_WATER_SWIM_2,
+    SFXID_WATER_OUT_OF,
+    SFXID_STOMP,
+    SFXID_SKID,
+    SFXID_EXPLO1,
+    SFXID_PROJECTILE_SPIT,
+    SFXID_PROJECTILE_WALL,
+    SFXID_SPEAR_ATTACK,
+    SFXID_STOMP_START,
+    SFXID_STOMP_LAND,
+    SFXID_ENEMY_EXPLO,
+    SFXID_LANDING,
+    SFXID_STOPSPRINT,
+    SFXID_BPLANT_SWOOSH,
+    SFXID_BPLANT_SHOW,
+    SFXID_BPLANT_HIDE,
+    SFXID_EXPLOPOOF,
+    SFXID_HURT,
+    SFXID_MENU1,
+    SFXID_MENU2,
+    SFXID_MENU3,
+    SFXID_PLANTPULSE,
+    SFXID_RUMBLE,
+    SFXID_JUMPON,
+    SFXID_ENEMY_DIE,
+    SFXID_WINGATTACK,
     //
-    NUM_SNDID
+    NUM_SFXID
 };
 
 enum {
@@ -217,30 +215,32 @@ typedef struct {
 } ani_s;
 
 typedef struct {
-    tex_s            tex[NUM_TEXID];
-    fnt_s            fnt[NUM_FNTID];
-    ani_s            ani[NUM_ANIID];
-    ALIGNAS(8) snd_s snd[NUM_SNDID];
+    tex_s tex[NUM_TEXID];
+    fnt_s fnt[NUM_FNTID];
+    ani_s ani[NUM_ANIID];
+    sfx_s sfx[NUM_SFXID];
 } assets_s;
 
-tex_s   *asset_texptr(i32 ID);
+extern assets_s g_ASSETS;
+
 tex_s    asset_tex(i32 ID);
-snd_s    asset_snd(i32 ID);
+sfx_s    asset_sfx(i32 ID);
 fnt_s    asset_fnt(i32 ID);
 ani_s    asset_ani(i32 ID);
-i32      asset_tex_put(tex_s t);
-tex_s    asset_tex_putID(i32 ID, tex_s t);
+tex_s   *asset_texptr(i32 ID);
+texrec_s asset_texrec_from_tex(i32 ID);
 texrec_s asset_texrec(i32 ID, i32 x, i32 y, i32 w, i32 h);
-i32      snd_play(i32 ID, f32 vol, f32 pitch);
-i32      snd_play_ext(i32 ID, f32 vol, f32 pitch, bool32 loop);
 //
-err32    snd_from_wad_ID(i32 ID, const void *name, allocator_s a);
+err32    sfx_from_wad_ID(i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ID(i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ID_ext(void *f, i32 ID, const void *name, allocator_s a);
 err32    tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t);
 err32    tex_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, tex_s *o_t);
-err32    snd_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, snd_s *o_s);
+err32    sfx_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, sfx_s *o_s);
 err32    ani_from_wad(void *f, wad_el_s *wf, const void *name, allocator_s a, ani_s *o_a);
+err32    tex_from_wadh(void *f, wad_el_s *wf, u32 hash, allocator_s a, tex_s *o_t);
+err32    sfx_from_wadh(void *f, wad_el_s *wf, u32 hash, allocator_s a, sfx_s *o_s);
+err32    ani_from_wadh(void *f, wad_el_s *wf, u32 hash, allocator_s a, ani_s *o_a);
 i32      ani_frame_loop(i32 ID, i32 ticks); // loops through the animation
 i32      ani_frame(i32 ID, i32 ticks);      // once; returns -1 if completed
 i32      ani_len(i32 ID);

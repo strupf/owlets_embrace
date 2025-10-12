@@ -14,7 +14,9 @@ enum {
     DRILLER_LURK, // is in spawn
     DRILLER_PREPARE_DASH,
     DRILLER_DASH,
-    DRILLER_HIDE
+    DRILLER_HIDE,
+    DRILLER_HURT,
+    DRILLER_DIE,
 };
 
 typedef struct {
@@ -50,15 +52,15 @@ void drillers_setup(g_s *g)
 
 void drillerspawn_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o    = obj_create(g);
-    o->UUID     = mo->UUID;
-    o->ID       = OBJID_DRILLERSPAWN;
-    o->enemy    = enemy_default();
-    o->w        = 32;
-    o->h        = 32;
-    o->pos.x    = mo->x;
-    o->pos.y    = mo->y;
-    o->substate = map_obj_i32(mo, "refID");
+    obj_s *o     = obj_create(g);
+    o->editorUID = mo->UID;
+    o->ID        = OBJID_DRILLERSPAWN;
+    o->enemy     = enemy_default();
+    o->w         = 32;
+    o->h         = 32;
+    o->pos.x     = mo->x;
+    o->pos.y     = mo->y;
+    o->substate  = map_obj_i32(mo, "refID");
 
     if (map_obj_bool(mo, "spawn")) {
         o->action = 1;
@@ -290,6 +292,16 @@ void driller_on_update(g_s *g, obj_s *o)
     }
 }
 
+void driller_on_hurt(g_s *g, obj_s *o)
+{
+    if (o->state == DRILLER_DASH) {
+        o->flags &= OBJ_FLAG_HURT_ON_TOUCH;
+        o->state     = DRILLER_DIE;
+        o->timer     = 0;
+        o->on_update = enemy_on_update_die;
+    }
+}
+
 void driller_on_animate(g_s *g, obj_s *o)
 {
     if (o->state == DRILLER_HIDE) {
@@ -328,6 +340,7 @@ void driller_on_animate(g_s *g, obj_s *o)
         spr->offs.y -= dir.y * o->timer * 2;
         break;
     }
+    case DRILLER_DIE:
     case DRILLER_DASH: {
         i32 f = (o->animation / 3) & 3;
         fx    = 2 - (f < 3 ? f : 1);

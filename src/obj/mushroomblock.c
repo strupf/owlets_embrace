@@ -22,7 +22,7 @@ void mushroomblock_load(g_s *g, map_obj_s *mo)
 {
     obj_s           *o  = obj_create(g);
     mushroomblock_s *ot = (mushroomblock_s *)o->mem;
-    o->UUID             = mo->UUID;
+    o->editorUID        = mo->UID;
     o->ID               = OBJID_MUSHROOMBLOCK;
     o->render_priority  = RENDER_PRIO_OWL + 1;
     o->state            = 0;

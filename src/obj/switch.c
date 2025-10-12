@@ -18,7 +18,7 @@ typedef struct {
 void switch_on_interact(g_s *g, obj_s *o)
 {
     if (!(o->flags & OBJ_FLAG_INTERACTABLE)) return;
-    snd_play(SNDID_SWITCH, .5f, 1.f);
+    sfx_cuef(SFXID_SWITCH, .5f, 1.f);
     cam_screenshake(&g->cam, 8, 5);
     obj_switch_s *os = (obj_switch_s *)o->mem;
 
@@ -44,7 +44,7 @@ void switch_on_interact(g_s *g, obj_s *o)
 void switch_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o           = obj_create(g);
-    o->UUID            = mo->UUID;
+    o->editorUID       = mo->UID;
     o->ID              = OBJID_SWITCH;
     o->render_priority = RENDER_PRIO_OWL - 1;
     o->flags =

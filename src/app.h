@@ -6,6 +6,7 @@
 #define APP_H
 
 #include "app_api.h"
+#include "app_load.h"
 #include "core/assets.h"
 #include "core/aud.h"
 #include "core/spm.h"
@@ -18,36 +19,45 @@
 #include "util/timing.h"
 #include "wad.h"
 
+#if PLTF_PD_HW || 0
+#define APP_LOAD_STATIC_RES_AT_ONCE 0 // startup with smooth loading bar
+#else
+#define APP_LOAD_STATIC_RES_AT_ONCE 1 // freeze on startup until everything is loaded (instant on PC)
+#endif
+
 enum {
+    APP_ST_LOAD,
+    APP_ST_LOAD_ERR,
     APP_ST_TITLE,
     APP_ST_GAME
 };
 
 enum {
     APP_FLAG_PD_MIRROR          = 1 << 0,
-    APP_FLAG_PD_REDUCE_FLASHING = 1 << 1,
+    APP_FLAG_PD_REDUCE_FLASHING = 1 << 5,
 };
 
 typedef struct app_s {
     ALIGNAS(32)
-    wad_s        wad;
-    assets_s     assets;
-    spm_s        spm;
-    aud_s        aud;
     g_s          game;
     title_s      title;
     savefile_s   save;
     settings_m_s sm;
     credits_s    credits;
     marena_s     ma;
+    app_load_s   load;
     i32          state;
+    i32          timer;
     i32          opt;
     i32          flags;
     b16          crank_requested;
     u16          crank_ui_tick;
 
     ALIGNAS(32)
-    byte mem[MMEGABYTE(10)];
+    byte mem_app[MMEGABYTE(8)]; // permanent memory arena - static assets
+
+    ALIGNAS(32)
+    byte mem_spm[MMEGABYTE(2)]; // scratch buffer for temporary working memory
 } app_s;
 
 extern app_s APP;
@@ -60,10 +70,5 @@ void app_resume();
 void app_pause();
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len);
 void app_mirror(b32 enable);
-
-void app_set_mode(i32 mode); // settings mode
-void app_menu_callback_timing(void *ctx, i32 opt);
-void app_menu_callback_map(void *ctx, i32 opt);
-void app_menu_callback_resetsave(void *ctx, i32 opt);
 
 #endif

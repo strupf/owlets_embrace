@@ -14,44 +14,27 @@ app_s APP;
 timing_s TIMING;
 #endif
 
-err32 app_load_assets();
-
-i32 app_init()
+static void app_on_finish_startup()
 {
-    pltf_log("total size APP: %i KB\n", ((i32)sizeof(app_s) / 1024));
-    g_s        *g = &APP.game;
-    savefile_s *s = &APP.save;
-    g->savefile   = s;
-    marena_init(&APP.ma, APP.mem, sizeof(APP.mem));
-
-    err32 err_wad_core = wad_init_file("oe.wad");
-    if (err_wad_core != 0) {
-        return (err_wad_core | ASSETS_ERR_WAD_INIT);
-    }
-
+    app_s *a           = &APP;
+    a->state           = APP_ST_TITLE;
+    g_s        *g      = &a->game;
+    savefile_s *s      = &a->save;
+    g->savefile        = s;
     err32 err_settings = settings_load(&SETTINGS); // try to use settings file
-    err32 err_assets   = app_load_assets();
-    aud_vol_set(SETTINGS.vol_mus, SETTINGS.vol_sfx, SETTINGS_VOL_MAX);
     app_set_mode(SETTINGS.mode);
     game_init(g);
-
-    usize spm_size = 0;
-    void *spm_buf  = app_alloc_aligned_rem(32, &spm_size);
-    spm_init(spm_buf, spm_size);
-
 #if TIMING_ENABLED
     TIMING.show = TIMING_SHOW_DEFAULT;
 #endif
 #if PLTF_PD
-
-    // pltf_pd_menu_add_check("Align 4", 0, app_menu_callback_pattern, 0);
 #if TIMING_ENABLED
     pltf_pd_menu_add_check("Timings", TIMING_SHOW_DEFAULT, app_menu_callback_timing, 0);
 #endif
 #endif
 
 #if 1
-    // DEBUG only ---------------------------
+    // dev only ---------------------------
     typedef struct {
         u8  map_name[MAP_WAD_NAME_LEN];
         i32 x;
@@ -64,7 +47,6 @@ i32 app_init()
     savefile_del(2);
 
     // create a playtesting savefile
-
     owl_spawn_s hs = {0};
     void       *f  = wad_open_str("SPAWN", 0, 0);
     pltf_file_r_checked(f, &hs, sizeof(owl_spawn_s));
@@ -73,12 +55,13 @@ i32 app_init()
     mclr(s, sizeof(savefile_s));
     {
         str_cpy(s->name, "Demo");
-        savefile_save_event_register(s, SAVE_EV_COMPANION_FOUND);
+        savefile_saveID_put(s, SAVEID_COMPANION_FOUND);
         mcpy(s->map_name, hs.map_name, sizeof(s->map_name));
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
         s->upgrades   = OWL_UPGRADE_COMPANION |
                       OWL_UPGRADE_FLY |
+                      OWL_UPGRADE_CLIMB |
                       OWL_UPGRADE_HOOK;
         s->stamina    = 5;
         s->health_max = 6;
@@ -86,12 +69,32 @@ i32 app_init()
     savefile_w(0, s);
 #endif
 
-    title_init(&APP.title);
-    usize mrem = marena_rem(&APP.ma);
+    title_init(&a->title);
+    usize mrem = marena_rem(&a->ma);
     pltf_log("\nAPP MEM remaining: %i%% (%i kB)\n\n",
-             (i32)((100 * mrem) / APP.ma.bufsize),
+             (i32)((100 * mrem) / a->ma.bufsize),
              (i32)(mrem / 1024));
+    aud_set_stereo(1);
+    aud_set_vol(256, 256);
+    aud_cmd_queue_commit();
     pltf_sync_timestep();
+}
+
+i32 app_init()
+{
+    // setup critical things for asset loading etc
+    app_s *a = &APP;
+    marena_init(&a->ma, a->mem_app, sizeof(a->mem_app));
+    spm_init(a->mem_spm, sizeof(a->mem_spm));
+    err32 err_wad_core = wad_init_file("oe.wad");
+    if (err_wad_core != 0) {
+        return (err_wad_core | ASSETS_ERR_WAD_INIT);
+    }
+    app_load_init(&a->load);
+#if APP_LOAD_STATIC_RES_AT_ONCE
+    app_load_tasks_timed(&a->load, 0);
+    app_on_finish_startup();
+#endif
     return 0;
 }
 
@@ -99,12 +102,31 @@ static void app_tick_step();
 
 void app_tick()
 {
-    app_tick_step();
-    aud_cmd_queue_commit();
+    app_s *a = &APP;
+    switch (a->state) {
+    case APP_ST_LOAD: {
+        a->timer++;
+        if (app_load_tasks_timed(&a->load, 18) && 50 <= a->timer) {
+            a->timer = 0;
+            app_on_finish_startup();
+        }
+        break;
+    }
+    case APP_ST_LOAD_ERR: {
+        break;
+    }
+    default: {
+        app_tick_step();
+        aud_cmd_queue_commit();
+        break;
+    }
+    }
 }
 
 static void app_tick_step()
 {
+    app_s *a = &APP;
+
 #if PLTF_DEV_ENV
     // slowmotion during dev
     static u32 skiptick;
@@ -113,6 +135,7 @@ static void app_tick_step()
         if (skiptick & 7) return;
     }
 
+#if 0
     if (pltf_sdl_jkey(SDL_GetScancodeFromKey(SDLK_PLUS))) {
         APP.aud.v_sfx_q8 = min_i32(APP.aud.v_sfx_q8 + 32, 256);
     }
@@ -126,28 +149,29 @@ static void app_tick_step()
         APP.aud.v_sfx_q8 = max_i32(APP.aud.v_sfx_q8 - 32, 0);
     }
 #endif
+#endif
 #if TIMING_ENABLED
     timing_beg(TIMING_ID_TICK);
 #endif
     inp_update();
 #if PLTF_PD
-    if (APP.crank_requested) {
+    if (a->crank_requested) {
         if (pltf_pd_crank_docked()) {
-            APP.crank_ui_tick++;
+            a->crank_ui_tick++;
         } else {
-            APP.crank_ui_tick = 0;
+            a->crank_ui_tick = 0;
         }
     }
 #endif
 
-    g_s *g = &APP.game;
+    g_s *g = &a->game;
 
-    if (APP.sm.active) {
-        settings_update(&APP.sm);
+    if (a->sm.active) {
+        settings_update(&a->sm);
     } else {
-        switch (APP.state) {
+        switch (a->state) {
         case APP_ST_TITLE: {
-            title_update(&APP, &APP.title);
+            title_update(a, &a->title);
             break;
         }
         case APP_ST_GAME: {
@@ -172,20 +196,41 @@ void app_draw()
     pltf_pd_update_rows(0, 239);
 #endif
 
+    app_s    *a   = &APP;
+    g_s      *g   = &a->game;
     gfx_ctx_s ctx = gfx_ctx_display();
-    g_s      *g   = &APP.game;
 
-    switch (APP.state) {
-    case APP_ST_TITLE:
-        title_render(&APP.title);
+    switch (a->state) {
+    case APP_ST_LOAD: {
+        texrec_s tr = asset_texrec(TEXID_COVER, 0, 0, 400, 240);
+        gfx_spr(ctx, tr, (v2_i32){0}, 0, 0);
+        rec_i32   rfill   = {0, 0, 400, 240};
+        gfx_ctx_s ctxfill = ctx;
+        ctxfill.pat       = gfx_pattern_interpolate(min_i32(40, 40 - a->timer), 40);
+        gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK);
+
+        // tiny loading bar
+        rec_i32 rbar = {0, 240 - 1, app_load_progress_mul(&a->load, 400), 2};
+        gfx_rec_fill(ctx, rbar, PRIM_MODE_WHITE);
         break;
-    case APP_ST_GAME:
-        game_draw(g);
+    }
+    case APP_ST_LOAD_ERR: {
+        tex_clr(ctx.dst, GFX_COL_BLACK);
+        break;
+    }
+    case APP_ST_TITLE: {
+        title_render(&a->title);
         break;
     }
 
-    if (APP.sm.active) {
-        settings_draw(&APP.sm);
+    case APP_ST_GAME: {
+        game_draw(g);
+        break;
+    }
+    }
+
+    if (a->sm.active) {
+        settings_draw(&a->sm);
     }
 #if TIMING_ENABLED
     timing_end(TIMING_ID_DRAW);
@@ -201,10 +246,10 @@ void app_draw()
 
 #if PLTF_PD
     // "USE THE CRANK!"
-    if (APP.crank_requested && APP.crank_ui_tick) {
+    if (a->crank_requested && a->crank_ui_tick) {
         // 40 = duration of "use crank!"
         // 90 = 3 turns x 2.5 ticks per frame x 12 frames
-        i32 t  = APP.crank_ui_tick % (40 + 90);
+        i32 t  = a->crank_ui_tick % (40 + 90);
         i32 fx = 0;
         i32 fy = 0;
 
@@ -228,7 +273,7 @@ void app_draw()
 
 void app_close()
 {
-    aud_destroy();
+    // aud_destroy();
     if (APP.state == APP_ST_GAME) {
         g_s *g = &APP.game;
         game_update_savefile(g);
@@ -256,12 +301,16 @@ void app_pause()
 
 void app_audio(i16 *lbuf, i16 *rbuf, i32 len)
 {
-    aud_audio(&APP.aud, lbuf, rbuf, len);
+    aud_audio(lbuf, rbuf, len);
 }
 
 void app_mirror(b32 enable)
 {
-    APP.flags = enable;
+    if (enable) {
+        APP.flags |= APP_FLAG_PD_MIRROR;
+    } else {
+        APP.flags &= ~APP_FLAG_PD_MIRROR;
+    }
 }
 
 void *app_alloc(usize s)

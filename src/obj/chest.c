@@ -30,7 +30,7 @@ void chest_load(g_s *g, map_obj_s *mo)
     o->n_sprites  = 1;
     i32 saveID    = map_obj_i32(mo, "saveID");
     c->saveID     = saveID;
-    if (save_event_exists(g, saveID)) {
+    if (saveID_has(g, saveID)) {
         o->state = CHEST_OPENED;
     } else {
         o->flags = OBJ_FLAG_OWL_JUMPABLE;
@@ -69,7 +69,7 @@ void chest_on_open(g_s *g, obj_s *o)
     chest_s *c = (chest_s *)o->mem;
     o->flags &= ~OBJ_FLAG_OWL_JUMPABLE;
     o->state = CHEST_OPENED;
-    save_event_register(g, c->saveID);
+    saveID_put(g, c->saveID);
     v2_i32 p = obj_pos_center(o);
     p.y -= 6;
     particle_emit_ID(g, PARTICLE_EMIT_ID_CHEST, p);

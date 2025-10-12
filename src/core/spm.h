@@ -22,6 +22,8 @@ typedef struct spm_s {
 #endif
 } spm_s;
 
+extern spm_s g_SPM;
+
 #define spm_alloct(T)     (T *)spm_alloc_aligned(sizeof(T), ALIGNOF(T))
 #define spm_alloctn(T, N) (T *)spm_alloc_aligned(sizeof(T) * (N), ALIGNOF(T))
 #define spm_alloctz(T, N) (T *)spm_allocz_aligned(sizeof(T) * (N), ALIGNOF(T))

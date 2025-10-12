@@ -397,7 +397,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             // sfx
             i32 swim2 = owl_swim_frameID(h->swim_anim - 1);
             if ((swim2 == 1 && swim == 2)) {
-                snd_play(SNDID_WATER_SWIM_1, 0.25f, rngr_f32(0.9f, 1.1f));
+                sfx_cuef(SFXID_WATER_SWIM_1, 0.25f, rngr_f32(0.9f, 1.1f));
             }
         } else {
             fy = 7; // "air"
@@ -414,7 +414,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             // sfx
             i32 swim2 = owl_swim_frameID_idle(h->swim_anim - 1);
             if (((swim2 == 1 || swim2 == 4) && swim != swim2)) {
-                snd_play(SNDID_WATER_SWIM_2, 0.20f, rngr_f32(0.9f, 1.1f));
+                sfx_cuef(SFXID_WATER_SWIM_2, 0.20f, rngr_f32(0.9f, 1.1f));
             }
 
             if (h->stance_swap_tick) {

@@ -36,7 +36,7 @@ void rotor_load(g_s *g, map_obj_s *mo)
 {
     obj_s   *o    = obj_create(g);
     rotor_s *r    = (rotor_s *)o->mem;
-    o->UUID       = mo->UUID;
+    o->editorUID  = mo->UID;
     o->ID         = OBJID_ROTOR;
     o->on_update  = rotor_on_update;
     o->on_animate = rotor_on_animate;

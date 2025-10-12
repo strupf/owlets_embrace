@@ -20,8 +20,8 @@ enum {
 
 typedef struct wad_header_s {
     ALIGNAS(16)
-    u32 timestamp; // seconds since 00:00 2000
-    u32 version;
+    u32 timestamp; // time of wad compilation; seconds since 00:00 2000
+    u32 version;   // the intended game's version
     u32 n_entries;
     u8  unused[4];
 } wad_header_s;
@@ -34,10 +34,10 @@ typedef struct {
 
 typedef struct wad_el_s {
     ALIGNAS(16)
-    u8 *filename;
-    u32 hash; // hash of resource name
-    u32 offs; // begin of memory block in file
-    u32 size; // size of memory block
+    u8 *filename; // filename of the parent WAD file
+    u32 hash;     // hash of resource name
+    u32 offs;     // begin of memory block in file
+    u32 size;     // size of memory block
 } wad_el_s;
 
 typedef struct {
@@ -55,8 +55,11 @@ typedef struct {
     wad_el_s        entries[WAD_NUM_ENTRIES];
 } wad_s;
 
+extern wad_s g_WAD;
+
 err32     wad_init_file(const void *filename);                        // initializes a file to be used as a wad, returns wad error code
 wad_el_s *wad_el_find(u32 h, wad_el_s *efrom);                        // finds a wad entry; if passed efrom: returns an entry only if found in the same file
+wad_el_s *wad_el_find_ext(u32 h, wad_el_s *efrom, wad_el_s *eto);     // finds a wad entry; if passed efrom: returns an entry only if found in the same file
 void     *wad_open(u32 h, void **o_f, wad_el_s **o_e);                // opens a file if entry is found, returns file handle seeked to the element or null
 void     *wad_open_str(const void *name, void **o_f, wad_el_s **o_e); // opens a file if entry is found, returns file handle or null
 wad_el_s *wad_seek(void *f, wad_el_s *efrom, u32 hash);

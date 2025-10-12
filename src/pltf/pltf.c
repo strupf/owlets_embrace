@@ -4,8 +4,6 @@
 
 #include "pltf/pltf.h"
 
-#define PLTF_SHOW_FPS 0 // show FPS, UPS, logic time and draw time
-
 typedef struct pltf_s {
     ALIGNAS(32)
     void *framebuffer;
@@ -225,7 +223,7 @@ void pltf_internal_mirror(b32 enabled)
 
 void *pltf_mem_alloc_aligned(usize s, usize alignment)
 {
-    assert(0 <= alignment && alignment <= 64);
+    assert(IS_POW2(alignment));
     // store a 1 byte offset behind the returned pointer
     void *p             = pltf_mem_alloc(s + alignment);
     void *p_al          = align_ptr((byte *)p + 1, alignment);

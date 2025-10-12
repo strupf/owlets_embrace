@@ -36,7 +36,7 @@ void trampoline_load(g_s *g, map_obj_s *mo)
         o->h     = TRAMPOLINE_THICKNESS;
         o->pos.y += (16 - TRAMPOLINE_THICKNESS) / 2;
     } else {
-        BAD_PATH
+        BAD_PATH();
     }
     o->flags = OBJ_FLAG_SOLID;
 }

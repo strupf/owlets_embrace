@@ -52,6 +52,9 @@ void cs_maptransition_init(g_s *g, cs_s *cs, u8 *map_name, i32 type, v2_i32 hero
     obj_s           *owl = obj_get_tagged(g, OBJ_TAG_OWL);
     owl_s           *h   = (owl_s *)owl->heap;
     mcpy(mt->map_name, map_name, sizeof(mt->map_name));
+    map_room_s *mr_new = map_room_find(g, 1, map_name);
+    mus_cue(MUS_CHANNEL_MUSIC, mr_new->musID, 1100);
+    g->music_ID    = mr_new->musID;
     mt->dir        = 0;
     mt->type       = type;
     mt->owl_feet   = hero_feet;
@@ -66,6 +69,8 @@ void cs_maptransition_init(g_s *g, cs_s *cs, u8 *map_name, i32 type, v2_i32 hero
         h->safe_v.y = -Q_VOBJ(4.0);
     }
     grapplinghook_destroy(g, &g->ghook);
+    sfx_stop_all();
+    aud_cmd_queue_commit();
 }
 
 bool32 cs_maptransition_try_slide_enter(g_s *g)
@@ -246,14 +251,14 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
         }
     }
 
-    if (save_event_exists(g, SAVE_EV_COMPANION_FOUND)) {
+    if (saveID_has(g, SAVEID_COMPANION_FOUND)) {
         companion_spawn(g, owl);
     }
 
-    cam_init_level(g, &g->cam);
-    aud_allow_playing_new_snd(0); // disable sounds (foot steps etc.)
+    cam_hard_set_positon(g, &g->cam);
+    sfx_block_new(1); // disable sounds (foot steps etc.)
     objs_animate(g);
-    aud_allow_playing_new_snd(1);
+    sfx_block_new(0);
 
     f32 seconds_loaded = pltf_seconds() - t1;
     i32 ticks_loaded   = (i32)(seconds_loaded * 50.f + 0.5f); // 50 = 1/0.020

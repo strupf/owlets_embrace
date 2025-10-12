@@ -6,6 +6,11 @@
 #ifndef PLTF_PD_H
 #define PLTF_PD_H
 
+// the SDK version used to compile the project
+#define PLTF_PD_SDK_MAJOR 3
+#define PLTF_PD_SDK_MINOR 0
+#define PLTF_PD_SDK_PATCH 0
+
 #undef TARGET_EXTENSION
 #define TARGET_EXTENSION 1
 
@@ -25,6 +30,11 @@ extern int (*PD_file_listfiles)(const char *path, void (*callback)(const char *f
 #define pltf_log(...)
 #endif
 
+#if PLTF_DEBUG
+#define DEBUG_LOG pltf_log
+#else
+#define DEBUG_LOG(...)
+#endif
 #define pltf_mem_alloc(S) PD_system_realloc(0, S)
 #define pltf_mem_free(P)  PD_system_realloc(P, 0)
 

@@ -72,11 +72,11 @@ void cs_powerup_enter(g_s *g)
     obj_s *oupgr           = obj_find_ID(g, OBJID_UPGRADETREE, 0);
     upgradetree_collect(g, oupgr);
     pu->o               = oupgr;
-    pu->first_time_seen = save_event_exists(g, SAVE_EV_CS_POWERUP_FIRST_TIME);
+    pu->first_time_seen = saveID_has(g, SAVEID_CS_POWERUP_FIRST_TIME);
 
     obj_s *ocomp = obj_get_tagged(g, OBJ_TAG_COMPANION);
     if (ocomp) {
-        save_event_register(g, SAVE_EV_CS_POWERUP_FIRST_TIME);
+        saveID_put(g, SAVEID_CS_POWERUP_FIRST_TIME);
     }
 }
 
@@ -178,7 +178,7 @@ void cs_powerup_update(g_s *g, cs_s *cs, inp_s inp)
             upgradetree_put_orb_infront(pu->o);
             break;
         case 130:
-            mus_play_extv(0, 0, 0, 2000, 0, 0);
+            // mus_play_extv(0, 0, 0, 2000, 0, 0);
             pu->puppet_hero->render_priority = RENDER_PRIO_UI_LEVEL;
             g->objrender_dirty               = 1;
             break;
@@ -219,7 +219,7 @@ void cs_powerup_update(g_s *g, cs_s *cs, inp_s inp)
     case 14: {
         switch (cs->tick) {
         case 50: {
-            snd_play(SNDID_UPGRADE, 1.f, 1.f);
+            sfx_cuef(SFXID_UPGRADE, 1.f, 1.f);
             v2_i32 comppos = {opos.x - 100, opos.y + 60};
             v2_i32 heropos = {0, -30};
             puppet_set_anim(pu->puppet_hero, PUPPET_OWL_ANIMID_UPGR_RISE, 0);
@@ -458,7 +458,7 @@ void cs_powerup_draw(g_s *g, cs_s *cs, v2_i32 cam)
     // orb light shine
     if (d_shine) {
         tex_s     t    = asset_tex(TEXID_DISPLAY_TMP);
-        gfx_ctx_s ctxt = gfx_ctx_default(t);
+        gfx_ctx_s ctxt = gfx_ctx_from_tex(t);
         tex_clr(t, GFX_COL_BLACK);
         ctxt.pat = gfx_pattern_50();
         gfx_cir_fill(ctxt, opos, (d_shine * 256) >> 8, PRIM_MODE_WHITE);

@@ -9,17 +9,18 @@
 #include "util/mathfunc.h"
 
 enum {
-    TEX_FMT_OPAQUE, // only color pixels
-    TEX_FMT_MASK    // color and mask interlaced in words
+    TEX_FMT_OPAQUE = 0, // only color pixels
+    TEX_FMT_MASK   = 1  // color and mask interlaced in words
 };
 
 enum {
-    GFX_COL_BLACK,
-    GFX_COL_WHITE,
-    GFX_COL_CLEAR
+    GFX_COL_BLACK = 0,
+    GFX_COL_WHITE = 1,
+    GFX_COL_CLEAR = 2
 };
 
 typedef struct { // 16 bytes on PD
+    // half a cacheline
     ALIGNAS(16)
     u32 *px; // either black/white words, or black/white and transparent/opaque words interlaced
     i32  w;
@@ -29,6 +30,7 @@ typedef struct { // 16 bytes on PD
 } tex_s;
 
 typedef struct { // 32 bytes on PD
+    // cacheline
     ALIGNAS(32)
     tex_s t;
     i32   x;
@@ -38,17 +40,22 @@ typedef struct { // 32 bytes on PD
 } texrec_s;
 
 typedef struct gfx_pattern_s { // 32 bytes
+    // cacheline
     ALIGNAS(32)
     u32 p[8];
 } gfx_pattern_s;
 
 typedef struct gfx_ctx_s { // 64 bytes on PD
+    // cacheline
     ALIGNAS(32)
-    tex_s         dst;
-    i32           clip_x1;
-    i32           clip_x2;
-    i32           clip_y1;
-    i32           clip_y2;
+    tex_s dst;
+    i32   clip_x1;
+    i32   clip_x2;
+    i32   clip_y1;
+    i32   clip_y2;
+
+    // cacheline
+    ALIGNAS(32)
     gfx_pattern_s pat;
 } gfx_ctx_s;
 
@@ -123,6 +130,8 @@ enum {
 
 tex_s    tex_framebuffer();
 tex_s    tex_create(i32 w, i32 h, b32 mask, allocator_s a, err32 *err);
+void     tex_clr(tex_s dst, i32 col);
+usize    tex_size_bytes(tex_s t);
 texrec_s texrec_from_tex(tex_s t);
 i32      tex_px_at(tex_s tex, i32 x, i32 y);
 i32      tex_mk_at(tex_s tex, i32 x, i32 y);
@@ -158,7 +167,7 @@ void tex_merge_to_opaque(tex_s dst, tex_s src);
 // src: top texture, transparency
 // dst: bot texture, opaque
 void          tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src);
-gfx_ctx_s     gfx_ctx_default(tex_s dst);
+gfx_ctx_s     gfx_ctx_from_tex(tex_s dst);
 gfx_ctx_s     gfx_ctx_display();
 gfx_ctx_s     gfx_ctx_unclip(gfx_ctx_s ctx);
 gfx_ctx_s     gfx_ctx_clip(gfx_ctx_s ctx, i32 x1, i32 y1, i32 x2, i32 y2);
@@ -168,7 +177,6 @@ gfx_ctx_s     gfx_ctx_clip_left(gfx_ctx_s ctx, i32 x1);
 gfx_ctx_s     gfx_ctx_clip_right(gfx_ctx_s ctx, i32 x2);
 gfx_ctx_s     gfx_ctx_clipr(gfx_ctx_s ctx, rec_i32 r);
 gfx_ctx_s     gfx_ctx_clipwh(gfx_ctx_s ctx, i32 x, i32 y, i32 w, i32 h);
-void          tex_clr(tex_s dst, i32 col);
 gfx_pattern_s gfx_pattern_inv(gfx_pattern_s p);
 gfx_pattern_s gfx_pattern_2x2(i32 p0, i32 p1);
 gfx_pattern_s gfx_pattern_4x4(i32 p0, i32 p1, i32 p2, i32 p3);
@@ -206,29 +214,191 @@ void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str,
 i32  fnt_length_px(fnt_s fnt, const void *txt);
 i32  fnt_kerning(fnt_s fnt, i32 c1, i32 c2);
 
-static void spr_blit_p(u32 *dp, u32 sp, u32 sm, u32 pt, i32 mode)
+static void spr_blit_p_res2(u32 *dpp, u32 *dmm, u32 sp, u32 sm, i32 mode)
 {
-    u32 zm = sm & pt;
+    u32 dp = *dpp;
+    u32 dm = *dmm;
 
+#if 1
     switch (mode) {
-    case SPR_MODE_INV: sp = ~sp; // fallthrough
-    case SPR_MODE_COPY: *dp = (*dp & ~zm) | (sp & zm); break;
-    case SPR_MODE_XOR: sp = ~sp; // fallthrough
-    case SPR_MODE_NXOR: *dp = (*dp & ~zm) | ((*dp ^ sp) & zm); break;
-    case SPR_MODE_WHITE_ONLY: zm &= sp; // fallthrough
-    case SPR_MODE_WHITE: *dp |= zm; break;
-    case SPR_MODE_BLACK_ONLY: zm &= ~sp; // fallthrough
-    case SPR_MODE_BLACK: *dp &= ~zm; break;
-
-    case SPR_MODE_BLACK_ONLY_WHITE_PT_OPAQUE: {
-        u32 km = sm & ~sp;
-        *dp    = (*dp & ~km) | (km & ~pt);
+    case SPR_MODE_INV:
+        sp = ~sp;
+        dp &= ~sm;
+        dp |= sp & sm;
+        break;
+    case SPR_MODE_COPY:
+        dp &= ~sm;
+        dp |= sp & sm;
+        break;
+    case SPR_MODE_XOR:
+        sp = ~sp;
+        sp ^= dp;
+        dp &= ~sm;
+        dp |= sp & sm;
+        break;
+    case SPR_MODE_NXOR:
+        sp ^= dp;
+        dp &= ~sm;
+        dp |= sp & sm;
+        break;
+    case SPR_MODE_WHITE_ONLY:
+        sm &= sp;
+        dp |= sm;
+        break;
+    case SPR_MODE_WHITE:
+        dp |= sm;
+        break;
+    case SPR_MODE_BLACK_ONLY:
+        sm &= ~sp;
+        dp &= ~sm;
+        break;
+    case SPR_MODE_BLACK:
+        dp &= ~sm;
         break;
     }
-    }
+    dm |= sm;
+#else
+    if (mode & 1)
+        sp ^= 0xFFFFFFFF;
+    if (mode & 2)
+        sp ^= dp;
+    if (mode & 4)
+        sm &= sp;
+    if (mode & 8)
+        dp &= ~sm;
+    if (mode & 16)
+        dp |= sp & sm;
+
+    // cut out modes?
+    if (mode & 32)
+        dm |= sm;
+    if (mode & 64)
+        dm &= ~sm;
+#endif
+    *dpp = dp;
+    *dmm = dm;
 }
 
-static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 pt, u32 sm, i32 mode)
+static void spr_blit_p_res(u32 dp, u32 dm, u32 sp, u32 sm, u32 pt, i32 mode, u32 *out_dp, u32 *out_dm)
+{
+    sm &= pt;
+
+    switch (mode) {
+    case SPR_MODE_INV:
+        sp = ~sp;
+        dp &= ~sm;
+        dp |= sm & sp;
+        dm |= sm;
+        break;
+    case SPR_MODE_COPY:
+        dp &= ~sm;
+        dp |= sm & sp;
+        dm |= sm;
+        break;
+    case SPR_MODE_XOR:
+        sp = ~sp;
+        sp ^= dp;
+        dp &= ~sm;
+        dp |= sm & sp;
+        dm |= sm;
+        break;
+    case SPR_MODE_NXOR:
+        sp ^= dp;
+        dp &= ~sm;
+        dp |= sm & sp;
+        dm |= sm;
+        break;
+    case SPR_MODE_WHITE_ONLY:
+        sm &= sp;
+        dp |= sm;
+        dm |= sm;
+        break;
+    case SPR_MODE_WHITE:
+        dp |= sm;
+        dm |= sm;
+        break;
+    case SPR_MODE_BLACK_ONLY:
+        sm &= ~sp;
+        dp &= ~sm;
+        dm |= sm;
+        break;
+    case SPR_MODE_BLACK:
+        dp &= ~sm;
+        dm |= sm;
+        break;
+    }
+    *out_dp = dp;
+    *out_dm = dm;
+}
+#if 0
+typedef struct {
+    ALIGNAS(32)
+    u32 m0;
+    u32 m1;
+    u32 m2;
+    u32 m3;
+    u32 m4;
+    u32 m5;
+} gfx_sprblit_param_s;
+
+void gfx_sprblit_setup(i32 mode, u32 *m0, u32 *m1, u32 *m2, u32 *m3, u32 *m4, u32 *m5)
+{
+}
+
+
+u32 gfx_sprblit1(u32 s0, u32 s1, u32 d0, u32 m0, u32 m1, u32 m2, u32 m3, u32 m4, u32 m5)
+{
+    s0 ^= m0;
+    s1 &= m1 | s0;
+    s0 ^= m2 & d0;
+    d0 &= m3 | ~s1;
+    s1 &= m4 | s0;
+    d0 |= m5 & s1;
+    return d0;
+}
+
+u32 gfx_sprblit2(u32 d0, u32 s0, u32 s1, i32 mode)
+{
+    switch (mode) {
+    case 0: s0 = ~s0; // fallthrough
+    case 1: d0 = (d0 & ~s1) | (s0 & s1); break;
+    case 2: s0 = ~s0; // fallthrough
+    case 3: d0 = (d0 & ~s1) | ((d0 ^ s0) & s1); break;
+    case 4: s1 &= s0; // fallthrough
+    case 5: d0 |= s1; break;
+    case 6: s1 &= ~s0; // fallthrough
+    case 7: d0 &= ~s1; break;
+    }
+    return d0;
+}
+
+u32 gfx_sprblit3(u32 s0, u32 s1, u32 d0, u32 f)
+{
+    if (f & 1)
+        s0 = ~s0;
+    if (f & 2)
+        s1 &= s0;
+    if (f & 4)
+        s0 ^= d0;
+    if (f & 8)
+        d0 &= ~s1;
+    if (f & 16)
+        s1 &= s0;
+    if (f & 32)
+        d0 |= s1;
+    return d0;
+}
+#endif
+
+static void spr_blit_p(u32 *dp, u32 sp, u32 sm, u32 pt, i32 mode)
+{
+    u32 dp_res = 0;
+    u32 dm_res = 0;
+    spr_blit_p_res(*dp, 0, sp, sm, pt, mode, &dp_res, &dm_res);
+    *dp = dp_res;
+}
+
+static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt, i32 mode)
 {
     u32 zm = sm & pt;
 
@@ -253,9 +423,141 @@ static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 pt, u32 sm, i32 mode)
     *dm |= zm;
 }
 
-static inline void spr_blit_p_copy(u32 *dp, u32 sp, u32 sm)
+static void spr_blit_pm_white_only(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
 {
-    *dp = (*dp & ~sm) | (sp & sm);
+    u32 zm = (sm & pt) & sp;
+    *dp |= zm;
+    *dm |= zm;
+}
+
+static void spr_blit_pm_white(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp |= zm;
+    *dm |= zm;
+}
+
+static void spr_blit_pm_black_only(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = (sm & pt) & ~sp;
+    *dp &= ~zm;
+    *dm |= zm;
+}
+
+static void spr_blit_pm_black(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp &= ~zm;
+    *dm |= zm;
+}
+
+static void spr_blit_pm_inv(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | (~sp & zm);
+    *dm |= zm;
+}
+
+static void spr_blit_pm_copy(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | (sp & zm);
+    *dm |= zm;
+}
+
+static void spr_blit_pm_nxor(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | ((*dp ^ sp) & zm);
+    *dm |= zm;
+}
+
+static void spr_blit_pm_xor(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | ((*dp ^ ~sp) & zm);
+    *dm |= zm;
+}
+// ---------
+
+static void spr_blit_p_white_only(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = (sm & pt) & sp;
+    *dp |= zm;
+}
+
+static void spr_blit_p_white(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp |= zm;
+}
+
+static void spr_blit_p_black_only(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = (sm & pt) & ~sp;
+    *dp &= ~zm;
+}
+
+static void spr_blit_p_black(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp &= ~zm;
+}
+
+static void spr_blit_p_inv(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | (~sp & zm);
+}
+
+static void spr_blit_p_nxor(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | ((*dp ^ sp) & zm);
+}
+
+static void spr_blit_p_xor(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | ((*dp ^ ~sp) & zm);
+}
+
+static inline void spr_blit_p_copy(u32 *dp, u32 sp, u32 sm, u32 pt)
+{
+    u32 zm = sm & pt;
+    *dp    = (*dp & ~zm) | (sp & zm);
+}
+
+typedef void (*spr_blit_pm_f)(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt);
+static spr_blit_pm_f spr_blit_pm_choose(i32 mode)
+{
+    switch (mode) {
+    case SPR_MODE_INV: return spr_blit_pm_inv;
+    case SPR_MODE_COPY: return spr_blit_pm_copy;
+    case SPR_MODE_XOR: return spr_blit_pm_xor;
+    case SPR_MODE_NXOR: return spr_blit_pm_nxor;
+    case SPR_MODE_WHITE_ONLY: return spr_blit_pm_white_only;
+    case SPR_MODE_WHITE: return spr_blit_pm_white;
+    case SPR_MODE_BLACK_ONLY: return spr_blit_pm_black_only;
+    case SPR_MODE_BLACK: return spr_blit_pm_black;
+    }
+    return spr_blit_pm_copy;
+}
+
+typedef void (*spr_blit_p_f)(u32 *dp, u32 sp, u32 sm, u32 pt);
+static spr_blit_p_f spr_blit_p_choose(i32 mode)
+{
+    switch (mode) {
+    case SPR_MODE_INV: return spr_blit_p_inv;
+    case SPR_MODE_COPY: return spr_blit_p_copy;
+    case SPR_MODE_XOR: return spr_blit_p_xor;
+    case SPR_MODE_NXOR: return spr_blit_p_nxor;
+    case SPR_MODE_WHITE_ONLY: return spr_blit_p_white_only;
+    case SPR_MODE_WHITE: return spr_blit_p_white;
+    case SPR_MODE_BLACK_ONLY: return spr_blit_p_black_only;
+    case SPR_MODE_BLACK: return spr_blit_p_black;
+    }
+    return spr_blit_p_copy;
 }
 
 #define TEX_STACK(NAME, W, H, MASK)                                      \
@@ -270,7 +572,7 @@ static inline void spr_blit_p_copy(u32 *dp, u32 sp, u32 sm)
 
 #define TEX_STACK_CTX(NAME, W, H, MASK) \
     TEX_STACK(NAME, W, H, MASK)         \
-    gfx_ctx_s NAME##_ctx = gfx_ctx_default(NAME);
+    gfx_ctx_s NAME##_ctx = gfx_ctx_from_tex(NAME);
 
 enum {
     FNT_GLYPH_NULL   = 0,

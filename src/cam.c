@@ -16,10 +16,12 @@
 #define CAM_OFFS_BOT      (-120 + CAM_HERO_Y_BOT)
 
 // a, b: half width/height of ellipse, p considered relative to center
+void          cam_calc_pos_px_center(g_s *g, cam_s *c);
 static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b);
 static v2_i32 cam_constrain_to_room(g_s *g, v2_i32 p_center);
 static v2_i32 cam_constrain_to_rec(v2_i32 p_center, rec_i32 r);
 void          cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o);
+void          cam_update_logic(g_s *g, cam_s *c);
 
 void cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y)
 {
@@ -36,10 +38,9 @@ void cam_screenshake(cam_s *c, i32 ticks, i32 str)
     cam_screenshake_xy(c, ticks, str, str);
 }
 
-v2_i32 cam_pos_px_top_left(g_s *g, cam_s *c)
+v2_i32 cam_pos_px_top_left(cam_s *c)
 {
-    v2_i32 pos_center = cam_pos_px_center(g, c);
-    v2_i32 pos        = {pos_center.x - CAM_WH, pos_center.y - CAM_HH};
+    v2_i32 pos = {c->p_center.x - CAM_WH, c->p_center.y - CAM_HH};
     return pos;
 }
 
@@ -52,30 +53,51 @@ v2_i32 cam_pos_px_center_hero(cam_owl_s *ch)
     } else {
         p.y -= ease_in_out_quad(0, 60, -ch->lookdownup_q8, 256);
     }
-#if 0
-    if (ch->can_align_x) {
-        p.x++;
-        p.x &= ~1;
-    }
-    if (ch->can_align_y) {
-        p.y &= ~1;
-    }
-#else
+
+    // for some reason the owl's cam pos has to be altered to
+    // work smoothly with alignment
     p.x++;
-#endif
     return p;
 }
 
-v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
+v2_i32 cam_pos_px_center(cam_s *c)
+{
+    return c->p_center;
+}
+
+v2_i32 cam_calc_pos_px_center_behavior(g_s *g, cam_s *c, i32 behavior);
+
+void cam_calc_pos_px_center(g_s *g, cam_s *c)
+{
+    v2_i32 pos_prev = cam_calc_pos_px_center_behavior(g, c, c->behavior_prev);
+    v2_i32 pos_curr = cam_calc_pos_px_center_behavior(g, c, c->behavior_curr);
+    v2_i32 pos      = v2_i32_lerp(pos_prev, pos_curr, c->behavior_q8, 256);
+    c->p_center     = pos;
+}
+
+v2_i32 cam_calc_pos_px_center_behavior(g_s *g, cam_s *c, i32 behavior)
 {
     v2_i32 phero = cam_pos_px_center_hero(&c->cowl);
-    v2_i32 pos   = phero;
+
+#if 0
+    switch (behavior) {
+    default:
+    case CAM_BEHAVIOR_PLAYER: {
+        return phero;
+        break;
+    }
+    }
+#endif
+    v2_i32 pos = phero;
 
     if (c->trg_fade_q12) {
         pos.x = ease_in_out_sine(pos.x, c->trg.x, c->trg_fade_q12, CAM_TRG_FADE_MAX);
         pos.y = ease_in_out_sine(pos.y, c->trg.y, c->trg_fade_q12, CAM_TRG_FADE_MAX);
     }
 
+    if (c->handler_f) {
+        pos = c->handler_f(g);
+    }
     pos = cam_constrain_to_room(g, pos);
     if (c->clamp_rec_ticks) {
         v2_i32 p_clamped = cam_constrain_to_rec(pos, c->clamp_rec);
@@ -84,28 +106,36 @@ v2_i32 cam_pos_px_center(g_s *g, cam_s *c)
     pos.x += c->attr_q12.x >> 12;
     pos.y += c->attr_q12.y >> 12;
     pos = v2_i32_add(pos, c->shake);
+
+    if (pos.x != phero.x) {
+        c->cowl.do_align_x = 0;
+    } else {
+        c->cowl.do_align_x = c->cowl.may_align_x;
+    }
     return pos;
 }
 
-rec_i32 cam_rec_px(g_s *g, cam_s *c)
+rec_i32 cam_rec_px(cam_s *c)
 {
-    v2_i32  p = cam_pos_px_top_left(g, c);
+    v2_i32  p = cam_pos_px_top_left(c);
     rec_i32 r = {p.x, p.y, CAM_W, CAM_H};
     return r;
 }
 
-void cam_init_level(g_s *g, cam_s *c)
+void cam_hard_set_positon(g_s *g, cam_s *c)
 {
     // update all the panning etc. which could happen
     for (i32 n = 0; n < 128; n++) {
         cam_update(g, c);
     }
+    cam_calc_pos_px_center(g, c);
+    aud_set_pos_cam(g->cam_center.x, g->cam_center.y, 0); // set this as a new position for the audio system without smooth
+    aud_cmd_queue_commit();
 }
 
-void cam_update(g_s *g, cam_s *c)
+void cam_update_logic(g_s *g, cam_s *c)
 {
     obj_s *owl = obj_get_owl(g);
-
     if (owl) {
         cam_update_owl(g, &c->cowl, owl);
     }
@@ -138,7 +168,7 @@ void cam_update(g_s *g, cam_s *c)
         c->trg_fade_q12 = max_i32(c->trg_fade_q12 - c->trg_fade_spd, 0);
     }
 
-    v2_i32 pc0     = cam_pos_px_center(g, c);
+    v2_i32 pc0     = c->p_center;
     v2_i32 pc0_q12 = v2_i32_shl(pc0, 12);
     v2_i32 pc_q12  = v2_i32_add(pc0_q12, c->attr_q12);
 
@@ -172,6 +202,13 @@ void cam_update(g_s *g, cam_s *c)
         c->attr_q12.x = (c->attr_q12.x * 248) >> 8;
         c->attr_q12.y = (c->attr_q12.y * 248) >> 8;
     }
+    c->behavior_q8 = min_i32(c->behavior_q8 + 2, 256);
+}
+
+void cam_update(g_s *g, cam_s *c)
+{
+    cam_update_logic(g, c);
+    cam_calc_pos_px_center(g, c);
 }
 
 void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
@@ -179,8 +216,8 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
     i32    look_up_down = 0;
     owl_s *h            = (owl_s *)o->heap;
 
-    c->can_align_x      = 0;
-    c->can_align_y      = 0;
+    c->may_align_x      = 0;
+    c->may_align_y      = 0;
     v2_i32 owlp         = obj_pos_bottom_center(o);
     bool32 herogrounded = 0 <= o->v_q12.y && obj_grounded(g, o);
     i32    hero_bot     = owlp.y;
@@ -227,12 +264,12 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
     cam_y_min += (i32)c->force_higher_floor & ~1;
     if (c->pos.y <= cam_y_min) {
         c->pos.y       = cam_y_min;
-        c->can_align_y = 1;
+        c->may_align_y = 1;
     }
     if (c->pos.y >= cam_y_max) {
         c->touched_top_tick = max_i32(c->touched_top_tick, 2);
         c->pos.y            = cam_y_max;
-        c->can_align_y      = 1;
+        c->may_align_y      = 1;
     }
 
     c->force_lower_ceiling = 0;
@@ -279,7 +316,7 @@ void cam_update_owl(g_s *g, cam_owl_s *c, obj_s *o)
     }
 
     c->offs_x      = clamp_sym_i32(c->offs_x, CAM_FACE_OFFS_X);
-    c->can_align_x = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
+    c->may_align_x = abs_i32(c->offs_x) == CAM_FACE_OFFS_X;
     c->center_req  = 0;
 }
 
@@ -319,4 +356,32 @@ void cam_clamp_rec_unset(g_s *g)
 {
     cam_s *c            = &g->cam;
     c->clamp_rec_exists = 0;
+}
+
+i32 cam_clamp_x(i32 center_x, i32 x1, i32 x2)
+{
+    if (center_x - CAM_WH < x1) return (x1 + CAM_WH);
+    if (center_x + CAM_WH > x2) return (x2 - CAM_WH);
+    return center_x;
+}
+
+i32 cam_clamp_y(i32 center_y, i32 y1, i32 y2)
+{
+    if (center_y - CAM_HH < y1) return (y1 + CAM_HH);
+    if (center_y + CAM_HH > y2) return (y2 - CAM_HH);
+    return center_y;
+}
+
+void cam_behavior(g_s *g, i32 behavior, i32 hard)
+{
+    cam_s *c = &g->cam;
+    if (c->behavior_curr == behavior) return;
+
+    c->behavior_prev = c->behavior_curr;
+    c->behavior_curr = behavior;
+    if (hard) {
+        c->behavior_q8 = 256;
+    } else {
+        c->behavior_q8 = 0;
+    }
 }

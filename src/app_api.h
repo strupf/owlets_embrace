@@ -17,5 +17,9 @@ allocator_s app_allocator();
 #define app_alloctn(T, N) app_alloc_aligned((N) * sizeof(T), ALIGNOF(T))
 
 void app_crank_requested(b32 enable);
+void app_set_mode(i32 mode); // settings mode
+void app_menu_callback_timing(void *ctx, i32 opt);
+void app_menu_callback_map(void *ctx, i32 opt);
+void app_menu_callback_resetsave(void *ctx, i32 opt);
 
 #endif

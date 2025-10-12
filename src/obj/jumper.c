@@ -23,7 +23,7 @@ void jumper_on_hurt(g_s *g, obj_s *o);
 void jumper_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o      = obj_create(g);
-    o->UUID       = mo->UUID;
+    o->editorUID  = mo->UID;
     o->ID         = OBJID_JUMPER;
     o->on_update  = jumper_on_update;
     o->on_animate = jumper_on_animate;
@@ -108,14 +108,14 @@ void jumper_on_update(g_s *g, obj_s *o)
             o->v_q12.y   = -Q_VOBJ(8.0);
             o->v_q12.x   = o->facing * Q_VOBJ(2.2) + rngr_sym_i32(Q_VOBJ(0.7));
             o->animation = 0;
-            snd_play(SNDID_SPEAR_ATTACK, 0.75f, 1.f);
+            sfx_cuef(SFXID_SPEAR_ATTACK, 0.75f, 1.f);
         }
         break;
     }
     case JUMPER_ST_JUMPING: {
         o->timer++;
         if (grounded) {
-            snd_play(SNDID_STOMP_LAND, 1.1f, 1.f);
+            sfx_cuef(SFXID_STOMP_LAND, 1.1f, 1.f);
             o->state     = JUMPER_ST_LANDED;
             o->timer     = 0;
             o->animation = 0;
@@ -123,9 +123,6 @@ void jumper_on_update(g_s *g, obj_s *o)
             v2_i32 pp = obj_pos_bottom_center(o);
             v2_i32 pr = {pp.x + 8, pp.y};
             v2_i32 pl = {pp.x - 8, pp.y};
-
-            objanim_create(g, pl, OBJANIMID_STOMP_L);
-            objanim_create(g, pr, OBJANIMID_STOMP_R);
         }
         break;
     }

@@ -36,15 +36,6 @@ void owl_on_update_post(g_s *g, obj_s *o, inp_s inp)
         }
     }
 
-    for (i32 n = 0; n < g->n_hitboxes; n++) {
-        hitbox_s *hb = &g->hitboxes[n];
-        if (!hitbox_hits_obj(hb, o)) continue;
-        dmg           = max_i32(dmg, 1);
-        has_knockback = 1;
-        knockback.x   = hb->dx * Q_VOBJ(3.0);
-        knockback.y   = -Q_VOBJ(3.0);
-    }
-
     // damage from tiles
     tile_map_bounds_s bd = tile_map_bounds_rec(g, owlr);
     for (i32 y = bd.y1; y <= bd.y2; y++) {
@@ -67,7 +58,7 @@ void owl_on_update_post(g_s *g, obj_s *o, inp_s inp)
 
         if (dmg) {
             g->freeze_tick = 4;
-            snd_play(SNDID_HURT, 1.f, 1.f);
+            sfx_cuef(SFXID_HURT, 1.f, 1.f);
 
             if (o->health) {
                 h->hurt_ticks = OWL_HURT_TICKS;

@@ -16,6 +16,7 @@ enum {
     OBJID_HOOK,
     OBJID_DOOR,
     OBJID_BIGCRAB,
+    OBJID_MULTITRIGGER,
     OBJID_MOLE,
     OBJID_CRUMBLEBLOCK,
     OBJID_SHORTCUTBLOCK,
@@ -33,6 +34,7 @@ enum {
     OBJID_FROG_TONGUE,
     OBJID_CLOCKPULSE,
     OBJID_MISC,
+    OBJID_CAM_REC,
     OBJID_MOVINGBLOCK,
     OBJID_CRAWLER,
     OBJID_UPGRADETREE,
@@ -49,7 +51,6 @@ enum {
     OBJID_HOOKLEVER,
     OBJID_COIN,
     OBJID_ROTOR,
-    OBJID_SPRITEDECAL,
     OBJID_STEAM_PLATFORM,
     OBJID_TUTORIALTEXT,
     OBJID_BUDPLANT,
@@ -155,7 +156,8 @@ void      npc_on_interact(g_s *g, obj_s *o);
 void      crackblock_load(g_s *g, map_obj_s *mo);
 void      teleport_load(g_s *g, map_obj_s *mo);
 void      crab_load(g_s *g, map_obj_s *mo);
-void      crab_on_hurt(g_s *g, obj_s *o);
+void      crab_on_hitbox(g_s *g, obj_s *o, hitbox_s *hb);
+void      crab_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 void      stalactite_load(g_s *g, map_obj_s *mo);
 void      stalactite_on_update(g_s *g, obj_s *o);
 void      stalactite_on_animate(g_s *g, obj_s *o);
@@ -167,8 +169,6 @@ void      hooklever_load(g_s *g, map_obj_s *mo);
 void      hooklever_on_update(g_s *g, obj_s *o);
 ratio_i32 hooklever_spring_ratio(obj_s *o);
 void      vineblockade_load(g_s *g, map_obj_s *mo);
-obj_s    *spritedecal_create(g_s *g, i32 render_priority, obj_s *oparent, v2_i32 pos,
-                             i32 texID, rec_i32 srcr, i32 ticks, i32 n_frames, i32 flip);
 void      pushblock_load(g_s *g, map_obj_s *mo);
 void      steam_platform_load(g_s *g, map_obj_s *mo);
 void      budplant_load(g_s *g, map_obj_s *mo);
@@ -202,6 +202,7 @@ void      trampoline_load(g_s *g, map_obj_s *mo);
 void      trampolines_do_bounce(g_s *g);
 void      savepoint_load(g_s *g, map_obj_s *mo);
 void      rotor_load(g_s *g, map_obj_s *mo);
+void      multitrigger_load(g_s *g, map_obj_s *mo);
 obj_s    *hookyeeter_create(g_s *g);
 void      hookyeeter_on_update(g_s *g, obj_s *o);
 void      hookyeeter_on_hook(g_s *g, obj_s *o);
@@ -231,6 +232,7 @@ void      heartpiece_on_collect(g_s *g, obj_s *o);
 void      bigcrab_load(g_s *g, map_obj_s *mo);
 void      drillerspawn_load(g_s *g, map_obj_s *mo);
 void      drillers_setup(g_s *g);
+void      driller_on_hurt(g_s *g, obj_s *o);
 void      movingblock_load(g_s *g, map_obj_s *mo);
 void      shortcutblock_load(g_s *g, map_obj_s *mo);
 obj_s    *tendrilconnection_create(g_s *g);
@@ -244,5 +246,4 @@ void      bombplant_on_pickup(g_s *g, obj_s *o);
 void      bombplant_on_hit(g_s *g, obj_s *o);
 obj_s    *bomb_create(g_s *g);
 void      bomb_set_carried(obj_s *o);
-void      bomb_set_idle(obj_s *o);
 #endif

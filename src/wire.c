@@ -62,7 +62,7 @@ static wirenode_s *wirenode_insert(wire_s *r, wirenode_s *a, wirenode_s *b, v2_i
            (b->next == a && a->prev == b));
     wirenode_s *rn = r->pool;
     if (!rn) {
-        BAD_PATH
+        BAD_PATH();
         return 0;
     }
     r->pool = rn->next;
@@ -78,7 +78,7 @@ static wirenode_s *wirenode_insert(wire_s *r, wirenode_s *a, wirenode_s *b, v2_i
         rn->prev = b;
         rn->next = a;
     } else {
-        BAD_PATH
+        BAD_PATH();
     }
     r->pmin = v2_min(r->pmin, p);
     r->pmax = v2_max(r->pmax, p);
@@ -91,7 +91,7 @@ static void wirenode_delete(wire_s *r, wirenode_s *rn)
     wirenode_s *next = rn->next;
     assert(prev && next); // can only delete nodes in the middle
     if (!prev || !next) {
-        BAD_PATH
+        BAD_PATH();
         return;
     }
     assert(prev->next == rn && next->prev == rn);

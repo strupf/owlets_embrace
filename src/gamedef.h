@@ -13,6 +13,7 @@
 #include "core/gfx.h"
 #include "core/inp.h"
 #include "core/spm.h"
+#include "trigger.h"
 #include "util/bitrw.h"
 #include "util/easing.h"
 #include "util/json.h"
@@ -21,80 +22,20 @@
 #include "util/rng.h"
 #include "util/sorting.h"
 #include "util/str.h"
+#include "version.h"
 
-#define GAME_DEMO  0
-//
-#define GAME_V_MAJ 0
-#define GAME_V_MIN 2
-#define GAME_V_PAT 1
-
-#define GAME_VERSION_GEN(A, B, C) (((u32)(A) << 16) | \
-                                   ((u32)(B) << 8) |  \
-                                   ((u32)(C) << 0))
-
-#define GAME_VERSION GAME_VERSION_GEN(GAME_V_MAJ, GAME_V_MIN, GAME_V_PAT)
-
-typedef struct {
-    ALIGNAS(4)
-    u8 unused;
-    u8 vmaj;
-    u8 vmin;
-    u8 vpat;
-} game_version_s;
-
-static game_version_s game_version_decode(u32 v)
-{
-    game_version_s r = {0xFF & (v >> 24),
-                        0xFF & (v >> 16),
-                        0xFF & (v >> 8),
-                        0xFF & (v >> 0)};
-    return r;
-}
+#define GAME_DEMO 0
 
 enum {
-    TRIGGER_NULL                  = 0,
-    //
-    TRIGGER_CS_INTRO_COMP_1       = 1000,
-    TRIGGER_CS_FINDING_COMP       = 1001,
-    TRIGGER_CS_FINDING_HOOK       = 1002,
-    //
-    TRIGGER_TITLE_PREVIEW_TO_GAME = 2000,
-    TRIGGER_BATTLEROOM_ENTER      = 2010,
-    TRIGGER_BATTLEROOM_LEAVE      = 2011,
-    TRIGGER_BOSS_PLANT            = 2200,
-    //
-    TRIGGER_DIA_FRAME_NEW         = 2500,
-    TRIGGER_DIA_FRAME_END         = 2501,
-    TRIGGER_DIA_END               = 2502,
-    TRIGGER_DIA_CHOICE_1          = 2503,
-    TRIGGER_DIA_CHOICE_2          = 2504,
-    TRIGGER_DIA_CHOICE_3          = 2505,
-    TRIGGER_DIA_CHOICE_4          = 2506,
-};
-
-enum {
-    SAVE_EV_UNLOCKED_MAP          = 2,
-    SAVE_EV_COMPANION_FOUND       = 3,
-    SAVE_EV_CS_POWERUP_FIRST_TIME = 5,
-    SAVE_EV_CS_INTRO_COMP_1       = 6, // companion hushing through the tutorial area #1
-    SAVE_EV_CS_HOOK_FOUND         = 7,
-    SAVE_EV_CRACKBLOCK_INTRO_1    = 8,
-    SAVE_EV_PUSHBLOCK_INTRO_1     = 9,
-    SAVE_EV_BOSS_GOLEM            = 200,
-    SAVE_EV_BOSS_PLANT            = 201,
-    SAVE_EV_BOSS_PLANT_INTRO_SEEN = 202,
-    //
-    NUM_SAVE_EV
-};
-
-enum {
-    MUSIC_ID_NONE,
-    MUSIC_ID_CAVE,
-    MUSIC_ID_WATERFALL,
-    MUSIC_ID_SNOW,
-    MUSIC_ID_FOREST,
-    MUSIC_ID_ANCIENT_TREE,
-    MUSIC_ID_INTRO,
+    MUSID_NONE,
+    MUSID_CAVE,
+    MUSID_WATERFALL,
+    MUSID_SNOW,
+    MUSID_FOREST,
+    MUSID_ANCIENT_TREE,
+    MUSID_INTRO,
+    MUSID_ENCOUNTER,
+    MUSID_TEST,
 };
 
 enum {
@@ -105,8 +46,18 @@ enum {
     AREA_ID_MOUNTAIN,
 };
 
-#define MAP_WAD_NAME_LEN 16
-#define OWL_LEN_NAME     20
+#define OWL_LEN_NAME                  20
+#define AREANAME_TICKS_DELAY          30
+#define AREANAME_TICKS_IN             30
+#define AREANAME_TICKS_SHOW           255
+#define AREANAME_TICKS_OUT            30
+#define HEALTH_UI_TICKS               50
+#define ENEMY_HIT_FREEZE_TICKS        10
+#define ENEMY_HIT_FREEZE_SHAKE_AMOUNT 2 // +/- shaking of sprite
+#define ENEMY_HIT_FLASH_TICKS         4 // ticks of white "got hit" flash
+#define GAME_N_ROOMS                  256
+#define NUM_TILES                     65536
+#define MAP_WAD_NAME_LEN              12
 
 typedef struct g_s   g_s;
 typedef struct obj_s obj_s;
@@ -236,19 +187,6 @@ static i32 find_ptr_in_array(void *arr, void *p, i32 len)
     }
     return -1;
 }
-
-enum {
-    HITBOX_FLAG_POWERSTOMP = 1 << 0,
-};
-
-typedef struct hitbox_legacy_s {
-    ALIGNAS(32)
-    rec_i32 r;
-    v2_i16  force_q8;
-    u8      damage;
-    u8      flags;
-    u8      hitID;
-} hitbox_legacy_s;
 
 typedef struct time_real_s {
     ALIGNAS(8)

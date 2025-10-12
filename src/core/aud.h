@@ -8,171 +8,206 @@
 #include "core/qoa.h"
 #include "pltf/pltf.h"
 
-#define NUM_SNDCHANNEL    12
-#define NUM_AUD_CMD_QUEUE 32
-
-#if 0
-#define AUD_MUS_ASSERT assert
-#define AUD_MUS_DEBUG
-#else
-#define AUD_MUS_ASSERT(X)
-#endif
-
 enum {
-    AUD_MUSCHANNEL_0_LAYER_0,
-    AUD_MUSCHANNEL_0_LAYER_1,
+    MUS_CHANNEL_MUSIC,
+    MUS_CHANNEL_ENVIRONMENT,
     //
-    NUM_MUSCHANNEL
+    NUM_MUS_CHANNELS,
 };
 
-typedef struct snd_s {
-    void *dat;
-    u32   num_samples;
-} snd_s;
+#define NUM_AUD_CMDS           64
+#define NUM_SFX_CHANNELS       16
+#define NUM_MUS_CHANNEL_TRACKS 6
+
+#define AUDIO_CTX // macro to tag functions running in the audio context
+
+typedef struct sfx_s {
+    void *data;
+} sfx_s;
 
 enum {
     AUD_CMD_NULL,
-    //
-    AUD_CMD_SND_PLAY,
-    AUD_CMD_SND_MOD,
-    AUD_CMD_MUS_PLAY,
-    AUD_CMD_MUS_STOP,
-    AUD_CMD_MUS_VOL,
-    AUD_CMD_MUS_LOOP,
-    AUD_CMD_STOP_ALL_SND,
-    AUD_CMD_VOL_SETTING,
+    AUD_CMD_MUS_CUE,
+    AUD_CMD_MUS_ADJUST_VOL,
+    AUD_CMD_SFX_PLAY,
+    AUD_CMD_SFX_MOD,
+    AUD_CMD_SFX_STOP,
+    AUD_CMD_SFX_STOP_ALL,
+    AUD_CMD_SFX_POS_CAM,
+    AUD_CMD_SFX_POS,
     AUD_CMD_LOWPASS,
+    AUD_CMD_VOL,
+    AUD_CMD_STEREO_REQ, // request mono or stereo output
 };
 
+// cue new music, or stop music in case of musID == 0, or set volume
 typedef struct {
-    u16 vol_mus_q8;
-    u16 vol_snd_q8;
-} aud_cmd_vol_setting_s;
+    u16 channel_index;
+    u16 musID;
+    u16 v_q8;
+    u16 millis_fade; // millis to fade out old track if currently playing
+} aud_cmd_mus_s;
 
+// play a non-positional sound effect
 typedef struct {
-    snd_s snd;
-    i32   iID;
-    u16   vol_q8;
+    i32   UID;
+    void *data;
+    u16   v_q8;
     u16   pitch_q8;
-    b8    repeat;
-} aud_cmd_snd_play_s;
+} aud_cmd_sfx_s;
 
+// used to stop one (UID != 0) or all sound effects
 typedef struct {
-    i32 iID;
-    i32 stop_ticks;
-    i32 vmod_q8;
-} aud_cmd_snd_mod_s;
+    i32 UID;
+    u16 millis_fade;
+} aud_cmd_sfx_stop_s;
 
-typedef struct aud_cmd_mus_play_s { // 28 bytes
-    u32 hash;
-    u32 start_at;
-    u32 loop_s1;
-    u32 loop_s2;
-    u32 ticks_out;
-    u32 ticks_in;
-    u16 vol_q8;
-    u16 channelID;
-} aud_cmd_mus_play_s;
-
+// set position of sound effect with UID; radius is stored in general purpose field of cmd
 typedef struct {
-    u32 channelID;
-    u32 ticks;
-    u32 vol_q8;
-} aud_cmd_mus_vol_s;
+    i32 UID;
+    i32 px;
+    i32 py;
+} aud_cmd_sfx_pos_s;
 
+// set position of sound effect with UID; radius is stored in general purpose field of cmd
 typedef struct {
-    u32 channelID;
-    u32 loop_s1;
-    u32 loop_s2;
-} aud_cmd_mus_loop_s;
-
-typedef struct {
-    i32 v;
-} aud_cmd_lowpass_s;
-
-typedef struct {
-    ALIGNAS(32)
-    u32 type;
-    union {
-        aud_cmd_snd_play_s    snd_play;
-        aud_cmd_snd_mod_s     snd_mod;
-        aud_cmd_mus_play_s    mus_play;
-        aud_cmd_mus_vol_s     mus_vol;
-        aud_cmd_mus_loop_s    mus_loop;
-        aud_cmd_lowpass_s     lowpass;
-        aud_cmd_vol_setting_s vol;
-    } c;
-} aud_cmd_s;
-
-#if PLTF_PD_HW // cache line alignment on the hardware
-static_assert(sizeof(aud_cmd_s) == 32, "audio cmd size");
-#endif
-
-typedef struct sndchannel_s {
-    qoa_sfx_s qoa_dat;
-    i32       snd_iID;
-    i32       stop_v_q8;
-    i16       stop_ticks;
-    i16       stop_tick;
-} sndchannel_s;
+    u16 v_q8_mus;
+    u16 v_q8_sfx;
+} aud_cmd_vol_s;
 
 enum {
-    MUSCHANNEL_FADE_OUT = 1,
-    MUSCHANNEL_FADE_IN  = 2
+    AUD_CMD_FLAG_REPEAT = 1 << 0
 };
 
-typedef struct muschannel_s {
-    qoa_mus_s qoa_str;
-    u32       hash_stream;
-    u32       hash_queued;
-    u16       v_q8;
-    u16       v_fade0;
-    u16       v_fade1;
-    u16       v_fade2;
-    u16       fadestate;
-    u32       t_fade;
-    u32       t_fade_out;
-    u32       t_fade_in;
-    u32       loop_s1;
-    u32       loop_s2;
-    u32       start_at;
-} muschannel_s;
+typedef struct {
+    ALIGNAS(16)
+    u8  t;
+    u8  flags; // to be used freely by any command
+    u16 v16;   // to be used freely by any command
+    union {    // aligned to 4 on PD
+        aud_cmd_mus_s      mus;
+        aud_cmd_sfx_s      sfx;
+        aud_cmd_sfx_stop_s sfx_stop;
+        aud_cmd_sfx_pos_s  sfx_pos;
+        aud_cmd_vol_s      vol;
+    };
+} aud_cmd_s;
+
+#if PLTF_PD_HW
+static_assert(sizeof(aud_cmd_s) == 16, "size of cmd");
+#endif
+
+// struct to handle volume fading for music, music tracks and sfx
+typedef struct aud_vol_handler_s {
+    ALIGNAS(8)
+    u16 v_q8;
+    u16 v_q8_dst; // target volume
+    u16 len_acc;  // accumulator for number of samples for fading steps
+    u16 len_sub;  // number of samples until volume increment/decrement
+} aud_vol_handler_s;
+
+static inline i32 aud_vol_handler_v_q8(aud_vol_handler_s *f)
+{
+    return (i32)f->v_q8;
+}
+
+static inline i32 aud_vol_handler_v_q8_loudness(aud_vol_handler_s *f)
+{
+    return ((i32)f->v_q8 * (i32)f->v_q8) >> 8; // volume vs. perceived loudness
+}
+
+i32  aud_vol_handler_update(aud_vol_handler_s *f, i32 len); // returns new sub len if necessary
+void aud_vol_handler_init_dt(aud_vol_handler_s *f, i32 v_q8_dst, i32 l_sub);
+void aud_vol_handler_init_millis(aud_vol_handler_s *f, i32 v_q8_dst, i32 millis_fade);
+
+typedef struct mus_channel_track_s {
+    qoa_stream_s q;
+
+    // smooths volume just ever so slightly in a hardcoded manner to v_q8_dst
+    // to avoid popping noises
+    // caller must set v_q8_dst more gradually if actual fades are needed
+    u16 v_q8;
+    u16 v_q8_dst;
+} mus_channel_track_s;
+
+typedef struct mus_channel_s {
+    ALIGNAS(32)
+    aud_vol_handler_s   vol;
+    i32                 musID;
+    i32                 musID_queued;
+    u32                 v_q8_trg_game; // keep the gameplay's requested volume somewhere
+    u32                 seed;          // programming of music if necessary
+    u8                  v[8];          // programming of music if necessary
+    mus_channel_track_s tracks[NUM_MUS_CHANNEL_TRACKS];
+} mus_channel_s;
+
+typedef struct sfx_channel_s {
+    ALIGNAS(32)
+    qoa_data_s q;
+
+    // cache line
+    ALIGNAS(32)
+    i32 v_q8;
+    i32 v_q8_dst;
+    i32 UID; // UID of this sfx
+    i32 px;  // position
+    i32 py;
+    u32 r; // radius [0; 65535]; indicator for being a positional sfx
+} sfx_channel_s;
 
 typedef struct aud_s {
-    u32          time; // time in samples, 27 h = U32_MAX / (44100 * 60 * 60)
-    u32          snd_iID;
-    u32          i_cmd_w_tmp; // write index, copied to i_cmd_w on commit
-    u32          i_cmd_w;     // visible to audio thread/context
-    u32          i_cmd_r;
-    i16          v_mus_q8;
-    i16          v_sfx_q8;
-    b16          snd_playing_disabled;
-    u16          lowpass;
-    u16          lowpass_dst;
-    i16          lowpass_l;
-    i16          lowpass_r;
-    muschannel_s muschannel[NUM_MUSCHANNEL];
-    sndchannel_s sndchannel[NUM_SNDCHANNEL];
-    aud_cmd_s    cmds[NUM_AUD_CMD_QUEUE];
+    // cache line
+    ALIGNAS(32)
+    u16 stereo;      // 1 - 2 which way the audio must be output
+    u16 stereo_req;  // 1 - 2 does the user request stereo?
+    i32 cmd_i_w;     // 4 - 8
+    i32 cmd_i_r;     // 4 - 12
+    i32 cmd_i_w_tmp; // 4 - 16
+    i32 px_cam;      // 4 - 20
+    i32 py_cam;      // 4 - 24
+    i32 px_cam_dst;  // 4 - 28
+    i32 py_cam_dst;  // 4 - 32
+
+    // cache line
+    ALIGNAS(32)
+    i32 sfx_UID;     // 4 - 4
+    b32 sfx_blocked; // 4 - 8
+    u16 v_q8_mus;    // 2 - 10 global mus volume; only set via settings
+    u16 v_q8_sfx;    // 2 - 12 global sfx volume; only set via settings
+    u16 lowpass;     // 2 - 14
+    u16 lowpass_dst; // 2 - 16
+    i16 lowpass_l;   // 2 - 18
+    i16 lowpass_r;   // 2 - 20
+
+    mus_channel_s mus_channels[NUM_MUS_CHANNELS];
+    sfx_channel_s sfx_channels[NUM_SFX_CHANNELS];
+    aud_cmd_s     cmds[NUM_AUD_CMDS];
 } aud_s;
 
-void aud_destroy();
-void aud_audio(aud_s *a, i16 *lbuf, i16 *rbuf, i32 len);
-void aud_allow_playing_new_snd(bool32 enabled);
-void aud_set_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
-void aud_cmd_queue_commit();
-void aud_stop_all_snd_instances();
-void aud_vol_set(i32 vol_mus, i32 vol_snd, i32 vol_max);
-void mus_play(const void *fname);
-void mus_play_extv(const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void mus_play_extx(const void *fname, u32 start_at, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void mus_play_ext(i32 channelID, const void *fname, u32 s1, u32 s2, i32 t_fade_out, i32 t_fade_in, i32 v_q8);
-void mus_set_loop(i32 channelID, u32 s1, u32 s2);
-void mus_set_vol_ext(i32 channelID, u16 v_q8, i32 t_fade);
-void mus_set_vol(u16 v_q8, i32 t_fade);
-u32  snd_instance_play(snd_s s, f32 vol, f32 pitch);
-u32  snd_instance_play_ext(snd_s s, f32 vol, f32 pitch, bool32 repeat);
-void snd_instance_stop(i32 iID);
-void snd_instance_stop_fade(i32 iID, i32 ms, i32 vmod_q8);
+extern aud_s g_AUD;
+
+AUDIO_CTX void aud_audio(i16 *lbuf, i16 *rbuf, i32 len);
+aud_cmd_s      aud_cmd_gen(i32 type);
+void           aud_cmd_push(aud_cmd_s c);
+void           aud_cmd_queue_commit();
+void           aud_set_stereo(i32 stereo);
+void           aud_lowpass(i32 lp); // 0 for off, otherwise increasing intensity
+void           aud_set_vol(i32 v_q8_mus, i32 v_q8_sfx);
+i32            aud_calc_positional_vol(aud_s *a, i32 v_q8, i32 px, i32 py, i32 r, i32 zshift, i32 *l_q8, i32 *r_q8);
+void           aud_set_pos_cam(i32 px, i32 py, i32 smooth);
+//
+void           mus_cue(i32 channel_index, i32 musID, i32 millis_fade_out_cur);
+void           mus_volume(i32 channel_index, i32 v_q8, i32 millis_fade);
+//
+i32            sfx_cue(i32 sfxID, i32 v_q8, i32 pitch_q8);
+i32            sfx_cuef(i32 sfxID, f32 v, f32 pitch);
+i32            sfx_cue_ext(i32 sfxID, i32 v_q8, i32 pitch_q8, bool32 repeat);
+i32            sfx_cuef_ext(i32 sfxID, f32 v, f32 pitch, bool32 repeat);
+i32            sfx_cue_pos(i32 sfxID, i32 v_q8, i32 pitch_q8, bool32 repeat, i32 px, i32 py, i32 r);
+i32            sfx_cuef_pos(i32 sfxID, f32 v, f32 pitch, bool32 repeat, i32 px, i32 py, i32 r);
+void           sfx_stop(u32 UID, u32 millis_fade);
+void           sfx_stop_all();
+void           sfx_block_new(bool32 blocked);
+void           sfx_set_pos(i32 UID, i32 px, i32 py, i32 r); // pass r to make a currently playing or queued sfx position; 0 to only update position
 
 #endif

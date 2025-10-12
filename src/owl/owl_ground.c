@@ -140,9 +140,7 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         h->ground_crouch_standup_ticks--;
         obj_vx_q8_mul(o, 220);
     }
-    if (h->ground_sprint_doubletap_ticks) {
-        h->ground_sprint_doubletap_ticks--;
-    }
+    h->ground_sprint_doubletap_ticks -= sgn_i32(h->ground_sprint_doubletap_ticks);
 
     if (h->ground_push_pull) {
     } else if (h->ground_stomp_landing_ticks) {
@@ -192,13 +190,12 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         bool32 can_sprint          = !o->wire && !h->attack_tick && !h->carry;
         bool32 can_start_sprinting = 0;
 
-        if (!h->sprint &&
-            (inps_btn_jp(inp, INP_DL) || inps_btn_jp(inp, INP_DR))) {
-            if (h->ground_sprint_doubletap_ticks) {
+        if (!h->sprint && (inps_btn_jp(inp, INP_DL) || inps_btn_jp(inp, INP_DR))) {
+            if (sgn_i32(h->ground_sprint_doubletap_ticks) == dp_x) {
                 can_start_sprinting              = 1;
                 h->ground_sprint_doubletap_ticks = 0;
             } else {
-                h->ground_sprint_doubletap_ticks = 12;
+                h->ground_sprint_doubletap_ticks = 12 * dp_x;
             }
         }
 
@@ -226,8 +223,8 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
             if (OWL_VX_SPRINT <= va) {
                 o->facing            = vs;
                 h->sprint            = 0;
-                h->ground_skid_ticks = 15;
-                snd_play(SNDID_STOPSPRINT, 0.1f, rngr_f32(0.9f, 1.1f));
+                h->ground_skid_ticks = 10;
+                sfx_cuef(SFXID_STOPSPRINT, 0.1f, rngr_f32(0.9f, 1.1f));
             } else {
                 obj_vx_q8_mul(o, 128);
             }
@@ -340,7 +337,7 @@ void owl_jump_ground(g_s *g, obj_s *o)
     h->ground_crouch_crawl         = 0;
     h->ground_crouch_standup_ticks = 0;
     owl_cancel_ground(g, o);
-    snd_play(SNDID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
+    sfx_cuef(SFXID_JUMP, 0.5f, rngr_f32(0.9f, 1.1f));
     v2_i32 prtp = obj_pos_bottom_center(o);
     prtp.y -= 4;
     particle_emit_ID(g, PARTICLE_EMIT_ID_HERO_JUMP, prtp);

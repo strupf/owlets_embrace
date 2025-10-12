@@ -7,7 +7,7 @@
 
 void vfx_area_snow_setup(g_s *g)
 {
-    g->vfx_area_mem     = game_per_room_alloct(g, vfx_area_snow_s);
+    g->vfx_area_mem     = game_alloc_roomt(g, vfx_area_snow_s);
     vfx_area_snow_s *fx = (vfx_area_snow_s *)g->vfx_area_mem;
     mclr(fx, sizeof(vfx_area_snow_s));
 

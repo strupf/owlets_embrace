@@ -165,7 +165,7 @@ void minimap_update(g_s *g)
 void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
 {
     minimap_s *m            = &g->minimap;
-    gfx_ctx_s  ctx          = gfx_ctx_default(tex);
+    gfx_ctx_s  ctx          = gfx_ctx_from_tex(tex);
     gfx_ctx_s  ctxr         = ctx;
     gfx_ctx_s  ctx_obscured = ctx;
     ctxr.pat                = gfx_pattern_50();
@@ -179,8 +179,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
         map_room_s *mr     = &g->map_rooms[n];
         map_room_s *mr_alt = map_room_find(g, 1, mr->map_name);
         v2_i32      pos    = {mr->x + ox, mr->y + oy};
-
-        gfx_spr(ctx, texrec_from_tex(mr_alt->t), pos, 0, 0);
+        gfx_spr_copy(ctx, texrec_from_tex(mr_alt->t), pos, 0);
 
         for (i32 ny = 0; ny < mr->h; ny += 15) {
             for (i32 nx = 0; nx < mr->w; nx += 25) {
@@ -255,7 +254,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
         tex_tmp.wword     = (tex_tmp.w >> 5) << 1;
         tex_tmp.fmt       = 1;
         tex_tmp.px        = px;
-        gfx_ctx_s ctx_tmp = gfx_ctx_default(tex_tmp);
+        gfx_ctx_s ctx_tmp = gfx_ctx_from_tex(tex_tmp);
 
 #define PIN_SPACING 24
 
