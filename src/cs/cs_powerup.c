@@ -92,7 +92,7 @@ void cs_powerup_update(g_s *g, cs_s *cs, inp_s inp)
 
     switch (cs->phase) {
     case 0: {
-        if (cs_wait_and_pause_for_owl_idle(g)) { // wait until player movement stopped
+        if (owl_wait_for_idle(g)) { // wait until player movement stopped
 
             // move cam to a fixed position over time
             v2_i32 camc = obj_pos_bottom_center(pu->o);

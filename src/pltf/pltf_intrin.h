@@ -225,19 +225,6 @@ SIMD_LD_IMPL(u16x2)
 SIMD_LD_IMPL(i8x4)
 SIMD_LD_IMPL(u8x4)
 
-// BSWAP
-#if defined(__GNUC__)
-#define bswap32 __builtin_bswap32
-#elif defined(_MSC_VER)
-#define bswap32 _byteswap_ulong
-#else
-static u32 bswap32(u32 i)
-{
-    return (i >> 24) | ((i << 8) & 0xFF0000U) |
-           (i << 24) | ((i >> 8) & 0x00FF00U);
-}
-#endif
-
 // CLZ
 #if defined(__GNUC__)
 #define clz32 __builtin_clz // undefined for 0

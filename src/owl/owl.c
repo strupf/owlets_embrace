@@ -108,18 +108,17 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             switch (h->attack_type) {
             case OWL_ATTACK_SIDE: {
                 i32 f = ani_frame(ANIID_OWL_ATTACK, h->attack_tick);
-                if (f == 3 && ani_frame(ANIID_OWL_ATTACK, h->attack_tick - 1) == f - 1) {
-                    rec_i32 aabb = obj_aabb(o);
-                    i32     whit = 40;
-                    i32     hhit = 20;
-                    i32     yhit = o->pos.y + o->h - hhit;
-                    i32     xhit = 0 < o->facing ? aabb.x + aabb.w : aabb.x - whit;
+                if (3 <= f && f <= 4) {
+                    i32 whit = 40;
+                    i32 hhit = 20;
+                    i32 yhit = o->pos.y + o->h - hhit;
+                    i32 xhit = 0 < o->facing ? o->pos.x + o->w : o->pos.x - whit;
 
-                    u32 hitboxUID    = hitbox_UID_gen(g);
-                    h->hitboxUID     = hitboxUID; // remember this hitbox UID
+                    hitbox_s *hb     = hitbox_gen(g, h->hitboxUID, HITBOXID_OWL_WING, owl_cb_hitbox, o);
+                    hb->dx_q4        = o->facing * 16;
+                    hb->damage       = 1;
                     i32 flags_target = HITBOX_FLAG_GROUP_ENEMY |
                                        HITBOX_FLAG_GROUP_ENVIRONMENT;
-                    hitbox_s *hb = hitbox_gen(g, h->hitboxUID, 0, owl_cb_hitbox, o);
                     hitbox_set_flags_group(hb, flags_target);
                     hitbox_set_user(hb, o);
                     hitbox_type_rec(hb, xhit, yhit, whit, hhit);
@@ -132,15 +131,41 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             }
             case OWL_ATTACK_UP: {
                 i32 f = ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick);
-                if (f == 4 && ani_frame(ANIID_OWL_ATTACK_UP, h->attack_tick - 1) == f - 1) {
-                    rec_i32 aabb = obj_aabb(o);
-                    i32     whit = 40;
-                    i32     hhit = 20;
-                    i32     yhit = o->pos.y + o->h - hhit;
-                    i32     xhit = 0 < o->facing ? aabb.x + aabb.w : aabb.x - whit;
+                if (3 <= f && f <= 4) {
 
-                    hitbox_s *hb = hitbox_gen(g, h->hitboxUID, 0, owl_cb_hitbox, o);
-                    hitbox_set_flags_group(hb, HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_ENVIRONMENT);
+                    i32 whit = 40;
+                    i32 hhit = 40;
+                    i32 yhit = o->pos.y - hhit;
+                    i32 xhit = o->pos.x + o->w / 2 - whit / 2;
+
+                    hitbox_s *hb     = hitbox_gen(g, h->hitboxUID, HITBOXID_OWL_BEAK, owl_cb_hitbox, o);
+                    hb->damage       = 1;
+                    i32 flags_target = HITBOX_FLAG_GROUP_ENEMY |
+                                       HITBOX_FLAG_GROUP_ENVIRONMENT;
+                    hitbox_set_flags_group(hb, flags_target);
+                    hitbox_set_user(hb, o);
+                    hitbox_type_rec(hb, xhit, yhit, whit, hhit);
+                }
+                if (f < 0) {
+                    h->attack_tick       = 0;
+                    h->attack_last_frame = 0;
+                }
+                break;
+            }
+            case OWL_ATTACK_DOWN: {
+                i32 f = ani_frame(ANIID_OWL_ATTACK_DOWN, h->attack_tick);
+                if (3 <= f && f <= 4) {
+
+                    i32 whit = 40;
+                    i32 hhit = 40;
+                    i32 yhit = o->pos.y + o->h;
+                    i32 xhit = o->pos.x + o->w / 2 - whit / 2;
+
+                    hitbox_s *hb     = hitbox_gen(g, h->hitboxUID, HITBOXID_OWL_DOWN, owl_cb_hitbox, o);
+                    hb->damage       = 1;
+                    i32 flags_target = HITBOX_FLAG_GROUP_ENEMY |
+                                       HITBOX_FLAG_GROUP_ENVIRONMENT;
+                    hitbox_set_flags_group(hb, flags_target);
                     hitbox_set_user(hb, o);
                     hitbox_type_rec(hb, xhit, yhit, whit, hhit);
                 }
@@ -164,7 +189,7 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
                         owl_upgrade_has(o, OWL_UPGRADE_COMPANION) &&
                         !h->carry;
     bool32 can_hook = o->health &&
-                      h->stance == OWL_STANCE_GRAPPLE &&
+                      // h->stance == OWL_STANCE_GRAPPLE &&
                       !h->ground_push_pull &&
                       (st == OWL_ST_GROUND || st == OWL_ST_AIR) &&
                       !h->ground_crouch &&
@@ -187,125 +212,123 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
             h->aim_crank_acc += a_crank;
 
             if (32768 <= h->aim_crank_acc) {
-                owl_cancel_hook_aim(g, o); // reset all aim variables, although aiming is not "cancelled"
-                h->aim_ticks = 1;
-                owl_cancel_swap(g, o);
+                // owl_cancel_hook_aim(g, o); // reset all aim variables, although aiming is not "cancelled"
+                // h->aim_ticks = 1;
+                // owl_cancel_swap(g, o);
                 pltf_log("aim\n");
             }
         }
     }
 
     if (inps_btn(inp, INP_B)) {
+        bool32 may_swap = owl_upgrade_has(o, OWL_UPGRADE_COMPANION) &&
+                          obj_get_comp(g) != 0;
+        bool32 b_neutral_jp = inps_btn_jp(inp, INP_B) && !dp_any;
+
+        i32 st_switch = st;
         if (h->carry && inps_btn_jp(inp, INP_B)) {
             owl_cancel_carry(g, o);
-        } else {
-            switch (st) {
-            case OWL_ST_CLIMB: {
-                bool32 can_swap = h->climb != OWL_CLIMB_WALLJUMP &&
-                                  owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
-#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
-                if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
-                    h->stance_swap_tick = 1;
-                    h->climb_anim       = 0;
-                }
-#endif
-                break;
+            st_switch = OWL_ST_NULL;
+        }
+
+        switch (st_switch) {
+        case OWL_ST_NULL: break;
+        case OWL_ST_CLIMB: {
+            if (may_swap && b_neutral_jp && h->climb != OWL_CLIMB_WALLJUMP) {
+                h->stance_swap_tick = 1;
+                h->climb_anim       = 0;
             }
-            case OWL_ST_WATER: {
-                bool32 can_swap = owl_upgrade_has(o, OWL_UPGRADE_COMPANION);
-#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
-                if (inps_btn_jp(inp, INP_B) && !dp_any && can_swap) {
-                    h->stance_swap_tick = 1;
-                }
-#endif
-                break;
+            break;
+        }
+        case OWL_ST_WATER: {
+            if (may_swap && b_neutral_jp) {
+                h->stance_swap_tick = 1;
             }
-            default: {
-                switch (h->stance) {
-                case OWL_STANCE_ATTACK: {
+            break;
+        }
+        default: {
+            switch (h->stance) {
+            case OWL_STANCE_ATTACK: {
 #if OWL_STOMP_ONLY_WITH_COMP_ON_B
-                    if (inps_btn_jp(inp, INP_B) && 0 < dp_y && st == OWL_ST_AIR && owl_attack_cancellable(o)) {
-                        o->v_q12.x = 0;
-                        o->v_q12.y = 0;
-                        owl_cancel_attack(g, o);
-                        owl_cancel_air(g, o);
-                        h->air_stomp = 1;
+                if (inps_btn_jp(inp, INP_B) && 0 < dp_y && st == OWL_ST_AIR && owl_attack_cancellable(o)) {
+                    o->v_q12.x = 0;
+                    o->v_q12.y = 0;
+                    owl_cancel_attack(g, o);
+                    owl_cancel_air(g, o);
+                    h->air_stomp = 1;
 #else
-                    if (0) {
+                if (0) {
 #endif
-                    } else if (inps_btn_jp(inp, INP_B) && can_attack && owl_attack_cancellable(o)) {
-                        h->hitboxUID       = hitbox_UID_gen(g);
-                        h->attack_tick     = 1;
-                        h->attack_flipflop = 1 - h->attack_flipflop;
+                } else if (may_swap && b_neutral_jp) {
+                    h->stance_swap_tick = 1;
+                } else if (inps_btn_jp(inp, INP_B) && can_attack && dp_any) {
+                    h->hitboxUID       = hitbox_UID_gen(g);
+                    h->attack_tick     = 1;
+                    h->attack_flipflop = 1 - h->attack_flipflop;
 
-                        if (dp_y < 0) {
-                            h->attack_type = OWL_ATTACK_UP;
-                            // o->v_q12.y     = Q_VOBJ(1.0);
-                            //  o->v_q12.y     = 0;
-                        } else {
-                            h->attack_type = OWL_ATTACK_SIDE;
-                            o->v_q12.y     = 0;
-                        }
+                    if (dp_y == 0) {
+                        h->attack_type = OWL_ATTACK_SIDE;
+                        o->v_q12.y     = 0;
+                    } else if (dp_y < 0) {
+                        h->attack_type = OWL_ATTACK_UP;
+                        // o->v_q12.y     = Q_VOBJ(1.0);
+                        //  o->v_q12.y     = 0;
+                    } else if (dp_y > 0) {
+                        h->attack_type = OWL_ATTACK_DOWN;
+                        // o->v_q12.y     = Q_VOBJ(1.0);
+                        //  o->v_q12.y     = 0;
+                    }
 
-                        h->jump_ticks = 0;
-                        sfx_cuef(SFXID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
-                    }
-#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
-                    if (h->attack_tick == 8 && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
-                        h->stance_swap_tick = 1;
-                    }
-#endif
-                    break;
+                    h->jump_ticks = 0;
+                    sfx_cuef(SFXID_WINGATTACK, 0.75f, rngr_f32(0.9f, 1.1f));
                 }
-                case OWL_STANCE_GRAPPLE: {
-                    if (o->wire && (inps_btn_jp(inp, INP_B) || inps_btn_jp(inp, INP_A))) {
-                        owl_ungrapple(g, o);
-                    } else if (inps_btn_jp(inp, INP_B) && !h->aim_ticks && dp_any && can_hook) {
-                        // 0 = upwards
-                        // 32768 = downwards
-                        i32 ang = 0;
-                        i32 dx  = dp_x;
-                        i32 dy  = dp_y;
+                break;
+            }
+            case OWL_STANCE_GRAPPLE: {
+                if (o->wire && (inps_btn_jp(inp, INP_B) || inps_btn_jp(inp, INP_A))) {
+                    owl_ungrapple(g, o);
+                } else if (inps_btn_jp(inp, INP_B) && dp_any && !h->aim_ticks && can_hook) {
+                    // 0 = upwards
+                    // 32768 = downwards
+                    i32 ang = 0;
+                    i32 dx  = dp_x;
+                    i32 dy  = dp_y;
 
-                        if (dx && dy) { // diagonal up/down
-                            ang = -dx * (0 < dy ? 20000 : 8000);
-                        } else if (dx == 0 && dy) { // up/down
-                            ang = 0 < dy ? 32768 : 0;
-                        } else if (dx && dy == 0) { // sideways
-                            ang = -dx * 12000;
-                        }
-
-                        v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(13.0));
-                        g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
-                        v2_i32 center          = obj_pos_center(o);
-
-                        if (0 < o->v_q12.y) {
-                            o->v_q12.y >>= 1;
-                        }
-                        grapplinghook_create(g, &g->ghook, o, center, vlaunch);
-                    } else if (inps_btn_jp(inp, INP_B) && h->aim_ticks) {
-                        h->aim_ticks           = 0;
-                        i32 ang                = inps_crank_q16(inp);
-                        g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
-                        v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(19.0));
-                        v2_i32 center          = obj_pos_center(o);
-
-                        if (0 < o->v_q12.y) {
-                            o->v_q12.y >>= 1;
-                        }
-                        grapplinghook_create(g, &g->ghook, o, center, vlaunch);
+                    if (dx && dy) { // diagonal up/down
+                        ang = -dx * (0 < dy ? 20000 : 8000);
+                    } else if (dx == 0 && dy) { // up/down
+                        ang = 0 < dy ? 32768 : 0;
+                    } else if (dx && dy == 0) { // sideways
+                        ang = -dx * 12000;
                     }
-#if OWL_CONTROL_SWAP_B_HOLD_NEUTRAL
-                    else if (inps_btn_jp(inp, INP_B) && !dp_any && owl_upgrade_has(o, OWL_UPGRADE_COMPANION)) {
-                        h->stance_swap_tick = 1;
+
+                    v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(13.0));
+                    g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                    v2_i32 center          = obj_pos_center(o);
+
+                    if (0 < o->v_q12.y) {
+                        o->v_q12.y >>= 1;
                     }
-#endif
-                    break;
-                }
+                    grapplinghook_create(g, &g->ghook, o, center, vlaunch);
+                } else if (inps_btn_jp(inp, INP_B) && h->aim_ticks) {
+                    h->aim_ticks           = 0;
+                    i32 ang                = inps_crank_q16(inp);
+                    g->ghook.throw_snd_iID = sfx_cuef(SFXID_HOOK_THROW, 0.5f, rngr_f32(0.95f, 1.05f));
+                    v2_i32 vlaunch         = grapplinghook_vlaunch_from_angle(ang, Q_12(19.0));
+                    v2_i32 center          = obj_pos_center(o);
+
+                    if (0 < o->v_q12.y) {
+                        o->v_q12.y >>= 1;
+                    }
+                    grapplinghook_create(g, &g->ghook, o, center, vlaunch);
+                } else if (may_swap && b_neutral_jp) {
+                    h->stance_swap_tick = 1;
                 }
                 break;
             }
             }
+            break;
+        }
         }
 
         // swapping
@@ -331,17 +354,9 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
         }
         }
     }
-#if OWL_CONTROL_SWAP_A_DOWN
-    if ((inps_btn(inp, INP_A) && inps_btn(inp, INP_DD)) &&
-        !(inps_btnp(inp, INP_A)) && !h->air_stomp) {
-        owl_set_stance(g, o, 1 - h->stance);
-    }
-#endif
 
     switch (st) {
-    case OWL_ST_NULL: {
-        break;
-    }
+    case OWL_ST_NULL: break;
     case OWL_ST_GROUND: {
         owl_ground(g, o, inp);
         break;
@@ -359,11 +374,6 @@ void owl_on_update(g_s *g, obj_s *o, inp_s inp)
         break;
     }
     }
-
-    o->ropeobj.m_q12   = Q_12(1.0);
-    o->ropeobj.v_q12.x = o->v_q12.x;
-    o->ropeobj.v_q12.y = o->v_q12.y;
-    o->ropeobj.a_q12.y = OWL_GRAVITY;
 
     // TODO: put somewhere else?
     grapplinghook_s *gh = &g->ghook;
@@ -602,11 +612,13 @@ void owl_cancel_carry(g_s *g, obj_s *o)
 
 void owl_cancel_swap(g_s *g, obj_s *o)
 {
-    owl_s *h            = (owl_s *)o->heap;
-    obj_s *o_comp       = obj_get_comp(g);
-    v2_i32 p            = companion_pos_swap(o_comp, o);
-    o_comp->pos.x       = p.x - o_comp->w / 2;
-    o_comp->pos.y       = p.y - o_comp->h / 2;
+    owl_s *h      = (owl_s *)o->heap;
+    obj_s *o_comp = obj_get_comp(g);
+    if (o_comp) {
+        v2_i32 p      = companion_pos_swap(o_comp, o);
+        o_comp->pos.x = p.x - o_comp->w / 2;
+        o_comp->pos.y = p.y - o_comp->h / 2;
+    }
     h->stance_swap_tick = 0;
 }
 
@@ -736,11 +748,15 @@ bool32 owl_try_force_normal_height(g_s *g, obj_s *o)
 
 i32 owl_swap_ticks()
 {
+#if 0
     switch (SETTINGS.swap_ticks) {
     case SETTINGS_SWAP_TICKS_SHORT: return 15;
     case SETTINGS_SWAP_TICKS_NORMAL: return 25;
     case SETTINGS_SWAP_TICKS_LONG: return 35;
     }
+#else
+    return 20;
+#endif
     return 0;
 }
 
@@ -1000,4 +1016,22 @@ const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP] = {
 void owl_cb_hitbox(g_s *g, hitbox_s *hb, void *arg)
 {
     obj_s *o = (obj_s *)arg;
+    owl_s *h = (owl_s *)o->heap;
+    if (!h->attack_tick) return;
+
+    switch (hb->ID) {
+    case HITBOXID_OWL_WING: {
+        o->v_q12.x = -sgn_i32(hb->dx_q4) * Q_VOBJ(2.0);
+        break;
+    }
+    case HITBOXID_OWL_BEAK: {
+        o->v_q12.y    = max_i32(o->v_q12.y, 0);
+        h->jump_ticks = 0;
+        break;
+    }
+    case HITBOXID_OWL_DOWN: {
+        o->v_q12.y = min_i32(o->v_q12.y, -Q_VOBJ(5.0));
+        break;
+    }
+    }
 }

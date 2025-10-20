@@ -11,8 +11,7 @@ void game_on_trigger(g_s *g, i32 trigger)
 
     switch (trigger) {
     case TRIGGER_BOSS_PLANT:
-        // boss_plant_wake_up(g);
-        // bossplant_awake(g);
+        boss_a_awake(g);
         break;
     case TRIGGER_CS_INTRO_COMP_1:
         cs_intro_comp_1_enter(g);
@@ -24,6 +23,8 @@ void game_on_trigger(g_s *g, i32 trigger)
         cs_finding_hook_enter(g);
         break;
     }
+
+    boss_on_trigger(g, trigger);
 
     if (g->cs.on_trigger) {
         g->cs.on_trigger(g, &g->cs, trigger);

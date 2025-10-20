@@ -131,6 +131,14 @@ void owl_on_animate(g_s *g, obj_s *o)
                 }
                 break;
             }
+            case OWL_ATTACK_DOWN: {
+                spr->offs.x -= 16;
+                fw = 96;
+                fy = 55;
+                fx = ani_frame_loop(ANIID_OWL_ATTACK_DOWN, h->attack_tick);
+                spr->offs.y += 16;
+                break;
+            }
             case OWL_ATTACK_UP: {
                 // spr->offs.x -= 16;
                 fw = 64;
@@ -150,7 +158,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             st              = OWL_ST_NULL;
             consider_stance = 0;
         } else if (h->stance_swap_tick) {
-
+#if 0
             spr->offs.x -= 16;
             fw = 96;
             fy = 51 + 1 - h->attack_flipflop;
@@ -170,6 +178,7 @@ void owl_on_animate(g_s *g, obj_s *o)
             }
             st              = OWL_ST_NULL;
             consider_stance = 0;
+#endif
         }
     } else if (OWL_HURT_TICKS_SPRITE <= h->hurt_ticks) {
         st = -1;

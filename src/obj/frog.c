@@ -45,18 +45,21 @@ void   frog_on_update(g_s *g, obj_s *o);
 void   frog_on_animate(g_s *g, obj_s *o);
 void   frog_on_draw(g_s *g, obj_s *o, v2_i32 cam);
 bool32 frog_try_grab_with_tongue(g_s *g, obj_s *o, i32 l_tongue);
+void   frog_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 
 void frog_on_load(g_s *g, map_obj_s *mo)
 {
     obj_s *o = obj_create(g);
     pltf_log("spawn");
-    o->editorUID  = mo->UID;
-    o->ID         = OBJID_FROG;
-    o->on_update  = frog_on_update;
-    o->on_animate = frog_on_animate;
-    o->on_draw    = frog_on_draw;
-    o->w          = 32;
-    o->h          = 32;
+    o->editorUID          = mo->UID;
+    o->ID                 = OBJID_FROG;
+    o->on_update          = frog_on_update;
+    o->on_animate         = frog_on_animate;
+    o->on_draw            = frog_on_draw;
+    o->on_hitbox          = frog_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
+    o->w                  = 32;
+    o->h                  = 32;
     o->flags =
         OBJ_FLAG_ACTOR |
         OBJ_FLAG_HURT_ON_TOUCH;
@@ -438,18 +441,20 @@ bool32 frog_try_grab_with_tongue(g_s *g, obj_s *o, i32 l_tongue)
     return 1;
 }
 
-void frog_on_hurt(g_s *g, obj_s *o)
+void frog_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
 {
-    if (o->state == FROG_DIE) return;
+    o->health = max_i32(o->health - res.damage, 0);
 
     if (o->health) {
         o->state = FROG_HURT;
     } else {
+        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->state     = FROG_DIE;
-        o->on_update = enemy_on_update_die;
+        o->state              = FROG_DIE;
+        o->on_update          = enemy_on_update_die;
+        o->on_hitbox          = 0;
+        o->hitbox_flags_group = 0;
         g->enemies_killed++;
-        g->enemy_killed[ENEMYID_FROG]++;
     }
     o->timer = 0;
 }

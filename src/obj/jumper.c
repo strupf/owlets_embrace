@@ -18,20 +18,22 @@ enum {
 
 void jumper_on_update(g_s *g, obj_s *o);
 void jumper_on_animate(g_s *g, obj_s *o);
-void jumper_on_hurt(g_s *g, obj_s *o);
+void jumper_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 
 void jumper_load(g_s *g, map_obj_s *mo)
 {
-    obj_s *o      = obj_create(g);
-    o->editorUID  = mo->UID;
-    o->ID         = OBJID_JUMPER;
-    o->on_update  = jumper_on_update;
-    o->on_animate = jumper_on_animate;
-    o->w          = 24;
-    o->h          = 18;
-    o->pos.x      = mo->x;
-    o->pos.y      = mo->y + mo->h - o->h;
-    o->facing     = +1;
+    obj_s *o              = obj_create(g);
+    o->editorUID          = mo->UID;
+    o->ID                 = OBJID_JUMPER;
+    o->on_update          = jumper_on_update;
+    o->on_animate         = jumper_on_animate;
+    o->on_hitbox          = jumper_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
+    o->w                  = 24;
+    o->h                  = 18;
+    o->pos.x              = mo->x;
+    o->pos.y              = mo->y + mo->h - o->h;
+    o->facing             = +1;
     if (map_obj_bool(mo, "face_left")) {
         o->facing = -1;
     }
@@ -140,20 +142,22 @@ void jumper_on_update(g_s *g, obj_s *o)
     obj_move_by_v_q12(g, o);
 }
 
-void jumper_on_hurt(g_s *g, obj_s *o)
+void jumper_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
 {
-    if (o->state == JUMPER_ST_DIE) return;
+    o->health = max_i32(o->health + res.damage, 0);
 
     o->v_q12.x = 0;
     o->v_q12.y = 0;
     if (o->health) {
         o->state = JUMPER_ST_HURT;
     } else {
+        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->state     = JUMPER_ST_DIE;
-        o->on_update = enemy_on_update_die;
+        o->state              = JUMPER_ST_DIE;
+        o->on_update          = enemy_on_update_die;
+        o->on_hitbox          = 0;
+        o->hitbox_flags_group = 0;
         g->enemies_killed++;
-        g->enemy_killed[ENEMYID_JUMPER]++;
     }
     o->timer = 0;
 }

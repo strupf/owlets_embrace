@@ -47,16 +47,15 @@ void flyblob_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
     o->health = max_i32((i32)o->health - 1, 0);
 
     if (!o->health) {
+        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->state              = FLYBLOB_ST_DIE;
-        o->on_update          = enemy_on_update_die;
+        o->state     = FLYBLOB_ST_DIE;
+        o->on_update = enemy_on_update_die;
+        g->enemies_killed++;
         o->on_hitbox          = 0;
         o->hitbox_flags_group = 0;
         o->v_q12.x            = 0;
         o->v_q12.y            = 0;
-        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
-        g->enemies_killed++;
-        g->enemy_killed[ENEMYID_FLYBLOB]++;
     } else if (f->has_propeller && o->health < o->health_max - 2) {
         o->state   = FLYBLOB_ST_PROPELLER_POP;
         o->v_q12.x = 0;
@@ -64,7 +63,7 @@ void flyblob_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
     } else {
         o->state = FLYBLOB_ST_HURT;
         if (f->has_propeller) {
-            // o->v_q12.x = Q_VOBJ(2.0) * hb->dx;
+            o->v_q12.x = Q_VOBJ(2.0) * sgn_i32(res.dx_q4);
             o->v_q12.y = 0;
         } else {
             o->v_q12.x = 0;
@@ -72,9 +71,9 @@ void flyblob_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
         }
     }
 
-    // if (hb->dx) {
-    //  o->facing = -hb->dx;
-    // }
+    if (res.dx_q4) {
+        o->facing = -sgn_i32(res.dx_q4);
+    }
     o->timer     = 0;
     o->animation = 0;
 }
@@ -89,7 +88,7 @@ void flyblob_load(g_s *g, map_obj_s *mo)
     o->on_animate         = flyblob_on_animate;
     o->on_hook            = flyblob_on_hook;
     o->on_hitbox          = flyblob_on_hit;
-    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
 
     o->w = 24;
     o->h = 24;
@@ -150,11 +149,21 @@ void flyblob_on_update(g_s *g, obj_s *o)
         o->timer++;
         if (owl) {
             v2_i32 pseek = phero;
+
+            if (pseek.x < pctr.x) {
+                o->facing = -1;
+            }
+            if (pseek.x > pctr.x) {
+                o->facing = +1;
+            }
+
             pseek.y -= 12;
             pseek.x += 72 * sgn_i32(pctr.x - phero.x);
-
+            // TODO
+#if 0
             v2_i32 steer = steer_arrival(pctr, o->v_q12, pseek, Q_VOBJ(2.0), 32);
             o->v_q12     = v2_i32_add(o->v_q12, steer);
+#endif
 
             rec_i32 rattack_d = {
                 o->pos.x + o->w / 2 - (o->facing < 0 ? FLYBLOB_W_ATTACK_DETECT : 0), o->pos.y, FLYBLOB_W_ATTACK_DETECT, 20};
@@ -471,39 +480,4 @@ void flyblob_on_animate(g_s *g, obj_s *o)
     }
     }
     spr->trec = asset_texrec(TEXID_FLYBLOB, fr_x * w, fr_y * h, w, h);
-}
-
-void flyblob_on_hurt(g_s *g, obj_s *o, hitbox_s *hb)
-{
-    flyblob_s *f = (flyblob_s *)o->mem;
-
-    if (!o->health) {
-        o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->state     = FLYBLOB_ST_DIE;
-        o->on_update = enemy_on_update_die;
-        o->v_q12.x   = 0;
-        o->v_q12.y   = 0;
-        g->enemies_killed++;
-        g->enemy_killed[ENEMYID_FLYBLOB]++;
-    } else if (f->has_propeller && o->health < o->health_max - 2) {
-        o->state   = FLYBLOB_ST_PROPELLER_POP;
-        o->v_q12.x = 0;
-        o->v_q12.y = 0;
-    } else {
-        o->state = FLYBLOB_ST_HURT;
-        if (f->has_propeller) {
-            // o->v_q12.x = Q_VOBJ(2.0) * hb->dx;
-            o->v_q12.y = 0;
-        } else {
-            o->v_q12.x = 0;
-            o->v_q12.y = 0;
-        }
-    }
-
-    // if (hb->dx) {
-    //  o->facing = -hb->dx;
-    // }
-    o->timer     = 0;
-    o->animation = 0;
-    // f->force_x   = hb->dx;
 }

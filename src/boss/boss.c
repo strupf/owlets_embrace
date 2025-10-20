@@ -64,3 +64,15 @@ void boss_draw_post(g_s *g, v2_i32 cam)
     }
     }
 }
+
+void boss_on_trigger(g_s *g, i32 trigger)
+{
+    boss_s *b = &g->boss;
+
+    switch (b->type) {
+    case BOSS_ID_PLANT: {
+        boss_a_on_trigger(g, trigger, &b->boss_a);
+        break;
+    }
+    }
+}

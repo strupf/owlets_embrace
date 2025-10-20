@@ -16,15 +16,18 @@ enum {
 #define COMPANION_DSTSQ_HERO_COME_BACK 35000
 
 typedef struct companion_s {
-    u32          mode_lerp_q8;
-    b8           sit;
-    u8           attack_tick;
-    u8           hitID;
-    u8           may_rest;
-    v2_i32       tile_avoid;
-    bool32       carries_item;
-    obj_handle_s o_item;
+    u32            mode_lerp_q8;
+    b8             sit;
+    u8             attack_tick;
+    u8             hitID;
+    u8             may_rest;
+    v2_i32         tile_avoid;
+    bool32         carries_item;
+    obj_handle_s   o_item;
+    steering_obj_s steering;
 } companion_s;
+
+static_assert(sizeof(companion_s) <= OBJ_MEM_BYTES, "size companion");
 
 void   companion_on_update(g_s *g, obj_s *o);
 void   companion_on_animate(g_s *g, obj_s *o);
@@ -45,6 +48,7 @@ obj_s *companion_create(g_s *g)
     o->w          = 16;
     o->h          = 16;
     o->facing     = +1;
+    steering_obj_init(&c->steering, Q_8(4.0), Q_8(1.0));
     return o;
 }
 
@@ -77,9 +81,11 @@ void companion_on_update(g_s *g, obj_s *o)
     obj_s       *owl = obj_get_owl(g);
 
     o->timer++;
-    v2_i32 p1      = obj_pos_center(o);
-    v2_i32 p2      = {0};
-    u32    dst_owl = 0;
+    v2_i32 p1          = obj_pos_center(o);
+    v2_i32 p2          = {0};
+    c->steering.p_q8.x = p1.x << 8;
+    c->steering.p_q8.y = p1.y << 8;
+    u32 dst_owl        = 0;
     c->tile_avoid.x >>= 1;
     c->tile_avoid.y >>= 1;
 
@@ -164,10 +170,15 @@ void companion_on_update(g_s *g, obj_s *o)
     }
     }
 
+    steering_obj_flush(&c->steering);
+    o->v_q12.x = c->steering.v_q8.x << 4;
+    o->v_q12.y = c->steering.v_q8.y << 4;
+#if 0
     if (v2_i32_lensq(o->v_q12) < Q_VOBJ(5.0)) { // prevent jittering
         o->v_q12.x = 0;
         o->v_q12.y = 0;
     }
+#endif
     obj_move_by_v_q12(g, o);
 }
 
@@ -324,7 +335,7 @@ void companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos)
     v2_i32       p1  = obj_pos_center(o);
     v2_i32       vel = o->v_q12;
 
-    companion_avoid_terrain(g, o);
+    // companion_avoid_terrain(g, o);
 
     i32 rad  = 90;
     i32 vmax = Q_VOBJ(5.0);
@@ -333,6 +344,10 @@ void companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos)
     if (dst < rad) {
         vm = lerp_i32(Q_VOBJ(0.025), vm, dst, rad);
     }
+    steering_obj_arrival(&c->steering, v2_i32_shl(pos, 8), Q_8(64.0));
+
+    // TODO
+#if 0
     v2_i32 vseek  = steer_seek(p1, vel, pos, vm);
     v2_i32 to_add = vseek;
     if (100 <= dst) {
@@ -342,6 +357,7 @@ void companion_seek_pos(g_s *g, obj_s *o, v2_i32 pos)
 
     o->v_q12.x += to_add.x;
     o->v_q12.y += to_add.y;
+#endif
 }
 
 void companion_gather_item(g_s *g, obj_s *o)

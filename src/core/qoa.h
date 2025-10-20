@@ -104,7 +104,7 @@ typedef struct qoa_stream_s {
     i32   loop_pos_end; // 4 - 12 position in samples
     i32   pos;          // 4 - 16 position in samples, negative if delayed playback
     i32   num_samples;  // 4 - 20
-    u32   seek;         // 4 - 24 only for rewinding
+    i32   seek;         // 4 - 24 only for rewinding
     b8    repeat;       // 1 - 25
 
     // cache line

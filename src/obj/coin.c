@@ -111,9 +111,12 @@ void coin_on_update(g_s *g, obj_s *o)
     }
     case COIN_ST_HOMING: {
         if (ohero) {
+            // TODO
+#if 0
             v2_i32 vs = steer_seek(p, o->v_q12, phero, Q_VOBJ(4.7));
             o->v_q12.x += vs.x >> 1;
             o->v_q12.y += vs.y >> 1;
+#endif
         } else { // consider it collected
             coins_change(g, +1);
             obj_delete(g, o);

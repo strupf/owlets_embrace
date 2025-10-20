@@ -599,6 +599,12 @@ wirenode_s *wirenode_neighbour_of_end_node(wire_s *r, wirenode_s *rn)
     return (rn->next ? rn->next : rn->prev);
 }
 
+v2_i32 wirenode_vec(wire_s *r, wirenode_s *rn)
+{
+    wirenode_s *rn2 = wirenode_neighbour_of_end_node(r, rn);
+    return v2_i32_sub(rn2->p, rn->p);
+}
+
 static i32 wire_pts_find(wire_pts_s *pts, v2_i32 p)
 {
     for (i32 i = 0; i < pts->n; i++) {

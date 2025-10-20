@@ -64,7 +64,8 @@ void battleroom_on_update(g_s *g)
         for (map_obj_each(g, o)) {
             if (o->hash == hash_str("cam_rec") && map_obj_i32(o, "ID") == b->cam_rec_ID) {
                 rec_i32 rc = {o->x, o->y, o->w, o->h};
-                cam_clamp_rec_set(g, rc);
+                // TODO
+                // cam_clamp_rec_set(g, rc);
                 break;
             }
         }
@@ -125,7 +126,8 @@ void battleroom_on_update(g_s *g)
 
         b->timer = 0;
         b->state = BATTLEROOM_ENDING_2;
-        cam_clamp_rec_unset(g);
+        // TODO
+        // cam_clamp_rec_unset(g);
         game_on_trigger(g, TRIGGER_BATTLEROOM_LEAVE);
         game_on_trigger(g, b->trigger_finish);
         break;

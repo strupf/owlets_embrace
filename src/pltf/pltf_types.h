@@ -63,7 +63,7 @@ void (*PD_system_error)(const char *format, ...);
 #define assert(X)
 #endif
 
-typedef char           byte;
+typedef unsigned char  byte;
 typedef float          f32;
 typedef double         f64;
 typedef uintptr_t      uptr;
@@ -124,15 +124,17 @@ typedef i32            err32;
 #endif
 #else // C
 #define CINIT(T) (T)
-#if (__STDC_VERSION__ < 201112L) // earlier than C11
-#error C VERSION NOT SUPPORTED
-#elif (__STDC_VERSION__ < 202311L) // earler than C23
+
+#if (201112L <= __STDC_VERSION__)
+#if (__STDC_VERSION__ < 202311L) // earler than C23
 #include <stdalign.h>
+#endif
+#else
+#error C VERSION NOT SUPPORTED
 #endif
 #endif
 
 #define OFFSETOF      offsetof
-#define ALIGNAS       alignas
 #define ALIGNAS       alignas
 #define ALIGNOF       alignof
 #define ALIGNAST(T)   ALIGNAS(ALIGNOF(T))
@@ -146,6 +148,12 @@ typedef struct {
     void *ctx;
 } allocator_s;
 
+static inline void *allocator_alloc(allocator_s a, usize s, usize alignment)
+{
+    if (!a.allocfunc) return 0;
+    return (a.allocfunc(a.ctx, s, alignment));
+}
+
 // clang-format off
 #define typedef_struct(NAME)  typedef struct NAME NAME; struct NAME
 #define typedef_union(NAME)   typedef union NAME NAME; union NAME
@@ -153,19 +161,21 @@ typedef struct {
 #define mcpy                  memcpy
 #define mmov                  memmove
 #define mclr(DST, SIZE)       mset(DST, 0, SIZE)
-#define mclr_static_arr(DST)  mset(DST, 0, sizeof(DST))
-#define mclr_field(DST)       mset(&(DST), 0, sizeof(DST))
+#define mclr_static_arr(DST)  mclr(DST, sizeof(DST))
+#define mclr_field(DST)       mclr(&(DST), sizeof(DST))
+#define mclr_ptr(DST)         mclr(DST, sizeof(*(DST)))
 #define POW2(X)               ((X) * (X))
 #define GLUE2(A, B)           A##B
 #define GLUE(A, B)            GLUE2(A, B)
 #define ARRLEN(A)             (i32)(sizeof(A) / sizeof(A[0]))
-#define SWAP(T, a, b)         do { T tmp_swap_var = a; a = b; b = tmp_swap_var; } while(0)
-#define MKILOBYTE(X) ((X) * 1024)
-#define MMEGABYTE(X) ((X) * 1024 * 1024)
+#define SWAP(T, A, B)         do { T tmp_var = A; A = B; B = tmp_var; } while(0)
+#define MKILOBYTE(X)          ((X) * 1024)
+#define MMEGABYTE(X)          ((X) * 1024 * 1024)
 #define FILE_AND_LINE__(A, B) A "|" #B
 #define FILE_AND_LINE_(A, B)  FILE_AND_LINE__(A, B)
 #define FILE_AND_LINE         FILE_AND_LINE_(__FILE__, __LINE__)
-#define IS_POW2(X) (((X) & ((X) - 1)) == 0)
+#define IS_POW2(X)            (((X) & ((X) - 1)) == 0)
+#define EMPTY_LOOP            do {} while (0)
 
 #if PLTF_DEBUG
 #define DEBUG_CODE(X) X
@@ -174,21 +184,22 @@ typedef struct {
 #define DEBUG_CODE(X)
 #define DEBUG_ASSERT(X) 
 #endif
-// clang-format on
+
 
 #ifdef __GNUC__
+#define ATTRIBUTE_SECTION(X)      __attribute__((section(X)))
 #define PREFETCH(ADDR)            __builtin_prefetch(ADDR)
 #define PTR_ALIGNED(P, ALIGNMENT) __builtin_assume_aligned(P, ALIGNMENT)
 #define LIKELY(X)                 __builtin_expect(!!(X), 1)
 #define UNLIKELY(X)               __builtin_expect(!!(X), 0)
 #else
-#define PREFETCH(ADDR) \
-    do {               \
-    } while (0)
+#define ATTRIBUTE_SECTION(X)
+#define PREFETCH(ADDR)            EMPTY_LOOP
 #define PTR_ALIGNED(P, ALIGNMENT) (P)
 #define LIKELY(X)                 (X)
 #define UNLIKELY(X)               (X)
 #endif
+// clang-format on
 
 #define NOT_IMPLEMENTED(X)                        \
     do {                                          \
@@ -214,6 +225,56 @@ static inline usize align_usize(usize s, usize alignment)
     assert(IS_POW2(alignment));
     return ALIGNTO(s, alignment);
 }
+
+// BSWAP
+#if defined(__GNUC__)
+#define bswap16 __builtin_bswap16
+#define bswap32 __builtin_bswap32
+#define bswap64 __builtin_bswap64
+#elif defined(_MSC_VER)
+#define bswap16 _byteswap_ushort
+#define bswap32 _byteswap_ulong
+#define bswap64 _byteswap_uint64
+#else
+static u32 bswap16(u16 i)
+{
+    return (i >> 24) | ((i << 8) & 0xFF0000U) |
+           (i << 24) | ((i >> 8) & 0x00FF00U);
+}
+
+static u32 bswap32(u32 i)
+{
+    return (i >> 24) | ((i << 8) & 0xFF0000U) |
+           (i << 24) | ((i >> 8) & 0x00FF00U);
+}
+
+static u64 bswap64(u64 i)
+{
+    return ((i >> 56) & 0x00000000000000FFULL) | ((i >> 8) & 0x00000000FF000000ULL) |
+           ((i << 56) & 0xFF00000000000000ULL) | ((i << 8) & 0x000000FF00000000ULL) |
+           ((i >> 40) & 0x000000000000FF00ULL) | ((i >> 24) & 0x0000000000FF0000ULL) |
+           ((i << 40) & 0x00FF000000000000ULL) | ((i << 24) & 0x0000FF0000000000ULL);
+}
+#endif
+
+#define PLTF_ENDIAN_LE 1
+#define PLTF_ENDIAN    PLTF_ENDIAN_LE
+
+#ifdef PLTF_ENDIAN_LE
+#define PLTF_ENDIAN_BE (1 - PLTF_ENDIAN_LE)
+#else
+#define PLTF_ENDIAN_LE (1 - PLTF_ENDIAN_BE)
+#endif
+
+#if PLTF_ENDIAN == PLTF_ENDIAN_LE
+#define BSWAP16_IF_NEEDED(X) (X)
+#define BSWAP32_IF_NEEDED(X) (X)
+#define BSWAP64_IF_NEEDED(X) (X)
+#else
+#define BSWAP16_IF_NEEDED(X) bswap16(X)
+#define BSWAP32_IF_NEEDED(X) bswap32(X)
+#define BSWAP64_IF_NEEDED(X) bswap64(X)
+#endif
 
 // =============================================================================
 // B8(00001111) -> 0x0F

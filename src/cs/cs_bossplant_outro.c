@@ -101,7 +101,7 @@ void cs_bossplant_outro_update(g_s *g, cs_s *cs, inp_s inp)
         break;
     }
     case 4: {
-        if (cs_wait_and_pause_for_owl_idle(g)) {
+        if (owl_wait_for_idle(g)) {
             cs->phase++;
             cs->tick        = 0;
             obj_s *owl      = obj_get_owl(g);

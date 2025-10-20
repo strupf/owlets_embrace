@@ -5,6 +5,7 @@
 #ifndef APP_API_H
 #define APP_API_H
 
+#include "app_version.h"
 #include "pltf/pltf.h"
 
 // allocate persistent memory

@@ -17,6 +17,7 @@ AUDIO_CTX void mus_channel_track_reset(mus_channel_track_s *tr);
 AUDIO_CTX void mus_start_queued(mus_channel_s *ch);
 AUDIO_CTX void mus_on_tick(mus_channel_s *ch, i32 len);
 
+ATTRIBUTE_SECTION(".text.audio")
 #if AUD_FUNC_STEREO
 AUDIO_CTX void mus_channel_stereo(aud_s *a, mus_channel_s *ch, i16 *lbuf, i16 *rbuf, i32 len)
 #else
@@ -78,6 +79,7 @@ AUDIO_CTX void mus_channel_mono(aud_s *a, mus_channel_s *ch, i16 *lbuf, i32 len)
     }
 }
 
+ATTRIBUTE_SECTION(".text.audio")
 #if AUD_FUNC_STEREO
 AUDIO_CTX void sfx_channel_stereo(aud_s *a, sfx_channel_s *ch, i16 *lbuf, i16 *rbuf, i32 len)
 #else

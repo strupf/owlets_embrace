@@ -84,7 +84,6 @@ void grapplinghook_create(g_s *g, grapplinghook_s *h, obj_s *ohero, v2_i32 p, v2
     o->wirenode           = r->tail;
     o->flags              = OBJ_FLAG_ACTOR;
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
-    o->ropeobj.m_q12      = 4096;
     o->on_pushed_by_solid = grapplinghook_on_pushed_end_node;
     o->on_hook            = grapplinghook_on_hooked;
     o->heap               = h;
@@ -397,26 +396,16 @@ v2_i32 rope_v_pulling_at_obj(wire_s *r, wirenode_s *rn, obj_s *o)
 
 // calculating pulling force in rope direction at node rn
 // based on an attached object with mass, velocity and acceleration
-i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o, ropeobj_param_s param);
+i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o);
 
-#define GH_Q4_SMOOTH 10
+#define GH_Q4_SMOOTH 0
 void grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *gh)
 {
     if (!gh->state) return;
 
-    gh->f_cache_dt     = (gh->f_cache_dt * GH_Q4_SMOOTH) >> 4; // smooth force calculation a bit
-    gh->f_cache_o1     = (gh->f_cache_o1 * GH_Q4_SMOOTH) >> 4;
-    gh->f_cache_o2     = (gh->f_cache_o2 * GH_Q4_SMOOTH) >> 4;
-    gh->param1.a_q12.x = 0;
-    gh->param1.a_q12.y = 0;
-    gh->param1.v_q12.x = 0;
-    gh->param1.v_q12.y = 0;
-    gh->param1.m_q12   = 0;
-    gh->param2.a_q12.x = 0;
-    gh->param2.a_q12.y = 0;
-    gh->param2.v_q12.x = 0;
-    gh->param2.v_q12.y = 0;
-    gh->param2.m_q12   = 0;
+    gh->f_cache_dt = (gh->f_cache_dt * GH_Q4_SMOOTH) / 16; // smooth force calculation a bit
+    gh->f_cache_o1 = (gh->f_cache_o1 * GH_Q4_SMOOTH) / 16;
+    gh->f_cache_o2 = (gh->f_cache_o2 * GH_Q4_SMOOTH) / 16;
 
     wire_s *r = &gh->wire;
 
@@ -424,14 +413,13 @@ void grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *gh)
     i32 lm = gh->len_max_q4;
     if (lc < lm) return;
 
-    i32 f_dt = (lc - lm) << 2; // spring force
-    gh->f_cache_dt += (f_dt * (16 - GH_Q4_SMOOTH)) >> 4;
+    i32 f_dt = (lc - lm) * 6; // spring force
+    gh->f_cache_dt += (f_dt * (16 - GH_Q4_SMOOTH)) / 16;
 
     obj_s *o1 = obj_from_handle(gh->o1);
     if (o1) {
-        gh->param1 = o1->ropeobj;
-        i32 f_o1   = rope_pulling_force_of_ropeobj(r, o1->wirenode, o1, gh->param1);
-        gh->f_cache_o1 += (f_o1 * (16 - GH_Q4_SMOOTH)) >> 4;
+        i32 f_o1 = rope_pulling_force_of_ropeobj(r, o1->wirenode, o1);
+        gh->f_cache_o1 += (f_o1 * (16 - GH_Q4_SMOOTH)) / 16;
     }
 
     obj_s *o2 = obj_from_handle(gh->o2);
@@ -441,11 +429,10 @@ void grapplinghook_calc_f_internal(g_s *g, grapplinghook_s *gh)
         o2 = os;
     }
     if (o2) {
-        gh->param2 = o2->ropeobj;
-        i32 f_o2   = rope_pulling_force_of_ropeobj(r, gh->wire.tail, o2, gh->param2);
-        gh->f_cache_o2 += (f_o2 * (16 - GH_Q4_SMOOTH)) >> 4;
+
+        i32 f_o2 = rope_pulling_force_of_ropeobj(r, gh->wire.tail, o2);
+        gh->f_cache_o2 += (f_o2 * (16 - GH_Q4_SMOOTH)) / 16;
     } else if (gh->state == GRAPPLINGHOOK_HOOKED_TERRAIN) {
-        gh->param2.m_q12 = ROPEOBJ_M_INF;
     }
 }
 
@@ -497,15 +484,17 @@ i32 grapplinghook_f_at_obj_proj(grapplinghook_s *gh, obj_s *o, v2_i32 dproj)
     return grapplinghook_f_at_obj_proj_v(gh, o, dproj, 0);
 }
 
-i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o, ropeobj_param_s param)
+i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o)
 {
-    if (param.m_q12 == 0) return 0;
+    // if (param.m_q12 == 0) return 0;
 
     // f = m * a
     // a = f / m
+    i32    m_q12 = 4096;
+    v2_i32 a_q12 = {0};
 
-    v2_i32 v_q12 = param.v_q12;
-    v2_i32 a_q12 = param.a_q12;
+    v2_i32 v_q12 = v2_i32_shl(v2_i32_sub(o->pos, o->ppos), 12);
+
     if (!(v_q12.x | v_q12.y | a_q12.x | a_q12.y)) return 0;
 
     i32    a_q12_res = 0;
@@ -516,7 +505,7 @@ i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o, ropeobj_p
     // f = m * (v^2) / r
     // a = (v^2) / r
     v2_i32 v_q12_tang        = project_pnt_dir(v_q12, dt_tang);
-    i32    a_q12_centrifugal = (i32)(v2_i32_lensq(v2_i32_shr(v_q12_tang, 4)) / ((u32)v2_i32_len(dt) << 8));
+    i32    a_q12_centrifugal = (i32)(v2_i32_lensq(v2_i32_divr(v_q12_tang, 16)) / ((u32)v2_i32_len(dt) << 8));
     a_q12_res += a_q12_centrifugal;
 
     // acceleration along rope direction
@@ -524,7 +513,7 @@ i32 rope_pulling_force_of_ropeobj(wire_s *r, wirenode_s *rn, obj_s *o, ropeobj_p
         a_q12_res += project_pnt_dir_len(a_q12, dt);
     }
 
-    i32 f_q12 = (param.m_q12 * a_q12_res) >> 12;
+    i32 f_q12 = (m_q12 * a_q12_res) >> 12;
     return f_q12;
 }
 

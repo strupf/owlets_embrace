@@ -17,6 +17,7 @@ enum {
     HITBOXID_OWL_0,
     HITBOXID_OWL_WING,
     HITBOXID_OWL_BEAK,
+    HITBOXID_OWL_DOWN,
     HITBOXID_OWL_STOMP,
     HITBOXID_OWL_POWERSTOMP,
     HITBOXID_OWL_1,
@@ -50,6 +51,8 @@ typedef struct hitbox_s hitbox_s;
 
 typedef struct {
     i32 damage;
+    i16 dx_q4;
+    i16 dy_q4;
 } hitbox_res_s;
 
 typedef void (*hitbox_cb_f)(g_s *g, hitbox_s *hb, void *ctx);
@@ -85,9 +88,11 @@ struct hitbox_s {
     u8           ID;          // identifier indicating what specific kind of attack
     u8           parent_offs; // if has parent: distance in array to parent
 
-    u8 type;
-    i8 damage;
-    u8 flags;
+    u8  type;
+    i8  damage;
+    u8  flags;
+    i16 dx_q4;
+    i16 dy_q4;
     union {
         i32               n_c; // number of children if parent
         hitbox_type_rec_s rec;

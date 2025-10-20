@@ -7,12 +7,13 @@
 
 #include "pltf/pltf_types.h"
 
-usize lzss_decoded_size(const void *src);
-usize lzss_decode_ext(const void *src, void *dst, i32 bits_run);
-usize lzss_decode(const void *src, void *dst);
-usize lzss_encode(const void *src, usize srcl, void *dst);
-//
-usize lzss_decode_file_peek_size(void *f);
-usize lzss_decode_file(void *f, void *dst);
+#define lz_decode      lz4_decode
+#define lz_decode_file lz4_decode_file
+
+usize lz_decoded_size_file(void *f);
+usize lz_decoded_size(const void *src);
+
+usize lz4_decode(const void *src, void *dst);
+usize lz4_decode_file(void *f, void *dst);
 
 #endif

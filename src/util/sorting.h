@@ -5,6 +5,13 @@
 #ifndef SORTING_H
 #define SORTING_H
 
+// insertion sort
+//
+// Compared to qsort this sort method is stable i.e. objects
+// which have an equal ranking stay in the same order as before.
+// Qsort might swap them seemingly at random which causes them to "fight"
+// which looks terrible during rendering
+
 #include "pltf/pltf_types.h"
 
 // i32 (*cmp)(const void *a, const void *b)
@@ -21,27 +28,26 @@ static void sort_array(void *arr, i32 n, usize s, cmp_f cmp)
     assert(arr && s && cmp);
     assert(s <= sizeof(m));
 
-    for (byte *ei = (byte *)arr + s,
-              *ae = (byte *)arr + s * n;
-         ei < ae;
-         ei += s) {
+    byte *ae = (byte *)arr + s * n;
+    for (byte *ei = (byte *)arr + s; ei < ae; ei += s) {
         mcpy(m, ei, s);
         byte *ej = ei;
 
-        while ((byte *)arr < ej &&
-               0 < cmp((const void *)(ej - s), (const void *)m)) {
+        while ((byte *)arr < ej && 0 < cmp((const void *)(ej - s), (const void *)m)) {
             mcpy(ej, ej - s, s);
             ej -= s;
         }
-        mcpy(ej, m, s);
+        if (ej != ei) {
+            mcpy(ej, m, s);
+        }
     }
 }
 
 #define SORT_ARRAY_DEF(T, NAME, CMPF)                  \
     static void sort_##NAME(T *arr, i32 n)             \
     {                                                  \
-        T *ae = &arr[n];                               \
-        for (T *ei = &arr[1]; ei < ae; ei++) {         \
+        T *ae = arr + n;                               \
+        for (T *ei = arr + 1; ei < ae; ei++) {         \
             T  t  = *ei;                               \
             T *ej = ei;                                \
                                                        \

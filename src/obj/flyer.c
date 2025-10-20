@@ -102,9 +102,6 @@ void flyer_on_update(g_s *g, obj_s *o)
     v2_i32 p  = v2_i32_lerp(p_src, p_dst, f->pos_q4, f->dist_q4_cache);
     v2_i32 dt = v2_i32_sub(p, o->pos);
     obj_move(g, o, dt.x, dt.y);
-    o->ropeobj.v_q12.x = dt.x << 12;
-    o->ropeobj.v_q12.y = dt.y << 12;
-    o->ropeobj.m_q12   = Q_12(1.0);
     if (0 < dt.x) spr->flip = SPR_FLIP_X;
     if (0 > dt.x) spr->flip = 0;
 }

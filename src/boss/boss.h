@@ -27,5 +27,6 @@ void boss_update(g_s *g);
 void boss_animate(g_s *g);
 void boss_draw(g_s *g, v2_i32 cam);
 void boss_draw_post(g_s *g, v2_i32 cam);
+void boss_on_trigger(g_s *g, i32 trigger);
 
 #endif

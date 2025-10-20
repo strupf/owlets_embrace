@@ -20,6 +20,9 @@ typedef struct spm_s {
     bool32 lowestleft_disabled;
     usize  lowestleft;
 #endif
+
+    ALIGNAS(32)
+    byte mem[MMEGABYTE(2)]; // scratch buffer for temporary working memory
 } spm_s;
 
 extern spm_s g_SPM;
@@ -28,7 +31,7 @@ extern spm_s g_SPM;
 #define spm_alloctn(T, N) (T *)spm_alloc_aligned(sizeof(T) * (N), ALIGNOF(T))
 #define spm_alloctz(T, N) (T *)spm_allocz_aligned(sizeof(T) * (N), ALIGNOF(T))
 
-void        spm_init(void *buf, usize bsize);
+void        spm_init();
 void        spm_push();
 void        spm_pop();
 void        spm_align(usize alignment);

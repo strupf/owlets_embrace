@@ -62,6 +62,6 @@ struct cs_s {
 };
 
 void cs_reset(g_s *g);
-b32  cs_wait_and_pause_for_owl_idle(g_s *g);
+b32  owl_wait_for_idle(g_s *g);
 
 #endif

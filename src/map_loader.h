@@ -7,7 +7,7 @@
 
 #include "gamedef.h"
 #include "tile_types.h"
-#include "util/lzss.h"
+#include "util/lz.h"
 
 typedef struct map_obj_s {
     u32 UID;

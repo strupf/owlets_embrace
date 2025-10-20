@@ -29,7 +29,6 @@ void springyblock_load(g_s *g, map_obj_s *mo)
     o->on_hook        = springyblock_on_hook;
     o->on_draw        = springyblock_on_draw;
     o->flags          = OBJ_FLAG_SOLID | OBJ_FLAG_HOOKABLE;
-    o->ropeobj.m_q12  = Q_12(1.0);
 }
 
 void springyblock_on_update3(g_s *g, obj_s *o)
@@ -57,8 +56,6 @@ void springyblock_on_update3(g_s *g, obj_s *o)
         o->subpos_q12.y = 0;
         o->on_update    = springyblock_on_update2;
     }
-    o->ropeobj.v_q12.y = o->v_q12.y;
-    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC2_Y * s->moved : 0;
 }
 
 void springyblock_on_update2(g_s *g, obj_s *o)
@@ -72,7 +69,6 @@ void springyblock_on_update2(g_s *g, obj_s *o)
         force = -grapplinghook_f_at_obj_proj(&g->ghook, o, (v2_i32){0, 1});
     }
 
-    force = (force << 12) / o->ropeobj.m_q12;
 #define SPRINGYBLOCK_ACC_Y2 40
 
     o->v_q12.y -= SPRINGYBLOCK_ACC_Y2 * s->moved;
@@ -100,8 +96,6 @@ void springyblock_on_update2(g_s *g, obj_s *o)
         o->on_update    = springyblock_on_update3;
         o->timer        = 0;
     }
-    o->ropeobj.v_q12.y = o->v_q12.y;
-    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC_Y2 * s->moved : 0;
 }
 
 void springyblock_on_draw(g_s *g, obj_s *o, v2_i32 cam)
@@ -119,13 +113,12 @@ void springyblock_on_update(g_s *g, obj_s *o)
     grapplinghook_s *gh = &g->ghook;
     //  rec_i32          rh = {gh->p.x, gh->p.y, 1, 1};
 
-    i32 force        = 0;
-    o->ropeobj.m_q12 = Q_12(0.5);
+    i32 force = 0;
+
     if (gh->state == GRAPPLINGHOOK_HOOKED_SOLID && o->substate) {
         force = -grapplinghook_f_at_obj_proj(&g->ghook, o, (v2_i32){0, 1});
     }
 
-    force = (force << 12) / o->ropeobj.m_q12;
 #define SPRINGYBLOCK_ACC_Y 50
 
     o->v_q12.y -= SPRINGYBLOCK_ACC_Y * s->moved;
@@ -150,8 +143,6 @@ void springyblock_on_update(g_s *g, obj_s *o)
         o->v_q12.y      = 0;
         o->subpos_q12.y = 0;
     }
-    o->ropeobj.v_q12.y = o->v_q12.y;
-    o->ropeobj.a_q12.y = s->moved ? -SPRINGYBLOCK_ACC_Y * s->moved : 0;
 }
 
 void springyblock_on_hook(g_s *g, obj_s *o, i32 hooked)

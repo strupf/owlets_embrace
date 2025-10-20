@@ -10,7 +10,7 @@ void cs_reset(g_s *g)
     mclr(cs, sizeof(cs_s));
 }
 
-b32 cs_wait_and_pause_for_owl_idle(g_s *g)
+b32 owl_wait_for_idle(g_s *g)
 {
     obj_s *owl = obj_get_owl(g);
     grapplinghook_destroy(g, &g->ghook);

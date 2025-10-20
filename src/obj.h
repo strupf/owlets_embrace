@@ -14,6 +14,10 @@
 #define NUM_OBJ       256
 #define OBJ_MEM_BYTES 512
 
+// internal flags by engine (separate field)
+#define OBJ_IFLAG_TO_DELETE        ((u32)1 << 0)
+//
+// user flags
 #define OBJ_FLAG_DONT_UPDATE       ((u32)1 << 0)
 #define OBJ_FLAG_DONT_SHOW         ((u32)1 << 1)
 #define OBJ_FLAG_INTERACTABLE      ((u32)1 << 2)
@@ -119,22 +123,18 @@ typedef struct enemy_s {
     u8           hero_hitID;
 } enemy_s;
 
-#define obj_each_tmp(OBJ_HEAD, IT) \
-    obj_s *IT = OBJ_HEAD;          \
-    IT;                            \
-    IT = IT->next_tmp
-
 #define OBJ_MAGIC U32_C(0xABABABAB)
+
 struct obj_s {
     ALIGNAS(32)
-    obj_s *next;       // 4 - 4  main linked list
-    obj_s *prev;       // 4 - 8  main linked list
-    obj_s *next_tmp;   // 4 - 12  linked list for temporary collections
-    u32    flags;      // 4 - 16
-    u16    ID;         // 2 - 18 type of object
-    u16    subID;      // 2 - 20 subtype of object
-    u32    generation; // 4 - 24 how often this object was instantiated
-    u32    editorUID;  // 4 - 28 unique map editorID
+    obj_s *next;           // 4 - 4  main linked list
+    obj_s *prev;           // 4 - 8  main linked list
+    u32    flags_internal; // 4 - 12
+    u32    flags;          // 4 - 16
+    u16    ID;             // 2 - 18 type of object
+    u16    subID;          // 2 - 20 subtype of object
+    u32    generation;     // 4 - 24 how often this object was instantiated
+    u32    editorUID;      // 4 - 28 unique map editorID
 
     obj_action_f           on_update;           // void f(g_s *g, obj_s *o);
     obj_action_f           on_animate;          // void f(g_s *g, obj_s *o);
@@ -152,12 +152,14 @@ struct obj_s {
     obj_action_f           on_carried_removed;  // void f(g_s *g, obj_s *o);
 
     ALIGNAS(32)
-    v2_i32 pos; // position in pixels
+    v2_i32 pos;  // position in pixels
+    v2_i32 ppos; // position in pixels
     i16    w;
     i16    h;
     v2_i32 subpos_q12; // subpixel used for movement; more like an accumulator
     v2_i32 v_q12;
-    v2_i32 v_prev_q12;
+
+    i32 steer_v_max_q12;
 
     // some generic behaviour fields
     u16              bumpflags; // has to be cleared manually
@@ -188,15 +190,14 @@ struct obj_s {
     obj_sprite_s sprites[4];
 
     ALIGNAS(32)
-    u8              hitbox_flags_group;
-    u8              n_hitboxUID_registered;
-    obj_on_hitbox_f on_hitbox;
     u32             hitboxUID_registered[OBJ_NUM_HITBOXID];
+    u16             hitbox_flags_group;
+    u16             n_hitboxUID_registered;
+    obj_on_hitbox_f on_hitbox;
 
     ALIGNAS(8)
-    wirenode_s     *wirenode;
-    wire_s         *wire;
-    ropeobj_param_s ropeobj;
+    wirenode_s *wirenode;
+    wire_s     *wire;
 
     ALIGNAS(32)
     u8           n_ignored_solids;
@@ -263,16 +264,64 @@ v2_i32       obj_solid_align_pos_for_render(g_s *g, v2_i32 p);
 bool32       obj_pushpull_blocked_default(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 void         enemy_on_update_die(g_s *g, obj_s *o);
 obj_s       *obj_find_ID_subID(g_s *g, i32 ID, i32 subID, obj_s *o_from); // find obj with ID, and optionally subID; o_from == null to start from the beginning, or start one after o_from
-void         obj_list_init(obj_s **o_list_ptr);
-void         obj_list_add(obj_s **o_list, obj_s *o); // adds object to temporary linked list
 // whether one object is standing on top of another
 // offx/y added to position of o_plat
 bool32       obj_standing_on(obj_s *o_standing_on, obj_s *o_plat, i32 offx, i32 offy);
 
-void   obj_attackUID_register(obj_s *o, u32 UID);
-bool32 obj_attackUID_was_hit(obj_s *o, u32 UID);
 bool32 obj_hit_by_cir(obj_s *o, i32 cx, i32 cy, i32 cr);
 bool32 obj_hit_by_rec(obj_s *o, i32 rx, i32 ry, i32 rw, i32 rh);
 bool32 obj_hit_by_ray(obj_s *o, i32 p0x, i32 p0y, i32 p1x, i32 p1y, i32 cr);
 
+typedef struct {
+    v2_i32 f;
+    i32    w;
+} obj_steer_force_s;
+
+typedef struct obj_steering_s {
+    obj_s            *o;
+    i32               m_q8;
+    i32               v_q12_max;
+    i32               n_forces;
+    obj_steer_force_s forces[8];
+} obj_steering_s;
+
+#if 0
+void obj_steering_init(obj_steering_s* s, obj_s* o, i32 vmax_q12, i32 m_q8) {
+    mclr(s, sizeof(obj_steering_s));
+    s->o = o;
+    s->m_q8 = m_q8;
+    s->v_q12_max = vmax_q12;
+}
+
+void obj_steering_seek(obj_steering_s* s, v2_i32 p) {
+    v2_i32 v = steer_seek(obj_pos_center(s->o), s->o->v_q12, p, s->v_q12_max);
+    s->forces[s->n_forces++].f = v;
+}
+
+void obj_steering_arrive(obj_steering_s *s, v2_i32 p, i32 r)
+{
+    v2_i32 v                   = steer_arrival(obj_pos_center(s->o), s->o->v_q12, p, s->v_q12_max, r);
+    s->forces[s->n_forces++].f = v;
+}
+
+void obj_steering_apply(g_s *g, obj_steering_s *s)
+{
+    v2_i32 steer   = {0};
+    i32    w_total = 0;
+    for (i32 n = 0; n < s->n_forces; n++) {
+        steer = v2_i32_add(steer, s->forces[n].f);
+    }
+    s->n_forces = 0;
+
+    // f = m * a
+    // a = f / m
+
+    v2_i32 a = {div_rounded_i32(steer.x * s->m_q8, 256),
+                div_rounded_i32(steer.y * s->m_q8, 256)};
+    s->o->v_q12.x += a.x;
+    s->o->v_q12.y += a.y;
+    obj_move_by_v_q12(g, s->o);
+
+}
+#endif
 #endif

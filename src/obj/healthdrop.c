@@ -67,11 +67,13 @@ void healthdrop_on_update(g_s *g, obj_s *o)
         break;
     }
     case HEALTHDROP_ST_HOMING: {
-        if (ohero) {
+        if (ohero) { // TODO
+#if 0
             v2_i32 v  = o->v_q12;
             v2_i32 vs = steer_seek(p, v, phero, Q_VOBJ(2.3));
             o->v_q12.x += vs.x >> 2;
             o->v_q12.y += vs.y >> 2;
+#endif
         } else {
             obj_delete(g, o);
         }

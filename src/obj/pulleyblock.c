@@ -56,7 +56,6 @@ obj_s *pulleyblock_create(g_s *g, map_obj_s *mo)
         OBJ_FLAG_SOLID |
         OBJ_FLAG_HOOKABLE |
         OBJ_FLAG_CLIMBABLE;
-    o->ropeobj.m_q12   = Q_12(1.0);
     o->subID           = map_obj_i32(mo, "refID");
     i32 l_rope         = map_obj_i32(mo, "l_rope");
     s->y_rope          = o->pos.y - l_rope * 16;
@@ -173,13 +172,11 @@ void pulleyblock_on_update_parent(g_s *g, obj_s *o)
         o->v_q12.y      = 0;
         o->subpos_q12.y = 0;
     }
-    o->ropeobj.v_q12.y = o->v_q12.y;
 
     for (i32 n = 0; n < s->n_children; n++) {
         obj_s         *i  = s->children[n];
         pulleyblock_s *si = (pulleyblock_s *)i->mem;
         obj_move(g, i, 0, si->movsign * tm);
-        i->ropeobj.v_q12.y = si->movsign * o->v_q12.y;
     }
 }
 

@@ -333,7 +333,7 @@ void pltf_sdl_resize()
     g_SDL.r_dst.x = (w - g_SDL.r_dst.w) / 2;
     g_SDL.r_dst.y = (h - g_SDL.r_dst.h) / 2;
 
-    pltf_sync_timestep();
+    pltf_timestep_reset();
 }
 
 void pltf_set_fps(f32 fps)

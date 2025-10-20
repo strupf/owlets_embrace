@@ -7,7 +7,7 @@
 
 #define PLTF_USE_STEREO   0
 #define PLTF_SHOW_FPS     0 // show FPS, UPS, logic time and draw time
-#define PLTF_EDIT_PD      0 // edit PD code files? -> enable PLTF_PD_HW code paths
+#define PLTF_EDIT_PD      0 // edit PD code files? helps with editing in Visual Studio; enables PLTF_PD_HW code paths
 #define PLTF_ENABLE_DEBUG 1
 
 #if !defined(PLTF_RELEASE) && !PLTF_ENABLE_DEBUG

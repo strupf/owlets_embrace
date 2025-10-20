@@ -14,8 +14,6 @@ void map_obj_parse(g_s *g, map_obj_s *o);
 
 typedef struct map_header_s {
     u32 hash;
-    i32 x;
-    i32 y;
     u16 w;
     u16 h;
     u16 n_fg;
@@ -101,7 +99,6 @@ void game_load_map(g_s *g, u8 *map_name)
     u8 *map_name_mod = map_loader_room_mod(g, map_name);
 
     DEBUG_LOG("MAP LOAD: %s\n", map_name_mod);
-    DEBUG_CODE(f32 t_load_start = pltf_seconds());
     str_cpy(g->map_name, map_name);
     str_cpy(g->map_name_mod, map_name_mod);
 
@@ -114,42 +111,39 @@ void game_load_map(g_s *g, u8 *map_name)
     }
 
     spm_push();
-    map_header_s *hd = (map_header_s *)spm_alloc_aligned(wad_el->size, 4);
+    map_header_s *hd = spm_alloc_aligned(wad_el->size, 32);
     pltf_file_r(f, hd, wad_el->size);
     map_properties_s mapp = {(void *)(hd + 1), hd->n_prop};
 
-    const i32 w = hd->w;
-    const i32 h = hd->h;
-
     u32 seed_visuals = map_hash;
-    g->tiles_x       = w;
-    g->tiles_y       = h;
-    g->pixel_x       = w << 4;
-    g->pixel_y       = h << 4;
-    assert((w * h) <= NUM_TILES);
+    g->tiles_x       = hd->w;
+    g->tiles_y       = hd->h;
+    g->pixel_x       = hd->w << 4;
+    g->pixel_y       = hd->h << 4;
+    assert((hd->w * hd->h) <= NUM_TILES);
 
     for (obj_each(g, o)) {
         if (o->ID == OBJID_OWL) {
-            mclr(o->hitboxUID_registered, sizeof(o->hitboxUID_registered));
+            mclr_static_arr(o->hitboxUID_registered);
         } else {
             obj_delete(g, o);
         }
     }
     objs_cull_to_delete(g);
+    cam_clamp_clr_hard(g);
 
     mclr_field(g->boss);
-    mclr(g->tiles, sizeof(tile_s) * w * h);
-    mclr(g->fluid_streams, sizeof(u8) * w * h);
-    mclr_static_arr(g->fg_el);
-    mclr_static_arr(g->fluid_areas);
-    for (i32 n = 0; n < NUM_TILELAYER; n++) {
-        mclr(&g->rtiles[n], sizeof(u16) * w * h);
-    }
-
+    mclr(g->tiles, sizeof(tile_s) * hd->w * hd->h);
+    mclr(g->fluid_streams, sizeof(u8) * hd->w * hd->h);
+    mclr(g->fluid_areas, sizeof(fluid_area_s) * g->n_fluid_areas);
+    mclr(g->fg_el, sizeof(foreground_el_s) * g->n_fg);
     mclr_field(g->particle_sys);
     mclr_field(g->ghook);
     mclr_field(g->battleroom);
     mclr_field(g->hitboxes);
+    for (i32 n = 0; n < NUM_TILELAYER; n++) {
+        mclr(&g->rtiles[n], sizeof(u16) * hd->w * hd->h);
+    }
     g->coins.n += g->coins.n_change;
     g->coins.n_change   = 0;
     g->n_grass          = 0;
@@ -198,13 +192,6 @@ void game_load_map(g_s *g, u8 *map_name)
     g->area_ID  = area_ID;
     g->vfx_ID   = vfx_ID;
 
-#if 0
-    if (!(g->flags & GAME_FLAG_TITLE_PREVIEW)) {
-        game_cue_area_music(g);
-        pltf_log("cue");
-    }
-#endif
-
     if (!(g->flags & GAME_FLAG_TITLE_PREVIEW)) {
         g->area_anim_st   = 1;
         g->area_anim_tick = 0;
@@ -212,16 +199,11 @@ void game_load_map(g_s *g, u8 *map_name)
 
     seed_visuals = 213;
 
-    DEBUG_LOG("MAP LOAD terrain\n");
-    loader_load_terrain(g, f, wad_el, w, h, &seed_visuals);
-    DEBUG_LOG("MAP LOAD bgauto\n");
-    loader_load_bgauto(g, f, wad_el, w, h);
-    DEBUG_LOG("MAP LOAD bg\n");
-    loader_load_bg(g, f, wad_el, w, h);
-    DEBUG_LOG("MAP LOAD fluids\n");
+    loader_load_terrain(g, f, wad_el, hd->w, hd->h, &seed_visuals);
+    loader_load_bgauto(g, f, wad_el, hd->w, hd->h);
+    loader_load_bg(g, f, wad_el, hd->w, hd->h);
     wad_rd_str(f, wad_el, "FLUIDS", g->fluid_streams);
 
-    DEBUG_LOG("MAP LOAD foreground el\n");
     map_fg_s *mfg = (map_fg_s *)wad_r_spm_str(f, wad_el, "FOREGROUND");
     for (i32 n = 0; n < hd->n_fg; n++, mfg++) {
         foreground_el_s *fg_el = &g->fg_el[g->n_fg++];
@@ -247,7 +229,6 @@ void game_load_map(g_s *g, u8 *map_name)
     g->map_objs_end  = (byte *)g->map_objs + e_objs->size;
     pltf_file_r(f, g->map_objs, e_objs->size);
 
-    DEBUG_LOG("MAP LOAD OBJs\n");
     for (map_obj_each(g, o)) {
         if (!map_obj_bool(o, "Battleroom")) {
             map_obj_parse(g, o);
@@ -259,12 +240,10 @@ void game_load_map(g_s *g, u8 *map_name)
         boss_init(g, BOSS_ID_PLANT);
     }
 
-    DEBUG_LOG("MAP LOAD setups\n");
     spm_pop();
     pulleyblocks_setup(g);
     drillers_setup(g);
-    pltf_sync_timestep();
-    DEBUG_LOG("MAP LOAD done (%.2f s)\n", pltf_seconds() - t_load_start);
+    pltf_timestep_reset();
 }
 
 void loader_do_terrain(g_s *g, u16 *tmem, i32 w, i32 h, u32 *seed_visuals)

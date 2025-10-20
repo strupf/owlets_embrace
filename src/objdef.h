@@ -30,6 +30,7 @@ enum {
     OBJID_HEARTPIECE,
     OBJID_HOOKYEETER,
     OBJID_VINEBLOCKADE,
+    OBJID_OBJ_CB,
     OBJID_FROG,
     OBJID_FROG_TONGUE,
     OBJID_CLOCKPULSE,
@@ -88,6 +89,9 @@ enum {
     OBJID_PUPPET_COMPANION,
     OBJID_PUPPET_MOLE,
     //
+    OBJID_BOSS_A_CORE,
+    OBJID_BOSS_A_TENDRIL,
+    //
     OBJID_BOSS_PLANT_TENTACLE,
     OBJID_BOSS_PLANT_EYE,
     OBJID_BOSS_PLANT_EYE_FAKE_L,
@@ -101,17 +105,6 @@ enum {
     OBJ_TAG_BOSS,
     //
     NUM_OBJ_TAGS
-};
-
-// enemy kills getting tracked
-enum {
-    ENEMYID_CRAB,
-    ENEMYID_FROG,
-    ENEMYID_JUMPER,
-    ENEMYID_FLYBLOB,
-    ENEMYID_CRAWLER,
-    //
-    NUM_ENEMYID
 };
 
 enum {
@@ -141,7 +134,6 @@ void      switch_load(g_s *g, map_obj_s *mo);
 void      switch_on_interact(g_s *g, obj_s *o);
 void      mushroomblock_load(g_s *g, map_obj_s *mo);
 void      crawler_load(g_s *g, map_obj_s *mo);
-void      crawler_on_hurt(g_s *g, obj_s *o);
 void      upgradetree_load(g_s *g, map_obj_s *mo);
 void      upgradetree_put_orb_infront(obj_s *o);
 void      upgradetree_move_orb_to(obj_s *o, v2_i32 pos, i32 t);
@@ -156,8 +148,6 @@ void      npc_on_interact(g_s *g, obj_s *o);
 void      crackblock_load(g_s *g, map_obj_s *mo);
 void      teleport_load(g_s *g, map_obj_s *mo);
 void      crab_load(g_s *g, map_obj_s *mo);
-void      crab_on_hitbox(g_s *g, obj_s *o, hitbox_s *hb);
-void      crab_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 void      stalactite_load(g_s *g, map_obj_s *mo);
 void      stalactite_on_update(g_s *g, obj_s *o);
 void      stalactite_on_animate(g_s *g, obj_s *o);
@@ -175,7 +165,6 @@ void      budplant_load(g_s *g, map_obj_s *mo);
 obj_s    *projectile_create(g_s *g, v2_i32 pos, v2_i32 vel, i32 subID);
 void      projectile_on_collision(g_s *g, obj_s *o);
 void      flyblob_load(g_s *g, map_obj_s *mo);
-void      flyblob_on_hurt(g_s *g, obj_s *o, hitbox_s *hb);
 void      staminarestorer_load(g_s *g, map_obj_s *mo);
 bool32    staminarestorer_try_collect(g_s *g, obj_s *o, obj_s *ohero);
 void      staminarestorer_respawn_all(g_s *g, obj_s *o);
@@ -208,7 +197,6 @@ void      hookyeeter_on_update(g_s *g, obj_s *o);
 void      hookyeeter_on_hook(g_s *g, obj_s *o);
 void      hookyeeter_on_unhook(g_s *g, obj_s *o);
 void      jumper_load(g_s *g, map_obj_s *mo);
-void      jumper_on_hurt(g_s *g, obj_s *o);
 void      solidlever_load(g_s *g, map_obj_s *mo);
 obj_s    *companion_create(g_s *g);
 obj_s    *companion_spawn(g_s *g, obj_s *ohero);
@@ -222,14 +210,12 @@ void      pulleyblocks_setup(g_s *g);
 void      pulleyblock_load_parent(g_s *g, map_obj_s *mo);
 void      pulleyblock_load_child(g_s *g, map_obj_s *mo);
 void      gempile_load(g_s *g, map_obj_s *mo);
-void      gempile_on_hit(g_s *g, obj_s *o);
 void      mushroom_load(g_s *g, map_obj_s *mo);
 void      mushroom_on_jump_on(g_s *g, obj_s *o);
 void      tutorialtext_load(g_s *g, map_obj_s *mo);
 void      lookahead_load(g_s *g, map_obj_s *mo);
 void      heart_or_stamina_piece_load(g_s *g, map_obj_s *mo, bool32 is_stamina);
 void      heartpiece_on_collect(g_s *g, obj_s *o);
-void      bigcrab_load(g_s *g, map_obj_s *mo);
 void      drillerspawn_load(g_s *g, map_obj_s *mo);
 void      drillers_setup(g_s *g);
 void      driller_on_hurt(g_s *g, obj_s *o);
@@ -240,10 +226,11 @@ void      tendrilconnection_setup(g_s *g, obj_s *o, v2_i32 p_start, v2_i32 p_end
 void      tendrilconnection_constrain_ends(obj_s *o, v2_i32 p_start, v2_i32 p_end);
 void      leverpushpull_load(g_s *g, map_obj_s *mo);
 void      frog_on_load(g_s *g, map_obj_s *mo);
-void      frog_on_hurt(g_s *g, obj_s *o);
 void      bombplant_load(g_s *g, map_obj_s *mo);
 void      bombplant_on_pickup(g_s *g, obj_s *o);
-void      bombplant_on_hit(g_s *g, obj_s *o);
 obj_s    *bomb_create(g_s *g);
 void      bomb_set_carried(obj_s *o);
+obj_s    *obj_cb_create(g_s *g, void *arg); // create an empty object to hook callback functions into the game
+void      obj_cb_set_on_update(obj_s *o, void (*on_upd)(g_s *g, void *arg));
+void      obj_cb_set_on_trigger(obj_s *o, void (*on_trigger)(g_s *g, i32 trigger, void *arg));
 #endif

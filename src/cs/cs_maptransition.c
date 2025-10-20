@@ -272,5 +272,5 @@ void cs_maptransition_load_map(g_s *g, cs_s *cs)
         // is big (slower loading) or small (faster loading)
         cs->tick = min_i32(MAPTRANSITION_TICKS_F_BLACK, 2 + ticks_loaded);
     }
-    pltf_sync_timestep();
+    pltf_timestep_reset();
 }

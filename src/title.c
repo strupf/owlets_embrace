@@ -67,9 +67,10 @@ void title_init(title_s *t)
     title_load_previews(t);
     t->preload_slot = -1;
     g->flags |= GAME_FLAG_TITLE_PREVIEW;
-#if !TITLE_SKIP_TO_GAME
+#if !APP_SKIP_TO_GAME
     // mus_play_extv("M_WATERFALL", 0, 0, 0, 100, 256);
 #endif
+    steering_obj_init(&t->comp_steer, 8 << 8, 256);
 }
 
 void title_start_game(app_s *app, i32 slot)
@@ -115,11 +116,11 @@ void title_try_preload(app_s *app, title_s *t)
     } else if (t->preload_slot == t->selected) {
         t->preload_fade_dir = 1;
     } else if (t->preload_fade_q7 == 0) {
-        savefile_s *s = &app->save;
-        g_s        *g = &app->game;
+        save_file_s *s = &app->save;
+        g_s         *g = &app->game;
         g->flags |= GAME_FLAG_BLOCK_PLAYER_INPUT;
         g->save_slot = t->selected;
-        err32 err    = savefile_r(t->selected, s);
+        err32 err    = save_file_r_slot(s, t->selected);
         if (err) {
             t->preload_slot     = -1;
             t->preload_fade_dir = 0;
@@ -133,9 +134,9 @@ void title_try_preload(app_s *app, title_s *t)
 
 void title_update(app_s *app, title_s *t)
 {
-#if TITLE_SKIP_TO_GAME
+#if APP_SKIP_TO_GAME
     g_s *g = &app->game;
-    savefile_r(0, g->savefile);
+    save_file_r_slot(g->save, 0);
     game_load_savefile(g);
     title_start_game(app, 0);
     title_gameplay_start(app);
@@ -164,19 +165,9 @@ void title_update(app_s *app, title_s *t)
     } else {
         title_btn_pos_companion(t, t->comp_btnID, &t->pos_comp_target);
         v2_i32 target_q8 = v2_i32_shl(t->pos_comp_target, 8);
-        if (v2_i32_distancesq(t->pos_comp_target, v2_i32_shr(t->pos_comp_q8, 8)) < 10) {
-            t->pos_comp_q8 = target_q8;
-            t->v_comp_q8.x = 0;
-            t->v_comp_q8.y = 0;
-        } else {
-            t->pos_comp_q8 = v2_i32_add(t->pos_comp_q8, t->v_comp_q8);
-            v2_i32 steer   = steer_arrival(t->pos_comp_q8,
-                                           t->v_comp_q8,
-                                           target_q8,
-                                           4000,
-                                           32 << 7);
-            t->v_comp_q8   = v2_i32_add(t->v_comp_q8, steer);
-        }
+
+        steering_obj_arrival(&t->comp_steer, target_q8, 32 << 7);
+        steering_obj_flush(&t->comp_steer);
     }
 
     switch (t->state) {
@@ -226,8 +217,8 @@ void title_update(app_s *app, title_s *t)
                         t->title_fade_dir = +1; // fade
                         break;
                     case 1:
-                        APP.sm.n_curr = 0;
-                        APP.sm.active = 1;
+                        // APP.sm.n_curr = 0;
+                        // APP.sm.active = 1;
                         break;
                     }
                     // snd_play(SFXID_MENU3, 1.f, 1.f);
@@ -362,7 +353,7 @@ void title_update(app_s *app, title_s *t)
             case TITLE_FP_2_DELETE: {
                 t->comp_bump = 1;
 
-                bool32 res = savefile_del(t->selected);
+                bool32 res = pltf_file_del(save_filename(t->selected));
                 title_load_previews(t);
                 t->option     = 0;
                 t->comp_btnID = TITLE_BTN_SLOT_1;
@@ -404,11 +395,11 @@ void title_update(app_s *app, title_s *t)
             // snd_play(SFXID_MENU3, 1.f, 1.f);
             t->copy_to = t->option;
 
-            savefile_s *s = &APP.save;
+            save_file_s *s = &APP.save;
 
-            err32 err_r = savefile_r(t->selected, s);
+            err32 err_r = save_file_r_slot(s, t->selected);
             if (err_r == 0) {
-                err32 err_w = savefile_w(t->copy_to, s);
+                err32 err_w = save_file_w_slot(s, t->copy_to);
                 if (err_w) {
 
                 } else {
@@ -579,13 +570,14 @@ void title_render(title_s *t)
     gfx_ctx_s ctx      = gfx_ctx_from_tex(tdisplay);
     gfx_ctx_s ctxcov   = ctx;
     fnt_s     font     = asset_fnt(FNTID_LARGE);
-    rec_i32   rfull    = {0, 0, 400, 240};
-    tex_s     tex      = asset_tex(TEXID_DISPLAY_TMP);
+    assert(font.t.px);
+    rec_i32 rfull = {0, 0, 400, 240};
+    tex_s   tex   = asset_tex(TEXID_DISPLAY_TMP);
     tex_clr(tdisplay, GFX_COL_BLACK);
 
     if (t->state == TITLE_ST_OVERVIEW) {
         texrec_s trcover = asset_texrec(TEXID_COVER, 0, 0, 400, 240);
-        gfx_spr(ctx, trcover, (v2_i32){-4, 0}, 0, 0);
+        gfx_spr(ctx, trcover, (v2_i32){0, 0}, 0, 0);
 
         i32 ti1 = (i32)t->tick - 0;
         if (0 <= ti1) {
@@ -667,7 +659,8 @@ void title_render(title_s *t)
 
     v2_i32 phead = {12, 8};
     fnt_s  fhead = asset_fnt(FNTID_LARGE);
-    i32    shead = 3;
+    assert(fhead.t.px);
+    i32 shead = 3;
 
     switch (t->state) {
     case TITLE_ST_OVERVIEW: {
@@ -709,11 +702,11 @@ void title_render(title_s *t)
 
 void title_load_previews(title_s *t)
 {
-    savefile_s *s = &APP.save;
+    save_file_s *s = &APP.save;
 
     for (i32 n = 0; n < 3; n++) {
         save_preview_s pr = {0};
-        err32          e  = savefile_r(n, s);
+        err32          e  = save_file_r_slot(s, n);
         if (e) {
         } else {
             pr.tick   = s->tick;
@@ -730,8 +723,8 @@ void title_draw_companion(title_s *t)
 
     i32 frx = ani_frame_loop(ANIID_COMPANION_FLY, t->tick);
     i32 fry = 0;
-    i32 x   = t->pos_comp_q8.x >> 8;
-    i32 y   = t->pos_comp_q8.y >> 8;
+    i32 x   = t->comp_steer.p_q8.x >> 8;
+    i32 y   = t->comp_steer.p_q8.y >> 8;
 
     texrec_s tr = asset_texrec(TEXID_COMPANION, frx * 64, fry * 64, 64, 64);
 
@@ -753,12 +746,12 @@ void title_draw_version()
     gfx_ctx_s ctx  = gfx_ctx_display();
     texrec_s  tnum = asset_texrec(TEXID_BUTTONS, 0, 224, 8, 16);
 
-    i32 lv = 7 + 4 + 7 * (10 <= VERSION_MINOR ? 2 : 1) + 4 +
-             7 * (10 <= VERSION_PATCH ? 2 : 1);
+    i32 lv = 7 + 4 + 7 * (10 <= APP_VERSION_MINOR ? 2 : 1) + 4 +
+             7 * (10 <= APP_VERSION_PATCH ? 2 : 1);
     v2_i32 pnum = {397 - lv, 227};
 
     // major
-    tnum.x = 8 * (VERSION_MAJOR);
+    tnum.x = 8 * (APP_VERSION_MAJOR);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
     // dot
@@ -766,12 +759,12 @@ void title_draw_version()
     gfx_spr_tile_32x32(ctx, tnum, pnum); // "."
     pnum.x += 4;
     // minor
-#if 10 <= VERSION_MINOR
+#if 10 <= APP_VERSION_MINOR
     tnum.x = 8 * (VERSION_MINOR / 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-    tnum.x = 8 * (VERSION_MINOR % 10);
+    tnum.x = 8 * (APP_VERSION_MINOR % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
     // dot
@@ -780,17 +773,17 @@ void title_draw_version()
     pnum.x += 4;
 
     // patch
-#if 100 <= VERSION_PATCH
+#if 100 <= APP_VERSION_PATCH
     tnum.x = 8 * (VERSION_PATCH / 100);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-#if 10 <= VERSION_PATCH
+#if 10 <= APP_VERSION_PATCH
     tnum.x = 8 * ((VERSION_PATCH / 10) % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 #endif
-    tnum.x = 8 * (VERSION_PATCH % 10);
+    tnum.x = 8 * (APP_VERSION_PATCH % 10);
     gfx_spr_tile_32x32(ctx, tnum, pnum);
     pnum.x += 7;
 }

@@ -14,12 +14,6 @@
 #define CAM_HH              (PLTF_DISPLAY_H >> 1)
 #define CAM_CLAMP_REC_TICKS 50
 
-enum {
-    CAM_BEHAVIOR_PLAYER,
-    CAM_BEHAVIOR_PLAYER_CLAMPED,
-    CAM_BEHAVIOR_SCRIPT,
-};
-
 // data for the camera around the owl's behaviour
 typedef struct cam_owl_s {
     ALIGNAS(32)
@@ -40,48 +34,57 @@ typedef struct cam_owl_s {
     b8     center_req; // should center; reset every frame
 } cam_owl_s;
 
-typedef struct cam_s {
-    i32       behavior_curr;
-    i32       behavior_prev;
-    i32       behavior_q8;
-    v2_i32    p_center; // result of calculation
-    cam_owl_s cowl;
+typedef struct cam_clamp_coord_s {
+    i32 dst;
+    i32 cur;
+} cam_clamp_coord_s;
 
-    v2_i32  shake;
-    v2_i32  trg;
-    v2_i32  attr_q12;
-    rec_i32 clamp_rec;
-    bool16  clamp_rec_exists;
-    u16     clamp_rec_ticks;
-    u16     shake_ticks;
-    u16     shake_ticks_max;
-    u16     shake_str_x;
-    u16     shake_str_y;
-    u16     shake_str_x2;
-    u16     shake_str_y2;
-    u16     trg_fade_q12; // [0, 4096]
-    b8      locked_x;
-    b8      locked_y;
-    b8      has_trg;
-    u8      trg_fade_spd; // speed to fade (per tick)
-    i32     handler_tick;
-    v2_i32 (*handler_f)(g_s *g);
+enum {
+    CAM_CLAMP_X1,
+    CAM_CLAMP_Y1,
+    CAM_CLAMP_X2,
+    CAM_CLAMP_Y2
+};
+
+typedef struct cam_s {
+    cam_owl_s cowl;
+    v2_i32    shake;
+    v2_i32    trg;
+    v2_i32    attr_q12;
+    v2_i32    p_center; // result of calculation
+
+    ALIGNAS(32)
+    cam_clamp_coord_s clamp_coord[4];
+
+    u16 shake_ticks;
+    u16 shake_ticks_max;
+    u16 shake_str_x;
+    u16 shake_str_y;
+    u16 shake_str_x2;
+    u16 shake_str_y2;
+    u16 trg_fade_q12; // [0, 4096]
+    b8  locked_x;     // should be replaced by clamp coords
+    b8  locked_y;     // should be replaced by clamp coords
+    b8  has_trg;
+    u8  trg_fade_spd; // speed to fade (per tick)
 } cam_s;
 
-void cam_clamp_rec_set(g_s *g, rec_i32 r);
-void cam_clamp_rec_unset(g_s *g);
-
-// either lock to position or to obj if non-null
+void    cam_update(g_s *g, cam_s *c);
+void    cam_clamp_clr_hard(g_s *g); // what even in this name
+void    cam_clamp_clr(g_s *g);
+void    cam_clamp_set_hard(g_s *g, i32 x1, i32 y1, i32 x2, i32 y2); // what even in this name
+void    cam_clamp_set(g_s *g, i32 x1, i32 y1, i32 x2, i32 y2);      // pass <= 0 to set clamp coord back to room
+void    cam_clamp_setr(g_s *g, rec_i32 r);
+void    cam_clamp_setr_hard(g_s *g, rec_i32 r);
+void    cam_clamp_x1(g_s *g, i32 x); // pass <= 0 to set clamp coord back to room
+void    cam_clamp_y1(g_s *g, i32 y); // pass <= 0 to set clamp coord back to room
+void    cam_clamp_x2(g_s *g, i32 x); // pass <= 0 to set clamp coord back to room
+void    cam_clamp_y2(g_s *g, i32 y); // pass <= 0 to set clamp coord back to room
 void    cam_screenshake(cam_s *c, i32 ticks, i32 str);
 void    cam_screenshake_xy(cam_s *c, i32 ticks, i32 str_x, i32 str_y);
 v2_i32  cam_pos_px_top_left(cam_s *c);
 v2_i32  cam_pos_px_center(cam_s *c);
 rec_i32 cam_rec_px(cam_s *c);
 void    cam_hard_set_positon(g_s *g, cam_s *c);
-void    cam_update(g_s *g, cam_s *c);
-i32     cam_clamp_x(i32 center_x, i32 x1, i32 x2);
-i32     cam_clamp_y(i32 center_y, i32 y1, i32 y2);
-
-void cam_behavior(g_s *g, i32 behavior, i32 hard);
 
 #endif

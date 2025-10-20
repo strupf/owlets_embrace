@@ -11,19 +11,24 @@
 #include "pltf/pltf_types.h"
 
 enum {
-    WAD_ERR_OPEN    = 1 << 0,
-    WAD_ERR_CLOSE   = 1 << 1,
-    WAD_ERR_RW      = 1 << 2,
-    WAD_ERR_VERSION = 1 << 3,
-    WAD_ERR_EXISTS  = 1 << 4,
+    WAD_FILE_ERR_BAD_ARG  = 1 << 0,
+    WAD_FILE_ERR_OPEN     = 1 << 1,
+    WAD_FILE_ERR_VERSION  = 1 << 2,
+    WAD_FILE_ERR_PLATFORM = 1 << 3,
+    WAD_FILE_ERR_RW       = 1 << 4,
+    WAD_FILE_ERR_CLOSE    = 1 << 5,
+    WAD_FILE_ERR_MISC     = 1 << 6,
 };
 
 typedef struct wad_header_s {
     ALIGNAS(16)
-    u32 timestamp; // time of wad compilation; seconds since 00:00 2000
-    u32 version;   // the intended game's version
+    u8  platformID; // the intended platformID
+    u8  v_major;    // the intended version of the game
+    u8  v_minor;    // the intended version of the game
+    u8  v_patch;    // the intended version of the game
+    u8  str[4];     // "WADF"
     u32 n_entries;
-    u8  unused[4];
+    u8  unused[2];
 } wad_header_s;
 
 typedef struct {

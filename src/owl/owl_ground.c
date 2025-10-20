@@ -183,7 +183,12 @@ void owl_ground(g_s *g, obj_s *o, inp_s inp)
         assert(oi->on_interact);
         oi->on_interact(g, oi);
     } else if (h->attack_tick) {
-        obj_vx_q8_mul(o, 250);
+        if (abs_i32(o->v_q12.x) < Q_VOBJ(0.5)) {
+            o->v_q12.x = 0;
+        } else {
+            obj_vx_q8_mul(o, 128);
+        }
+
     } else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
 
     } else {
@@ -359,4 +364,7 @@ void owl_on_touch_ground(g_s *g, obj_s *o)
     owl_stamina_modify(o, h->stamina_max);
     h->jump_edgeticks = OWL_JUMP_EDGE_TICKS;
     h->n_air_jumps    = 0;
+    if (h->attack_type == OWL_ATTACK_DOWN) {
+        owl_cancel_attack(g, o);
+    }
 }

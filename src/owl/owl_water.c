@@ -29,7 +29,6 @@ void owl_water(g_s *g, obj_s *o, inp_s inp)
     if (water_depth < OWL_H && o->health) {
         h->swim = OWL_SWIM_SURFACE;
     } else if (can_dive) {
-        h->swim = OWL_SWIM_DIVE;
     }
 
     if (OWL_H <= water_depth) {

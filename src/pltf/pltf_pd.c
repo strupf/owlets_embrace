@@ -28,6 +28,7 @@ typedef struct {
 } PD_menu_item_s;
 
 typedef struct {
+    ALIGNAS(32)
     SoundSource   *soundsource;
     u32            b;
     b32            stereo;
@@ -48,8 +49,15 @@ int (*PD_system_formatString)(char **outstr, const char *fmt, ...);
 void (*PD_system_getButtonState)(PDButtons *c, PDButtons *p, PDButtons *r);
 void (*PD_graphics_markUpdatedRows)(int start, int end);
 float (*PD_system_getElapsedTime)(void);
+
+ALIGNAS(32)
+SDFile *(*PD_file_open)(const char *name, FileOptions mode);
 int (*PD_file_read)(SDFile *file, void *buf, uint len);
 int (*PD_file_write)(SDFile *file, const void *buf, uint len);
+int (*PD_file_close)(SDFile *file);
+int (*PD_file_tell)(SDFile *file);
+int (*PD_file_seek)(SDFile *file, int pos, int whence);
+
 void (*PD_system_getAccelerometer)(f32 *outx, f32 *outy, f32 *outz);
 int (*PD_file_listfiles)(const char *path,
                          void (*callback)(const char *filename, void *userdata),
@@ -81,6 +89,10 @@ eventHandler(PlaydateAPI *pd, PDSystemEvent event, u32 arg)
         PD_graphics_markUpdatedRows = PD->graphics->markUpdatedRows;
         PD_file_read                = PD->file->read;
         PD_file_write               = PD->file->write;
+        PD_file_open                = PD->file->open;
+        PD_file_close               = PD->file->close;
+        PD_file_tell                = PD->file->tell;
+        PD_file_seek                = PD->file->seek;
         PD_system_getAccelerometer  = PD->system->getAccelerometer;
         PD_system_realloc           = PD->system->realloc;
         PD_file_listfiles           = PD->file->listfiles;
@@ -281,22 +293,22 @@ void pltf_debugr(i32 x, i32 y, i32 w, i32 h, u8 r, u8 g, u8 b, i32 t)
 
 void *pltf_file_open_r(const char *path)
 {
-    return PD->file->open(path, (FileOptions)((i32)kFileRead | (i32)kFileReadData));
+    return (void *)PD_file_open(path, (FileOptions)((i32)kFileRead | (i32)kFileReadData));
 }
 
 void *pltf_file_open_w(const char *path)
 {
-    return PD->file->open(path, kFileWrite);
+    return (void *)PD_file_open(path, kFileWrite);
 }
 
 void *pltf_file_open_a(const char *path)
 {
-    return PD->file->open(path, kFileAppend);
+    return (void *)PD_file_open(path, kFileAppend);
 }
 
 bool32 pltf_file_close(void *f)
 {
-    return (PD->file->close(f) == 0);
+    return (PD_file_close(f) == 0);
 }
 
 bool32 pltf_file_del(const char *path)
@@ -306,22 +318,22 @@ bool32 pltf_file_del(const char *path)
 
 i32 pltf_file_tell(void *f)
 {
-    return (i32)PD->file->tell(f);
+    return (i32)PD_file_tell(f);
 }
 
 i32 pltf_file_seek_set(void *f, i32 pos)
 {
-    return (i32)PD->file->seek(f, pos, SEEK_SET);
+    return (i32)PD_file_seek(f, pos, SEEK_SET);
 }
 
 i32 pltf_file_seek_cur(void *f, i32 pos)
 {
-    return (i32)PD->file->seek(f, pos, SEEK_CUR);
+    return (i32)PD_file_seek(f, pos, SEEK_CUR);
 }
 
 i32 pltf_file_seek_end(void *f, i32 pos)
 {
-    return (i32)PD->file->seek(f, pos, SEEK_END);
+    return (i32)PD_file_seek(f, pos, SEEK_END);
 }
 
 i32 pltf_file_w(void *f, const void *buf, usize bsize)

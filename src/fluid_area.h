@@ -11,7 +11,8 @@
 
 enum {
     FLUID_AREA_WATER,
-    FLUID_AREA_LAVA
+    FLUID_AREA_LAVA,
+    FLUID_AREA_TOXIC_WATER,
 };
 
 typedef struct fluid_pt_s {

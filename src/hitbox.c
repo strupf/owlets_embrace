@@ -91,9 +91,9 @@ void hitboxes_flush(g_s *g)
     for (obj_each(g, o)) {
         if (!o->hitbox_flags_group) continue;
 
-        rec_i32      o_aabb       = obj_aabb(o);
-        hitbox_s    *hb_strongest = 0;
-        hitbox_res_s res          = {0};
+        rec_i32      o_aabb  = obj_aabb(o);
+        hitbox_res_s res     = {0};
+        bool32       was_hit = 0;
 
         for (i32 n = 0; n < g->n_hitboxes; n++) {
             hitbox_s *hb = &g->hitboxes[n];
@@ -124,7 +124,11 @@ void hitboxes_flush(g_s *g)
                 }
             }
 
-            hb_strongest                                         = hb;
+            was_hit = 1;
+            res.damage += hb->damage;
+            res.dx_q4 += hb->dx_q4;
+            res.dy_q4 += hb->dy_q4;
+
             o->hitboxUID_registered[o->n_hitboxUID_registered++] = hb->UID; // remember this UID
             o->n_hitboxUID_registered &= (OBJ_NUM_HITBOXID - 1);
             if (o->hitbox_flags_group & HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK) {
@@ -133,7 +137,7 @@ void hitboxes_flush(g_s *g)
         HITBOX_NEXT:;
         }
 
-        if (hb_strongest && o->on_hitbox) {
+        if (was_hit && o->on_hitbox) {
             o->on_hitbox(g, o, res);
         }
     }
@@ -147,7 +151,7 @@ void hitboxes_flush(g_s *g)
         // - did hit
         // - either no specified user or only if user still valid
         bool32 cb_exe = hb->cb != 0 &&
-                        (hb->type & HITBOX_FLAG_HIT) &&
+                        (hb->flags & HITBOX_FLAG_HIT) &&
                         (!hb->user.o || obj_handle_valid(hb->user));
 
         if (cb_exe) {
@@ -156,102 +160,4 @@ void hitboxes_flush(g_s *g)
         mclr(hb, sizeof(hitbox_s));
     }
     g->n_hitboxes = 0;
-#if 0
-        for (i32 k = 0; k < OBJ_NUM_HITBOXID; k++) {
-            u32 hID = i->attackIDs[k];
-            if (hID == hb->UID) {
-                already_hit_by = 1;
-                break;
-            }
-            if (hID < h_smallestID) {
-                h_smallestID = hID;
-                k_smallestID = k;
-            }
-        }
-
-
-        if (already_hit_by) continue;
-
-        switch (i->ID) {
-        case 0: break;
-        case OBJID_JUMPER: {
-            if (i->health) {
-                did_hit = 1;
-                i->health--;
-                jumper_on_hurt(g, i);
-                if (!i->health) {
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_CRAWLER: {
-            if (i->health) {
-                did_hit = 1;
-                i->health--;
-                crawler_on_hurt(g, i);
-                if (!i->health) {
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_DRILLER: {
-            if (i->health) {
-                driller_on_hurt(g, i);
-                if (i->state == 5) {
-                    did_hit = 1;
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_CRAB: {
-            if (i->health) {
-                did_hit = 1;
-                crab_on_hitbox(g, i, hb);
-                if (!i->health) {
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_FROG: {
-            if (i->health) {
-                did_hit = 1;
-                i->health--;
-                frog_on_hurt(g, i);
-                if (!i->health) {
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_FLYBLOB: {
-            if (i->health) {
-                did_hit = 1;
-                i->health--;
-                flyblob_on_hurt(g, i, hb);
-                if (!i->health) {
-                    animobj_create(g, obj_pos_center(i), ANIMOBJ_EXPLOSION_3);
-                }
-            }
-            break;
-        }
-        case OBJID_GEMPILE: {
-            if (i->health) {
-                did_hit = 1;
-                gempile_on_hit(g, i);
-            }
-            break;
-        }
-        case OBJID_BOMBPLANT: {
-            did_hit = 1;
-            bombplant_on_hit(g, i);
-            break;
-        }
-        }
-    }
-    return did_hit;
-#endif
 }

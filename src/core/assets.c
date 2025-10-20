@@ -5,7 +5,7 @@
 #include "core/assets.h"
 #include "app.h"
 #include "gamedef.h"
-#include "util/lzss.h"
+#include "util/lz.h"
 #include "wad.h"
 
 assets_s g_ASSETS;
@@ -89,7 +89,7 @@ err32 tex_from_wad_ext(const void *name, allocator_s a, tex_s *o_t)
     err32 err_t = 0;
     tex_s t     = tex_create(h.w, h.h, 1, a, &err_t);
     if (err_t == 0) {
-        usize size_dec = lzss_decode_file(f, t.px);
+        usize size_dec = lz_decode_file(f, t.px);
         pltf_file_close(f);
         *o_t = t;
         return (tex_size_bytes(t) == size_dec ? 0 : ASSETS_ERR_WAD_READ);
@@ -139,7 +139,7 @@ err32 tex_from_wadh(void *f, wad_el_s *wf, u32 hash, allocator_s a, tex_s *o_t)
     err32 err_t = 0;
     tex_s t     = tex_create(h.w, h.h, h.fmt, a, &err_t);
     if (err_t == 0) {
-        usize size_dec = lzss_decode_file(f, t.px);
+        usize size_dec = lz_decode_file(f, t.px);
         *o_t           = t;
         return (tex_size_bytes(t) == size_dec ? 0 : ASSETS_ERR_WAD_READ);
     }
@@ -206,6 +206,33 @@ i32 ani_frame_loop(i32 ID, i32 ticks)
         }
     }
     return ((i32)a.n - 1);
+}
+
+void ani_frame_index(i32 ID, i32 ticks, i32 *frame, i32 *index)
+{
+    ani_s a = asset_ani(ID);
+    i32   t = ticks % a.ticks;
+
+    for (i32 n = 0, t_acc = 0; n < a.n; n++) {
+        ani_frame_s f = a.f[n];
+        t_acc += f.t;
+
+        if (t < t_acc) {
+            if (frame) {
+                *frame = f.i;
+            }
+            if (index) {
+                *index = n;
+            }
+            return;
+        }
+    }
+    if (frame) {
+        *frame = a.f[a.n - 1].i;
+    }
+    if (index) {
+        *index = a.n - 1;
+    }
 }
 
 i32 ani_frame(i32 ID, i32 ticks)

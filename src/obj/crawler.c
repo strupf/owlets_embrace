@@ -17,11 +17,11 @@ enum {
     CRAWLER_SUBSTATE_NORMAL,
 };
 
-void          crawler_on_hurt(g_s *g, obj_s *o);
+void          crawler_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 void          crawler_on_update(g_s *g, obj_s *o);
 void          crawler_on_animate(g_s *g, obj_s *o);
 static void   crawler_image_on_wall(g_s *g, obj_s *o, i32 *imgy, i32 *flip);
-static bool32 crawler_can_crawl_into_dir(g_s *g, obj_s *o, i32 dir);
+static bool32 crawler_can_crawl_into_dir(g_s *g, obj_s *o, i32 dir, i32 dir_feet);
 static bool32 crawler_find_crawl_direction(g_s *g, obj_s *o, i32 *out_dir_feet, i32 *out_dir_move);
 static bool32 crawler_try_start_crawling(g_s *g, obj_s *o);
 
@@ -46,12 +46,13 @@ void crawler_load(g_s *g, map_obj_s *mo)
     o->moverflags         = OBJ_MOVER_TERRAIN_COLLISIONS;
     o->on_update          = crawler_on_update;
     o->on_animate         = crawler_on_animate;
+    o->on_hitbox          = crawler_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
     o->w                  = 20;
     o->h                  = 20;
     o->health_max         = 2;
     o->health             = o->health_max;
     o->enemy              = enemy_default();
-    o->enemy.on_hurt      = crawler_on_hurt;
     o->enemy.hurt_on_jump = 1;
     c->seed               = 213;
 
@@ -185,7 +186,7 @@ void crawler_on_animate(g_s *g, obj_s *o)
         spr->flip = flip;
         spr->offs.x += rngr_sym_i32(ENEMY_HIT_FREEZE_SHAKE_AMOUNT);
         spr->offs.y += rngr_sym_i32(ENEMY_HIT_FREEZE_SHAKE_AMOUNT);
-        imgx = 8;
+        imgx = (o->timer < ENEMY_HIT_FLASH_TICKS ? 9 : 8);
         break;
     }
     case CRAWLER_ST_CRAWLING: {
@@ -203,16 +204,20 @@ void crawler_on_animate(g_s *g, obj_s *o)
     spr->trec = asset_texrec(TEXID_CRAWLER, imgx * 64, imgy * 64, 64, 64);
 }
 
-void crawler_on_hurt(g_s *g, obj_s *o)
+void crawler_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
 {
+    o->health = max_i32(o->health - res.damage, 0);
+
     if (o->health) {
         o->state = CRAWLER_ST_HURT;
     } else {
+        animobj_create(g, obj_pos_center(o), ANIMOBJ_EXPLOSION_3);
         o->state = CRAWLER_ST_DIE;
         o->flags &= ~OBJ_FLAG_HURT_ON_TOUCH;
-        o->on_update = enemy_on_update_die;
+        o->on_update          = enemy_on_update_die;
+        o->on_hitbox          = 0;
+        o->hitbox_flags_group = 0;
         g->enemies_killed++;
-        g->enemy_killed[ENEMYID_CRAWLER]++;
     }
     o->timer   = 0;
     o->v_q12.x = 0;
@@ -224,19 +229,21 @@ static bool32 crawler_find_crawl_direction(g_s *g, obj_s *o, i32 *out_dir_feet, 
     crawler_s *c      = (crawler_s *)o->mem;
     bool32     rot_cw = dir_nswe_90_deg(c->dir_move, 1) == c->dir_feet;
     i32        dm_tmp = c->dir_move;
+    i32        df_tmp = c->dir_feet;
     i32        dm_rev = 0;
 
     for (i32 k = 0; k < 8; k++) {
-        if (crawler_can_crawl_into_dir(g, o, dm_tmp)) {
+        if (crawler_can_crawl_into_dir(g, o, dm_tmp, df_tmp)) {
             if (dm_tmp == dir_nswe_opposite(c->dir_move)) { // could go back again, but actually moving forward is the goal
                 dm_rev = dm_tmp;
             } else {
                 *out_dir_move = dm_tmp;
-                *out_dir_feet = dir_nswe_90_deg(dm_tmp, rot_cw);
+                *out_dir_feet = df_tmp;
                 return 1;
             }
         }
         dm_tmp = dir_nswe_nearest(dm_tmp, rot_cw);
+        df_tmp = dir_nswe_nearest(df_tmp, rot_cw);
     }
 
     if (dm_rev) { // last resort: go back
@@ -266,15 +273,17 @@ static bool32 crawler_try_start_crawling(g_s *g, obj_s *o)
     }
 }
 
-static bool32 crawler_can_crawl_into_dir(g_s *g, obj_s *o, i32 dir)
+static bool32 crawler_can_crawl_into_dir(g_s *g, obj_s *o, i32 dir, i32 dir_feet)
 {
+    // can move into this direction?
     v2_i32  cp = dir_v2(dir);
     rec_i32 rr = translate_rec(obj_aabb(o), cp.x, cp.y);
     if (map_blocked(g, rr)) return 0; // direction blocked
 
-    rec_i32 r1 = {rr.x - 1, rr.y, rr.w + 2, rr.h}; // check if there is a solid surface on the side
-    rec_i32 r2 = {rr.x, rr.y - 1, rr.w, rr.h + 2};
-    return !(!map_blocked(g, r1) && !map_blocked(g, r2));
+    // feet still attached at that new position?
+    v2_i32  cf = dir_v2(dir_feet);
+    rec_i32 rf = translate_rec(rr, cf.x, cf.y);
+    return map_blocked(g, rf);
 }
 
 // calculated both prerotated sprite row and flip flags

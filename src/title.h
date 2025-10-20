@@ -6,11 +6,10 @@
 #define TITLE_H
 
 #include "gamedef.h"
-#include "save.h"
+#include "save_file.h"
+#include "steering.h"
 
 typedef struct app_s app_s;
-
-#define TITLE_SKIP_TO_GAME 1
 
 enum {
     TITLE_MAIN_FADE_OUT,
@@ -65,9 +64,8 @@ typedef struct title_s {
     //
     save_preview_s saves[3];
     i8             comp_btnID;
+    steering_obj_s comp_steer;
     v2_i32         pos_comp_target;
-    v2_i32         pos_comp_q8;
-    v2_i32         v_comp_q8;
 } title_s;
 
 void title_init(title_s *t);

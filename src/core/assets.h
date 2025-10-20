@@ -7,7 +7,7 @@
 
 #include "core/aud.h"
 #include "core/gfx.h"
-#include "util/lzss.h"
+#include "util/lz.h"
 #include "util/marena.h"
 
 enum {
@@ -166,6 +166,7 @@ enum {
 enum {
     ANIID_OWL_ATTACK,
     ANIID_OWL_ATTACK_UP,
+    ANIID_OWL_ATTACK_DOWN,
     ANIID_COMPANION_FLY,
     ANIID_COMPANION_ATTACK,
     ANIID_COMPANION_BUMP,

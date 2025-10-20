@@ -461,12 +461,14 @@ void tex_merge_to_opaque_outlined_white(tex_s dst, tex_s src)
 
 gfx_ctx_s gfx_ctx_from_tex(tex_s dst)
 {
-    gfx_ctx_s ctx = {0};
-    ctx.dst       = dst;
-    ctx.clip_x2   = dst.w - 1;
-    ctx.clip_y2   = dst.h - 1;
-    mset(&ctx.pat, 0xFF, sizeof(gfx_pattern_s));
-    return ctx;
+    gfx_ctx_s c = {0};
+    c.dst       = dst;
+    c.clip_x2   = dst.w - 1;
+    c.clip_y2   = dst.h - 1;
+    for (i32 i = 0; i < 8; i++) {
+        c.pat.p[i] = 0xFFFFFFFF;
+    }
+    return c;
 }
 
 gfx_ctx_s gfx_ctx_display()
@@ -479,8 +481,8 @@ gfx_ctx_s gfx_ctx_unclip(gfx_ctx_s ctx)
     gfx_ctx_s c = ctx;
     c.clip_x1   = 0;
     c.clip_y1   = 0;
-    ctx.clip_x2 = ctx.dst.w - 1;
-    ctx.clip_y2 = ctx.dst.h - 1;
+    c.clip_x2   = ctx.dst.w - 1;
+    c.clip_y2   = ctx.dst.h - 1;
     return c;
 }
 
@@ -706,6 +708,7 @@ static inline void span_blit_incr_y(span_blit_s *info)
     info->dp += info->dst_wword;
 }
 
+ATTRIBUTE_SECTION(".text.spr")
 void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode, bool32 tilex, bool32 tiley)
 {
     if (!src.t.px || (src.w | src.h) == 0) return;
@@ -723,6 +726,7 @@ void gfx_spr_tileds(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode,
     }
 }
 
+ATTRIBUTE_SECTION(".text.spr")
 void gfx_spr_tileds_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, bool32 tilex, bool32 tiley)
 {
     if (!src.t.px || (src.w | src.h) == 0) return;
@@ -907,6 +911,8 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2)
 
 void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode)
 {
+    assert(fnt.t.px);
+    assert(ctx.dst.px);
     v2_i32   p = pos;
     texrec_s t = {0};
     t.t        = fnt.t;
@@ -927,6 +933,8 @@ void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode)
 
 void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str, i32 style, b32 centeredx)
 {
+    assert(f.t.px);
+    assert(ctx.dst.px);
 #define FNT_STYLE_TEXW 320
 #define FNT_STYLE_TEXH 40
     TEX_STACK_CTX(textmp, FNT_STYLE_TEXW, FNT_STYLE_TEXH, 1);
@@ -1288,6 +1296,7 @@ void gfx_cir(gfx_ctx_s ctx, v2_i32 p, i32 r, i32 mode)
     NOT_IMPLEMENTED("gfx cicle outline");
 }
 
+ATTRIBUTE_SECTION(".text.spr")
 void gfx_spr_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip)
 {
     assert(src.t.fmt == TEX_FMT_MASK);
@@ -1295,55 +1304,11 @@ void gfx_spr_copy(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip)
     if (flip & SPR_FLIP_X) {
         gfx_spr_sm_fx_copy(ctx, src, pos, flip, 0);
     } else {
-        gfx_spr_sm_fx(ctx, src, pos, flip, 0);
+        gfx_spr_sm_copy(ctx, src, pos, flip, 0);
     }
 }
 
-void gfx_spr2(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
-{
-    i32 x1 = max_i32(ctx.clip_x1, pos.x);
-    i32 y1 = max_i32(ctx.clip_y1, pos.y);
-    i32 x2 = min_i32(ctx.clip_x2, pos.x + src.w - 1);
-    i32 y2 = min_i32(ctx.clip_y2, pos.y + src.h - 1);
-    if (x2 < x1 || y2 < y1) return;
-
-    tex_s t_d = ctx.dst;
-    tex_s t_s = src.t;
-    i32   dw1 = x1 >> 5;
-    i32   dw2 = x2 >> 5;
-    i32   o_x = pos.x - src.x;
-    i32   shr = o_x & 31;
-    i32   shl = 32 - shr;
-    u32   c_l = bswap32(0xFFFFFFFF >> (x1 & 31));
-    u32   c_r = bswap32(0xFFFFFFFF << (31 - (x2 & 31)));
-    i32   s_y = flip & SPR_FLIP_Y ? -1 : +1;
-    i32   a_y = 0 < s_y ? src.y - pos.y : src.y + pos.y + src.h - 1;
-
-    for (i32 y_d = y1; y_d <= y2; y_d++) {
-        i32 y_s = s_y * y_d + a_y;
-        u32 pat = ctx.pat.p[y_d & 7];
-        u32 c_m = c_l; // clipping word (first dst word is left clipped)
-
-        for (i32 d_w = dw1; d_w <= dw2; d_w++, c_m = 0xFFFFFFFF) {
-            i32 sx1 = max_i32((d_w << 5) - o_x + 0, 0);          // left most pixel of source for this destination word
-            i32 sx2 = min_i32((d_w << 5) - o_x + 31, t_s.w - 1); // right most pixel of source for this destination word
-
-            if (d_w == dw2) {
-                c_m &= c_r; // right clipped
-            }
-
-            u32  sm1 = bswap32(t_s.px[((sx1 >> 5) << 1) + 1 + y_s * t_s.wword]);
-            u32  sm2 = bswap32(t_s.px[((sx2 >> 5) << 1) + 1 + y_s * t_s.wword]);
-            u32  sp1 = bswap32(t_s.px[((sx1 >> 5) << 1) + 0 + y_s * t_s.wword]);
-            u32  sp2 = bswap32(t_s.px[((sx2 >> 5) << 1) + 0 + y_s * t_s.wword]);
-            u32  smm = (u32)((u64)sm1 << shl) | (u32)((u64)sm2 >> shr);
-            u32  spp = (u32)((u64)sp1 << shl) | (u32)((u64)sp2 >> shr);
-            u32 *dpp = &t_d.px[d_w + y_d * t_d.wword];
-            spr_blit_p(dpp, bswap32(spp), bswap32(smm) & c_m, pat, mode);
-        }
-    }
-}
-
+ATTRIBUTE_SECTION(".text.spr")
 void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
 {
     if (!src.t.px) return;
@@ -1353,10 +1318,8 @@ void gfx_spr(gfx_ctx_s ctx, texrec_s src, v2_i32 pos, i32 flip, i32 mode)
         } else {
             if (flip & SPR_FLIP_X) {
                 gfx_spr_sm_fx(ctx, src, pos, flip, mode);
-                // gfx_spr_blit_new(ctx, src, pos, flip, mode);
             } else {
                 gfx_spr_sm(ctx, src, pos, flip, mode);
-                // gfx_spr2(ctx, src, pos, flip, mode);
             }
         }
 
@@ -1376,6 +1339,7 @@ static inline void spr_blit_tile(u32 *dp, u32 sp, u32 sm)
 
 // special case: drawing tiles <= 32x32 (aligned on texture) to an opaque target texture
 // neither XY flipping nor draw modes
+ATTRIBUTE_SECTION(".text.spr")
 void gfx_spr_tile_32x32(gfx_ctx_s ctx, texrec_s src, v2_i32 pos)
 {
     assert(src.t.px);
@@ -1542,6 +1506,40 @@ void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q1
                 i32 v = v2_i32_crs(b, s);
                 i     = (0 <= w && (0 <= u && v <= 0)) || (0 >= w && (0 <= u || v <= 0));
             }
+
+            if (i && !was_inside) {
+                x1_strip = x;
+            } else if (!i && was_inside) {
+                gfx_rec_strip(ctx, x1_strip, y, x - x1_strip, mode);
+            }
+            was_inside = i;
+        }
+        if (was_inside) {
+            gfx_rec_strip(ctx, x1_strip, y, x2 - x1_strip, mode);
+        }
+    }
+}
+
+// counter clockwise filled from a1 to a2
+void gfx_fill_circle_ring(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 mode)
+{
+    i32 y1 = max_i32(ctx.clip_y1, p.y - ro);
+    i32 y2 = min_i32(ctx.clip_y2, p.y + ro);
+    i32 x1 = max_i32(ctx.clip_x1, p.x - ro);
+    i32 x2 = min_i32(ctx.clip_x2, p.x + ro);
+    i32 r2 = ro * ro;
+    i32 r1 = ri * ri;
+
+    // blit rectangle strips once the x iterator first entered and then
+    // leaves the circle segment
+    for (i32 y = y1; y <= y2; y++) {
+        b32 was_inside = 0;
+        i32 x1_strip   = 0;
+
+        for (i32 x = x1; x <= x2; x++) {
+            v2_i32 s = {x - p.x, y - p.y};
+            i32    r = v2_i32_lensq(s);
+            b32    i = (r1 <= r && r <= r2);
 
             if (i && !was_inside) {
                 x1_strip = x;

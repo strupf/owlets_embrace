@@ -28,7 +28,7 @@ typedef struct {
 
 void   bombplant_on_update(g_s *g, obj_s *o);
 void   bombplant_on_animate(g_s *g, obj_s *o);
-void   bombplant_on_hit(g_s *g, obj_s *o);
+void   bombplant_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 void   bombplant_on_trigger(g_s *g, obj_s *o, i32 trigger);
 bool32 bombplant_pushpull_blocked(g_s *g, obj_s *o, i32 dt_x, i32 dt_y);
 
@@ -44,6 +44,8 @@ void bombplant_load(g_s *g, map_obj_s *mo)
     o->on_update           = bombplant_on_update;
     o->on_animate          = bombplant_on_animate;
     o->on_trigger          = bombplant_on_trigger;
+    o->hitbox_flags_group  = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
+    o->on_hitbox           = bombplant_on_hit;
     b->trigger_to_delete   = map_obj_i32(mo, "trigger_to_delete");
     o->flags               = OBJ_FLAG_PUSHABLE_SOLID;
     o->on_pushpull_blocked = bombplant_pushpull_blocked;
@@ -110,6 +112,8 @@ void bombplant_on_update(g_s *g, obj_s *o)
             o->state = BOMBPLANT_ST_BOMB;
             o->flags |= OBJ_FLAG_GRABBABLE_SOLID;
             game_on_solid_appear_ext(g, o);
+            o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
+            o->on_hitbox          = bombplant_on_hit;
         }
         break;
     }
@@ -190,15 +194,17 @@ void bombplant_on_pickup(g_s *g, obj_s *o)
     o->flags &= ~OBJ_FLAG_GRABBABLE_SOLID;
 }
 
-void bombplant_on_hit(g_s *g, obj_s *o)
+void bombplant_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
 {
     bombplant_on_pickup(g, o);
-    v2_i32 p    = obj_pos_center(o);
-    obj_s *ob   = bomb_create(g);
-    ob->pos.x   = p.x - ob->w / 2;
-    ob->pos.y   = p.y - ob->h / 2;
-    ob->v_q12.y = -Q_VOBJ(3.0);
-    ob->v_q12.x = rngr_sym_i32(Q_VOBJ(3.0));
+    v2_i32 p              = obj_pos_center(o);
+    obj_s *ob             = bomb_create(g);
+    ob->pos.x             = p.x - ob->w / 2;
+    ob->pos.y             = p.y - ob->h / 2;
+    ob->v_q12.y           = -Q_VOBJ(3.0);
+    ob->v_q12.x           = rngr_sym_i32(Q_VOBJ(3.0));
+    o->hitbox_flags_group = 0;
+    o->on_hitbox          = 0;
 }
 
 void bombplant_on_trigger(g_s *g, obj_s *o, i32 trigger)

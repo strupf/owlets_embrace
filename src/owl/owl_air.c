@@ -102,31 +102,15 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
                                  !h->carry &&
                                  !h->knockback;
 
-#if OWL_CONTROL_SWAP_A_DOWN
-        if (h->stance == OWL_STANCE_ATTACK && inps_btn_jp(inp, INP_B) && 0 < dp_y && can_start_stomp) {
-            do_x_movement = 0;
-            o->v_q12.x    = 0;
-            o->v_q12.y    = 0;
-            owl_cancel_air(g, o);
-            h->air_stomp = 1;
-        }
-#else
         if (inps_btn_jp(inp, INP_A) && 0 < dp_y && can_start_stomp) {
             do_x_movement = 0;
             o->v_q12.x    = 0;
             o->v_q12.y    = 0;
             owl_cancel_air(g, o);
             h->air_stomp = 1;
-        }
-#endif
-
-        else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
+        } else if (h->carry && h->carry < OWL_CARRY_PICKUP_TICKS) {
             do_x_movement = 0;
-        } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks
-#if OWL_CONTROL_SWAP_A_DOWN
-                   && !inps_btn(inp, INP_DD)
-#endif
-        ) {
+        } else if (inps_btn_jp(inp, INP_A) && !h->aim_ticks) {
             h->air_stomp       = 0;
             bool32 jump_ground = 0;
 
@@ -249,7 +233,7 @@ void owl_air(g_s *g, obj_s *o, inp_s inp)
 
     if (o->v_q12.y >= Q_VOBJ(7.0)) {
         o->animation++;
-        g->cam.cowl.force_higher_floor = min_i32(o->animation, 24);
+        // g->cam.cowl.force_higher_floor = min_i32(o->animation, 24);
     } else {
         o->animation = 0;
     }

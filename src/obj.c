@@ -42,7 +42,7 @@ obj_s *obj_create(g_s *g)
     g->obj_head_free                = o->next;
 
     u32 gen = o->generation;
-    mclr(o, sizeof(obj_s));
+    mclr_ptr(o);
     o->generation = gen;
     o->prev       = 0;
     o->next       = g->obj_head_busy;
@@ -73,11 +73,13 @@ obj_s *obj_create(g_s *g)
 void obj_delete(g_s *g, obj_s *o)
 {
     if (!o) return;
-    if (find_ptr_in_array(g->obj_to_delete, o, g->obj_ndelete) < 0) {
+
+    if (o->flags_internal & OBJ_IFLAG_TO_DELETE) {
+        pltf_log("already deleted\n");
+    } else {
+        o->flags_internal |= OBJ_IFLAG_TO_DELETE;
         g->obj_to_delete[g->obj_ndelete++] = o;
         o->generation++; // increase gen to devalidate existing handles
-    } else {
-        pltf_log("already deleted\n");
     }
 }
 
@@ -107,10 +109,10 @@ obj_s *obj_get_tagged(g_s *g, i32 tag)
 
 void objs_cull_to_delete(g_s *g)
 {
-    if (!g->obj_ndelete) return;
-
     for (u32 n = 0; n < g->obj_ndelete; n++) {
+        PREFETCH(g->obj_to_delete[n + 1]);
         obj_s *o = g->obj_to_delete[n];
+        assert(o->flags_internal & OBJ_IFLAG_TO_DELETE);
 
         for (u32 k = 0; k < NUM_OBJ_TAGS; k++) {
             if (g->obj_tag[k] == o) {
@@ -120,7 +122,8 @@ void objs_cull_to_delete(g_s *g)
 
         for (u32 k = 0; k < g->n_objrender; k++) {
             if (g->obj_render[k] == o) {
-                g->obj_render[k] = g->obj_render[--g->n_objrender];
+                g->obj_render[k]   = g->obj_render[--g->n_objrender];
+                g->objrender_dirty = 1;
                 break;
             }
         }
@@ -138,8 +141,7 @@ void objs_cull_to_delete(g_s *g)
         o->next          = g->obj_head_free;
         g->obj_head_free = o;
     }
-    g->obj_ndelete     = 0;
-    g->objrender_dirty = 1;
+    g->obj_ndelete = 0;
 }
 
 bool32 obj_try_wiggle(g_s *g, obj_s *o)
@@ -482,17 +484,6 @@ obj_s *obj_find_ID_subID(g_s *g, i32 ID, i32 subID, obj_s *o_from)
         }
     }
     return 0;
-}
-
-void obj_list_init(obj_s **o_list_ptr)
-{
-    *o_list_ptr = 0;
-}
-
-void obj_list_add(obj_s **o_list_ptr, obj_s *o)
-{
-    o->next_tmp = *o_list_ptr;
-    *o_list_ptr = o;
 }
 
 bool32 obj_hit_by_cir(obj_s *o, i32 cx, i32 cy, i32 cr)

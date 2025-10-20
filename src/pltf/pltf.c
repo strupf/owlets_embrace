@@ -58,10 +58,13 @@ i32 pltf_internal_update()
         break;
     }
     case PLTF_FPS_MODE_40: {
-        // 2111 | ... = 50 update ticks over 40 frames
-        // relies on a fixed refresh rate
-        PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) % 4;
-        n_ticks            = 1 + (PLTF.fps_mode_step <= 0);
+        // distribute updates regularly over the drawn frames to reduce
+        // visual impact of frame skipping
+        // 2111 | 2111 ... = 50 update ticks over 40 frames
+        // refresh rate = (length_pattern * 50) / sum_pattern = (4 * 50) / (2+1+1+1) = 40
+        // relies on a fixed refresh rate, which we get on the PD
+        PLTF.fps_mode_step = (PLTF.fps_mode_step + 1) & 3;
+        n_ticks            = 1 + (PLTF.fps_mode_step == 0);
         PLTF.ups_timeacc -= PLTF_UPS_DT * (f32)n_ticks;
         break;
     }
@@ -106,10 +109,6 @@ i32 pltf_internal_update()
 #endif
     }
 
-#ifdef PLTF_PD
-    // pltf_pd_keyboard_draw();
-#endif
-
 #if PLTF_SHOW_FPS
     PLTF.fps_timeacc += timedt;
     if (1.f <= PLTF.fps_timeacc) {
@@ -138,10 +137,15 @@ i32 pltf_internal_update()
 // called to reset the fixed timestep timer so that the game doesn't
 // try to catch up in frames after loading something more intense and
 // skips a lot of frames
-void pltf_sync_timestep()
+void pltf_timestep_reset()
 {
     PLTF.ups_timeacc = 0.f;
     PLTF.lasttime    = pltf_seconds();
+}
+
+void pltf_timestep_sub_seconds(f32 seconds)
+{
+    PLTF.ups_timeacc -= seconds;
 }
 
 void pltf_set_fps_mode(i32 fps_mode)
@@ -238,6 +242,7 @@ void pltf_mem_free_aligned(void *p)
     pltf_mem_free(p_og);
 }
 
+ALIGNAS(32)
 const u32 pltf_font[512] = {
     0x6C7E7E00U, 0x00103810U, 0x0FFF00FFU, 0x997F3F3CU, 0x66180280U, 0x18003E7FU, 0x00001818U, 0x00000000U,
     0xFEFF8100U, 0x00107C38U, 0x07C33CFFU, 0x5A633366U, 0x663C0EE0U, 0x3C0063DBU, 0x3018183CU, 0xFF182400U,

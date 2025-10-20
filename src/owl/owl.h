@@ -11,12 +11,6 @@
 #include "obj.h"
 #include "wire.h"
 
-#if 1
-#define OWL_CONTROL_SWAP_B_HOLD_NEUTRAL 1
-#elif 1
-#define OWL_CONTROL_SWAP_A_DOWN 1
-#endif
-
 #define OWL_USE_ALT_AIR_JUMPS           0
 #define OWL_ONEWAY_PLAT_DOWN_JUST_DOWN  1 // 1: drop through platforms by simply pressing down, else down + A
 #define OWL_STOMP_ONLY_WITH_COMP_ON_B   0
@@ -121,9 +115,9 @@ enum {
 };
 
 enum {
-    OWL_ATTACK_NONE,
-    OWL_ATTACK_SIDE,
-    OWL_ATTACK_UP,
+    OWL_ATTACK_SIDE = 1,
+    OWL_ATTACK_UP   = 2,
+    OWL_ATTACK_DOWN = 3,
 };
 
 enum {
@@ -152,12 +146,12 @@ typedef struct {
 extern const owl_jumpvar_s g_owl_jumpvar[NUM_OWL_JUMP];
 
 typedef struct owl_s {
-    u8                name[OWL_LEN_NAME];
-    u32               upgrades;
+    SAVED u8          name[OWL_LEN_NAME];
+    SAVED u32         upgrades;
     u16               health;
-    u16               health_max;
+    SAVED u16         health_max;
     u16               stamina;
-    u16               stamina_max;   // calculated from stamina_containers
+    SAVED u16         stamina_max;   // calculated from stamina_containers
     u16               stamina_added; // how of stamina was just added (only visual)
     u8                stamina_upgrades;
     u8                stamina_added_delay_ticks;

@@ -10,6 +10,9 @@
 
 app_s APP;
 
+#define APP_LOAD_TICKS_PROGRESS 40
+#define APP_LOAD_TICKS_SUCCESS  10
+
 #if TIMING_ENABLED
 timing_s TIMING;
 #endif
@@ -18,10 +21,10 @@ static void app_on_finish_startup()
 {
     app_s *a           = &APP;
     a->state           = APP_ST_TITLE;
-    g_s        *g      = &a->game;
-    savefile_s *s      = &a->save;
-    g->savefile        = s;
-    err32 err_settings = settings_load(&SETTINGS); // try to use settings file
+    g_s         *g     = &a->game;
+    save_file_s *s     = &a->save;
+    g->save            = s;
+    err32 err_settings = settings_r(); // try to use settings file
     app_set_mode(SETTINGS.mode);
     game_init(g);
 #if TIMING_ENABLED
@@ -42,20 +45,19 @@ static void app_on_finish_startup()
     } owl_spawn_s;
 
     // delete all files
-    savefile_del(0);
-    savefile_del(1);
-    savefile_del(2);
+    pltf_file_del(save_filename(0));
+    pltf_file_del(save_filename(1));
+    pltf_file_del(save_filename(2));
 
     // create a playtesting savefile
     owl_spawn_s hs = {0};
     void       *f  = wad_open_str("SPAWN", 0, 0);
     pltf_file_r_checked(f, &hs, sizeof(owl_spawn_s));
     pltf_file_close(f);
-
-    mclr(s, sizeof(savefile_s));
+    mclr_ptr(s);
     {
         str_cpy(s->name, "Demo");
-        savefile_saveID_put(s, SAVEID_COMPANION_FOUND);
+        s->save[SAVEID_COMPANION_FOUND >> 5] |= (u32)1 << (SAVEID_COMPANION_FOUND & 31);
         mcpy(s->map_name, hs.map_name, sizeof(s->map_name));
         s->hero_pos.x = hs.x;
         s->hero_pos.y = hs.y;
@@ -66,7 +68,8 @@ static void app_on_finish_startup()
         s->stamina    = 5;
         s->health_max = 6;
     }
-    savefile_w(0, s);
+    save_file_w_slot(s, 0);
+    save_file_w_slot(s, 2);
 #endif
 
     title_init(&a->title);
@@ -77,7 +80,7 @@ static void app_on_finish_startup()
     aud_set_stereo(1);
     aud_set_vol(256, 256);
     aud_cmd_queue_commit();
-    pltf_sync_timestep();
+    pltf_timestep_reset();
 }
 
 i32 app_init()
@@ -85,14 +88,19 @@ i32 app_init()
     // setup critical things for asset loading etc
     app_s *a = &APP;
     marena_init(&a->ma, a->mem_app, sizeof(a->mem_app));
-    spm_init(a->mem_spm, sizeof(a->mem_spm));
-    err32 err_wad_core = wad_init_file("oe.wad");
-    if (err_wad_core != 0) {
-        return (err_wad_core | ASSETS_ERR_WAD_INIT);
+    spm_init();
+
+    err32 err_wad = wad_init_file("oe.wad");
+    if (err_wad != 0) {
+        return 1;
     }
+
     app_load_init(&a->load);
-#if APP_LOAD_STATIC_RES_AT_ONCE
-    app_load_tasks_timed(&a->load, 0);
+#if APP_SKIP_TO_GAME
+    app_load_s *l = &a->load;
+    while (l->state_cur) {
+        l->state_cur = app_load_task(l, l->state_cur);
+    }
     app_on_finish_startup();
 #endif
     return 0;
@@ -100,16 +108,30 @@ i32 app_init()
 
 static void app_tick_step();
 
+#if APP_SIMULATE_LOADING_TIME && !PLTF_PD_HW
+#define APP_LOAD_TIME_THRESHOLD 0.00015f
+#else
+#define APP_LOAD_TIME_THRESHOLD 0.015f
+#endif
+
 void app_tick()
 {
     app_s *a = &APP;
+
     switch (a->state) {
     case APP_ST_LOAD: {
-        a->timer++;
-        if (app_load_tasks_timed(&a->load, 18) && 50 <= a->timer) {
-            a->timer = 0;
+        app_load_s *l        = &a->load;
+        f32         time_beg = pltf_seconds();
+        f32         time_end = time_beg + APP_LOAD_TIME_THRESHOLD;
+
+        while (l->state_cur && pltf_seconds() < time_end) {
+            l->state_cur = app_load_task(l, l->state_cur);
+        }
+
+        if (l->state_cur == 0) {
             app_on_finish_startup();
         }
+        pltf_timestep_sub_seconds(pltf_seconds() - time_beg);
         break;
     }
     case APP_ST_LOAD_ERR: {
@@ -166,20 +188,16 @@ static void app_tick_step()
 
     g_s *g = &a->game;
 
-    if (a->sm.active) {
-        settings_update(&a->sm);
-    } else {
-        switch (a->state) {
-        case APP_ST_TITLE: {
-            title_update(a, &a->title);
-            break;
-        }
-        case APP_ST_GAME: {
-            inp_state_s istate = inp_cur().c;
-            game_tick(g, istate);
-            break;
-        }
-        }
+    switch (a->state) {
+    case APP_ST_TITLE: {
+        title_update(a, &a->title);
+        break;
+    }
+    case APP_ST_GAME: {
+        inp_state_s istate = inp_cur().c;
+        game_tick(g, istate);
+        break;
+    }
     }
 
 #if TIMING_ENABLED
@@ -203,14 +221,18 @@ void app_draw()
     switch (a->state) {
     case APP_ST_LOAD: {
         texrec_s tr = asset_texrec(TEXID_COVER, 0, 0, 400, 240);
-        gfx_spr(ctx, tr, (v2_i32){0}, 0, 0);
-        rec_i32   rfill   = {0, 0, 400, 240};
-        gfx_ctx_s ctxfill = ctx;
-        ctxfill.pat       = gfx_pattern_interpolate(min_i32(40, 40 - a->timer), 40);
+        gfx_spr_copy(ctx, tr, (v2_i32){0}, 0);
+        rec_i32     rfill   = {0, 0, 400, 240};
+        gfx_ctx_s   ctxfill = ctx;
+        app_load_s *l       = &a->load;
+
+        i32 loadfade = app_load_scale(l, 4096);
+        i32 pat      = lerp_i32(GFX_PATTERN_8x8_MAX, 0, min_i32(loadfade, 2048), 2048);
+        ctxfill.pat  = gfx_pattern_bayer_8x8(pat);
         gfx_rec_fill(ctxfill, rfill, PRIM_MODE_BLACK);
 
         // tiny loading bar
-        rec_i32 rbar = {0, 240 - 1, app_load_progress_mul(&a->load, 400), 2};
+        rec_i32 rbar = {0, 240 - 1, app_load_scale(l, 400), 2};
         gfx_rec_fill(ctx, rbar, PRIM_MODE_WHITE);
         break;
     }
@@ -229,19 +251,9 @@ void app_draw()
     }
     }
 
-    if (a->sm.active) {
-        settings_draw(&a->sm);
-    }
 #if TIMING_ENABLED
     timing_end(TIMING_ID_DRAW);
     timing_end_frame();
-#endif
-#if PLTF_DEV_ENV && 0
-    // test out dither alignment
-    if (pltf_sdl_key(SDL_SCANCODE_SPACE)) {
-        gfx_ctx_s cc = ctx;
-        gfx_rec_fill(cc, (rec_i32){0, 0, 400, 240}, PRIM_MODE_BLACK_WHITE);
-    }
 #endif
 
 #if PLTF_PD
@@ -277,12 +289,13 @@ void app_close()
     if (APP.state == APP_ST_GAME) {
         g_s *g = &APP.game;
         game_update_savefile(g);
-        savefile_w(g->save_slot, g->savefile);
+        save_file_w_slot(g->save, g->save_slot);
     }
 }
 
 void app_resume()
 {
+
     inp_on_resume();
     game_resume(&APP.game);
     APP.crank_ui_tick = 0;
@@ -348,17 +361,6 @@ allocator_s app_allocator()
 
 void app_set_mode(i32 mode)
 {
-    switch (mode) {
-    case SETTINGS_MODE_NORMAL:
-        pltf_set_fps_mode(PLTF_FPS_MODE_UNCAPPED);
-        break;
-    case SETTINGS_MODE_STREAMING:
-        pltf_set_fps_mode(PLTF_FPS_MODE_UNCAPPED);
-        break;
-    case SETTINGS_MODE_POWER_SAVING:
-        pltf_set_fps_mode(PLTF_FPS_MODE_40);
-        break;
-    }
 }
 
 void app_crank_requested(b32 enable)

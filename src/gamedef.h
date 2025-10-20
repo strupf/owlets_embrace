@@ -15,14 +15,12 @@
 #include "core/spm.h"
 #include "trigger.h"
 #include "util/bitrw.h"
-#include "util/easing.h"
 #include "util/json.h"
 #include "util/marena.h"
 #include "util/mathfunc.h"
 #include "util/rng.h"
 #include "util/sorting.h"
 #include "util/str.h"
-#include "version.h"
 
 #define GAME_DEMO 0
 
@@ -46,6 +44,27 @@ enum {
     AREA_ID_MOUNTAIN,
 };
 
+enum {
+    SAVEID_UNLOCKED_MAP          = 2,
+    SAVEID_COMPANION_FOUND       = 3,
+    SAVEID_CS_POWERUP_FIRST_TIME = 5,
+    SAVEID_CS_INTRO_COMP_1       = 6, // companion hushing through the tutorial area #1
+    SAVEID_CS_HOOK_FOUND         = 7,
+    SAVEID_CRACKBLOCK_INTRO_1    = 8,
+    SAVEID_PUSHBLOCK_INTRO_1     = 9,
+    SAVEID_BOSS_PLANT            = 200,
+    SAVEID_BOSS_PLANT_INTRO_SEEN = 201,
+    //
+    NUM_SAVEIDS                  = 1024
+};
+
+#define NUM_SAVEID_WORDS ((NUM_SAVEIDS + 31) >> 5)
+#define SAVED            // macro to tag fields which should be stored in the save file
+
+#define MAP_NUM_PINS                  64
+#define MINIMAP_SCREENS_X             384
+#define MINIMAP_SCREENS_Y             192
+#define MINIMAP_N_SCREENS             (MINIMAP_SCREENS_X * MINIMAP_SCREENS_Y)
 #define OWL_LEN_NAME                  20
 #define AREANAME_TICKS_DELAY          30
 #define AREANAME_TICKS_IN             30

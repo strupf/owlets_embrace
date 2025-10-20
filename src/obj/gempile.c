@@ -12,16 +12,47 @@
 
 void gempile_on_animate(g_s *g, obj_s *o);
 
+void gempile_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
+{
+    saveID_put(g, o->state);
+    o->health = max_i32(o->health - res.damage, 0);
+
+    v2_i32 pc     = obj_pos_center(o);
+    i32    n_gems = o->health == 0 ? GEMPILE_GEMS_ON_DESTROY : GEMPILE_GEMS_ON_HIT;
+    o->animation  = 12;
+
+    for (i32 n = 0; n < n_gems; n++) {
+        obj_s *i = coin_create(g);
+        if (!i) {
+            coins_change(g, n_gems - n);
+            break;
+        }
+        i->pos.x   = pc.x - (i->w >> 1);
+        i->pos.y   = pc.y - (i->h >> 1);
+        i->v_q12.y = -rngr_i32(Q_VOBJ(3.5), Q_VOBJ(4.5));
+        i->v_q12.x = rngr_sym_i32(Q_VOBJ(1.5));
+    }
+
+    if (o->health) {
+
+    } else {
+        o->on_hitbox = 0;
+        obj_delete(g, o);
+    }
+}
+
 void gempile_load(g_s *g, map_obj_s *mo)
 {
     i32 saveID = map_obj_i32(mo, "saveID");
     if (saveID_has(g, saveID)) return;
 
-    obj_s *o     = obj_create(g);
-    o->editorUID = mo->UID;
-    o->ID        = OBJID_GEMPILE;
-    o->w         = 40;
-    o->h         = 24;
+    obj_s *o              = obj_create(g);
+    o->editorUID          = mo->UID;
+    o->ID                 = OBJID_GEMPILE;
+    o->w                  = 40;
+    o->h                  = 24;
+    o->on_hitbox          = gempile_on_hit;
+    o->hitbox_flags_group = HITBOX_FLAG_GROUP_ENEMY | HITBOX_FLAG_GROUP_TRIGGERS_CALLBACK;
     obj_place_to_map_obj(o, mo, 0, +1);
     o->n_sprites  = 1;
     o->on_animate = gempile_on_animate;
@@ -44,30 +75,5 @@ void gempile_on_animate(g_s *g, obj_s *o)
     if (o->animation) {
         o->animation--;
         spr->trec.y += 48;
-    }
-}
-
-void gempile_on_hit(g_s *g, obj_s *o)
-{
-    saveID_put(g, o->state);
-    o->health--;
-
-    v2_i32 pc     = obj_pos_center(o);
-    i32    n_gems = o->health == 0 ? GEMPILE_GEMS_ON_DESTROY : GEMPILE_GEMS_ON_HIT;
-    o->animation  = 12;
-
-    for (i32 n = 0; n < n_gems; n++) {
-        obj_s *i = coin_create(g);
-        if (!i) {
-            coins_change(g, n_gems - n);
-            break;
-        }
-        i->pos.x   = pc.x - (i->w >> 1);
-        i->pos.y   = pc.y - (i->h >> 1);
-        i->v_q12.y = -rngr_i32(Q_VOBJ(3.5), Q_VOBJ(4.5));
-        i->v_q12.x = rngr_sym_i32(Q_VOBJ(1.5));
-    }
-    if (o->health == 0) {
-        obj_delete(g, o);
     }
 }

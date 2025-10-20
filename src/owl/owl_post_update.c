@@ -121,6 +121,7 @@ void owl_post_update_alive(g_s *g, obj_s *o, inp_s inp)
             return; // cutscene starts
 
         u32 d_interactable = POW2(OWL_INTERACTABLE_DST);
+
         for (obj_each(g, i)) {
             if (i == o) continue;
             rec_i32 ri = obj_aabb(i);

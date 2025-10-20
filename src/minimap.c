@@ -179,7 +179,7 @@ void minimap_draw_at(tex_s tex, g_s *g, i32 ox, i32 oy, b32 menu)
         map_room_s *mr     = &g->map_rooms[n];
         map_room_s *mr_alt = map_room_find(g, 1, mr->map_name);
         v2_i32      pos    = {mr->x + ox, mr->y + oy};
-        gfx_spr_copy(ctx, texrec_from_tex(mr_alt->t), pos, 0);
+        gfx_spr(ctx, texrec_from_tex(mr_alt->t), pos, 0, 0);
 
         for (i32 ny = 0; ny < mr->h; ny += 15) {
             for (i32 nx = 0; nx < mr->w; nx += 25) {

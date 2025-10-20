@@ -25,7 +25,7 @@ void cs_demo_1_update(g_s *g, cs_s *cs, inp_s inp)
     switch (cs->phase) {
     default: break;
     case 0: {
-        if (!cs_wait_and_pause_for_owl_idle(g)) break;
+        if (!owl_wait_for_idle(g)) break;
 
         cs->phase++;
         cs->tick = 0;

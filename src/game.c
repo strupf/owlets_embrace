@@ -10,7 +10,7 @@ void game_tick_gameplay(g_s *g);
 
 void game_init(g_s *g)
 {
-    g->savefile      = &APP.save;
+    g->save          = &APP.save;
     g->obj_head_free = &g->obj_raw[0];
     for (i32 n = 1; n < NUM_OBJ; n++) {
         obj_s *o = &g->obj_raw[n - 1];
@@ -156,43 +156,7 @@ void game_tick_gameplay(g_s *g)
     for (obj_each(g, o)) {
         if (o->flags & OBJ_FLAG_DONT_UPDATE) continue;
 
-        o->v_prev_q12    = o->v_q12;
-        bool32 do_update = 1;
-
-        if (o->flags & OBJ_FLAG_ENEMY) {
-            enemy_s *enemy = &o->enemy;
-            v2_i32   pos   = obj_pos_center(o);
-            do_update      = (enemy->hurt_tick == 0);
-
-            if (enemy->flash_tick) {
-                enemy->flash_tick--;
-            }
-            if (0 < enemy->hurt_tick) {
-                enemy->hurt_tick--;
-            }
-            if (enemy->hurt_tick < 0) {
-                enemy->hurt_tick++;
-                i32 htick = -enemy->hurt_tick;
-
-                if (htick == 0) {
-                    if (enemy->coins_on_death) {
-                        for (i32 n = 0; n < 5; n++) {
-                            obj_s *ocoin   = coin_create(g);
-                            ocoin->pos.x   = pos.x - (ocoin->w >> 1);
-                            ocoin->pos.y   = pos.y - (ocoin->h >> 1) - 10;
-                            ocoin->v_q12.y = -rngr_i32(Q_VOBJ(4.0), Q_VOBJ(6.0));
-                            ocoin->v_q12.x = rngr_sym_i32(Q_VOBJ(1.5));
-                        }
-                        v2_i32 phealth   = {pos.x, pos.y - 24};
-                        obj_s *ohealth   = healthdrop_spawn(g, phealth);
-                        ohealth->v_q12.y = -Q_VOBJ(2.0);
-                    }
-                    obj_delete(g, o);
-                }
-            }
-        }
-
-        if (do_update && o->on_update) {
+        if (o->on_update) {
             o->on_update(g, o);
         }
     }
@@ -358,124 +322,6 @@ i32 gameplay_time_since(g_s *g, i32 t)
     return (g->tick - t);
 }
 
-void game_load_savefile(g_s *g)
-{
-    savefile_s *s = g->savefile;
-    if (s->tick == 0) { // new game
-
-    } else { // continue
-    }
-
-    obj_delete(g, obj_get_owl(g));
-    mclr(&g->owl, sizeof(owl_s));
-    objs_cull_to_delete(g);
-
-    obj_s *o = owl_create(g);
-    owl_s *h = (owl_s *)o->heap;
-    {
-        mcpy(g->saveIDs, s->save, sizeof(g->saveIDs));
-        mcpy(h->name, s->name, sizeof(h->name));
-        mcpy(g->minimap.pins, s->pins, sizeof(g->minimap.pins));
-        for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
-            u32 v                            = s->map_visited[n];
-            g->minimap.visited[(n << 1) + 0] = v;
-            g->minimap.visited[(n << 1) + 1] = v;
-        }
-        g->tick             = s->tick;
-        h->upgrades         = s->upgrades;
-        g->minimap.n_pins   = s->n_map_pins;
-        g->coins.n          = s->coins;
-        o->health_max       = s->health_max;
-        o->health           = o->health_max;
-        h->stamina_upgrades = s->stamina;
-        h->stamina_max      = h->stamina_upgrades * OWL_STAMINA_PER_CONTAINER;
-        h->stamina          = h->stamina_max;
-        mcpy(g->map_name, s->map_name, sizeof(s->map_name));
-        mcpy(g->enemy_killed, s->enemy_killed, sizeof(s->enemy_killed));
-    }
-
-    game_load_map(g, s->map_name);
-
-    obj_s *ocomp = 0;
-    if (saveID_has(g, SAVEID_COMPANION_FOUND)) {
-        ocomp = companion_create(g);
-    }
-
-    bool32 saveroom_pos_hero = 0;
-    bool32 saveroom_pos_comp = 0;
-    for (map_obj_each(g, i)) {
-        if (i->hash == hash_str("saveroom_hero")) {
-            obj_place_to_map_obj(o, i, 0, +1);
-            saveroom_pos_hero = 1;
-        }
-        if (i->hash == hash_str("saveroom_comp") && ocomp) {
-            obj_place_to_map_obj(ocomp, i, 0, +1);
-            ocomp->pos.y -= 4;
-            saveroom_pos_comp = 1;
-        }
-    }
-
-    if (!saveroom_pos_hero) {
-        o->pos.x = s->hero_pos.x - o->w / 2;
-        o->pos.y = s->hero_pos.y - o->h;
-    }
-    if (!saveroom_pos_comp && ocomp) {
-        ocomp->pos.x  = o->pos.x + 0;
-        ocomp->pos.y  = o->pos.y - 30;
-        ocomp->facing = o->facing;
-    }
-
-    cam_hard_set_positon(g, &g->cam);
-    sfx_block_new(1); // disable sounds (foot steps etc.)
-    objs_animate(g);
-    sfx_block_new(0);
-    if (saveroom_pos_hero) {
-        cs_on_load_enter(g);
-    }
-    pltf_sync_timestep();
-}
-
-void game_update_savefile(g_s *g)
-{
-    savefile_s *s = g->savefile;
-    owl_s      *h = &g->owl;
-    {
-        mcpy(s->save, g->saveIDs, sizeof(s->save));
-        mcpy(s->name, h->name, sizeof(s->name));
-        mcpy(s->pins, g->minimap.pins, sizeof(s->pins));
-        mcpy(s->enemy_killed, g->enemy_killed, sizeof(s->enemy_killed));
-        for (i32 n = 0; n < ARRLEN(s->map_visited); n++) {
-            s->map_visited[n] = g->minimap.visited[(n << 1) + 0] |
-                                g->minimap.visited[(n << 1) + 1];
-        }
-        s->tick       = g->tick;
-        s->upgrades   = h->upgrades;
-        s->n_map_pins = g->minimap.n_pins;
-        s->coins      = coins_total(g);
-        s->health_max = h->health_max;
-    }
-    pltf_sync_timestep();
-}
-
-bool32 game_save_savefile(g_s *g, v2_i32 pos)
-{
-    savefile_s *s = g->savefile;
-    owl_s      *h = &g->owl;
-    {
-        game_update_savefile(g);
-        str_cpy(s->map_name, g->map_name);
-        s->hero_pos.x = pos.x;
-        s->hero_pos.y = pos.y;
-    }
-
-    err32 res = 0;
-    if (!(g->flags & GAME_FLAG_SPEEDRUN)) {
-        res = savefile_w(g->save_slot, s);
-    }
-    pltf_sync_timestep();
-    return (res == 0);
-}
-
 void game_on_solid_appear_ext(g_s *g, obj_s *s)
 {
     obj_s *ohero = obj_get_tagged(g, OBJ_TAG_OWL);
@@ -522,6 +368,7 @@ void game_unlock_map(g_s *g)
 void objs_animate(g_s *g)
 {
     for (obj_each(g, o)) {
+        o->ppos = o->pos;
         if (o->on_animate) {
             o->on_animate(g, o);
         }
@@ -551,32 +398,6 @@ void game_cue_area_music(g_s *g)
 {
     DEBUG_LOG("Cue area music...\n");
     mus_cue(MUS_CHANNEL_MUSIC, g->music_ID, 500);
-#if 0
-    switch (g->music_ID) {
-    case MUSIC_ID_NONE:
-        mus_play_extv(0, 0, 0, 1000, 0, 0);
-        break;
-    case MUSIC_ID_CAVE:
-        mus_play_extv("M_CAVE", 498083, 0, 1000, 0, 256);
-        break;
-    case MUSIC_ID_WATERFALL:
-        mus_play_extv("M_WATERFALL", 226822, 0, 1000, 0, 256);
-        break;
-    case MUSIC_ID_SNOW:
-        mus_play_extv("M_SNOW", 368146, 0, 1000, 0, 256);
-        break;
-    case MUSIC_ID_FOREST:
-        mus_play_extv("M_FOREST", 769768, 0, 1000, 0, 256);
-        break;
-    case MUSIC_ID_ANCIENT_TREE:
-        mus_play_extv("M_ANCIENT_TREE", 564480, 0, 1000, 0, 256);
-        break;
-    case MUSIC_ID_INTRO:
-        mus_play_extv("M_INTRO", 325679, 0, 1000, 0, 256);
-        break;
-    }
-#endif
-    DEBUG_LOG("Cue area music done\n");
 }
 
 u8 *map_loader_room_mod(g_s *g, u8 *map_name)
@@ -599,6 +420,26 @@ map_room_s *map_room_find(g_s *g, b8 transformed, const void *name)
         if (str_eq_nc(mr->map_name, n)) {
             return mr;
         }
+    }
+    return 0;
+}
+
+void saveID_put(g_s *g, i32 ID)
+{
+    if (0 < ID && ID < NUM_SAVEIDS) {
+        g->saveIDs[ID >> 5] |= (u32)1 << (ID & 31);
+        pltf_log("saveID put: %i\n", ID);
+    } else if (ID != 0) {
+        pltf_log("saveID put: %i not in valid range!\n", ID);
+    }
+}
+
+b32 saveID_has(g_s *g, i32 ID)
+{
+    if (0 < ID && ID < NUM_SAVEIDS) {
+        return (g->saveIDs[ID >> 5] & ((u32)1 << (ID & 31)));
+    } else if (ID != 0) {
+        pltf_log("saveID get: %i not in valid range!\n", ID);
     }
     return 0;
 }

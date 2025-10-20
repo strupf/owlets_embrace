@@ -21,6 +21,7 @@ enum {
 void   crab_on_update(g_s *g, obj_s *o);
 void   crab_on_animate(g_s *g, obj_s *o);
 bool32 crab_may_slash(g_s *g, obj_s *o);
+void   crab_on_hit(g_s *g, obj_s *o, hitbox_res_s res);
 
 void crab_load(g_s *g, map_obj_s *mo)
 {
@@ -213,7 +214,6 @@ void crab_do_hurt(g_s *g, obj_s *o, i32 dmg)
         o->state     = CRAB_DIE;
         o->on_update = enemy_on_update_die;
         g->enemies_killed++;
-        g->enemy_killed[ENEMYID_CRAB]++;
     }
     o->v_q12.x = 0;
     o->v_q12.y = 0;
@@ -229,12 +229,9 @@ void crab_do_shield(g_s *g, obj_s *o, i32 dx)
 
 void crab_on_hit(g_s *g, obj_s *o, hitbox_res_s res)
 {
-}
-
-void crab_on_hitbox(g_s *g, obj_s *o, hitbox_s *hb)
-{
 #if 0
-    switch (o->state) {
+    switch (o->state)
+    {
     case CRAB_DIE: break;
     case CRAB_SHIELD: {
         if (hb->dx == o->facing) {

@@ -153,14 +153,6 @@ void draw_gameplay(g_s *g)
         spm_pop();
     }
 
-#if 0
-    static i32 aa1;
-    static i32 aa2;
-    aa1 += 1000;
-    // aa1 += 100;
-    gfx_fill_circle_segment(ctx, (v2_i32){100, 100}, 12, aa1, aa2, GFX_COL_BLACK);
-#endif
-
     switch (g->vfx_ID) {
     case VFX_ID_HEAT:
         vfx_area_heat_draw(g, camoff);

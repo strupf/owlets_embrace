@@ -48,7 +48,7 @@ void cs_bossplant_intro_update(g_s *g, cs_s *cs, inp_s inp)
 
     switch (cs->phase) {
     case 0: {
-        if (!cs_wait_and_pause_for_owl_idle(g)) break;
+        if (!owl_wait_for_idle(g)) break;
 
         // mus_play_extv(0, 0, 0, 2000, 0, 0);
         cs->phase++;

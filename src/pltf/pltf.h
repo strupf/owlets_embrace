@@ -48,7 +48,8 @@ void   app_mirror(b32 enable);
 // to be implemented by platform
 void   pltf_blit_text(char *str, i32 tile_x, i32 tile_y);
 f32    pltf_seconds();
-void   pltf_sync_timestep();
+void   pltf_timestep_reset();
+void   pltf_timestep_sub_seconds(f32 seconds);
 void   pltf_set_fps_mode(i32 fps_mode);
 i32    pltf_cur_tick();
 void   pltf_1bit_invert(bool32 i);
@@ -82,5 +83,60 @@ void   pltf_internal_mirror(b32 enabled);
 //
 void  *pltf_mem_alloc_aligned(usize s, usize alignment);
 void   pltf_mem_free_aligned(void *p);
+
+static bool32 pltf_file_w_u8(void *f, u8 v)
+{
+    return pltf_file_w_checked(f, &v, sizeof(u8));
+}
+
+static bool32 pltf_file_w_u16(void *f, u16 v)
+{
+    u16 r = BSWAP16_IF_NEEDED(v);
+    return pltf_file_w_checked(f, &r, sizeof(u16));
+}
+
+static bool32 pltf_file_w_u32(void *f, u32 v)
+{
+    u32 r = BSWAP32_IF_NEEDED(v);
+    return pltf_file_w_checked(f, &r, sizeof(u32));
+}
+
+static bool32 pltf_file_w_u64(void *f, u64 v)
+{
+    u64 r = BSWAP64_IF_NEEDED(v);
+    return pltf_file_w_checked(f, &r, sizeof(u64));
+}
+
+static bool32 pltf_file_r_u8(void *f, u8 *v)
+{
+    return pltf_file_r_checked(f, v, sizeof(u8));
+}
+
+static bool32 pltf_file_r_u16(void *f, u16 *v)
+{
+    bool32 res = pltf_file_r_checked(f, v, sizeof(u16));
+    if (res) {
+        *v = BSWAP16_IF_NEEDED(*v);
+    }
+    return res;
+}
+
+static bool32 pltf_file_r_u32(void *f, u32 *v)
+{
+    bool32 res = pltf_file_r_checked(f, v, sizeof(u32));
+    if (res) {
+        *v = BSWAP32_IF_NEEDED(*v);
+    }
+    return res;
+}
+
+static bool32 pltf_file_r_u64(void *f, u64 *v)
+{
+    bool32 res = pltf_file_r_checked(f, v, sizeof(u64));
+    if (res) {
+        *v = BSWAP64_IF_NEEDED(*v);
+    }
+    return res;
+}
 
 #endif

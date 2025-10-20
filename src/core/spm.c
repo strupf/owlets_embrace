@@ -7,13 +7,12 @@
 
 spm_s g_SPM;
 
-void spm_init(void *buf, usize bsize)
+void spm_init()
 {
-
-    marena_init(&g_SPM.m, buf, bsize);
-    pltf_log("SPM init with: %u kb\n", (u32)bsize / 1024);
+    marena_init(&g_SPM.m, g_SPM.mem, sizeof(g_SPM.mem));
+    pltf_log("SPM init with: %u kb\n", (u32)sizeof(g_SPM.mem) / 1024);
 #if PLTF_DEV_ENV
-    g_SPM.lowestleft = bsize;
+    g_SPM.lowestleft = sizeof(g_SPM.mem);
 #endif
 }
 

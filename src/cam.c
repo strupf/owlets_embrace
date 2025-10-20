@@ -69,40 +69,33 @@ v2_i32 cam_calc_pos_px_center_behavior(g_s *g, cam_s *c, i32 behavior);
 
 void cam_calc_pos_px_center(g_s *g, cam_s *c)
 {
-    v2_i32 pos_prev = cam_calc_pos_px_center_behavior(g, c, c->behavior_prev);
-    v2_i32 pos_curr = cam_calc_pos_px_center_behavior(g, c, c->behavior_curr);
-    v2_i32 pos      = v2_i32_lerp(pos_prev, pos_curr, c->behavior_q8, 256);
-    c->p_center     = pos;
+    v2_i32 pos  = cam_calc_pos_px_center_behavior(g, c, 0);
+    c->p_center = pos;
+}
+
+void cam_clamp_coord_update(cam_clamp_coord_s *c)
+{
+    i32 d = c->dst - c->cur;
+    c->cur += clamp_sym_i32(sgn_i32(d) * 2, d);
 }
 
 v2_i32 cam_calc_pos_px_center_behavior(g_s *g, cam_s *c, i32 behavior)
 {
     v2_i32 phero = cam_pos_px_center_hero(&c->cowl);
-
-#if 0
-    switch (behavior) {
-    default:
-    case CAM_BEHAVIOR_PLAYER: {
-        return phero;
-        break;
-    }
-    }
-#endif
-    v2_i32 pos = phero;
+    v2_i32 pos   = phero;
 
     if (c->trg_fade_q12) {
         pos.x = ease_in_out_sine(pos.x, c->trg.x, c->trg_fade_q12, CAM_TRG_FADE_MAX);
         pos.y = ease_in_out_sine(pos.y, c->trg.y, c->trg_fade_q12, CAM_TRG_FADE_MAX);
     }
 
-    if (c->handler_f) {
-        pos = c->handler_f(g);
+    for (i32 n = 0; n < 4; n++) {
+        cam_clamp_coord_update(&c->clamp_coord[n]);
     }
-    pos = cam_constrain_to_room(g, pos);
-    if (c->clamp_rec_ticks) {
-        v2_i32 p_clamped = cam_constrain_to_rec(pos, c->clamp_rec);
-        pos              = v2_i32_ease(pos, p_clamped, c->clamp_rec_ticks, CAM_CLAMP_REC_TICKS, ease_in_out_quad);
-    }
+
+    pos.x = clamp_i32(pos.x, c->clamp_coord[CAM_CLAMP_X1].cur + CAM_WH, c->clamp_coord[CAM_CLAMP_X2].cur - CAM_WH);
+    pos.y = clamp_i32(pos.y, c->clamp_coord[CAM_CLAMP_Y1].cur + CAM_HH, c->clamp_coord[CAM_CLAMP_Y2].cur - CAM_HH);
+
     pos.x += c->attr_q12.x >> 12;
     pos.y += c->attr_q12.y >> 12;
     pos = v2_i32_add(pos, c->shake);
@@ -138,14 +131,6 @@ void cam_update_logic(g_s *g, cam_s *c)
     obj_s *owl = obj_get_owl(g);
     if (owl) {
         cam_update_owl(g, &c->cowl, owl);
-    }
-
-    if (c->clamp_rec_exists) {
-        if (c->clamp_rec_ticks < CAM_CLAMP_REC_TICKS) {
-            c->clamp_rec_ticks++;
-        }
-    } else if (c->clamp_rec_ticks) {
-        c->clamp_rec_ticks--;
     }
 
     if (c->shake_ticks) {
@@ -202,7 +187,6 @@ void cam_update_logic(g_s *g, cam_s *c)
         c->attr_q12.x = (c->attr_q12.x * 248) >> 8;
         c->attr_q12.y = (c->attr_q12.y * 248) >> 8;
     }
-    c->behavior_q8 = min_i32(c->behavior_q8 + 2, 256);
 }
 
 void cam_update(g_s *g, cam_s *c)
@@ -344,44 +328,81 @@ static v2_f32 v2f_truncate_to_ellipse(v2_f32 p, f32 a, f32 b)
     }
 }
 
-void cam_clamp_rec_set(g_s *g, rec_i32 r)
+void cam_clamp_x1(g_s *g, i32 x)
 {
-    cam_s *c            = &g->cam;
-    c->clamp_rec        = r;
-    c->clamp_rec_exists = 1;
-    c->clamp_rec_ticks  = 0;
+    cam_s             *c      = &g->cam;
+    cam_clamp_coord_s *v      = &c->clamp_coord[CAM_CLAMP_X1];
+    i32                x1_cur = c->p_center.x - CAM_WH;
+    v->dst                    = max_i32(x, 0);
+    v->cur                    = max_i32(v->cur, min_i32(v->dst, x1_cur));
 }
 
-void cam_clamp_rec_unset(g_s *g)
+void cam_clamp_y1(g_s *g, i32 y)
 {
-    cam_s *c            = &g->cam;
-    c->clamp_rec_exists = 0;
+    cam_s             *c      = &g->cam;
+    cam_clamp_coord_s *v      = &c->clamp_coord[CAM_CLAMP_Y1];
+    i32                y1_cur = c->p_center.y - CAM_HH;
+    v->dst                    = max_i32(y, 0);
+    v->cur                    = max_i32(v->cur, min_i32(v->dst, y1_cur));
 }
 
-i32 cam_clamp_x(i32 center_x, i32 x1, i32 x2)
+void cam_clamp_x2(g_s *g, i32 x)
 {
-    if (center_x - CAM_WH < x1) return (x1 + CAM_WH);
-    if (center_x + CAM_WH > x2) return (x2 - CAM_WH);
-    return center_x;
+    cam_s             *c      = &g->cam;
+    cam_clamp_coord_s *v      = &c->clamp_coord[CAM_CLAMP_X2];
+    i32                x2_cur = c->p_center.x + CAM_WH;
+    v->dst                    = min_i32(x ? x : I32_MAX, g->pixel_x - 1);
+    v->cur                    = min_i32(v->cur, max_i32(v->dst, x2_cur));
 }
 
-i32 cam_clamp_y(i32 center_y, i32 y1, i32 y2)
+void cam_clamp_y2(g_s *g, i32 y)
 {
-    if (center_y - CAM_HH < y1) return (y1 + CAM_HH);
-    if (center_y + CAM_HH > y2) return (y2 - CAM_HH);
-    return center_y;
+    cam_s             *c      = &g->cam;
+    cam_clamp_coord_s *v      = &c->clamp_coord[CAM_CLAMP_Y2];
+    i32                y2_cur = c->p_center.y + CAM_HH;
+    v->dst                    = min_i32(y ? y : I32_MAX, g->pixel_y - 1);
+    v->cur                    = min_i32(v->cur, max_i32(v->dst, y2_cur));
 }
 
-void cam_behavior(g_s *g, i32 behavior, i32 hard)
+void cam_clamp_clr_hard(g_s *g)
 {
     cam_s *c = &g->cam;
-    if (c->behavior_curr == behavior) return;
+    cam_clamp_set_hard(g, 0, 0, 0, 0);
+}
 
-    c->behavior_prev = c->behavior_curr;
-    c->behavior_curr = behavior;
-    if (hard) {
-        c->behavior_q8 = 256;
-    } else {
-        c->behavior_q8 = 0;
-    }
+void cam_clamp_set_hard(g_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
+{
+    cam_s *c                         = &g->cam;
+    c->clamp_coord[CAM_CLAMP_X1].cur = x1;
+    c->clamp_coord[CAM_CLAMP_X1].dst = x1;
+    c->clamp_coord[CAM_CLAMP_Y1].cur = y1;
+    c->clamp_coord[CAM_CLAMP_Y1].dst = y1;
+    c->clamp_coord[CAM_CLAMP_X2].cur = x2 ? x2 : g->pixel_x - 1;
+    c->clamp_coord[CAM_CLAMP_X2].dst = x2 ? x2 : g->pixel_x - 1;
+    c->clamp_coord[CAM_CLAMP_Y2].cur = y2 ? y2 : g->pixel_y - 1;
+    c->clamp_coord[CAM_CLAMP_Y2].dst = y2 ? y2 : g->pixel_y - 1;
+}
+
+void cam_clamp_clr(g_s *g)
+{
+    cam_clamp_set(g, 0, 0, 0, 0);
+}
+
+void cam_clamp_set(g_s *g, i32 x1, i32 y1, i32 x2, i32 y2)
+{
+    cam_s *c = &g->cam;
+    cam_clamp_x1(g, x1);
+    cam_clamp_y1(g, y1);
+    cam_clamp_x2(g, x2);
+    cam_clamp_y2(g, y2);
+}
+
+void cam_clamp_setr(g_s *g, rec_i32 r)
+{
+    cam_clamp_set(g, r.x, r.y, r.x + r.w, r.y + r.h);
+}
+
+void cam_clamp_setr_hard(g_s *g, rec_i32 r)
+{
+    cam_clamp_set_hard(g, r.x, r.y, r.x + r.w, r.y + r.h);
 }

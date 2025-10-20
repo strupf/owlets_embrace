@@ -22,7 +22,7 @@ void cs_finding_comp_update(g_s *g, cs_s *cs, inp_s inp)
     cs->tick++;
     switch (cs->phase) {
     case 0:
-        if (cs_wait_and_pause_for_owl_idle(g)) {
+        if (owl_wait_for_idle(g)) {
             cs->phase++;
             cs->tick  = 0;
             cs->p_owl = puppet_owl_put(g, obj_get_owl(g));

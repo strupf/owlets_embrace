@@ -24,7 +24,7 @@
 #include "particle.h"
 #include "particle_defs.h"
 #include "render.h"
-#include "save.h"
+#include "save_file.h"
 #include "settings.h"
 #include "steering.h"
 #include "tile_map.h"
@@ -53,6 +53,18 @@ enum {
     EVENT_HERO_DEATH      = 1 << 2,
     EVENT_HERO_HOOK_PAUSE = 1 << 3,
 };
+
+typedef struct {
+    ALIGNAS(8)
+    void *arg;
+    void (*cb)(g_s *g, i32 trigger, void *arg);
+} game_on_trigger_cb_s;
+
+typedef struct {
+    ALIGNAS(8)
+    void *arg;
+    void (*cb)(g_s *g, void *arg);
+} game_on_tick_cb_s;
 
 #if 1 // prefetch the next one?
 static inline obj_s *obj_each_valid(obj_s *o)
@@ -130,18 +142,18 @@ typedef struct {
 } foreground_el_s;
 
 struct g_s {
-    savefile_s *savefile;
-    inp_s       inp;            // current input state
-    i32         tick;           // total playtime of this save
-    i32         tick_animation; // incremented every frame, reset between rooms
-    i32         tick_gameplay;  // incremented every logical gameplay frame
-    u32         flags;
-    u8          save_slot;
-    u8          freeze_tick;
-    u8          health_ui_fade;
-    bool8       health_ui_show;
-    bool8       dark;
-    u8          owl_hitID;
+    save_file_s *save;
+    inp_s        inp;            // current input state
+    SAVED i32    tick;           // total playtime of this save
+    i32          tick_animation; // incremented every frame, reset between rooms
+    i32          tick_gameplay;  // incremented every logical gameplay frame
+    u32          flags;
+    u8           save_slot;
+    u8           freeze_tick;
+    u8           health_ui_fade;
+    bool8        health_ui_show;
+    bool8        dark;
+    u8           owl_hitID;
 
     b8          map_is_mapped; // appears on minimap
     i16         n_map_rooms;
@@ -170,8 +182,7 @@ struct g_s {
     u8  areaname[32];
     u8  area_anim_tick;
     u8  area_anim_st;
-    u32 enemies_killed;
-    u32 enemy_killed[NUM_ENEMYID];
+    i32 enemies_killed;
 
     ALIGNAS(8)
     u16 tiles_x;
@@ -272,6 +283,8 @@ i32         game_owl_hitID_next(g_s *g);
 void        game_cue_area_music(g_s *g);
 map_room_s *map_room_find(g_s *g, b8 transformed, const void *name); // returns the transformed room if any
 u8         *map_loader_room_mod(g_s *g, u8 *map_name);               // conditionally load a different room variant
+void        saveID_put(g_s *g, i32 ID);
+b32         saveID_has(g_s *g, i32 ID);
 
 static inline i32 gfx_spr_flip_rng(bool32 x, bool32 y)
 {

@@ -120,6 +120,8 @@ enum {
 
 #define GFX_PATTERN_NUM     17
 #define GFX_PATTERN_MAX     (GFX_PATTERN_NUM - 1)
+#define GFX_PATTERN_8x8_NUM 65
+#define GFX_PATTERN_8x8_MAX (GFX_PATTERN_8x8_NUM - 1)
 #define gfx_pattern_100()   gfx_pattern_bayer_4x4(16)
 #define gfx_pattern_75()    gfx_pattern_bayer_4x4(12)
 #define gfx_pattern_50()    gfx_pattern_bayer_4x4(8)
@@ -208,6 +210,7 @@ void gfx_fill_rows(tex_s dst, gfx_pattern_s pat, i32 y1, i32 y2);
 void gfx_tri_fill_uvw(gfx_ctx_s ctx, v2_i32 tri[3], i32 mode);
 void gfx_fill_circle_segment(gfx_ctx_s ctx, v2_i32 p, i32 d, i32 a1_q18, i32 a2_q18, i32 mode);
 void gfx_fill_circle_ring_seg(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 a1_q17, i32 a2_q17, i32 mode);
+void gfx_fill_circle_ring(gfx_ctx_s ctx, v2_i32 p, i32 ri, i32 ro, i32 mode);
 //
 void fnt_draw_str(gfx_ctx_s ctx, fnt_s fnt, v2_i32 pos, const void *s, i32 mode);
 void fnt_draw_outline_style(gfx_ctx_s ctx, fnt_s f, v2_i32 pos, const void *str, i32 style, b32 centeredx);
@@ -279,6 +282,7 @@ static void spr_blit_p_res2(u32 *dpp, u32 *dmm, u32 sp, u32 sm, i32 mode)
     *dmm = dm;
 }
 
+ATTRIBUTE_SECTION(".text.spr")
 static void spr_blit_p_res(u32 dp, u32 dm, u32 sp, u32 sm, u32 pt, i32 mode, u32 *out_dp, u32 *out_dm)
 {
     sm &= pt;
@@ -348,10 +352,10 @@ void gfx_sprblit_setup(i32 mode, u32 *m0, u32 *m1, u32 *m2, u32 *m3, u32 *m4, u3
 
 u32 gfx_sprblit1(u32 s0, u32 s1, u32 d0, u32 m0, u32 m1, u32 m2, u32 m3, u32 m4, u32 m5)
 {
-    s0 ^= m0;
-    s1 &= m1 | s0;
-    s0 ^= m2 & d0;
-    d0 &= m3 | ~s1;
+    s0 ^= m0; // invert color?
+    s1 &= m1 | s0; // mask out 0 color pixels?
+    s0 ^= m2 & d0; // xor pixel colors with destination colors?
+    d0 &= m3 | ~s1; 
     s1 &= m4 | s0;
     d0 |= m5 & s1;
     return d0;
@@ -390,6 +394,7 @@ u32 gfx_sprblit3(u32 s0, u32 s1, u32 d0, u32 f)
 }
 #endif
 
+ATTRIBUTE_SECTION(".text.spr")
 static void spr_blit_p(u32 *dp, u32 sp, u32 sm, u32 pt, i32 mode)
 {
     u32 dp_res = 0;
@@ -398,6 +403,7 @@ static void spr_blit_p(u32 *dp, u32 sp, u32 sm, u32 pt, i32 mode)
     *dp = dp_res;
 }
 
+ATTRIBUTE_SECTION(".text.spr")
 static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt, i32 mode)
 {
     u32 zm = sm & pt;
@@ -411,7 +417,6 @@ static void spr_blit_pm(u32 *dp, u32 *dm, u32 sp, u32 sm, u32 pt, i32 mode)
     case SPR_MODE_WHITE: *dp |= zm; break;
     case SPR_MODE_BLACK_ONLY: zm &= ~sp; // fallthrough
     case SPR_MODE_BLACK: *dp &= ~zm; break;
-
     case SPR_MODE_BLACK_ONLY_WHITE_PT_OPAQUE: {
         // zm = sm;
 

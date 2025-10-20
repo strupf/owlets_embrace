@@ -40,5 +40,6 @@ void        wire_optimize(g_s *g, wire_s *r);
 bool32      wire_is_intact(g_s *g, wire_s *r);
 void        wire_moved_by_aabb(g_s *g, wire_s *r, rec_i32 aabb, i32 dx, i32 dy);
 wirenode_s *wirenode_neighbour_of_end_node(wire_s *r, wirenode_s *rn);
+v2_i32      wirenode_vec(wire_s *r, wirenode_s *rn);
 
 #endif

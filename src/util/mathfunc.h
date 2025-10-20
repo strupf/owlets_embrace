@@ -251,6 +251,13 @@ static inline f32 abs_f32(f32 a)
     return (a < 0.f ? -a : a);
 }
 
+static inline i32 sgn_i64(i64 a)
+{
+    if (a < 0) return -1;
+    if (a > 0) return +1;
+    return 0;
+}
+
 static inline i32 sgn_i32(i32 a)
 {
     if (a < 0) return -1;
@@ -471,10 +478,72 @@ static inline i32 q_convert_i32(i32 v, i32 qfrom, i32 qto)
 }
 
 // rounded division - stackoverflow.com/a/18067292
+static inline i64 div_rounded_i64(i64 n, i64 d)
+{
+    i64 h = d / 2;
+    i64 s = (n ^ d) < 0 ? -1 : +1;
+    i64 r = (n + s * h) / d;
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i64 rdebug = div_rounded_i64(n * (i64)sn, d * (i64)sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
+}
+
+// rounded division - stackoverflow.com/a/18067292
 static inline i32 div_rounded_i32(i32 n, i32 d)
 {
     i32 h = d / 2;
-    return ((n ^ d) < 0 ? (n - h) / d : (n + h) / d);
+    i32 s = (n ^ d) < 0 ? -1 : +1;
+    i32 r = (n + s * h) / d;
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i32 rdebug = div_rounded_i32(n * sn, d * sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
+}
+
+static inline i64 div_away_from_zero_i64(i64 n, i64 d)
+{
+    i32 s   = sgn_i64(n) == sgn_i64(d) ? +1 : -1;
+    i64 num = abs_i64(n);
+    i64 den = abs_i64(d);
+    i64 r   = (i64)s * ((num + den - 1) / den);
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i64 rdebug = div_away_from_zero_i64(n * sn, d * sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
 }
 
 static inline i32 div_away_from_zero_i32(i32 n, i32 d)
@@ -482,12 +551,62 @@ static inline i32 div_away_from_zero_i32(i32 n, i32 d)
     i32 s   = sgn_i32(n) == sgn_i32(d) ? +1 : -1;
     i32 num = abs_i32(n);
     i32 den = abs_i32(d);
-    return (s * ((num + den - 1) / den));
+    i32 r   = s * ((num + den - 1) / den);
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i32 rdebug = div_away_from_zero_i32(n * sn, d * sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
+}
+
+static inline i64 div_towards_zero_i64(i64 n, i64 d)
+{
+    i64 r = (n / d);
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i64 rdebug = div_towards_zero_i64(n * sn, d * sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
 }
 
 static inline i32 div_towards_zero_i32(i32 n, i32 d)
 {
-    return (n / d);
+    i32 r = (n / d);
+#if PLTF_DEBUG
+    // assert if absolute result is the same for all signs of arguments
+    static i32 div_flag = 0;
+    if (!div_flag) {
+        div_flag = 1;
+        for (i32 sn = -1; sn <= +1; sn += 2) {
+            for (i32 sd = -1; sd <= +1; sd += 2) {
+                i32 rdebug = div_towards_zero_i32(n * sn, d * sd);
+                assert(r == rdebug * (sn * sd));
+            }
+        }
+        div_flag = 0;
+    }
+#endif
+    return r;
 }
 
 static inline i32 lerp_i32(i32 a, i32 b, i32 num, i32 den)
@@ -766,6 +885,82 @@ static i32 atan2_index_pow2(f32 y, f32 x, i32 range, i32 adder)
     return (a + range + adder) & (range - 1);
 }
 
+// https://easings.net/
+
+static i32 ease_lin(i32 a, i32 b, i32 num, i32 den)
+{
+    return lerp_i32(a, b, num, den);
+}
+
+static i32 ease_in_sine(i32 a, i32 b, i32 num, i32 den)
+{
+    i32 x  = (i32)(((i64)num << 15) / den);
+    i32 ab = b - a;
+    return a + ab - ((ab * cos_q15(x)) >> 15);
+}
+
+static i32 ease_out_sine(i32 a, i32 b, i32 num, i32 den)
+{
+    i32 x = (i32)(((i64)num << 15) / den);
+    return a + (((b - a) * sin_q15(x)) >> 15);
+}
+
+static i32 ease_in_out_sine(i32 a, i32 b, i32 num, i32 den)
+{
+    i32 x  = (i32)(((i64)num << 16) / den);
+    i32 ab = b - a;
+    return a - (((ab * cos_q15(x)) >> 15) - ab) / 2;
+}
+
+// starts slow, gets faster
+static i32 ease_in_quad(i32 a, i32 b, i32 num, i32 den)
+{
+    i64 i0 = (i64)num * num;
+    i64 i1 = (i64)den * den;
+    i32 ab = b - a;
+    return a + (i32)div_rounded_i64(i0 * ab, i1);
+}
+
+// starts fast, gets slower
+static i32 ease_out_quad(i32 a, i32 b, i32 num, i32 den)
+{
+    i32 n  = den - num;
+    i64 i0 = (i64)n * n;
+    i64 i1 = (i64)den * den;
+    i32 ab = b - a;
+    return b - (i32)div_rounded_i64(i0 * ab, i1);
+}
+
+static i32 ease_in_out_quad(i32 a, i32 b, i32 num, i32 den)
+{
+    i32 ab = b - a;
+    i64 i1 = (i64)den * den;
+    if (num < den / 2) {
+        i32 n = num;
+        return a + (i32)(((i64)2 * ab * n * n) / i1);
+    } else {
+        i32 n = den - num;
+        return b - (i32)(((i64)2 * ab * n * n) / i1);
+    }
+}
+
+static i32 ease_out_back(i32 a, i32 b, i32 num, i32 den)
+{
+    f32 x = (f32)num / (f32)den;
+    f32 r = 1.f + 2.70158f * pow_f32(x - 1.f, 3) + 1.70158f * pow_f32(x - 1.f, 2);
+    return (a + (i32)((f32)(b - a) * r));
+}
+
+static i32 ease_out_elastic(i32 a, i32 b, i32 num, i32 den)
+{
+    f32 x = (f32)num / (f32)den;
+
+    if (x <= 0.01f) return a;
+    if (0.99f <= x) return b;
+    f32 r = 1.f + powf(2.f, -10.f * x) * sinf((x * 10.f - 0.75f) * PI2_FLOAT / 3.f);
+    return (a + (i32)((f32)(b - a) * r));
+}
+
 // ============================================================================
 // V2I
 // ============================================================================
@@ -864,6 +1059,18 @@ static inline v2_i32 v2_i32_div(v2_i32 a, i32 s)
     return r;
 }
 
+static v2_i32 v2_i32_divr(v2_i32 a, i32 s)
+{
+    v2_i32 r = {div_rounded_i32(a.x, s), div_rounded_i32(a.y, s)};
+    return r;
+}
+
+static v2_i32 v2_i32_mul_ratio(v2_i32 a, i32 num, i32 den)
+{
+    v2_i32 r = {div_rounded_i32(a.x * num, den), div_rounded_i32(a.y * num, den)};
+    return r;
+}
+
 static inline v2_i32 v2_i32_mulq(v2_i32 a, i32 n, i32 q)
 {
     return v2_i32_shr(v2_i32_mul(a, n), q);
@@ -954,24 +1161,24 @@ static inline i32 v2_i32_distance_sh_red(v2_i32 a, v2_i32 b, i32 sh)
     return ((v2_i32_distance(x, y) << sh));
 }
 
-static inline v2_i32 v2_i32_setlenl(v2_i32 a, u32 l, u32 new_l)
+static inline v2_i32 v2_i32_setlenl(v2_i32 a, i64 len_curr, i64 len)
 {
     v2_i32 r = {0};
-    if (l == 0) {
-        r.x = new_l;
+    if (len_curr == 0) {
+        r.x = len;
     } else {
-        r.x = (i32)(((i64)a.x * (i64)new_l) / (i64)l);
-        r.y = (i32)(((i64)a.y * (i64)new_l) / (i64)l);
+        r.x = div_rounded_i64((i64)a.x * len, len_curr);
+        r.y = div_rounded_i64((i64)a.y * len, len_curr);
     }
     return r;
 }
 
-static inline v2_i32 v2_i32_setlenl_small(v2_i32 a, u32 len_curr, u32 len)
+static inline v2_i32 v2_i32_setlenl_small(v2_i32 a, i32 len_curr, i32 len)
 {
     v2_i32 r = {len, 0};
     if (len_curr) {
-        r.x = i32_mul(a.x, (i32)len) / (i32)len_curr;
-        r.y = i32_mul(a.y, (i32)len) / (i32)len_curr;
+        r.x = div_rounded_i32(i32_mul(a.x, len), len_curr);
+        r.y = div_rounded_i32(i32_mul(a.y, len), len_curr);
     }
     return r;
 }
@@ -990,7 +1197,7 @@ static inline v2_i32 v2_i32_truncate(v2_i32 a, u32 l)
 {
     u32 ls = v2_i32_lensq(a);
     if (ls <= l * l) return a;
-    return v2_i32_setlenl_small(a, sqrt_u32(ls), l);
+    return v2_i32_setlenl(a, sqrt_u32(ls), l);
 }
 
 static inline v2_i32 v2_i32_truncate_fast(v2_i32 a, i32 l)
@@ -1000,11 +1207,32 @@ static inline v2_i32 v2_i32_truncate_fast(v2_i32 a, i32 l)
     return v2_i32_setlenl_small(a, len, l);
 }
 
-static inline v2_i32 v2_i32_truncatel(v2_i32 a, u32 l)
+static inline v2_i32 v2_i32_truncatel(v2_i32 a, i32 l)
 {
-    u64 ls = v2_i32_lensql(a);
-    if (ls <= (u64)l * (u64)l) return a;
+    i64 ls = v2_i32_lensql(a);
+    if ((u64)ls <= (u64)l * (u64)l) return a;
     return v2_i32_setlenl(a, sqrt_u64(ls), l);
+}
+
+static v2_i32 v2_i32_ease_in_quad(v2_i32 a, v2_i32 b, i32 num, i32 den)
+{
+    v2_i32 r = {ease_in_quad(a.x, b.x, num, den),
+                ease_in_quad(a.y, b.y, num, den)};
+    return r;
+}
+
+static v2_i32 v2_i32_ease_out_quad(v2_i32 a, v2_i32 b, i32 num, i32 den)
+{
+    v2_i32 r = {ease_out_quad(a.x, b.x, num, den),
+                ease_out_quad(a.y, b.y, num, den)};
+    return r;
+}
+
+static v2_i32 v2_i32_ease_in_out_quad(v2_i32 a, v2_i32 b, i32 num, i32 den)
+{
+    v2_i32 r = {ease_in_out_quad(a.x, b.x, num, den),
+                ease_in_out_quad(a.y, b.y, num, den)};
+    return r;
 }
 
 static v2_i32 v2_i32_lerp(v2_i32 a, v2_i32 b, i32 num, i32 den)
@@ -1854,27 +2082,59 @@ static i32 v2_i32_spline_len(v2_i32 *p, i32 n_p, b32 circ)
 }
 
 // 0x1021 polynomial
-static u16 crc16_next(u16 c, u8 v)
+static u16 crc16(u16 c_init, const void *p, usize size)
 {
-    u16 r = (u16)v;
-    r ^= (c >> 8);
-    r ^= (r >> 4);
-    r ^= (r << 5) ^ (r << 12);
-    r ^= (c << 8);
-    return r;
+    u16       c     = c_init;
+    const u8 *d     = (const u8 *)p;
+    const u8 *d_end = (const u8 *)((byte *)d + size);
+
+    while (d < d_end) {
+        u32 r;
+        r = *d++;
+        r ^= (c >> 8);
+        r ^= (r >> 4);
+        c = ((c << 8) ^ (r << 12) ^ (r << 5) ^ (r));
+    }
+    return c;
 }
 
-static u16 crc16(const void *p, usize size)
+// 0x1021 polynomial
+static u16 crc16_aligned4(u16 c_init, const void *p, usize size)
 {
-    // 0xFFFF initial value
-    // 0x1021 polynomial
-    const u8 *d = (const u8 *)p;
-    u16       a = 0xFFFF;
+    assert(((uptr)p & 3) == 0);
+    assert((size & 3) == 0);
 
-    for (usize n = 0; n < size; n++) {
-        a = crc16_next(a, (u16)(*d++));
+    u16        c     = c_init;
+    const u32 *d     = (const u32 *)p;
+    const u32 *d_end = (const u32 *)((byte *)d + size);
+
+    while (d < d_end) {
+        u32 v = *d++;
+        u32 r;
+        r = 0xFF & v;
+        r ^= (c >> 8);
+        r ^= (r >> 4);
+        c = ((c << 8) ^ (r << 12) ^ (r << 5) ^ (r));
+
+        v >>= 8;
+        r = 0xFF & v;
+        r ^= (c >> 8);
+        r ^= (r >> 4);
+        c = ((c << 8) ^ (r << 12) ^ (r << 5) ^ (r));
+
+        v >>= 8;
+        r = 0xFF & v;
+        r ^= (c >> 8);
+        r ^= (r >> 4);
+        c = ((c << 8) ^ (r << 12) ^ (r << 5) ^ (r));
+
+        v >>= 8;
+        r = 0xFF & v;
+        r ^= (c >> 8);
+        r ^= (r >> 4);
+        c = ((c << 8) ^ (r << 12) ^ (r << 5) ^ (r));
     }
-    return a;
+    return c;
 }
 
 #endif

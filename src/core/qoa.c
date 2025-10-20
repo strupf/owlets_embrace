@@ -50,12 +50,14 @@ static void qoa_decode_init(qoa_dec_s *d)
     d->lms.w[1] = +(2 << 13);
 }
 
+ATTRIBUTE_SECTION(".text.audio")
 static void qoa_decode_init_slice(qoa_dec_s *d, u64 s)
 {
     mcpy(d->deqt, qoa_deq[s >> 60], sizeof(i16) * 8);
     d->s = s << 4;
 }
 
+ATTRIBUTE_SECTION(".text.audio")
 static inline i32 qoa_decode_sample(qoa_dec_s *d)
 {
     i32 dq = d->deqt[d->s >> 61];
@@ -77,6 +79,7 @@ static inline i32 qoa_decode_sample(qoa_dec_s *d)
 static void qoa_stream_next_slice(qoa_stream_s *q);
 static void qoa_stream_rewind(qoa_stream_s *q);
 
+ATTRIBUTE_SECTION(".text.audio")
 static void qoa_stream_next_slice(qoa_stream_s *q)
 {
     // initalize a new frame if needed
@@ -114,7 +117,7 @@ bool32 qoa_stream_start(qoa_stream_s *q, void *f, i32 pos_beg, i32 loop_pos_beg,
 
     qoa_file_header_s h = {0};
     pltf_file_r(f, &h, sizeof(qoa_file_header_s));
-    q->seek        = (u32)pltf_file_tell(f);
+    q->seek        = pltf_file_tell(f);
     q->repeat      = repeat;
     q->f           = f;
     q->num_samples = h.num_samples;
@@ -150,7 +153,7 @@ void qoa_stream_seek(qoa_stream_s *q, i32 sample_pos)
 
     if (0 < sample_pos) {
         q->pos = pfr * QOA_FRAME_SAMPLES;
-        u32 l  = sample_pos - pfr * QOA_FRAME_SAMPLES;
+        i32 l  = sample_pos - pfr * QOA_FRAME_SAMPLES;
 
         while (QOA_SLICE_LEN <= l) {
             q->pos += QOA_SLICE_LEN;
@@ -163,7 +166,7 @@ void qoa_stream_seek(qoa_stream_s *q, i32 sample_pos)
         }
 
         q->pos += l;
-        for (u32 i = 0; i < l; i++) {
+        for (i32 i = 0; i < l; i++) {
             qoa_decode_sample(&q->ds[0]);
         }
     } else {
